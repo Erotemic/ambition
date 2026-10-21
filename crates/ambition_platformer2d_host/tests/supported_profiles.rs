@@ -91,6 +91,66 @@ fn step_a_real_subject(app: &mut App, profile: &EngineProfile) -> u64 {
     ticks
 }
 
+/// The simulation systems nested, at any depth, in the set of a capability
+/// `profile` omits: what another plugin put there (an extension phase, an
+/// adapter). Read from the graph before the first update.
+fn omitted_members(app: &mut App, profile: &EngineProfile) -> Vec<(bevy::ecs::schedule::NodeId, String)> {
+    use ambition_platformer2d_shared_tangle::capability::CapabilitySet;
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, Schedules, SystemSet as _};
+    let sim = app.sim_schedule();
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(sim).expect("the sim schedule").graph();
+    let roots: Vec<NodeId> = profile
+        .omits
+        .iter()
+        .filter_map(|capability| graph.system_sets.get_key(CapabilitySet(*capability).intern()))
+        .map(NodeId::Set)
+        .collect();
+    let mut members = Vec::new();
+    let mut stack = roots;
+    let mut seen = std::collections::HashSet::new();
+    while let Some(node) = stack.pop() {
+        if !seen.insert(node) {
+            continue;
+        }
+        for child in graph.hierarchy().graph().neighbors_directed(node, Direction::Outgoing) {
+            match child {
+                NodeId::System(key) => {
+                    let name = graph.systems.get(key).map(|system| system.name().to_string()).unwrap_or_default();
+                    members.push((child, name));
+                }
+                NodeId::Set(_) => stack.push(child),
+            }
+        }
+    }
+    members
+}
+
+/// When each of `members` last ran, in the simulation schedule.
+fn last_runs(
+    app: &mut App,
+    members: &[(bevy::ecs::schedule::NodeId, String)],
+) -> Vec<bevy::ecs::change_detection::Tick> {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+    use bevy::ecs::schedule::{NodeId, Schedules};
+    let sim = app.sim_schedule();
+    let schedules = app.world().resource::<Schedules>();
+    let schedule = schedules.get(sim).expect("the sim schedule");
+    let systems: Vec<_> = schedule.systems().expect("the sim schedule is built").collect();
+    members
+        .iter()
+        .map(|(node, name)| {
+            systems
+                .iter()
+                .find(|(key, _)| NodeId::System(*key) == *node)
+                .map(|(_, system)| system.get_last_run())
+                .unwrap_or_else(|| panic!("`{name}` is not in the built schedule"))
+        })
+        .collect()
+}
+
 /// THE CONTROL: the full group installs every capability, so `is_installed` can say yes.
 #[test]
 fn the_control_installs_every_capability_and_the_probe_sees_it() {
@@ -124,7 +184,27 @@ fn every_supported_profile_steps_a_body_and_installs_none_of_what_it_omits() {
             continue;
         }
         let mut app = build(profile);
+        // What another plugin put in an omitted capability's set never runs.
+        let members = omitted_members(&mut app, profile);
+        // Until the simulation schedule has been built (the fixed step needs
+        // its time to accumulate).
+        for _ in 0..10 {
+            use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+            let sim = app.sim_schedule();
+            app.update();
+            if app.world().resource::<bevy::ecs::schedule::Schedules>().get(sim).is_some_and(|s| s.systems().is_ok()) {
+                break;
+            }
+        }
+        let first = last_runs(&mut app, &members);
         let ticks = step_a_real_subject(&mut app, profile);
+        let ran: Vec<&str> = members
+            .iter()
+            .zip(first.iter().zip(last_runs(&mut app, &members)))
+            .filter(|(_, (before, after))| *before != after)
+            .map(|((_, name), _)| name.as_str())
+            .collect();
+        assert!(ran.is_empty(), "{}: these systems of an omitted capability ran: {ran:#?}", profile.name);
         for capability in profile.omits {
             assert!(
                 !capability.is_installed(&app),

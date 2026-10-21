@@ -160,6 +160,20 @@ group it names.
 | `collection-without-held-use` | headless | `HeldUse` |
 | `encounters-without-named-bosses` | headless | `BossEncounters` |
 | `world-without-cutscenes` | headless | `Cutscenes` |
+| `minimal-platformer` | headless | every removable capability |
+| `level-platformer` | headless | `Dialogue`, `BossEncounters`, `HeldUse` |
+| `stage-fighter` | headless | `Dialogue`, `BossEncounters` |
+
+**The demo hosts compose these (S3, 2026-10-21).** Mary-O's and Sanic's hosts
+build `level-platformer`, Smash's `stage-fighter`; each names it as its
+`ENGINE_PROFILE` and compiles its own pack against the profile's schemas
+(`EmbeddedPack::compile_for`) before the first frame. A guard in each
+(`the_host_omits_only_what_the_game_does_not_use`) holds that the profile
+leaves out only what the game's rooms declare unused, and that none of it is
+installed. Mounts, wave encounters, portals, fighter specials and grabs
+(`Captures`, added 2026-10-21) are gated capabilities, not removable units:
+each game declares whether its rooms use them, and their systems sleep where
+a room does not.
 
 **Three claims per profile, none of which means anything alone**
 (`ambition_platformer2d_host/tests/supported_profiles.rs`):

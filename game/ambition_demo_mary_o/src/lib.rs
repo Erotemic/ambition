@@ -1432,7 +1432,9 @@ impl Plugin for MaryORulesPlugin {
             // In her rooms: no named boss encounters (a castle's boss is an
             // enemy body), no dialogue (she has no talk verb), no held items
             // (her spark is her moveset's ranged verb), no fighter specials,
-            // no portals and no mounts. The engine's work for those sleeps there.
+            // no portals, no mounts and no grabs (her grab is her Smash kit's;
+            // at home she has no attack). The engine's work for those sleeps
+            // there.
             app.declare_rules(
                 scope,
                 ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
@@ -1442,7 +1444,8 @@ impl Plugin for MaryORulesPlugin {
                     .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
                     .without(ambition_platformer2d::platformer::capability::Capability::Portals)
                     .without(ambition_platformer2d::platformer::capability::Capability::Mounts)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Encounters),
+                    .without(ambition_platformer2d::platformer::capability::Capability::Encounters)
+                    .without(ambition_platformer2d::platformer::capability::Capability::Captures),
             );
             // The modifier runs, whichever body she drives. The cinder beacon
             // relabels the same slot while she wears it (see `run_technique`).

@@ -30,3 +30,4 @@ mod spikes_spend_rings;
 mod standard_input_path;
 mod the_cast_is_its_pack;
 mod three_acts;
+mod the_host_omits_only_what_the_game_does_not_use;

@@ -11,13 +11,35 @@ pub mod stage_diagram;
 /// The `smash_tool` subcommands, one module each (see `tools/mod.rs`).
 pub mod tools;
 
+/// The engine this game runs on: the `stage-fighter` profile, which leaves
+/// out dialogue and named boss encounters. Both builders in this file use it,
+/// and they admit the game's pack against what the profile installs: a pack
+/// that needs an omitted capability is a composition fault, refused before
+/// the first frame.
+pub const ENGINE_PROFILE: ambition_platformer2d::runtime::profile::EngineProfile =
+    ambition_platformer2d::runtime::profile::STAGE_FIGHTER;
+
+/// [`ENGINE_PROFILE`]'s engine group, after admitting the game's pack.
+fn engine_plugins() -> ambition_platformer2d::engine::PlatformerEnginePlugins {
+    static ADMITTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    ADMITTED.get_or_init(|| {
+        if let Err(failure) = ambition_demo_smash::smash_pack::PACK.compile_for(&ENGINE_PROFILE) {
+            panic!("Smash's pack needs a capability the `{}` profile leaves out:\n{failure}", ENGINE_PROFILE.name);
+        }
+    });
+    ambition_platformer2d::engine::PlatformerEnginePlugins::for_profile(
+        ambition_platformer2d::engine::SimulationHost::Fixed60Hz,
+        &ENGINE_PROFILE,
+    )
+}
+
 /// Assemble the headless demo: foundation, engine group, host group, and
 /// the smash experience under a standalone shell host, with no engine edits
 /// and no `ambition_app`. This is also the harness for this crate's tests.
 pub fn build_demo_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(engine_plugins());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     #[cfg(feature = "visible")]
     app.add_plugins(ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default());
@@ -68,7 +90,7 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
         "Super Smash Siblings",
         display,
     );
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(engine_plugins());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     compose_smash_shell(&mut app);
     // After the shell: the assets plugin reads the catalogs it registers.

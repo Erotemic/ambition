@@ -166,6 +166,20 @@ impl Plugin for ExtensionCompositionPlugin {
                 .in_set(GameplayGated)
                 .in_set(ItemPickupSet::WieldedAbilities),
         );
+        // Both phases run in the wielded-abilities set, so this plugin states
+        // the set's place too: in the player phase, and asleep where the
+        // room's game uses no held items. The abilities domain states the
+        // same; a composition that leaves held use out (`level-platformer`)
+        // has no such plugin, and without this the phases ran unordered and
+        // ungated.
+        app.configure_sets(
+            sim,
+            ItemPickupSet::WieldedAbilities
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::HeldUse,
+                )),
+        );
         // A transit is travel: its lowering is a body-path carry, before the
         // path's readers (constraints, contacts, crossings) this tick.
         app.configure_sets(

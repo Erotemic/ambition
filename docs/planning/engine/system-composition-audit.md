@@ -275,7 +275,73 @@ portal view cones. On some frames that failed render validation and quit the
 app; on the others those cameras drew into the capture instead of their
 atlases. It now adopts only the cameras that draw to a window.
 
-### S3 — Each game declares the engine capabilities it uses (large)
+### S3 — Each game declares the engine capabilities it uses (large) — DONE 2026-10-21
+
+**Inventory (standalone Mary-O census, 2026-10-21).** Of finding 2's list:
+boss encounters were already omitted by her host (the 24 boss systems still
+registered are the extension host's conduct lowering, idle); conversation (8)
+and held use (10 held-item systems and 5 of the abilities domain's own) were
+installed although her rooms declare neither; mounts (7) and wave encounters
+(6) were gated and idle; grabs and throws (`ambition_combat::capture`, 14)
+ran every tick, with no capability to gate them.
+
+**Boundaries.** Grabs and throws are one capability, `Captures`: acquisition,
+hold, pummel, throws, carry, the release a hit forces, the captive's escape
+and pose, in `CapabilitySet(Captures)` in all three schedules that register
+them. It is gated, not removable: Mary-O's and Sanic's packs author grabs
+for their Smash kits (refusing them would refuse their own packs), a boss's
+seize uses the same hold, and the systems are registered by three schedule
+plugins. Mary-O and Sanic declare it unused (at home neither has an attack);
+Smash and Ambition use it (`grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters`).
+Mounts and wave encounters stay gated capabilities: making them removable
+would restructure their installs for a handful of idle systems, which on the
+serial executor cost about what a false condition does. The "Smash moveset"
+of finding 2 is the fighter specials, which install from their own crate
+since S2b (`ambition_fighter_specials`), and only where a game's cast
+authors them.
+
+**Profiles.** Three new supported profiles made from the same capabilities:
+`minimal-platformer` (every removable capability omitted),
+`level-platformer` (no dialogue, named bosses or held use) and
+`stage-fighter` (no dialogue or named bosses). The witnesses in
+`supported_profiles.rs` build, step and probe each, and
+`check_engine_profiles.py` holds their markers. Mary-O's and Sanic's hosts
+compose `level-platformer`, Smash's `stage-fighter`, each as its
+`ENGINE_PROFILE`; each host compiles its own pack against its profile's
+schemas before the first frame (`EmbeddedPack::compile_for`), so content
+that needs an omitted capability is refused at admission. A guard in each
+demo (`the_host_omits_only_what_the_game_does_not_use`) holds that the
+profile omits only what the game's rooms declare unused and installs none of
+it. In the hub the same capabilities are gated per room, as in S2.
+
+**Measured, standalone Mary-O (`capture_mary_o`, one frame after 600):**
+systems registered 1347 -> 1305, systems run 959 -> 951. No dialogue or
+held-use system is registered, and the capture systems sleep (14 -> 0 run).
+
+**Found on the way, and fixed.** Omitting held use first made the census
+worse (959 -> 977 run): the held-use plugins are also where
+`ItemPickupSet::WieldedAbilities` is put in the player phase and in the
+held-use capability set, so the extension host's wielded-use and
+module-entity phases, which live in that set, ran unordered and ungated.
+`ExtensionCompositionPlugin` now states the set's place itself, and the
+engine group gives the set of every capability a composition omits a
+condition that never holds (`OmittedCapabilitiesPlugin`). The profile
+witness now steps each profile and requires that no system in an omitted
+capability's set ran (it reddens without the plugin).
+
+**Not changed, recorded.** The kernel systems attached to the held-item
+steps (the shrine, the residency and whereabouts recorders, the
+session-start checkpoint resume, the match's item spawn) nest in
+`CoreHeldItems`, which the held-items domain puts in the held-use set. So in
+a full composition they sleep in any room whose game declares no held use
+(Mary-O's and Sanic's, in the hub), and in a composition that omits held use
+they run. Which is right is a question about each attachment, not about the
+capability. Neither game authors a shrine or a match; whether their rooms
+need the residency recorders or the session-start resume is not
+established, and is filed as a follow-up here rather than changed blind.
+
+The plan as written before the work:
+
 
 Inventory first: for each feature finding 2 names, its consumers and a
 boundary that makes sense as one capability (grabs and throws together; the

@@ -49,7 +49,7 @@ pub struct SimulationSetup<'a> {
     /// ⛔ The shell provider states the save of the session's own experience:
     /// its session is built while another one can be live. A direct-entry demo
     /// has one experience and says `TheWorldAtTheCommit`.
-    pub first_room_facts: crate::construction::CommitFactsSource,
+    pub first_room_facts: crate::world::rooms::CommitFactsSource,
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub tuning: &'a ae::ActiveMovementTuning,

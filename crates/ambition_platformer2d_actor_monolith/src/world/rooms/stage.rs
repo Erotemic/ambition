@@ -132,7 +132,7 @@ pub(crate) fn construct_room_candidate(
     session_scope: SessionSpawnScope,
     stamp: Option<RoomCommitStamp>,
     predicted: Option<BTreeSet<String>>,
-    facts: crate::construction::CommitFactsSource,
+    facts: crate::world::rooms::CommitFactsSource,
 ) {
     let plan = plan.clone();
     commands.queue(move |world: &mut bevy::prelude::World| {
@@ -144,15 +144,15 @@ pub(crate) fn construct_room_candidate(
         let facts = match facts {
             // Read HERE, on the world this commit lands in — not with the
             // plan, which a replay commits again after the save has moved.
-            crate::construction::CommitFactsSource::TheWorldAtTheCommit => {
+            crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit => {
                 crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
                     features::ecs::world_time_schedule::remaining_scheduled_returns(world),
                 )
             }
             // ⛔ NOT THE WORLD. The session of this room is not live yet, so
             // the save and the schedule in the world are another session's.
-            crate::construction::CommitFactsSource::Stated(facts) => facts,
-            crate::construction::CommitFactsSource::AfterTheRestore(key) => {
+            crate::world::rooms::CommitFactsSource::Stated(facts) => facts,
+            crate::world::rooms::CommitFactsSource::AfterTheRestore(key) => {
                 crate::session::checkpoint::prospective_commit_fates(world, key)
             }
         };
@@ -403,7 +403,7 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         retention: transaction::PublicationRetention,
-        facts: crate::construction::CommitFactsSource,
+        facts: crate::world::rooms::CommitFactsSource,
     ) -> transaction::PublicationHandle {
         let publication = transaction::begin_publication(
             commands,
@@ -427,7 +427,7 @@ impl RoomConstructionPlan {
         publication: transaction::PublicationHandle,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        facts: crate::construction::CommitFactsSource,
+        facts: crate::world::rooms::CommitFactsSource,
     ) {
         // The room declares what it will rebuild before it creates candidates.
         transaction::open(commands, publication, &self.features, session_scope);
@@ -646,7 +646,7 @@ impl RoomConstructionPlan {
                 scope,
                 None,
                 Some(BTreeSet::new()),
-                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
             );
             transaction::close(commands, publication, &nothing, scope);
         } else {
@@ -657,8 +657,8 @@ impl RoomConstructionPlan {
                 commands,
                 scope,
                 match restore {
-                    Some(key) => crate::construction::CommitFactsSource::AfterTheRestore(key),
-                    None => crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                    Some(key) => crate::world::rooms::CommitFactsSource::AfterTheRestore(key),
+                    None => crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
                 },
             );
         }
@@ -814,7 +814,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1057,7 +1057,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1207,7 +1207,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.update();
@@ -2942,7 +2942,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();

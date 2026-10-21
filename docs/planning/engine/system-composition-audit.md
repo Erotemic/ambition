@@ -425,7 +425,46 @@ new controlled test. It is **not** a prediction of the gain from any fusion.
 The 2026-10-17 read-model measurement in that same document is also from an
 earlier head and must not be used as the new baseline.
 
-#### S7a — Establish the current active baseline (first)
+#### S7a — Establish the current active baseline (first) — VM baseline 2026-10-21, phone NOT RUN
+
+**Receipt (VM baseline):** commit `f80132225`, debug build, the VM
+(software renderer), visual quality `low`, warmup 600 frames, one capture
+each. Hub rows use `capture_scene --route <game>_gameplay`; the standalone
+row uses `capture_mary_o --features capture,bevy/debug`. Each cell is
+systems that ran in the last census interval / systems registered in that
+schedule, from the `AMBITION_SYSTEM_LIST` file.
+
+| Schedule | hub Mary-O 1-1 | hub Sanic | hub Smash | Ambition hub | standalone Mary-O 1-1 |
+|---|---|---|---|---|---|
+| GgrsSchedule | 445/810 | 451/810 | 520/810 | 597/810 | — |
+| FixedUpdate | — | — | — | — | 417/612 |
+| Update | 495/629 | 494/629 | 494/629 | 521/629 | 282/328 |
+| PostUpdate | 139/239 | 139/239 | 139/239 | 140/239 | 95/140 |
+| PreUpdate | 164/173 | 164/173 | 164/173 | 164/173 | 93/97 |
+| other schedules | 115/307 | 115/199 | 115/199 | 115/199 | 59/122 |
+| **total** | **1358/2158** | **1363/2050** | **1432/2050** | **1537/2050** | **946/1299** |
+
+| Capture | active room | rooms in scope | sim ticks / rendered frames (last interval) | frame p50 / p95 ms (VM) |
+|---|---|---|---|---|
+| hub Mary-O 1-1 | `mary_o_1_1` | 9 | 20 / 20 | 44.3 / 78.1 |
+| hub Sanic | `sanic_speedway` | 3 | 19 / 19 | 48.3 / 68.9 |
+| hub Smash | `smash_stage` | 3 | 30 / 30 | 30.5 / 52.8 |
+| Ambition hub | `central_hub_complex` | 115 | 17 / 17 | 58.0 / 77.2 |
+| standalone Mary-O 1-1 | `mary_o_1_1` | 9 | 60 / 31 | 30.5 / 47.7 |
+
+- The hub runs the simulation in `GgrsSchedule`; the standalone host runs it
+  in `FixedUpdate`. Compare those two rows with each other, not with
+  `Update`.
+- The hub's Mary-O row registers 108 more systems than the other hub rows
+  (`PhysicsSchedule`, `SubstepSchedule`, `RestoreConsequences`,
+  `CheckpointDomainApply`, 55 + 20 + 19 + 14). Those four schedules appear
+  only in this hub capture. The cause is not measured yet.
+- The VM frame times are a screen only. A debug build on a software
+  renderer cannot decide a phone result.
+- **NOT RUN:** Mary-O 1-2 (no capture route goes there yet), every Android
+  measurement (no device or `adb` on this machine), and repeated runs.
+  Measure the phone rows with `profile_android.sh` on the next device
+  session, against these lists.
 
 On commit `be412a299768` or a later named head, collect
 `AMBITION_PROFILE_CENSUS=1` and `AMBITION_SYSTEM_LIST=PATH` for the hub's

@@ -13,6 +13,10 @@ This is the repository operating guide for coding agents. Keep it short, session
 * **ONE BODY, ONE PATH.** The player is an actor; controller kind does not define a simulation path. Before adding behavior keyed to player/enemy/boss, check whether the behavior already exists for another controller kind. If so, unify onto one shared body/capability seam and delete the duplicate path. Do not add a parallel implementation “for now.” See `docs/concepts/one-body-one-path.md`.
 * All new comments and documentation must be written in ASD-STE100 Simplified Technical English.
 
+## Commit attribution
+
+Every agent-authored commit must carry a `Co-authored-by:` trailer naming the exact model (and weights/config variant, when known) that produced it, per its own runtime identification — never copied from earlier commits; if undeterminable, say so.
+
 ## Cold start
 
 For non-trivial work, localize in this order:

@@ -658,4 +658,133 @@
         // His tells are drawn (a row for each), so no warm placeholder tint.
         attack_tint: false,
     ),
+    // The Inugami wears its character's sheet (`wolfenstein_inugami`), every
+    // row in PNG order. Its conductor draws its rows by name. The sheet
+    // publishes its body box (the skull, muzzle, ruff and jar: 110 of its 256
+    // frame pixels), so the frame is drawn 256/110 x the body box's height.
+    "wolfenstein_inugami": (
+        label_width: 100,
+        frame_width: 830,
+        frame_height: 830,
+        rows: [
+            // idle
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.09,
+            )),
+            // drift
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            // rise
+            (Rest, (
+                frame_count: 22,
+                duration_secs: 0.08,
+            )),
+            // hit
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            // death
+            (Death, (
+                frame_count: 26,
+                duration_secs: 0.09,
+            )),
+            // bite_tell
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.07,
+            )),
+            // bite
+            (SideSweep, (
+                frame_count: 8,
+                duration_secs: 0.05,
+            )),
+            // bite_miss
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.07,
+            )),
+            // dive_tell
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            // dive
+            (FloorSlam, (
+                frame_count: 4,
+                duration_secs: 0.05,
+            )),
+            // buried
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.07,
+            )),
+            // pull_free
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.07,
+            )),
+            // onibi_tell
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.08,
+            )),
+            // onibi
+            (SpikeHalo, (
+                frame_count: 8,
+                duration_secs: 0.06,
+            )),
+            // howl_tell
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            // howl
+            (SpikeHalo, (
+                frame_count: 12,
+                duration_secs: 0.07,
+            )),
+            // vanish
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.06,
+            )),
+            // appear
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.06,
+            )),
+            // gutter
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.08,
+            )),
+            // guttered
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.12,
+            )),
+            // rekindle
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            // unseen
+            (Rest, (
+                frame_count: 1,
+                duration_secs: 0.1,
+            )),
+        ],
+        collision_scale: 2.327,
+        feet_anchor_y: -0.215,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+        parts: Some("npc_wolfenstein_inugami"),
+        // Its tells are drawn (a row for each), so no warm placeholder tint.
+        attack_tint: false,
+    ),
 }

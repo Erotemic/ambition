@@ -35,6 +35,7 @@ impl BossSpecRoster for BossEncounterSpec {
             // A generic boss has no character, so it is silent.
             voice: None,
             wake_radius: None,
+            slow_motion_finish: false,
         }
     }
 }

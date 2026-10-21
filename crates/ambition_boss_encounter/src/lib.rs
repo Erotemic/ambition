@@ -28,6 +28,7 @@ mod clusters;
 pub mod ecs;
 pub mod conduct;
 pub mod extension;
+pub mod finish;
 pub mod hall;
 mod encounter_entity;
 mod encounter_script;
@@ -143,6 +144,8 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_message::<BossPhaseChanged>();
         // A boss's defeat pulls the camera in (`boss_phase_transition_feedback`).
         app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>();
+        // A slow-motion finish asks the sim clock for its hang (`finish`).
+        app.add_message::<ambition_time::time_control::ClockScaleRequest>();
         app.init_resource::<BossDefeatsSinceCheckpoint>();
         app.add_message::<BossDefeatRetracted>();
         // A committed checkpoint makes the defeats since the last one part of
@@ -170,6 +173,10 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                     // ⛔ AFTER THE ONE DRAIN: it reads this tick's presses.
                     .after(ambition_encounter::switches::SwitchActivationDrained),
                 update_boss_encounters,
+                // The slow-motion finish asks for its hang from the death
+                // this tick counted (`apply_clock_scale_requests` reduces by
+                // `min`, so no other order matters).
+                crate::finish::request_boss_finish_slow_motion,
                 // The phase this tick ended must not keep a move it chose.
                 crate::ecs::interrupt_boss_windups_on_phase_change,
                 sync_boss_encounter_entities,

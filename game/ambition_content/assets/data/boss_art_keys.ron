@@ -21,6 +21,7 @@
         "trex_boss": "trex_enemy_spritesheet.png",
         "hunny_horror_boss": "hunny_horror_boss_spritesheet.png",
         "wolfenstein_boss": "wolfenstein_spritesheet.png",
+        "wolfenstein_inugami": "wolfenstein_inugami_spritesheet.png",
     },
     special_animation_rows: {
         "overfit_volley": ["spike_halo", "eye_beam"],
@@ -89,6 +90,13 @@
         "wolf_howl": ["howl"],
         "wolf_galvanize": ["galvanize"],
         "wolf_lash": ["lash"],
+        // The Inugami's conducted moves: its module draws them, row by row.
+        "inu_bite": ["bite"],
+        "inu_dive": ["dive"],
+        "inu_onibi": ["onibi"],
+        "inu_howl": ["howl"],
+        "inu_vanish": ["appear"],
+        "inu_gutter": ["guttered"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

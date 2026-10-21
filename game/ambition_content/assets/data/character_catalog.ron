@@ -5079,6 +5079,26 @@
         ),
         hall_dialogue_id: Some("hall_npc_wolfenstein_boss"),
         ),
+        // The Inugami: his head, torn off his dead body and risen as a red
+        // spirit (Jon, 2026-10-20). Its fight is `wolfenstein_inugami`. It is
+        // a look of Wolfenstein, not a second character: the Hall's stand is
+        // his.
+        "npc_wolfenstein_inugami": (
+            display_name: "Inugami",
+            manifest: "sprites/wolfenstein_inugami_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "evil", "monster", "wolf", "spirit"],
+        barks: (
+            on_hit: ["AWOO-- no body. No more orders.", "You cannot cut what is not sewn."],
+            idle: ["*a howl with nothing under it*", "Free. FREE. Sorry. Free."],
+            hall: ["They sewed me on. I came off."],
+        ),
+        form_of: Some("npc_wolfenstein_boss"),
+        ),
         // The Iron Trooper: the regime's heavy, in riveted plate, with a chain
         // gun (a held item, not his drawing). He stands back and fires; close
         // in, he smashes with the gun.

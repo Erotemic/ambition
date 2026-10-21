@@ -381,15 +381,18 @@ pub(super) fn boss_phase_key(phase: ambition_boss_encounter::BossEncounterPhase)
 }
 
 /// The adaptive directive of a bound boss in the heard room: the state its
-/// binding gives its phase. A bound boss in a phase with no state, or a bound
-/// cue with no boss of its archetype left, stops the cue (the room's music
-/// comes back); a binding whose cue is not playing and whose boss has no state
-/// claims nothing.
+/// binding gives its phase. A boss with a state wins over every binding that
+/// has none, so a fallen boss does not stop the cue its successor plays (the
+/// Inugami after Wolfenstein). With no state anywhere, a bound boss in a phase
+/// with no state, or a bound cue with no boss of its archetype left, stops the
+/// cue (the room's music comes back); a binding whose cue is not playing and
+/// whose boss has no state claims nothing.
 pub(super) fn resolve_boss_directive(
     catalog: &MusicCueCatalog,
     bosses: &[(&str, &'static str)],
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
+    let mut stop = false;
     for binding in catalog.boss_bindings() {
         let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
         let state = bosses
@@ -400,11 +403,10 @@ pub(super) fn resolve_boss_directive(
             Some(state_id) => {
                 return Some(AdaptiveCueDirective::Play { cue_id: binding.cue_id.clone(), state_id: state_id.to_string() })
             }
-            None if cue_active => return Some(AdaptiveCueDirective::StopNow),
-            None => {}
+            None => stop |= cue_active,
         }
     }
-    None
+    stop.then_some(AdaptiveCueDirective::StopNow)
 }
 
 /// Resolve a single encounter binding's adaptive cue directive.

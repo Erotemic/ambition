@@ -40,6 +40,11 @@ pub struct RoomSpec {
     /// `ambition.mount` relation, matched by
     /// `FeatureId` and installs the `RidingOn`/`MountSlot` link.
     pub mount_links: Vec<(String, String)>,
+    /// Authored boss successions: `(successor, predecessor)` placement ids. A
+    /// `BossSpawn` with a `wakes_after` entity-ref emits one. The successor
+    /// sleeps (`Dormant`) until the save records its predecessor `Cleared`
+    /// (Wolfenstein's head rises as the Inugami when he falls).
+    pub boss_successions: Vec<(String, String)>,
     /// Authored placement records consumed by the lowering registry.
     pub placements: Vec<crate::placements::PlacementRecord>,
     /// Authored encounter trigger volumes in this room (at most one today).
@@ -74,11 +79,21 @@ impl RoomSpec {
             boss_spawns: Vec::new(),
             debug_labels: Vec::new(),
             mount_links: Vec::new(),
+            boss_successions: Vec::new(),
             placements: Vec::new(),
             encounter_triggers: Vec::new(),
             lock_walls: Vec::new(),
             switch_commands: Vec::new(),
         }
+    }
+
+    /// The boss placement that `successor` wakes after
+    /// ([`Self::boss_successions`]), or `None` for a boss that follows none.
+    pub fn boss_predecessor_of(&self, successor: &str) -> Option<&str> {
+        self.boss_successions
+            .iter()
+            .find(|(after, _)| after == successor)
+            .map(|(_, predecessor)| predecessor.as_str())
     }
 
     /// The full-collision blocks of this room that `body` is inside: a body

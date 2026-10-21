@@ -20,7 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The boss sheets Ambition ships, and the file each one draws from.
-const EXPECTED_SHEETS: [(&str, &str); 11] = [
+const EXPECTED_SHEETS: [(&str, &str); 12] = [
     (
         "flying_spaghetti_monster_boss",
         "flying_spaghetti_monster_boss_spritesheet.png",
@@ -44,6 +44,8 @@ const EXPECTED_SHEETS: [(&str, &str); 11] = [
     ("trex_boss", "trex_enemy_spritesheet.png"),
     // Wolfenstein wears his character's sheet.
     ("wolfenstein_boss", "wolfenstein_spritesheet.png"),
+    // The Inugami, his head risen as a spirit, wears its own.
+    ("wolfenstein_inugami", "wolfenstein_inugami_spritesheet.png"),
 ];
 
 /// The content specials that telegraph, and the sprite rows each one

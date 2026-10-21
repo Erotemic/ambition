@@ -220,5 +220,6 @@ fn legacy_spec() -> BossEncounterSpec {
         extra_phase_triggers: Vec::new(),
         voice: None,
         wake_radius: None,
+        slow_motion_finish: false,
     }
 }

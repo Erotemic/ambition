@@ -43,9 +43,11 @@ pub fn sync_boss_health_bar_overlay(
         return;
     };
 
+    // The boss being fought: alive and awake. A successor that sleeps until
+    // its predecessor falls stands in the room at full health the whole time.
     let Some((health, boss_name)) = boss_render.iter().find_map(|(id, ident)| {
         let view = feature_views.get(id)?;
-        if view.alive {
+        if view.alive && ident.awake {
             Some((
                 Health {
                     current: view.hp_current,

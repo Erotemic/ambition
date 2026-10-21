@@ -908,6 +908,14 @@ pub struct BossRenderView {
     /// What its conductor stages around it (`ambition.boss.stage`). It
     /// changes as the boss lives, unlike the rest of this row.
     pub stage: ambition_boss_encounter::BossStage,
+    /// Its encounter has woken (left `Dormant`). A sleeping boss is not yet
+    /// the fight: a successor that waits for its predecessor to fall
+    /// (`BossConfig::wakes_after`) does not take the health bar from it.
+    pub awake: bool,
+    /// How deep in its slow-motion finish it is, 0 to 1
+    /// (`ambition_boss_encounter::finish`): presentation drains the picture
+    /// of its colour but the boss, and draws cinema bars, this much.
+    pub finish: f32,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -989,11 +997,15 @@ pub fn rebuild_boss_render_index(
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
+        let awake = boss.status.encounter_phase() != ambition_boss_encounter::BossEncounterPhase::Dormant;
+        let finish = ambition_boss_encounter::finish::finish_of(boss.config, boss.status);
         let fresh = |view: &BossRenderView| {
             view.name == boss.config.name
                 && view.behavior_id == boss.config.behavior.id
                 && view.title == boss.config.behavior.title
                 && view.stage == boss.status.stage
+                && view.awake == awake
+                && view.finish == finish
         };
         // Compared before it is built, so a row that has not changed
         // allocates nothing.
@@ -1008,6 +1020,8 @@ pub fn rebuild_boss_render_index(
                 behavior_id: boss.config.behavior.id.clone(),
                 title: boss.config.behavior.title.clone(),
                 stage: boss.status.stage,
+                awake,
+                finish,
             },
         );
     }

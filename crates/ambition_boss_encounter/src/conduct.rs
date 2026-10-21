@@ -9,7 +9,8 @@
 //! flying spaghetti monster is the first (`ambition_content_modules::fsm`).
 
 use ambition_boss_special_port::{
-    BodyBox, BodySwing, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
+    BodyBox, BodySwing, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, Predecessor,
+    RoomHall,
 };
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{BossAttackProfile, BossAttackState};
@@ -93,6 +94,17 @@ pub fn queue_boss_conducts(
         if !bound.contains(&config.behavior.id.as_str()) {
             continue;
         }
+        // The boss it wakes after, by placement id, in its own live room.
+        let predecessor = config.wakes_after.as_deref().and_then(|after| {
+            bosses.iter().find_map(|(other, other_config, _, other_kin, other_health, _, _, other_side, _)| {
+                (other_config.id == after && live_rooms.of(other) == live_rooms.of(boss)).then(|| Predecessor {
+                    position: [other_kin.pos.x, other_kin.pos.y],
+                    size: [other_kin.size.x, other_kin.size.y],
+                    side: other_side.copied().unwrap_or(ConductedFacing::of_facing(other_kin.facing)).0,
+                    alive: other_health.alive(),
+                })
+            })
+        });
         let geometry = rooms.of(boss);
         let room = geometry.map(|geometry| [geometry.0.size.x, geometry.0.size.y]);
         let hall = geometry
@@ -138,6 +150,7 @@ pub fn queue_boss_conducts(
                 }),
                 size: [kin.size.x, kin.size.y],
                 awake: encounter.encounter_phase() != BossEncounterPhase::Dormant,
+                predecessor,
             },
         );
     }

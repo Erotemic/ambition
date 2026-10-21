@@ -17,6 +17,7 @@
 | [`gradient_cascade`](src/gradient_cascade.rs) | Gradient cascade: on the first strike tick, minions drop in from the top of the arena, spread evenly about the boss. |
 | [`grapple`](src/grapple.rs) | Grapple: Attack while holding the grapple casts a line along the aim. |
 | [`hunny`](src/hunny.rs) | The Hunny Horror's conductor: it walks the bear and performs his moves. |
+| [`inugami`](src/inugami.rs) | The Inugami's conductor: Wolfenstein's head, risen as a spirit, and its fight. |
 | [`mark_recall`](src/mark_recall.rs) | Mark / Recall: while the body holds the mark/recall item, Attack puts its mark where it stands, and Blink takes it back to the mark at once and strikes there. |
 | [`meteor`](src/meteor.rs) | Meteor: Attack while holding the meteor drops a line of falling rocks on a zone ahead of the body, across its gravity. |
 | [`minima_trap`](src/minima_trap.rs) | Minima trap: on the first strike tick a pit of damage opens where the boss's target is, and a crawler appears beside it, on the boss's side. |
@@ -35,7 +36,7 @@
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 | [`wolfenstein`](src/wolfenstein.rs) | Wolfenstein's conductor: it walks the monster and performs his moves. |
 
-_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

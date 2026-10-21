@@ -1,0 +1,32 @@
+// Boss encounter spec — the Inugami: Wolfenstein's head, torn off his dead
+// body and risen as a red spirit (Jon, 2026-10-20). A boss of its own: its
+// placement sleeps until his is cleared (`wakes_after` on the BossSpawn).
+//
+// Behaviour lives in `assets/data/boss_profiles.ron`; the conductor is
+// `ambition_content_modules::inugami`.
+//
+// Music: `galvanic_march` again, bound to its phases in
+// `assets/audio/music_cues.ron` (`boss_bindings`): silence while it rises,
+// the theremin howl when it fights.
+(
+    id: "wolfenstein_inugami",
+    name: "Inugami",
+    max_hp: 48,
+    phase1_to_transition_hp: 0.5,
+    phase2_to_enrage_hp: 0.2,
+    // The rise (`ambition_content_modules::inugami`, `INTRO_S`): it waits in
+    // his body while his death plays out, his head tears off, the fire catches
+    // and it howls under its name.
+    intro_seconds: 9.9,
+    // The chase ends here: it flares, vanishes, and comes back in the hall
+    // at the end of the gallery.
+    transition_seconds: 1.2,
+    music_intro: "",
+    music_phase1: "",
+    music_phase2: "",
+    music_enrage: "",
+    voice: Some("npc_wolfenstein_inugami"),
+    // Its killing blow ends the whole fight: time hangs while it falls
+    // (`ambition_boss_encounter::finish`).
+    slow_motion_finish: true,
+)

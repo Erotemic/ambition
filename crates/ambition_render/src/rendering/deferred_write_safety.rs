@@ -359,6 +359,8 @@ mod boss_pass {
             behavior_id: "probe_boss".to_string(),
             title: None,
             stage: Default::default(),
+            awake: true,
+            finish: 0.0,
         };
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
             (BOSS_ID.to_string(), a_feature_view()),

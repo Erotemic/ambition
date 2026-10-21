@@ -432,6 +432,66 @@ The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
    roster pin and close WOLFENSTEIN-FAIRNESS); `fight_discovery` tuning;
    Jon's playtest.
 
+## The Inugami — the wolf unsewn (Jon, 2026-10-20)
+
+Jon: "add an additional phase to Wolfenstein where the head resurrects as an
+inugami and you fight the floating spectral head as an additional boss".
+Then: "I think a red spectral glow would be better".
+Then: "maybe the spirits around the head should be blue. and a shader may be
+in order here", and "the head should also get bigger in the fight. so it's a
+giant head".
+
+**The story.** When Wolfenstein dies, the lights come back on his body. Then
+the seam round his neck gives: the stitches pop in red ghost fire, and his
+head tears off. The fire catches in it, it grows, rises and howls under its
+own name card. The wolf is free of the body that obeyed. When it dies, the
+fire goes out of it, the spirit leaves as a wisp, and his own head drops to
+the floor beside his headless body.
+
+**Built (untested in play):**
+
+- A second boss placement, `castle_godwin.wolfenstein_inugami` (the Hall of
+  Bosses copy: `hall.wolfenstein_inugami`), with its own health (48), phases
+  (transition at 50%, enrage at 20%), name card ("Inugami", "The Wolf
+  Unsewn"), save record and chest (his `galvanic_bolts` chest moved to it).
+- Engine: a `BossSpawn` can name the `BossSpawn` it wakes after
+  (`wakes_after` EntityRef → `RoomSpec::boss_successions` →
+  `BossConfig::wakes_after`). The successor sleeps until the save records the
+  predecessor `Cleared`. Its conductor sees the predecessor's body
+  (`ambition.boss.conduct` v9, `predecessor`). The health bar shows only an
+  awake boss. A life switch sets the life of the whole succession. A fallen
+  boss with no music state does not stop the cue that its successor plays.
+- Art: renderer `wolfenstein_inugami`, his own head pieces
+  (`wolfenstein.WolfHead`) in a red spirit ink (`SPIRIT`), with red ghost
+  fire from the neck. His sheet adds `unsewn` and `headless`.
+- A giant head: built 176 x 212 (he stands 140). It rises at the size his
+  head was drawn on his body and swells to its build in the rise; it swells
+  again to 1.15x from the transition and 1.3x at the enrage
+  (`ambition.boss.scale`). When the spirit leaves it, it shrinks back to his
+  head. Its sheet publishes at 1.68 texels a world unit (830 px frames, the
+  median character's density), not the game's 3.4 (about 1700 px frames): so
+  its frame fits the largest impostor cell, which its hit flash needs.
+- The onibi round it are blue (sheet wisps and `inugami_onibi`, the cold
+  fire's art); the head and its fire are red.
+- Shader (polish): `ambition_render::spirit_field`, a whole-screen pass: near
+  a `SpiritAura` the picture ripples like air over a fire and takes the
+  aura's tint. `ambition_content::presentation::inugami_field` gives the
+  risen head its red aura. With screen shaders off nothing else changes.
+- Conductor: `ambition_content_modules::inugami`.
+
+| move | the tell | the dodge | the punish |
+|---|---|---|---|
+| `inu_bite` | it draws back, jaws wide | step out of its line | it tumbles past and shakes its head |
+| `inu_dive` | it flies up over you, nose down | leave the spot | its teeth in the floor (1.5 s) |
+| `inu_onibi` | fire balls kindle round it | dodge the balls | none |
+| `inu_howl` | head back | walk out of the ring | the howl (it stays still) |
+| `inu_vanish` | it fades out | turn round: it comes back behind you | (a bite follows) |
+| `inu_gutter` | its fire gutters | none needed | the long window on the floor |
+
+**Open:** the onibi use the fireball art (`inugami_onibi` in
+`projectile_visuals.ron`); its own sounds (it borrows cues); its own music
+state (it plays `galvanic_march` "howl" and "storm").
+
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged

@@ -125,6 +125,7 @@ mod placed_actors_start_on_the_ground;
 mod trex_fight;
 mod hunny_fight;
 mod shock_warden_shield;
+mod inugami_fight;
 mod wolfenstein_fight;
 mod the_trex_is_drawn_from_his_parts;
 mod cut_rope_victory_identity;

@@ -177,6 +177,9 @@ pub enum ActorConstructionParams {
         >,
         /// It stands in a practice room (`RoomMetadata::practice`).
         practice: bool,
+        /// The placement it sleeps until is cleared
+        /// (`RoomSpec::boss_successions`), or `None`.
+        wakes_after: Option<String>,
     },
     /// One authored placement record beside its ALREADY-RESOLVED interpreter —
     /// the exact `(record, fn)` pair `PlacementLoweringPlan` froze at
@@ -523,7 +526,7 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::AuthoredEnemy { authored, .. } => {
                 format!("authored-enemy {} {}", authored.id, authored.name)
             }
-            ActorConstructionParams::AuthoredBoss { authored, practice } => {
+            ActorConstructionParams::AuthoredBoss { authored, practice, .. } => {
                 let practice = if *practice { " practice" } else { "" };
                 format!("authored-boss {} {}{practice}", authored.id, authored.name)
             }
@@ -937,7 +940,7 @@ fn construct_authored_boss(
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
     let services = ctx.services;
-    let ActorConstructionParams::AuthoredBoss { authored, practice } = parameters else {
+    let ActorConstructionParams::AuthoredBoss { authored, practice, wakes_after } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
     };
     let fate = ctx.facts.boss_fate(&authored.id);
@@ -948,6 +951,7 @@ fn construct_authored_boss(
         &ambition_boss_encounter::BossOverrides::default(),
         fate,
         *practice,
+        wakes_after.clone(),
     );
 }
 
@@ -1902,6 +1906,7 @@ pub fn reinstatable_authored_requests(
         gravity_zones: _,
         debug_labels: _,
         mount_links: _,
+        boss_successions: _,
         encounter_triggers: _,
         lock_walls: _,
         switch_commands: _,
@@ -2155,6 +2160,7 @@ pub fn authored_actor_requests(
             parameters: ActorConstructionParams::AuthoredBoss {
                 authored: boss.clone(),
                 practice: room.metadata.practice,
+                wakes_after: room.boss_predecessor_of(&boss.id).map(str::to_owned),
             },
             relations: Vec::new(),
         });

@@ -42,11 +42,15 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   `size` is the boss's own body size (its feet are `position.y + size.y / 2`).
 ///   `awake` says the encounter has left `Dormant`: a boss whose encounter
 ///   has a wake radius sleeps, and its conductor stages its sleep, until a
-///   player comes that near.
+///   player comes that near. `predecessor` is the boss this one wakes after
+///   (`RoomSpec::boss_successions`), in the same live room: where its body
+///   is, how big it is, the side it faces, and whether it lives. A successor
+///   sleeps until that placement is cleared, and rises from that body.
 /// * **Absence** — `target` is `None` when the boss tracks nothing, and
 ///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
-///   `room` is `None` when the room cannot be told.
+///   `room` is `None` when the room cannot be told; `predecessor` is `None`
+///   for a boss that follows none, and when that boss is not in its room.
 /// * **Replay** — derived each tick from rollback state.
 pub struct BossConductPort;
 
@@ -104,6 +108,18 @@ pub struct BossConduct {
     /// The encounter has woken: it left `Dormant` (a boss with a wake
     /// radius sleeps until a player comes that near).
     pub awake: bool,
+    /// The boss this one wakes after, in its live room.
+    pub predecessor: Option<Predecessor>,
+}
+
+/// The boss a successor wakes after, as the successor sees it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Predecessor {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+    /// The side it faces: `1.0` or `-1.0`.
+    pub side: f32,
+    pub alive: bool,
 }
 
 /// A body's centre and size, and the move it plays.
@@ -151,8 +167,9 @@ impl Port for BossConductPort {
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
     /// Version 6 (2026-10-10): `size`. Version 7 (2026-10-12): the
-    /// `swing` of `target_body`. Version 8 (2026-10-18): `awake`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 8);
+    /// `swing` of `target_body`. Version 8 (2026-10-18): `awake`. Version 9
+    /// (2026-10-20): `predecessor`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 9);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -191,6 +208,12 @@ impl Port for BossConductPort {
         });
         wire::put_vec2(out, v.size);
         wire::put_bool(out, v.awake);
+        wire::put_opt(out, v.predecessor, |out, p| {
+            wire::put_vec2(out, p.position);
+            wire::put_vec2(out, p.size);
+            wire::put_f32(out, p.side);
+            wire::put_bool(out, p.alive);
+        });
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -229,6 +252,7 @@ impl Port for BossConductPort {
             })?,
             size: r.vec2()?,
             awake: r.bool()?,
+            predecessor: r.opt(|r| Ok(Predecessor { position: r.vec2()?, size: r.vec2()?, side: r.f32()?, alive: r.bool()? }))?,
         })
     }
 }
@@ -921,11 +945,12 @@ mod tests {
             }),
             size: [40.0, 60.0],
             awake: true,
+            predecessor: Some(Predecessor { position: [600.0, 780.0], size: [84.0, 140.0], side: -1.0, alive: false }),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let at_rest = BossConduct { target_body: Some(BodyBox { position: [1.0, 2.0], size: [3.0, 4.0], swing: None }), ..conduct.clone() };
         assert_eq!(round::<BossConductPort>(&at_rest), at_rest);
-        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, ..conduct };
+        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, predecessor: None, ..conduct };
         assert_eq!(round::<BossConductPort>(&bare), bare);
         for guarded in [false, true] {
             assert_eq!(round::<BossGuardPort>(&BossGuard { guarded }), BossGuard { guarded });

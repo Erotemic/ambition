@@ -55,6 +55,12 @@ pub struct BossEncounterSpec {
     /// it with its room.
     #[serde(default)]
     pub wake_radius: Option<f32>,
+    /// The killing blow slows time (`ambition_boss_encounter::finish`): the
+    /// world hangs while the boss falls, drained of its colour but the boss,
+    /// and comes back up to speed. For the boss that ends a fight; one whose
+    /// death hands the fight to another (Wolfenstein to the Inugami) does not.
+    #[serde(default)]
+    pub slow_motion_finish: bool,
 }
 
 // Entity-local phase state. Health stays on `BodyHealth`; phase progression

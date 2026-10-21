@@ -1096,6 +1096,9 @@ tackon_targets=(
     fascist_enforcer
     # The boss of Godwin Castle (`npc_wolfenstein_boss`), on the person rig.
     wolfenstein
+    # His head risen as a spirit when he falls (`npc_wolfenstein_inugami`):
+    # his own head pieces, in the ink of a ghost.
+    wolfenstein_inugami
     # The troops of Godwin Castle, on the person rig: the iron trooper (his
     # chain gun is the held prop `evil_chain_gun`) and the lab's failed
     # prototypes of Wolfenstein.

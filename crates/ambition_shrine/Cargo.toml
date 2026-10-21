@@ -1,0 +1,30 @@
+[package]
+name = "ambition_shrine"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The heal and save shrine: the HealShrine component and the interaction that heals each driven body touching it, clears until-rest deaths, and commits one checkpoint. Carved out of ambition_platformer2d_actor_monolith (K3); coming back to a checkpoint stays session lifecycle."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Component, Query, Res and MessageWriter only. This crate draws nothing.
+bevy = { version = "0.19.1", default-features = false }
+# `BodyKinematics`, `SweepSample`, `ActorResources` and the AABB test.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# `BodyHealth` (the heal) and `ActorControl` (the interact edge).
+ambition_characters = { path = "../ambition_characters" }
+# `DrivenBodies`: every body a seat drives can rest.
+ambition_held_items = { path = "../ambition_held_items" }
+# The mana resource that a rest refills.
+ambition_abilities = { path = "../ambition_abilities" }
+# `LiveRooms`, `CheckpointCommitted`, the primary-player marker and the
+# presentation pulse.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# `LiveRoomSpecs`: the room of the checkpoint.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# The save that holds the checkpoint and the until-rest death flags.
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_sfx = { path = "../ambition_sfx" }

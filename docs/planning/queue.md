@@ -2287,6 +2287,16 @@ capability interprets (`BossEncounters` → `boss_pattern`, `Cutscenes` →
 `supported_profiles.rs` `a_profile_refuses_content_that_needs_a_capability_it_omits`
 (poison: the omission filter off gives no refusals).
 
+**Done 2026-10-21 (S3, demo hosts):** three more profiles join the registry:
+`minimal-platformer` (omits every removable capability), `level-platformer`
+(the Mary-O and Sanic hosts) and `stage-fighter` (the Smash host).
+`Capability::Captures` (grabs and throws) is gated by `room_uses`, and a game
+can declare that it does not use it. Each demo host builds its engine with
+`for_profile` and admits its pack with `EmbeddedPack::compile_for`. An omitted
+capability's set is closed in every schedule (`OmittedCapabilitiesPlugin`), and
+`supported_profiles.rs` asserts that no system of an omitted set ran. Details:
+[system composition audit S3](engine/system-composition-audit.md).
+
 **Open:** the claim is *not installed*, not *not linked* (`Q106`: the crates behind
 these capabilities are unconditional dependencies); `Dialogue` has no pack
 capability (Yarn is not a pack schema), and a module has no road to declare a

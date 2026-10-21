@@ -8,9 +8,9 @@
 //! to write into even if it had. Both halves matter: a checkpoint nothing records is a lie, and
 //! a checkpoint nothing restores is a number in a file.
 //!
-//! ⭐ THIS FILE OWNS THE FIRST HALF ONLY, since A1b. Coming back to a checkpoint
+//! ⭐ THIS CRATE OWNS THE FIRST HALF ONLY, since A1b. Coming back to a checkpoint
 //! — the startup resume and the death/retry reset — is session lifecycle and
-//! lives in [`crate::session::checkpoint`]. What a shrine owns is the
+//! lives in the actor kernel's `session::checkpoint`. What a shrine owns is the
 //! interaction: heal the body that touched me, and ask for a checkpoint to be
 //! committed.
 //!
@@ -28,6 +28,12 @@ use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
+
+/// The set that holds [`heal_save_shrine_system`]. A system that must see this
+/// tick's rest (heal, checkpoint, revived deaths) orders after the set, not
+/// after the function.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ShrineRest;
 
 /// A healing / save-point shrine the player can `Interact` with.
 #[derive(Component, Clone, Copy, Debug)]

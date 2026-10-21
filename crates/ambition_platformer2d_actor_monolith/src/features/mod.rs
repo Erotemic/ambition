@@ -1282,6 +1282,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             ambition_combat::capture::systems::tick_capture_holds
                 .in_set(ambition_combat::capture::systems::CaptureHoldsTicked)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures))
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
@@ -1352,9 +1353,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // tick — two named phases, one rule.)
         app.add_systems(
             sim,
-            ambition_combat::capture::systems::maintain_existing_capture_pose.in_set(
-                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
-            ),
+            ambition_combat::capture::systems::maintain_existing_capture_pose
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
         );
         #[cfg(feature = "causal")]
         app.add_systems(

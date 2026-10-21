@@ -648,7 +648,8 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_combat::capture::systems::apply_capture_carries,
             )
                 .chain()
-                .in_set(CombatSet::Materialize),
+                .in_set(CombatSet::Materialize)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
         );
 
         // ⛔⛤ **A HIT BREAKS A GRAB, AND FOR 17 SHIPPED CHARACTERS IT DID NOT —
@@ -682,7 +683,8 @@ impl Plugin for CombatSchedulePlugin {
                 // `GrabInterruptionApplied`. System NAMES are unavailable in this
                 // build, so the guard below asks the graph about this node.
                 .in_set(ambition_combat::capture::GrabInterruptionApplied)
-                .in_set(CombatSet::Settle),
+                .in_set(CombatSet::Settle)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
         );
 
         // ⭐ A HIT BEATS A GRAB ON ONE TICK (S0.2), so acquisition comes after
@@ -718,7 +720,8 @@ impl Plugin for CombatSchedulePlugin {
             )
                 .chain()
                 .after(ambition_combat::capture::GrabInterruptionApplied)
-                .in_set(CombatSet::Settle),
+                .in_set(CombatSet::Settle)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
         );
 
         // A footstool is a body fact (`FootstoolTuning`, `OFF` by default), so

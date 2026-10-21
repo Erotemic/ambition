@@ -443,6 +443,67 @@ fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions() {
     }
 }
 
+/// Grabs and throws sleep in Mary-O's and Sanic's rooms and run in Smash's
+/// and Ambition's: at home neither runner has an attack, and every capture
+/// system of the simulation is in the captures' capability set.
+#[test]
+fn grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters() {
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules, SystemSet};
+
+    let mut app = compose_the_host_simulated_by(Some(ambition_platformer2d::runtime::SimulationHost::Rollback));
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<UsedCapabilities>>()
+        .expect("the shipped host's games declare the capabilities they use");
+    let uses = |mode: Option<&'static str>| {
+        rules.governing(ActiveRoom::live(mode)).is_none_or(|used| used.uses(Capability::Captures))
+    };
+    assert!(!uses(Some(ambition_demo_mary_o::MARY_O_MODE)), "Mary-O's rooms use grabs");
+    assert!(!uses(Some("sanic")), "Sanic's rooms use grabs");
+    assert!(uses(Some(ambition_demo_smash::SMASH_MODE)), "the premise: Smash's rooms use grabs");
+    assert!(uses(None), "the premise: Ambition's own rooms use grabs");
+
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+    let sim = app.sim_schedule();
+    assert_ne!(sim, bevy::prelude::Update.intern(), "the premise: the simulation has its own schedule");
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(sim).expect("the sim schedule").graph();
+    let capability = graph
+        .system_sets
+        .get_key(CapabilitySet(Capability::Captures).intern())
+        .expect("the captures' capability set");
+    let hierarchy = graph.hierarchy().graph();
+    let inside = |start: NodeId| {
+        let mut stack = vec![start];
+        while let Some(node) = stack.pop() {
+            for parent in hierarchy.neighbors_directed(node, Direction::Incoming) {
+                if parent == NodeId::Set(capability) {
+                    return true;
+                }
+                stack.push(parent);
+            }
+        }
+        false
+    };
+    let mut captures = 0;
+    let mut outside = Vec::new();
+    for (key, system, _) in graph.systems.iter() {
+        let name = system.name().to_string();
+        if !name.starts_with("ambition_combat::capture::systems::") {
+            continue;
+        }
+        captures += 1;
+        if !inside(NodeId::System(key)) {
+            outside.push(name);
+        }
+    }
+    assert!(captures >= 10, "the premise: the simulation runs the capture systems ({captures} found)");
+    assert!(outside.is_empty(), "these capture systems are outside the captures' capability set: {outside:#?}");
+}
+
 /// Wave encounters sleep in Mary-O's and Sanic's rooms and run in Ambition's:
 /// their games declare no encounters, and each encounter step is in the
 /// encounters' capability set. The switch drain and the banners are not: other

@@ -297,11 +297,26 @@ impl From<RenderMode> for ambition_platformer2d::app::Display {
     }
 }
 
-/// The engine this game runs on: everything but named boss encounters. Its one
-/// boss, the Void Lizard, is an enemy body with a brain, not an engine boss
-/// encounter (the omission of the witnessed `encounters-without-named-bosses`
-/// profile). Both host builders in this file use it.
+/// The engine this game runs on: the `level-platformer` profile, which leaves
+/// out dialogue, named boss encounters and held use. Her one boss, the Void
+/// Lizard, is an enemy body with a brain, and her spark is her moveset's
+/// ranged verb.
+/// Both host builders in this file use it, and they admit the game's pack
+/// against what the profile installs: a pack that needs an omitted capability
+/// is a composition fault, refused before the first frame.
+pub const ENGINE_PROFILE: ambition_platformer2d::runtime::profile::EngineProfile =
+    ambition_platformer2d::runtime::profile::LEVEL_PLATFORMER;
+
+/// [`ENGINE_PROFILE`]'s engine group, after admitting the game's pack.
 fn engine_plugins() -> ambition_platformer2d::engine::PlatformerEnginePlugins {
-    ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick()
-        .without(ambition_platformer2d::runtime::profile::Capability::BossEncounters)
+    static ADMITTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    ADMITTED.get_or_init(|| {
+        if let Err(failure) = ambition_demo_mary_o::pack::PACK.compile_for(&ENGINE_PROFILE) {
+            panic!("Mary-O's pack needs a capability the `{}` profile leaves out:\n{failure}", ENGINE_PROFILE.name);
+        }
+    });
+    ambition_platformer2d::engine::PlatformerEnginePlugins::for_profile(
+        ambition_platformer2d::engine::SimulationHost::Fixed60Hz,
+        &ENGINE_PROFILE,
+    )
 }

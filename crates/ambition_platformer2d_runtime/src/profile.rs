@@ -74,6 +74,8 @@ impl CapabilityComposition for Capability {
             Capability::Mounts => group,
             // Not a unit either: the encounter plugins are in every engine group.
             Capability::Encounters => group,
+            // Not a unit either: three of the group's schedules register them.
+            Capability::Captures => group,
         }
     }
 
@@ -113,6 +115,32 @@ impl CapabilityComposition for Capability {
             }
             Capability::Mounts => app.is_plugin_added::<ambition_mount::MountPlugin>(),
             Capability::Encounters => app.is_plugin_added::<ambition_encounter_features::EncounterSimulationSchedulePlugin>(),
+            Capability::Captures => app.is_plugin_added::<crate::CombatSchedulePlugin>(),
+        }
+    }
+}
+
+/// What a composition left out never runs, whatever its rooms declare. A
+/// system another plugin put in an omitted capability's set (an extension
+/// phase, an adapter) is part of what was left out: without this it ran
+/// wherever a room declared nothing, with nobody owning its set.
+pub struct OmittedCapabilitiesPlugin(pub Vec<Capability>);
+
+impl bevy::app::Plugin for OmittedCapabilitiesPlugin {
+    fn build(&self, app: &mut App) {
+        use ambition_platformer2d_shared_tangle::capability::CapabilitySet;
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+        use bevy::ecs::schedule::{IntoScheduleConfigs as _, ScheduleLabel as _};
+        let sim = app.sim_schedule();
+        for schedule in [
+            sim,
+            bevy::app::PreUpdate.intern(),
+            bevy::app::Update.intern(),
+            bevy::app::PostUpdate.intern(),
+        ] {
+            for capability in &self.0 {
+                app.configure_sets(schedule, CapabilitySet(*capability).run_if(|| false));
+            }
         }
     }
 }
@@ -155,6 +183,9 @@ impl EngineProfile {
 // profile-contract: collection-without-held-use
 // profile-contract: encounters-without-named-bosses
 // profile-contract: world-without-cutscenes
+// profile-contract: minimal-platformer
+// profile-contract: level-platformer
+// profile-contract: stage-fighter
 
 /// A body in a world with no renderer and nothing omitted.
 pub const HEADLESS_BODY_WORLD: EngineProfile = EngineProfile {
@@ -209,14 +240,46 @@ pub const WORLD_WITHOUT_CUTSCENES: EngineProfile = EngineProfile {
     omits: &[Capability::Cutscenes],
 };
 
+/// A body that runs and jumps through rooms, and nothing the engine group can
+/// leave out: no cutscenes, dialogue, named bosses, held use or collection.
+pub const MINIMAL_PLATFORMER: EngineProfile = EngineProfile {
+    name: "minimal-platformer",
+    summary: "running and jumping through rooms, with every removable capability left out",
+    face: HostFace::Headless,
+    omits: &Capability::REMOVABLE,
+};
+
+/// A level platformer: coins and power-ups, enemies and a castle's boss as an
+/// ordinary body; no one to talk to, no named boss encounter, no held item.
+/// Mary-O's and Sanic's hosts compose it.
+pub const LEVEL_PLATFORMER: EngineProfile = EngineProfile {
+    name: "level-platformer",
+    summary: "levels with collectibles and enemies, and no dialogue, named bosses or held use",
+    face: HostFace::Headless,
+    omits: &[Capability::Dialogue, Capability::BossEncounters, Capability::HeldUse],
+};
+
+/// A stage fighter: fighters, match items and their grabs and specials; no
+/// one to talk to and no named boss encounter. The Smash demo's host composes
+/// it.
+pub const STAGE_FIGHTER: EngineProfile = EngineProfile {
+    name: "stage-fighter",
+    summary: "fighters and match items on a stage, with no dialogue or named bosses",
+    face: HostFace::Headless,
+    omits: &[Capability::Dialogue, Capability::BossEncounters],
+};
+
 /// Every supported profile, in the order the witnesses run them.
-pub const SUPPORTED_PROFILES: [EngineProfile; 6] = [
+pub const SUPPORTED_PROFILES: [EngineProfile; 9] = [
     HEADLESS_BODY_WORLD,
     WINDOWED_BODY_WORLD,
     COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE,
     COLLECTION_WITHOUT_HELD_USE,
     ENCOUNTERS_WITHOUT_NAMED_BOSSES,
     WORLD_WITHOUT_CUTSCENES,
+    MINIMAL_PLATFORMER,
+    LEVEL_PLATFORMER,
+    STAGE_FIGHTER,
 ];
 
 /// Whether the session-edge parameter bundles validate in `world`.

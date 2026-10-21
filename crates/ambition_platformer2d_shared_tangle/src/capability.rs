@@ -49,10 +49,15 @@ pub enum Capability {
     /// the lock walls and the reward chests. The switches and their index are
     /// not in it: other games' rooms press switches too.
     Encounters,
+    /// Grabs and throws: a grab's acquisition and hold, its pummel, throws and
+    /// carry, the release a hit forces, the captive's escape and pose. The
+    /// engine installs them for every game (a boss's seize is one too), so
+    /// this is not removable from the engine group.
+    Captures,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 9] = [
+    pub const ALL: [Capability; 10] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
@@ -62,6 +67,7 @@ impl Capability {
         Capability::Portals,
         Capability::Mounts,
         Capability::Encounters,
+        Capability::Captures,
     ];
 
     /// The capabilities a composition can leave out of the engine group (the
@@ -85,6 +91,7 @@ impl Capability {
             Capability::Portals => "portals",
             Capability::Mounts => "mounts",
             Capability::Encounters => "encounters",
+            Capability::Captures => "captures",
         }
     }
 
@@ -110,7 +117,8 @@ impl Capability {
             | Capability::FighterSpecials
             | Capability::Portals
             | Capability::Mounts
-            | Capability::Encounters => None,
+            | Capability::Encounters
+            | Capability::Captures => None,
         }
     }
 

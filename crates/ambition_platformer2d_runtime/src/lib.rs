@@ -708,6 +708,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // ordering landmines documented on the plugin).
             .add(PortalSchedulePlugin);
         use profile::CapabilityComposition as _;
+        let builder = if omitted.is_empty() {
+            builder
+        } else {
+            builder.add(profile::OmittedCapabilitiesPlugin(omitted.clone()))
+        };
         omitted.iter().fold(builder, |builder, capability| capability.omit(builder))
     }
 }

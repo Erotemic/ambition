@@ -295,6 +295,17 @@ pub mod content {
             self.compile_against(draft, &engine_schemas())
         }
 
+        /// Compile the pack against the schemas `profile` installs: a pack
+        /// that needs a capability the profile omits is refused
+        /// (`MissingCapability`). A host that composes the engine group for a
+        /// profile admits its own pack with this.
+        pub fn compile_for(
+            &self,
+            profile: &ambition_platformer2d_runtime::profile::EngineProfile,
+        ) -> Result<PreparedContentPack, CompileFailure> {
+            self.compile_with(&ambition_engine_schemas::engine_schemas_without(&profile.omitted_content_capabilities()))
+        }
+
         /// Compile the pack against `schemas`: the road a composition takes,
         /// with the schemas of what it installed (`PlatformerApp::profile`).
         pub fn compile_with(&self, schemas: &SchemaRegistry) -> Result<PreparedContentPack, CompileFailure> {

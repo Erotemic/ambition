@@ -558,6 +558,11 @@ pub const PETTING_CLIPS: &[&str] = &["pet", "interact", "idle"];
 /// ([`BodyAnimFacts::petted`]).
 pub const PETTED_CLIPS: &[&str] = &["petted", "happy", "idle"];
 
+/// How long the wall-jump push-off pose holds after the WallJump op fires: the
+/// whole kick off the wall is drawn over it, and it clears before the apex of
+/// the jump arc so the regular `Jump` row picks back up.
+pub const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.3;
+
 /// Authoritative body-generic animation facts.
 /// These fields are presentation-only and independent of gameplay reaction timers.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
@@ -582,7 +587,8 @@ pub struct BodyAnimFacts {
     /// Time remaining for the wall-jump push-off pose. Armed by
     /// `handle_player_events` on a `MovementOp::WallJump` op. Distinct
     /// from `Jump` so the wall departure reads as a kick-off rather
-    /// than a ground arc.
+    /// than a ground arc. The row plays over the hold
+    /// ([`WALL_JUMP_ANIM_HOLD_SECS`]).
     pub wall_jump_anim_timer: f32,
     /// Time remaining for the interact-gesture pose. Armed when an
     /// interaction (door, NPC, pickup) consumes

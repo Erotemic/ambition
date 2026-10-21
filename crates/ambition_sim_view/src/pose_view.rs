@@ -43,6 +43,19 @@ pub const WALL_CLIMB_CYCLE_PX: f32 = 96.0;
 /// The row of a wall climb.
 const WALL_CLIMB_CLIP: &str = "wall_climb";
 
+/// How long a body that comes onto a wall draws its landing on it, before
+/// the hold or the slide.
+pub const WALL_LAND_SECS: f32 = 0.22;
+
+/// The row of the landing on a wall, and of the kick off one.
+const WALL_LAND_CLIP: &str = "wall_land";
+const WALL_JUMP_CLIP: &str = "wall_jump";
+
+/// The rows of a body on a wall that it came onto: a landing leads them.
+fn on_a_wall(anim: CharacterAnim) -> bool {
+    matches!(anim, CharacterAnim::WallGrab | CharacterAnim::WallSlide | CharacterAnim::WallLand)
+}
+
 /// The row of a turn.
 const TURNAROUND_CLIP: &str = "turnaround";
 
@@ -84,6 +97,10 @@ pub struct BodyPoseView {
     /// distance the body climbs ([`CLIMB_CYCLE_PX`] a cycle), so a body that
     /// holds still on a ladder holds still in its picture.
     pub climb_phase: f32,
+    /// How long the body has been on a wall (a grab or a slide), and
+    /// `f32::INFINITY` when it is not on one. The first [`WALL_LAND_SECS`] of
+    /// it are drawn as the landing on the wall.
+    pub wall_secs: f32,
     /// Aerial/gravity roll angle (radians) — the sprite rotation.
     pub roll_angle: f32,
     /// `size.y / base_size.y`, clamped (0.1, 1.0] — the trimmed-sheet
@@ -287,6 +304,7 @@ impl Default for BodyPoseView {
             turn_secs: f32::INFINITY,
             look_up: 0.0,
             climb_phase: 0.0,
+            wall_secs: f32::INFINITY,
             // A body with no pose yet is playing no move.
             clip: None,
             roll_angle: 0.0,
@@ -542,6 +560,15 @@ pub fn rebuild_body_pose_views(
         // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
         // mid-power-up) is stated by the content that owns the state machine.
         let anim = anim_override.map(|o| o.0).unwrap_or(anim);
+        // The first moments on a wall are the landing on it.
+        let wall_secs = match pose.as_deref() {
+            _ if !on_a_wall(anim) => f32::INFINITY,
+            Some(before) if on_a_wall(before.anim) && before.wall_secs.is_finite() => {
+                before.wall_secs + time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs)
+            }
+            _ => 0.0,
+        };
+        let anim = if anim_override.is_none() && wall_secs < WALL_LAND_SECS { CharacterAnim::WallLand } else { anim };
         let charge = playback
             .as_deref()
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
@@ -608,6 +635,7 @@ pub fn rebuild_body_pose_views(
             turn_secs,
             look_up,
             climb_phase,
+            wall_secs,
             roll_angle: roll.map_or(0.0, |r| r.angle),
             stance_ratio_y,
             gravity_dir,
@@ -635,6 +663,13 @@ pub fn rebuild_body_pose_views(
                         Some(slaved(CLIMB_CLIP, climb_phase))
                     } else if free && anim == CharacterAnim::WallClimb {
                         Some(slaved(WALL_CLIMB_CLIP, climb_phase))
+                    } else if free && anim == CharacterAnim::WallLand {
+                        Some(slaved(WALL_LAND_CLIP, (wall_secs / WALL_LAND_SECS).min(1.0)))
+                    } else if free && anim == CharacterAnim::WallJump {
+                        // The kick off the wall, over the hold of its pose.
+                        let left = anim_facts.map_or(0.0, |f| f.wall_jump_anim_timer);
+                        let hold = ambition_characters::actor::WALL_JUMP_ANIM_HOLD_SECS;
+                        Some(slaved(WALL_JUMP_CLIP, (1.0 - left / hold).clamp(0.0, 1.0)))
                     } else {
                         None
                     }

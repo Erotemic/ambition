@@ -32,10 +32,9 @@ use ambition_sfx::{SfxMessage, SfxWriter};
 /// coupling row on every census of this module; it was neither.
 const BLINK_IN_ANIM_TIME: f32 = 0.34;
 
-/// How long the wall-jump push-off pose holds after the WallJump op fires. Short
-/// enough to clear before the apex of the jump arc so the regular `Jump` row
-/// picks back up; long enough that the kick reads at typical playback rates.
-const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
+/// How long the wall-jump push-off pose holds (one value, beside the timer it
+/// arms; the presentation plays the row over it).
+use ambition_characters::actor::WALL_JUMP_ANIM_HOLD_SECS;
 
 // ⛔⛤ **`advance_body_anim_overlays` LIVES WITH THE COMPONENT IT TICKS NOW**
 // (`ambition_characters::actor::advance_body_anim_overlays`, beside

@@ -90,6 +90,9 @@ const SFX_CUT_HIT: &str = "player.robot.slash.impact.flesh.deep";
 const SFX_LINE: &str = "vfx.pirate_admiral.grapple_cast";
 const SFX_CATCH: &str = "vfx.pirate_admiral.grapple_catch";
 
+/// Every cue she plays: each must have a recipe, or it plays silence.
+pub const SOUNDS: [&str; 5] = [SFX_ARRIVE, SFX_CUT, SFX_CUT_HIT, SFX_LINE, SFX_CATCH];
+
 /// What she says when she comes, and when she goes. The ninjas call the
 /// robot by its noise (`docs/brainstorms/llm_brainstorm.md`: "noisy one",
 /// "ripple-foot").

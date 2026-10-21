@@ -91,3 +91,42 @@ fn every_cue_the_mockingbird_plays_has_a_recipe() {
         .collect();
     assert!(missing.is_empty(), "cues the Mockingbird plays with no recipe, which play silence: {missing:?}");
 }
+
+/// The Inugami's own sounds (its howl at each size, and the rest), and those
+/// of Kagero, whom it calls.
+#[test]
+fn every_cue_the_inugami_and_kagero_play_has_a_recipe() {
+    if !recipes().is_dir() {
+        eprintln!("no SFX recipes at {}: nothing to compare", recipes().display());
+        return;
+    }
+    let ids = recipe_ids();
+    let missing: Vec<&str> = ambition_content_modules::inugami::SOUNDS
+        .iter()
+        .chain(ambition_content_modules::kagero::SOUNDS.iter())
+        .copied()
+        .filter(|cue| !ids.contains(*cue))
+        .collect();
+    assert!(missing.is_empty(), "cues the Inugami or Kagero play with no recipe, which play silence: {missing:?}");
+}
+
+/// The `id` of every recipe under `sounds/active`, at any depth: a VFX's
+/// companion cues live in `vfx/<owner>/`, named by their file, not their id.
+fn recipe_ids() -> BTreeSet<String> {
+    fn walk(dir: &std::path::Path, out: &mut BTreeSet<String>) {
+        for entry in std::fs::read_dir(dir).expect("the recipes are readable").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.to_string_lossy().ends_with(".sfx.yaml") {
+                let text = std::fs::read_to_string(&path).expect("a recipe is readable");
+                if let Some(id) = text.lines().find_map(|line| line.strip_prefix("id: ")) {
+                    out.insert(id.trim().to_string());
+                }
+            }
+        }
+    }
+    let mut out = BTreeSet::new();
+    walk(&recipes(), &mut out);
+    out
+}

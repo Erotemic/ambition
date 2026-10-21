@@ -94,10 +94,13 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     }
     let h = head(&mut sim);
     assert!(h.alive && h.phase == BossEncounterPhase::Dormant, "it woke while he lives: {h:?}");
+    // Its name is not over him while he lives: that would give it away.
+    assert!(!plates(&mut sim).iter().any(|label| label == "Inugami"), "its plate shows while he lives: {:?}", plates(&mut sim));
 
     kill(&mut sim, WOLFENSTEIN_ID);
     step_until(&mut sim, 30, "it to wake when he is cleared", |sim| head(sim).phase != BossEncounterPhase::Dormant);
     let floor = head(&mut sim).view.and_then(|v| v.hall).expect("it measured the room").floor;
+    assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it rose with no plate: {:?}", plates(&mut sim));
     step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
     let h = head(&mut sim);
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 < floor - 20.0, "it does not float over the floor: {h:?}");
@@ -174,4 +177,10 @@ fn kagero(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
         .iter(world)
         .find(|(_, worn)| worn.id() == "npc_ninja_kagero")
         .map(|(entity, _)| entity)
+}
+
+/// The labels of the actor plates this frame.
+fn plates(sim: &mut Platformer2dSimHarness) -> Vec<String> {
+    let index = sim.world_mut().resource::<ambition_platformer2d::sim_view::NameplateIndex>();
+    index.iter().map(|(_, fact)| fact.label.clone()).collect()
 }

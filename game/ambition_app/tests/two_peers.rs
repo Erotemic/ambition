@@ -515,6 +515,10 @@ fn alice_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
 /// Put Alice and Bob on the door to the hub.
 fn each_player_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::engine_core::AabbExt as _;
+    // The crossing is recorded on the press ([`RECORDED_ON`]): the subject is
+    // the peers' freeze on a recorded crossing, which a door's passage only
+    // delays. Both peers make the same declaration.
+    crate::common::doors_cross_at_once(sim);
     alice_on_the_hub_door(sim);
     let center = door_of(sim, ROOM, HUB).aabb.center();
     put_bob_at(sim, center);

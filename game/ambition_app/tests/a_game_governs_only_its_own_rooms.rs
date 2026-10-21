@@ -352,6 +352,33 @@ fn each_game_draws_its_own_line_between_light_and_heavy_hits() {
     );
 }
 
+/// Ambition's doors play a passage and the hosted games' doors cross at once.
+/// The rule was one global switch set when Ambition was installed, so with
+/// Ambition in the hub every game's door played Ambition's passage.
+#[test]
+fn only_ambitions_doors_play_a_passage() {
+    use ambition_platformer2d::actors::rooms::passage::ZonePassageRules;
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+
+    let app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<ZonePassageRules>>()
+        .expect("Ambition declares its doors' passage");
+    assert_eq!(rules.governing(ActiveRoom::Untagged), Some(ZonePassageRules));
+    for mode in [
+        ambition_demo_mary_o::MARY_O_MODE,
+        ambition_demo_sanic::SANIC_MODE,
+        ambition_demo_smash::SMASH_MODE,
+    ] {
+        assert_eq!(
+            rules.governing(ActiveRoom::live(Some(mode))),
+            None,
+            "`{mode}`'s doors borrowed Ambition's passage"
+        );
+    }
+}
+
 /// Portals sleep in Mary-O's rooms and run in Ambition's. Her game declares
 /// that her rooms use no portals, and the portal transit is in the portals'
 /// capability set, whose condition asks the room's game (findings F31).

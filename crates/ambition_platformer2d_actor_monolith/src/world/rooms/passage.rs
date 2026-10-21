@@ -21,7 +21,8 @@
 //! the passage ([`ZonePassage::look`], [`ZonePassage::door_open`],
 //! [`ZonePassage::gate_ripple`]), which presentation reads.
 //!
-//! A game turns passages on ([`ZonePassageRules`]); without them a door is
+//! A game turns passages on for its own rooms by declaring
+//! [`ZonePassageRules`] (`declare_rules`); in a room without them a door is
 //! the instant crossing it always was.
 
 use bevy::prelude::*;
@@ -32,12 +33,11 @@ use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomIns
 
 use crate::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
 
-/// Whether a game plays passages at its doors and gates.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ZonePassageRules {
-    /// Doors and gates play their passage. `false`: the instant crossing.
-    pub enabled: bool,
-}
+/// The rule that a room's doors and gates play their passage. A game declares
+/// it for its own rooms' scope, so another game's rooms in the same host keep
+/// the instant crossing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ZonePassageRules;
 
 /// What a body passes through.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -288,10 +288,18 @@ impl ZonePassage {
     /// transition's commit says so): the coming-out half begins, at the zone
     /// it comes out of. A zone that is neither a door nor a gate ends the
     /// passage on its next tick.
-    pub fn arrived(&mut self, facing: f32) {
-        let Some(arrival) = self.arrival.clone().filter(|_| self.stage == PassageStage::Entering && self.recorded) else {
+    ///
+    /// `placed` is where the commit put the body. The body stands there, not
+    /// on the far zone's foot: a door at a room's edge reaches into the wall,
+    /// and its foot is inside it, where the commit's arrival point is the one
+    /// it resolved clear of the geometry.
+    pub fn arrived(&mut self, facing: f32, placed: Option<ae::Vec2>) {
+        let Some(mut arrival) = self.arrival.clone().filter(|_| self.stage == PassageStage::Entering && self.recorded) else {
             return;
         };
+        if let Some(placed) = placed {
+            arrival.foot = placed + ae::Vec2::new(0.0, self.half_h);
+        }
         match arrival.kind {
             Some(kind) => *self = self.exiting(&arrival, kind, facing, None),
             None => {

@@ -121,7 +121,8 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
         active_room(&mut app).expect("a live room")
     };
 
-    for _ in 0..40 {
+    // Ambition's door plays its passage (0.7s) before the room changes.
+    for _ in 0..90 {
         interact_key.press(app.world_mut());
         app.update();
         if active_room(&mut app).as_deref() != Some(before.as_str()) {
@@ -129,7 +130,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
         }
     }
     panic!(
-        "held the interact key inside a Door zone of '{before}' for 40 frames \
+        "held the interact key inside a Door zone of '{before}' for 90 frames \
          with the touch overlay installed and the room never changed. The same \
          press opens the same door in `door_entry`'s shipped-host case, which \
          builds everything here EXCEPT `TouchControlsPlugin` — so the overlay is \

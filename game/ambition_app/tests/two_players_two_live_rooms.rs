@@ -203,6 +203,10 @@ fn alice_leaves_bob_with(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
     cross: fn(&mut Platformer2dSimHarness, &str) -> String,
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    // Two live rooms are the setup of every arm built here, and their timing
+    // (a room retiring, Bob's standing frame) is counted from the crossing,
+    // which a door's passage only delays. The passage has its own coverage.
+    crate::common::doors_cross_at_once(&mut sim);
     let first = bob_beside_alice(&mut sim, start, slot);
     assert_eq!(cross(&mut sim, target), target);
     for _ in 0..30 {
@@ -672,7 +676,14 @@ fn a_door_one_player_takes_does_not_stop_the_other_players_room() {
 /// `a_crossing_into_a_room_another_player_holds_joins_it`.
 #[test]
 fn a_player_who_comes_back_joins_the_room_the_other_player_holds() {
-    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    // The subject is the room Alice joins. A passage makes each crossing
+    // longer, and Bob's standing frame walks him into a wall meanwhile.
+    fn at_once(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+        crate::common::doors_cross_at_once(sim);
+        walk_through_the_door_to(sim, target)
+    }
+    let (mut sim, first) =
+        alice_leaves_bob_by(Some(ambition_platformer2d::characters::control::PlayerSlot(1)), at_once);
     assert_eq!(walk_through_the_door_to(&mut sim, ROOM), ROOM);
     for _ in 0..30 {
         sim.step(base());
@@ -2641,6 +2652,8 @@ struct SeatsAtTheDoors {
 /// his crossing is accepted. He then goes through it.
 fn alice_and_then_bob_go_through_their_doors(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     use ambition_platformer2d::engine_core::AabbExt as _;
+    // The subject is each seat's door cooldown, which a passage only delays.
+    crate::common::doors_cross_at_once(sim);
     let (_, bob_was) = where_they_are(sim);
     let room = walk_through_the_door_to(sim, target);
     let at_alices_commit = (seat_waits(sim, 0), seat_waits(sim, 1));
@@ -2728,6 +2741,8 @@ fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
         fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
     )
     .expect("switch_lab boots");
+    // The subject is the seat's door cooldown, which a passage only delays.
+    crate::common::doors_cross_at_once(&mut sim);
     for _ in 0..10 {
         sim.step(base());
     }
@@ -3465,6 +3480,9 @@ thread_local! {
 /// the four ticks after it).
 fn walk_through_the_door_recording_its_reset_effects(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     use ambition_platformer2d::engine_core::AabbExt as _;
+    // The reset effect is the instant crossing's arrival; a passage comes out
+    // of its door instead.
+    crate::common::doors_cross_at_once(sim);
     use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
     let record = |sim: &Platformer2dSimHarness| {
         let rooms: Vec<_> = sim

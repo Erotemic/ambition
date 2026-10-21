@@ -80,6 +80,39 @@ pub fn fixed_60hz_sim() -> Platformer2dSimHarness {
         .expect("Platformer2dSimHarness::new")
 }
 
+/// Ambition's doors play a passage (`ZonePassageRules`, declared for its
+/// rooms). A test whose subject is the crossing itself (its commit, its
+/// cooldown, the room it arrives in) takes the passage away, so a door crosses
+/// at once, as it does in a game that declares no passages.
+pub fn doors_cross_at_once(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::actors::rooms::passage::ZonePassageRules;
+    use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+    sim.world_mut()
+        .resource_mut::<DeclaredRules<ZonePassageRules>>()
+        .restate(RulesScope::UntaggedRooms, None);
+}
+
+/// Step until no driven body is in a door's passage: the body has come out of
+/// the far door and has its control back. A walker that returns when the room
+/// changes returns while the body still comes out, holding its control.
+pub fn finish_passages(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::actors::rooms::passage::ZonePassage;
+    use ambition_platformer2d::characters::control::DrivingParticipant;
+    for _ in 0..120 {
+        let world = sim.world_mut();
+        if world
+            .query_filtered::<(), (bevy::prelude::With<ZonePassage>, bevy::prelude::With<DrivingParticipant>)>()
+            .iter(world)
+            .next()
+            .is_none()
+        {
+            return;
+        }
+        sim.step(base());
+    }
+    panic!("a door's passage did not end within 120 steps");
+}
+
 pub fn fixed_60hz_room_sim(room: &str) -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room))
         .expect("Platformer2dSimHarness::new")
@@ -568,6 +601,9 @@ pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) 
             })
             .active_room;
         if room != before {
+            // Ambition's doors play a passage: come out of the far door, with
+            // control back, before the caller acts.
+            finish_passages(sim);
             return room;
         }
     }

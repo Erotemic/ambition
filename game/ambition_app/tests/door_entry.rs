@@ -61,10 +61,10 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
         );
     };
 
-    // Press and hold. A door is buffered-interact, and the transition commits a
-    // frame or two later (a rollback host defers it to a confirmed boundary), so
-    // the press is held across the window rather than tapped once.
-    for _ in 0..30 {
+    // Press and hold. A door is buffered-interact, and Ambition's door plays its
+    // passage (open, walk in: 0.7s) before the transition commits, so the press
+    // is held across the window rather than tapped once.
+    for _ in 0..90 {
         sim.step(interact());
         if active_room(&mut sim) != before {
             return;
@@ -72,7 +72,7 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
     }
 
     panic!(
-        "held interact inside the `{door}` door of '{before}' for 30 frames and \
+        "held interact inside the `{door}` door of '{before}' for 90 frames and \
          the room never changed. The transition itself is covered elsewhere by \
          writing `RoomTransitionRequested` directly — so what this failure names \
          is the INPUT half: the press reaching \
@@ -202,7 +202,8 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     };
 
     interact_key.press(app.world_mut());
-    for _ in 0..40 {
+    // The door's passage (0.7s) plays before the room changes.
+    for _ in 0..90 {
         app.update();
         let now = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
             .map(|spec| spec.id.clone());
@@ -213,7 +214,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
 
     panic!(
         "the shipped host held its own Interact binding inside the `{}` door of \
-         '{room_before}' for 40 frames and the room never changed. The sim-harness \
+         '{room_before}' for 90 frames and the room never changed. The sim-harness \
          case in this file passes, so the break is in what the HOST adds: the \
          input context that has to grant the participant's actions to gameplay, \
          or the binding above reaching `ControlFrame.interact_pressed`",
@@ -256,9 +257,9 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
          opens on one press of it opens while somebody is jumping past it"
     );
 
-    // The second tap, inside the window.
+    // The second tap, inside the window. The door's passage plays first.
     sim.step(up);
-    for _ in 0..30 {
+    for _ in 0..90 {
         sim.step(base());
         if active_room(&mut sim) != before {
             return;

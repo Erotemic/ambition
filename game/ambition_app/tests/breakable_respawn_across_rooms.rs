@@ -64,6 +64,10 @@ fn break_the_platform_for(sim: &mut Platformer2dSimHarness, respawn_s: f32) -> f
 /// room changes. Returns the room arrived in.
 pub(crate) fn cross_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     use ambition_platformer2d::engine_core::AabbExt as _;
+    // It holds the body in the zone every tick, and its callers count session
+    // seconds across a round trip: the crossing is their setup, and a door's
+    // passage would both fight the hold and spend the seconds.
+    crate::common::doors_cross_at_once(sim);
     let before = sim.observation().active_room.clone();
     let at = zone_to(sim, target).aabb.center();
     for _ in 0..240 {

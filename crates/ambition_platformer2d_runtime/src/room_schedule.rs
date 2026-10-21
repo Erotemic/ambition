@@ -24,8 +24,6 @@ pub struct RoomTransitionSchedulePlugin;
 impl Plugin for RoomTransitionSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // Off until a game turns its passages on.
-        app.init_resource::<ambition_platformer2d_actor_monolith::rooms::passage::ZonePassageRules>();
         app.add_systems(
             sim,
             (

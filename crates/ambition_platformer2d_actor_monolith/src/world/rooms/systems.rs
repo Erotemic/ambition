@@ -117,13 +117,12 @@ pub fn detect_room_transition_system(
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     talkable: crate::features::ecs::TalkableBodies,
-    // A game that plays passages: a door or a gate starts one, and the
+    // A room whose game plays passages: a door or a gate starts one, and the
     // passage records the crossing when its going-in ends (`passage`).
-    passage_rules: Option<Res<super::passage::ZonePassageRules>>,
+    passage_rules: crate::session::governing_rules::RulesOf<super::passage::ZonePassageRules>,
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    let passages = passage_rules.is_some_and(|rules| rules.enabled);
     // Each seat's driven body crosses the doors of its own live room, in slot
     // order (OW1). The intent slot holds one crossing, so the first crossing
     // admitted is this tick's, and another seat asks again on a later tick.
@@ -270,10 +269,12 @@ pub fn detect_room_transition_system(
             );
             continue;
         };
-        // A door or a gate of a game that plays passages: the body goes in by
-        // its passage, which records this crossing when it has gone in. Its
-        // sound is the passage's, now, not the commit's.
-        if passages && matches!(zone.zone.activation, LoadingZoneActivation::Door) {
+        // A door or a gate in a room whose game plays passages: the body goes
+        // in by its passage, which records this crossing when it has gone in.
+        // Its sound is the passage's, now, not the commit's.
+        if matches!(zone.zone.activation, LoadingZoneActivation::Door)
+            && passage_rules.of(subject_entity).is_some()
+        {
             use ae::AabbExt as _;
             let kind = if portals.is_portal(&zone.zone.id) {
                 super::passage::PassageKind::Gate

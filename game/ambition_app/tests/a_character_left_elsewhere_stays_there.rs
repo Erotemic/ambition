@@ -68,6 +68,8 @@ fn place(sim: &mut Platformer2dSimHarness, body: Entity, at: ambition_platformer
 /// changes. Returns the room arrived in.
 fn take_the_door(sim: &mut Platformer2dSimHarness, body: Entity, target: &str) -> String {
     use ambition_platformer2d::engine_core::AabbExt as _;
+    // The subject is where the character is left; the doors are setup.
+    crate::common::doors_cross_at_once(sim);
     let before = sim.observation().active_room.clone();
     let door = door_to(sim, target).aabb.center();
     place(sim, body, door);

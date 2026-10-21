@@ -373,7 +373,9 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
     }
 
     let mut arrived = None;
-    for _ in 0..40 {
+    // The door's passage (0.7s) plays before the room changes, and the
+    // possessed body comes out of the far door before it is asked about.
+    for _ in 0..120 {
         sim.step(AgentAction {
             interact: true,
             interact_held: true,
@@ -381,6 +383,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
         });
         if sim.observation().active_room != before_room {
             arrived = Some(sim.observation().active_room.clone());
+            crate::common::finish_passages(&mut sim);
             break;
         }
     }

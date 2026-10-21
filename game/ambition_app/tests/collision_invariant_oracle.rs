@@ -227,6 +227,12 @@ fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 }
 
 /// The player's entity, so the Class-B ledger can be read per body.
+fn held_by_a_passage(sim: &Platformer2dSimHarness, body: ambition_platformer2d::bevy::prelude::Entity) -> bool {
+    sim.world()
+        .get::<ambition_platformer2d::actors::rooms::passage::ZonePassage>(body)
+        .is_some_and(|passage| passage.holds_body())
+}
+
 fn player_entity(
     sim: &mut Platformer2dSimHarness,
 ) -> Option<ambition_platformer2d::bevy::prelude::Entity> {
@@ -673,6 +679,17 @@ fn run_episode(
             straddled_carve: carve,
             remaps: &remaps,
         };
+        // A body a door's passage holds is placed by the transit authority,
+        // not by collision: it walks into the doorway, which an edge door
+        // authors half inside the wall. The invariants resume when the
+        // passage gives the body back.
+        if subject.is_some_and(|subject| held_by_a_passage(&sim, subject)) {
+            prev_support = None;
+            prev_pos = obs.player_pos;
+            prev_room = obs.active_room.clone();
+            prev_resets = obs.resets;
+            continue;
+        }
         violations.extend(check_step(
             &obs.active_room,
             seed,

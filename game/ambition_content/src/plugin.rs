@@ -116,6 +116,17 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("Ambition's pack has a `room_rules` source, and a pack that compiles lowers it"),
         );
 
+        // Ambition's doors and gates play a passage: the door opens and you walk
+        // through it; you leap into a gate and it ripples (Jon, 2026-10-19).
+        // Its own rooms only, so a hosted game keeps the instant crossing.
+        {
+            use ambition_combat::scoped_rules::DeclareRulesExt as _;
+            app.declare_rules(
+                ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+                ambition_platformer2d_actor_monolith::rooms::passage::ZonePassageRules,
+            );
+        }
+
         // Spectator duel staging is room-construction content.
         app.init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>();
         let duel = app.world().resource::<super::tuning::AmbitionTuning>().0.duel.clone();

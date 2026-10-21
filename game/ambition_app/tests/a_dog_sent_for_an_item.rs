@@ -348,6 +348,9 @@ fn put_the_blink_next_door(
     ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
 ) {
     use crate::common::walk_through_the_door_to;
+    // The dog's errand is the subject; the doors cross at once so its
+    // crossings and the two rooms do not wait on a passage.
+    crate::common::doors_cross_at_once(&mut sim);
     let hub = crate::two_players_two_live_rooms::bob_beside_alice(
         &mut sim,
         HUB,
@@ -677,6 +680,9 @@ fn leave_the_blink_in_a_room_nobody_holds(
     mut sim: ambition_app::Platformer2dSimHarness,
 ) -> (ambition_app::Platformer2dSimHarness, Entity) {
     use crate::common::walk_through_the_door_to;
+    // The dog's errand is the subject; the doors cross at once so its
+    // crossings and the two rooms do not wait on a passage.
+    crate::common::doors_cross_at_once(&mut sim);
     sim.step_n(base(), 10);
     let (dog, blink) = the_dog_and_the_blink_in(&mut sim);
     let at = sim_blink_at(&sim, blink);

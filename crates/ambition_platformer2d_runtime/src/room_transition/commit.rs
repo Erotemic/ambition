@@ -736,7 +736,7 @@ impl RoomTransitionFinalize<'_, '_> {
                 let facing = subject
                     .and_then(|subject| self.bodies.clusters.get(subject).ok().map(|body| body.kinematics.facing))
                     .unwrap_or(1.0);
-                passage.arrived(facing);
+                passage.arrived(facing, arrival_pos);
                 true
             }
             None => false,

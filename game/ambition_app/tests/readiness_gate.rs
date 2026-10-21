@@ -56,6 +56,9 @@ fn cross(fixed_tick: bool, halve_the_frame: bool) -> Crossing {
         .with_save(a_save_that_has_seen_the_hub_intro())
         .with_fixed_tick(fixed_tick);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
+    // The subject is the crossing's transaction, which a door's passage only
+    // delays; its counts are from the press.
+    crate::common::doors_cross_at_once(&mut sim);
     for _ in 0..20 {
         sim.step(base());
     }

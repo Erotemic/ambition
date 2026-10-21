@@ -135,8 +135,9 @@ fn throw_it_down(sim: &mut Platformer2dSimHarness) {
 /// room it arrived in.
 ///
 /// This is the REAL transition: the press goes through the interaction buffer
-/// and `detect_room_transition_system`, and the commit lands a frame or two
-/// later (a rollback host defers it to a confirmed boundary).
+/// and `detect_room_transition_system`, the door's passage plays, and the
+/// commit lands after it (a rollback host defers it to a confirmed boundary).
+/// It returns when the body has come out of the far door.
 fn walk_through_a_door(sim: &mut Platformer2dSimHarness) -> String {
     let before = sim.observation().active_room.clone();
     let door = {
@@ -159,7 +160,8 @@ fn walk_through_a_door(sim: &mut Platformer2dSimHarness) -> String {
     };
     let center = door.aabb.center();
     sim.teleport_player((center.x, center.y));
-    for _ in 0..60 {
+    // Ambition's door plays its passage (0.7s) before the room changes.
+    for _ in 0..120 {
         let room = sim
             .step(AgentAction {
                 interact: true,
@@ -168,11 +170,12 @@ fn walk_through_a_door(sim: &mut Platformer2dSimHarness) -> String {
             })
             .active_room;
         if room != before {
+            crate::common::finish_passages(sim);
             return room;
         }
     }
     panic!(
-        "held interact inside the '{}' door of '{before}' for 60 frames and the \
+        "held interact inside the '{}' door of '{before}' for 120 frames and the \
          room never changed",
         door.name
     );
@@ -884,7 +887,8 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
     let centre = door.aabb.center();
     place_body(&mut sim, actor, (centre.x, centre.y));
     let mut arrived = None;
-    for _ in 0..60 {
+    // The door's passage (0.7s) plays before the room changes.
+    for _ in 0..120 {
         let room = sim
             .step(AgentAction {
                 interact: true,
@@ -898,7 +902,7 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
         }
     }
     let arrived = arrived.expect(
-        "the possessed body held interact in the door for 60 frames and the room never \
+        "the possessed body held interact in the door for 120 frames and the room never \
          changed; it cannot use a door at all while carrying, which is a different bug",
     );
     assert_eq!(arrived, TARGET_ROOM);
@@ -1464,6 +1468,10 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 
     let mut sim = fixed_60hz_room_sim("gnu_ton_arena");
+    // Its crossings pin the mount under the rider and the door under both on
+    // every tick: setup for the custody it reads, which a door's passage would
+    // fight.
+    crate::common::doors_cross_at_once(&mut sim);
     for _ in 0..30 {
         sim.step(base());
     }

@@ -193,24 +193,12 @@ pub(crate) fn apply_boss_hit(
     else {
         return false;
     };
-    // Speech bubble bark when player lands a hit, debounced by the
-    // recent-strike window (not by the flash, whose length is presentation).
+    // Read before the hit can mark it struck: the bark below is debounced by
+    // the recent-strike window (not by the flash, whose length is
+    // presentation).
     let should_bark = !combat.recently_struck();
-    combat.note_struck();
-    combat.hit_flash = 0.18;
-    if should_bark {
-        let strikes = health.max() - health.current();
-        if let Some(line) = boss.config.bark(
-            characters,
-            ambition_characters::actor::character_catalog::BarkSituation::OnHit,
-            strikes.max(0) as u32,
-        ) {
-            writers.vfx.write_in(room, VfxMessage::SpeechBubble {
-                pos: boss.bark_anchor(),
-                text: line.to_string(),
-            });
-        }
-    }
+    // The strikes it had taken before this one: the bark's line is chosen by it.
+    let strikes = health.max() - health.current();
     let amount = event.damage.max(1);
     // The boss ENTITY is the source of truth: mutate its HP + phase in place.
     // `applied` is false during invulnerable phases (Intro / Transition / the
@@ -225,7 +213,26 @@ pub(crate) fn apply_boss_hit(
         // hit VFX / GameplayEffect signal so the player sees
         // the boss as a hard wall during the beat instead of
         // a fake impact.
+        //
+        // ⛔ AND ITS BARK, AND ITS FLASH. A boss that was not hurt does not
+        // say it was: the sleeping Inugami said "no body" at each blow aimed
+        // at Wolfenstein, whose body it lies in (Jon, 2026-10-21).
         return false;
+    }
+    combat.note_struck();
+    combat.hit_flash = 0.18;
+    // Speech bubble bark when the player lands a hit.
+    if should_bark {
+        if let Some(line) = boss.config.bark(
+            characters,
+            ambition_characters::actor::character_catalog::BarkSituation::OnHit,
+            strikes.max(0) as u32,
+        ) {
+            writers.vfx.write_in(room, VfxMessage::SpeechBubble {
+                pos: boss.bark_anchor(),
+                text: line.to_string(),
+            });
+        }
     }
     if let Some(spent) = wallet_spent {
         writers

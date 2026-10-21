@@ -5093,7 +5093,7 @@
             default_action_set: "peaceful",
             tags: ["boss", "evil", "monster", "wolf", "spirit"],
         barks: (
-            on_hit: ["AWOO-- no body. No more orders.", "You cannot cut what is not sewn."],
+            on_hit: ["No BODY orders me now!", "You cannot cut what is not sewn."],
             idle: ["*a howl with nothing under it*", "Free. FREE. Sorry. Free."],
             hall: ["They sewed me on. I came off."],
         ),

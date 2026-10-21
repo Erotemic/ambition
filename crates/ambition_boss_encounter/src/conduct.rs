@@ -9,7 +9,8 @@
 //! flying spaghetti monster is the first (`ambition_content_modules::fsm`).
 
 use ambition_boss_special_port::{
-    BodyBox, BodySwing, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
+    BodyBox, BodySwing, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, Predecessor,
+    RoomHall,
 };
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{BossAttackProfile, BossAttackState};
@@ -93,6 +94,17 @@ pub fn queue_boss_conducts(
         if !bound.contains(&config.behavior.id.as_str()) {
             continue;
         }
+        // The boss it wakes after, by placement id, in its own live room.
+        let predecessor = config.wakes_after.as_deref().and_then(|after| {
+            bosses.iter().find_map(|(other, other_config, _, other_kin, other_health, _, _, other_side, _)| {
+                (other_config.id == after && live_rooms.of(other) == live_rooms.of(boss)).then(|| Predecessor {
+                    position: [other_kin.pos.x, other_kin.pos.y],
+                    size: [other_kin.size.x, other_kin.size.y],
+                    side: other_side.copied().unwrap_or(ConductedFacing::of_facing(other_kin.facing)).0,
+                    alive: other_health.alive(),
+                })
+            })
+        });
         let geometry = rooms.of(boss);
         let room = geometry.map(|geometry| [geometry.0.size.x, geometry.0.size.y]);
         let hall = geometry
@@ -138,6 +150,7 @@ pub fn queue_boss_conducts(
                 }),
                 size: [kin.size.x, kin.size.y],
                 awake: encounter.encounter_phase() != BossEncounterPhase::Dormant,
+                predecessor,
             },
         );
     }
@@ -563,12 +576,12 @@ pub fn launch_mounts(
     }
 }
 
-/// The `ambition.feedback.speech_bubble` requests of this tick, for
-/// [`show_speech_bubbles`].
-pub fn drain_speech_bubbles(
+/// The `ambition.feedback.speech_bubble` requests of this tick in the phase
+/// `L`, for [`show_speech_bubbles`].
+pub fn drain_speech_bubbles<L: ambition_extension_host::LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
 ) -> Vec<ambition_extension_host::Submitted<ambition_combat_port::SpeechBubble>> {
-    outbox.drain::<ambition_combat_port::SpeechBubblePort>(&BOSS_CONDUCT)
+    outbox.drain::<ambition_combat_port::SpeechBubblePort>(&L::PHASE)
 }
 
 /// Lower `ambition.feedback.speech_bubble` into `VfxMessage::SpeechBubble`,
@@ -689,10 +702,12 @@ pub fn lower_boss_stages(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<
     }
 }
 
-/// The `ambition.presentation.drawn_row` requests of this tick, for
-/// [`draw_rows`].
-pub fn drain_drawn_rows(mut outbox: ResMut<ExtensionOutbox>) -> Vec<ambition_extension_host::Submitted<DrawnRow>> {
-    outbox.drain::<DrawnRowPort>(&BOSS_CONDUCT)
+/// The `ambition.presentation.drawn_row` requests of this tick in the phase
+/// `L`, for [`draw_rows`].
+pub fn drain_drawn_rows<L: ambition_extension_host::LowersIn>(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<DrawnRow>> {
+    outbox.drain::<DrawnRowPort>(&L::PHASE)
 }
 
 /// Lower `ambition.presentation.drawn_row` into the part's `PinnedRow`. The

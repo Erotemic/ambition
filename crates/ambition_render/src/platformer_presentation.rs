@@ -139,6 +139,9 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(Update, crate::rendering::daylight::light_the_world.after(crate::rendering::camera_follow));
         // The light a boss asks for in its room (`ambition.boss.stage`).
         app.add_systems(Update, crate::rendering::boss_stage::light_the_boss_stage.after(crate::rendering::camera_follow));
+        // A boss's slow-motion finish: the picture drained but the boss, and
+        // cinema bars (`ambition_boss_encounter::finish`).
+        crate::rendering::boss_finish::install(app);
         // The motes of each live room's air, and their motion.
         app.init_resource::<crate::rendering::ambient_motes::AmbientMoteStyles>();
         app.add_systems(

@@ -36,6 +36,11 @@ pub struct BossConfig {
     /// and its death fires none of its archetype's story consequences. See
     /// `RoomMetadata::practice`.
     pub practice: bool,
+    /// The placement this boss wakes after (`RoomSpec::boss_successions`):
+    /// it sleeps until the save records that placement `Cleared`, and its
+    /// conductor sees where that boss's body lies. `None` for a boss that
+    /// follows none.
+    pub wakes_after: Option<String>,
 }
 
 impl BossConfig {
@@ -415,6 +420,7 @@ impl BossClusterScratch {
                 name,
                 spawn: center,
                 practice: false,
+                wakes_after: None,
                 brain,
                 behavior,
                 seed,
@@ -600,6 +606,7 @@ pub mod test_support {
             name,
             spawn: ae::Vec2::ZERO,
             practice: false,
+            wakes_after: None,
             brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {
                 script_id: script_id.to_string(),
             },

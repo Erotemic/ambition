@@ -143,6 +143,7 @@
         (path: "data/boss_encounters/hunny_horror_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/overflow_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/wolfenstein_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/wolfenstein_inugami.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_seeds.ron", schema: "boss_seed_library", version: 1),
         (path: "data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
         (path: "audio/music_registry.ron", schema: "music_registry", version: 1),

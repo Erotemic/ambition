@@ -299,6 +299,20 @@
                 (phase: "Enrage", state: "storm"),
             ],
         ),
+        // The Inugami: silence while it rises out of his body (his death
+        // stopped the march), then the theremin howls the tune; the storm at
+        // its end.
+        (
+            boss_id: "wolfenstein_inugami",
+            cue_id: "galvanic_march",
+            phase_states: [
+                (phase: "Phase1", state: "howl"),
+                (phase: "Transition", state: "unleash"),
+                (phase: "Phase2", state: "howl"),
+                (phase: "Stagger", state: "howl"),
+                (phase: "Enrage", state: "storm"),
+            ],
+        ),
     ],
     // The town of the Math dimension by the time of day: four pieces of one
     // family (the Euclid Street motif). The gate hall under the street

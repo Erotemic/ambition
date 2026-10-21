@@ -432,6 +432,102 @@ The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
    roster pin and close WOLFENSTEIN-FAIRNESS); `fight_discovery` tuning;
    Jon's playtest.
 
+## The Inugami — the wolf unsewn (Jon, 2026-10-20)
+
+Jon: "add an additional phase to Wolfenstein where the head resurrects as an
+inugami and you fight the floating spectral head as an additional boss".
+Then: "I think a red spectral glow would be better".
+Then: "maybe the spirits around the head should be blue. and a shader may be
+in order here", and "the head should also get bigger in the fight. so it's a
+giant head".
+
+**The story.** When Wolfenstein dies, the lights come back on his body. Then
+the seam round his neck gives: the stitches pop in red ghost fire, and his
+head tears off. The fire catches in it, it grows, rises and howls under its
+own name card. The wolf is free of the body that obeyed. When it dies, the
+fire goes out of it, the spirit leaves as a wisp, and his own head drops to
+the floor beside his headless body.
+
+**Built (untested in play):**
+
+- A second boss placement, `castle_godwin.wolfenstein_inugami` (the Hall of
+  Bosses copy: `hall.wolfenstein_inugami`), with its own health (48), phases
+  (transition at 50%, enrage at 20%), name card ("Inugami", "The Wolf
+  Unsewn"), save record and chest (his `galvanic_bolts` chest moved to it).
+- Engine: a `BossSpawn` can name the `BossSpawn` it wakes after
+  (`wakes_after` EntityRef → `RoomSpec::boss_successions` →
+  `BossConfig::wakes_after`). The successor sleeps until the save records the
+  predecessor `Cleared`. Its conductor sees the predecessor's body
+  (`ambition.boss.conduct` v9, `predecessor`). The health bar shows only an
+  awake boss. A life switch sets the life of the whole succession. A fallen
+  boss with no music state does not stop the cue that its successor plays.
+- Art: renderer `wolfenstein_inugami`, his own head pieces
+  (`wolfenstein.WolfHead`) in a red spirit ink (`SPIRIT`), with red ghost
+  fire from the neck. His sheet adds `unsewn` and `headless`.
+- A giant head: built 176 x 212 (he stands 140). It rises at the size his
+  head was drawn on his body and swells to its build in the rise; it swells
+  again to 1.15x from the transition and 1.3x at the enrage
+  (`ambition.boss.scale`). When the spirit leaves it, it shrinks back to his
+  head. Its sheet publishes at 1.68 texels a world unit (830 px frames, the
+  median character's density), not the game's 3.4 (about 1700 px frames): so
+  its frame fits the largest impostor cell, which its hit flash needs.
+- The onibi round it are blue (sheet wisps and `inugami_onibi`, the cold
+  fire's art); the head and its fire are red.
+- Shader (polish): `ambition_render::spirit_field`, a whole-screen pass: near
+  a `SpiritAura` the picture ripples like air over a fire and takes the
+  aura's tint. `ambition_content::presentation::inugami_field` gives the
+  risen head its red aura. With screen shaders off nothing else changes.
+- Conductor: `ambition_content_modules::inugami`.
+
+| move | the tell | the dodge | the punish |
+|---|---|---|---|
+| `inu_bite` | it draws back, jaws wide | step out of its line | it tumbles past and shakes its head |
+| `inu_dive` | it flies up over you, nose down | leave the spot | its teeth in the floor (1.5 s, and 0.4 s to pull free; 1.2 s in all at the enrage) |
+| `inu_onibi` | fire balls kindle round it | dodge the balls | none |
+| `inu_howl` | head back | walk out of the ring | the howl (it stays still) |
+| `inu_vanish` | it fades out | turn round: it comes back behind you | (a bite follows) |
+| `inu_gutter` | its fire gutters | none needed | the long window on the floor |
+
+**Blue spirits (2026-10-21).** Jon: "I want the Japanese ghost spirits
+around him to be blue". Four blue hitodama turn round the head on a tilted
+ring, behind it and in front of it. They go while it throws onibi, and while
+it vanishes or appears.
+
+**Kagero comes to your aid (2026-10-21).** Jon: "I also want a ninja to come
+to your aid in the fight, appear on screen and do a few hits on the boss and
+then fly off the screen (using flyline maybe). It should not be the Shadow
+Oni Leader, a different ninja. We can have some story play in with that."
+
+- Who: Kagero (`npc_ninja_kagero`), a kunoichi who hunts the spirits the
+  regime makes. She followed the inugami into the castle. She is black with
+  red eyes in a dark slit, as the ninjas are; the white of her scarf and her
+  paper talismans says she is not of the dojo. Art: renderer `ninja_kagero`
+  (first draft).
+- When: once, at the first window the head opens (its teeth in the floor,
+  or its fire spent) after you have been in the final hall with it for 3 s:
+  her cuts land while it cannot guard or vanish. The conductor summons her
+  on its far side from you
+  (`ambition.boss.summon` v3: `side: Player`, `holds`).
+- What: her own module performs her visit (`ambition_content_modules::kagero`,
+  status `ambition.kagero_visit`, ticked in `technique_execution`). She comes
+  out of her smoke and speaks, goes at the head, cuts three times (2 + 2 + 3
+  damage, real hits), then her line drops from the sky, she catches it and is
+  reeled up and away. She is dismissed when she is high or after 1.6 s.
+- Her lines: "Noisy one. Even the dead heard you." and "It was a dog once.
+  Set it free, ripple-foot." (the ninjas name the robot by its noise:
+  `docs/brainstorms/llm_brainstorm.md`).
+- Engine: `technique_execution` now also offers `ambition.presentation.drawn_row`,
+  `ambition.feedback.speech_bubble`, `ambition.feedback.burst` and
+  `ambition.feedback.body_sound`, so a module can draw, voice and sound a
+  body it ticks.
+- The line is the engine's body line (`ambition.feedback.body_line`), not
+  Smash's flyline move: that move is a winch for a body on the axis-swept
+  model, and her visit is a short scripted beat.
+
+**Open:** the onibi use the fireball art (`inugami_onibi` in
+`projectile_visuals.ron`); its own sounds (it borrows cues); its own music
+state (it plays `galvanic_march` "howl" and "storm").
+
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged

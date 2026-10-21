@@ -210,6 +210,7 @@ impl LdtkProject {
             >,
         > = Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
+        let mut boss_successions: Vec<(String, String)> = Vec::new();
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
         let mut loop_attachments: Vec<LoopAttachment> = Vec::new();
         let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> =
@@ -224,6 +225,7 @@ impl LdtkProject {
         // Index before conversion: a `path_ref` can name a path authored later in
         // the file, or in a sibling level of the same active area.
         let kinematic_path_ids = kinematic_path_ids_by_iid(levels);
+        let boss_placement_ids = boss_placement_ids_by_iid(levels);
         for level in levels {
             // First non-empty wins, in LDtk file order, when an active area spans
             // multiple levels.
@@ -309,6 +311,7 @@ impl LdtkProject {
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
                         mount_links.extend(emission.mount_links);
+                        boss_successions.extend(emission.boss_successions);
                         chains.extend(emission.chains);
                         loop_attachments.extend(emission.loop_attachments);
                         placements.extend(emission.placements);
@@ -395,6 +398,23 @@ impl LdtkProject {
         #[cfg(feature = "portal_ldtk")]
         entity_converters::settle_portals_on_faces(&mut placements, &blocks, &chains);
 
+        // A successor names its predecessor by iid; it waits on that
+        // placement's id. A ref to anything but a BossSpawn of this area is
+        // refused: the successor would sleep for ever.
+        let boss_successions: Vec<(String, String)> = boss_successions
+            .into_iter()
+            .filter_map(|(successor, iid)| match boss_placement_ids.get(&iid) {
+                Some(predecessor) => Some((successor, predecessor.clone())),
+                None => {
+                    errors.push(format!(
+                        "area '{area_id}' BossSpawn `{successor}`: `wakes_after` references \
+                         entity `{iid}`, which is not a BossSpawn in this active area"
+                    ));
+                    None
+                }
+            })
+            .collect();
+
         let mut resolved_moving_platforms = Vec::new();
         for platform in moving_platforms {
             match platform.resolve(&kinematic_paths) {
@@ -477,6 +497,7 @@ impl LdtkProject {
             boss_spawns,
             debug_labels,
             mount_links,
+            boss_successions,
             placements,
             encounter_triggers,
             lock_walls,
@@ -562,6 +583,10 @@ pub struct RoomEmission {
     /// `EnemySpawn` with a `mounted_on` entity-ref. Resolved into a
     /// `RidingOn`/`MountSlot` link after both actors spawn (`FeatureId` match).
     pub mount_links: Vec<(String, String)>,
+    /// Boss successions: `(successor_id, predecessor_iid)` from a `BossSpawn`
+    /// with a `wakes_after` entity-ref. The area resolves the iid to the
+    /// predecessor's placement id ([`boss_placement_ids_by_iid`]).
+    pub boss_successions: Vec<(String, String)>,
     /// Rideable surface chains (momentum-locomotion geometry). `SurfaceChain`
     /// emits one; generated-geometry converters (for example `SurfaceLoop`) can
     /// emit many. Folded into `World::chains`. Collision applies only to
@@ -801,6 +826,19 @@ fn kinematic_path_ids_by_iid(levels: &[&LdtkLevel]) -> BTreeMap<String, String> 
             let name = entity_display_name(entity);
             (entity.iid.clone(), kinematic_path_lookup_id(entity, &name))
         })
+        .collect()
+}
+
+/// This active area's `BossSpawn`s, by iid → the placement id each one is
+/// known by ([`crate::fields::boss_placement_id`]). A `wakes_after` ref names
+/// its predecessor by iid; the successor waits on that placement's id.
+fn boss_placement_ids_by_iid(levels: &[&LdtkLevel]) -> BTreeMap<String, String> {
+    levels
+        .iter()
+        .copied()
+        .flat_map(|level| level.all_entity_instances())
+        .filter(|entity| entity.identifier == "BossSpawn")
+        .map(|entity| (entity.iid.clone(), crate::fields::boss_placement_id(entity)))
         .collect()
 }
 

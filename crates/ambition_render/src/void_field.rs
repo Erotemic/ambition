@@ -120,7 +120,7 @@ impl FullscreenMaterial for VoidFieldSettings {
 /// One aura as a camera sees it: its middle in the view (0 to 1, y down),
 /// its radius in view heights, its strength. `None` when no part of it is in
 /// the view.
-fn source_in_view(view_px: Vec2, middle_px: Vec2, radius_px: f32, strength: f32) -> Option<Vec4> {
+pub(crate) fn source_in_view(view_px: Vec2, middle_px: Vec2, radius_px: f32, strength: f32) -> Option<Vec4> {
     if view_px.x <= 0.0 || view_px.y <= 0.0 || radius_px <= 0.0 || strength <= 0.0 {
         return None;
     }
@@ -141,7 +141,7 @@ fn source_in_view(view_px: Vec2, middle_px: Vec2, radius_px: f32, strength: f32)
 
 /// The `N` of `seen` that are nearest to the middle of the view, and how many
 /// they are.
-fn nearest<const N: usize>(mut seen: Vec<Vec4>) -> ([Vec4; N], usize) {
+pub(crate) fn nearest<const N: usize>(mut seen: Vec<Vec4>) -> ([Vec4; N], usize) {
     let from_middle = |source: &Vec4| (source.truncate().truncate() - Vec2::splat(0.5)).length_squared();
     seen.sort_by(|a, b| from_middle(a).total_cmp(&from_middle(b)));
     seen.truncate(N);
@@ -169,7 +169,7 @@ fn pack_sources(seen: Vec<Vec4>, wards: Vec<Vec4>, aspect: f32, view: Vec4) -> O
 
 /// The view of `camera` as a part of its target: its top left and its size,
 /// each from 0 to 1. The whole target when the camera states no part.
-fn view_in_target(camera: &Camera) -> Vec4 {
+pub(crate) fn view_in_target(camera: &Camera) -> Vec4 {
     match (camera.logical_viewport_rect(), camera.logical_target_size()) {
         (Some(rect), Some(target)) if target.x > 0.0 && target.y > 0.0 && rect.width() > 0.0 && rect.height() > 0.0 => {
             Vec4::new(rect.min.x / target.x, rect.min.y / target.y, rect.width() / target.x, rect.height() / target.y)
@@ -189,7 +189,7 @@ const WHOLE_TARGET: Vec4 = Vec4::new(0.0, 0.0, 1.0, 1.0);
 /// can be at the same world place on different layers: with no layer test,
 /// the void of one room took the colour out of the picture of the other, and
 /// a ward of one room stopped the void of the other.
-fn drawn_through(camera: Option<&RenderLayers>, thing: Option<&RenderLayers>) -> bool {
+pub(crate) fn drawn_through(camera: Option<&RenderLayers>, thing: Option<&RenderLayers>) -> bool {
     match (camera, thing) {
         (None, None) => true,
         (Some(camera), None) => camera.intersects(&RenderLayers::default()),

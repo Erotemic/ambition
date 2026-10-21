@@ -5079,6 +5079,50 @@
         ),
         hall_dialogue_id: Some("hall_npc_wolfenstein_boss"),
         ),
+        // The Inugami: his head, torn off his dead body and risen as a red
+        // spirit (Jon, 2026-10-20). Its fight is `wolfenstein_inugami`. It is
+        // a look of Wolfenstein, not a second character: the Hall's stand is
+        // his.
+        "npc_wolfenstein_inugami": (
+            display_name: "Inugami",
+            manifest: "sprites/wolfenstein_inugami_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["boss", "evil", "monster", "wolf", "spirit"],
+        barks: (
+            on_hit: ["AWOO-- no body. No more orders.", "You cannot cut what is not sewn."],
+            idle: ["*a howl with nothing under it*", "Free. FREE. Sorry. Free."],
+            hall: ["They sewed me on. I came off."],
+        ),
+        form_of: Some("npc_wolfenstein_boss"),
+        ),
+        // Kagero: the kunoichi who hunts the spirits the regime makes (Jon,
+        // 2026-10-21: a ninja comes to your aid in the Inugami's fight, a few
+        // cuts, and she goes up her line). The Inugami summons her on your
+        // side; her module performs her visit (`ambition_content_modules::
+        // kagero`). She flies: her line carries her.
+        "npc_ninja_kagero": (
+            display_name: "Kagero",
+            manifest: "sprites/ninja_kagero_spritesheet.ron",
+            tier: Basement,
+            body_kind: Floating,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 300.0, move_style: Float, baseline_free_flight: Some(true))),
+            // Her visit is short: she does not stay long enough to fall.
+            max_health: Some(200),
+            tags: ["ninja", "ally", "spirit_hunter"],
+        barks: (
+            on_hit: ["Tch. Watch the noise.", "Not me, ripple-foot. It."],
+            hall: ["You did not sneak in. You arrived incorrectly.", "A spirit is a debt. I collect."],
+        ),
+        ),
         // The Iron Trooper: the regime's heavy, in riveted plate, with a chain
         // gun (a held item, not his drawing). He stands back and fires; close
         // in, he smashes with the gun.

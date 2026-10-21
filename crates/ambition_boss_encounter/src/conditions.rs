@@ -81,6 +81,42 @@ pub fn cleared(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     })
 }
 
+/// `boss.engaged(boss)` — has this boss come out of its sleep and its intro?
+pub fn engaged_descriptor() -> ConditionDescriptor {
+    ConditionDescriptor {
+        id: ConditionId::new(DOMAIN, "engaged"),
+        summary: "true once the named boss fights (it has left its sleep and its intro) or has been defeated",
+        params: &[BOSS],
+    }
+}
+
+/// `boss.engaged` — see [`engaged_descriptor`]. A wall the boss breaks open
+/// when it starts to fight (the Inugami's, out of the throne room) waits on
+/// it: it stands while the boss sleeps or plays its intro, and stays open once
+/// the boss is beaten. A room built again builds the boss asleep, so the wall
+/// stands again.
+///
+/// The fight is the boss's live body (`BossEncounter`) in a phase after its
+/// intro; the defeat is the save's record, as `boss.cleared` reads it.
+pub fn engaged(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(boss) = args[0].as_name() else {
+        return ConditionOutcome::unanswerable("`boss` must be a name");
+    };
+    let beaten = world
+        .get_resource::<ambition_persistence::save::AmbitionGameSave>()
+        .is_some_and(|save| save.data().boss(boss) == PersistedEncounterState::Cleared);
+    let fighting = world.try_query::<(&crate::BossConfig, &crate::BossEncounter)>().is_some_and(|mut bosses| {
+        bosses.iter(world).any(|(config, status)| {
+            config.id == boss
+                && !matches!(
+                    status.encounter_phase(),
+                    crate::BossEncounterPhase::Dormant | crate::BossEncounterPhase::Intro
+                )
+        })
+    });
+    ConditionOutcome::from_bool(beaten || fighting, || WhyNot::new("boss.engaged", boss, "it sleeps, or plays its intro"))
+}
+
 /// Publishes the boss domain's conditions.
 ///
 /// One plugin for one registration line, matching the world-fact, inventory,
@@ -92,6 +128,7 @@ impl bevy::prelude::Plugin for BossConditionsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
         app.publish_condition(cleared_descriptor(), cleared);
+        app.publish_condition(engaged_descriptor(), engaged);
     }
 }
 

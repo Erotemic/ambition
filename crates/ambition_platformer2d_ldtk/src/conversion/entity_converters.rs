@@ -1009,6 +1009,12 @@ pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission
     // The planned `ambition.mount` relation installs the `RidingOn`/`MountSlot`
     // link from this `(rider, mount)` pair, matching the mount's `FeatureId`
     // (== its `iid`).
+    // A boss that rises when another falls (the Inugami out of Wolfenstein)
+    // carries a `wakes_after` entity-ref to that BossSpawn. The area resolves
+    // the iid to the predecessor's placement id.
+    if let Some(predecessor) = field_entity_ref(entity, "wakes_after") {
+        emission.boss_successions.push((id.clone(), predecessor));
+    }
     if let Some(mount_id) = field_entity_ref(entity, "mounted_on") {
         emission.mount_links.push((id, mount_id));
     }

@@ -370,6 +370,7 @@ pub fn spawn_staged_actor_into(
                 overrides,
                 fate,
                 false,
+                None,
             );
         }
         SpawnActorKind::Enemy { brain, character } => {
@@ -1032,6 +1033,8 @@ pub fn spawn_boss_with_overrides_into(
     fate: RecordedFate,
     // It stands in a practice room (`RoomMetadata::practice`).
     practice: bool,
+    // The placement it sleeps until is cleared (`RoomSpec::boss_successions`).
+    wakes_after: Option<String>,
 ) {
     let mut boss = BossClusterScratch::new(
         boss_catalog,
@@ -1041,6 +1044,7 @@ pub fn spawn_boss_with_overrides_into(
         authored.payload.clone(),
     );
     boss.config.practice = practice;
+    boss.config.wakes_after = wakes_after;
     // A placement's authored size outranks the sheet's body. `kin.size` is
     // the collision body; the render basis stays in `status.render_size`.
     if let Some(size) = overrides.combat_size {

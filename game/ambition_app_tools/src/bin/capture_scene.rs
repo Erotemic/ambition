@@ -323,7 +323,8 @@ OPTIONS:
                         take HEARTS [default: 1] of each boss's health on sim
                         tick TICK, and flash it, as a blow that lands does;
                         repeat for more blows. A blow leaves a boss 1 heart;
-                        `xall` is the killing blow, which films its death. What a boss does when it is hurt is
+                        `xall` is the killing blow, which films its death. A boss that
+                        refuses damage (asleep, in its intro) takes none. What a boss does when it is hurt is
                         photographed with no player that swings.
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
@@ -597,6 +598,7 @@ fn blow_on_bosses(
         (
             &mut ambition_platformer2d::characters::actor::BodyHealth,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
+            &mut ambition_platformer2d::boss_encounter::BossEncounter,
         ),
         With<ambition_platformer2d::boss_encounter::BossConfig>,
     >,
@@ -604,10 +606,23 @@ fn blow_on_bosses(
     // The flash of a blow a boss's limb passed on (`PASSED_BLOW_FLASH_S`).
     const BLOW_FLASH_S: f32 = 0.18;
     for (_, hearts) in config.boss_blows.iter().filter(|(on_tick, _)| *on_tick == tick.get()) {
-        for (mut health, mut combat) in &mut bosses {
+        for (mut health, mut combat, mut status) in &mut bosses {
+            // A blow lands only where one can: not on a boss whose encounter
+            // refuses damage (asleep, in its intro: a successor waiting for
+            // its predecessor to fall).
+            if status.encounter.as_ref().is_none_or(|state| state.boss_invulnerable()) {
+                continue;
+            }
             let floor = if *hearts == KILLING_BLOW { 0 } else { 1 };
             health.health.current = (health.current() - hearts).max(floor);
             combat.hit_flash = BLOW_FLASH_S;
+            // The killing blow is the death edge, as a landed hit's is
+            // (`boss_hit`): the encounter goes to `Death` on this tick.
+            if *hearts == KILLING_BLOW {
+                if let Some(state) = status.encounter.as_mut() {
+                    let _ = state.kill();
+                }
+            }
         }
         eprintln!("capture_scene: a blow of {hearts} on each boss on tick {}", tick.get());
     }

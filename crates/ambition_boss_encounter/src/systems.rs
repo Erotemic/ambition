@@ -210,6 +210,13 @@ pub fn update_boss_encounters(
         if crate::boss_is_cleared(&save, &feature.config) {
             health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
+                // A death this room saw (its first Death tick counted) keeps
+                // counting its seconds: the slow-motion finish runs on them
+                // (`crate::finish`). A corpse the room was built with stays at
+                // zero, so it replays nothing.
+                if matches!(phase.phase, crate::BossEncounterPhase::Death) && phase.phase_elapsed > 0.0 {
+                    phase.phase_elapsed += dt;
+                }
                 phase.phase = crate::BossEncounterPhase::Death;
             }
             continue;
@@ -245,8 +252,17 @@ pub fn update_boss_encounters(
                         && body.pos.distance(feature.kin.pos) <= radius
                 })
             };
+            // A successor also sleeps until the save records its predecessor
+            // cleared: the durable predicate, so a room built again after the
+            // predecessor fell wakes it at once.
+            let predecessor_fallen = feature
+                .config
+                .wakes_after
+                .as_deref()
+                .is_none_or(|predecessor| crate::placement_is_cleared(save.data(), predecessor));
             if alive
                 && matches!(phase.phase, crate::BossEncounterPhase::Dormant)
+                && predecessor_fallen
                 && spec.wake_radius.is_none_or(near)
             {
                 phase_events.extend(phase.wake());

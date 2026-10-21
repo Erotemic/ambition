@@ -716,8 +716,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // ── Dead: the coils overload into him and the charge goes out of him;
     // he falls, drawn by the engine, and the room goes dark ──
     if !wolf.alive {
-        inv.submit::<DrawnRowPort>(DrawnRow::body_as_engine())?;
         let t = c.dead_for.map_or(0.0, |t| t + dt);
+        // Then his head tears off and rises (the Inugami's conductor takes
+        // it from `HEAD_OFF_AT`); his body lies on without it.
+        inv.submit::<DrawnRowPort>(if t < UNSEW_AT {
+            DrawnRow::body_as_engine()
+        } else if t < UNSEW_AT + UNSEW_S {
+            DrawnRow::body("unsewn", t - UNSEW_AT, false)
+        } else {
+            DrawnRow::body("headless", t, true)
+        })?;
         let was = t - dt;
         let crossed = |at: f32| t >= at && was < at;
         let bolt_at = neck(at, side);
@@ -1125,7 +1133,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             health: Some(PACK_HEALTH),
                             keeps_contact_damage: true,
                             // His own pack: his volumes pass through them.
-                            on_boss_side: true,
+                            side: ambition_boss_special_port::SummonSide::Boss,
+                            holds: Vec::new(),
                         })?;
                         burst(inv, at, 16, 220.0, DUST, "dust")?;
                     }
@@ -1769,6 +1778,32 @@ const DEATH_COILS_BLOW_AT: f32 = DEATH_FALL_AT + 0.15;
 const DEATH_DARK: f32 = 0.08;
 const DEATH_LIGHTS_FROM: f32 = 3.6;
 const DEATH_LIGHTS_S: f32 = 2.2;
+
+/// When the lights are back on his body, the seam round his neck gives
+/// (`unsewn`, 14 frames of 80 ms) and his head tears off at `HEAD_OFF_AT`
+/// (its 13th frame). The Inugami (`crate::inugami`) rises from it then.
+pub const UNSEW_AT: f32 = DEATH_LIGHTS_FROM + DEATH_LIGHTS_S + 0.5;
+pub const UNSEW_S: f32 = 14.0 * 0.08;
+pub const HEAD_OFF_AT: f32 = UNSEW_AT + 12.0 * 0.08;
+/// Where his head lies when he is dead on his face, in his frame pixels: the
+/// middle of the box of his skull and its jar (measured on `unsewn` frame
+/// 0 against `headless`).
+pub const DEAD_HEAD: Vec2 = Vec2::new(218.4, 184.9);
+/// His head is drawn this many of his frame pixels to a pixel of its own
+/// (`wolfenstein.py`, `HEAD_SIZE`).
+pub const HEAD_SIZE: f32 = 1.2;
+
+impl Body {
+    /// His dead head, from his position, unflipped.
+    pub fn dead_head(self) -> Vec2 {
+        self.art(DEAD_HEAD.x, DEAD_HEAD.y)
+    }
+
+    /// World units per pixel of his head's own drawing.
+    pub fn head_px(self) -> f32 {
+        self.px * HEAD_SIZE
+    }
+}
 
 /// What he stages `t` seconds after he died: the white of the overload, the
 /// lights flickering out with him, the dark, and the lights coming back.

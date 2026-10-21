@@ -17,6 +17,7 @@ pub mod trex;
 pub mod gnu_ton;
 pub mod hall;
 pub mod hunny;
+pub mod inugami;
 pub mod mockingbird;
 pub mod specials;
 pub mod wolfenstein;
@@ -157,6 +158,7 @@ pub fn boss_catalog_fragment_from(
     .with_birth_kit(hunny::HUNNY_ID, hunny::birth)
     .with_birth_kit(mockingbird::MOCKINGBIRD_ID, mockingbird::birth)
     .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, wolfenstein::birth)
+    .with_birth_kit(inugami::INUGAMI_ID, inugami::birth)
     .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
     Ok(fragment)
 }

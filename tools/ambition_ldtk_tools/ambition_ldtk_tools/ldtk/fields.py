@@ -53,6 +53,14 @@ ENTITY_REF_FIELDS: dict[str, dict[str, str]] = {
         # special case, because the caller is a loop over every ref field.
         "spec_allowed_refs": "Any",
     },
+    "wakes_after": {
+        "doc": (
+            "The BossSpawn this boss wakes after: it sleeps until that "
+            "placement is cleared, and rises from that body (the Inugami out "
+            "of Wolfenstein). Resolved into RoomSpec::boss_successions."
+        ),
+        "allowed_refs": "OnlySame",
+    },
     "path_ref": {
         "doc": (
             "The KinematicPath this body patrols. Conversion resolves it to "

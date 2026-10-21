@@ -19,6 +19,7 @@
 | [`encounter_script`](src/encounter_script.rs) | Encounter-script execution and its actor-specific mechanics. |
 | [`events`](src/events.rs) | Boss-encounter presentation sink. |
 | [`extension`](src/extension.rs) | The boss domain's extension adapters. |
+| [`finish`](src/finish.rs) | The slow-motion finish: the killing blow of a boss that ends a fight slows time (Jon, 2026-10-20: "we need an effect to slow down time when you kill the boss"). |
 | [`hall`](src/hall.rs) | The hall a boss fight happens in: its floor and its walls, measured once from the room. |
 | [`ids`](src/ids.rs) | Boss encounter id helper: `encounter_id_from_name` slugs an authored boss name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). |
 | [`life_switch`](src/life_switch.rs) | A boss's life, set by a switch (`SwitchAction::BossLife`). |
@@ -32,7 +33,7 @@
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

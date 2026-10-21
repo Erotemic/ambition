@@ -330,6 +330,22 @@ impl RoomSet {
         &self.rooms[definition.index()]
     }
 
+    /// The boss fight that starts at `placement`: it, and every boss that
+    /// wakes after it ([`RoomSpec::boss_successions`]), in order. One
+    /// placement for a boss that no other follows.
+    pub fn boss_succession_from(&self, placement: &str) -> Vec<String> {
+        let mut fight = vec![placement.to_owned()];
+        while let Some(next) = self.rooms.iter().find_map(|room| {
+            room.boss_successions
+                .iter()
+                .find(|(successor, predecessor)| predecessor == fight.last().expect("never empty") && !fight.contains(successor))
+                .map(|(successor, _)| successor.clone())
+        }) {
+            fight.push(next);
+        }
+        fight
+    }
+
     /// The live room definition at `index`, if the set has that room.
     pub fn definition(&self, index: usize) -> Option<LiveRoomDefinition> {
         (index < self.rooms.len()).then_some(LiveRoomDefinition(index))

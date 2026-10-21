@@ -4601,7 +4601,7 @@ fn a_practice_room_plans_its_bosses_as_practice_copies() {
         super::authored_actor_requests(&room, &[], None)
             .into_iter()
             .find_map(|request| match request.parameters {
-                ActorConstructionParams::AuthoredBoss { authored, practice } if authored.id == "hall_copy" => {
+                ActorConstructionParams::AuthoredBoss { authored, practice, .. } if authored.id == "hall_copy" => {
                     Some(practice)
                 }
                 _ => None,

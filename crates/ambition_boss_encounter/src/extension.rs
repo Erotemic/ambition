@@ -32,7 +32,8 @@ pub fn install(app: &mut App) {
     );
 }
 
-/// Install the summon request port in `technique_execution`. The host
+/// Install the summon request port in `technique_execution`, and the drawn
+/// row and the speech bubble there. The host
 /// lowers a phase's request ports in install order; the composition installs
 /// this one after the damage box, as the native techniques wrote them.
 pub fn install_summons(app: &mut App) {
@@ -40,6 +41,18 @@ pub fn install_summons(app: &mut App) {
         TECHNIQUE_EXECUTION,
         "ambition_boss_encounter",
         lower_boss_summons::<InTechniqueExecution>,
+    );
+    // A body a module ticks in this phase (a summoned ally, by its status)
+    // is drawn in a row of the module's, and speaks.
+    app.install_extension_request::<ambition_boss_special_port::DrawnRowPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_boss_encounter",
+        crate::conduct::drain_drawn_rows::<InTechniqueExecution>.pipe(crate::conduct::draw_rows),
+    );
+    app.install_extension_request::<ambition_combat_port::SpeechBubblePort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_boss_encounter",
+        crate::conduct::drain_speech_bubbles::<InTechniqueExecution>.pipe(crate::conduct::show_speech_bubbles),
     );
 }
 
@@ -100,12 +113,12 @@ pub fn install_conduct(app: &mut App) {
     app.install_extension_request::<ambition_combat_port::SpeechBubblePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
-        crate::conduct::drain_speech_bubbles.pipe(crate::conduct::show_speech_bubbles),
+        crate::conduct::drain_speech_bubbles::<InBossConduct>.pipe(crate::conduct::show_speech_bubbles),
     );
     app.install_extension_request::<DrawnRowPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
-        crate::conduct::drain_drawn_rows.pipe(crate::conduct::draw_rows),
+        crate::conduct::drain_drawn_rows::<InBossConduct>.pipe(crate::conduct::draw_rows),
     );
     app.install_extension_request::<ambition_boss_special_port::BossGuardPort, _>(
         BOSS_CONDUCT,
@@ -182,15 +195,15 @@ fn lower_boss_summons<L: LowersIn>(
                 character_id: summon.character_id,
                 encounter_id: boss.behavior.id.clone(),
                 // Its own appendages pass through the boss's volumes.
-                faction: if summon.on_boss_side {
-                    ambition_vfx::HitSide::Boss
-                } else {
-                    ambition_vfx::HitSide::Enemy
+                faction: match summon.side {
+                    ambition_boss_special_port::SummonSide::Enemy => ambition_vfx::HitSide::Enemy,
+                    ambition_boss_special_port::SummonSide::Boss => ambition_vfx::HitSide::Boss,
+                    ambition_boss_special_port::SummonSide::Player => ambition_vfx::HitSide::Player,
                 },
                 ridden_by_summoner: None,
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,
-                holds: Vec::new(),
+                holds: summon.holds,
             }),
         });
     }

@@ -992,6 +992,8 @@ tackon_targets=(
     mantis_lancer
     ninja_heavy
     ninja_shadow_duelist
+    # Kagero, who comes to your aid in the Inugami's fight.
+    ninja_kagero
     ninja_shadow_oni_leader
     pirate_cutlass_viper
     president_portrait
@@ -1096,6 +1098,9 @@ tackon_targets=(
     fascist_enforcer
     # The boss of Godwin Castle (`npc_wolfenstein_boss`), on the person rig.
     wolfenstein
+    # His head risen as a spirit when he falls (`npc_wolfenstein_inugami`):
+    # his own head pieces, in the ink of a ghost.
+    wolfenstein_inugami
     # The troops of Godwin Castle, on the person rig: the iron trooper (his
     # chain gun is the held prop `evil_chain_gun`) and the lab's failed
     # prototypes of Wolfenstein.

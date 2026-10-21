@@ -63,22 +63,23 @@ fn the_halls_copied_bosses_are_practice_copies_at_their_own_placements() {
             .find(|room| room.id == id)
             .unwrap_or_else(|| panic!("room {id} is authored"))
     };
-    for (hall_room, placement, game_room) in [
+    for (hall_room, placements, game_room) in [
         // The Mockingbird is fought in the sky over its shore (2026-10-06).
-        ("hall_mockingbird_sky", "hall.mockingbird", "mockingbird_sky"),
-        ("hall_warden_arena", "hall.clockwork_warden", "basement_boss"),
-        // Castle Godwin's throne room, cloned into the hall (2026-10-17).
-        ("hall_wolfenstein_arena", "hall.wolfenstein", "castle_godwin_throne"),
+        ("hall_mockingbird_sky", &["hall.mockingbird"][..], "mockingbird_sky"),
+        ("hall_warden_arena", &["hall.clockwork_warden"][..], "basement_boss"),
+        // Castle Godwin's throne room, cloned into the hall (2026-10-17):
+        // Wolfenstein, and the Inugami that rises from him (2026-10-20).
+        ("hall_wolfenstein_arena", &["hall.wolfenstein", "hall.wolfenstein_inugami"][..], "castle_godwin_throne"),
     ] {
         let hall = room(hall_room);
         let game = room(game_room);
         assert!(hall.metadata.practice, "{hall_room} is a practice room");
         assert!(!game.metadata.practice, "{game_room} is the story's room");
         let hall_ids: Vec<&str> = hall.boss_spawns.iter().map(|boss| boss.id.as_str()).collect();
-        assert_eq!(hall_ids, vec![placement], "{hall_room}'s boss is its own placement");
+        assert_eq!(hall_ids, placements, "{hall_room}'s bosses are its own placements");
         assert!(
-            game.boss_spawns.iter().all(|boss| boss.id != placement),
-            "{game_room}'s boss is another placement"
+            game.boss_spawns.iter().all(|boss| !placements.contains(&boss.id.as_str())),
+            "{game_room}'s bosses are other placements"
         );
     }
 }
@@ -95,7 +96,9 @@ fn boss_practice_in(room: &str) -> Vec<(String, bool)> {
     }
     let world = sim.world_mut();
     let mut q = world.query::<&BossConfig>();
-    q.iter(world).map(|config| (config.id.clone(), config.practice)).collect()
+    let mut bosses: Vec<_> = q.iter(world).map(|config| (config.id.clone(), config.practice)).collect();
+    bosses.sort();
+    bosses
 }
 
 /// In the running game the hall's copy is spawned as a practice boss, and
@@ -113,7 +116,7 @@ fn the_halls_mockingbird_spawns_as_a_practice_boss() {
     );
     assert_eq!(
         boss_practice_in("hall_wolfenstein_arena"),
-        vec![("hall.wolfenstein".to_string(), true)]
+        vec![("hall.wolfenstein".to_string(), true), ("hall.wolfenstein_inugami".to_string(), true)]
     );
 }
 

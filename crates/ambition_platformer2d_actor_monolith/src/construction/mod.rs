@@ -1932,7 +1932,7 @@ pub fn authored_ground_item_requests(
     // when the reference misses.
     let registry = (!room.ground_items.is_empty()).then(|| {
         ambition_platformer2d_shared_tangle::binding::Resolver::<
-                crate::rooms::binding::HeldItemId,
+                ambition_characters::brain::HeldItemId,
             >::new(ambition_characters::brain::held_item_ids())
     });
     room.ground_items

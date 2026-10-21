@@ -105,6 +105,30 @@ def modules() -> dict[str, list[Path]]:
     return found
 
 
+ROOT_REEXPORT = re.compile(r"^pub use ([a-z_][a-z0-9_]*)::(?:([a-z_][a-z0-9_]*)|\{([^}]*)\});", re.MULTILINE)
+
+
+def root_aliases(mods: dict[str, list[Path]]) -> dict[str, str]:
+    """Names that `lib.rs` re-exports from a top-level module, mapped to it.
+
+    `pub use world::rooms;` makes `crate::rooms::binding::X` a reference to
+    `world`. Without this map that path matched no module and the edge was
+    lost: K3 read `construction` as having no out-edge while it still named
+    `world` once through `crate::rooms`.
+    """
+    aliases: dict[str, str] = {}
+    lib = KERNEL / "lib.rs"
+    for module, single, group in ROOT_REEXPORT.findall(lib.read_text(errors="replace")):
+        if module not in mods:
+            continue
+        names = [single] if single else [n.strip() for n in group.split(",")]
+        for name in names:
+            name = name.split(" as ")[-1].strip()
+            if name and name[0].islower() and name not in mods:
+                aliases[name] = module
+    return aliases
+
+
 def count_lines(path: Path) -> int:
     with path.open(errors="replace") as handle:
         return sum(1 for _ in handle)
@@ -115,6 +139,7 @@ def measure() -> tuple[dict[str, int], dict[str, int], dict[str, collections.Cou
     prod = {m: sum(count_lines(f) for f in fs if not is_test_file(f)) for m, fs in mods.items()}
     total = {m: sum(count_lines(f) for f in fs) for m, fs in mods.items()}
     edges: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+    aliases = root_aliases(mods)
     for m, fs in mods.items():
         for f in fs:
             if is_test_file(f) or is_file_level_test(f):
@@ -128,6 +153,7 @@ def measure() -> tuple[dict[str, int], dict[str, int], dict[str, collections.Cou
                 if line.lstrip().startswith("//"):
                     continue
                 for target in PATH_REF.findall(line):
+                    target = aliases.get(target, target)
                     if target in mods and target != m:
                         edges[m][target] += 1
     return prod, total, edges

@@ -27,18 +27,6 @@ impl Namespace for CharacterId {
     const NAME: &'static str = "character";
 }
 
-/// The held-item specs the item registry knows.
-///
-/// Not swept here. A ground item naming an unregistered held item does not
-/// degrade — `authored_ground_item_requests` refuses the room outright — so the
-/// namespace exists for that refusal to name what WAS available, and reporting
-/// it a second time here would only disagree with it.
-pub struct HeldItemId;
-
-impl Namespace for HeldItemId {
-    const NAME: &'static str = "held item";
-}
-
 /// The resolvers a room sweep has on hand.
 ///
 /// Paths come from the room itself, so they are always checked, and

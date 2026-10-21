@@ -30,7 +30,7 @@ pub mod state_machine;
 // are not exercised by every current consumer in every build target.
 #[allow(unused_imports)]
 pub use action_set::{
-    held_item_by_id, held_item_ids, resolve as resolve_action_requests, ActionRequest, ActionSet,
+    held_item_by_id, held_item_ids, HeldItemId, resolve as resolve_action_requests, ActionRequest, ActionSet,
     BatterSpec, BiteSpec, HeldItemSpec, HeldUseBehavior, LungeSpec, MeleeActionSpec, MoveStyleSpec,
     ProjectileFlight, PunchSpec, RangedActionSpec, RangedCharge, RangedCommitment, RangedExecution,
     SlamSpec, SpecialActionSpec, SwipeSpec,

@@ -22,15 +22,19 @@ Measure the intra-crate module graph with:
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-**Re-measured after K1 and K2 (2026-10-21):** the largest component has
+**Re-measured after K3 (2026-10-21):** the largest component has
 **eight** top-level modules: `abilities`, `avatar`, `character_runtime`,
 `features`, `items`, `projectile`, `session`, `world`. `body_whereabouts`
-and `construction` left it with the K1 and K2 moves; `construction` now
-reaches only `fate_flags` and `shrine`. The `assets` and
+left it with K1. `construction` left it with K3. (K1 and K2 removed its
+session edge, but it still reached `world` through the crate-root re-export
+`crate::rooms`, which the instrument did not resolve until K3.)
+`construction` now has no out-edge in the monolith. The `assets` and
 `character_sprites` pair remains a separate two-module cycle. The
 instrument's single-edge cuts that would shrink the component further are
-`avatar -> session` (to six), `character_runtime -> avatar`,
-`features -> projectile` and `session -> world` (each to seven). The
+`avatar -> session` (to six), `character_runtime -> avatar` and
+`features -> projectile` (each to seven). With `crate::rooms` resolved,
+`session -> world` (7 references) and `items -> world` (3) no longer shrink
+it alone. The
 monolith has about 73,600 production source lines; `features` accounts for
 about 26,700 of them. Size alone is not a carve reason.
 
@@ -38,6 +42,7 @@ about 26,700 of them. Size alone is not a carve reason.
 | --- | ---: | --- |
 | `body_whereabouts -> session` | 0 | Moved with K1 (custody adapter in the runtime transition) |
 | `construction -> session` | 0 | Moved with K2 (the selector is the room transaction's) |
+| `construction -> world` | 0 | Moved with K3 (`HeldItemId` is the held-item registry's) |
 | `avatar -> session` | 1 | Per-room rules in a generic body control gate; **HOLD** until the rules-input owner is clear |
 | `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
 | `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
@@ -46,7 +51,7 @@ about 26,700 of them. Size alone is not a carve reason.
 | `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
 | `world -> features` | 9 | Room feature plans and publication; **MOVE_AUTHORITY** as one room transaction packet |
 | `world -> session` | 12 | Room publication reads checkpoint and lifecycle facts; **MOVE_ADAPTER** with that packet |
-| `session -> world` | 6 | Session setup and publication handles; review as part of one transaction packet |
+| `session -> world` | 7 | Session setup and publication handles; review as part of one transaction packet |
 | `assets <-> character_sprites` | 2 / 3 | Catalog and art materialization; group or move adapter after its readers are known |
 
 The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
@@ -72,8 +77,8 @@ Keep a cycle only when its shared invariant is stated.
 - `ambition_conversation`, `ambition_encounter_features` and
   `ambition_abilities` (the wielded kit, the gravity grenade, traversal verbs and
   the shared cooldown).
-- Checkpoint restoration lives in `session::checkpoint`; `shrine.rs` owns the
-  interaction only.
+- Checkpoint restoration lives in `session::checkpoint`; `ambition_shrine`
+  owns the shrine interaction only (K3).
 - Placement lowering lives in `construction::placements`.
 
 ## Deliberately not carved
@@ -220,7 +225,42 @@ checkpoint reset; replay after save changes; candidate failure; first-tick
 spawn state. Remove `construction -> session` without adding a general facts
 provider registry, new global resource, or duplicate saved state.
 
-### K3 — Prepare actor construction for a domain owner
+### K3 — Prepare actor construction for a domain owner — DONE 2026-10-21
+
+**Receipt:** construction now names no other module of the monolith.
+
+- **Death and provocation flags.** `ambition_persistence::save_data` owns
+  their spellings (`enemy_dead_flag`, `enemy_dead_until_rest_flag`,
+  `npc_hostile_flag`) beside `DEAD_UNTIL_REST_SUFFIX`, which it already owned
+  because a rest clears those flags. The catalog's
+  `RespawnPolicy::death_record` says which record a policy keeps (an
+  exhaustive match). The policy-to-flag glue stays with the one writer
+  (`features/ecs/damage/actor_hit.rs`). The `fate_flags` module is deleted.
+- **Shrine.** `HealShrine`, `heal_save_shrine_system` and its tests moved to
+  the new crate `ambition_shrine`. The crate publishes a `ShrineRest` set;
+  the checkpoint resume orders after the set, not after the function. The
+  monolith still installs the system in the same sets and order, and still
+  registers the component for rollback. `ShrineActivationPulse` stays in
+  `shared_tangle` because the renderer reads it.
+- **Held-item namespace.** `HeldItemId` moved from the monolith's
+  `world::rooms::binding` to `ambition_characters`, beside
+  `held_item_ids()`, the list it resolves against. This was the last
+  `construction -> world` edge.
+- **Instrument.** `measure_kernel_module_graph.py` did not resolve
+  crate-root re-exports, so `crate::rooms::…` (`pub use world::rooms`)
+  counted as no edge. With the fix, K1 and K2 left `construction` in the
+  cycle (nine modules, not the eight first reported). After K3 it is out.
+
+**Can `ambition_platformer2d_actor_spawn` own construction? Not as is.**
+Construction lowers every placement kind, including ground items, chests and
+shrines, and `scripts/tests/test_actor_spawn_boundary.py` keeps pickup and
+chest construction out of the spawn crate. Planning therefore stays separate
+from spawn materialization. Construction is now a leaf of the monolith graph
+and can become its own owner. Its callers are `features` (50 references),
+`world` (5) and `session` (5), so do the move with K4's publication
+coordinator, not before it.
+
+The record below is the plan it executed.
 
 Recheck `construction -> fate_flags` and `construction -> shrine`, plus its
 callers in `features` and `world`. Give death flags and shrine components a

@@ -604,6 +604,17 @@ pub fn held_item_by_id(id: &str) -> Option<HeldItemSpec> {
     HELD_ITEMS.get(id).cloned()
 }
 
+/// The namespace a held-item id resolves in: the ids [`held_item_ids`] lists.
+///
+/// The room sweep does not resolve it. A ground item that names an unregistered
+/// held item does not degrade: room construction refuses the room, and this
+/// namespace lets that refusal name the ids that were available.
+pub struct HeldItemId;
+
+impl ambition_binding::Namespace for HeldItemId {
+    const NAME: &'static str = "held item";
+}
+
 /// Every held-item id this registry answers to, sorted.
 ///
 /// The binding sweep needs the list, not just the lookup: a `GroundItemSpec`

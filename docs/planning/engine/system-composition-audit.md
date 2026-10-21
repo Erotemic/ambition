@@ -413,7 +413,28 @@ Include the first room load and steady play; do not hide a new load hitch
 inside a steady-state average. The debug VM can screen an experiment but
 cannot decide phone acceptance.
 
-#### S7b — First low-risk fusion: touch prompt UI
+#### S7b — First low-risk fusion: touch prompt UI — LANDED 2026-10-21, phone NOT RUN
+
+**Receipt:** `reconcile_touch_action_prompt` replaces
+`update_button_verb_from_prompt` and
+`sync_touch_button_visibility_from_prompt`. Its two halves are private
+helpers (`label_touch_buttons`, `show_live_touch_buttons`) with their old
+rules. The system reads the same `ControlPrompt` and `SeatInputContexts`, and
+writes the same disjoint components (the label node's `ButtonVerb` and
+`ButtonReady`, the button's `Visibility`). `render_touch_button_text` orders
+after the one producer. No new ordering exception. The other touch systems
+did not move.
+
+- **Change detection:** `a_steady_prompt_marks_no_button_changed` holds that
+  a frame with an unchanged prompt writes no verb, readiness or visibility
+  (red when the visibility write drops its guard).
+- **VM screen** (`capture_scene --route mary_o_gameplay`, hub, debug):
+  `ambition_touch_input` 29 ran / 32 registered → 28 / 31. The other
+  per-crate differences in that comparison are S2 and S3, because the
+  baseline list was taken before them.
+- **Phone:** NOT RUN. This machine has no Android device or `adb`. Measure
+  with `profile_android.sh` on the next device session. Revert the fusion if
+  the repeated phone runs show no saving or a timing shift (the gate below).
 
 Source: `crates/ambition_touch_input/src/bevy_plugin.rs`.
 `update_button_verb_from_prompt` and

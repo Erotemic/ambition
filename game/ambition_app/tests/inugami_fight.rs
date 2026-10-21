@@ -108,17 +108,22 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     step_until(&mut sim, 60 * 10, "its first move", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
     assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it fights with no plate: {:?}", plates(&mut sim));
 
-    // Hurt it past its transition: the chase is over, and it comes back in
-    // the hall at the end of its room.
+    // Hurt it past its transition: it hunts you to the final hall. It stays
+    // with you while you are not there, and it comes into the hall when you do.
     wound(&mut sim, INUGAMI_ID, 0.45);
-    step_until(&mut sim, 60 * 4, "it to come back in the final hall", |sim| {
+    for _ in 0..60 * 4 {
+        sim.step(AgentAction::default());
+    }
+    let h = head(&mut sim);
+    assert!(h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_X, "it did not stay on you: {h:?}");
+    sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
+    step_until(&mut sim, 60 * 8, "it to come into the final hall after you", |sim| {
         let h = head(sim);
-        h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X
+        h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X && h.view.is_some_and(|v| v.performing.is_some())
     });
 
     // You stand in the final hall with it, and at its next window Kagero
     // comes to your aid: she cuts it, and is gone up her line.
-    sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
     let before = health(&mut sim, INUGAMI_ID);
     step_until(&mut sim, 60 * 30, "Kagero to come", |sim| kagero(sim).is_some());
     step_until(&mut sim, 60 * 4, "Kagero to cut it", |sim| health(sim, INUGAMI_ID) < before);

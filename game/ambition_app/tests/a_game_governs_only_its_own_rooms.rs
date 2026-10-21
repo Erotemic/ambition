@@ -25,6 +25,13 @@ use bevy::prelude::*;
 /// Build-time only: rules are declared in plugin `build`, so no frame has to run
 /// and none does.
 fn compose_the_shipped_host() -> App {
+    compose_the_host_simulated_by(None)
+}
+
+/// [`compose_the_shipped_host`], with the simulation host set first when
+/// `host` names one. The shipped app sets `Rollback`, whose simulation runs
+/// in its own schedule apart from the frame's presentation.
+fn compose_the_host_simulated_by(host: Option<ambition_platformer2d::runtime::SimulationHost>) -> App {
     use ambition_app::app::shell_host;
     use bevy::asset::AssetPlugin;
     use bevy::image::ImagePlugin;
@@ -39,6 +46,10 @@ fn compose_the_shipped_host() -> App {
     app.add_plugins(StatesPlugin);
     app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
+    if let Some(host) = host {
+        use ambition_platformer2d::runtime::SimulationHostAppExt as _;
+        app.set_simulation_host(host);
+    }
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
@@ -594,4 +605,78 @@ fn yarn_sleeps_in_rooms_whose_game_uses_no_dialogue() {
         .expect("the premise: the shipped host installs Yarn");
     let conditions = graph.system_sets.get_conditions(set).map_or(0, <[_]>::len);
     assert_eq!(conditions, 1, "Yarn's set asks {conditions} conditions, not the one that puts it to sleep");
+}
+
+/// The crate a system was made for: for a generic system, the crate of its
+/// innermost type argument (`forget_attempts_on_activation<mary_o::Bricks>`
+/// is Mary-O's), as `scripts/system_census_table.py` counts it.
+fn owning_crate(name: &str) -> &str {
+    let inner = name.rfind('<').map_or(name, |at| &name[at + 1..]);
+    let inner = inner.trim_start_matches(['&', '(', ' ']);
+    inner.split("::").next().unwrap_or(inner).trim_end_matches(['>', ')', ',', ' '])
+}
+
+/// A game's gameplay in the simulation sleeps while another game plays: each
+/// simulation system a game crate registers has a run condition, on itself or
+/// on a set it is in (its rules scope, its mode, a capability it uses, a
+/// running match). The exceptions are named with the duty that must run
+/// everywhere.
+///
+/// Measured before this held (hub census, 2026-10-21): while Ambition, Mary-O
+/// or Sanic played, Smash's sudden-death round ran, and Ambition's cut-rope
+/// arena answered every other game's resets and replays.
+#[test]
+fn a_games_simulation_systems_sleep_outside_its_rooms() {
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules};
+
+    // A retirement duty: it releases what the game held when the player left.
+    const EVERYWHERE: &[&str] = &[
+        // Claims the boss's music on a replay and must release it once the
+        // player is elsewhere, so it cannot sleep there.
+        "ambition_content::bosses::cut_rope::release_cut_rope_music_outside_its_room",
+    ];
+    const GAMES: &[&str] = &["ambition_content", "ambition_demo_mary_o", "ambition_demo_sanic", "ambition_demo_smash"];
+
+    let mut app = compose_the_host_simulated_by(Some(ambition_platformer2d::runtime::SimulationHost::Rollback));
+    let sim = app.sim_schedule();
+    assert_ne!(sim, bevy::prelude::Update.intern(), "the premise: the simulation has its own schedule");
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(sim).expect("the sim schedule").graph();
+    let hierarchy = graph.hierarchy().graph();
+    let gated = |start: NodeId| {
+        let mut stack = vec![start];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(node) = stack.pop() {
+            if !seen.insert(node) {
+                continue;
+            }
+            for parent in hierarchy.neighbors_directed(node, Direction::Incoming) {
+                if let NodeId::Set(set) = parent {
+                    if graph.system_sets.get_conditions(set).is_some_and(|c| !c.is_empty()) {
+                        return true;
+                    }
+                    stack.push(parent);
+                }
+            }
+        }
+        false
+    };
+    let mut counted = std::collections::BTreeMap::<&str, usize>::new();
+    let mut awake = Vec::new();
+    for (key, system, conditions) in graph.systems.iter() {
+        let name = system.name().to_string();
+        let Some(game) = GAMES.iter().find(|game| owning_crate(&name) == **game) else {
+            continue;
+        };
+        *counted.entry(game).or_default() += 1;
+        if conditions.is_empty() && !gated(NodeId::System(key)) && !EVERYWHERE.contains(&name.as_str()) {
+            awake.push(name);
+        }
+    }
+    for game in GAMES {
+        assert!(counted.get(game).is_some_and(|n| *n > 0), "the premise: `{game}` registers simulation systems ({counted:?})");
+    }
+    assert!(awake.is_empty(), "these games' simulation systems run in every game's rooms: {awake:#?}");
 }

@@ -484,8 +484,13 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 )),
         );
         // A placed object (a spring, a mine, a bomb) is a module entity; the
-        // match owns its end.
-        app.add_systems(sim, stamp_smash_module_entities);
+        // match owns its end. With no match running there is nothing to stamp
+        // it with: Ambition's cast places the same objects in its own rooms.
+        app.add_systems(
+            sim,
+            stamp_smash_module_entities
+                .run_if(bevy::prelude::resource_exists::<ambition_platformer2d::versus_match::ActiveMatch>),
+        );
         // Limit meter: a set of independent sources, not one rule, so a
         // mechanic can author only the source it wants. The fill rule is
         // declared above for Smash's rooms; the authored half, a move that
@@ -542,11 +547,13 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // Sudden death's stage half writes rollback-canonical `BodyHealth`, so
         // it runs in the simulation, not `Update`. It reads the message from
         // `decide_stocks_match`, so it runs after `MatchOutcomeDecided`.
+        let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
         app.add_systems(
             sim,
             open_the_sudden_death_round
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-                .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided),
+                .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided)
+                .run_if(gate.clone()),
         );
         // This rule runs after the decision, outside the chain above. It
         // despawns eliminated bodies, and `decide_stocks_match` reads sides from
@@ -557,7 +564,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         let remove_the_eliminated = take_eliminated_fighters_out_of_play
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided);
-        let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
         app.add_systems(sim, placement.run_if(gate.clone()));
         app.add_systems(sim, protection.run_if(gate.clone()));
         app.add_systems(sim, remove_the_eliminated.run_if(gate));

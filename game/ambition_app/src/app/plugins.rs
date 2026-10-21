@@ -642,15 +642,6 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
-    // Idle barks fire on the pack's cadence (`boss_idle_bark`) while the boss
-    // is in an attacking phase, so the scholar feels alive between strikes.
-    .add_systems(
-        Update,
-        ambition_content::bosses::tick_boss_idle_barks
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists)
-            // Ambition's bosses; a hub without Ambition has none.
-            .run_if(|| super::hub_games::installs("ambition")),
-    )
     // Ambition's doors and gates play a passage: the door opens and you walk
     // through it; you leap into a gate and it ripples (Jon, 2026-10-19).
     .insert_resource(ambition_platformer2d::actors::rooms::passage::ZonePassageRules {

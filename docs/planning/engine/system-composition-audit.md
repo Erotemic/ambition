@@ -170,7 +170,50 @@ switches corroborate it and do not prove it.
 Done when both arms are recorded. If one composition gains and another loses,
 the host chooses the executor.
 
-### S2 — A game's own content runs only in its session (medium)
+### S2 — A game's own content runs only in its session (medium) — DONE 2026-10-21
+
+**Inventory (2026-10-21, hub `capture_scene` per gameplay route, one frame
+after 600 warm-up frames, debug, VM).** The game-owned systems that ran while
+another game played, by group:
+
+| Owner | Ran elsewhere | Group | Disposition |
+| --- | ---: | --- | --- |
+| `ambition_demo_mary_o` | 29 | 10 material asset systems; 17 presentation (`dress_*`, quasar, shimmer, cosmic, pipe signs, readouts); 2 activation (`forget_attempts_on_activation<..>`) | not gated: no gameplay |
+| `ambition_demo_sanic` | 4 | 3 presentation; 1 activation | not gated: no gameplay |
+| `ambition_demo_smash` | 16-18 | 14 frontend (the select route's chain); 2 capability-gated specials rules (`mash_out_of_sleep`, `fill_limit_meters`, where a room uses fighter specials); **2 gameplay** (`open_the_sudden_death_round`, `stamp_smash_module_entities`) | gameplay gated |
+| `ambition_content` | 58-67 | 16 material asset systems; presentation; process (content and Yarn source watchers, content generation); portal adapters (in the portals' capability set); **4 gameplay** (cut-rope arena reset, replay reset and try-again beat; boss idle barks) | gameplay gated |
+
+The sudden-death round now runs only in Smash's rooms (`in_mode`), the module
+stamp only while a match runs (`resource_exists::<ActiveMatch>`: Ambition's
+cast places the same objects in its own rooms, and versus has matches too),
+and the cut-rope rules and idle barks only in Ambition's rooms
+(`AMBITION_RULES`). The idle barks moved from the hub
+(`app::plugins`, under `installs("ambition")`) into
+`AmbitionPresentationPlugin`. `release_cut_rope_music_outside_its_room` stays
+ungated: it releases the boss's music once the player is elsewhere.
+
+Presentation, activation, retirement and material systems are not gated, as
+this step planned: each finds no entity outside its game, and on the serial
+executor an idle system costs about what a false condition does (finding 4).
+Gating them is S4's question, and only where a timing shows a cost.
+
+**Guards.** `a_game_governs_only_its_own_rooms::a_games_simulation_systems_sleep_outside_its_rooms`
+composes the shipped hub under the rollback host and requires every
+simulation system of `ambition_content`, Mary-O, Sanic and Smash to carry a
+run condition on itself or an enclosing set, apart from a named list of
+duties that must run everywhere (it reddens with the list emptied).
+`smash_in_the_host::mary_o_plays_the_same_after_ambition_and_smash_had_the_host`
+plays Ambition, Mary-O, a Smash match, Mary-O in one hub; each Mary-O visit
+runs right for four seconds, finishes 1-1 at its pole (a room transition)
+and replays 1-2, and the second visit reads the same as the first. The
+two-live-room semantics (a gate opens while any live room is in its scope;
+each subject reads its own room's rules) are the unit tests in
+`ambition_platformer2d_actor_monolith/src/session/governing_rules/tests.rs`.
+A session is one game, so the shipped hub has no two live rooms of
+different games to test end to end.
+
+The plan as written before the work:
+
 
 Inventory first (`AMBITION_SYSTEM_LIST`): each game-owned system that runs
 while another game plays, in one of five groups: session gameplay (sleeps),

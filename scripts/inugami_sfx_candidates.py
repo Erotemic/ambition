@@ -115,25 +115,51 @@ def air(name, start_ms, dur_ms, gain):
     return W.noise(name, "pink", gain, start_ms, dur_ms, W.env(120, dur_ms - 600, 480), [W.bp(1100, 0.7), W.lp(3000)])
 
 
-cand("a_wolf", 6400, [howl_layer("howl", 0, 6.2, seed=1), air("air", 0, 6200, -34)], 821,
-     "a wolf's howl on the contour of Jon's spectrogram: 6.2 s, near-pure, the 2nd harmonic brightest", room=0.45)
-cand("b_short", 3800, [howl_layer("howl", 0, 3.6, seed=2), air("air", 0, 3600, -34)], 822,
-     "the same howl, its whole contour told in 3.6 s, for a fight", room=0.45)
-cand("c_spirit", 4600, [howl_layer("howl", 0, 3.8, seed=3),
-                        howl_layer("echo", 380, 3.8, seed=4, gain=-9, detune=28, pan=0.35),
-                        air("air", 0, 3800, -32)], 823,
-     "the short howl and its ghost: a second voice 0.38 s behind it and a little sharp, in a big cold room", room=0.85)
-cand("d_pack", 5200, [howl_layer("howl", 0, 3.8, seed=5),
-                      howl_layer("spirit_hi", 600, 3.6, scale_f=1.19, seed=6, gain=-6, pan=-0.4),
-                      howl_layer("spirit_lo", 1100, 3.4, scale_f=0.84, seed=7, gain=-7, pan=0.4),
-                      air("air", 0, 4400, -32)], 824,
-     "the head howls and its blue spirits howl with it: two more wolves come in, a minor third over and under", room=0.7)
-cand("e_giant", 4400, [howl_layer("howl", 0, 4.0, scale_f=0.74, seed=8,
-                                  harmonics=VOICE + [{"ratio": 5.0, "gain_db": -30.0}, {"ratio": 6.0, "gain_db": -36.0}]),
-                       howl_layer("body", 0, 4.0, scale_f=0.74 / 2, seed=8, gain=-16,
-                                  harmonics=[{"ratio": 1.0, "gain_db": 0.0}]),
-                       air("air", 0, 4000, -30)], 825,
-     "the giant head: the howl a fourth lower, fuller (more harmonics), and an octave under it, soft", room=0.75)
+# Round 3. Jon: "Ok howl a wolf is better, the others feel like there are
+# many wolfs in the pack, but it sounds like a siren, it doesn't have the
+# timbre of a wolf." One voice, a_wolf's contour, and a throat: the SFX
+# renderer's `howl` mode (formants that move with the mouth, jitter and
+# shimmer as random walks, breath pulsed with the voice, a rough onset).
+# Round 2's a_wolf is kept as `z_siren`, the pure tone, to compare.
+
+#: The howl's end: the voice droops as it gives out.
+DROOP = [(6.1, 430), (6.3, 392)]
+
+
+def throat_howl(name, *, seed, scale_f=1.0, formants=None, mouth=None, jitter=0.006, shimmer=0.1, breath=0.06,
+                onset_ms=180, onset_rough=0.35, drift=10.0, tilt=-10.0, gain=0.0):
+    dur_s = DROOP[-1][0]
+    pts = [[round(t / dur_s, 5), round(hz * scale_f, 2)] for t, hz in HOWL + DROOP]
+    return {"name": name, "kind": "noise_burst", "mode": "howl", "seed": seed, "duration_ms": dur_s * 1000.0,
+            "gain_db": gain, "start_ms": 0, "f0_hz": pts,
+            "amp": [[0, 0], [0.02, 0.5], [0.1, 0.9], [0.28, 1.0], [0.75, 0.85], [0.93, 0.55], [1, 0]],
+            "mouth": mouth or [[0, 0.15], [0.12, 0.5], [0.28, 1.0], [0.55, 0.8], [0.85, 0.55], [1, 0.05]],
+            "harmonics": 12, "tilt_db_per_octave": tilt,
+            # Three lines, as in Jon's picture: f0, the 2nd (brightest) and a
+            # faint 3rd. A harmonic far from every formant keeps almost
+            # nothing; six bright lines were brass, not a wolf.
+            "formants": formants or [[780, 1150, 520, 1.0], [1650, 2100, 600, 0.22], [2900, 3300, 800, 0.05]],
+            "floor": 0.008, "jitter": jitter, "jitter_hz": 28, "drift_cents": drift, "shimmer": shimmer, "shimmer_hz": 22,
+            "breath": breath, "onset_ms": onset_ms, "onset_rough": onset_rough}
+
+
+cand("a_throat", 6500, [throat_howl("howl", seed=831)], 831,
+     "a_wolf's howl in a throat: the vowel opens to the peak and closes as it falls, a little jitter, a little breath",
+     room=0.45)
+cand("b_breathy", 6500, [throat_howl("howl", seed=832, breath=0.16, shimmer=0.16, jitter=0.008)], 832,
+     "more air in it: breath through the throat with every pulse, a less steady voice", room=0.45)
+cand("c_rough", 6500, [throat_howl("howl", seed=833, jitter=0.012, shimmer=0.18, onset_ms=420, onset_rough=0.6,
+                                   breath=0.1, drift=18.0)], 833,
+     "a rough voice: it starts with a growl under it, and wavers more as it goes", room=0.45)
+cand("d_dark", 6500, [throat_howl("howl", seed=834, mouth=[[0, 0.05], [0.15, 0.3], [0.3, 0.6], [0.6, 0.45], [1, 0.0]],
+                                  tilt=-12.0, breath=0.08)], 834,
+     "a darker vowel: the mouth opens less, an 'oo' more than an 'ow'", room=0.45)
+cand("e_big_throat", 6500, [throat_howl("howl", seed=835, scale_f=0.86,
+                                        formants=[[620, 950, 460, 1.0], [1350, 1750, 560, 0.25], [2400, 2800, 760, 0.06]],
+                                        breath=0.09, jitter=0.008)], 835,
+     "a bigger throat (formants lower), the howl a little lower: the giant head", room=0.6)
+cand("z_siren", 6400, [howl_layer("howl", 0, 6.2, seed=1), air("air", 0, 6200, -34)], 821,
+     "round 2's a_wolf, the pure tone, to compare", room=0.45)
 
 
 def main():

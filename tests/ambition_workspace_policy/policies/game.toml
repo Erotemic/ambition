@@ -646,7 +646,7 @@ rationale = "a Smash module names the SDK and the pure port values it uses; neve
 source_doc = "docs/planning/engine/fast-iteration-implementation.md"
 severity = "error"
 exact = true
-allow = ["ambition_extension_sdk", "ambition_combat_port"]
+allow = ["ambition_extension_sdk", "ambition_combat_port", "ambition_portal_port"]
 manifest = "game/ambition_demo_smash_modules/Cargo.toml"
 
 # A demo's world file is read off disk in a development build (`content_text!`)

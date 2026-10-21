@@ -1,5 +1,6 @@
 //! The test harness for a special that is a module of
 //! `ambition_demo_smash_modules`: the module on the road a game runs it.
+#![cfg(test)]
 
 use bevy::prelude::*;
 
@@ -38,6 +39,10 @@ pub fn app_with(road: Road, modules: &[fn() -> ModuleDescriptor]) -> App {
     ambition_platformer2d::combat::extension::install_for_hit_reaction(&mut app);
     ambition_platformer2d::abilities::extension::install_module_entities(&mut app);
     ambition_platformer2d::combat::extension::blast::install_for_module_entity_tick(&mut app);
+    ambition_platformer2d::portal::extension::install_for_technique_execution(&mut app);
+    // A tick a game counts: a module that remembers the tick it acted on
+    // (a pair's opening) reads the next one as later.
+    app.add_systems(First, |mut tick: ResMut<ambition_platformer2d::time::SimTick>| tick.0 += 1);
     // The shipped order: the module entities are ticked with the items, in
     // the player phase, before the specials of the combat phase; the hits of
     // a tick are resolved after its specials, so an answer pressed in

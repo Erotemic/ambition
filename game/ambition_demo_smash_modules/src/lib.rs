@@ -22,6 +22,7 @@ pub mod homing;
 pub mod limit;
 pub mod mark;
 pub mod mine;
+pub mod portal;
 pub mod riposte;
 pub mod sing;
 pub mod spring;
@@ -40,6 +41,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     limit::module,
     mark::module,
     mine::module,
+    portal::module,
     riposte::module,
     sing::module,
     spring::module,

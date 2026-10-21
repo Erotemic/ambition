@@ -15,7 +15,7 @@
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
 | [`mark`](src/mark.rs) | The delayed mark, end to end in this game. |
 | [`mine`](src/mine.rs) | The remote mine, end to end in this game. |
-| [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
+| [`portal`](src/portal.rs) | The portal recovery, end to end in this game. |
 | [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow and summon tuning, as data in its pack (`assets/data/smash_rules.ron`). |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |

@@ -1409,11 +1409,12 @@ fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault>
     let Some([near, far]) = c.punch_pair() else {
         return Ok(());
     };
-    let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: ch::arms::PUNCH_HALF };
+    let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: ch::arms::PUNCH_HALF, half_thickness: None };
     inv.submit::<HeldPortalPairPort>(HeldPortalPair {
         slot: PUNCH_PAIR_SLOT,
         ends: [end(near, [0.0, -1.0]), end(far, [0.0, 1.0])],
         looks: [24, 25],
+        closes_on_use: false,
     })
 }
 

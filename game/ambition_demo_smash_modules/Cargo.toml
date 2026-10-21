@@ -15,4 +15,5 @@ description = "The Smash demo's procedural extension modules (its specials), bui
 [dependencies]
 ambition_combat_port = { path = "../../crates/ambition_combat_port" }
 ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
+ambition_portal_port = { path = "../../crates/ambition_portal_port" }
 

@@ -136,7 +136,8 @@ a live reload is a second priority. Work in this order:
    striker, a status clock and the in-play fact; the bomb and the mine
    (F9, F10) on module items and a body's own entities; the steered bolt
    (F11) on a flown module entity, its spawner's stick and who touches it;
-   the tether (F12) on the ledge ahead of a body and a status that reels it.
+   the tether (F12) on the ledge ahead of a body and a status that reels it;
+   the portal recovery (F13) on a held portal pair and a move's aimed stick.
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

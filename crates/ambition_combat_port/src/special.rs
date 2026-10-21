@@ -328,6 +328,40 @@ impl Port for ParryWindowPort {
     }
 }
 
+/// The observation port marker for the stick a fighter's move aimed with.
+///
+/// Port card:
+///
+/// * **Operation** — the stick direction the fighter's playing move latched
+///   (an aimed special): world space, as the screen shows it, not mirrored
+///   by facing. The live stick of an aimed special is neutral, because the
+///   move roots the body, so the latched one is the aim.
+/// * **Owner** — `ambition_combat::extension::special`.
+/// * **Scope** — the fighter.
+/// * **Time** — `technique_execution`.
+/// * **Absence** — never absent: `stick` is `None` when no playing move
+///   latched one.
+pub struct AimedStickPort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AimedStick {
+    pub stick: Option<[f32; 2]>,
+}
+
+impl Port for AimedStickPort {
+    const KEY: PortKey = PortKey::new("ambition.fighter.aimed_stick", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = AimedStick;
+
+    fn encode(v: &AimedStick, out: &mut Vec<u8>) {
+        wire::put_opt(out, v.stick, wire::put_vec2);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<AimedStick, WireError> {
+        Ok(AimedStick { stick: r.opt(WireReader::vec2)? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,6 +373,16 @@ mod tests {
         let mut bytes = Vec::new();
         ParryWindowPort::encode(&window, &mut bytes);
         assert_eq!(ParryWindowPort::decode(&mut WireReader::new(&bytes)).unwrap(), window);
+    }
+
+    /// An aimed stick decodes to what was encoded.
+    #[test]
+    fn an_aimed_stick_crosses_the_wire_unchanged() {
+        for stick in [None, Some([-0.5, 1.0])] {
+            let mut bytes = Vec::new();
+            AimedStickPort::encode(&AimedStick { stick }, &mut bytes);
+            assert_eq!(AimedStickPort::decode(&mut WireReader::new(&bytes)).unwrap(), AimedStick { stick });
+        }
     }
 
     /// A refill decodes to what was encoded.

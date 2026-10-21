@@ -233,7 +233,12 @@ const OVERREACH_S: f32 = 0.64;
 const LUNGE_DAMAGE: i32 = 2;
 const LUNGE_KNOCKBACK: f32 = 1.5;
 /// He bites across this much of the room at most, and stops short of the wall.
-const LUNGE_REACH: f32 = 620.0;
+/// It was 620, in a slide along the floor at up to 2400 px/s: too far, too
+/// fast, and it looked unnatural (Jon, 2026-10-21). Now a leap: he crouches
+/// for `LUNGE_CROUCH_U` of the strike, then goes in a low arc `LUNGE_HOP` high.
+const LUNGE_REACH: f32 = 420.0;
+const LUNGE_CROUCH_U: f32 = 0.15;
+const LUNGE_HOP: f32 = 34.0;
 const WALL_GAP: f32 = 12.0;
 /// He slides on this far after the strike, over this long.
 const SKID: f32 = 44.0;
@@ -243,7 +248,11 @@ const SKID_S: f32 = 0.4;
 /// moment on the wall, then the lunge back to the floor this far from the
 /// wall. Fractions of the strike.
 const BOUND_HIGH: f32 = 130.0;
-const BOUND_BACK: f32 = 460.0;
+const BOUND_BACK: f32 = 360.0;
+/// A wall farther than this (world px) is out of his reach: he leaps past
+/// you to the floor and springs back from it instead of crossing the room in
+/// a third of a second.
+const BOUND_REACH: f32 = 560.0;
 const BOUND_ON_WALL: f32 = 0.36;
 const BOUND_OFF_WALL: f32 = 0.5;
 /// He lands winded: the window after the bound, until his next tell.
@@ -898,12 +907,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             c.lunge_to = clamp_x(at.x + side * step);
                         }
                         Move::Bound => {
-                            // The wall behind you, and back the other way.
-                            c.wall_x = if side > 0.0 {
+                            // The wall behind you, and back the other way;
+                            // or, when that wall is out of his reach, the floor
+                            // past you.
+                            let wall = if side > 0.0 {
                                 hall.right - b.body_half() - WALL_GAP
                             } else {
                                 hall.left + b.body_half() + WALL_GAP
                             };
+                            c.wall_x = if (wall - at.x).abs() > BOUND_REACH { clamp_x(at.x + side * BOUND_REACH) } else { wall };
                             c.bound_back_x = clamp_x(c.wall_x - side * BOUND_BACK);
                             c.bound_from_y = at.y;
                         }
@@ -1053,7 +1065,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             Vec2::new(clamp_x(x), stand_y)
         }
         Some(Part { mv: Move::Lunge, striking: true, t, dur }) => {
-            Vec2::new(c.step_from + (c.lunge_to - c.step_from) * ease_out(t / dur), stand_y)
+            let k = ((t / dur - LUNGE_CROUCH_U) / (1.0 - LUNGE_CROUCH_U)).clamp(0.0, 1.0);
+            let hop = b.len(LUNGE_HOP) * 4.0 * k * (1.0 - k);
+            Vec2::new(c.step_from + (c.lunge_to - c.step_from) * ease(k), stand_y - hop)
         }
         Some(Part { mv: Move::Stab, striking: true, t, dur }) => {
             let k = (t / dur / STAB_STEP_U).min(1.0);
@@ -1061,7 +1075,24 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         Some(Part { mv: Move::Bound, striking: true, t, dur }) => {
             let u = t / dur;
-            if u < BOUND_ON_WALL {
+            // A wall out of his reach is the floor past you: the arcs land
+            // there, and he crouches on the floor for the moment between.
+            let on_wall = (c.wall_x - (hall.right - b.body_half() - WALL_GAP)).abs() < 1.0
+                || (c.wall_x - (hall.left + b.body_half() + WALL_GAP)).abs() < 1.0;
+            if !on_wall {
+                let leg = |k: f32| b.len(BOUND_HIGH) * 0.7 * 4.0 * k * (1.0 - k);
+                if u < BOUND_ON_WALL {
+                    let k = u / BOUND_ON_WALL;
+                    Vec2::new(c.step_from + (c.wall_x - c.step_from) * ease(k), stand_y - leg(k))
+                } else if u < BOUND_OFF_WALL {
+                    side = if c.wall_x > c.bound_back_x { -1.0 } else { 1.0 };
+                    Vec2::new(c.wall_x, stand_y)
+                } else {
+                    side = if c.wall_x > c.bound_back_x { -1.0 } else { 1.0 };
+                    let k = (u - BOUND_OFF_WALL) / (1.0 - BOUND_OFF_WALL);
+                    Vec2::new(c.wall_x + (c.bound_back_x - c.wall_x) * ease(k), stand_y - leg(k))
+                }
+            } else if u < BOUND_ON_WALL {
                 // Up into the wall behind you: an arc through where you are.
                 let k = u / BOUND_ON_WALL;
                 let x = c.step_from + (c.wall_x - c.step_from) * ease_out(k);

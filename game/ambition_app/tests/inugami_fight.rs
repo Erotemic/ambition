@@ -100,12 +100,13 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     kill(&mut sim, WOLFENSTEIN_ID);
     step_until(&mut sim, 30, "it to wake when he is cleared", |sim| head(sim).phase != BossEncounterPhase::Dormant);
     let floor = head(&mut sim).view.and_then(|v| v.hall).expect("it measured the room").floor;
-    assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it rose with no plate: {:?}", plates(&mut sim));
+    assert!(!plates(&mut sim).iter().any(|label| label == "Inugami"), "its plate shows before its title: {:?}", plates(&mut sim));
     step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
     let h = head(&mut sim);
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 < floor - 20.0, "it does not float over the floor: {h:?}");
 
     step_until(&mut sim, 60 * 10, "its first move", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
+    assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it fights with no plate: {:?}", plates(&mut sim));
 
     // Hurt it past its transition: the chase is over, and it comes back in
     // the hall at the end of its room.

@@ -91,6 +91,7 @@ members = [
     "game/ambition_content_modules",
     "game/ambition_demo_mary_o_modules",
     "game/ambition_demo_smash_modules",
+    "game/ambition_fighter_specials",
     "fixtures/extension_fixture_modules",
     "tests/ambition_workspace_policy",
 ]

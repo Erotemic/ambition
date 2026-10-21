@@ -31,6 +31,8 @@ ambition_resource_spec = { path = "../../crates/ambition_resource_spec" }
 # Its specials that are extension modules: an edit to one compiles that crate
 # alone (`ambition_demo_smash_modules`).
 ambition_demo_smash_modules = { path = "../ambition_demo_smash_modules" }
+# The specials more than one game authors, installed once whoever asks first.
+ambition_fighter_specials = { path = "../ambition_fighter_specials" }
 # Authored effect params round-trip through the `ParamValue` seam.
 # The E9 oracle rule, unchanged: `ambition_platformer2d` + `bevy` and nothing else. If authoring
 # a STOCKS match needs a type the umbrella does not re-export, that is an engine leak and it

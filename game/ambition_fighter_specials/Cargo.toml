@@ -1,0 +1,17 @@
+[package]
+name = "ambition_fighter_specials"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Installs the fighter specials that more than one game's cast authors: each is a module of ambition_demo_smash_modules, offered for its authored key."
+
+# A game whose cast authors these specials installs this crate, not the Smash
+# demo: Ambition's cast authors most of them, and a hub without Smash must
+# still admit its moves.
+[dependencies]
+ambition_demo_smash_modules = { path = "../ambition_demo_smash_modules" }
+# `portal` installs the held portal pair in `technique_execution`. Without it
+# the portal recovery is admitted and opens apertures nothing transits.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "portal"] }
+bevy = { version = "0.19.1", default-features = false }

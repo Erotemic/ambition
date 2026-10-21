@@ -1233,6 +1233,27 @@
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [
+        "ambition_demo_smash_modules",
+        "ambition_platformer2d"
+      ],
+      "nonblank_rust_loc": 260,
+      "package": "ambition_fighter_specials",
+      "path": "game/ambition_fighter_specials",
+      "public_items_heuristic": 4,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 269,
+      "responsibility_clue": "Installs the fighter specials more than one game's cast authors, each a module of ambition_demo_smash_modules, for its authored key, once whichever game asks first (Ambition's provider, the Smash demo). Added 2026-10-21, after this ledger's `source_commit`; measured at its introduction.",
+      "reverse_workspace_dependencies": [
+        "ambition_content",
+        "ambition_demo_smash"
+      ],
+      "rust_files": 2,
+      "test_rust_loc_heuristic": 44
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
         "ambition_audio",
         "ambition_input",
         "ambition_load",

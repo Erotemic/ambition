@@ -393,6 +393,7 @@ dependencies = [
  "ambition_extension_host",
  "ambition_extension_sdk",
  "ambition_extension_wasm",
+ "ambition_fighter_specials",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
@@ -579,6 +580,7 @@ dependencies = [
  "ambition_content_pack",
  "ambition_demo_smash_modules",
  "ambition_entity_catalog",
+ "ambition_fighter_specials",
  "ambition_platformer2d",
  "ambition_resource_spec",
  "bevy",
@@ -748,6 +750,15 @@ dependencies = [
  "ambition_extension_sdk",
  "wasmi",
  "wat",
+]
+
+[[package]]
+name = "ambition_fighter_specials"
+version = "0.1.0"
+dependencies = [
+ "ambition_demo_smash_modules",
+ "ambition_platformer2d",
+ "bevy",
 ]
 
 [[package]]

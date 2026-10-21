@@ -24,6 +24,7 @@ pub mod module_entity;
 pub mod motion;
 pub mod ray;
 pub mod reaction;
+pub mod ride;
 pub mod riding;
 pub mod slow;
 pub mod special;
@@ -57,6 +58,10 @@ pub use ray::{HeldRay, HeldRayPort, Spot};
 pub use motion::{
     Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, Place, SetVelocity,
     SetVelocityPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit, TransitPort,
+};
+pub use ride::{
+    BodyPresses, BodyPressesPort, BodyRoom, BodyRoomPort, Dismiss, DismissPort, Dismount, DismountPort, DismountWhy,
+    HoldCourse, HoldCoursePort, Ride, RidePort, Saddle, SaddlePort, SummonRide, SummonRidePort, TumblingPort,
 };
 pub use riding::{
     Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback, SpeechBubble,

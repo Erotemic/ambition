@@ -190,6 +190,7 @@ fn lower_boss_summons<L: LowersIn>(
                 ridden_by_summoner: None,
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,
+                holds: Vec::new(),
             }),
         });
     }

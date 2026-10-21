@@ -575,6 +575,7 @@ fn the_summon_road_builds_an_identified_minion() {
                     ridden_by_summoner: None,
                     health: None,
                     keeps_contact_damage: false,
+                    holds: Vec::new(),
                 },
             ),
         });
@@ -649,6 +650,7 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
                     ridden_by_summoner: None,
                     health: Some(3),
                     keeps_contact_damage: false,
+                    holds: Vec::new(),
                 },
             ),
         });

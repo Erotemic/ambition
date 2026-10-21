@@ -137,6 +137,9 @@ pub struct SummonSpec {
     /// avoids contact damage only because it acquires no target. `true` keeps the
     /// character's own answer.
     pub keeps_contact_damage: bool,
+    /// The statuses the body holds from birth (`ambition.body.hold_status`
+    /// kinds), so the module that summoned it ticks it. Empty for none.
+    pub holds: Vec<String>,
 }
 
 /// The summoner rides what it makes, for this long.

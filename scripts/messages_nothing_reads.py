@@ -74,14 +74,21 @@ MIN_DECLARED = 40
 #:   RangedFireRefused      PUBLISHED: Q33 lets each game choose its cue for a
 #:                          refused trigger; the fact is the seam a cue reads.
 #:                          Emission: `a_press_during_the_recharge_is_refused_with_its_progress`
+#:   RiderDismounted        PUBLISHED: the mount system's announcement of an
+#:                          emptied saddle, the twin of `MountDied`; Smash's
+#:                          shark reads the saddle itself since it became a
+#:                          module. Emission: `a_dismount_announces_the_empty_saddle`
+#:   RideRefused            PUBLISHED: a reservation that never became a ride,
+#:                          for the ruleset that answers it. Emission:
+#:                          `a_reservation_nobody_can_take_announces_its_refusal`
 #:
-#: A SIXTH must be triaged the same way before this number moves.
+#: An EIGHTH must be triaged the same way before this number moves.
 #: ⚠ This does NOT make "unread" a finding — the docstring's point stands, and a
 #: published channel is legitimate. It makes a NEW unread channel a DECISION,
 #: which is the same bargain `per_attempt_resource_census.py` strikes.
 #: ⚠ A COUNT, never an allowlist of names: a name list is an amnesty, and adding
 #: a row to it reads as housekeeping.
-MAX_UNREAD = 5
+MAX_UNREAD = 7
 
 
 def rust_files() -> list[pathlib.Path]:

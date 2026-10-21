@@ -398,9 +398,12 @@ fn flat_index_clamps_to_last_frame_of_row() {
 
 #[test]
 fn render_size_preserves_frame_aspect_ratio() {
-    // The gradient sentinel's sheet is 128x128 (square) → width / height = 1.
-    let size = sentinel_sheet().render_size(Vec2::new(50.0, 50.0));
-    assert!((size.x - size.y).abs() < 1e-3);
+    // The quad keeps the frame's own proportions (the gradient sentinel's
+    // frame is 255 x 272).
+    let sheet = sentinel_sheet();
+    let size = sheet.render_size(Vec2::new(50.0, 50.0));
+    let frame = sheet.frame_width as f32 / sheet.frame_height as f32;
+    assert!((size.x / size.y - frame).abs() < 1e-3, "{size:?} for a {frame} frame");
 }
 
 #[test]

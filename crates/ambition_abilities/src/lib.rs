@@ -4,6 +4,7 @@
 //! * [`extension`] and [`module_entity`]: the extension adapters of the
 //!   wielded abilities that are procedural modules (shockwave, beam, volley,
 //!   meteor, sentry, vortex, blink, dive, mark/recall, grapple)
+//! * [`ride`]: the extension adapters of a summoned ride
 //! * [`thrown`]: the gravity grenade
 //! * [`traversal`]: the blink rule, the mark of mark/recall
 //! * [`ability_cooldown`]: the shared cooldown
@@ -36,6 +37,7 @@ pub mod extension;
 pub mod mana;
 pub mod module_entity;
 pub mod ranged;
+pub mod ride;
 pub mod thrown;
 pub mod traversal;
 

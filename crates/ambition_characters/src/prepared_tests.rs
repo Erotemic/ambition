@@ -1298,7 +1298,7 @@ mod technique_flow_admission {
         let summon = EffectRef {
             key: SUMMON_RIDE.to_string(),
             params: ParamValue::parse(
-                "(character_id: \"beast\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+                "(character_id: \"beast\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0, health: 1, board_radius: 1.0, board_deadline_s: 1.0)",
             )
             .expect("params parse"),
         };
@@ -1433,7 +1433,7 @@ mod nested_references {
             key: SUMMON_RIDE.to_string(),
             params: ParamValue::parse(&format!(
                 "(character_id: \"{mount}\", half_extents: (24.0, 16.0), seconds: 5.0, \
-                 reach: 600.0)"
+                 reach: 600.0, health: 40, board_radius: 200.0, board_deadline_s: 1.0)"
             ))
             .expect("the fixture's params parse"),
         }
@@ -1614,7 +1614,7 @@ mod withholding {
         let effect = EffectRef {
             key: key.to_string(),
             params: ParamValue::parse(
-                "(character_id: \"nobody\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+                "(character_id: \"nobody\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0, health: 1, board_radius: 1.0, board_deadline_s: 1.0)",
             )
             .expect("params parse"),
         };
@@ -1681,14 +1681,14 @@ mod withholding {
         let summon = EffectRef {
             key: SUMMON_RIDE.to_string(),
             params: ParamValue::parse(
-                "(character_id: \"beast\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+                "(character_id: \"beast\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0, health: 1, board_radius: 1.0, board_deadline_s: 1.0)",
             )
             .expect("params parse"),
         };
         let unsupported = EffectRef {
             key: "smash.not_installed_here".to_string(),
             params: ParamValue::parse(
-                "(character_id: \"nobody\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+                "(character_id: \"nobody\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0, health: 1, board_radius: 1.0, board_deadline_s: 1.0)",
             )
             .expect("params parse"),
         };
@@ -1986,7 +1986,7 @@ mod revision_activation {
         EffectRef {
             key: key.to_string(),
             params: ParamValue::parse(
-                "(character_id: \"mount\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+                "(character_id: \"mount\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0, health: 1, board_radius: 1.0, board_deadline_s: 1.0)",
             )
             .expect("params parse"),
         }

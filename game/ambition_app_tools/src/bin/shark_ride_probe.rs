@@ -160,13 +160,13 @@ fn main() {
         .query_filtered::<Entity, bevy::prelude::With<ambition_platformer2d::mount::Mountable>>();
     let all: Vec<Entity> = mounts.iter(world).collect();
     let left_over = all.len();
-    // A departing shark and a loitering shark look the same in a count.
-    // `Departing` is the difference.
+    // A departing shark and a loitering shark look the same in a count. The
+    // course it holds on its way out (`HeldCourse`) is the difference.
     let departing = all
         .iter()
         .filter(|e| {
             world
-                .get::<ambition_demo_smash::shark_ride::Departing>(**e)
+                .get::<ambition_platformer2d::abilities::ride::HeldCourse>(**e)
                 .is_some()
         })
         .count();
@@ -190,7 +190,7 @@ fn main() {
         );
     }
     eprintln!(
-        "shark_ride_probe: read the log above for `boarded:`,          `shark departing (rider left)` and — if anything went wrong —          `mount DIED under its rider`, `mount VANISHED from the saddle lookup`          or `lethal blow: damage=N`"
+        "shark_ride_probe: read the log above for `boarded:`,          `dismounted:` and — if anything went wrong —          `mount DIED under its rider`, `mount VANISHED from the saddle lookup`          or `lethal blow: damage=N`"
     );
     eprintln!("shark_ride_probe: done");
 }

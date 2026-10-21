@@ -91,6 +91,10 @@ pub fn apply_summon_effects(
     let mut planned = Vec::new();
     // (rider, the mount's derived identity) for the summons that asked to be
     // ridden. Resolved to entities only after the commit flush.
+    // (the body's derived identity, the statuses it holds from birth), for the
+    // summons that named any; resolved after the commit flush, as the boards are.
+    let mut holds_after_commit: Vec<(ambition_platformer2d_shared_tangle::sim_id::SimId, Vec<String>)> =
+        Vec::new();
     let mut board_after_commit: Vec<(
         bevy::prelude::Entity,
         ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -129,6 +133,12 @@ pub fn apply_summon_effects(
         // what the request below derives, so a summon that asked to be ridden
         // can name its mount now and look it up after the commit — no channel,
         // no follow-up tick, and nothing that could name a DIFFERENT body.
+        if !s.holds.is_empty() {
+            holds_after_commit.push((
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(summoner, taken),
+                s.holds.clone(),
+            ));
+        }
         if let Some(ride) = s.ridden_by_summoner {
             board_after_commit.push((
                 req.owner,
@@ -296,6 +306,31 @@ pub fn apply_summon_effects(
                 None => bevy::log::warn!(
                     target: "ambition_platformer2d::construction",
                     "summon `{mount_id:?}` asked to be ridden but no body with that identity \
+                     exists after the commit",
+                ),
+            }
+        }
+
+        for (id, mut kinds) in holds_after_commit {
+            let body = {
+                let mut q = world.query::<(
+                    bevy::prelude::Entity,
+                    &ambition_platformer2d_shared_tangle::sim_id::SimId,
+                )>();
+                q.iter(world).find(|(_, sim)| **sim == id).map(|(entity, _)| entity)
+            };
+            match body {
+                Some(body) => {
+                    // The status store keeps its kinds sorted and unique.
+                    kinds.sort();
+                    kinds.dedup();
+                    world
+                        .entity_mut(body)
+                        .insert(ambition_combat::extension::status::BodyStatuses(kinds));
+                }
+                None => bevy::log::warn!(
+                    target: "ambition_platformer2d::construction",
+                    "summon `{id:?}` asked to hold statuses but no body with that identity \
                      exists after the commit",
                 ),
             }

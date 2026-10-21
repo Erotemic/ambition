@@ -1,5 +1,5 @@
-// Smash's own match flow and summon tuning (schema `smash_rules`, owned by
-// this demo). The rules every fighting game shares are in `match_rules.ron`.
+// Smash's own match flow (schema `smash_rules`, owned by this demo). The
+// rules every fighting game shares are in `match_rules.ron`.
 // An edit here is played at the next start, with no Rust build.
 (
     // The fighter ids the select grid asks for, in grid order; the layout
@@ -131,28 +131,6 @@
     // is the duelists' swipe (character_catalog.ron, `duelist`): a hit must
     // launch, or a fighter cannot knock anybody off anything.
     seating_melee: Swipe((windup_s: 0.22, active_s: 0.08, recover_s: 0.26, damage: 4, reach_px: 34.0)),
-    // The shark the pirate admiral's up-B summons.
-    shark_ride: (
-        // The shark takes its summoner on when it comes this near (px). A
-        // shark that misses it is not refused: it waits out its deadline and
-        // leaves, and the admiral loses the up-B.
-        board_radius: 200.0,
-        // How long the shark waits for its summoner, in seconds.
-        board_deadline_seconds: 1.0,
-        // The punishment the shark takes before it dies. Jon's rule: about
-        // three hits. It must exceed the largest single hit in the cast:
-        // George Booul's forward smash, `damage: 21` at `charge_mult = 1.7`,
-        // is 36 exactly, so 40 clears it. The authored shark has 6, fair in
-        // its own game; the summon writes over it.
-        // `a_recovery_mount_cannot_be_deleted_by_one_hit` reads the whole
-        // selectable cast, so a bigger smash trips it.
-        health: 40,
-        // How fast a dismissed shark leaves, in px per second.
-        depart_speed: 1400.0,
-        // How long it flies before it is removed. Generous: it only has to
-        // outlast the time the body takes to leave view.
-        depart_seconds: 2.0,
-    ),
     // The Limit: the meter every seat holds, empty at the start and after a
     // respawn, and what fills it. Each source is independent; 0 turns one off.
     limit: (

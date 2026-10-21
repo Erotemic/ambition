@@ -98,6 +98,13 @@ where
                 ^ kind
         },
     );
+    // A course a module holds on a body (`ambition.body.hold_course`): it
+    // decides where the body goes each tick. Both axes are in the value.
+    registrar.rollback_component_clone_probed::<ambition_abilities::ride::HeldCourse>(
+        OWNER,
+        "ability.held_course",
+        ambition_abilities::ride::held_course_probe,
+    );
     registrar.declare_rollback_derived_resource::<ambition_abilities::module_entity::ModuleEntityTouchers>(
         OWNER,
         "derived.module_entity_touchers",

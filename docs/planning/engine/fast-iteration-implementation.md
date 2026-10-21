@@ -971,6 +971,38 @@ before you add a port.
     tests of `ambition_demo_smash` on the module road (with its loaded
     file), the module's tests, `ambition_portal2d extension::tests`.
     Poisons listed in the commit.
+  - Special route F14 ✅ (2026-10-20): the shark ride, on a summoned ride.
+    In `technique_execution`, `ambition.world.summon_ride` summons a
+    character where its asker is, on nobody's side, reserved for the asker
+    to ride (the summon executor's one road, `Effect::Summon`), and the body
+    holds a status from birth, so the module that summoned it ticks it (a
+    summon may name statuses: `SummonSpec::holds`). The facts
+    `ambition.body.ride` (awaiting a mount, or aboard and whether it lives),
+    `ambition.body.saddle` (ridden, awaited), `ambition.body.presses` (the
+    jump and burst edges), `ambition.body.tumbling` and `ambition.body.room`
+    (its live room's size), and the requests `ambition.mount.dismount`,
+    `ambition.body.hold_course` (the body steers a velocity in place of its
+    brain, `HeldCourse`) and `ambition.world.dismiss` (a summoned body
+    leaves) are `ambition_abilities::ride`. Smash's `smash.summon_ride` is
+    `ambition_demo_smash_modules::shark`: the status `smash.riding` takes the
+    rider off when the shark dies, a hit launches her, she leaves play, or
+    she jumps or dodges; the status `smash.summoned_ride` on the shark sends
+    it toward the nearer side of its room once nobody rides it and nobody is
+    coming, and dismisses it at the end of the departure. Smash's six shark
+    systems, `Departing` and the row `smash.departing_mount` are deleted
+    (schema 379), and so is the last native fighter-special handler road in
+    Smash (`install_special`). The shark's health, boarding radius and
+    deadline are the move's params (`pirate_admiral.ron`), not Smash's rules
+    file; its departure speed and time are the module's. Rules that changed:
+    the genre rules hold for the ride the move made, not for any rider; a
+    riderless shark sets off on the tick after its saddle empties and holds
+    its course from the next, a tick later than before; "the nearer side" is
+    of its room rather than of the stage's main platform (the same on every
+    Smash stage: each platform is centred in a 640 px room); a rider who
+    leaves play or whose shark dies may be put down a tick later (the rules
+    read her in `technique_execution`, before this tick's hits). Witnesses:
+    the thirteen `smash_ride` tests of `app_it`, the module's tests,
+    `ambition_abilities ride::tests`. Poisons listed in the commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

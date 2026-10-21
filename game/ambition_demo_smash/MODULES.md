@@ -16,10 +16,10 @@
 | [`mark`](src/mark.rs) | The delayed mark, end to end in this game. |
 | [`mine`](src/mine.rs) | The remote mine, end to end in this game. |
 | [`portal`](src/portal.rs) | The portal recovery, end to end in this game. |
-| [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow and summon tuning, as data in its pack (`assets/data/smash_rules.ron`). |
+| [`rules`](src/rules.rs) | The `smash_rules` schema: the demo's own match flow, as data in its pack (`assets/data/smash_rules.ron`). |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
-| [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
+| [`shark_ride`](src/shark_ride.rs) | The pirate's up-special, end to end in this game: summon a burning flying shark and ride it. |
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
 | [`smash_pack`](src/smash_pack.rs) | The Smash demo's content pack. |
 | [`stages`](src/stages.rs) | The `smash_stages` schema: Smash's stages, as data in its pack (`assets/data/smash_stages.ron`). |

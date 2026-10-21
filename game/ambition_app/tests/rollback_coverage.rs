@@ -901,14 +901,11 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
             board_within: 96.0,
             expires_in: 1.0,
         },
-        // The departure a dismissed mount carries. ⚠ Smash-owned rather than
-        // engine-owned, which is why it is spelled out here: a component this
+        // The course a dismissed mount holds (`ambition.body.hold_course`),
+        // spelled out because only a module asks for it: a component this
         // sweep cannot see is a component whose rollback registration nothing
         // checks.
-        ambition_demo_smash::shark_ride::Departing {
-            remaining: 2.0,
-            velocity: ambition_platformer2d::engine_core::Vec2::new(-1400.0, 0.0),
-        },
+        ambition_platformer2d::abilities::ride::HeldCourse(ambition_platformer2d::engine_core::Vec2::new(-1400.0, 0.0)),
     ));
 
     // Sweep on every tick of the weld's life. The mount-only components are

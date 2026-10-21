@@ -1109,11 +1109,18 @@ mod tests {
     #[test]
     fn behavior_sheet_resolution_uses_provider_fallback_and_explicit_targets() {
         let catalog = test_boss_catalog();
+        // Overflow has no sheet of its own; the Clockwork Warden does.
+        let overflow = catalog.behavior("overflow_boss").unwrap();
+        assert_eq!(
+            catalog.sheet_for_behavior(overflow),
+            catalog.sheet_for_key("gradient_sentinel"),
+            "a provider's fallback visual owns bosses without a dedicated sheet"
+        );
         let clockwork = catalog.behavior("clockwork_warden").unwrap();
         assert_eq!(
             catalog.sheet_for_behavior(clockwork),
-            catalog.sheet_for_key("gradient_sentinel"),
-            "a provider's fallback visual owns bosses without a dedicated sheet"
+            catalog.sheet_for_key("clockwork_warden"),
+            "a boss with a sheet of its own wears it, not the fallback"
         );
 
         let mut rider = catalog.behavior("gnu_ton_rider").unwrap().clone();
@@ -1144,7 +1151,7 @@ mod tests {
             .collect();
         assert_eq!(
             (worn == BossSheetSpec::unauthored(), (size.x, size.y), catalog.sheets.len(), copies),
-            (true, (80.0, 80.0), 9, Vec::<&String>::new()),
+            (true, (80.0, 80.0), 11, Vec::<&String>::new()),
             "(an empty catalog gives the unauthored layout, its size for a 50 x 80 body, the \
              authored sheets read, the authored sheets equal to the unauthored layout)"
         );

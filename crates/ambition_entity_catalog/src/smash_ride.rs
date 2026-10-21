@@ -25,6 +25,34 @@ pub struct SummonRideParams {
     pub seconds: f32,
     /// Planner-facing recovery reach in world pixels. Runtime steering does not read this value.
     pub reach: f32,
+    /// The mount's health for this ride, in place of the character's own: a
+    /// recovery mount must survive a stray hit.
+    pub health: u32,
+    /// The rider boards once this near the mount, in world pixels.
+    pub board_radius: f32,
+    /// How long the mount waits for its rider before nobody rides it, in
+    /// seconds of sim time.
+    pub board_deadline_s: f32,
+}
+
+/// The domain rule for a summon-and-ride's params, not only "serde can build
+/// it".
+pub fn check_summon_ride_params(params: &ParamValue) -> Result<(), String> {
+    let typed: SummonRideParams = params.hydrate().map_err(|error| error.to_string())?;
+    let mut problems = Vec::new();
+    for (field, value) in [
+        ("seconds", typed.seconds),
+        ("board_radius", typed.board_radius),
+        ("board_deadline_s", typed.board_deadline_s),
+    ] {
+        if !(value.is_finite() && value >= 0.0) {
+            problems.push(format!("`{field}` is {value}; it is finite and not negative"));
+        }
+    }
+    if typed.health == 0 {
+        problems.push("`health` is 0; the mount would die before it can carry anyone".to_string());
+    }
+    if problems.is_empty() { Ok(()) } else { Err(problems.join("; ")) }
 }
 
 /// Return the character id referenced by a summon-and-ride payload.

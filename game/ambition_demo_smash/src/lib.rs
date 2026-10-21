@@ -6,15 +6,15 @@
 //! also serves as an external-style consumer of the umbrella platformer API.
 
 // No prelude: a match needs the actor vocabulary, not the room-authoring one.
-// `install_technique(s)` registers a technique handler and declares its key in
-// one statement, so the installed technique set is a fact of the composition.
+// `install_module_technique` installs a special's module and declares its key
+// in one statement, so the installed technique set is a fact of the
+// composition.
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition_platformer2d::combat::technique::{
     check_hydrates, NestedReferences, TechniqueDelivery, TechniqueOffer, TechniqueParams,
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
-use ambition_platformer2d::runtime::install_technique;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod bolt;
@@ -468,10 +468,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         }
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
-        // The fighter specials sleep where the active room's game uses none
-        // (`install_special` puts each handler in their set); so do the
-        // per-tick follow-ups below that only a special starts: the limit
-        // meter and the ride.
+        // The per-tick rules below that only a special starts (a sleeper's
+        // mash, the limit meter) sleep where the active room's game uses no
+        // fighter specials.
         // Sing: the module `ambition_demo_smash_modules::sing`, so an edit to
         // the song compiles that crate alone. Authored sleeps today: the
         // performer's `speech` pulse (`performer_moveset`) and the Shadow Oni
@@ -725,27 +724,23 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             },
             ambition_demo_smash_modules::counter::module(),
         );
-        // Shark summon, in `ContentSpecials`: it must produce its effects
-        // before the effect executors run (`ContentSpecials.before(
-        // EffectExecutionSet)`). Name the set; do not add a leaf-to-leaf edge.
-        install_special(
+        // Shark ride: the module `ambition_demo_smash_modules::shark`. It
+        // summons the ride (`ambition.world.summon_ride`), and a status on the
+        // rider and another on the shark end the ride and send the shark away.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
             TechniqueOffer {
-                owner: "ambition_demo_smash::shark_ride",
+                owner: "ambition_demo_smash_modules::shark",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_ride::SummonRideParams>,
+                    ambition_platformer2d::entity_catalog::smash_ride::check_summon_ride_params,
                 ),
                 references: NestedReferences::Characters(
                     ambition_platformer2d::entity_catalog::smash_ride::summon_ride_character_refs,
                 ),
                 delivery: TechniqueDelivery::Action,
             },
-            crate::shark_ride::translate_shark_summons
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials), // ⛔⛔ ~~AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY~~ —
-                                                                                                  // the runtime puts `apply_summon_effects` in
-                                                                                                  // `EffectExecutionSet`, so set membership is the whole
-                                                                                                  // ordering. Without it the shark never appears.
+            ambition_demo_smash_modules::shark::module(),
         );
         // Bomb: the module `ambition_demo_smash_modules::bomb`. A dropped bomb
         // is a module entity that is a held item, ticked with the items after
@@ -765,45 +760,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 delivery: TechniqueDelivery::Action,
             },
             ambition_demo_smash_modules::bomb::module(),
-        );
-        // What ends a ride, and what the shark does afterwards. `Settle`,
-        // chained: each reads state the tick already produced. The two that
-        // request a dismount run before `DismountRequestsApplied` (the set
-        // `ambition_mount` publishes).
-        app.add_systems(
-            sim,
-            (
-                crate::shark_ride::dissolve_the_ride_when_the_shark_dies,
-                crate::shark_ride::dismount_launched_riders,
-                crate::shark_ride::dismount_riders_who_left_play,
-                crate::shark_ride::bail_out_of_the_saddle,
-            )
-                .chain()
-                .before(ambition_platformer2d::mount::DismountRequestsApplied)
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-                .in_set(FIGHTER_SPECIALS),
-        );
-        app.add_systems(
-            sim,
-            (
-                crate::shark_ride::depart_when_riderless,
-                crate::shark_ride::send_away_a_shark_nobody_boarded,
-            )
-                .chain()
-                .after(ambition_platformer2d::mount::DismountRequestsApplied)
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-                .in_set(FIGHTER_SPECIALS),
-        );
-        // Departure writes intent after the actor brains publish, so the
-        // riderless shark's brain cannot overwrite it before movement, and
-        // before the control gate, so every restriction sees the frame (A4).
-        app.add_systems(
-            sim,
-            crate::shark_ride::tick_departures
-                .after(ambition_platformer2d::platformer::schedule::ActorDecisionSet::Publish)
-                .before(ambition_platformer2d::platformer::schedule::PlayerInputSet::ControlGate)
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
-                .in_set(FIGHTER_SPECIALS),
         );
         // The capture interruption release is in `CombatSchedulePlugin`. Do
         // not add it here; it would run twice.
@@ -1639,18 +1595,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
                     ambition_platformer2d::sfx::ids::UI_MENU_BACK,
                 ]),
-            );
-        }
-        // The ruleset's own rollback state. Register through
-        // `AmbitionRollbackApp`, not a `SchemaRollbackRegistrar`: the schema
-        // registrar installs no probe, so `rollback_exit_oracle` cannot
-        // localize the component.
-        {
-            use ambition_platformer2d::rollback::AmbitionRollbackApp;
-            app.rollback_component_clone_probed::<crate::shark_ride::Departing>(
-                "ambition_demo_smash",
-                "smash.departing_mount",
-                crate::shark_ride::departing_probe,
             );
         }
         // Init before the preparation source reads it: a missing
@@ -2586,8 +2530,9 @@ pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
     digest
 }
 
-/// The set of the fighter specials this crate offers: they run only where the
-/// active room's game uses them (`UsedCapabilities`).
+/// The set of the per-tick rules of this crate's fighter specials: they run
+/// only where the active room's game uses fighter specials
+/// (`UsedCapabilities`).
 const FIGHTER_SPECIALS: ambition_platformer2d::platformer::capability::CapabilitySet =
     ambition_platformer2d::platformer::capability::CapabilitySet(
         ambition_platformer2d::platformer::capability::Capability::FighterSpecials,
@@ -2615,15 +2560,4 @@ fn stamp_smash_module_entities(
     }
 }
 
-/// [`install_technique`] for a fighter special: its handler also joins
-/// [`FIGHTER_SPECIALS`].
-fn install_special<M>(
-    app: &mut bevy::prelude::App,
-    key: &str,
-    offer: TechniqueOffer,
-    systems: impl bevy::prelude::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
-) {
-    use bevy::prelude::IntoScheduleConfigs as _;
-    install_technique(app, key, offer, systems.into_configs().in_set(FIGHTER_SPECIALS));
-}
 

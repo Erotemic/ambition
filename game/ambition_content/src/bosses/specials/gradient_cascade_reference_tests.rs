@@ -115,6 +115,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     health: None,
                     // A boss minion keeps its character's hazard.
                     keeps_contact_damage: true,
+                    holds: Vec::new(),
                 }),
             });
         }

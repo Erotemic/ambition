@@ -742,7 +742,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     //
     // ⛔ TEN DAMAGE IS A MIDDLING HIT, not a worst case: the admiral's own table
     // has several at or above it. At the authored 6 this kills the shark and the
-    // ride ends; at `shark_ride.health` it must not.
+    // ride ends; at the summon's `health` it must not.
     {
         let world = app.world_mut();
         let mount = world
@@ -863,8 +863,8 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
 /// Jon named both and they are easy to conflate: a hit that FLINCHES refreshes
 /// the up-B, and a hit that LAUNCHES takes you off the shark. A jab that flinches
 /// a rider leaves it aboard. `BodyMotionFacts::tumbling` is the engine's own word
-/// for *"launched with no control"*, which is why `dismount_launched_riders`
-/// reads it rather than a knockback magnitude somebody would have to defend.
+/// for *"launched with no control"*, which is why the shark module's rider tick
+/// reads it (`ambition.body.tumbling`) rather than a knockback magnitude somebody would have to defend.
 ///
 /// ⛔⛔ NEITHER HALF WAS TESTED. The rule shipped as an authored condition and a
 /// comment; nothing asked whether a flinching hit leaves the rider aboard, and
@@ -1531,10 +1531,10 @@ fn the_summoned_shark_carries_no_contact_hazard() {
 /// Jon: *"If the shark is hit 3 times, then the shark dies and the rider would
 /// fall off."* Two halves, and the second is the one with teeth: ADR 0020
 /// deliberately KEEPS `RidingOn` attached when a mount dies, so a same-room reset
-/// can re-mount an authored pair. A summoned shark never comes back, so without
-/// `dissolve_the_ride_when_the_shark_dies` the admiral would be left logically
-/// riding a corpse forever — and `translate_shark_summons` refuses anybody
-/// already carrying `RidingOn`. One dead shark, no more sharks, for the match.
+/// can re-mount an authored pair. A summoned shark never comes back, so unless
+/// the shark module puts him down when his mount dies (`MountLost`) the admiral
+/// would be left logically riding a corpse forever — and the up-B's gate
+/// (`forbidden_while_held`) refuses anybody still riding. One dead shark, no more sharks, for the match.
 #[test]
 fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
     use ambition_platformer2d::actor::MatchSeat;
@@ -1713,8 +1713,8 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
          the match gave him, for the rest of the bout"
     );
 
-    // ⭐ AND THE UP-B IS FREE AGAIN. Without the dissolution above,
-    // `translate_shark_summons` would refuse forever: one dead shark, no more
+    // ⭐ AND THE UP-B IS FREE AGAIN. Without the dissolution above, the
+    // up-B's gate would refuse forever: one dead shark, no more
     // sharks, for the rest of the match.
     let before = {
         let world = app.world_mut();
@@ -2060,7 +2060,22 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
         roster.len()
     );
 
-    let pool = ambition_demo_smash::rules::smash_rules().shark_ride.health;
+    // The shark's pool is its move's: the `health` of the admiral's summon.
+    let mut pool = None;
+    let admiral = registry.get(ambition_demo_smash::SMASH_SHARK_RIDER).expect("the admiral is registered");
+    let moveset = admiral.kit.projectable_moveset().expect("the admiral projects a moveset");
+    for event in moveset.moves.iter().flat_map(|spec| spec.events.iter()) {
+        if let ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect) = &event.kind {
+            if effect.key == ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE {
+                let params = effect
+                    .params
+                    .hydrate::<ambition_platformer2d::entity_catalog::smash_ride::SummonRideParams>()
+                    .expect("the summon's params hydrate");
+                pool = Some(params.health);
+            }
+        }
+    }
+    let pool = pool.expect("the admiral's moveset summons no shark, so there is no pool to measure");
     let (damage, who, what) = worst;
     let (ranged_damage, ranged_who, ranged_what) = worst_ranged;
     println!(
@@ -2554,7 +2569,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
         save.data_mut().set_flag(
             &format!(
                 "enemy_{}_dead",
-                ambition_demo_smash::shark_ride::SUMMON_SHARK_ID
+                ambition_demo_smash::shark_ride::SHARK_ID
             ),
             true,
         );
@@ -2568,7 +2583,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
             .data()
             .flag(&format!(
                 "enemy_{}_dead",
-                ambition_demo_smash::shark_ride::SUMMON_SHARK_ID
+                ambition_demo_smash::shark_ride::SHARK_ID
             )),
         "the match save does not keep the dead flag, so this test is riding a \
          shark nothing was ever going to kill"

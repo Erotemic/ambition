@@ -80,8 +80,9 @@ pub fn install(app: &mut App) {
 /// Install the module-entity spawn, the effect and the velocity in
 /// `technique_execution`: a move's special can put an entity on the stage (a
 /// plate), announce it, and set its fighter's motion (a dash); it can place
-/// an item and reach what it placed (a mine), and see a ledge ahead and
-/// whether it stands, and show a line (a tether).
+/// an item and reach what it placed (a mine), see a ledge ahead and whether
+/// it stands, and show a line (a tether), and summon a ride and end it
+/// ([`crate::ride`]).
 pub fn install_for_technique_execution(app: &mut App) {
     app.install_extension_request::<SetVelocityPort, _>(
         TECHNIQUE_EXECUTION,
@@ -128,6 +129,7 @@ pub fn install_for_technique_execution(app: &mut App) {
         "ambition_abilities",
         lower_body_lines,
     );
+    crate::ride::install_for_technique_execution(app);
 }
 
 /// Install the module-entity trigger port and its ports in

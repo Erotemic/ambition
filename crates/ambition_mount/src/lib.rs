@@ -1731,8 +1731,7 @@ where
 ///
 /// ⛔⛔ WITHOUT THIS A REFUSED BOARD LEAVES A BODY NOBODY OWNS. [`board`] returns
 /// `false` and the mount simply stands there: it never got a [`MountSlot`], so
-/// every system that cleans up after a ride — `depart_when_riderless` included —
-/// filters it straight out, and nothing else in the world has a reason to look
+/// every system that cleans up after a ride filters it straight out, and nothing else in the world has a reason to look
 /// at it. That is how an admiral with no `CanPilot` ended up standing next to an
 /// immortal shark.
 ///
@@ -2141,6 +2140,60 @@ mod dismount_claim_tests {
             "the rider is off the mount and still carries its control claim, so \
              nothing will ever clear it: {claims:?}"
         );
+    }
+
+    /// A dismount announces the emptied saddle (`RiderDismounted`): no system
+    /// in this tree reads it, so its emission is witnessed here, for the
+    /// ruleset that does.
+    #[test]
+    fn a_dismount_announces_the_empty_saddle() {
+        let mut app = App::new();
+        app.add_message::<DismountRequested>();
+        app.add_message::<RiderDismounted>();
+        app.add_systems(Update, apply_dismount_requests);
+        let mount = app.world_mut().spawn_empty().id();
+        let rider = app
+            .world_mut()
+            .spawn((
+                RidingOn { mount },
+                SpawnBaseline { pos: Vec2::ZERO, size: Vec2::new(24.0, 40.0) },
+                ambition_platformer2d_core::BodyKinematics::default(),
+                ambition_platformer2d_core::CenteredAabb::from_center_size(Vec2::ZERO, Vec2::new(24.0, 40.0)),
+            ))
+            .id();
+        app.world_mut().entity_mut(mount).insert(MountSlot { rider: Some(rider) });
+        app.world_mut().write_message(DismountRequested { rider, reason: DismountReason::RiderBailed });
+        app.update();
+        let announced: Vec<RiderDismounted> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<RiderDismounted>>()
+            .drain()
+            .collect();
+        assert_eq!(announced, vec![RiderDismounted { rider, mount, reason: DismountReason::RiderBailed }]);
+    }
+
+    /// A reservation whose rider has no body is refused, and says so
+    /// (`RideRefused`): no system in this tree reads it, so its emission is
+    /// witnessed here, for the ruleset that does.
+    #[test]
+    fn a_reservation_nobody_can_take_announces_its_refusal() {
+        let mut app = App::new();
+        app.init_resource::<ambition_time::WorldTime>();
+        app.add_message::<RideRefused>();
+        app.add_systems(Update, board_reserved_mounts);
+        let rider = app.world_mut().spawn_empty().id();
+        let mount = app
+            .world_mut()
+            .spawn((
+                MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0 },
+                ambition_platformer2d_core::BodyKinematics::default(),
+            ))
+            .id();
+        app.update();
+        let refused: Vec<RideRefused> =
+            app.world_mut().resource_mut::<bevy::ecs::message::Messages<RideRefused>>().drain().collect();
+        assert_eq!(refused, vec![RideRefused { rider, mount }]);
+        assert!(app.world().get::<MountReservedFor>(mount).is_none(), "the refused reservation stayed");
     }
 }
 

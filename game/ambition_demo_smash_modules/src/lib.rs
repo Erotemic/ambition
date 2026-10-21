@@ -24,6 +24,7 @@ pub mod mark;
 pub mod mine;
 pub mod portal;
 pub mod riposte;
+pub mod shark;
 pub mod sing;
 pub mod spring;
 pub mod tether;
@@ -43,6 +44,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     mine::module,
     portal::module,
     riposte::module,
+    shark::module,
     sing::module,
     spring::module,
     tether::module,

@@ -134,7 +134,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// status on the fighter; a held pair is its module's (not its entry's),
 /// remembers its phase and whether it was used; `smash.move_placed_portal`
 /// is gone.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 378;
+/// 378 -> 379: the shark ride is a module: a summoned body may hold statuses
+/// from birth, and a riderless shark's way out is a record on it and a course
+/// it holds (`ability.held_course`); `smash.departing_mount` is gone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 379;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

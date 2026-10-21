@@ -16,11 +16,12 @@
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to the fighter who placed it and nobody else. |
 | [`portal`](src/portal.rs) | The portal recovery: a linked pair of portals, one at the fighter and one above, held open for a while. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
+| [`shark`](src/shark.rs) | The shark ride: the pirate summons a burning flying shark and rides it. |
 | [`sing`](src/sing.rs) | The song: a pulse that puts everyone near the singer to sleep. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

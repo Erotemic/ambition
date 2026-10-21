@@ -33,6 +33,7 @@ pub fn summon(effects: &mut MessageWriter<ambition_vfx::EffectRequest>, god: Ent
                 ridden_by_summoner: None,
                 health: None,
                 keeps_contact_damage: true,
+                holds: Vec::new(),
             }),
         });
     }

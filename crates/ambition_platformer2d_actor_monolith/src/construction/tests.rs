@@ -829,6 +829,7 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
         health: None,
         // A boss minion keeps its character's hazard.
         keeps_contact_damage: true,
+        holds: Vec::new(),
     }
 }
 

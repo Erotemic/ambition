@@ -115,7 +115,7 @@ All counts are measured, without the census's own systems. The hub is
    `setup_host_presentation_system` and the LDtk loader). And Ambition's cast
    uses techniques that Smash registers (`smash.counter`,
    `smash.place_spring`, ...): without Smash, 20 of its moves are refused at
-   admission.
+   admission. (Since 2026-10-21 Ambition's provider installs them; see S2b.)
 
 Not measured yet: the frame time that each change below saves on a phone. The
 VM draws with a software renderer, which takes about 70% of its samples.
@@ -215,6 +215,14 @@ Next steps, each its own commit:
 - Install the portal, physics debris and 3D lighting plugins only for a
   selected game that uses them (S3 profiles).
 - Move the techniques more than one game uses out of `ambition_demo_smash`.
+  **Done 2026-10-21:** the fourteen fighter specials (each a module of
+  `ambition_demo_smash_modules`) install from `ambition_fighter_specials`,
+  which Ambition's provider and Smash each call, once. A provider composed
+  without Smash declares every special its cast authors
+  (`provider::tests::the_provider_installs_the_fighter_specials_its_cast_authors`).
+  The techniques the runtime installs for every game (`smash.teleport`,
+  `smash.vitality`, `smash.trapdoor`, `smash.flyline`, capture, pogo bounce)
+  are unchanged; they belong to S3's capability inventory.
 - A Mary-O-only APK (`AMBITION_HUB_GAMES=mary_o ./build_for_android.sh`),
   measured on the phone against the full hub.
 

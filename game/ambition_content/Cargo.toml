@@ -51,6 +51,9 @@ ambition_extension_host = { path = "../../crates/ambition_extension_host" }
 # `content_pack`: this crate's own content goes through the compiler, and the facade's
 # `content::engine_schemas()` is the ONE list of engine-owned schemas it compiles against.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
+# The fighter specials its cast authors (a counter, a spring, a portal pair,
+# ...), installed for their keys without the Smash demo.
+ambition_fighter_specials = { path = "../ambition_fighter_specials" }
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.

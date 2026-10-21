@@ -138,6 +138,10 @@ impl Plugin for AmbitionExperiencePlugin {
         // replaces it when the save holds an inventory.
         .with_initial_inventory(ambition_items::OwnedItems::starter)
         .install(app, ambition_session_world);
+        // Ambition's cast authors fighter specials (a counter, a placed
+        // spring, a portal pair, ...): install them here, so a hub without the
+        // Smash demo admits its moves. Smash installs the same ones; once.
+        ambition_fighter_specials::install(app);
         // The refill rate for the Mana this experience declares. Inert for every
         // body that holds no Mana, so composing this beside other experiences
         // changes nothing of theirs.
@@ -265,6 +269,38 @@ mod tests {
             .get(&ShellRouteId::new(AMBITION_GAMEPLAY_ROUTE))
             .expect("provider registered its route");
         assert!(route.preparation.is_some());
+    }
+
+    /// Ambition's cast authors fighter specials (a counter, a placed spring,
+    /// a portal pair, ...), and its provider installs them, so a hub that
+    /// does not install the Smash demo still admits those moves. Every such
+    /// key its shipped movesets author is declared by the provider alone.
+    #[test]
+    fn the_provider_installs_the_fighter_specials_its_cast_authors() {
+        let mut app = App::new();
+        app.add_plugins(ambition_platformer2d::extension::ExtensionHostPlugin::new(bevy::prelude::Update));
+        app.add_plugins(MinimalShellPlugins);
+        app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
+        app.add_plugins(crate::AmbitionContentPlugin);
+        app.add_plugins(AmbitionExperiencePlugin::new(AmbitionExperienceConfig::default()));
+
+        let offered: Vec<&str> = ambition_fighter_specials::specials().iter().map(|special| special.key).collect();
+        let mut authored: Vec<String> = crate::authored_movesets::tables()
+            .iter()
+            .flat_map(|(_, contract)| contract.moves.iter())
+            .flat_map(|spec| spec.effect_refs().into_iter().map(|(_, effect)| effect.key.clone()))
+            .filter(|key| offered.contains(&key.as_str()))
+            .collect();
+        authored.sort();
+        authored.dedup();
+        assert!(authored.len() >= 10, "Ambition's cast authors only {authored:?}, so this is about nobody");
+        let support = &app
+            .world()
+            .get_resource::<ambition_platformer2d::combat::technique::InstalledTechniques>()
+            .expect("the provider installed no technique at all")
+            .0;
+        let missing: Vec<&String> = authored.iter().filter(|key| support.offer(key).is_none()).collect();
+        assert!(missing.is_empty(), "Ambition's cast authors {missing:?}, which only Smash would install");
     }
 
     /// Q153 (2026-10-19): single-player by default, whatever the pads. The

@@ -40,6 +40,8 @@ VOCABULARY = REPO / "crates" / "ambition_entity_catalog" / "src"
 # Where a ruleset may recognise it. A key named in any of these is connected.
 RULESETS = (
     REPO / "game" / "ambition_demo_smash" / "src",
+    # The fighter specials more than one game authors, installed once.
+    REPO / "game" / "ambition_fighter_specials" / "src",
     REPO / "crates" / "ambition_combat" / "src",
     REPO / "crates" / "ambition_platformer2d_actor_monolith" / "src",
 )

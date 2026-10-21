@@ -6,13 +6,7 @@
 //! also serves as an external-style consumer of the umbrella platformer API.
 
 // No prelude: a match needs the actor vocabulary, not the room-authoring one.
-// `install_module_technique` installs a special's module and declares its key
-// in one statement, so the installed technique set is a fact of the
-// composition.
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
-use ambition_platformer2d::combat::technique::{
-    check_hydrates, NestedReferences, TechniqueDelivery, TechniqueOffer, TechniqueParams,
-};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
@@ -471,24 +465,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // The per-tick rules below that only a special starts (a sleeper's
         // mash, the limit meter) sleep where the active room's game uses no
         // fighter specials.
-        // Sing: the module `ambition_demo_smash_modules::sing`, so an edit to
-        // the song compiles that crate alone. Authored sleeps today: the
-        // performer's `speech` pulse (`performer_moveset`) and the Shadow Oni
-        // leader's seal.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::sing",
-                params: TechniqueParams::Checked(
-                    // The domain rule, not only "serde can build it".
-                    ambition_platformer2d::entity_catalog::smash_sleep::check_sleep_params,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::sing::module(),
-        );
+        // The specials themselves, each a module of
+        // `ambition_demo_smash_modules`, offered for its key. Ambition's cast
+        // authors most of them too, so they install from their own crate,
+        // once, whichever game asks first.
+        ambition_fighter_specials::install(app);
         // The mash is this game's rule of how a sleeper buys time back. It
         // runs before the song's sleep is lowered, so a press cannot be spent
         // on a sleep that did not exist when it was made; the sleep is a
@@ -502,125 +483,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION,
                 )),
         );
-        // Portal recovery: the module `ambition_demo_smash_modules::portal`. A
-        // pair is held open by a status on the fighter
-        // (`ambition.portal.held_pair`), so it goes with her.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_portal::PORTAL_PAIR,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::portal",
-                params: TechniqueParams::Checked(
-                    check_hydrates::<
-                        ambition_platformer2d::entity_catalog::smash_portal::PortalPairParams,
-                    >,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::portal::module(),
-        );
-        // Steered bolt: the module `ambition_demo_smash_modules::bolt`. A
-        // bolt is a module entity, put on the stage by the press and flown
-        // from the next tick by its caster's stick.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_bolt::STEERED_BOLT,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::bolt",
-                params: TechniqueParams::Checked(
-                    // The domain rule, not only "serde can build it": rejects
-                    // an invisible bolt, a trail never redrawn, an unsteerable bolt.
-                    ambition_platformer2d::entity_catalog::smash_bolt::check_steered_bolt_params,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::bolt::module(),
-        );
-        // Homing dash: the module `ambition_demo_smash_modules::homing`, clock,
-        // cone and steering. It asks the engine only who is a foe
-        // (`ambition.combat.foes`) and sets its fighter's velocity.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_homing::HOMING_DASH,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::homing",
-                params: TechniqueParams::Checked(
-                    check_hydrates::<
-                        ambition_platformer2d::entity_catalog::smash_homing::HomingDashParams,
-                    >,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::homing::module(),
-        );
-        // Riposte: the module `ambition_demo_smash_modules::riposte`, so an
-        // edit to the cut compiles that crate alone. It reads the same
-        // `ActorActionMessage` the counter writes, so it needs no
-        // counter-specific wiring.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_riposte::RIPOSTE_STRIKE,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::riposte",
-                params: TechniqueParams::Checked(
-                    // The domain rule, not only "serde can build it".
-                    ambition_platformer2d::entity_catalog::smash_riposte::check_riposte_strike_params,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::riposte::module(),
-        );
-        // Tether reel: the module `ambition_demo_smash_modules::tether`. A line
-        // that bit a ledge pulls on that tick, and a status on the fighter
-        // reels her after. The reel does not catch the ledge; the movement
-        // kernel's ledge authority does, one phase later.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_tether::TETHER_PULL,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::tether",
-                params: TechniqueParams::Checked(
-                    check_hydrates::<
-                        ambition_platformer2d::entity_catalog::smash_tether::TetherPullParams,
-                    >,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::tether::module(),
-        );
-        // Placed spring: the module `ambition_demo_smash_modules::spring`.
-        // The drop puts a module entity on the stage, and the module ticks
-        // it; the match owns its end (`stamp_smash_module_entities`).
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_spring::PLACE_SPRING,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::spring",
-                params: TechniqueParams::Checked(
-                    ambition_platformer2d::entity_catalog::smash_spring::check_place_spring_params,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::spring::module(),
-        );
+        // A placed object (a spring, a mine, a bomb) is a module entity; the
+        // match owns its end.
         app.add_systems(sim, stamp_smash_module_entities);
         // Limit meter: a set of independent sources, not one rule, so a
         // mechanic can author only the source it wants. The fill rule is
-        // declared above for Smash's rooms.
+        // declared above for Smash's rooms; the authored half, a move that
+        // fills its own meter, is the module `ambition_demo_smash_modules::limit`.
         //
-        // The two halves run in different phases. `ContentSpecials` is inside
-        // `Materialize`, before `Resolve`, so a damage reader there reads the
-        // previous frame's `ResolvedBodyHit`. Under GGRS that cross-frame read
-        // diverges (`clear_message_on_rollback` drops the leftover at load), and
-        // `BodyMana` desyncs. So the damage half runs in `ContentFlavor`
-        // (between `Resolve` and `Settle`), and reads each hit on the frame it
-        // is emitted.
+        // The damage half runs in `ContentFlavor` (between `Resolve` and
+        // `Settle`), not `ContentSpecials`: that is inside `Materialize`,
+        // before `Resolve`, so a damage reader there reads the previous
+        // frame's `ResolvedBodyHit`. Under GGRS that cross-frame read
+        // diverges (`clear_message_on_rollback` drops the leftover at load),
+        // and `BodyMana` desyncs.
         //
         // A latching reader (sets booleans, like
         // `mark_move_playback_resolved_hits`) can read a frame late. An
@@ -630,136 +506,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::limit::fill_limit_meters
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentFlavor)
                 .in_set(FIGHTER_SPECIALS),
-        );
-        // The authored half, a move that fills its own meter, is the module
-        // `ambition_demo_smash_modules::limit` (`ambition.resources.refill`).
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::limit",
-                params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_limit::FillMeterParams>,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::limit::module(),
-        );
-        // Time dilation: the module `ambition_demo_smash_modules::dilation`.
-        // The module keeps the clock too, as a status on the slowed body
-        // (`ambition.body.status_tick`).
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::dilation",
-                params: TechniqueParams::Checked(
-                    // The domain rule, not only "serde can build it".
-                    ambition_platformer2d::entity_catalog::smash_time_dilation::check_time_dilation_params,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::dilation::module(),
-        );
-        // Remote mine: the module `ambition_demo_smash_modules::mine`. A placed
-        // mine is a module entity that is a held item; it arms as it ages, and
-        // the module entities age in the player phase, before this tick's
-        // presses, so a mine that becomes live this tick answers this tick's
-        // press.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::mine",
-                params: TechniqueParams::Checked(
-                    ambition_platformer2d::entity_catalog::smash_mine::check_place_mine_params,
-                ),
-                references: NestedReferences::HeldItems(
-                    ambition_platformer2d::entity_catalog::smash_mine::mine_held_item_refs,
-                ),
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::mine::module(),
-        );
-        // Mark: the module `ambition_demo_smash_modules::mark`, answered on the
-        // body a volume struck (`ambition.combat.struck`, `hit_reaction`), so
-        // the strike's own tick applies it and spends none of its fuse. Its
-        // clock is a status on that body, which the body-clock view draws.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_mark::MARK_BODY,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::mark",
-                params: TechniqueParams::Checked(
-                    ambition_platformer2d::entity_catalog::smash_mark::check_mark_body_params,
-                ),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::OnHit,
-            },
-            ambition_demo_smash_modules::mark::module(),
-        );
-        // Counter stance: the module `ambition_demo_smash_modules::counter`.
-        // It holds the parry window open each tick of the stance
-        // (`ambition.combat.parry_window`, lowered in `ContentSpecials`, inside
-        // `Materialize`: after the stance's effect is emitted in `Playback`
-        // and before `apply_hitbox_damage` judges in `Resolve`), and answers a
-        // parry caught in it (`ambition.combat.parried`, `hit_reaction`). The
-        // answer lands on the next tick: its `ActorActionMessage` is read in
-        // `Materialize`, which has passed. The wait makes the catch visible.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::counter",
-                params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_counter::CounterParams>,
-                ),
-                // The response is admitted as an effect of its own.
-                references: NestedReferences::Effects(
-                    ambition_platformer2d::entity_catalog::smash_counter::counter_response_refs,
-                ),
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::counter::module(),
-        );
-        // Shark ride: the module `ambition_demo_smash_modules::shark`. It
-        // summons the ride (`ambition.world.summon_ride`), and a status on the
-        // rider and another on the shark end the ride and send the shark away.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::shark",
-                params: TechniqueParams::Checked(
-                    ambition_platformer2d::entity_catalog::smash_ride::check_summon_ride_params,
-                ),
-                references: NestedReferences::Characters(
-                    ambition_platformer2d::entity_catalog::smash_ride::summon_ride_character_refs,
-                ),
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::shark::module(),
-        );
-        // Bomb: the module `ambition_demo_smash_modules::bomb`. A dropped bomb
-        // is a module entity that is a held item, ticked with the items after
-        // item physics (`module_entity_tick`), so an impact is read on the
-        // tick it happens.
-        ambition_platformer2d::runtime::install_module_technique(
-            app,
-            ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
-            TechniqueOffer {
-                owner: "ambition_demo_smash_modules::bomb",
-                params: TechniqueParams::Checked(
-                    ambition_platformer2d::entity_catalog::smash_bomb::check_drop_bomb_params,
-                ),
-                references: NestedReferences::HeldItems(
-                    ambition_platformer2d::entity_catalog::smash_bomb::bomb_held_item_refs,
-                ),
-                delivery: TechniqueDelivery::Action,
-            },
-            ambition_demo_smash_modules::bomb::module(),
         );
         // The capture interruption release is in `CombatSchedulePlugin`. Do
         // not add it here; it would run twice.

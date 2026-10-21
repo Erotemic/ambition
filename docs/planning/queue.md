@@ -142,7 +142,10 @@ a live reload is a second priority. Work in this order:
    birth, and a course a body holds. The Smash crate installs no native
    special handler any more; the `smash.*` techniques the runtime installs
    for every game (`smash.teleport`, `smash.vitality`, `smash.trapdoor`,
-   `smash.flyline`, and capture) are still engine handlers.
+   `smash.flyline`, and capture) are still engine handlers. Since 2026-10-21
+   the specials install from `ambition_fighter_specials`, which Ambition's
+   provider and Smash each call, so a hub without Smash admits Ambition's
+   cast (system audit S2b).
    Second priority, and only where a recompile does not depend on it: the
    live-reload remainder (a restated schema inside a live session, sprite
    publication inside a session). A live reload for the demo packs' tuning

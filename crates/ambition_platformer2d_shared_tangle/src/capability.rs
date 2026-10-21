@@ -26,12 +26,15 @@ pub enum Capability {
     /// Touching an item to collect it, and the authored conditions that ask about the bag.
     /// ⚠ The bag itself (`OwnedItems`) is core state and is NOT removed (`Q106`).
     Inventory,
-    /// The fighter specials that `ambition_demo_smash` offers (sing, counter,
-    /// a summoned ride, a steered bolt, a mine, a tether, ...) and their
-    /// per-tick follow-ups. A game crate installs them, not the engine group,
-    /// so this is not removable from the engine group. The traversal and
-    /// combat techniques the runtime installs (teleport, trapdoor, pogo
-    /// bounce) are not in it: platformers use them.
+    /// The per-tick rules a game adds around its fighter specials (Smash's
+    /// sleeper's mash and Limit fill). The specials themselves (sing, counter,
+    /// a summoned ride, a steered bolt, a mine, a tether, ...) are extension
+    /// modules that each game whose cast authors them installs
+    /// (`ambition_fighter_specials`); they run only when pressed or ticked. A
+    /// game crate installs both, not the engine group, so this is not
+    /// removable from the engine group. The traversal and combat techniques
+    /// the runtime installs (teleport, trapdoor, pogo bounce) are not in it:
+    /// platformers use them.
     FighterSpecials,
     /// Portals: their pose, input warp, gun and shots, transit guards,
     /// eviction and transit. What they publish for other systems (the carves,

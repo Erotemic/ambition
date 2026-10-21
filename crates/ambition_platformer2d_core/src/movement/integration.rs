@@ -1826,6 +1826,13 @@ pub(super) fn apply_wall_abilities_clusters(
         return;
     }
     state.wall_clinging = true;
+    // A body on a wall faces away from it, out into the room, whichever way it
+    // came to it (Jon, 2026-10-21: "Clinging to a wall should also always
+    // change your facing direction"). A body in the air does not turn by
+    // itself, so one that came to the wall backward kept facing the wall.
+    if wall.wall_normal_x != 0.0 {
+        kinematics.facing = wall.wall_normal_x.signum();
+    }
     if abilities.abilities.wall_climb && local_stick.y.abs() > 0.25 {
         state.wall_climbing = true;
         let along_down = kinematics.vel.dot(basis.down);

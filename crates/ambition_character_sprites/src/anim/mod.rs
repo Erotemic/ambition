@@ -13,6 +13,8 @@ use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 /// A presentation dead band: the gameplay gait has one band for every body
 /// (`ambition_combat::hurtbox_resolution::STANDING_BELOW`).
 pub const PLAYER_IDLE_BELOW: f32 = 12.0;
+/// A cling that goes down its wall faster than this (px/s) is a slide.
+pub const WALL_SLIDE_ABOVE: f32 = 40.0;
 /// Below this speed along its run axis an actor's sprite shows its Idle row.
 pub const ACTOR_IDLE_BELOW: f32 = 8.0;
 
@@ -133,6 +135,8 @@ pub struct BodyAnimView {
     pub dashing: bool,
     pub ladder_climbing: bool,
     pub wall_grab: bool,
+    /// Clinging to a wall and sliding down it faster than a hold.
+    pub wall_sliding: bool,
     /// Climbing a wall the body clings to (the `wall_climb` ability).
     pub wall_climbing: bool,
     pub gliding: bool,
@@ -466,6 +470,9 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if v.wall_grab {
         return WallGrab;
     }
+    if v.wall_sliding {
+        return WallSlide;
+    }
     if v.wall_climbing {
         return WallClimb;
     }
@@ -618,10 +625,16 @@ pub fn body_view_from_body(
         // High-priority climb (ladder/vine) vs the low-priority compact silhouette
         // (slide/crawl/crouch) are distinct fields checked at distinct priorities.
         ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
+        // A cling that holds or rises is a grab; one that goes down the wall
+        // faster than a hold is a slide.
         wall_grab: !ground.on_ground
             && facts.wall_clinging
             && !facts.wall_climbing
-            && along_fall.abs() < 40.0,
+            && along_fall < WALL_SLIDE_ABOVE,
+        wall_sliding: !ground.on_ground
+            && facts.wall_clinging
+            && !facts.wall_climbing
+            && along_fall >= WALL_SLIDE_ABOVE,
         wall_climbing: !ground.on_ground && facts.wall_clinging && facts.wall_climbing,
         gliding: facts.gliding,
         airborne: !ground.on_ground,

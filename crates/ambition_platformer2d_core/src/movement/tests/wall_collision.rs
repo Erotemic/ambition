@@ -302,6 +302,36 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     );
 }
 
+/// A body on a wall faces away from it, whichever way it came to it (Jon,
+/// 2026-10-21). A body in the air does not turn, so one that came to the wall
+/// facing it kept facing it.
+#[test]
+fn a_body_that_clings_to_a_wall_faces_away_from_it() {
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    let half = scratch.kinematics.size * 0.5;
+    let wall_right = 36.0;
+    scratch.kinematics.pos.x = wall_right + half.x - 0.05;
+    scratch.kinematics.pos.y = world.size.y * 0.5;
+    scratch.kinematics.vel = Vec2::new(-40.0, 60.0);
+    // It came to the wall on its left facing it.
+    scratch.kinematics.facing = -1.0;
+    scratch.ground.on_ground = false;
+    let _ = update_player_simulation_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            axes: crate::LocalAxes::new(-1.0, 0.0),
+            control_dt: 1.0 / 60.0,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        TEST_TUNING,
+    );
+    assert!(scratch.axis().wall_clinging, "the body pressed into the wall clings to it");
+    assert_eq!(scratch.kinematics.facing, 1.0, "a body on the wall at its left faces right, out of it");
+}
+
 /// Regression: player wall-clinging on a tall column whose top
 /// is far above the player must NOT teleport upward when their
 /// body partially overlaps the column on its bottom edge.

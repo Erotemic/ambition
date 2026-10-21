@@ -44,14 +44,18 @@ pub fn install(app: &mut App) {
 /// when the finish is over.
 pub fn drain_around_finishing_bosses(
     mut commands: Commands,
-    bosses: Res<BossRenderIndex>,
-    features: Res<FeatureViewIndex>,
+    // `Option`: a composition with no sim read model has no boss to finish.
+    bosses: Option<Res<BossRenderIndex>>,
+    features: Option<Res<FeatureViewIndex>>,
     visuals: Query<(Entity, &super::FeatureVisual, Has<FinishDrain>)>,
 ) {
     for (entity, visual, drained) in &visuals {
-        let finish = bosses.get(&visual.id).map_or(0.0, |boss| boss.finish);
+        let finish = bosses.as_deref().and_then(|bosses| bosses.get(&visual.id)).map_or(0.0, |boss| boss.finish);
         if finish > 0.0 {
-            let size = features.get(&visual.id).map_or(100.0, |feature| feature.size.max_element());
+            let size = features
+                .as_deref()
+                .and_then(|features| features.get(&visual.id))
+                .map_or(100.0, |feature| feature.size.max_element());
             commands.entity(entity).try_insert((
                 FinishDrain,
                 VoidAura { radius: DRAIN_RADIUS, strength: DRAIN * finish },
@@ -67,13 +71,14 @@ pub fn drain_around_finishing_bosses(
 pub fn show_finish_bars(
     mut commands: Commands,
     bars: Query<Entity, With<FinishBar>>,
-    bosses: Res<BossRenderIndex>,
+    // `Option`, as for the drain.
+    bosses: Option<Res<BossRenderIndex>>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
     for entity in &bars {
         commands.entity(entity).despawn();
     }
-    let finish = bosses.iter().map(|(_, boss)| boss.finish).fold(0.0f32, f32::max);
+    let finish = bosses.iter().flat_map(|bosses| bosses.iter()).map(|(_, boss)| boss.finish).fold(0.0f32, f32::max);
     if finish <= 0.0 {
         return;
     }

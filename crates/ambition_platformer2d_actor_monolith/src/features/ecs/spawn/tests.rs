@@ -332,10 +332,10 @@ fn an_encounter_mob_persists_no_death() {
     app.update();
     let mut q = app
         .world_mut()
-        .query::<(&ambition_combat::components::ActorIdentity, &ambition_combat::actor_tuning::ActorConfig)>();
-    let (identity, config) = q.iter(app.world()).next().expect("encounter mob exists");
+        .query::<&ambition_combat::actor_tuning::ActorConfig>();
+    let config = q.iter(app.world()).next().expect("encounter mob exists");
     assert_eq!(
-        crate::fate_flags::enemy_death_flag(config.tuning.respawn, &identity.id),
+        config.tuning.respawn.death_record(),
         None,
         "a wave mob's death writes a permanent save flag under a per-run id: {:?}",
         config.tuning.respawn

@@ -60,7 +60,7 @@ fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
 
     // The flag's ONE spelling, asked of the code that writes it rather than
     // re-derived here — a second `format!` is a rename waiting to go one-sided.
-    let flag = ambition_platformer2d::actors::fate_flags::npc_flag_id(&id);
+    let flag = ambition_platformer2d::persistence::save_data::npc_hostile_flag(&id);
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .data_mut()
@@ -137,7 +137,7 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
         .cloned()
         .expect("the start room authors at least one talkable NPC to challenge");
     assert_ne!(mode, AggressionMode::Hostile, "{id} is hostile before the challenge");
-    let flag = ambition_platformer2d::actors::fate_flags::npc_flag_id(&id);
+    let flag = ambition_platformer2d::persistence::save_data::npc_hostile_flag(&id);
     let npc_sim = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), npc).expect("a placed NPC carries a SimId");
     let player_sim = {
         let mut query = sim.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>();
@@ -209,7 +209,7 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
         .cloned()
         .expect("the start room authors at least one talkable NPC to challenge");
     assert_ne!(mode, AggressionMode::Hostile, "{id} is hostile before the challenge");
-    let flag = ambition_platformer2d::actors::fate_flags::npc_flag_id(&id);
+    let flag = ambition_platformer2d::persistence::save_data::npc_hostile_flag(&id);
     let pos = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
         sim.world().get::<BodyKinematics>(body).expect("a live body").pos
     };
@@ -391,7 +391,7 @@ fn a_room_rebuilt_after_a_persisted_on_rest_death_builds_that_body_dead() {
 
     let flag = format!(
         "enemy_{id}{}",
-        ambition_platformer2d::actors::fate_flags::ENEMY_DEAD_UNTIL_REST_SUFFIX
+        ambition_platformer2d::persistence::save_data::DEAD_UNTIL_REST_SUFFIX
     );
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()

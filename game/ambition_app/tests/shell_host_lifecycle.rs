@@ -3430,7 +3430,7 @@ mod candidate_save {
             Vec::new(),
         );
         taken.set_flag(
-            ambition_platformer2d::actors::fate_flags::npc_flag_id(provoked),
+            ambition_platformer2d::persistence::save_data::npc_hostile_flag(provoked),
             true,
         );
         taken
@@ -3619,7 +3619,7 @@ fn a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adop
     let provoked = a_peaceful_person(&mut authored);
     let from_the_new_save = readings(&mut authored, &provoked);
     let mut later = AmbitionGameSaveData::new();
-    later.set_flag(ambition_platformer2d::actors::fate_flags::npc_flag_id(&provoked), true);
+    later.set_flag(ambition_platformer2d::persistence::save_data::npc_hostile_flag(&provoked), true);
     let from_the_later_save = readings(&mut launch_ambition_first(&later), &provoked);
     // ⛔ THE PREMISE: the two saves build worlds that the reading tells apart.
     assert_eq!(

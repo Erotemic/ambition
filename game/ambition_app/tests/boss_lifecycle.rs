@@ -1069,7 +1069,7 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
 fn a_new_game_brings_back_a_person_the_run_killed() {
     use ambition_app::Platformer2dSimHarnessOptions;
     use ambition_platformer2d::actors::construction::PersistedFates;
-    use ambition_platformer2d::actors::fate_flags::enemy_dead_flag;
+    use ambition_platformer2d::persistence::save_data::enemy_dead_flag;
     use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
     use ambition_platformer2d::combat::components::ActorIdentity;
 

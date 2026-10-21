@@ -309,7 +309,7 @@ impl PersistedFates {
     /// the save holds one.
     ///
     /// ⚠ THE READ IS WIDER THAN THE WRITE, ON PURPOSE. A death writes exactly
-    /// one flag (`crate::fate_flags::enemy_death_flag`), but a placement
+    /// one flag (the one its policy's `death_record` names), but a placement
     /// re-authored from `OnRest` to `DeadStaysDead` after the save was written
     /// would be read with the wrong one and come back to life, so both are
     /// consulted — for a policy that keeps a record at all.
@@ -330,10 +330,10 @@ impl PersistedFates {
         id: &str,
         policy: ambition_entity_catalog::placements::RespawnPolicy,
     ) -> ambition_platformer2d_actor_spawn::RecordedFate {
-        let keeps_a_record = crate::fate_flags::enemy_death_flag(policy, id).is_some();
+        use ambition_persistence::save_data as flags;
+        let keeps_a_record = policy.death_record().is_some();
         let recorded = self.save.as_ref().is_some_and(|save| {
-            save.flag(&crate::fate_flags::enemy_dead_flag(id))
-                || save.flag(&crate::fate_flags::enemy_dead_until_rest_flag(id))
+            save.flag(&flags::enemy_dead_flag(id)) || save.flag(&flags::enemy_dead_until_rest_flag(id))
         });
         if keeps_a_record && recorded {
             ambition_platformer2d_actor_spawn::RecordedFate::Dead
@@ -352,7 +352,7 @@ impl PersistedFates {
                 if self
                     .save
                     .as_ref()
-                    .is_some_and(|save| save.flag(&crate::fate_flags::npc_flag_id(id))) =>
+                    .is_some_and(|save| save.flag(&ambition_persistence::save_data::npc_hostile_flag(id))) =>
             {
                 RecordedFate::Provoked
             }

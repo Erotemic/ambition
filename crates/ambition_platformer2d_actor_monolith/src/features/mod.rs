@@ -55,7 +55,7 @@ pub mod ecs;
 pub(crate) mod enemies;
 pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
-/// `crate::fate_flags::npc_flag_id`, below both features and construction.
+/// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
 pub use npcs::{
     npc_talk_dialogue_id, npc_talked_flag, record_npc_provocations, NpcProvocationChanged,
 };

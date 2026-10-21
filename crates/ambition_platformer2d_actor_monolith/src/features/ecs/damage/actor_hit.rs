@@ -78,6 +78,45 @@ pub(crate) fn kill_disposition(
     }
 }
 
+/// The save flag that a death under `policy` writes, or `None` for a policy
+/// that keeps no record. Room construction reads the same spellings back
+/// (`PersistedFates::enemy_fate`).
+pub(crate) fn enemy_death_flag(
+    policy: ambition_entity_catalog::placements::RespawnPolicy,
+    id: &str,
+) -> Option<String> {
+    use ambition_entity_catalog::placements::DeathRecord;
+    use ambition_persistence::save_data as flags;
+    policy.death_record().map(|record| match record {
+        DeathRecord::Forever => flags::enemy_dead_flag(id),
+        DeathRecord::UntilRest => flags::enemy_dead_until_rest_flag(id),
+    })
+}
+
+#[cfg(test)]
+mod death_flag_tests {
+    use super::*;
+    use ambition_entity_catalog::placements::RespawnPolicy as P;
+    use ambition_persistence::save_data as flags;
+
+    /// The flag that a death writes is a flag that a load looks for, and the
+    /// two policies that keep no record write none. The second half stops a
+    /// summon from inheriting the death of an earlier summon with its id.
+    #[test]
+    fn a_policy_that_writes_a_flag_writes_one_a_load_looks_for() {
+        assert_eq!(
+            enemy_death_flag(P::DeadStaysDead, "EnemySpawn-1"),
+            Some(flags::enemy_dead_flag("EnemySpawn-1"))
+        );
+        assert_eq!(
+            enemy_death_flag(P::OnRest, "EnemySpawn-1"),
+            Some(flags::enemy_dead_until_rest_flag("EnemySpawn-1"))
+        );
+        assert_eq!(enemy_death_flag(P::OnRoomReenter, "EnemySpawn-1"), None);
+        assert_eq!(enemy_death_flag(P::InPlace(2.0), "EnemySpawn-1"), None);
+    }
+}
+
 /// A dead hostile actor returns `false` (no-op).
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
@@ -686,13 +725,7 @@ pub(crate) fn apply_actor_hit(
                 // `encounter:*` ids keep their own state machine; `InPlace`
                 // is unreachable here (the timer arm above returned).
                 if !em.identity.id.starts_with("encounter:") {
-                    // ⭐ NAMED WHERE IT LIVES: `RespawnPolicy` is
-                    // `ambition_entity_catalog`'s; `crate::features` only republished it.
-                    // ⭐ THE POLICY PICKS THE FLAG IN ONE PLACE. This match used to
-                    // live here and the load path spelled the same two flags again
-                    // — four literals for two facts, in two files.
-                    let flag_id =
-                        crate::fate_flags::enemy_death_flag(em.config.tuning.respawn, &em.identity.id);
+                    let flag_id = enemy_death_flag(em.config.tuning.respawn, &em.identity.id);
                     if let Some(id) = flag_id {
                         writers.set_flag.write(SetFlagRequested { id, on: true });
                     }

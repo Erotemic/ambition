@@ -485,6 +485,32 @@ pub enum RespawnPolicy {
     InPlace(f32),
 }
 
+/// How long the save remembers a death under a [`RespawnPolicy`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeathRecord {
+    /// Until an explicit save reset.
+    Forever,
+    /// Until the player rests at a save point.
+    UntilRest,
+}
+
+impl RespawnPolicy {
+    /// The death record that a death under this policy keeps, or `None` for a
+    /// policy that keeps no record.
+    ///
+    /// The match is exhaustive, so a new policy does not compile until its
+    /// author says if a death under it is remembered. Only a policy that keeps
+    /// a record may read one: a summon under `OnRoomReenter` that read the
+    /// record of an earlier summon with the same id would spawn dead.
+    pub fn death_record(self) -> Option<DeathRecord> {
+        match self {
+            Self::DeadStaysDead => Some(DeathRecord::Forever),
+            Self::OnRest => Some(DeathRecord::UntilRest),
+            Self::OnRoomReenter | Self::InPlace(_) => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

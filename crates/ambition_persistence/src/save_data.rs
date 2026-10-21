@@ -14,10 +14,35 @@ use serde::{Deserialize, Serialize};
 
 
 /// The suffix every `OnRest` death flag ends with.
-///
-/// It is defined here because the gameplay crate that builds these ids depends
-/// on persistence, not the reverse.
 pub const DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
+
+// The save owns the spellings of a body's durable fate. The death writer, the
+// room construction that reads a fate back, and the rest that clears one must
+// use the same id. If two crates each wrote a `format!`, a rename in one would
+// make the reader look for a flag the writer no longer writes, and every test
+// would stay green.
+
+/// The save flag that a death under a forever-remembered respawn policy
+/// writes.
+pub fn enemy_dead_flag(id: &str) -> String {
+    format!("enemy_{id}_dead")
+}
+
+/// The save flag that a death under an until-rest respawn policy writes. A
+/// rest clears it ([`AmbitionGameSaveData::clear_dead_until_rest_flags`]).
+pub fn enemy_dead_until_rest_flag(id: &str) -> String {
+    format!("enemy_{id}{DEAD_UNTIL_REST_SUFFIX}")
+}
+
+/// The save flag that records that this NPC was provoked and stays hostile to
+/// the player.
+///
+/// The flag holds no faction. Room construction rebuilds the person with a
+/// grudge against the player, so only a provocation that the player caused can
+/// set it.
+pub fn npc_hostile_flag(id: &str) -> String {
+    format!("npc_{id}_hostile")
+}
 
 /// One persisted encounter (e.g. goblin encounter) entry. Only the terminal /
 /// in-progress states matter for save reconstruction; `Inactive`

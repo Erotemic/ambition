@@ -93,7 +93,7 @@ pub fn record_npc_provocations(
         super::ecs::effect_bus::write_flag(
             &mut save,
             &mut quests,
-            crate::fate_flags::npc_flag_id(&change.id),
+            ambition_persistence::save_data::npc_hostile_flag(&change.id),
             change.provoked,
         );
     }

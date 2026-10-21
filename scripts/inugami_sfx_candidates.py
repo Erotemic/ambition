@@ -4,7 +4,8 @@ Jon, 2026-10-21: "we probably need a howl sfx". The Inugami howls when it
 rises, at its transition, when it comes back in the final hall, with its
 howl move, and when it dies; every one of those plays the generic roar
 (`boss.generic.intro_roar`), which is a low roar and not a howl. This
-renders five candidates for a spirit's howl, each level-matched to the cue in
+renders five candidates for its howl (round 2: on the contour of a real
+wolf's howl, from the spectrogram Jon sent), each level-matched to the cue in
 use, and a reel that plays the cue in use and then each candidate. Nothing
 here changes a shipped cue; the chosen one is ported later as a recipe with
 the same layers and seed.
@@ -44,55 +45,102 @@ C: dict[str, dict] = {}
 
 
 def cand(cid, dur, layers, seed, note, room=None, peak=-4.0):
-    C[cid] = dict(duration_ms=dur, seed=seed, layers=layers, note=note, postprocess=W.post(peak, 12000, True, room=room))
+    C[cid] = dict(duration_ms=dur, seed=seed, layers=layers, note=note, postprocess=W.post(peak, 9000, True, room=room))
 
 
-def wolf(start, dur, f0, spacing, *, breath, level=1.0, jitter=0.015, flutter=0.05, tilt=2600, doubling=0.03, f1=(320, 660)):
-    """One howling throat: it rises to a held high note and falls away."""
-    return W.voice(start, dur, f0, [[0, 0.3], [0.2, 0.85], [0.85, 0.8], [1, 0.45]],
-                   [[0, 0], [0.12, 0.75], [0.3, 1], [0.85, 0.9], [1, 0]], spacing, breath=breath, doubling=doubling,
-                   jitter=jitter, flutter=flutter, tilt=tilt, level=level, f1=f1)
+# Round 2. Jon: "None of these are good. a_spirit doesn't have a howl at
+# all", with a spectrogram of a wolf's howl. Round 1 voiced the howl in the
+# creature throat (pulses, formants, breath): a roar's model. A wolf's howl
+# is a near-pure tone. In his picture f0 starts at ~375 Hz, steps up at
+# 0.85 s and peaks at ~620 Hz at 1.7 s, dips a little (a fast frequency
+# modulation), then glides down over four seconds, with a step at 4.5 s, to
+# ~440 Hz at 6.2 s (mean ~520 Hz). The 2nd harmonic is the brightest line,
+# f0 is under it, the 3rd is faint, and there is almost no noise.
+
+#: The howl's f0 contour from the spectrogram: (seconds, Hz).
+HOWL = [(0.0, 375), (0.3, 400), (0.55, 430), (0.8, 450), (0.86, 520), (1.0, 540), (1.3, 590), (1.7, 620), (1.76, 610),
+        (1.8, 562), (1.86, 556), (2.5, 540), (3.5, 520), (4.4, 505), (4.47, 476), (5.5, 465), (6.0, 445)]
+#: Its harmonics, in the brightness the picture shows.
+VOICE = [{"ratio": 1.0, "gain_db": -6.0}, {"ratio": 2.0, "gain_db": 0.0}, {"ratio": 3.0, "gain_db": -14.0},
+         {"ratio": 4.0, "gain_db": -26.0}]
 
 
-def ghost_fire(name, start, dur, gain):
-    """The rush of its fire: low, soft and wide, a little crackle in it."""
-    return [W.noise(name, "pink", gain, start, dur, W.env(dur * 0.3, dur * 0.4, dur * 0.3), [W.bp(700, 0.5), W.lp(2600)]),
-            W.grains(name + "_crackle", 2400, 0.8, gain - 6, start + dur * 0.1, dur * 0.8, 40, 2.0, dur * 0.8)]
+def contour(scale_t=1.0, scale_f=1.0, cents_drift=10.0, seed=0, dur_s=None):
+    """The howl's contour as `points` over the layer: its time scaled by
+    `scale_t`, its pitch by `scale_f`, and a slow wander of a few cents (a
+    voice is never a dial)."""
+    rng = np.random.default_rng(seed)
+    pts = [(t * scale_t, hz * scale_f) for t, hz in HOWL]
+    total = dur_s or pts[-1][0]
+    out = []
+    walk = 0.0
+    k = 0
+    for t, hz in pts:
+        out.append((t, hz))
+    # The wander: a smoothed random walk sampled every 0.12 s, laid over the
+    # contour between its own points.
+    dense = []
+    t = 0.0
+    while t <= total:
+        walk = 0.8 * walk + rng.normal(0.0, cents_drift * 0.45)
+        base = float(np.exp(np.interp(t, [q for q, _ in pts], np.log([h for _, h in pts]))))
+        dense.append((t, base * 2 ** (walk / 1200.0)))
+        t += 0.12
+        k += 1
+    # Keep the contour's own steps sharp: its points win over the wander's.
+    merged = sorted(dense + out)
+    keep = []
+    for t, hz in merged:
+        if keep and abs(t - keep[-1][0]) < 0.03:
+            if (t, hz) in out:
+                keep[-1] = (t, hz)
+            continue
+        keep.append((t, hz))
+    return [[round(t / total, 5), round(hz, 2)] for t, hz in keep if t <= total]
 
 
-cand("a_spirit", 2800, [W.throat("howl", 2800, [
-    wolf(0, 2600, [[0, 420], [0.18, 610], [0.7, 595], [0.9, 560], [1, 470]], 720, breath=0.42, flutter=0.07)],
-    seed=811, room=0.95, room_mix=0.4)], 811,
-    "one wolf's howl, high and mostly breath, in a long cold room: the dog it was")
-cand("b_chorus", 3000, [W.throat("howl", 3000, [
-    wolf(0, 2600, [[0, 400], [0.18, 590], [0.7, 575], [1, 450]], 700, breath=0.3),
-    wolf(90, 2600, [[0, 410], [0.2, 604], [0.7, 588], [1, 462]], 680, breath=0.36, level=0.6, jitter=0.02),
-    wolf(170, 2500, [[0, 300], [0.2, 442], [0.7, 431], [1, 340]], 560, breath=0.4, level=0.45, jitter=0.02)],
-    seed=812, room=0.9, room_mix=0.36)], 812,
-    "three throats that are not quite one, a little apart in pitch and time: the spirits in it howl with it")
-cand("c_giant", 3200, [W.throat("howl", 3200, [
-    wolf(0, 3000, [[0, 260], [0.2, 420], [0.7, 405], [0.9, 380], [1, 300]], 470, breath=0.32,
-         doubling=[[0, 0.4], [0.15, 0.06], [0.8, 0.1], [1, 0.3]], tilt=2200, f1=(280, 600))],
-    seed=813, room=0.95, room_mix=0.38,
-    sub={"start_ms": 100, "duration_ms": 2400, "level": 0.14, "freq_hz": [[0, 58], [0.3, 70], [1, 52]],
-         "amp": [[0, 0], [0.25, 1], [1, 0]]})], 813,
-    "the giant head: a bigger throat (closer formants), not a lower buzz; a sub under the held note")
-cand("d_drawn_in", 3200, [
-    W.sweep("breath_in", "pink", 300, 2400, 0.8, -12, 0, 650, W.env(600, 20, 40)),
-    W.throat("howl", 3200, [
-        wolf(600, 2500, [[0, 400], [0.18, 600], [0.7, 585], [1, 460]], 690, breath=0.36, flutter=0.06)],
-        seed=814, room=0.95, room_mix=0.38)], 814,
-    "a long breath drawn in, then the howl: the tell is in the sound")
-cand("e_fire", 3200, [
-    W.throat("howl", 3200, [
-        wolf(0, 2900, [[0, 300], [0.2, 470], [0.7, 455], [0.9, 420], [1, 330]], 520, breath=0.34, tilt=2300, f1=(290, 620)),
-        wolf(120, 2700, [[0, 304], [0.2, 476], [0.7, 460], [1, 336]], 540, breath=0.4, level=0.45, jitter=0.025)],
-        seed=815, room=0.9, room_mix=0.34),
-    *ghost_fire("fire", 0, 3000, -18)], 815,
-    "the giant's howl in two near voices, and the rush of its red fire under it")
+def howl_layer(name, start_ms, dur_s, *, scale_f=1.0, seed=0, gain=0.0, harmonics=None, pan=0.0, detune=0.0):
+    dur_ms = dur_s * 1000.0
+    return {"name": name, "kind": "synth_tone", "waveform": "sine", "seed": seed,
+            "frequency_hz": {"points": contour(dur_s / HOWL[-1][0], scale_f * 2 ** (detune / 1200.0), seed=seed, dur_s=dur_s),
+                             "curve": "exp"},
+            "amplitude_points": [[0, 0.0], [0.03, 0.55], [0.14, 0.92], [0.28, 1.0], [0.7, 0.86], [0.9, 0.6], [1, 0.0]],
+            "harmonics": harmonics or VOICE, "vibrato": {"rate_hz": 4.6, "depth_cents": 6, "delay_ms": 600},
+            "stereo_spread_cents": 4.0, "gain_db": gain, "start_ms": start_ms, "duration_ms": dur_ms, "pan": pan,
+            "envelope": W.env(25, dur_ms - 400, 375)}
+
+
+def air(name, start_ms, dur_ms, gain):
+    """A little breath under the tone: there is almost none in the picture."""
+    return W.noise(name, "pink", gain, start_ms, dur_ms, W.env(120, dur_ms - 600, 480), [W.bp(1100, 0.7), W.lp(3000)])
+
+
+cand("a_wolf", 6400, [howl_layer("howl", 0, 6.2, seed=1), air("air", 0, 6200, -34)], 821,
+     "a wolf's howl on the contour of Jon's spectrogram: 6.2 s, near-pure, the 2nd harmonic brightest", room=0.45)
+cand("b_short", 3800, [howl_layer("howl", 0, 3.6, seed=2), air("air", 0, 3600, -34)], 822,
+     "the same howl, its whole contour told in 3.6 s, for a fight", room=0.45)
+cand("c_spirit", 4600, [howl_layer("howl", 0, 3.8, seed=3),
+                        howl_layer("echo", 380, 3.8, seed=4, gain=-9, detune=28, pan=0.35),
+                        air("air", 0, 3800, -32)], 823,
+     "the short howl and its ghost: a second voice 0.38 s behind it and a little sharp, in a big cold room", room=0.85)
+cand("d_pack", 5200, [howl_layer("howl", 0, 3.8, seed=5),
+                      howl_layer("spirit_hi", 600, 3.6, scale_f=1.19, seed=6, gain=-6, pan=-0.4),
+                      howl_layer("spirit_lo", 1100, 3.4, scale_f=0.84, seed=7, gain=-7, pan=0.4),
+                      air("air", 0, 4400, -32)], 824,
+     "the head howls and its blue spirits howl with it: two more wolves come in, a minor third over and under", room=0.7)
+cand("e_giant", 4400, [howl_layer("howl", 0, 4.0, scale_f=0.74, seed=8,
+                                  harmonics=VOICE + [{"ratio": 5.0, "gain_db": -30.0}, {"ratio": 6.0, "gain_db": -36.0}]),
+                       howl_layer("body", 0, 4.0, scale_f=0.74 / 2, seed=8, gain=-16,
+                                  harmonics=[{"ratio": 1.0, "gain_db": 0.0}]),
+                       air("air", 0, 4000, -30)], 825,
+     "the giant head: the howl a fourth lower, fuller (more harmonics), and an octave under it, soft", room=0.75)
 
 
 def main():
+    import shutil
+    # Each round replaces the last: its solos and outputs are not this round's.
+    for sub in ("solo", "out", "recipes", "reel"):
+        shutil.rmtree(HERE / sub, ignore_errors=True)
     HERE.mkdir(parents=True, exist_ok=True)
     (HERE / "recipes").mkdir(exist_ok=True)
     (HERE / "solo").mkdir(exist_ok=True)

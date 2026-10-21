@@ -1,4 +1,5 @@
-//! The adapters of a fighter's special: `ambition.fighter.special`,
+//! The adapters of a fighter's special: `ambition.fighter.special`, the
+//! stick it aimed with (`ambition.fighter.aimed_stick`),
 //! `ambition.combat.body_strike`, `ambition.combat.sleep_area`,
 //! `ambition.resources.refill` and `ambition.combat.parry_window`. See the
 //! port cards in `ambition_combat_port::special`. A body's statuses, which a
@@ -30,9 +31,23 @@ pub fn install_for_specials(app: &mut App) {
     app.install_extension_request::<SleepAreaPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_sleep_areas);
     app.install_extension_request::<RefillResourcePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_refills);
     app.install_extension_request::<ParryWindowPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_parry_windows);
+    app.install_extension_observation::<ambition_combat_port::AimedStickPort>(
+        TECHNIQUE_EXECUTION,
+        "ambition_combat",
+        aimed_stick_of,
+    );
     super::status::install(app);
     super::targets::install(app);
     super::blast::install(app);
+}
+
+/// The stick `scope`'s playing move latched (`ambition.fighter.aimed_stick`).
+pub fn aimed_stick_of(world: &World, scope: Entity) -> Option<ambition_combat_port::AimedStick> {
+    let stick = world
+        .get::<crate::moveset::MovePlayback>(scope)
+        .and_then(|playback| playback.aimed_stick)
+        .map(|stick| [stick.x, stick.y]);
+    Some(ambition_combat_port::AimedStick { stick })
 }
 
 /// One invocation for each press of a bound special, in the order of the

@@ -1385,18 +1385,23 @@ fn an_item_carried_out_of_a_room_another_player_holds_crosses_whole() {
     );
 }
 
-/// Alice goes from `hall_of_bosses` (#0), where Bob, driven by slot 1, stays,
-/// to `arena` (#1).
+/// The room between the hall of bosses and GNU-ton's arena: the arena's door
+/// is in it.
+const GNU_TON_APPROACH: &str = "gnu_ton_approach";
+
+/// Alice goes from `from` (#0), where Bob, driven by slot 1, stays, to
+/// `arena` (#1): `from` is the room whose door leads there.
 /// The boss's live room, and whether its conductor has measured its hall
 /// within 120 ticks.
 /// The conducted boss and its hall are found by `conducted`: a conductor
 /// module keeps the hall in its record on the boss.
 fn a_conducted_boss_beside_bob(
+    from: &str,
     arena: &str,
     conducted: impl Fn(&mut bevy::prelude::World) -> Option<(Option<LiveRoomInstance>, bool)>,
 ) -> (Option<Option<LiveRoomInstance>>, bool, LiveRoomInstance) {
     let (mut sim, first) = alice_leaves_bob_in(
-        "hall_of_bosses",
+        from,
         arena,
         Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
         walk_through_the_door_to,
@@ -1427,7 +1432,7 @@ fn a_conducted_boss_beside_bob(
 fn gnu_ton_measures_its_hall_in_its_own_live_room() {
     // The scholar's conductor is the `gnu_ton` module: its hall is in the
     // module's record on him.
-    let (room, measured, second) = a_conducted_boss_beside_bob("gnu_ton_arena", |world| {
+    let (room, measured, second) = a_conducted_boss_beside_bob(GNU_TON_APPROACH, "gnu_ton_arena", |world| {
         let scholar = world
             .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
             .iter(world)
@@ -1448,7 +1453,7 @@ fn gnu_ton_measures_its_hall_in_its_own_live_room() {
 fn the_fsm_measures_its_hall_in_its_own_live_room() {
     // The god's conductor is the `fsm` module: its hall is in the module's
     // record on the god.
-    let (room, measured, second) = a_conducted_boss_beside_bob("flying_spaghetti_monster_arena", |world| {
+    let (room, measured, second) = a_conducted_boss_beside_bob("hall_of_bosses", "flying_spaghetti_monster_arena", |world| {
         let god = world
             .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
             .iter(world)
@@ -1727,13 +1732,14 @@ fn a_gallery_pedestal_barks_at_its_own_rooms_cadence_beside_another_live_room() 
     );
 }
 
-/// Alice goes from `hall_of_bosses` (#0), where Bob, driven by slot 1, stays,
-/// to `arena` (#1), untouchable so the fight cannot end her stay, and stands
+/// Alice goes from `from` (#0), where Bob, driven by slot 1, stays, to
+/// `arena` (#1), untouchable so the fight cannot end her stay, and stands
 /// at `place(boss position)`, where its fight suite puts its player, after
 /// `prepare` has changed the boss. The live rooms of the first shots the boss
 /// `behavior` fires within `ticks` ticks that `shot` knows by their visual
 /// and body size, and #1.
 fn a_boss_fires_beside_bob(
+    from: &str,
     arena: &str,
     behavior: &str,
     prepare: fn(&mut ambition_platformer2d::characters::actor::BodyHealth),
@@ -1742,7 +1748,7 @@ fn a_boss_fires_beside_bob(
     ticks: usize,
 ) -> (Vec<Option<LiveRoomInstance>>, LiveRoomInstance) {
     let (mut sim, first) = alice_leaves_bob_in(
-        "hall_of_bosses",
+        from,
         arena,
         Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
         walk_through_the_door_to,
@@ -1831,6 +1837,7 @@ fn a_boss_fires_beside_bob(
 #[test]
 fn gnu_ton_s_apple_rain_falls_in_its_own_live_room() {
     let (rooms, second) = a_boss_fires_beside_bob(
+        GNU_TON_APPROACH,
         "gnu_ton_arena",
         "gnu_ton_rider",
         // The apple rain is a move of phase 2 (the fists as bodies of their
@@ -1848,13 +1855,13 @@ fn gnu_ton_s_apple_rain_falls_in_its_own_live_room() {
 }
 
 /// OW1 cut 7q: the gnu's back is ground in the giant's own live room. Bob
-/// holds the hall of bosses (#0); Alice goes to the gnu_ton arena (#1). The
+/// holds the approach to it (#0); Alice goes to the gnu_ton arena (#1). The
 /// back platform wrote to the sole live room's overlay, so with two rooms
 /// live no room had it, and nobody could stand on the giant.
 #[test]
 fn the_gnu_s_back_is_ground_in_its_own_live_room() {
     let (mut sim, first) = alice_leaves_bob_in(
-        "hall_of_bosses",
+        GNU_TON_APPROACH,
         "gnu_ton_arena",
         Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
         walk_through_the_door_to,
@@ -1885,6 +1892,7 @@ fn the_gnu_s_back_is_ground_in_its_own_live_room() {
 #[test]
 fn the_overflow_flood_fills_its_own_live_room() {
     let (rooms, second) = a_boss_fires_beside_bob(
+        "hall_of_bosses",
         "overflow_arena",
         "overflow_boss",
         // The flood is a phase-2 move, and phase 2 starts below two thirds

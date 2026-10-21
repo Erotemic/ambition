@@ -503,13 +503,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     ambition_platformer2d::extension::sdk::phases::TECHNIQUE_EXECUTION,
                 )),
         );
-        // Portal recovery, in `ContentSpecials`. The close is chained after the
-        // open, so an aperture's lifetime is spent from the frame it appears.
-        install_special(
+        // Portal recovery: the module `ambition_demo_smash_modules::portal`. A
+        // pair is held open by a status on the fighter
+        // (`ambition.portal.held_pair`), so it goes with her.
+        ambition_platformer2d::runtime::install_module_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_portal::PORTAL_PAIR,
             TechniqueOffer {
-                owner: "ambition_demo_smash::portal",
+                owner: "ambition_demo_smash_modules::portal",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
                         ambition_platformer2d::entity_catalog::smash_portal::PortalPairParams,
@@ -518,12 +519,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (
-                crate::portal::open_authored_portal_pairs,
-                crate::portal::close_expired_move_portals,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+            ambition_demo_smash_modules::portal::module(),
         );
         // Steered bolt: the module `ambition_demo_smash_modules::bolt`. A
         // bolt is a module entity, put on the stage by the press and flown
@@ -1655,13 +1651,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.departing_mount",
                 crate::shark_ride::departing_probe,
-            );
-            // Move-opened apertures and their clock: a restore without the
-            // clock closes the recovery route at a different moment.
-            app.rollback_component_clone_probed::<crate::portal::MovePlacedPortal>(
-                "ambition_demo_smash",
-                "smash.move_placed_portal",
-                crate::portal::move_placed_portal_probe,
             );
         }
         // Init before the preparation source reads it: a missing

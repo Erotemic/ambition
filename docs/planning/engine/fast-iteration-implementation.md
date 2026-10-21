@@ -949,6 +949,28 @@ before you add a port.
     `ambition_demo_smash` on the module road (with its loaded file), the
     module's tests, `ambition_abilities extension::tests`, and
     `smash_it::the_tether_catches_a_ledge`. Poisons listed in the commit.
+  - Special route F13 ✅ (2026-10-20): the portal recovery, on a held portal
+    pair. `ambition.portal.held_pair` (v2) is offered in
+    `technique_execution` as well as `boss_conduct`: a pair remembers the
+    phase that holds it, and only that phase's adapter releases it; its
+    slots are its module's, not its entry's, so the entry that opens a pair
+    and the entry that keeps it name one pair; an end can be asked as deep
+    as authored (`half_thickness`); and a pair asked with `closes_on_use`
+    closes the first time a body comes out of it and stays closed while its
+    slot is asked for. `ambition.fighter.aimed_stick` gives the stick a
+    fighter's move latched. Smash's `smash.portal_pair` is
+    `ambition_demo_smash_modules::portal`: a press opens a pair in the next
+    slot (in place of any she has), and the status `smash.portals_open`
+    keeps it for the move's lifetime. `MovePlacedPortal`, its two systems
+    and the row `smash.move_placed_portal` are deleted (schema 378). Rules
+    that changed: the pair's clock runs from the tick after it opens; a
+    pair's channels are its link's (owner, module, slot) rather than the
+    authored index offset by the match seat, and its colours are the
+    authored index and its partner for every fighter; a pair goes with the
+    fighter who holds it, as a held pair does. Witnesses: the seven portal
+    tests of `ambition_demo_smash` on the module road (with its loaded
+    file), the module's tests, `ambition_portal2d extension::tests`.
+    Poisons listed in the commit.
   - Snake Plant follow-up, verified 2026-10-18 against the tree:
     `run_snake_plants` asks each player of the plant's own live room
     (`geometry.room_of(player) == room`), witnessed by

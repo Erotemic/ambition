@@ -49,7 +49,7 @@ pub use contact::{BodyContact, BodyContactPort, BodyDefeat, BodyDefeatPort, Cont
 pub use hold::{BodyHold, BodyHoldPort};
 pub use ledge::{BodyLine, BodyLinePort, LedgeAhead, LedgeAheadPort, LedgeSight, OnGroundPort, LEDGE_SEARCH_REACH};
 pub use special::{
-    BodyStrike, BodyStrikePort, FighterSpecial, FighterSpecialPort, ParryWindow,
+    AimedStick, AimedStickPort, BodyStrike, BodyStrikePort, FighterSpecial, FighterSpecialPort, ParryWindow,
     ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};

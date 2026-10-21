@@ -130,7 +130,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// module, its heading in a module record; `smash.steered_bolt` is gone.
 /// 376 -> 377: the tether is a module: its reel is a record and a status on
 /// the fighter; `smash.tether_reel` is gone.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 377;
+/// 377 -> 378: the portal recovery is a module: a held portal pair kept by a
+/// status on the fighter; a held pair is its module's (not its entry's),
+/// remembers its phase and whether it was used; `smash.move_placed_portal`
+/// is gone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 378;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

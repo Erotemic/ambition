@@ -55,11 +55,12 @@ fn ask(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     } else {
         (x, [[0.0, -1.0], [0.0, 1.0]], 65.0, [24, 25])
     };
-    let end = |at: ae::Vec2, normal: [f32; 2]| PortalEnd { at: [at.x, at.y], normal, half_length };
+    let end = |at: ae::Vec2, normal: [f32; 2]| PortalEnd { at: [at.x, at.y], normal, half_length, half_thickness: None };
     inv.submit::<HeldPortalPairPort>(HeldPortalPair {
         slot: 0,
         ends: [end(near_of(x as f32), normals[0]), end(far_of(x as f32), normals[1])],
         looks,
+        closes_on_use: false,
     })
 }
 
@@ -76,7 +77,12 @@ fn app() -> App {
         .init_resource::<ambition_time::SimTick>()
         .init_resource::<ambition_time::WorldTime>()
         .install_extension_trigger::<Poke, _>(BOSS_CONDUCT, "test", collect_pokes)
-        .install_extension_request::<HeldPortalPairPort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_held_portal_pairs)
+        .install_extension_request::<HeldPortalPairPort, _>(
+            BOSS_CONDUCT,
+            "ambition_portal2d",
+            lower_held_portal_pairs::<ambition_extension_host::InBossConduct>,
+        )
+        .add_message::<crate::PortalBodyTransited>()
         .add_systems(
             Sim,
             (crate::resolve_portal_links, crate::equalize_pair_apertures)
@@ -101,6 +107,11 @@ fn app() -> App {
                 run: EntryCode::Native(ask),
             }],
         });
+    app
+}
+
+fn finished_app() -> App {
+    let mut app = app();
     app.finish();
     app
 }
@@ -127,7 +138,7 @@ fn portals(app: &mut App) -> Vec<(String, LiveRoomInstance, ae::Vec2, crate::Por
 /// gone closes; the others stay where they were asked to be.
 #[test]
 fn each_holder_has_his_own_pair_while_he_asks_for_it() {
-    let mut app = app();
+    let mut app = finished_app();
     let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
     for room in rooms {
         app.world_mut().spawn((RoomInstanceRoot, room));
@@ -185,7 +196,7 @@ fn each_holder_has_his_own_pair_while_he_asks_for_it() {
 #[test]
 fn a_body_with_no_identity_gets_no_pair() {
     for with_id in [true, false] {
-        let mut app = app();
+        let mut app = finished_app();
         app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
         let body = app.world_mut().spawn((Asks(100), InRoomInstance(LiveRoomInstance::ACTIVATION))).id();
         if with_id {
@@ -320,7 +331,7 @@ fn first_end(app: &mut App, holder: Entity) -> (ae::Vec2, f32, crate::PortalLook
 /// from.
 #[test]
 fn a_held_pair_takes_the_normal_the_opening_and_the_look_it_is_asked_for() {
-    let mut app = app();
+    let mut app = finished_app();
     let room = LiveRoomInstance::ACTIVATION;
     app.world_mut().spawn((RoomInstanceRoot, room));
     let holder = app.world_mut().spawn((Asks(100), SimId::placement("a"), InRoomInstance(room))).id();
@@ -349,7 +360,7 @@ fn a_held_pair_takes_the_normal_the_opening_and_the_look_it_is_asked_for() {
 /// kept as asked). The control is the tick before, with the entry admitted.
 #[test]
 fn the_pair_of_an_entry_that_is_no_longer_admitted_is_released() {
-    let mut app = app();
+    let mut app = finished_app();
     let room = LiveRoomInstance::ACTIVATION;
     app.world_mut().spawn((RoomInstanceRoot, room));
     let holder = app.world_mut().spawn((Asks(100), SimId::placement("a"), InRoomInstance(room))).id();
@@ -366,4 +377,203 @@ fn the_pair_of_an_entry_that_is_no_longer_admitted_is_released() {
         app.world().get::<HeldPortalPairs>(holder).is_none_or(|held| held.0.is_empty()),
         "and its record released"
     );
+}
+
+/// A move's poke, in `technique_execution`: the slot of the pair its entry
+/// asks for, or 0 for none. A slot at or past `CLOSING` closes on use; a
+/// poke at or past `DEEPER` asks for the slot `poke - DEEPER`, deeper.
+#[derive(Component)]
+struct MoveAsks(u32);
+
+struct MovePoke;
+impl Port for MovePoke {
+    const KEY: PortKey = PortKey::new("test.held_pair_move_poke", 1);
+    const ROLE: PortRole = PortRole::Trigger;
+    type Value = u32;
+    fn encode(v: &u32, out: &mut Vec<u8>) {
+        wire::put_u32(out, *v);
+    }
+    fn decode(r: &mut wire::WireReader<'_>) -> Result<u32, wire::WireError> {
+        r.u32()
+    }
+}
+
+const CLOSING: u32 = 100;
+const DEEPER: u32 = 1000;
+
+/// A recovery's pair: thin, at x 100, in the asked slot.
+fn ask_move_pair(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let poke = *inv.trigger::<MovePoke>()?;
+    if poke == 0 {
+        return Ok(());
+    }
+    let (slot, depth) = if poke >= DEEPER { (poke - DEEPER, 11.0) } else { (poke, 6.0) };
+    let end = |at: ae::Vec2, normal: [f32; 2]| PortalEnd {
+        at: [at.x, at.y],
+        normal,
+        half_length: 30.0,
+        half_thickness: Some(depth),
+    };
+    inv.submit::<HeldPortalPairPort>(HeldPortalPair {
+        slot,
+        ends: [end(near_of(100.0), [0.0, -1.0]), end(far_of(100.0), [0.0, 1.0])],
+        looks: [8, 9],
+        closes_on_use: slot >= CLOSING,
+    })
+}
+
+/// On a body: the entry that asks for its pair is `keep`, not `go`.
+#[derive(Component)]
+struct KeptBy;
+
+fn collect_move_pokes(
+    mut invocations: ResMut<ExtensionInvocations>,
+    bodies: Query<(Entity, &MoveAsks, Has<KeptBy>)>,
+) {
+    for (entity, asks, kept) in &bodies {
+        let selector = if kept { "keep" } else { "go" };
+        invocations.trigger::<MovePoke>(&TECHNIQUE_EXECUTION, selector, entity, None, false, asks.0);
+    }
+}
+
+/// The held pair in both phases: GNU-ton's boss entry and a move's entry.
+fn two_phase_app() -> App {
+    let mut app = app();
+    install_for_technique_execution(&mut app);
+    app.install_extension_trigger::<MovePoke, _>(TECHNIQUE_EXECUTION, "test", collect_move_pokes)
+        .add_extension_module(ModuleDescriptor {
+            key: ModuleKey::new("test", "recovery"),
+            api: ambition_extension_sdk::API_VERSION,
+            code: CodeIdentity::StaticNative { crate_name: "test".into(), version: "0".into() },
+            schemas: vec![],
+            entries: vec![EntryDescriptor {
+                key: "open".into(),
+                phase: TECHNIQUE_EXECUTION,
+                trigger: TriggerBinding { port: MovePoke::KEY, selector: "go".into() },
+                reads: vec![],
+                writes: vec![],
+                requests: vec![HeldPortalPairPort::KEY],
+                after: vec![],
+                limits: Limits { max_requests: 1 },
+                on_idle: IdlePolicy::Invoke,
+                run: EntryCode::Native(ask_move_pair),
+            }, EntryDescriptor {
+                key: "keep".into(),
+                phase: TECHNIQUE_EXECUTION,
+                trigger: TriggerBinding { port: MovePoke::KEY, selector: "keep".into() },
+                reads: vec![],
+                writes: vec![],
+                requests: vec![HeldPortalPairPort::KEY],
+                after: vec![],
+                limits: Limits { max_requests: 1 },
+                on_idle: IdlePolicy::Invoke,
+                run: EntryCode::Native(ask_move_pair),
+            }],
+        });
+    app.finish();
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+    app
+}
+
+fn mover(app: &mut App, slot: u32) -> Entity {
+    app.world_mut()
+        .spawn((MoveAsks(slot), Asks(0), SimId::placement("mover"), InRoomInstance(LiveRoomInstance::ACTIVATION)))
+        .id()
+}
+
+fn open_ends(app: &mut App) -> Vec<(ae::Vec2, f32)> {
+    let world = app.world_mut();
+    let mut q = world.query::<(&HeldPortalOf, &PlacedPortal)>();
+    q.iter(world).map(|(_, portal)| (portal.pos, portal.half_thickness)).collect()
+}
+
+fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
+    app.world_mut().write_message(crate::PortalBodyTransited {
+        body,
+        enter_normal: ae::Vec2::new(0.0, -1.0),
+        exit_normal: ae::Vec2::new(0.0, 1.0),
+        facing_flip: false,
+        input_warp: false,
+        exit_pos: at,
+    });
+}
+
+/// A pair a move holds in `technique_execution` stays open while the boss
+/// phase's adapter runs every tick and is asked for nothing.
+#[test]
+fn a_pair_held_in_one_phase_is_not_released_by_the_other() {
+    let mut app = two_phase_app();
+    mover(&mut app, 1);
+    for _ in 0..3 {
+        app.world_mut().run_schedule(Sim);
+    }
+    let ends = open_ends(&mut app);
+    assert_eq!(ends.len(), 2, "the boss phase released the move's pair: {ends:?}");
+}
+
+/// A pair opens as deep as it was asked on the tick it opens, and an asked
+/// change of depth for its slot is made.
+#[test]
+fn a_pair_is_as_deep_as_it_is_asked() {
+    let mut app = two_phase_app();
+    let body = mover(&mut app, 1);
+    app.world_mut().run_schedule(Sim);
+    let ends = open_ends(&mut app);
+    assert!(ends.len() == 2 && ends.iter().all(|(_, depth)| *depth == 6.0), "it opened at another depth: {ends:?}");
+    app.world_mut().get_mut::<MoveAsks>(body).unwrap().0 = DEEPER + 1;
+    app.world_mut().run_schedule(Sim);
+    let ends = open_ends(&mut app);
+    assert!(ends.len() == 2 && ends.iter().all(|(_, depth)| *depth == 11.0), "the asked depth was not made: {ends:?}");
+}
+
+/// A pair that closes on use closes when a body comes out of it, and stays
+/// closed while its slot is asked for; a new slot opens a new pair. An
+/// ordinary pair survives the same use, and a use elsewhere closes nothing.
+#[test]
+fn a_pair_that_closes_on_use_closes_once_a_body_comes_out() {
+    let mut app = two_phase_app();
+    let body = mover(&mut app, CLOSING);
+    app.world_mut().run_schedule(Sim);
+    came_out_at(&mut app, body, far_of(100.0) + ae::Vec2::new(0.0, 200.0));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(open_ends(&mut app).len(), 2, "a use elsewhere closed the pair");
+    came_out_at(&mut app, body, far_of(100.0));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(open_ends(&mut app).len(), 0, "the used pair stayed open");
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(open_ends(&mut app).len(), 0, "asking for a used slot opened it again");
+    app.world_mut().get_mut::<MoveAsks>(body).unwrap().0 = CLOSING + 1;
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(open_ends(&mut app).len(), 2, "a new slot did not open a pair");
+
+    let mut app = two_phase_app();
+    let body = mover(&mut app, 1);
+    app.world_mut().run_schedule(Sim);
+    came_out_at(&mut app, body, far_of(100.0));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(open_ends(&mut app).len(), 2, "an ordinary pair closed on its use");
+}
+
+/// One module's entries name one pair by its slot: a pair one entry opened
+/// and another keeps is the same two portals, not a new pair each time the
+/// asking entry changes.
+#[test]
+fn a_pair_one_entry_opens_and_another_keeps_is_one_pair() {
+    let mut app = two_phase_app();
+    let body = mover(&mut app, 1);
+    app.world_mut().run_schedule(Sim);
+    let opened: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<HeldPortalOf>>();
+        q.iter(world).collect()
+    };
+    app.world_mut().entity_mut(body).insert(KeptBy);
+    app.world_mut().run_schedule(Sim);
+    let kept: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<HeldPortalOf>>();
+        q.iter(world).collect()
+    };
+    assert_eq!(opened.len(), 2);
+    assert_eq!(kept, opened, "the keeping entry closed the pair and opened another");
 }

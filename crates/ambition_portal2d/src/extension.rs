@@ -15,8 +15,9 @@
 
 use std::sync::Arc;
 
-use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
-use ambition_extension_sdk::phases::BOSS_CONDUCT;
+use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, InBossConduct, InTechniqueExecution, LowersIn};
+use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION};
+use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -27,8 +28,26 @@ use crate::{link_hash, PlacedPortal, PortalChannel, PortalChannelColor, PortalLi
 
 /// Install the held pair and the lines of light in `boss_conduct`.
 pub fn install_for_boss_conduct(app: &mut App) {
-    app.install_extension_request::<HeldPortalPairPort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_held_portal_pairs)
-        .install_extension_request::<LightLinePort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_light_lines);
+    // The adapter reads where bodies came out (a pair that closes on use); a
+    // system whose message is not registered is dropped without an error.
+    app.add_message::<crate::PortalBodyTransited>();
+    app.install_extension_request::<HeldPortalPairPort, _>(
+        BOSS_CONDUCT,
+        "ambition_portal2d",
+        lower_held_portal_pairs::<InBossConduct>,
+    )
+    .install_extension_request::<LightLinePort, _>(BOSS_CONDUCT, "ambition_portal2d", lower_light_lines);
+}
+
+/// Install the held pair in `technique_execution`: a move's special can hold
+/// a pair of portals open (a recovery).
+pub fn install_for_technique_execution(app: &mut App) {
+    app.add_message::<crate::PortalBodyTransited>();
+    app.install_extension_request::<HeldPortalPairPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_portal2d",
+        lower_held_portal_pairs::<InTechniqueExecution>,
+    );
 }
 
 /// The lines of light that a body's modules asked for this tick
@@ -113,11 +132,21 @@ pub struct HeldPortalPairs(pub Vec<HeldPortalPairRecord>);
 
 #[derive(Clone, Debug)]
 pub struct HeldPortalPairRecord {
-    /// `provider::module/entry`: slots are per entry.
-    pub entry: Arc<str>,
+    /// `provider::module`, the module that holds it: slots are per module,
+    /// so a module's entries (the one that opens a pair and the one that
+    /// keeps it) name one pair by its slot.
+    pub module: Arc<str>,
     pub slot: u32,
+    /// The phase it is held in: only that phase's adapter releases it.
+    pub phase: Phase,
     /// The two ends, in the order the module gave them.
     pub ends: [Entity; 2],
+    /// It closes the first time a body comes out of it.
+    pub closes_on_use: bool,
+    /// It was used and closed. Its ends are gone, so asking for its slot
+    /// finds nothing to move and keeps it closed; it is held, not spawned
+    /// again, until its module stops asking.
+    pub spent: bool,
 }
 
 impl bevy::ecs::entity::MapEntities for HeldPortalPairs {
@@ -134,8 +163,9 @@ impl ae::snapshot::SnapshotCursor for HeldPortalPairs {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         ae::snapshot::put_u32(out, self.0.len() as u32);
         for record in &self.0 {
-            ae::snapshot::put_str(out, &record.entry);
+            ae::snapshot::put_str(out, &record.module);
             ae::snapshot::put_u32(out, record.slot);
+            ae::snapshot::put_u32(out, u32::from(record.spent));
         }
     }
 }
@@ -151,39 +181,68 @@ impl bevy::ecs::entity::MapEntities for HeldPortalOf {
     }
 }
 
-/// The link of `owner`'s pair in `slot` of `entry`: its identity, from which
-/// the portal core gives it a channel pair of its room.
-pub fn held_pair_link(owner: &SimId, entry: &str, slot: u32) -> PortalLink {
-    PortalLink(link_hash(&format!("held_pair/{owner}/{entry}/{slot}")))
+/// The link of `owner`'s pair in `slot` of `module`: its identity, from
+/// which the portal core gives it a channel pair of its room.
+pub fn held_pair_link(owner: &SimId, module: &str, slot: u32) -> PortalLink {
+    PortalLink(link_hash(&format!("held_pair/{owner}/{module}/{slot}")))
 }
 
-/// See the port card on `HeldPortalPairPort`: release what was not asked for
-/// this tick, make what is held what was asked, spawn what is asked for and
+/// The module of an entry's name, `provider::module/entry`.
+fn module_of(entry: &str) -> &str {
+    entry.rsplit_once('/').map_or(entry, |(module, _)| module)
+}
+
+/// See the port card on `HeldPortalPairPort`: release what was held in this
+/// phase and not asked for this tick, close a pair that closes on use and
+/// was used, make what is held what was asked, spawn what is asked for and
 /// not held, and despawn a portal whose holder is gone.
 ///
 /// Each request is the whole of its pair this tick: its places, normals,
-/// openings and looks. A pair is held only while its entry asks for it, so
-/// the pairs of an entry that is no longer admitted (a reload that removed
-/// it) are released: nothing can ask for them again.
+/// openings and looks. A pair is held only while an entry of its module asks
+/// for it, so the pairs of a module that is no longer admitted (a reload that
+/// removed it) are released: nothing can ask for them again.
 #[allow(clippy::type_complexity)]
-fn lower_held_portal_pairs(
+fn lower_held_portal_pairs<L: LowersIn>(
     mut commands: SessionCommands,
     mut outbox: ResMut<ExtensionOutbox>,
     live: LiveRooms,
     mut holders: Query<(Entity, &mut HeldPortalPairs)>,
     ids: Query<&SimId>,
     mut portals: Query<(Entity, &HeldPortalOf, &mut PlacedPortal, &mut PortalLook)>,
+    mut transits: MessageReader<crate::PortalBodyTransited>,
 ) {
-    let submitted = outbox.drain::<HeldPortalPairPort>(&BOSS_CONDUCT);
+    let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);
     let asked = |owner: Entity, r: &HeldPortalPairRecord| {
-        submitted.iter().any(|s| s.scope == owner && *s.entry == *r.entry && s.value.slot == r.slot)
+        submitted.iter().any(|s| s.scope == owner && module_of(&s.entry) == &*r.module && s.value.slot == r.slot)
     };
+    // Where bodies came out this tick: a transit names its exit point, which
+    // is the exit end's centroid, and not the end.
+    let exits: Vec<ae::Vec2> = transits.read().map(|transit| transit.exit_pos).collect();
     for (owner, mut held) in &mut holders {
-        if held.0.iter().all(|r| asked(owner, r)) {
+        for record in held.0.iter_mut().filter(|r| r.phase == L::PHASE && r.closes_on_use && !r.spent) {
+            let used = record.ends.iter().any(|end| {
+                portals.get(*end).is_ok_and(|(_, _, portal, _)| {
+                    let reach = portal.opening_half_extent();
+                    exits.iter().any(|exit| {
+                        let offset = (*exit - portal.pos).abs();
+                        offset.x <= reach.x && offset.y <= reach.y
+                    })
+                })
+            });
+            if used {
+                for end in record.ends {
+                    if let Ok(mut e) = commands.get_entity(end) {
+                        e.try_despawn();
+                    }
+                }
+                record.spent = true;
+            }
+        }
+        if held.0.iter().all(|r| r.phase != L::PHASE || asked(owner, r)) {
             continue;
         }
         held.0.retain(|r| {
-            let keep = asked(owner, r);
+            let keep = r.phase != L::PHASE || asked(owner, r);
             if !keep {
                 for end in r.ends {
                     if let Ok(mut e) = commands.get_entity(end) {
@@ -215,7 +274,7 @@ fn lower_held_portal_pairs(
         let held = holders
             .get(s.scope)
             .ok()
-            .and_then(|(_, h)| h.0.iter().find(|r| *r.entry == *s.entry && r.slot == pair.slot).cloned());
+            .and_then(|(_, h)| h.0.iter().find(|r| &*r.module == module_of(&s.entry) && r.slot == pair.slot).cloned());
         if let Some(record) = held {
             // Held: each end is what was asked this tick, in place, normal,
             // opening and look. Written only where it changed, so an
@@ -232,6 +291,9 @@ fn lower_held_portal_pairs(
                     if portal.half_length != asked.half_length {
                         portal.half_length = asked.half_length;
                     }
+                    if let Some(half_thickness) = asked.half_thickness.filter(|t| *t != portal.half_thickness) {
+                        portal.half_thickness = half_thickness;
+                    }
                     let want = PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(pair.looks[index])));
                     if *look != want {
                         *look = want;
@@ -240,7 +302,10 @@ fn lower_held_portal_pairs(
             }
             continue;
         }
-        if new.iter().any(|(o, records)| *o == s.scope && records.iter().any(|r| *r.entry == *s.entry && r.slot == pair.slot)) {
+        if new
+            .iter()
+            .any(|(o, records)| *o == s.scope && records.iter().any(|r| &*r.module == module_of(&s.entry) && r.slot == pair.slot))
+        {
             continue;
         }
         // ⛔ SUBMITTED IS NOT APPLIED: a body with no simulation identity has
@@ -252,7 +317,8 @@ fn lower_held_portal_pairs(
             );
             continue;
         };
-        let link = held_pair_link(owner_id, &s.entry, pair.slot);
+        let module = module_of(&s.entry);
+        let link = held_pair_link(owner_id, module, pair.slot);
         let ends = [0usize, 1].map(|index| {
             let end = &pair.ends[index];
             let normal = ae::Vec2::from(end.normal);
@@ -260,23 +326,36 @@ fn lower_held_portal_pairs(
                 .spawn_room_in_session(
                     scope,
                     (
-                        PlacedPortal::fixed(
-                            crate::UNRESOLVED_LINK_CHANNEL,
-                            ae::Vec2::from(end.at),
-                            normal,
-                            end.half_length,
-                        ),
+                        {
+                            let mut portal = PlacedPortal::fixed(
+                                crate::UNRESOLVED_LINK_CHANNEL,
+                                ae::Vec2::from(end.at),
+                                normal,
+                                end.half_length,
+                            );
+                            if let Some(half_thickness) = end.half_thickness {
+                                portal.half_thickness = half_thickness;
+                            }
+                            portal
+                        },
                         link,
                         PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(pair.looks[index]))),
                         HeldPortalOf(s.scope),
-                        SimId::singleton("held_portal", &format!("{owner_id}/{}/{}/{index}", s.entry, pair.slot)),
-                        Name::new(format!("held portal {index} of {} slot {}", s.entry, pair.slot)),
+                        SimId::singleton("held_portal", &format!("{owner_id}/{module}/{}/{index}", pair.slot)),
+                        Name::new(format!("held portal {index} of {module} slot {}", pair.slot)),
                     ),
                 )
                 .insert(InRoomInstance(room))
                 .id()
         });
-        let record = HeldPortalPairRecord { entry: s.entry.clone(), slot: pair.slot, ends };
+        let record = HeldPortalPairRecord {
+            module: Arc::from(module),
+            slot: pair.slot,
+            phase: L::PHASE,
+            ends,
+            closes_on_use: pair.closes_on_use,
+            spent: false,
+        };
         match new.iter_mut().find(|(o, _)| *o == s.scope) {
             Some((_, records)) => records.push(record),
             None => new.push((s.scope, vec![record])),

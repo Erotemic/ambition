@@ -132,7 +132,6 @@ def _production_spawn_lines(path):
 def test_every_spawn_in_the_ruleset_says_what_ends_it():
     unstamped = []
     checked = 0
-    stamped_files = 0
     for path in sorted(RULESET.glob("*.rs")):
         if _is_test_module(path):
             continue
@@ -145,11 +144,20 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
             continue
         body = path.read_text()
         if STAMP in body:
-            stamped_files += 1
             continue
         for number, text in sites:
             unstamped.append(f"{path.name}:{number}: {text}")
     checked += len(_module_spawning_files())
+    # The helper's callers, spawning or not: Smash's module entities are
+    # stamped by a system that spawns nothing (`stamp_smash_module_entities`).
+    # The whole file: `lib.rs` declares `#[cfg(test)] mod ...;` near its top,
+    # so a cut at the first `#[cfg(test)]` would hide every line of it.
+    stamp_callers = [
+        path.name
+        for path in sorted(RULESET.glob("*.rs"))
+        if not _is_test_module(path)
+        and any(f"{STAMP}(" in line.split("//", 1)[0] for line in path.read_text().splitlines())
+    ]
 
     # ⛔⛔ ANTI-VACUITY FIRST, AND THIS ORDER WAS EARNED. Placed after the main
     # assertion, this arm was UNREACHABLE: renaming the stamp helper makes every
@@ -167,7 +175,7 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
         "and a floor that counts one spelling fails on the refactor that "
         "consolidates the others."
     )
-    assert stamped_files >= 1, (
+    assert stamp_callers, (
         f"no file calls `{STAMP}`. Five sites were stamped when the match-scoped "
         "lifetime landed (bomb, bolt, mine, portal, spring), so ZERO means the "
         "helper was renamed or removed and this guard is now checking for a "

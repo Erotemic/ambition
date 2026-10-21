@@ -28,4 +28,8 @@
     // He sleeps on his throne in the dark until you come near enough to see
     // him; then his intro starts.
     wake_radius: Some(380.0),
+    // His killing blow hangs time as a final boss's does (Jon, 2026-10-21:
+    // "that would give the player a fun false sense of security"): then his
+    // head tears off and rises as the Inugami.
+    slow_motion_finish: true,
 )

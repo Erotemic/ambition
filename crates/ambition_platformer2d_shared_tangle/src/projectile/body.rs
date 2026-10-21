@@ -234,14 +234,19 @@ impl ProjectileGameplay {
         // has not yet reaccelerated toward the support.
         const RESTITUTION: f32 = 0.65;
         const SETTLE_LIFT: f32 = 1.0;
+        // ⛔ A BOUNCE IS A HOP. A shot that came down slowly (born low, at a
+        // hand by the knee) rebounded at 0.65 of almost nothing, landed again
+        // the next tick, and spent its whole bounce budget skidding: the
+        // robot's charged shot died 120 px out (2026-10-21, Jon: "the robot's
+        // projectile doesn't seem to do damage anymore"). It leaves the floor
+        // at least this fast, px/s.
+        const MIN_REBOUND: f32 = 240.0;
         let down = projectile_down(gravity_dir);
         let body_aabb = body.aabb();
         body.pos += down * (block_aabb.head_coord(down) - SETTLE_LIFT - body_aabb.feet_coord(down));
-        let toward_feet = body.vel.dot(down);
-        if toward_feet > 0.0 {
-            let side = body.vel - down * toward_feet;
-            body.vel = side - down * (toward_feet * RESTITUTION);
-        }
+        let toward_feet = body.vel.dot(down).max(0.0);
+        let side = body.vel - down * body.vel.dot(down);
+        body.vel = side - down * (toward_feet * RESTITUTION).max(MIN_REBOUND);
         self.bounces_remaining -= 1;
     }
 

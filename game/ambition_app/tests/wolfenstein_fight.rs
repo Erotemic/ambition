@@ -216,7 +216,8 @@ fn he_stands_on_the_floor() {
     for _ in 0..60 * 6 {
         sim.step(AgentAction::default());
         let w = wolf(&mut sim);
-        if matches!(w.view.performing, Some((Move::Bound, true))) {
+        // The bound and the lunge are leaps: he is in the air.
+        if matches!(w.view.performing, Some((Move::Bound | Move::Lunge, true))) {
             continue;
         }
         let feet = w.kin.pos.y + module::Body::of_height(w.kin.size.y).feet_below();

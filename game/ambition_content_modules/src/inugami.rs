@@ -147,16 +147,30 @@ const CHASE_FAR: f32 = 600.0;
 const DIVE_AHEAD: f32 = 40.0;
 /// It dives from this high over you (world units), or the top of the room.
 const DIVE_HIGH: f32 = 440.0;
-/// THE FINAL HALL: when you have hurt it enough (its transition) the chase
-/// is over. It vanishes and comes back in the hall at the end of the gallery
-/// (the last `FINAL_W` of its room the way it chased you), and the fight is
-/// finished there (phase 2 and the enrage).
+/// THE FINAL HALL: the last `FINAL_W` of its room the way it chases you,
+/// where the fight is finished (phase 2 and the enrage).
 const FINAL_W: f32 = 1600.0;
-/// Its transition: the flare, then the vanish (`vanish`, 8 x 60 ms); it
-/// comes back (`appear`) when phase 2 starts.
+/// Its transition: its fire flares and it howls.
 const FLARE_S: f32 = 0.5;
-const VANISH_S: f32 = 0.48;
-const APPEAR_S: f32 = 0.48;
+/// THE RUN. When you have hurt it enough (its transition), it hunts you to
+/// the final hall (Jon, 2026-10-21: "There is also no chase sequence, when you
+/// beat him after the first part (24/48 health) he just kinda disappears and
+/// I have to fly to the other section of the castle to find him"). It was a
+/// vanish and a return in the hall; now it comes after you, `RUN_GAP` behind
+/// and `RUN_OVER` above you, at `RUN_SPEED` (faster when it is `RUN_FAR`
+/// behind): stand and its burning head reaches you. Its blows are turned and
+/// its pattern waits while it runs; every `RUN_FIRE_EVERY_S` it throws fire
+/// after you. When you are in the final hall it sweeps past you to the hall's
+/// middle over `ARRIVE_S`, howling, and the fight goes on there.
+const RUN_GAP: f32 = 90.0;
+const RUN_OVER: f32 = 40.0;
+const RUN_SPEED: f32 = 270.0;
+const RUN_CATCH_UP: f32 = 2.2;
+const RUN_FAR: f32 = 520.0;
+const RUN_FIRE_EVERY_S: f32 = 3.0;
+/// You are in the final hall this far past its door.
+const RUN_HOME: f32 = 60.0;
+const ARRIVE_S: f32 = 1.1;
 
 const BITE_REACH: f32 = 560.0;
 const BITE_DAMAGE: i32 = 2;
@@ -349,6 +363,8 @@ record! {
     /// it has called her (once).
     34 ally_wait: Option<f32>,
     35 ally_called: bool,
+    /// The run to the final hall after its transition: seconds into it.
+    36 run: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -591,7 +607,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let room_w = inu.room.map_or(c.hall_right + WALL, |room| room[0]);
     let east = if c.rise_x < room_w * 0.5 { 1.0 } else { -1.0 };
     let (final_lo, final_hi) = if east > 0.0 { (room_w - FINAL_W, room_w - WALL) } else { (WALL, FINAL_W) };
-    let in_final = c.frenzied || inu.enraged;
+    // The run and the sweep into the hall cross the room; then the hall holds it.
+    let in_final = (c.frenzied || inu.enraged) && c.run.is_none() && c.appear.is_none();
     let (lo, hi) = if in_final { (final_lo, final_hi) } else { (WALL, room_w - WALL) };
     let hall = Hall { floor, left: lo, right: hi };
     let built = Head::of_height(inu.size[1] / c.scale.max(0.1));
@@ -662,7 +679,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let x = if lived { at.x } else { (rise_from.x + side * h.len(30.0)).clamp(hall.left + half.x, hall.right - half.x) };
         let from_y = if lived { c.from_y } else { ground };
         let u = ((t / DEATH_S - DEATH_FALL.0) / (DEATH_FALL.1 - DEATH_FALL.0)).clamp(0.0, 1.0);
-        let y = if t / DEATH_S < DEATH_FALL.0 { if lived { at.y } else { ground } } else { from_y + (ground - from_y) * u * u };
+        // Landed, it lies where its body came to rest. Held on the floor's line
+        // it shook: each tick the floor put it back up 4 px and the pose put it
+        // down again (Jon, 2026-10-21: "The head also shakes violently after
+        // you do kill it").
+        let y = if t / DEATH_S < DEATH_FALL.0 {
+            if lived { at.y } else { ground }
+        } else if u >= 1.0 && t - dt >= DEATH_FALL.1 * DEATH_S {
+            at.y
+        } else {
+            from_y + (ground - from_y) * u * u
+        };
         let lit = SPIRIT_LIT + (1.0 - SPIRIT_LIT) * ease((t - DEATH_LEAVES_U * DEATH_S) / 2.0);
         inv.submit::<BossStagePort>(BossStage { lit: if lived { lit } else { 1.0 }, flash: 0.0, card: 0.0 })?;
         c.dead_for = Some(t);
@@ -687,7 +714,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Which part of which move is live ──
+    // While it runs you to the hall and sweeps into it, its pattern waits.
     let live = match (inu.active.as_ref(), inu.telegraph.as_ref()) {
+        _ if c.run.is_some() || c.appear.is_some() => None,
         (Some(active), _) if Move::from_key(&active.key).is_some() => Move::from_key(&active.key).map(|mv| (mv, true, active.remaining)),
         (_, Some(tell)) => Move::from_key(&tell.key).map(|mv| (mv, false, tell.remaining)),
         _ => None,
@@ -794,20 +823,43 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         let t = c.rearing.map_or(0.0, |t| t + dt);
         if t >= FLARE_S && t - dt < FLARE_S {
-            play(inv, SFX_VANISH, at)?;
+            burst(inv, at, 30, 320.0, FIRE_CORE, "spark")?;
         }
         c.rearing = Some(t);
     } else if c.rearing.take().is_some() {
-        // It comes back in the final hall, over its middle.
+        // It comes after you: the run to the final hall.
         inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.0, card: 0.0 })?;
-        c.appear = Some(0.0);
-        let back = Vec2::new((final_lo + final_hi) * 0.5, top + h.len(20.0));
-        c.from_x = back.x;
-        c.from_y = back.y;
-        play(inv, SFX_VANISH, back)?;
-        play(inv, howl_cue(c.scale), back)?;
-        burst(inv, back, 40, 360.0, FIRE, "spark")?;
-        shake(inv, SHAKE_HOWL)?;
+        inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
+        c.run = Some(0.0);
+    }
+
+    // ── The run: it hunts you to the final hall ──
+    let home = target.x >= final_lo + RUN_HOME && target.x <= final_hi;
+    if let Some(t) = c.run {
+        let t = t + dt;
+        if home {
+            // You are in the hall: it sweeps past you to its middle.
+            c.run = None;
+            c.appear = Some(0.0);
+            c.from_x = at.x;
+            c.from_y = at.y;
+            c.to_x = (final_lo + final_hi) * 0.5;
+            // Over you (you stand in the hall; the floor under it may be
+            // another part of the castle's).
+            c.to_y = target.y - h.len(HOVER_DY) - 40.0;
+            play(inv, howl_cue(c.scale), at)?;
+            burst(inv, at, 30, 320.0, FIRE, "spark")?;
+        } else {
+            if t > 1.0 && (t / RUN_FIRE_EVERY_S).floor() != ((t - dt) / RUN_FIRE_EVERY_S).floor() {
+                for degrees in ONIBI_AT.iter().take(3) {
+                    let off = h.onibi(*degrees);
+                    let origin = at + Vec2::new(off.x * side, off.y);
+                    onibi(inv, origin, target - origin, ONIBI_SPEED)?;
+                }
+                play(inv, SFX_FLING, at)?;
+            }
+            c.run = Some(t);
+        }
     }
 
     // ── Kagero comes to your aid, once, in the final hall ──
@@ -845,8 +897,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if c.rekindle.is_some_and(|t| t >= REKINDLE_S) {
         c.rekindle = None;
     }
-    if c.appear.is_some_and(|t| t >= APPEAR_S) {
+    if c.appear.is_some_and(|t| t >= ARRIVE_S) {
+        // Over the hall: its blows land again, and it howls the fight on.
         c.appear = None;
+        inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+        shake(inv, SHAKE_HOWL)?;
+        burst(inv, at, 40, 360.0, FIRE, "spark")?;
     }
     if c.miss.is_some_and(|t| t >= MISS_S) {
         c.miss = None;
@@ -919,7 +975,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             at + along * (MISS_DRIFT / MISS_S) * (1.0 - t / MISS_S).max(0.0) * dt
         }
         None if c.rearing.is_some() => at,
-        None if c.appear.is_some() => from,
+        None if c.appear.is_some() => from + (to - from) * ease(c.appear.unwrap_or(0.0) / ARRIVE_S),
+        None if c.run.is_some() => {
+            side = east;
+            let goal = Vec2::new(target.x - east * RUN_GAP, target.y - RUN_OVER + bob);
+            let step = goal - at;
+            let speed = RUN_SPEED * if step.length() > RUN_FAR { RUN_CATCH_UP } else { 1.0 };
+            let stride = speed * dt;
+            clamp(if step.length() > stride { at + step.normalize() * stride } else { goal })
+        }
         None => {
             side = face(at.x);
             hover(side)
@@ -1046,10 +1110,14 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
         return span("rekindle", 0.0, 6.0, 0.06, t / REKINDLE_S);
     }
     if let Some(t) = c.rearing {
-        return if t < FLARE_S { ("howl", t, false) } else { span("vanish", 0.0, 8.0, 0.06, (t - FLARE_S) / VANISH_S) };
+        return ("howl", t, false);
     }
     if let Some(t) = c.appear {
-        return span("appear", 0.0, 8.0, 0.06, t / APPEAR_S);
+        // It sweeps into the hall, then howls over it.
+        return if t < 0.6 * ARRIVE_S { ("drift", t, true) } else { ("howl", t - 0.6 * ARRIVE_S, false) };
+    }
+    if let Some(t) = c.run {
+        return ("drift", t, true);
     }
     match part {
         Some(p @ Part { mv: Move::Bite, striking: false, .. }) => tell("bite_tell", 8.0, 0.07, u(p)),

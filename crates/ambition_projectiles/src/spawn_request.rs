@@ -42,6 +42,9 @@ pub enum ProjectilePresentation {
     /// A named projectile vocabulary entry (Fireball / Hadouken / …).
     /// The kind component and its registered visual id are both stamped.
     NamedKind(ProjectileKind),
+    /// A named kind fired at a charge tier: the kind, and the visual its tier
+    /// is drawn with ([`ProjectileKind::visual_id_at`]).
+    NamedCharged(ProjectileKind, u8),
     /// An open visual id authored by an actor/item/boss technique. The empty
     /// string means the generic open-projectile look.
     OpenVisual(String),
@@ -110,6 +113,14 @@ impl ProjectileSpawnRequest {
             weapon_shot: false,
             launch: None,
         }
+    }
+
+    /// The named shot was charged to `tier`: it is drawn as that tier.
+    pub fn charged(mut self, tier: u8) -> Self {
+        if let ProjectilePresentation::NamedKind(kind) = self.presentation {
+            self.presentation = ProjectilePresentation::NamedCharged(kind, tier);
+        }
+        self
     }
 
     /// Set the use of the move that made this shot.

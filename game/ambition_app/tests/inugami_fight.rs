@@ -100,24 +100,30 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     kill(&mut sim, WOLFENSTEIN_ID);
     step_until(&mut sim, 30, "it to wake when he is cleared", |sim| head(sim).phase != BossEncounterPhase::Dormant);
     let floor = head(&mut sim).view.and_then(|v| v.hall).expect("it measured the room").floor;
-    assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it rose with no plate: {:?}", plates(&mut sim));
+    assert!(!plates(&mut sim).iter().any(|label| label == "Inugami"), "its plate shows before its title: {:?}", plates(&mut sim));
     step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
     let h = head(&mut sim);
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 < floor - 20.0, "it does not float over the floor: {h:?}");
 
     step_until(&mut sim, 60 * 10, "its first move", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
+    assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it fights with no plate: {:?}", plates(&mut sim));
 
-    // Hurt it past its transition: the chase is over, and it comes back in
-    // the hall at the end of its room.
+    // Hurt it past its transition: it hunts you to the final hall. It stays
+    // with you while you are not there, and it comes into the hall when you do.
     wound(&mut sim, INUGAMI_ID, 0.45);
-    step_until(&mut sim, 60 * 4, "it to come back in the final hall", |sim| {
+    for _ in 0..60 * 4 {
+        sim.step(AgentAction::default());
+    }
+    let h = head(&mut sim);
+    assert!(h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_X, "it did not stay on you: {h:?}");
+    sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
+    step_until(&mut sim, 60 * 8, "it to come into the final hall after you", |sim| {
         let h = head(sim);
-        h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X
+        h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X && h.view.is_some_and(|v| v.performing.is_some())
     });
 
     // You stand in the final hall with it, and at its next window Kagero
     // comes to your aid: she cuts it, and is gone up her line.
-    sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
     let before = health(&mut sim, INUGAMI_ID);
     step_until(&mut sim, 60 * 30, "Kagero to come", |sim| kagero(sim).is_some());
     step_until(&mut sim, 60 * 4, "Kagero to cut it", |sim| health(sim, INUGAMI_ID) < before);
@@ -183,4 +189,74 @@ fn kagero(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
 fn plates(sim: &mut Platformer2dSimHarness) -> Vec<String> {
     let index = sim.world_mut().resource::<ambition_platformer2d::sim_view::NameplateIndex>();
     index.iter().map(|(_, fact)| fact.label.clone()).collect()
+}
+
+/// When it dies its head falls, and lies still where it lands (it shook,
+/// held on the floor's line against the floor).
+#[test]
+fn its_dead_head_lies_still() {
+    let mut sim = arena();
+    for _ in 0..60 * 3 {
+        sim.step(AgentAction::default());
+    }
+    kill(&mut sim, WOLFENSTEIN_ID);
+    step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
+    for _ in 0..60 * 2 {
+        sim.step(AgentAction::default());
+    }
+    kill(&mut sim, INUGAMI_ID);
+    for _ in 0..60 * 4 {
+        sim.step(AgentAction::default());
+    }
+    let mut last = head(&mut sim).kin.pos;
+    for k in 0..60 {
+        sim.step(AgentAction::default());
+        let now = head(&mut sim).kin.pos;
+        assert!((now - last).length() < 0.5, "the dead head moved {:?} at tick {k}", now - last);
+        last = now;
+    }
+}
+
+/// The robot's shot hurts Wolfenstein, through the Inugami asleep in his
+/// body, and a full charge carries. Two faults, 2026-10-21
+/// (Jon: "the robot's projectile doesn't seem to do damage anymore"): the
+/// sleeping head stopped each shot and swallowed it, and a charged shot born
+/// at the knee skidded through its bounces and died 120 px out.
+#[test]
+fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
+    let mut sim = arena();
+    sim.teleport_player((420.0, 2200.0));
+    for _ in 0..60 * 11 {
+        sim.step(AgentAction::default());
+    }
+    let wolf = boss_entity(&mut sim, WOLFENSTEIN_ID);
+    assert_eq!(sim.world_mut().get::<BossEncounter>(wolf).unwrap().encounter_phase(), BossEncounterPhase::Phase1);
+    let hp = |sim: &mut Platformer2dSimHarness| sim.world_mut().get::<BodyHealth>(wolf).unwrap().health.current;
+    // From 160 px, facing him, for each shot (near enough that his own moves
+    // do not take him out of its way).
+    let aim = |sim: &mut Platformer2dSimHarness| {
+        let at = sim.world_mut().get::<ae::BodyKinematics>(wolf).unwrap().pos;
+        sim.teleport_player((at.x - 160.0, 2200.0));
+        sim.step(AgentAction { move_x: 1.0, ..AgentAction::default() });
+    };
+    aim(&mut sim);
+    let before = hp(&mut sim);
+    sim.step(AgentAction { projectile: true, projectile_held: true, ..AgentAction::default() });
+    sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+    }
+    assert!(hp(&mut sim) < before, "a tap shot from 160 px did not hurt him");
+    aim(&mut sim);
+    sim.step(AgentAction { projectile: true, projectile_held: true, ..AgentAction::default() });
+    for _ in 0..60 * 2 {
+        sim.step(AgentAction { projectile_held: true, ..AgentAction::default() });
+    }
+    aim(&mut sim);
+    let before = hp(&mut sim);
+    sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+    }
+    assert!(before - hp(&mut sim) >= 8, "a full charge from 160 px took {} from him", before - hp(&mut sim));
 }

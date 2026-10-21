@@ -119,6 +119,17 @@ pub fn refresh_boss_damageable_volumes(
             damageable.clear();
             continue;
         }
+        // A successor that sleeps until its predecessor falls is not in the
+        // fight yet: it publishes nothing, so blows and shots go through it.
+        // The sleeping Inugami lies in Wolfenstein's body, and each shot at
+        // him stopped on it and was swallowed (Jon, 2026-10-21: "the robot's
+        // projectile doesn't seem to do damage anymore").
+        if boss.config.wakes_after.is_some()
+            && boss.status.encounter_phase() == ambition_boss_encounter::BossEncounterPhase::Dormant
+        {
+            damageable.clear();
+            continue;
+        }
         if let Some(volumes) = authored_world_volumes(hurtboxes, kin, feature.unmirrored) {
             damageable.publish(volumes);
             continue;

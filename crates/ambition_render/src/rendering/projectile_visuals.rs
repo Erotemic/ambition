@@ -22,7 +22,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_projectiles::{
-    ProjectileArt, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
+    ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualCatalog, ProjectileVisualId,
 };
 use ambition_sim_view::ProjectileView;
@@ -100,10 +100,6 @@ pub fn place_frames(rects: &[ambition_sprite_sheet::FrameRect], cell: Vec2, firs
         })
         .collect()
 }
-
-/// Marker on the transient charge-indicator sprite in front of the player.
-#[derive(Component)]
-pub struct PlayerChargeVisual;
 
 /// Projectile sprites render just in front of the player plane.
 fn projectile_z() -> f32 {
@@ -237,7 +233,7 @@ fn build_visual(
             target,
             animation,
             *animate,
-            view,
+            Vec2::new(view.size.x, view.size.y),
             asset_server,
             sheets,
         ),
@@ -254,7 +250,8 @@ fn build_sheet_visual(
     target: &str,
     animation: &str,
     animate: bool,
-    view: &ProjectileView,
+    // The body the art is sized against (a shot's box).
+    body: Vec2,
     asset_server: &AssetServer,
     sheets: &SheetRegistry,
 ) -> BuiltVisual {
@@ -264,7 +261,7 @@ fn build_sheet_visual(
     let Some((record, row)) = record.zip(row) else {
         // Missing sheet / row: fall back to a small magenta quad so the shot is
         // still visible (and the mistake obvious) rather than invisible.
-        let size = render_size(size, Vec2::new(view.size.x, view.size.y), 1.0);
+        let size = render_size(size, body, 1.0);
         return BuiltVisual {
             sprite: Sprite::from_color(Color::srgb(1.0, 0.0, 1.0), size),
             anchor: None,
@@ -283,11 +280,7 @@ fn build_sheet_visual(
         "projectile-art",
         format!("sprites/{}", record.image),
     ));
-    sprite.custom_size = Some(render_size(
-        size,
-        Vec2::new(view.size.x, view.size.y),
-        frame_aspect,
-    ));
+    sprite.custom_size = Some(render_size(size, body, frame_aspect));
     sprite.rect = Some(first);
 
     let anim = (animate && frames.len() > 1).then(|| ProjectileFrameAnim {
@@ -464,9 +457,26 @@ pub fn sync_projectile_visuals(
     }
 }
 
-/// Draw the per-player charge indicator: a growing tinted quad in front of the
-/// player while the fire button is held (before a Hadouken motion commits).
-/// Rebuilt each frame; player-only (it is not projectile art).
+/// The look of a body's charge at each tier (`projectile_visuals.ron`).
+const CHARGE_LOOKS: [&str; 3] = ["robot_charge_0", "robot_charge_1", "robot_charge_2"];
+/// How far past the hand each tier's charge hangs: a larger orb hangs out
+/// farther, so it does not cover the face.
+const CHARGE_REACH: [f32; 3] = [6.0, 10.0, 17.0];
+
+/// One body's charge, drawn while its fire button is held: the row of its
+/// tier, animated, at its hand. Kept from frame to frame (it animates), and
+/// rebuilt when the tier changes.
+#[derive(Component)]
+pub struct PlayerChargeVisual {
+    owner: Entity,
+    tier: u8,
+}
+
+/// Draw each player's charge while the fire button is held (before a
+/// Hadouken motion commits): authored art, by tier (Jon, 2026-10-21: "when
+/// you charge it up it is still a boring looking square"). Player-only: it is
+/// not projectile art, though its looks live in the projectile catalog.
+#[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.
@@ -474,6 +484,10 @@ pub fn sync_projectile_charge_visuals(
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
+    presentation_time: ambition_time::PresentationTime,
+    asset_server: Res<AssetServer>,
+    sheets: Res<SheetRegistry>,
+    visual_catalog: Res<ProjectileVisualCatalog>,
     // Sim-built pose read model: charge tier and body geometry, with no live
     // cluster or projectile-state reads.
     player_q: Query<
@@ -484,58 +498,101 @@ pub fn sync_projectile_charge_visuals(
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
-    existing_charge: Query<Entity, With<PlayerChargeVisual>>,
+    mut existing: Query<(Entity, &PlayerChargeVisual, &mut Transform, &mut Sprite, Option<&mut ProjectileFrameAnim>, Option<&mut Anchor>)>,
 ) {
-    for entity in &existing_charge {
-        commands.entity(entity).despawn();
-    }
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
+    let dt = presentation_time.scaled_dt();
+    // Who charges now, at which tier, and where its charge hangs.
+    let mut charging: Vec<(Entity, u8, ambition_platformer2d_core::Vec2, bool)> = Vec::new();
     for (player, pose, presented) in &player_q {
         let Some(tier) = pose.charge_tier else {
             continue;
         };
+        // The charge hangs off the hand, so it tracks the presented body.
+        let body_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
+        let facing = if pose.facing.abs() < f32::EPSILON { 1.0 } else { pose.facing.signum() };
+        let tier = tier.min(2);
+        let at = ambition_platformer2d_core::Vec2::new(
+            body_pos.x + facing * (pose.size.x * 0.5 + CHARGE_REACH[tier as usize]),
+            body_pos.y - pose.size.y * 0.20,
+        );
+        charging.push((player, tier, at, facing < 0.0));
+    }
+    // Keep, move and animate a charge that goes on; drop one that ended or
+    // changed tier.
+    for (entity, visual, mut transform, mut sprite, anim, anchor) in &mut existing {
+        let Some(&(_, tier, at, flip)) = charging.iter().find(|(owner, ..)| *owner == visual.owner) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        if tier != visual.tier {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let Some(world) = rooms.of(visual.owner) else {
+            continue;
+        };
+        transform.translation = ambition_platformer2d_core::config::world_to_bevy(
+            &world.0,
+            at,
+            ambition_platformer2d_core::config::WORLD_Z_PLAYER + 1.5,
+        );
+        sprite.flip_x = flip;
+        if let Some(mut anim) = anim {
+            if !anim.frames.is_empty() {
+                anim.elapsed += dt;
+                while anim.elapsed >= anim.frame_dur {
+                    anim.elapsed -= anim.frame_dur;
+                    anim.index = (anim.index + 1) % anim.frames.len();
+                }
+                let frame = anim.frames[anim.index];
+                sprite.rect = Some(frame.rect);
+                sprite.custom_size = Some(frame.size);
+                if let Some(mut anchor) = anchor {
+                    anchor.0 = Vec2::new(frame.anchor.x * if flip { -1.0 } else { 1.0 }, frame.anchor.y);
+                }
+            }
+        }
+    }
+    // Start a charge's art the frame it begins (or changes tier).
+    for (player, tier, at, flip) in charging {
+        let kept = existing.iter().any(|(_, visual, ..)| visual.owner == player && visual.tier == tier);
+        if kept {
+            continue;
+        }
         let Some((room, world)) = rooms.room_of(player).and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
-        let session_scope = session_scope.in_room(Some(room));
-        // The charge orb hangs off the hand, so it tracks the presented body.
-        let body_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-        let base = ProjectileKind::Fireball.half_extent();
-        let (size_mult, alpha) = match tier {
-            0 => (0.7, 0.55),
-            1 => (1.1, 0.78),
-            _ => (1.5, 0.95),
+        let art = visual_catalog.resolve(CHARGE_LOOKS[tier as usize]);
+        let ProjectileArtSource::Sheet { target, animation, animate } = &art.source else {
+            continue;
         };
-        let render_size = Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
-        let facing = if pose.facing.abs() < f32::EPSILON {
-            1.0
-        } else {
-            pose.facing.signum()
-        };
-        let charge_pos = ambition_platformer2d_core::Vec2::new(
-            body_pos.x + facing * (pose.size.x * 0.5 + 6.0),
-            body_pos.y - pose.size.y * 0.20,
-        );
-        commands.spawn_session_scoped(
-            session_scope,
+        let mut built =
+            build_sheet_visual(art.size, art.rotation, target, animation, *animate, Vec2::splat(16.0), &asset_server, &sheets);
+        built.sprite.flip_x = flip;
+        let mut visual = commands.spawn_session_scoped(
+            session_scope.in_room(Some(room)),
             (
-                Sprite::from_color(
-                    Color::srgba(1.0, 0.74, 0.30, alpha),
-                    Vec2::new(render_size.x, render_size.y),
-                ),
+                built.sprite,
                 Transform::from_translation(ambition_platformer2d_core::config::world_to_bevy(
                     &world.0,
-                    charge_pos,
+                    at,
                     ambition_platformer2d_core::config::WORLD_Z_PLAYER + 1.5,
                 )),
-                PlayerChargeVisual,
-                Name::new("Player projectile charge indicator"),
+                PlayerChargeVisual { owner: player, tier },
+                Name::new("Player projectile charge"),
             ),
         );
+        if let Some(anchor) = built.anchor {
+            visual.insert(anchor);
+        }
+        if let Some(anim) = built.anim {
+            visual.insert(anim);
+        }
     }
 }
 

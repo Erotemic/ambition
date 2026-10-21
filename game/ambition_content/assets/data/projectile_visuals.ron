@@ -97,6 +97,71 @@
         label: "fireball",
         expiry_vfx: None,
     ),
+    // The robot's fireball charged (Jon, 2026-10-21: "I want to make
+    // everything about it look nicer"): a bigger comet in a halo of flame, and
+    // when it bursts, it bursts.
+    "fireball_charged": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "fireball_charged",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.0,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.8, 0.35, 1.0),
+        label: "fireball_charged",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.55,
+        )),
+    ),
+    // Fully charged: a white-hot comet wrapped in crackling arcs, a long tail.
+    "fireball_overcharged": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "fireball_overcharged",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.1,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.95, 0.6, 1.0),
+        label: "fireball_overcharged",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.9,
+        )),
+    ),
+    // The robot's charge at its hand while the button is held, by tier: an
+    // ember that draws sparks in, an orb in a ring of sparks, a white-hot
+    // core that crackles. It was a tinted square.
+    "robot_charge_0": (
+        source: Sheet(target: "shot_kit", animation: "charge_0", animate: true),
+        size: FixedWidth(30.0),
+        rotation: FlipToTravel,
+        debug_tint: (1.0, 0.74, 0.3, 1.0),
+        label: "robot_charge_0",
+        expiry_vfx: None,
+    ),
+    "robot_charge_1": (
+        source: Sheet(target: "shot_kit", animation: "charge_1", animate: true),
+        size: FixedWidth(44.0),
+        rotation: FlipToTravel,
+        debug_tint: (1.0, 0.8, 0.35, 1.0),
+        label: "robot_charge_1",
+        expiry_vfx: None,
+    ),
+    "robot_charge_2": (
+        source: Sheet(target: "shot_kit", animation: "charge_2", animate: true),
+        size: FixedWidth(62.0),
+        rotation: FlipToTravel,
+        debug_tint: (1.0, 0.95, 0.6, 1.0),
+        label: "robot_charge_2",
+        expiry_vfx: None,
+    ),
     // The gauntlet fireball a player throws: its own glowing sprite, radial,
     // drawn a touch over the 24 x 18 contact box so the fire fills the space
     // that hits. Not the player kit's `fireball`.

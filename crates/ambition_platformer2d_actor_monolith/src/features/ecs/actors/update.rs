@@ -1769,6 +1769,10 @@ pub fn apply_actor_contact_damage(
                 // either body can be the one authoring contact damage.
                 Option<&ambition_mount::MountSlot>,
                 Option<&ambition_mount::RidingOn>,
+                // A boss's body hurts only while its fight runs: not asleep,
+                // not in its intro (the Inugami lies in Wolfenstein's body
+                // until he falls).
+                Option<&ambition_boss_encounter::BossEncounter>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
             // AD2): their `body_contact_damage` tuning is driven from
@@ -1793,7 +1797,7 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding) in
+    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding, encounter) in
         &mut set.p0()
     {
         let Some(mut cq) = clusters else {
@@ -1803,10 +1807,17 @@ pub fn apply_actor_contact_damage(
         // Body-contact hazard is off for any participant-driven body; derived
         // from the DRIVER (no possession special-case), gated by the body's
         // authored `body_contact_damage` tuning and by any live withdrawal.
+        let fighting = encounter.is_none_or(|encounter| {
+            !matches!(
+                encounter.encounter_phase(),
+                ambition_boss_encounter::BossEncounterPhase::Dormant | ambition_boss_encounter::BossEncounterPhase::Intro
+            )
+        });
         let enabled = driver.is_none()
             && !seated_in_a_match
             && em.config.tuning.body_contact_damage
-            && !withdrawn.is_some_and(|w| w.0);
+            && !withdrawn.is_some_and(|w| w.0)
+            && fighting;
         if !enabled || !em.health.alive() {
             continue;
         }

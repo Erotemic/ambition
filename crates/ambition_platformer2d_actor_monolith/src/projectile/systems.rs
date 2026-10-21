@@ -424,14 +424,17 @@ fn try_fire_projectile(
     {
         Ok(spec) => {
             let spec = kind.charged_spec(spec, charge_tier);
-            spawn_projectiles.write(ProjectileSpawnRequest::named(
-                owner,
-                ambition_projectiles::InFlightProjectile {
-                    body: ambition_projectiles::ProjectileBody::from_spec(spec),
-                },
-                kind,
-                ProjectileStart::StepNextTick,
-            ));
+            spawn_projectiles.write(
+                ProjectileSpawnRequest::named(
+                    owner,
+                    ambition_projectiles::InFlightProjectile {
+                        body: ambition_projectiles::ProjectileBody::from_spec(spec),
+                    },
+                    kind,
+                    ProjectileStart::StepNextTick,
+                )
+                .charged(charge_tier),
+            );
             events.push(ProjectileTraceEvent::Fired { kind });
             true
         }

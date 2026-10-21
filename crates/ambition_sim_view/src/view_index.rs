@@ -1177,12 +1177,15 @@ pub fn rebuild_nameplate_index(
         {
             continue;
         }
-        // A successor that sleeps until its predecessor falls is not there
-        // yet: its name over the living boss is a spoiler (Jon, 2026-10-21:
-        // "the inugami name plate is written over wolfenstein").
-        if boss.is_some_and(|(config, encounter)| {
-            config.wakes_after.is_some()
-                && encounter.encounter_phase() == ambition_boss_encounter::BossEncounterPhase::Dormant
+        // A boss's name is given by its title card: it has no plate before
+        // its fight begins, asleep or in its intro (Jon, 2026-10-21: "hide
+        // nameplates until after the big title happens"). The sleeping
+        // Inugami's plate was over Wolfenstein for his whole fight.
+        if boss.is_some_and(|(_, encounter)| {
+            matches!(
+                encounter.encounter_phase(),
+                ambition_boss_encounter::BossEncounterPhase::Dormant | ambition_boss_encounter::BossEncounterPhase::Intro
+            )
         }) {
             continue;
         }

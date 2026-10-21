@@ -173,8 +173,10 @@ debug = 1
 strip = "none"
 split-debuginfo = "off"
 
-# Default desktop playtest: favor small artifacts and edit/build speed over
-# optimized runtime and detailed postmortem diagnostics.
+# The dev playtest and edit loop: `run_game.sh --dev`. It stays cargo's own
+# default for plain `cargo run` and `cargo test`.
+# Favor small artifacts and edit/build speed over optimized runtime and
+# detailed postmortem diagnostics.
 # Incremental edit rebuild: 21.3s vs 104.9s without it (2026-08-07).
 # Past opt-1 baseline: app opt-0 rebuilt in 23.3s vs 32.4s; actor-monolith
 # opt-0 slowed a 3000-tick sim from ~2.57s to ~4.08s. The all-workspace

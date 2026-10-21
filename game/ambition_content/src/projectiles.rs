@@ -38,6 +38,12 @@ mod tests {
         let catalog = app.world().resource::<ProjectileVisualCatalog>();
         for id in [
             "fireball",
+            // the robot's charged shots and its charge in hand, by tier
+            "fireball_charged",
+            "fireball_overcharged",
+            "robot_charge_0",
+            "robot_charge_1",
+            "robot_charge_2",
             "hadouken",
             "hadouken_super",
             "apple",

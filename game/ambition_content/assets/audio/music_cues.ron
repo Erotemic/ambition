@@ -294,23 +294,27 @@
                 (phase: "Intro", state: "awaken"),
                 (phase: "Phase1", state: "march"),
                 (phase: "Transition", state: "unleash"),
-                (phase: "Phase2", state: "howl"),
-                (phase: "Stagger", state: "howl"),
-                (phase: "Enrage", state: "storm"),
+                // ⛔ Not `howl` or `storm`: those states are a theremin's howl
+                // and a storm with no tune under them (Jon, 2026-10-21: "howl
+                // and storm are just sfx not music"). The fight plays the
+                // march, its music, after the unleash too.
+                (phase: "Phase2", state: "march"),
+                (phase: "Stagger", state: "march"),
+                (phase: "Enrage", state: "march"),
             ],
         ),
         // The Inugami: silence while it rises out of his body (his death
-        // stopped the march), then the theremin howls the tune; the storm at
-        // its end.
+        // stopped the march), then the march again, its music ("make sure
+        // there is real music playing").
         (
             boss_id: "wolfenstein_inugami",
             cue_id: "galvanic_march",
             phase_states: [
-                (phase: "Phase1", state: "howl"),
+                (phase: "Phase1", state: "march"),
                 (phase: "Transition", state: "unleash"),
-                (phase: "Phase2", state: "howl"),
-                (phase: "Stagger", state: "howl"),
-                (phase: "Enrage", state: "storm"),
+                (phase: "Phase2", state: "march"),
+                (phase: "Stagger", state: "march"),
+                (phase: "Enrage", state: "march"),
             ],
         ),
     ],

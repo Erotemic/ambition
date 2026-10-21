@@ -143,6 +143,17 @@ impl ProjectileKind {
         self.label()
     }
 
+    /// The visual a shot of this kind is drawn with at a charge tier: a
+    /// charged fireball is drawn bigger and hotter (Jon, 2026-10-21: "I want
+    /// to make everything about it look nicer"). Other kinds do not charge.
+    pub fn visual_id_at(self, tier: u8) -> &'static str {
+        match (self, tier) {
+            (Self::Fireball, 1) => "fireball_charged",
+            (Self::Fireball, t) if t >= 2 => "fireball_overcharged",
+            _ => self.visual_id(),
+        }
+    }
+
     /// Lower this named kind into the engine's generic [`ProjectileSpec`].
     /// `damage_multiplier` is the firer's outgoing-damage scaling.
     pub fn spec(self, origin: Vec2, direction: Vec2, damage_multiplier: f32) -> ProjectileSpec {

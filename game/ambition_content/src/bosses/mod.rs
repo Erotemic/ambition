@@ -319,8 +319,11 @@ impl Plugin for AmbitionBossContentPlugin {
         // - room re-entry/reset: restore the cut-rope arena's persisted state.
         // - dialogue followup: the "try again" beat emits the engine's
         //   generic `RoomReplayRequested` once the dialog closes.
-        app.add_systems(
+        // Each answers a reset, replay or conversation in Ambition's rooms, so
+        // they sleep while another game plays.
+        app.add_scoped_systems(
             sim,
+            crate::AMBITION_RULES,
             (
                 reset_cut_rope_boss_arena_on_room_reset
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),

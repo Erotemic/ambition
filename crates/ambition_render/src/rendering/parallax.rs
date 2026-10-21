@@ -932,6 +932,7 @@ fn seen_through_a_portal(layer: &ParallaxLayerVisual) -> bool {
     layer.z < FOREGROUND_PARALLAX_Z
 }
 
+#[cfg(any(feature = "portal_render", test))]
 fn sync_parallax_transform_to_camera(transform: &mut Transform, layer: &ParallaxLayerVisual, camera_xy: Vec2) {
     sync_parallax_transform_from(transform, layer, camera_xy, camera_xy);
 }

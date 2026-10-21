@@ -348,7 +348,7 @@ mod tests {
         use bevy::ecs::schedule::{Schedules, SystemSet as _};
 
         #[derive(Message, Clone, Debug)]
-        struct Other(u32);
+        struct Other;
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -364,7 +364,7 @@ mod tests {
             assert_eq!(conditions, 1, "the forget set asks {conditions} conditions, not one");
         }
         app.world_mut().resource_mut::<NarrativeInputLedger<Spoke>>().record(instance("chat", 5), u64::MAX, Spoke(1));
-        app.world_mut().resource_mut::<NarrativeInputLedger<Other>>().record(instance("chat", 5), u64::MAX, Other(1));
+        app.world_mut().resource_mut::<NarrativeInputLedger<Other>>().record(instance("chat", 5), u64::MAX, Other);
         app.update();
         app.update();
         let depths = |app: &App| {

@@ -8664,3 +8664,151 @@ fn the_robot_deals_health_damage_at_home_and_percent_on_a_smash_stage() {
         "a re-wear during the match put the robot back on its home damage"
     );
 }
+
+/// What one visit to Mary-O did, read at fixed points of a fixed script.
+#[derive(Debug, PartialEq)]
+struct MaryOVisit {
+    opened: String,
+    after_running: String,
+    after_the_pole: String,
+    after_the_replay: String,
+}
+
+fn live_room(app: &App) -> Option<String> {
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
+}
+
+/// Where she stands and what her level holds, rounded to a hundredth.
+fn mary_o_reading(app: &mut App) -> String {
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    let room = live_room(app).unwrap_or_default();
+    let world = app.world_mut();
+    let pos = world
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>()
+        .iter(world)
+        .next()
+        .map(|body| body.pos)
+        .expect("Mary-O has a controlled body");
+    let level = world
+        .query::<&ambition_demo_mary_o::MaryOLevelState>()
+        .iter(world)
+        .next()
+        .map(|level| format!("time {:.2} score {} lives {}", level.time_remaining, level.score, level.lives))
+        .expect("Mary-O's level keeps its state");
+    format!("{room} at ({:.2}, {:.2}), {level}", pos.x, pos.y)
+}
+
+/// Launch Mary-O, run right for four seconds, finish 1-1 at its pole, replay
+/// 1-2 once, and go home.
+fn visit_mary_o(app: &mut App) -> MaryOVisit {
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    launch_row(app, "Mary-O");
+    for _ in 0..240 {
+        if live_room(app).is_some() {
+            break;
+        }
+        app.update();
+    }
+    let opened = live_room(app).expect("Mary-O opened a room");
+    for frame in 0..240 {
+        let mut press = ambition_platformer2d::input::ControlFrame::default();
+        press.axis_x = 1.0;
+        press.right_pressed = true;
+        press.jump_pressed = frame % 24 == 0;
+        press.jump_held = frame % 24 < 8;
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), press);
+        app.update();
+    }
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), Default::default());
+    let after_running = mary_o_reading(app);
+
+    // The room transition: carried to 1-1's own pole, the level takes her on.
+    let goal = ambition_demo_mary_o::goal_entry_for_room(&opened);
+    {
+        let world = app.world_mut();
+        let mut body = world
+            .query_filtered::<&mut ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>()
+            .iter_mut(world)
+            .next()
+            .expect("Mary-O has a controlled body");
+        body.pos = goal;
+        body.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+    }
+    for _ in 0..1800 {
+        app.update();
+        if live_room(app).is_some_and(|room| room != opened) {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    let after_the_pole = mary_o_reading(app);
+
+    app.world_mut()
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    for _ in 0..30 {
+        app.update();
+    }
+    let after_the_replay = mary_o_reading(app);
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(app);
+    MaryOVisit { opened, after_running, after_the_pole, after_the_replay }
+}
+
+/// A game plays the same on its second visit, after two other games had the
+/// host: Ambition, Mary-O, Smash, Mary-O. Each game's rules sleep while
+/// another plays (`a_games_simulation_systems_sleep_outside_its_rooms`), so
+/// a rule that missed its game's arrival or kept state from its last visit
+/// would show here as a second visit that differs from the first.
+#[test]
+fn mary_o_plays_the_same_after_ambition_and_smash_had_the_host() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+
+    launch_row(&mut app, "Ambition");
+    for _ in 0..240 {
+        if live_room(&app).is_some() {
+            break;
+        }
+        app.update();
+    }
+    assert!(live_room(&app).is_some(), "Ambition opened no room");
+    for _ in 0..60 {
+        app.update();
+    }
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+
+    let first = visit_mary_o(&mut app);
+    assert_ne!(first.opened, "", "the premise: Mary-O opened a room");
+    assert!(
+        !first.after_the_pole.starts_with(&first.opened),
+        "the premise: finishing {} took her to another level ({})",
+        first.opened,
+        first.after_the_pole
+    );
+
+    launch_row(&mut app, "Smash Siblings");
+    decide_a_solo_match(&mut app);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "the premise: a Smash match started"
+    );
+    for _ in 0..120 {
+        app.update();
+    }
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+
+    let second = visit_mary_o(&mut app);
+    assert_eq!(second, first, "Mary-O's second visit differs from her first");
+}

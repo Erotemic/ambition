@@ -52,6 +52,19 @@ impl Plugin for AmbitionPresentationPlugin {
         inugami_field::install(app);
         mockingbird_sky::install(app);
         room_look::install(app);
+        // Idle barks fire on the pack's cadence (`boss_idle_bark`) while a
+        // boss is in an attacking phase, so the scholar feels alive between
+        // strikes. Ambition's bosses, so only in Ambition's rooms.
+        {
+            use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;
+            use bevy::prelude::IntoScheduleConfigs as _;
+            app.add_scoped_systems(
+                bevy::prelude::Update,
+                crate::AMBITION_RULES,
+                crate::bosses::tick_boss_idle_barks
+                    .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+            );
+        }
     }
 }
 

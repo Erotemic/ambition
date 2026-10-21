@@ -679,7 +679,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let x = if lived { at.x } else { (rise_from.x + side * h.len(30.0)).clamp(hall.left + half.x, hall.right - half.x) };
         let from_y = if lived { c.from_y } else { ground };
         let u = ((t / DEATH_S - DEATH_FALL.0) / (DEATH_FALL.1 - DEATH_FALL.0)).clamp(0.0, 1.0);
-        let y = if t / DEATH_S < DEATH_FALL.0 { if lived { at.y } else { ground } } else { from_y + (ground - from_y) * u * u };
+        // Landed, it lies where its body came to rest. Held on the floor's line
+        // it shook: each tick the floor put it back up 4 px and the pose put it
+        // down again (Jon, 2026-10-21: "The head also shakes violently after
+        // you do kill it").
+        let y = if t / DEATH_S < DEATH_FALL.0 {
+            if lived { at.y } else { ground }
+        } else if u >= 1.0 && t - dt >= DEATH_FALL.1 * DEATH_S {
+            at.y
+        } else {
+            from_y + (ground - from_y) * u * u
+        };
         let lit = SPIRIT_LIT + (1.0 - SPIRIT_LIT) * ease((t - DEATH_LEAVES_U * DEATH_S) / 2.0);
         inv.submit::<BossStagePort>(BossStage { lit: if lived { lit } else { 1.0 }, flash: 0.0, card: 0.0 })?;
         c.dead_for = Some(t);

@@ -190,3 +190,29 @@ fn plates(sim: &mut Platformer2dSimHarness) -> Vec<String> {
     let index = sim.world_mut().resource::<ambition_platformer2d::sim_view::NameplateIndex>();
     index.iter().map(|(_, fact)| fact.label.clone()).collect()
 }
+
+/// When it dies its head falls, and lies still where it lands (it shook,
+/// held on the floor's line against the floor).
+#[test]
+fn its_dead_head_lies_still() {
+    let mut sim = arena();
+    for _ in 0..60 * 3 {
+        sim.step(AgentAction::default());
+    }
+    kill(&mut sim, WOLFENSTEIN_ID);
+    step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
+    for _ in 0..60 * 2 {
+        sim.step(AgentAction::default());
+    }
+    kill(&mut sim, INUGAMI_ID);
+    for _ in 0..60 * 4 {
+        sim.step(AgentAction::default());
+    }
+    let mut last = head(&mut sim).kin.pos;
+    for k in 0..60 {
+        sim.step(AgentAction::default());
+        let now = head(&mut sim).kin.pos;
+        assert!((now - last).length() < 0.5, "the dead head moved {:?} at tick {k}", now - last);
+        last = now;
+    }
+}

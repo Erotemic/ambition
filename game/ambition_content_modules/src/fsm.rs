@@ -649,7 +649,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             keeps_contact_damage: true,
                             // Its OWN appendages: the god's side, so its sting
                             // and its pulse pass through them.
-                            on_boss_side: true,
+                            side: ambition_boss_special_port::SummonSide::Boss,
+                            holds: Vec::new(),
                         })?;
                     }
                     play(inv, SFX_SPLASH, pos_now)?;

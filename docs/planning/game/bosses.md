@@ -482,11 +482,47 @@ the floor beside his headless body.
 | move | the tell | the dodge | the punish |
 |---|---|---|---|
 | `inu_bite` | it draws back, jaws wide | step out of its line | it tumbles past and shakes its head |
-| `inu_dive` | it flies up over you, nose down | leave the spot | its teeth in the floor (1.5 s) |
+| `inu_dive` | it flies up over you, nose down | leave the spot | its teeth in the floor (1.5 s, and 0.4 s to pull free; 1.2 s in all at the enrage) |
 | `inu_onibi` | fire balls kindle round it | dodge the balls | none |
 | `inu_howl` | head back | walk out of the ring | the howl (it stays still) |
 | `inu_vanish` | it fades out | turn round: it comes back behind you | (a bite follows) |
 | `inu_gutter` | its fire gutters | none needed | the long window on the floor |
+
+**Blue spirits (2026-10-21).** Jon: "I want the Japanese ghost spirits
+around him to be blue". Four blue hitodama turn round the head on a tilted
+ring, behind it and in front of it. They go while it throws onibi, and while
+it vanishes or appears.
+
+**Kagero comes to your aid (2026-10-21).** Jon: "I also want a ninja to come
+to your aid in the fight, appear on screen and do a few hits on the boss and
+then fly off the screen (using flyline maybe). It should not be the Shadow
+Oni Leader, a different ninja. We can have some story play in with that."
+
+- Who: Kagero (`npc_ninja_kagero`), a kunoichi who hunts the spirits the
+  regime makes. She followed the inugami into the castle. She is black with
+  red eyes in a dark slit, as the ninjas are; the white of her scarf and her
+  paper talismans says she is not of the dojo. Art: renderer `ninja_kagero`
+  (first draft).
+- When: once, at the first window the head opens (its teeth in the floor,
+  or its fire spent) after you have been in the final hall with it for 3 s:
+  her cuts land while it cannot guard or vanish. The conductor summons her
+  on its far side from you
+  (`ambition.boss.summon` v3: `side: Player`, `holds`).
+- What: her own module performs her visit (`ambition_content_modules::kagero`,
+  status `ambition.kagero_visit`, ticked in `technique_execution`). She comes
+  out of her smoke and speaks, goes at the head, cuts three times (2 + 2 + 3
+  damage, real hits), then her line drops from the sky, she catches it and is
+  reeled up and away. She is dismissed when she is high or after 1.6 s.
+- Her lines: "Noisy one. Even the dead heard you." and "It was a dog once.
+  Set it free, ripple-foot." (the ninjas name the robot by its noise:
+  `docs/brainstorms/llm_brainstorm.md`).
+- Engine: `technique_execution` now also offers `ambition.presentation.drawn_row`,
+  `ambition.feedback.speech_bubble`, `ambition.feedback.burst` and
+  `ambition.feedback.body_sound`, so a module can draw, voice and sound a
+  body it ticks.
+- The line is the engine's body line (`ambition.feedback.body_line`), not
+  Smash's flyline move: that move is a winch for a body on the axis-swept
+  model, and her visit is a short scripted beat.
 
 **Open:** the onibi use the fireball art (`inugami_onibi` in
 `projectile_visuals.ron`); its own sounds (it borrows cues); its own music

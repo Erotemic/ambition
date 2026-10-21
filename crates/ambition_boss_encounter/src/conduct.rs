@@ -576,12 +576,12 @@ pub fn launch_mounts(
     }
 }
 
-/// The `ambition.feedback.speech_bubble` requests of this tick, for
-/// [`show_speech_bubbles`].
-pub fn drain_speech_bubbles(
+/// The `ambition.feedback.speech_bubble` requests of this tick in the phase
+/// `L`, for [`show_speech_bubbles`].
+pub fn drain_speech_bubbles<L: ambition_extension_host::LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
 ) -> Vec<ambition_extension_host::Submitted<ambition_combat_port::SpeechBubble>> {
-    outbox.drain::<ambition_combat_port::SpeechBubblePort>(&BOSS_CONDUCT)
+    outbox.drain::<ambition_combat_port::SpeechBubblePort>(&L::PHASE)
 }
 
 /// Lower `ambition.feedback.speech_bubble` into `VfxMessage::SpeechBubble`,
@@ -702,10 +702,12 @@ pub fn lower_boss_stages(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<
     }
 }
 
-/// The `ambition.presentation.drawn_row` requests of this tick, for
-/// [`draw_rows`].
-pub fn drain_drawn_rows(mut outbox: ResMut<ExtensionOutbox>) -> Vec<ambition_extension_host::Submitted<DrawnRow>> {
-    outbox.drain::<DrawnRowPort>(&BOSS_CONDUCT)
+/// The `ambition.presentation.drawn_row` requests of this tick in the phase
+/// `L`, for [`draw_rows`].
+pub fn drain_drawn_rows<L: ambition_extension_host::LowersIn>(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<DrawnRow>> {
+    outbox.drain::<DrawnRowPort>(&L::PHASE)
 }
 
 /// Lower `ambition.presentation.drawn_row` into the part's `PinnedRow`. The

@@ -27,6 +27,10 @@
 //! - The gutter: its fire is spent at the end of each cycle. It sinks to the
 //!   floor and lies there, dim, until its next tell kindles it again.
 //!
+//! Once you have been in the final hall with it a while, Kagero comes to
+//! your aid: it summons her on your side, on its far side from you, and her
+//! own module performs her visit (`crate::kagero`).
+//!
 //! When it dies the fire goes out of it, the spirit leaves as a wisp, and
 //! his own head drops to the floor.
 //!
@@ -37,7 +41,7 @@
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, BossScale, BossScalePort, BossStage, BossStagePort,
-    ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor,
+    BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort,
@@ -208,6 +212,16 @@ const SHAKE_DIVE: f32 = 9.0;
 const SHAKE_HOWL: f32 = 5.0;
 const SHAKE_TEAR: f32 = 6.0;
 
+/// Kagero comes to your aid at the first window it opens after you have been
+/// in the final hall with it this long, s (`crate::kagero`). She comes on its far side from you, this
+/// far out past its box (world px), and no nearer a wall of the hall than
+/// `ALLY_WALL`: her first line is drawn over her, in view.
+const ALLY_AFTER_S: f32 = 3.0;
+const ALLY_OUT: f32 = 90.0;
+const ALLY_WALL: f32 = 220.0;
+/// Her health: she does not stay long enough to fall.
+const ALLY_HEALTH: u32 = 200;
+
 /// Its fire, and dust.
 const FIRE: [f32; 4] = [1.0, 0.36, 0.34, 1.0];
 const FIRE_CORE: [f32; 4] = [1.0, 0.88, 0.84, 1.0];
@@ -315,6 +329,10 @@ record! {
     32 dying_scale: f32,
     /// Coming back in the final hall: seconds into it.
     33 appear: Option<f32>,
+    /// Kagero: seconds you have been in the final hall with it, and whether
+    /// it has called her (once).
+    34 ally_wait: Option<f32>,
+    35 ally_called: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -352,6 +370,11 @@ impl Conductor {
     /// It has risen and fights, for tests and inspectors.
     pub fn woke(&self) -> bool {
         self.woke
+    }
+
+    /// It has called Kagero to your aid, for tests and inspectors.
+    pub fn ally_called(&self) -> bool {
+        self.ally_called
     }
 
     fn part(&self) -> Option<Part> {
@@ -393,6 +416,7 @@ pub fn module() -> ModuleDescriptor {
                 BossGuardPort::KEY,
                 BossScalePort::KEY,
                 BossStagePort::KEY,
+                BossSummonPort::KEY,
             ],
             after: Vec::new(),
             limits: Limits { max_requests: 64 },
@@ -768,6 +792,33 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         play(inv, SFX_HOWL, back)?;
         burst(inv, back, 40, 360.0, FIRE, "spark")?;
         shake(inv, SHAKE_HOWL)?;
+    }
+
+    // ── Kagero comes to your aid, once, in the final hall ──
+    if c.frenzied && !c.ally_called && !inu.between_phases && c.appear.is_none() {
+        if target.x >= final_lo && target.x <= final_hi {
+            c.ally_wait = Some(c.ally_wait.map_or(0.0, |t| t + dt));
+        }
+        // She comes when it opens a window (its teeth in the floor, its fire
+        // spent): her cuts land while it cannot guard or vanish.
+        let window_opens = c.buried.is_some_and(|t| t <= 0.0) || c.guttered.is_some_and(|t| t <= 0.0);
+        if c.ally_wait.is_some_and(|t| t >= ALLY_AFTER_S) && window_opens {
+            c.ally_called = true;
+            let out = -face(at.x) * (half.x + ALLY_OUT);
+            let x = (at.x + out).clamp(hall.left + ALLY_WALL, hall.right - ALLY_WALL);
+            let y = at.y.clamp(top, hall.floor - 80.0);
+            inv.submit::<BossSummonPort>(BossSummon {
+                label: "kagero".into(),
+                serial: Vec::new(),
+                position: [x, y],
+                half_size: crate::kagero::HALF_SIZE,
+                character_id: crate::kagero::KAGERO_ID.into(),
+                health: Some(ALLY_HEALTH),
+                keeps_contact_damage: false,
+                side: SummonSide::Player,
+                holds: vec![crate::kagero::VISIT.into()],
+            })?;
+        }
     }
 
     for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear] {

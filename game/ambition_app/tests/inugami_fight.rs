@@ -112,6 +112,21 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
         h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X
     });
 
+    // You stand in the final hall with it, and at its next window Kagero
+    // comes to your aid: she cuts it, and is gone up her line.
+    sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
+    let before = health(&mut sim, INUGAMI_ID);
+    step_until(&mut sim, 60 * 30, "Kagero to come", |sim| kagero(sim).is_some());
+    step_until(&mut sim, 60 * 4, "Kagero to cut it", |sim| health(sim, INUGAMI_ID) < before);
+    step_until(&mut sim, 60 * 4, "Kagero to leave", |sim| kagero(sim).is_none());
+    assert!(head(&mut sim).view.is_some_and(|v| v.ally_called));
+    let cut = before - health(&mut sim, INUGAMI_ID);
+    assert!(cut >= 3, "her cuts took {cut} from it");
+    for _ in 0..60 * 3 {
+        sim.step(AgentAction::default());
+    }
+    assert!(kagero(&mut sim).is_none(), "she came back");
+
     // The killing blow: the world hangs while it falls, then comes back.
     kill(&mut sim, INUGAMI_ID);
     let full = 1.0 / 60.0;
@@ -143,4 +158,20 @@ fn wound(sim: &mut Platformer2dSimHarness, id: &str, fraction: f32) {
     let world = sim.world_mut();
     let mut health = world.get_mut::<BodyHealth>(entity).expect("health");
     health.health.current = (health.max() as f32 * fraction).ceil() as i32;
+}
+
+fn health(sim: &mut Platformer2dSimHarness, id: &str) -> i32 {
+    let entity = boss_entity(sim, id);
+    sim.world_mut().get::<BodyHealth>(entity).expect("health").health.current
+}
+
+/// Kagero's body, while she is in the world.
+fn kagero(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
+    use ambition_platformer2d::characters::actor::WornCharacter;
+    let world = sim.world_mut();
+    world
+        .query::<(Entity, &WornCharacter)>()
+        .iter(world)
+        .find(|(_, worn)| worn.id() == "npc_ninja_kagero")
+        .map(|(entity, _)| entity)
 }

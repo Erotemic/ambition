@@ -22,6 +22,7 @@ pub mod gradient_cascade;
 pub mod grapple;
 pub mod hunny;
 pub mod inugami;
+pub mod kagero;
 pub mod mark_recall;
 pub mod meteor;
 pub mod minima_trap;
@@ -58,6 +59,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     grapple::module,
     hunny::module,
     inugami::module,
+    kagero::module,
     mark_recall::module,
     meteor::module,
     minima_trap::module,

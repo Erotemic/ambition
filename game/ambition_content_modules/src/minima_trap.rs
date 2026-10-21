@@ -87,7 +87,8 @@ fn trap(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         character_id: MINION_CHARACTER.into(),
         health: None,
         keeps_contact_damage: true,
-        on_boss_side: false,
+        side: ambition_boss_special_port::SummonSide::Enemy,
+        holds: Vec::new(),
     })?;
     Ok(())
 }

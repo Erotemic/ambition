@@ -113,8 +113,13 @@ pub struct BossCaster {
 /// * **Owner** — `ambition_boss_encounter::extension`, which lowers it into
 ///   `EffectRequest` → `Effect::Summon`, the summon executor's one road.
 /// * **Scope and grant** — only a BOSS can summon: a request for a body
-///   that is not a boss is refused. The minion joins the boss's encounter
-///   and fights on the encounter's enemy side; a module chooses neither.
+///   that is not a boss is refused. The minion joins the boss's encounter.
+///   It fights on the side [`SummonSide`] names: the boss's own, the
+///   enemies', or the player's (an ally who comes to the player's aid; the
+///   boss accepts its hits as it accepts the player's).
+/// * **Status** — `holds` names the statuses the body holds from birth
+///   (`SummonSpec::holds`): the module bound to such a status ticks the body
+///   in `technique_execution` (`ambition.body.status_tick`).
 /// * **Identity** — the minion's id is `<label>:<boss id>:<serial…>`, joined
 ///   with `:`. The module gives the label and the serial (a strike counter,
 ///   from its own records, so a rollback replays the same ids); the boss id
@@ -141,13 +146,29 @@ pub struct BossSummon {
     pub health: Option<u32>,
     /// Whether the minion keeps the character's contact hazard.
     pub keeps_contact_damage: bool,
-    /// The minion fights on the boss's own side (`HitSide::Boss`): the boss's
-    /// own volumes pass through it. False: it is an enemy like any other.
-    pub on_boss_side: bool,
+    /// The side the minion fights on.
+    pub side: SummonSide,
+    /// The statuses the minion holds from birth.
+    pub holds: Vec<String>,
+}
+
+/// The side a summoned body fights on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SummonSide {
+    /// An enemy like any other (`HitSide::Enemy`).
+    #[default]
+    Enemy,
+    /// The boss's own side (`HitSide::Boss`): the boss's own volumes pass
+    /// through it.
+    Boss,
+    /// The player's side (`HitSide::Player`): its hits land on the boss.
+    Player,
 }
 
 impl Port for BossSummonPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.summon", 2);
+    /// Version 3 (2026-10-21): `side` replaces `on_boss_side` and can be
+    /// the player's; `holds`.
+    const KEY: PortKey = PortKey::new("ambition.boss.summon", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = BossSummon;
 
@@ -162,7 +183,18 @@ impl Port for BossSummonPort {
         wire::put_str(out, &v.character_id);
         wire::put_opt(out, v.health, wire::put_u32);
         wire::put_bool(out, v.keeps_contact_damage);
-        wire::put_bool(out, v.on_boss_side);
+        wire::put_u8(
+            out,
+            match v.side {
+                SummonSide::Enemy => 0,
+                SummonSide::Boss => 1,
+                SummonSide::Player => 2,
+            },
+        );
+        wire::put_u32(out, v.holds.len() as u32);
+        for kind in &v.holds {
+            wire::put_str(out, kind);
+        }
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossSummon, WireError> {
@@ -177,7 +209,16 @@ impl Port for BossSummonPort {
             character_id: r.str()?.to_owned(),
             health: r.opt(WireReader::u32)?,
             keeps_contact_damage: r.bool()?,
-            on_boss_side: r.bool()?,
+            side: match r.u8()? {
+                0 => SummonSide::Enemy,
+                1 => SummonSide::Boss,
+                2 => SummonSide::Player,
+                n => return Err(WireError::BadTag(n)),
+            },
+            holds: {
+                let len = r.u32()?;
+                (0..len).map(|_| r.str().map(str::to_owned)).collect::<Result<Vec<_>, _>>()?
+            },
         })
     }
 }
@@ -218,7 +259,8 @@ mod tests {
             character_id: "npc_ai_slop".into(),
             health: None,
             keeps_contact_damage: true,
-            on_boss_side: false,
+            side: SummonSide::Enemy,
+            holds: Vec::new(),
         };
         assert_eq!(s.id("gs").as_deref(), Some("gradient_sentinel_cascade:gs:3:1"));
         s.label = "a:b".into();
@@ -237,7 +279,8 @@ mod tests {
             character_id: "npc".into(),
             health: Some(9),
             keeps_contact_damage: false,
-            on_boss_side: true,
+            side: SummonSide::Player,
+            holds: vec!["a".into(), "b".into()],
         };
         let mut out = Vec::new();
         BossSummonPort::encode(&s, &mut out);

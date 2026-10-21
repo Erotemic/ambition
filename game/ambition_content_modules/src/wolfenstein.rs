@@ -1133,7 +1133,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             health: Some(PACK_HEALTH),
                             keeps_contact_damage: true,
                             // His own pack: his volumes pass through them.
-                            on_boss_side: true,
+                            side: ambition_boss_special_port::SummonSide::Boss,
+                            holds: Vec::new(),
                         })?;
                         burst(inv, at, 16, 220.0, DUST, "dust")?;
                     }

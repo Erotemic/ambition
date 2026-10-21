@@ -117,6 +117,10 @@ impl AmbitionExperiencePlugin {
 
 impl Plugin for AmbitionExperiencePlugin {
     fn build(&self, app: &mut App) {
+        // Ambition's game is installed by its provider, as Mary-O's is by
+        // hers: a hub that selects Ambition names this plugin and no other
+        // Ambition plugin.
+        install_ambition_game(app);
         let text = ambition_content_schemas::text::lowered_ambition_text(&crate::pack::select(app.world_mut()))
             .expect("Ambition's pack states its launcher row (`data/ambition_text.ron`)");
         PlatformerExperienceAuthoring::new(
@@ -152,6 +156,61 @@ impl Plugin for AmbitionExperiencePlugin {
         // Two players in one room share a view until one leaves what it shows
         // (A2). The values are the default feel, until the maintainer rules.
         app.init_resource::<ambition_sim_view::AdaptiveSplit>();
+    }
+}
+
+/// Install Ambition's content, its dialogue, its rollback rows and, where the
+/// App presents, its looks and item art.
+///
+/// The provider builds after the engine plugins, so each install here finds
+/// the backend and the presentation layer already composed. A caller that
+/// installed one of these plugins first keeps it.
+fn install_ambition_game(app: &mut App) {
+    if !app.is_plugin_added::<crate::AmbitionContentPlugin>() {
+        app.add_plugins(crate::AmbitionContentPlugin);
+    }
+    // Yarn compiles its project through the asset server; an App with no
+    // asset server (a provider declaration test) gets no dialogue runtime.
+    #[cfg(feature = "ui")]
+    if !app.is_plugin_added::<bevy_yarnspinner::prelude::YarnSpinnerPlugin>()
+        && app.world().contains_resource::<bevy::asset::AssetServer>()
+    {
+        use ambition_platformer2d::platformer::capability::Capability;
+        use bevy::ecs::schedule::common_conditions::{not, resource_exists};
+        app.add_plugins(crate::dialogue::yarn_spinner_plugin());
+        // Yarn's work each frame (its line fetch, its runtime, its waits)
+        // sleeps where the active room's game uses no dialogue: in the hub
+        // with Mary-O, its fetch was ~0.16 ms a frame for no line. It runs
+        // until its project is compiled, so a session that starts in such a
+        // room still has the project when it reaches a room that talks.
+        app.configure_sets(
+            Update,
+            bevy_yarnspinner::prelude::YarnSpinnerSystemSet.run_if(
+                not(resource_exists::<bevy_yarnspinner::prelude::YarnProject>)
+                    .or_else(ambition_platformer2d::runtime::room_uses(Capability::Dialogue)),
+            ),
+        );
+    }
+    // The rows of Ambition's own state, through the backend the host
+    // selected. A host with no rollback backend has no registrar to take them.
+    if app
+        .world()
+        .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
+        .copied()
+        .is_some_and(|host| host.is_rollback())
+    {
+        let mut registrar = ambition_platformer2d::rollback::GgrsRollbackRegistrar::new(app);
+        crate::register_rollback_state(&mut registrar);
+    }
+    // Ambition's looks compose onto the renderer's presentation seams, so they
+    // install where that presentation is installed, and only there.
+    if app.is_plugin_added::<ambition_render::rendering::PresentationVisualAnimationPlugin>() {
+        if !app.is_plugin_added::<crate::presentation::AmbitionPresentationPlugin>() {
+            app.add_plugins(crate::presentation::AmbitionPresentationPlugin);
+        }
+        if !app.is_plugin_added::<crate::items::AmbitionItemRosterPlugin>() {
+            app.add_plugins(crate::items::AmbitionItemRosterPlugin);
+        }
     }
 }
 

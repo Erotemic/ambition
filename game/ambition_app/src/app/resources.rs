@@ -379,8 +379,8 @@ fn insert_host_resources(
         // gave — *"headless `Platformer2dSimHarness` runs quest reward systems
         // without loading `add_presentation_plugins`, so the resource must exist
         // before the first Update tick"* — is still true, and it is now answered
-        // by `AmbitionContentPlugin`, which `add_simulation_plugins` installs in
-        // both compositions. Two build-time inserts of the same value is one
+        // by `AmbitionContentPlugin`, which Ambition's provider installs in
+        // every composition that selects Ambition. Two build-time inserts of the same value is one
         // authority too many; see the note there.
         .insert_resource(editable_abilities)
         // The neutral authority the SIMULATION reads, seeded from authored

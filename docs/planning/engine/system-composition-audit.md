@@ -254,7 +254,20 @@ Next steps, each its own commit:
 
 - Move the selected-Ambition installs into Ambition's provider, so that the
   hub names no Ambition plugin. The scattered `installs("ambition")` checks
-  are the inventory of what to move.
+  are the inventory of what to move. **Done 2026-10-21 for the plugins:**
+  `AmbitionExperiencePlugin` installs `AmbitionContentPlugin`, the Yarn
+  runtime (where the App has an asset server), Ambition's rollback rows
+  (where the host selected a rollback backend) and, where the renderer's
+  presentation is installed, `AmbitionPresentationPlugin` and the item art.
+  Every composition that selects Ambition adds the provider, after the
+  engine plugins, as Mary-O's and Sanic's hosts add theirs. **Still in the
+  hub:** the host world, which `init_sandbox_resources` builds from
+  Ambition's world manifest (its asset catalog, LDtk project and room set),
+  and `AmbitionGameLdtkRuntimePlugin`. Those are the K2 host-world work: the
+  asset catalog is built before any plugin and reads Ambition's registries.
+- Door passages are a rule Ambition's rooms declare
+  (`DeclaredRules<ZonePassageRules>`, 2026-10-21), not a hub resource the
+  selection switched on.
 - Install the portal, physics debris and 3D lighting plugins only for a
   selected game that uses them (S3 profiles).
 - Move the techniques more than one game uses out of `ambition_demo_smash`.

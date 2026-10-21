@@ -141,8 +141,9 @@ pub mod player_robot_moveset;
 pub mod plugin;
 #[cfg(test)]
 mod pointed_polygon_moveset;
-/// Content-owned presentation passes (visible builds; the app adds
-/// [`presentation::AmbitionPresentationPlugin`] beside the renderer's plugins).
+/// Content-owned presentation passes (visible builds; Ambition's provider adds
+/// [`presentation::AmbitionPresentationPlugin`] where the renderer's
+/// presentation is installed).
 pub mod presentation;
 #[cfg(test)]
 mod projectile_polygon_moveset;
@@ -201,8 +202,8 @@ pub use ambition_platformer2d_actor_monolith::session::data;
 /// Declare every rollback row owned by Ambition-specific content.
 ///
 /// Content plugins record the same declarations into host-independent schema
-/// metadata. The application composition calls this with its concrete rollback
-/// registrar after selecting a backend, keeping content independent of GGRS.
+/// metadata. Ambition's provider calls this with the backend's registrar after
+/// the host has selected that backend.
 pub fn register_rollback_state(
     registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
 ) {

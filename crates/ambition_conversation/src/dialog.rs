@@ -45,21 +45,25 @@ impl Plugin for YarnBindingsPlugin {
         // schedule — but the ordering still holds there, because Bevy runs
         // `PreUpdate` → `RunFixedMainLoop` → `Update` and both hosts put the sim
         // ahead of `Update`. Correct in all three, load-bearing in one.
-        app.add_systems(
-            Update,
-            (ambition_dialog::dialog_input, ambition_dialog::dialog_reveal_tick)
-                .chain()
-                .after(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation,
-                )
-                // After this frame's claims are declared, so an overlay opened
-                // over the conversation captures its input from the next frame on.
-                .after(ambition_input::InputSet::ResolveContext)
-                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
-                    ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
-                )),
-        );
+        let dialog_systems = (ambition_dialog::dialog_input, ambition_dialog::dialog_reveal_tick)
+            .chain()
+            .after(
+                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation,
+            )
+            // After this frame's claims are declared, so an overlay opened
+            // over the conversation captures its input from the next frame on.
+            .after(ambition_input::InputSet::ResolveContext)
+            .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
+            .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
+            ));
+        // A press acts on what the player saw: before the runner presents what
+        // comes next. Without this order, the press that advanced a line
+        // could also take the first of the options that line uncovered, in
+        // the frame they appeared (the order of plugin installation decided).
+        #[cfg(feature = "ui")]
+        let dialog_systems = dialog_systems.before(bevy_yarnspinner::prelude::YarnSpinnerSystemSet);
+        app.add_systems(Update, dialog_systems);
         // no GAME installer is pushed from here any more. A game's
         // vocabulary arrives through `YarnContentBindings` from the crate that
         // owns the content — see `ambition_content::yarn_vocabulary`.

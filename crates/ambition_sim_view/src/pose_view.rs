@@ -36,6 +36,13 @@ pub const CLIMB_CYCLE_PX: f32 = 120.0;
 /// The row of a climb.
 const CLIMB_CLIP: &str = "climb";
 
+/// How far a body climbs a wall in one cycle of its wall-climb row (px): two
+/// pulls, one of each hand.
+pub const WALL_CLIMB_CYCLE_PX: f32 = 96.0;
+
+/// The row of a wall climb.
+const WALL_CLIMB_CLIP: &str = "wall_climb";
+
 /// The row of a turn.
 const TURNAROUND_CLIP: &str = "turnaround";
 
@@ -340,6 +347,8 @@ pub fn rebuild_body_pose_views(
                 // measured along ITS run axis and the facing flip follows ITS
                 // gravity. Not `GravityField`, which mirrors the PRIMARY body.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+                // The wall a wall climb holds: the row faces it.
+                Option<&ambition_platformer2d_core::BodyWallState>,
             ),
             (
                 Option<&ambition_platformer2d_core::BodyModeState>,
@@ -429,6 +438,7 @@ pub fn rebuild_body_pose_views(
             anim_facts,
             blink_cam,
             body_frame,
+            wall,
         ),
         (
             body_mode,
@@ -544,6 +554,10 @@ pub fn rebuild_body_pose_views(
             .is_some_and(ambition_combat::moveset::MovePlayback::sprite_mirrored_now)
         {
             -kinematics.facing
+        } else if let Some(wall) = wall.filter(|wall| anim == CharacterAnim::WallClimb && wall.on_wall) {
+            // A wall climb faces the wall it holds. A body in the air does not
+            // turn, so one that came to the wall backward still faces away.
+            -wall.wall_normal_x.signum()
         } else {
             kinematics.facing
         };
@@ -577,6 +591,10 @@ pub fn rebuild_body_pose_views(
             let before = pose.as_deref().map_or(0.0, |before| before.climb_phase);
             if anim == CharacterAnim::LadderClimb {
                 (before + kinematics.vel.length() * dt / CLIMB_CYCLE_PX).fract()
+            } else if anim == CharacterAnim::WallClimb {
+                // A climb down plays the row backward, hand under hand.
+                let up = -kinematics.vel.dot(gravity_dir);
+                (before + up * dt / WALL_CLIMB_CYCLE_PX).rem_euclid(1.0)
             } else {
                 before
             }
@@ -615,6 +633,8 @@ pub fn rebuild_body_pose_views(
                         Some(slaved(LOOK_UP_CLIP, look_up))
                     } else if free && anim == CharacterAnim::LadderClimb {
                         Some(slaved(CLIMB_CLIP, climb_phase))
+                    } else if free && anim == CharacterAnim::WallClimb {
+                        Some(slaved(WALL_CLIMB_CLIP, climb_phase))
                     } else {
                         None
                     }

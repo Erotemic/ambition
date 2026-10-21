@@ -133,6 +133,8 @@ pub struct BodyAnimView {
     pub dashing: bool,
     pub ladder_climbing: bool,
     pub wall_grab: bool,
+    /// Climbing a wall the body clings to (the `wall_climb` ability).
+    pub wall_climbing: bool,
     pub gliding: bool,
     pub airborne: bool,
     /// Only read while `airborne`: up  Jump, else Fall.
@@ -464,6 +466,9 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if v.wall_grab {
         return WallGrab;
     }
+    if v.wall_climbing {
+        return WallClimb;
+    }
     if v.gliding {
         return FloatGlide;
     }
@@ -617,6 +622,7 @@ pub fn body_view_from_body(
             && facts.wall_clinging
             && !facts.wall_climbing
             && along_fall.abs() < 40.0,
+        wall_climbing: !ground.on_ground && facts.wall_clinging && facts.wall_climbing,
         gliding: facts.gliding,
         airborne: !ground.on_ground,
         // Rising = moving AGAINST gravity. (Under `down == (0,1)` this is the

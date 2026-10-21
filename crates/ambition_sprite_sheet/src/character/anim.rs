@@ -168,6 +168,10 @@ pub enum CharacterAnim {
     SitDown = 59,
     SitIdle = 60,
     StandUp = 61,
+    /// Climb up or down a wall the body clings to (the `wall_climb` ability).
+    /// Generator row `wall_climb`; falls back to [`Self::WallGrab`]. The body
+    /// plays it at the distance it climbs.
+    WallClimb = 62,
 }
 
 impl CharacterAnim {
@@ -216,6 +220,7 @@ impl CharacterAnim {
             "ledge_climb" => Self::LedgeClimb,
             "ledge_getup" => Self::LedgeGetup,
             "wall_grab" => Self::WallGrab,
+            "wall_climb" => Self::WallClimb,
             "float_glide" => Self::FloatGlide,
             "land_hard" => Self::LandHard,
             "land_recovery" => Self::LandRecovery,
@@ -284,6 +289,7 @@ impl CharacterAnim {
             Fly => Idle,
             WallJump => Jump,
             WallGrab => Idle,
+            WallClimb => WallGrab,
             // Dash.
             DashStartup => Dash,
             Dash => Run,

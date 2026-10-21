@@ -156,7 +156,12 @@ pub(crate) fn apply_boss_hit(
             .iter()
             .find(|part| event.meets(part))
         {
-            combat.hit_flash = 0.18;
+            // A guarded boss does not flash: a flash reads as a blow that
+            // landed (Jon, 2026-10-21, of Wolfenstein's serum: "He should also
+            // be invulnerable"). The clang and the spark say it was turned.
+            if !boss.status.guarded {
+                combat.hit_flash = 0.18;
+            }
             combat.note_struck();
             let impact = event.impact_on(hit_aabb.center(), hit_aabb);
             // CM8: an honest strike clang + spark even though this puzzle boss

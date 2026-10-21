@@ -457,6 +457,9 @@ record! {
     45 leap_to: f32,
     /// Overreached after a stab: seconds into hauling himself back.
     46 overreached: Option<f32>,
+    /// While he takes the serum: seconds until his bolts may throw you back
+    /// again.
+    47 keep_off: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -652,6 +655,17 @@ fn lightning(inv: &mut Invocation<'_>, x: f32, ceiling: f32, land: Vec2) -> Resu
     burst(inv, land, 16, 300.0, SPARK, "spark")
 }
 const STRIKE_HOLD_S: f32 = 0.24;
+
+/// While he takes the serum, nobody comes near (Jon, 2026-10-21: "have
+/// lightning push the player away if they try to get too close when that
+/// transition is happening, but not so far away where they can't see the
+/// presentation"): inside `SERUM_KEEP_OFF` (body px) of his middle a bolt from
+/// his neck throws you back, at a fixed speed so the throw is short, at most
+/// every `SERUM_THROW_EVERY_S`.
+const SERUM_KEEP_OFF: f32 = 150.0;
+const SERUM_THROW: (f32, f32) = (520.0, -0.5);
+const SERUM_THROW_EVERY_S: f32 = 0.7;
+const SERUM_THROW_DAMAGE: i32 = 1;
 
 /// A bolt of `look` from `from` to `to`, held `hold` seconds; asked again
 /// under the same `key`, the same bolt held on.
@@ -989,6 +1003,26 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
         } else if t >= SERUM_INJECT_AT && c.ticks % 3 == 0 {
             burst(inv, bolt_at, 3, 120.0, SERUM, "spark")?;
+        }
+        c.keep_off = (c.keep_off - dt).max(0.0);
+        if let Some(you) = wolf.target.map(Vec2::from) {
+            if c.keep_off <= 0.0 && (you - at).length() < b.len(SERUM_KEEP_OFF) {
+                c.keep_off = SERUM_THROW_EVERY_S;
+                bolt(inv, "keep_off", Spot::Body(Vec2::new(b.bolts().x * side, b.bolts().y).into()), Spot::World(you.into()), "strike", STRIKE_HOLD_S)?;
+                play(inv, SFX_ZAP, you)?;
+                burst(inv, you, 14, 260.0, SERUM, "spark")?;
+                inv.submit::<RidingHitboxPort>(RidingHitbox {
+                    offset: (you - at).into(),
+                    half_extent: [b.len(24.0), b.len(34.0)],
+                    circle_radius: None,
+                    damage: SERUM_THROW_DAMAGE,
+                    // `x` is away from him, whichever way he faces.
+                    knockback: RidingKnockback::LaunchSpeed { base: SERUM_THROW.0, growth: None },
+                    launch_dir: Some([1.0, SERUM_THROW.1]),
+                    lifetime_s: 0.1,
+                    name: "wolf_keep_off".into(),
+                })?;
+            }
         }
         if crossed(surge_from + SERUM_SURGE_S * 0.75) {
             // The howl to the sky, and the lightning answers.

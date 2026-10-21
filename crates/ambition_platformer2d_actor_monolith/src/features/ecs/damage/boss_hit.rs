@@ -202,6 +202,9 @@ pub(crate) fn apply_boss_hit(
     // the recent-strike window (not by the flash, whose length is
     // presentation).
     let should_bark = !combat.recently_struck();
+    // The strike reached it, whether or not it is hurt: the recent-strike
+    // window opens (a swing that meets a boss is a strike that met it).
+    combat.note_struck();
     // The strikes it had taken before this one: the bark's line is chosen by it.
     let strikes = health.max() - health.current();
     let amount = event.damage.max(1);
@@ -224,7 +227,6 @@ pub(crate) fn apply_boss_hit(
         // at Wolfenstein, whose body it lies in (Jon, 2026-10-21).
         return false;
     }
-    combat.note_struck();
     combat.hit_flash = 0.18;
     // Speech bubble bark when the player lands a hit.
     if should_bark {

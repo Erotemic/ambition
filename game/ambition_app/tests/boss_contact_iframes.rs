@@ -58,12 +58,13 @@ struct BossSnapshot {
     pos: ae::Vec2,
     /// FULL contact-box size (profile `combat_size` for the mockingbird).
     combat_size: ae::Vec2,
-    /// Hit-flash, set to 0.18 whenever a player slash SPATIALLY connects with a
-    /// boss damageable part — before the encounter HP check. So `hit_flash > 0`
-    /// is a clean "the swing reached the boss" signal independent of whether
-    /// the boss's HP/death accounting accepted the hit this frame (it rejects
-    /// damage during the ~2s Intro invulnerability a freshly-spawned boss
-    /// starts in).
+    /// 1 while the boss's recent-strike window is open: it opens whenever a
+    /// player slash SPATIALLY connects with a boss damageable part — before the
+    /// encounter HP check. So `hit_flash > 0` is a clean "the swing reached the
+    /// boss" signal independent of whether the boss's HP/death accounting
+    /// accepted the hit this frame (it rejects damage during the ~2s Intro
+    /// invulnerability a freshly-spawned boss starts in). ⛔ Not the boss's own
+    /// hit flash: a boss that swallows a blow does not flash (2026-10-21).
     hit_flash: f32,
 }
 
@@ -100,7 +101,7 @@ fn read_boss(world: &mut World) -> Option<BossSnapshot> {
     q.iter(world).next().map(|(kin, cfg, combat)| BossSnapshot {
         pos: kin.pos,
         combat_size: cfg.behavior.combat_size.unwrap_or(kin.size),
-        hit_flash: combat.hit_flash,
+        hit_flash: if combat.recently_struck() { 1.0 } else { 0.0 },
     })
 }
 

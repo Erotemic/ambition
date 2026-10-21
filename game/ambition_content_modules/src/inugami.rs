@@ -229,7 +229,23 @@ const FIRE_CORE: [f32; 4] = [1.0, 0.88, 0.84, 1.0];
 const ONIBI_FIRE: [f32; 4] = [0.45, 0.75, 1.0, 1.0];
 const DUST: [f32; 4] = [0.74, 0.70, 0.66, 1.0];
 
-const SFX_HOWL: &str = "boss.generic.intro_roar";
+/// Its howl, a described one (the SFX renderer's `howl` mode), at three
+/// sizes: lower as it grows (Jon, 2026-10-21: "pitch shift them down for the
+/// inugami especially as it grows in size"). The pitch is over its size: 520
+/// Hz at its build, 452 at 1.15x, 400 at 1.3x.
+const SFX_HOWLS: [(f32, &str); 3] =
+    [(1.08, "boss.inugami.howl"), (1.22, "boss.inugami.howl_large"), (f32::INFINITY, "boss.inugami.howl_giant")];
+
+/// Every cue it plays: each must have a recipe, or it plays silence.
+pub const SOUNDS: [&str; 10] = [
+    SFX_HOWLS[0].1, SFX_HOWLS[1].1, SFX_HOWLS[2].1, SFX_BITE, SFX_DART, SFX_SLAM, SFX_FLING, SFX_VANISH, SFX_GUTTER,
+    SFX_CATCH,
+];
+
+/// The howl for a head built at `scale` times its build.
+pub fn howl_cue(scale: f32) -> &'static str {
+    SFX_HOWLS.iter().find(|(below, _)| scale < *below).map_or(SFX_HOWLS[2].1, |(_, cue)| cue)
+}
 const SFX_BITE: &str = "boss.trex.chomp";
 const SFX_DART: &str = "enemy.burning_flying_shark.flame_flyby";
 const SFX_SLAM: &str = "boss.trex.stomp";
@@ -626,7 +642,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let shrunk = giant + (c.rise_scale - giant) * ease(left);
         set_scale(&mut c, inv, shrunk)?;
         if c.dead_for.is_none() && lived {
-            play(inv, SFX_HOWL, at)?;
+            play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 30, 300.0, FIRE, "spark")?;
         }
         if crossed(DEATH_LEAVES_U) {
@@ -771,7 +787,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.buried = None;
             c.guttered = None;
             c.frenzied = true;
-            play(inv, SFX_HOWL, at)?;
+            play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 40, 360.0, FIRE, "spark")?;
             shake(inv, SHAKE_HOWL)?;
             inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.4, card: 0.0 })?;
@@ -789,7 +805,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.from_x = back.x;
         c.from_y = back.y;
         play(inv, SFX_VANISH, back)?;
-        play(inv, SFX_HOWL, back)?;
+        play(inv, howl_cue(c.scale), back)?;
         burst(inv, back, 40, 360.0, FIRE, "spark")?;
         shake(inv, SHAKE_HOWL)?;
     }
@@ -939,7 +955,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             Move::Howl if onset => {
                 let radius = inu.size[1] * HOWL_RADIUS;
                 riding(inv, (Vec2::ZERO, Vec2::splat(radius)), side, Some(radius), HOWL_DAMAGE, HOWL_KNOCKBACK, 0.3, "inu_howl")?;
-                play(inv, SFX_HOWL, pos)?;
+                play(inv, howl_cue(c.scale), pos)?;
                 shake(inv, SHAKE_HOWL)?;
                 burst(inv, pos, 30, 360.0, FIRE_CORE, "spark")?;
                 if c.frenzied {
@@ -1012,7 +1028,7 @@ fn rise(
         shake(inv, SHAKE_TEAR)?;
     }
     if crossed(start + 0.82 * RISE_S) {
-        play(inv, SFX_HOWL, at)?;
+        play(inv, howl_cue(c.scale), at)?;
         burst(inv, at, 30, 360.0, FIRE_CORE, "spark")?;
         shake(inv, SHAKE_HOWL)?;
     }
@@ -1111,5 +1127,15 @@ mod tests {
         let named = rise_stage_at(start + RISE_S + 0.3, start);
         assert!(named.card > 0.9 && named.lit < SPIRIT_LIT + 0.01, "{named:?}");
         assert!(INTRO_S > start + RISE_S, "the intro covers the rise");
+    }
+
+    /// It howls lower as it grows: its build, then its frenzy's 1.15x, then
+    /// its enrage's 1.3x.
+    #[test]
+    fn its_howl_is_lower_as_it_grows() {
+        assert_eq!(howl_cue(0.4), "boss.inugami.howl");
+        assert_eq!(howl_cue(1.0), "boss.inugami.howl");
+        assert_eq!(howl_cue(SWELL_FRENZIED), "boss.inugami.howl_large");
+        assert_eq!(howl_cue(SWELL_ENRAGED), "boss.inugami.howl_giant");
     }
 }

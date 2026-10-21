@@ -1148,6 +1148,7 @@ pub fn rebuild_nameplate_index(
             Option<&BossPhase>,
             // ⭐⭐ IS THIS BODY DRIVEN — asked of the body, not of the camera.
             bevy::prelude::Has<ambition_characters::control::DrivingParticipant>,
+            Option<(&ambition_boss_encounter::BossConfig, &ambition_boss_encounter::BossEncounter)>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -1169,11 +1170,20 @@ pub fn rebuild_nameplate_index(
     // policy wants the second.
 
     index.begin_rebuild();
-    for (entity, feature_id, identity, aabb, _combat, health, boss_phase, driven) in &actors {
+    for (entity, feature_id, identity, aabb, _combat, health, boss_phase, driven, boss) in &actors {
         // Dead actors carry no plate (defeated boss / drained pool).
         if boss_phase.is_some_and(|phase| phase.is_defeated())
             || health.is_some_and(|health| !health.alive())
         {
+            continue;
+        }
+        // A successor that sleeps until its predecessor falls is not there
+        // yet: its name over the living boss is a spoiler (Jon, 2026-10-21:
+        // "the inugami name plate is written over wolfenstein").
+        if boss.is_some_and(|(config, encounter)| {
+            config.wakes_after.is_some()
+                && encounter.encounter_phase() == ambition_boss_encounter::BossEncounterPhase::Dormant
+        }) {
             continue;
         }
         let (center, size, visible) = views

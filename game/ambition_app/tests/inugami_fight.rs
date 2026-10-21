@@ -216,3 +216,47 @@ fn its_dead_head_lies_still() {
         last = now;
     }
 }
+
+/// The robot's shot hurts Wolfenstein, through the Inugami asleep in his
+/// body, and a full charge carries. Two faults, 2026-10-21
+/// (Jon: "the robot's projectile doesn't seem to do damage anymore"): the
+/// sleeping head stopped each shot and swallowed it, and a charged shot born
+/// at the knee skidded through its bounces and died 120 px out.
+#[test]
+fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
+    let mut sim = arena();
+    sim.teleport_player((420.0, 2200.0));
+    for _ in 0..60 * 11 {
+        sim.step(AgentAction::default());
+    }
+    let wolf = boss_entity(&mut sim, WOLFENSTEIN_ID);
+    assert_eq!(sim.world_mut().get::<BossEncounter>(wolf).unwrap().encounter_phase(), BossEncounterPhase::Phase1);
+    let hp = |sim: &mut Platformer2dSimHarness| sim.world_mut().get::<BodyHealth>(wolf).unwrap().health.current;
+    // From 160 px, facing him, for each shot (near enough that his own moves
+    // do not take him out of its way).
+    let aim = |sim: &mut Platformer2dSimHarness| {
+        let at = sim.world_mut().get::<ae::BodyKinematics>(wolf).unwrap().pos;
+        sim.teleport_player((at.x - 160.0, 2200.0));
+        sim.step(AgentAction { move_x: 1.0, ..AgentAction::default() });
+    };
+    aim(&mut sim);
+    let before = hp(&mut sim);
+    sim.step(AgentAction { projectile: true, projectile_held: true, ..AgentAction::default() });
+    sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+    }
+    assert!(hp(&mut sim) < before, "a tap shot from 160 px did not hurt him");
+    aim(&mut sim);
+    sim.step(AgentAction { projectile: true, projectile_held: true, ..AgentAction::default() });
+    for _ in 0..60 * 2 {
+        sim.step(AgentAction { projectile_held: true, ..AgentAction::default() });
+    }
+    aim(&mut sim);
+    let before = hp(&mut sim);
+    sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+    }
+    assert!(before - hp(&mut sim) >= 8, "a full charge from 160 px took {} from him", before - hp(&mut sim));
+}

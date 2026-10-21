@@ -3,16 +3,14 @@
 Jon, 2026-10-21: "we probably need a howl sfx". The Inugami howls when it
 rises, at its transition, when it comes back in the final hall, with its
 howl move, and when it dies; every one of those plays the generic roar
-(`boss.generic.intro_roar`), which is a low roar and not a howl. This
-renders five candidates for a spirit's howl, each level-matched to the cue in
-use, and a reel that plays the cue in use and then each candidate. Nothing
-here changes a shipped cue; the chosen one is ported later as a recipe with
-the same layers and seed.
+(`boss.generic.intro_roar`), a low roar and not a howl.
 
-Wolfenstein's own four howl candidates (2026-10-17, not chosen yet) are in
-`untracked/sfx-candidates/wolfenstein/solo/howl__*.wav`: the living wolf.
-These are the wolf after it is free of him: a spirit, so more breath, a
-longer room, and voices that are not quite one.
+Each candidate is a DESCRIBED howl (the SFX renderer's `howl` mode with a
+`howl:` block of a dozen named numbers), level-matched to the cue in use,
+and the reel plays the cue in use, each candidate and (if Jon's download is
+there) the reference recording, which is a check and never a source of
+data. Variations for the spectral wolves (level enemies) are changes to a
+few of the numbers.
 
 Run with the SFX renderer's venv, from the repo root:
 
@@ -44,55 +42,72 @@ C: dict[str, dict] = {}
 
 
 def cand(cid, dur, layers, seed, note, room=None, peak=-4.0):
-    C[cid] = dict(duration_ms=dur, seed=seed, layers=layers, note=note, postprocess=W.post(peak, 12000, True, room=room))
+    C[cid] = dict(duration_ms=dur, seed=seed, layers=layers, note=note, postprocess=W.post(peak, 9000, True, room=room))
 
 
-def wolf(start, dur, f0, spacing, *, breath, level=1.0, jitter=0.015, flutter=0.05, tilt=2600, doubling=0.03, f1=(320, 660)):
-    """One howling throat: it rises to a held high note and falls away."""
-    return W.voice(start, dur, f0, [[0, 0.3], [0.2, 0.85], [0.85, 0.8], [1, 0.45]],
-                   [[0, 0], [0.12, 0.75], [0.3, 1], [0.85, 0.9], [1, 0]], spacing, breath=breath, doubling=doubling,
-                   jitter=jitter, flutter=flutter, tilt=tilt, level=level, f1=f1)
+# Rounds 1-4 are in git history (round 1 a creature throat, 2 a pure tone on a
+# contour read off Jon's spectrogram, 3 a throat on it, 4 the reference's
+# pitch track copied).
+
+# Round 5. Jon: "I don't want to extract raw data and reuse it from the
+# sample, that wasn't the goal, the goal was to see what it takes to build a
+# wolf sfx from first principles and build the concise text encoding of it
+# that is interpretable." Then: "the current versions sound great. We want to
+# be able to build variations as necessary, as we are going to also add
+# spectral wolf level enemies."
+#
+# Round 4 copied the reference's pitch track (23 points) and loudness. Here a
+# howl is its DESCRIPTION, a dozen named numbers (the SFX renderer's `howl`
+# mode, `howl:` block): a yelp, a rise, a sagging hold, a fall that darkens,
+# a droop. The reference is a check (scripts/howl_measure.py), and nothing of
+# it is in a recipe. What came from it is the shape and a few round numbers a
+# person could say: a held note near 650 Hz, a fall of about three and a half
+# semitones, a second harmonic that grows from -35 to -7 dB as it falls.
+
+REFERENCE = W.REPO / "untracked/sfx-candidates/810171__mokasza__lone-wolf-howling.mp3"
 
 
-def ghost_fire(name, start, dur, gain):
-    """The rush of its fire: low, soft and wide, a little crackle in it."""
-    return [W.noise(name, "pink", gain, start, dur, W.env(dur * 0.3, dur * 0.4, dur * 0.3), [W.bp(700, 0.5), W.lp(2600)]),
-            W.grains(name + "_crackle", 2400, 0.8, gain - 6, start + dur * 0.1, dur * 0.8, 40, 2.0, dur * 0.8)]
+def howl(seed, **description):
+    """One described howl as a layer, as long as its description."""
+    return {"name": "howl", "kind": "noise_burst", "mode": "howl", "seed": seed, "start_ms": 0,
+            "duration_ms": 1000.0 * described_seconds(description), "gain_db": 0.0, "howl": description}
 
 
-cand("a_spirit", 2800, [W.throat("howl", 2800, [
-    wolf(0, 2600, [[0, 420], [0.18, 610], [0.7, 595], [0.9, 560], [1, 470]], 720, breath=0.42, flutter=0.07)],
-    seed=811, room=0.95, room_mix=0.4)], 811,
-    "one wolf's howl, high and mostly breath, in a long cold room: the dog it was")
-cand("b_chorus", 3000, [W.throat("howl", 3000, [
-    wolf(0, 2600, [[0, 400], [0.18, 590], [0.7, 575], [1, 450]], 700, breath=0.3),
-    wolf(90, 2600, [[0, 410], [0.2, 604], [0.7, 588], [1, 462]], 680, breath=0.36, level=0.6, jitter=0.02),
-    wolf(170, 2500, [[0, 300], [0.2, 442], [0.7, 431], [1, 340]], 560, breath=0.4, level=0.45, jitter=0.02)],
-    seed=812, room=0.9, room_mix=0.36)], 812,
-    "three throats that are not quite one, a little apart in pitch and time: the spirits in it howl with it")
-cand("c_giant", 3200, [W.throat("howl", 3200, [
-    wolf(0, 3000, [[0, 260], [0.2, 420], [0.7, 405], [0.9, 380], [1, 300]], 470, breath=0.32,
-         doubling=[[0, 0.4], [0.15, 0.06], [0.8, 0.1], [1, 0.3]], tilt=2200, f1=(280, 600))],
-    seed=813, room=0.95, room_mix=0.38,
-    sub={"start_ms": 100, "duration_ms": 2400, "level": 0.14, "freq_hz": [[0, 58], [0.3, 70], [1, 52]],
-         "amp": [[0, 0], [0.25, 1], [1, 0]]})], 813,
-    "the giant head: a bigger throat (closer formants), not a lower buzz; a sub under the held note")
-cand("d_drawn_in", 3200, [
-    W.sweep("breath_in", "pink", 300, 2400, 0.8, -12, 0, 650, W.env(600, 20, 40)),
-    W.throat("howl", 3200, [
-        wolf(600, 2500, [[0, 400], [0.18, 600], [0.7, 585], [1, 460]], 690, breath=0.36, flutter=0.06)],
-        seed=814, room=0.95, room_mix=0.38)], 814,
-    "a long breath drawn in, then the howl: the tell is in the sound")
-cand("e_fire", 3200, [
-    W.throat("howl", 3200, [
-        wolf(0, 2900, [[0, 300], [0.2, 470], [0.7, 455], [0.9, 420], [1, 330]], 520, breath=0.34, tilt=2300, f1=(290, 620)),
-        wolf(120, 2700, [[0, 304], [0.2, 476], [0.7, 460], [1, 336]], 540, breath=0.4, level=0.45, jitter=0.025)],
-        seed=815, room=0.9, room_mix=0.34),
-    *ghost_fire("fire", 0, 3000, -18)], 815,
-    "the giant's howl in two near voices, and the rush of its red fire under it")
+def described_seconds(d):
+    return sum(float(d.get(key, default)) for key, default in
+               (("yelp_s", 0.5), ("rise_s", 0.12), ("hold_s", 1.8), ("fall_s", 1.5), ("droop_s", 0.3)))
+
+
+#: The lone wolf of the reference, said in words: Jon's "sound great" round.
+LONE = dict(pitch_hz=650, yelp_s=0.5, rise_s=0.12, hold_s=1.75, sag_semitones=0.8, fall_s=1.5, fall_semitones=3.6,
+            fall_db=-25, droop_s=0.3, droop_semitones=1.6, bright_db=-9, dark_db=15, jitter_cents=15, shimmer=0.12,
+            breath=0.05)
+
+
+def variant(seed, note, room, **change):
+    d = dict(LONE, **change)
+    cand_id = note[0]
+    C[cand_id] = dict(duration_ms=1000.0 * described_seconds(d) + 400, seed=seed, layers=[howl(seed, **d)],
+                      note=note[1], postprocess=W.post(-4.0, 9000, True, room=room), description=d)
+
+
+variant(851, ("a_lone", "the lone wolf, from its description alone: it should sound like round 4's a_measured"), 0.55)
+variant(852, ("b_giant", "the Inugami: the lone wolf a major third lower, slower, in a bigger room"), 0.8,
+        pitch_hz=520, hold_s=2.1, fall_s=1.8)
+variant(853, ("c_spectral_wolf", "a spectral wolf (a level enemy): higher, shorter, a quick yelp"), 0.7,
+        pitch_hz=760, yelp_s=0.35, hold_s=0.9, fall_s=1.0, fall_semitones=3.0)
+variant(854, ("d_far_call", "a spectral wolf far off: no yelp, a long thin hold, more breath"), 0.95,
+        yelp_s=0, pitch_hz=700, hold_s=2.4, fall_s=1.6, jitter_cents=11, breath=0.09)
+variant(855, ("e_hurt", "a wolf hurt: a short yelp and a fast fall, no hold to speak of"), 0.5,
+        pitch_hz=820, yelp_s=0.3, rise_s=0.06, hold_s=0.25, fall_s=0.55, fall_semitones=7, droop_s=0.2,
+        droop_semitones=3, jitter_cents=24)
 
 
 def main():
+    import shutil
+    # Each round replaces the last: its solos and outputs are not this round's.
+    for sub in ("solo", "out", "recipes", "reel"):
+        shutil.rmtree(HERE / sub, ignore_errors=True)
     HERE.mkdir(parents=True, exist_ok=True)
     (HERE / "recipes").mkdir(exist_ok=True)
     (HERE / "solo").mkdir(exist_ok=True)
@@ -112,6 +127,11 @@ def main():
     # One headroom gain for the solos and one for the reel, so loudness stays
     # the comparison it was matched to.
     solos = {"current": current, **audio}
+    if REFERENCE.exists():
+        import subprocess as sp
+        ref_wav = HERE / "out" / "reference.wav"
+        sp.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(REFERENCE), "-ar", str(W.SR), "-ac", "2", str(ref_wav)], check=True)
+        solos["reference"] = W.matched(sf.read(ref_wav, always_2d=True)[0].astype(np.float32), current)
     gain = 0.89 / max(float(np.abs(a).max()) for a in solos.values())
     for cid, a in solos.items():
         sf.write(HERE / "solo" / f"howl__{cid}.wav", a * gain, W.SR)
@@ -128,7 +148,9 @@ def main():
              "`untracked/sfx-candidates/inugami/` (`solo/`, `reel/`). Each candidate is matched to the cue in use",
              "(loudest 400 ms RMS).", "",
              "## The candidates", ""]
-    index += [f"- `solo/howl__{cid}.wav`: {spec['note']}" for cid, spec in C.items()]
+    index += [f"- `solo/howl__{cid}.wav`: {spec['note']}" + (
+        "\n  `" + ", ".join(f"{k}: {v}" for k, v in spec["description"].items()) + "`" if "description" in spec else "")
+        for cid, spec in C.items()]
     index += [""] + W.table([("current `" + IN_USE + "`", current)] + list(audio.items()))
     index += ["", "## The reel", "", "- `reel/howl__all.wav`: " + "; ".join(marks), "",
               "Wolfenstein's living howls (2026-10-17): `untracked/sfx-candidates/wolfenstein/solo/howl__*.wav`."]

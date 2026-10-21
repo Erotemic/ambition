@@ -738,7 +738,7 @@ pub fn begin_room_transition_load_system(
     (mut next_mode, drivers, custody_at_commit): (
         ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         bevy::prelude::Query<&ambition_characters::control::DrivingParticipant>,
-        ambition_platformer2d_actor_monolith::body_whereabouts::CustodyEndingAtCommit,
+        super::custody::CustodyEndingAtCommit,
     ),
 ) {
     let (

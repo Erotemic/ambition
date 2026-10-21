@@ -43,7 +43,7 @@ pub use transaction::{
     publications_holding_frozen_effects,
     retire_publication, ActiveContentBinding,
     LastConstructionVerification,
-    LiveRoomSuccession, PublicationHandle, PublicationRetention, PublicationVerdict,
+    CommitFactsSource, LiveRoomSuccession, PublicationHandle, PublicationRetention, PublicationVerdict,
     StagedArrival, StagedWorldViolation,
 };
 

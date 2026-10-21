@@ -257,7 +257,7 @@ fn commit_bracketed(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut Wo
             SessionSpawnScope::UNSCOPED,
             None,
             None,
-            crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+            crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
         );
         crate::world::rooms::transaction::close(
             &mut commands,

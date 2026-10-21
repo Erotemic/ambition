@@ -22,18 +22,22 @@ Measure the intra-crate module graph with:
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-**Re-measured at `be412a299768` (2026-10-20):** the largest component
-has **ten** top-level modules: `abilities`, `avatar`, `body_whereabouts`,
-`character_runtime`, `construction`, `features`, `items`, `projectile`,
-`session`, `world`. The `assets` and `character_sprites` pair remains a
-separate two-module cycle. The earlier eight-module count is no longer
-current. The monolith has about 73,628 production source lines; `features`
-accounts for about 26,665 of them. Size alone is not a carve reason.
+**Re-measured after K1 and K2 (2026-10-21):** the largest component has
+**eight** top-level modules: `abilities`, `avatar`, `character_runtime`,
+`features`, `items`, `projectile`, `session`, `world`. `body_whereabouts`
+and `construction` left it with the K1 and K2 moves; `construction` now
+reaches only `fate_flags` and `shrine`. The `assets` and
+`character_sprites` pair remains a separate two-module cycle. The
+instrument's single-edge cuts that would shrink the component further are
+`avatar -> session` (to six), `character_runtime -> avatar`,
+`features -> projectile` and `session -> world` (each to seven). The
+monolith has about 73,600 production source lines; `features` accounts for
+about 26,700 of them. Size alone is not a carve reason.
 
 | Directed edge | Qualified references | Meaning and likely action |
 | --- | ---: | --- |
-| `body_whereabouts -> session` | 3 | Lifecycle-aware custody adapter; **MOVE_ADAPTER** to transition integration |
-| `construction -> session` | 1 | `CommitFactsSource::AfterTheRestore` checkpoint key; **MOVE_ADAPTER** for deferred facts selection |
+| `body_whereabouts -> session` | 0 | Moved with K1 (custody adapter in the runtime transition) |
+| `construction -> session` | 0 | Moved with K2 (the selector is the room transaction's) |
 | `avatar -> session` | 1 | Per-room rules in a generic body control gate; **HOLD** until the rules-input owner is clear |
 | `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
 | `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
@@ -41,15 +45,13 @@ accounts for about 26,665 of them. Size alone is not a carve reason.
 | `features -> projectile` | 1 | Perception reads `ProjectileAllegiance`; **KEEP_DIRECT** |
 | `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
 | `world -> features` | 9 | Room feature plans and publication; **MOVE_AUTHORITY** as one room transaction packet |
-| `world -> session` | 11 | Room publication reads checkpoint and lifecycle facts; **MOVE_ADAPTER** with that packet |
-| `session -> world` | 3 | Session setup and publication handles; review as part of one transaction packet |
+| `world -> session` | 12 | Room publication reads checkpoint and lifecycle facts; **MOVE_ADAPTER** with that packet |
+| `session -> world` | 6 | Session setup and publication handles; review as part of one transaction packet |
 | `assets <-> character_sprites` | 2 / 3 | Catalog and art materialization; group or move adapter after its readers are known |
 
-The counts come from `scripts/measure_kernel_module_graph.py`. Removing
-`body_whereabouts -> session` and `construction -> session` from its in-memory
-edge graph reduces the largest component from ten to eight. This is only a
-**graph what-if**; no code was moved, and it does not prove that the resulting
-crates can compile. One real cut can affect other paths not counted here.
+The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
+list is a **graph what-if**: it does not prove that the resulting crates
+can compile, and one real cut can affect other paths not counted here.
 
 The instrument counts textual `crate::<module>` paths inside one crate. It
 misses many imported names, cross-crate dependencies, shared writers, message
@@ -171,9 +173,17 @@ These are **design packets**, not a new priority queue. AP14 in
 selects when the work proceeds. The A-packet
 [catalog](actor-monolith-work-frontier.md) owns the existing behavior proofs.
 
-### K1 — Move transition custody interpretation upward
+### K1 — Move transition custody interpretation upward — DONE 2026-10-21
 
-`body_whereabouts.rs::CustodyEndingAtCommit` depends on
+**Receipt:** `CustodyEndingAtCommit` now lives in
+`ambition_platformer2d_runtime/src/room_transition/custody.rs`, beside its
+one consumer (`room_transition/loading.rs`). `body_whereabouts` keeps the
+durable whereabouts state and its readers and names no session type; the
+`body_whereabouts -> session` edge is gone. No system, resource or state
+moved: the type is a `SystemParam` the loader already took. The record below
+is the plan it executed.
+
+The adapter depended on
 `session::lifecycle_commit::LifecycleIntent` and
 `rooms::another_player_stays`; the runtime transition loader is its
 production consumer (`room_transition/loading.rs`). Move the adapter and
@@ -186,9 +196,18 @@ crossing, checkpoint restore, same-room replay, and a crossing where another
 player stays. Verify cancellation, rollback and two live rooms. Remove the
 qualified edge and ensure no new registration or hidden query work is added.
 
-### K2 — Move commit-facts *selection* above construction
+### K2 — Move commit-facts *selection* above construction — DONE 2026-10-21
 
-`construction/mod.rs::CommitFactsSource` contains
+**Receipt:** `CommitFactsSource` is defined with the room publication
+transaction (`world/rooms/transaction.rs`, exported as
+`rooms::CommitFactsSource`). Construction still receives one resolved
+`PersistedFates` per commit and no longer names
+`session::checkpoint::CheckpointOperationKey`; the `construction -> session`
+edge is gone. The selector's resolution in `world/rooms/stage.rs` is
+unchanged, so no checkpoint consequence is evaluated earlier than before.
+The record below is the plan it executed.
+
+The selector `CommitFactsSource` contained
 `AfterTheRestore(CheckpointOperationKey)`. `world/rooms/stage.rs` resolves
 that selector, while construction owns the resulting `PersistedFates`.
 Move the *choice of when and where to get facts* to the publication/lifecycle

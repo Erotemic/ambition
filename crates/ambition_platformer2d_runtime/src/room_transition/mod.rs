@@ -5,6 +5,7 @@
 //! construction plans; headless hosts may omit the presentation contributors.
 
 mod commit;
+mod custody;
 mod loading;
 mod prefetch;
 

@@ -375,6 +375,7 @@ impl DialogState {
         self.speech_style
     }
 
+    #[cfg(any(feature = "input", test))]
     pub(crate) fn reveal_full_line(&mut self) {
         self.line_reveal.reveal_full_line(&self.current_line);
     }
@@ -401,6 +402,7 @@ impl DialogState {
             .tick(delta_s, self.current_options.len());
     }
 
+    #[cfg(any(feature = "input", feature = "ui", test))]
     pub(crate) fn reveal_full_options(&mut self) {
         self.options_reveal.reveal_full(self.current_options.len());
     }
@@ -421,6 +423,7 @@ impl DialogState {
         self.selected_option
     }
 
+    #[cfg(feature = "input")]
     pub(crate) fn select_delta(&mut self, delta: isize) {
         self.focus.mark_keyboard();
         let len = self.options().len();
@@ -439,6 +442,7 @@ impl DialogState {
     /// reaching the end of a long list does not unexpectedly jump to the other
     /// edge; directional keyboard/gamepad/touch-stick navigation keeps the
     /// existing wrapping behavior through [`Self::select_delta`].
+    #[cfg(feature = "input")]
     pub(crate) fn select_delta_clamped(&mut self, delta: isize) {
         self.focus.mark_keyboard();
         let len = self.options().len();
@@ -462,6 +466,7 @@ impl DialogState {
     /// `DialogueCompleted` observer. Callers that needed the return
     /// value (legacy `if closed { next_mode.set(Playing) }`) get
     /// their game-mode transition from the observer instead.
+    #[cfg(any(feature = "input", test))]
     pub(crate) fn confirm_or_advance(&mut self) -> bool {
         if !self.line_reveal_complete() {
             self.reveal_full_line();
@@ -523,6 +528,7 @@ impl LineRevealState {
         self.revealed_chars = chars.min(self.full_line_byte_ends.len().saturating_sub(1));
     }
 
+    #[cfg(any(feature = "input", test))]
     fn reveal_full_line(&mut self, line: &str) {
         self.elapsed_s = 0.0;
         self.revealed_chars = self.full_line_byte_ends.len().saturating_sub(1);
@@ -577,6 +583,7 @@ impl OptionsRevealState {
         self.visible_count = visible.min(total_count);
     }
 
+    #[cfg(any(feature = "input", feature = "ui", test))]
     fn reveal_full(&mut self, total_count: usize) {
         self.visible_count = total_count;
         self.elapsed_s = 0.0;

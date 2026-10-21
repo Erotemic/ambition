@@ -145,7 +145,7 @@ pub struct PortalSpec {
     pub half_length: Option<f32>,
 }
 
-/// LDtk-authored heal/save shrine. Resolves to a [`crate::shrine::HealShrine`]
+/// LDtk-authored heal/save shrine. Resolves to a `ambition_shrine::HealShrine`
 /// at room load — the authored-placement home for the debug
 /// `spawn_debug_shrine_once`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -6,7 +6,7 @@ use ambition_platformer2d_core::{BodyBaseSize, BodyKinematics, Vec2};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 
-use crate::shrine::{heal_save_shrine_system, HealShrine};
+use ambition_shrine::{heal_save_shrine_system, HealShrine};
 
 /// Give the fixture's session root the whole checkpoint coordinator, as the
 /// plugin's required-components registration does in a composed app.

@@ -57,7 +57,7 @@ where
     // it. Its own component is waived as authored geometry — the heal reads it
     // and never writes it — but the anchor is not about the shrine's data; it is
     // about whether GGRS reproduces the ENTITY on a resimulated timeline.
-    registrar.require_rollback::<crate::shrine::HealShrine>(OWNER, "entity:heal_shrine");
+    registrar.require_rollback::<ambition_shrine::HealShrine>(OWNER, "entity:heal_shrine");
     // ⛔⛔ TWO AUTONOMOUS EMITTERS THAT WERE NOT IN THE ROLLBACK VOCABULARY AT
     // ALL — not inert, ABSENT. A turret and a singularity are both spawned
     // mid-match by an ability, both outlive the frame that made them, and both

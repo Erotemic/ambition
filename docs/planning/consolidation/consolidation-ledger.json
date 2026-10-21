@@ -2499,6 +2499,34 @@
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [
+        "ambition_abilities",
+        "ambition_characters",
+        "ambition_held_items",
+        "ambition_persistence",
+        "ambition_platformer2d_core",
+        "ambition_platformer2d_shared_tangle",
+        "ambition_platformer2d_world",
+        "ambition_sfx"
+      ],
+      "nonblank_rust_loc": 738,
+      "package": "ambition_shrine",
+      "path": "crates/ambition_shrine",
+      "public_items_heuristic": 2,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 775,
+      "responsibility_clue": "The heal and save shrine: HealShrine and the interaction that heals each driven body touching it, clears until-rest deaths and commits one checkpoint. Carved out of ambition_platformer2d_actor_monolith (K3) on 2026-10-21, after this ledger's `source_commit`; measured at its introduction.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d",
+        "ambition_platformer2d_actor_monolith",
+        "ambition_sim_view"
+      ],
+      "rust_files": 2,
+      "test_rust_loc_heuristic": 562
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
         "ambition_platformer2d"
       ],
       "nonblank_rust_loc": 4246,

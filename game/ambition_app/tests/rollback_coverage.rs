@@ -201,7 +201,7 @@ const WAIVED: &[(&str, &str)] = &[
     // index, and a portal's authored channel all sit on entities that carry
     // registered state, and none of the three is written after the room loads.
     (
-        "ambition_platformer2d_actor_monolith::shrine::HealShrine",
+        "ambition_shrine::HealShrine",
         "authored shrine geometry; the heal reads it and never writes it",
     ),
     (

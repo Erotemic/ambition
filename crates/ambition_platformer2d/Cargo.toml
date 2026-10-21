@@ -192,6 +192,7 @@ ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
 ambition_damage = { path = "../ambition_damage" }
 ambition_mount = { path = "../ambition_mount" }
+ambition_shrine = { path = "../ambition_shrine" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
 # Re-exported as `world_items`: the touched-collectible domain the kernel gave

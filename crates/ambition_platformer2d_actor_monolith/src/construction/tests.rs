@@ -3789,7 +3789,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
     assert_eq!(verification.violations, Vec::new());
 
     let world = app.world_mut();
-    let mut shrines = world.query::<(&SimId, &crate::shrine::HealShrine)>();
+    let mut shrines = world.query::<(&SimId, &ambition_shrine::HealShrine)>();
     let (sim, _) = shrines.iter(world).next().expect("the shrine is live");
     assert_eq!(
         *sim,

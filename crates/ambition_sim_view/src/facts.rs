@@ -648,7 +648,7 @@ pub struct ShrineFact {
 pub fn rebuild_shrines_view(
     mut view: ResMut<ShrinesView>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    shrines: Query<(Entity, &ambition_platformer2d_actor_monolith::shrine::HealShrine)>,
+    shrines: Query<(Entity, &ambition_shrine::HealShrine)>,
 ) {
     view.0.clear();
     view.0.extend(shrines.iter().map(|(entity, shrine)| ShrineFact {

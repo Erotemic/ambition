@@ -55,7 +55,6 @@ pub mod participant_seat;
 pub mod projectile;
 pub mod repertoire;
 pub mod session;
-pub mod shrine;
 mod snapshot_impls;
 pub mod time;
 pub mod world;

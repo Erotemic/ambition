@@ -560,6 +560,7 @@ dependencies = [
  "ambition_projectiles",
  "ambition_resource_spec",
  "ambition_sfx",
+ "ambition_shrine",
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
@@ -602,6 +603,7 @@ dependencies = [
  "ambition_registry_core",
  "ambition_resource_spec",
  "ambition_sfx",
+ "ambition_shrine",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
@@ -811,6 +813,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_shrine"
+version = "0.1.0"
+dependencies = [
+ "ambition_abilities",
+ "ambition_characters",
+ "ambition_held_items",
+ "ambition_persistence",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_sfx",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_sim_schedule"
 version = "0.1.0"
 dependencies = [
@@ -840,6 +857,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_projectiles",
+ "ambition_shrine",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_world_items",

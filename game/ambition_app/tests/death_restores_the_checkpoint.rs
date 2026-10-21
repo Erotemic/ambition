@@ -181,7 +181,7 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
         .copied();
     let mut shrine = sim
         .world_mut()
-        .spawn(ambition_platformer2d::actors::shrine::HealShrine {
+        .spawn(ambition_platformer2d::shrine::HealShrine {
             pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
             half_extent: ambition_platformer2d::engine_core::Vec2::new(48.0, 48.0),
         });

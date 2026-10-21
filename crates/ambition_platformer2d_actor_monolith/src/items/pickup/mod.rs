@@ -102,7 +102,8 @@ impl Plugin for ItemPickupSimulationPlugin {
             // Held-items, the portal gun, the heal/save shrine, and localized
             // gravity zones are LDtk-authored room entities. The shrine runs
             // before any hand changes this tick.
-            crate::shrine::heal_save_shrine_system
+            ambition_shrine::heal_save_shrine_system
+                .in_set(ambition_shrine::ShrineRest)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .in_set(ItemPickupSet::CoreHeldItems)
                 .before(HeldItemStep::Release),

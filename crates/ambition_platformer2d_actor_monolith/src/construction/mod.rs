@@ -940,7 +940,7 @@ fn construct_shrine(
     ctx.insert_in_session(
         (
             bevy::prelude::Name::new(format!("Heal/save shrine: {}", spec.name)),
-            crate::shrine::HealShrine {
+            ambition_shrine::HealShrine {
                 pos: spec.pos,
                 half_extent: spec.half_extent,
             },

@@ -2337,7 +2337,7 @@ impl Plugin for SessionCheckpointHorizonPlugin {
             sim,
             restore_checkpoint_on_session_start
                 .in_set(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
-                .after(crate::shrine::heal_save_shrine_system)
+                .after(ambition_shrine::ShrineRest)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Release),
         );
     }

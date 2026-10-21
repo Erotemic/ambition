@@ -227,6 +227,10 @@ fn her_spark_is_born_at_her_throwing_hand() {
 }
 
 /// Her fire sheet has the row the engine shows on a firing body.
+///
+/// It is not the sheet's only row: since her Smash kit is drawn too, the
+/// sheet carries rows a move names as its clip (`smash_forward`) and rows a
+/// fighter's state draws (`grab_hold`). Those are their owners' to guard.
 #[test]
 fn her_fire_sheet_has_the_row_a_firing_body_shows() {
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
@@ -238,15 +242,7 @@ fn her_fire_sheet_has_the_row_a_firing_body_shows() {
         rows.contains(&SHOOT_ROW),
         "her fire sheet has no `{SHOOT_ROW}` row: {rows:?}. {PUBLISH_HER_SPRITES}"
     );
-    for row in &rows {
-        assert!(
-            CharacterAnim::from_name(row).is_some(),
-            "her fire sheet has a row `{row}` that the engine has no name for, so it is never shown"
-        );
-    }
     assert_eq!(CharacterAnim::from_name(SHOOT_ROW), Some(CharacterAnim::Shoot));
-    // Control: the name the row had is not a row, so the loop above refuses it.
-    assert_eq!(CharacterAnim::from_name("fireball"), None);
 }
 
 /// A throw is drawn from her `shoot` row, and the row is not her idle pose.

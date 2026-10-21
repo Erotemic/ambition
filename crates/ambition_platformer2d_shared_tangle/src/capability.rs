@@ -54,10 +54,13 @@ pub enum Capability {
     /// engine installs them for every game (a boss's seize is one too), so
     /// this is not removable from the engine group.
     Captures,
+    /// The player trail: its emission, its loops, and the gizmo groups that
+    /// draw it in each live room's band.
+    Trails,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 10] = [
+    pub const ALL: [Capability; 11] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
@@ -68,16 +71,18 @@ impl Capability {
         Capability::Mounts,
         Capability::Encounters,
         Capability::Captures,
+        Capability::Trails,
     ];
 
     /// The capabilities a composition can leave out of the engine group (the
     /// engine profiles).
-    pub const REMOVABLE: [Capability; 5] = [
+    pub const REMOVABLE: [Capability; 6] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
         Capability::HeldUse,
         Capability::Inventory,
+        Capability::Trails,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -92,6 +97,7 @@ impl Capability {
             Capability::Mounts => "mounts",
             Capability::Encounters => "encounters",
             Capability::Captures => "captures",
+            Capability::Trails => "trails",
         }
     }
 
@@ -118,7 +124,8 @@ impl Capability {
             | Capability::Portals
             | Capability::Mounts
             | Capability::Encounters
-            | Capability::Captures => None,
+            | Capability::Captures
+            | Capability::Trails => None,
         }
     }
 

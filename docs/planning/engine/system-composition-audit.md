@@ -366,12 +366,41 @@ condition on a cheap system saves nothing. Gate only a group whose cost a
 timing shows, with a condition that is cheap and that cannot hide work a
 producer makes later in the same tick. A few gates, not one per system.
 
-### S5 — Third-party per-frame costs (small, parallel)
+### S5 — Third-party per-frame costs (small, parallel) — kira and gizmos DONE 2026-10-21
 
 `virtual_joystick` has an upstream PR. The others named in
 [performance and iteration](performance-and-iteration.md#p1--android-cpu-mary-o-measured-2026-10-13)
-remain. `bevy_kira_audio` runs 34 systems and `bevy_gizmos` 36 in standalone
-Mary-O; check whether a game that draws no gizmos needs the gizmo plugin.
+remain. `bevy_kira_audio` ran 34 systems and `bevy_gizmos` 36 in standalone
+Mary-O.
+
+**What drove them.** Both counts were per-type fan-out, not per-frame work:
+
+- **Gizmos:** Bevy runs four gizmo systems (start, end, clear, collect) for
+  each gizmo config group. The player trail registered four room groups, one
+  for each live-room band, in every game. Mary-O, Sanic and Smash draw no
+  trail.
+- **Kira:** `bevy_kira_audio` runs two systems for each typed channel (play,
+  instance states) and one play pass for all dynamic channels together. The
+  adaptive music director's twelve layer channels (six layers, two crossfade
+  banks) were typed.
+
+**Changes.**
+
+- `Capability::Trails` is a removable unit. `level-platformer` and
+  `stage-fighter` omit it, so the Mary-O, Sanic and Smash hosts install no
+  trail plugin and no room gizmo group. Those three games declare their rooms
+  do not use it, and the trail's systems sleep there in the hub.
+- The twelve music layers are named kira dynamic channels. The director's
+  three operations are unchanged; nothing read a layer's instance states.
+
+**Measured** (standalone Mary-O, `capture_mary_o --warmup 600`, debug, VM, at
+`f80132225`): 951 ran / 1305 registered → 907 / 1259. Rows naming
+`bevy_kira_audio` 36 → 12, `bevy_gizmos` 40 → 24, the trail 24 → 4 (its input
+toggle, which stays with the input schedule). Phone: NOT RUN (no device).
+
+**Still open:** the remaining gizmo groups are Bevy's own (default, AABB,
+frustum, skinned-mesh bounds) and come with `GizmoPlugin`; dropping them needs
+the gizmo feature off for a composition that draws no debug lines.
 
 ### S6 — Per-player and per-room state off global resources (separate)
 

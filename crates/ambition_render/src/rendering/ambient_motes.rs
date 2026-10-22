@@ -99,6 +99,8 @@ impl Default for AmbientMoteStyles {
                 (T::MathTown, MoteStyle::new(16, 3.0, -2.0, 10.0, 0.08, 1.4, 2.8, 0.5, 0.35, 0.5, 0.3)),
                 // Dust in the shafts of day from the grates of the street.
                 (T::MathUndercroft, MoteStyle::new(20, 1.5, -3.0, 6.0, 0.08, 1.4, 3.0, 0.55, 0.4, 0.5, 0.3)),
+                // Dust in the lamplight of a room in the town: few, and slow.
+                (T::MathInterior, MoteStyle::new(12, 1.5, -2.0, 5.0, 0.06, 1.2, 2.6, 0.5, 0.35, 0.4, 0.3)),
                 // Ash and sparks that go up from the fires of the Evil dimension.
                 (T::EvilForest, MoteStyle::new(24, 2.5, 10.0, 8.0, 0.2, 1.6, 3.4, 0.7, 0.55, 1.4, 0.4)),
                 // Sparks of the braziers of Castle Godwin.

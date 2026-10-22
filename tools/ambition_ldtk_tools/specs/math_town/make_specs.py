@@ -19,6 +19,11 @@ rooms:
   east end goes up to the street. Townsfolk wander (`townsfolk_roam`).
 - `math_town_street`: the street at the foot of the terraces. Ledges climb
   the cliff to the first terrace and on to the second.
+- Inside three of its houses (Jon, 2026-10-22: "Enterable interiors"; theme
+  `math_interior`, furniture `targets/props/math_town_interiors.py`):
+  `math_cafe` on the first terrace, `math_surveyors_office` on the second,
+  `math_observatory` on the summit. Each is entered by the door its house
+  front paints; the room's door is drawn over the painted one, as tall.
 
 And in the Home dimension, in `gate_stack_lower` (`intro.ldtk`, the gate
 station by the creator's lab), Gate 7: a second gate ring whose portal goes
@@ -56,11 +61,16 @@ MATH_ZONE = "math_gate_return_zone"
 HOME_RING, HOME_PORTAL = "Math Gate Ring (Home)", "Math Gate Portal (Home)"
 MATH_RING, MATH_PORTAL = "Math Gate Ring (Math)", "Math Gate Portal (Math)"
 HALL, STREET = "math_gate_hall", "math_town_street"
+CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
 ROOMS_AT = {
     HALL: (0, 1600, 768),
     STREET: (1712, 3200, 1344),
+    # Each room is about as tall as the camera shows over a body on its floor.
+    CAFE: (5100, 960, 448),
+    OFFICE: (6200, 1120, 448),
+    OBSERVATORY: (7500, 800, 704),
 }
 
 #: The published sheets, whose body boxes say where each prop's art is in
@@ -104,7 +114,7 @@ def room(rid, entities, label_text, theme=BIOME):
     world_x, w, h = ROOMS_AT[rid]
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
-        label(f"{rid}_label", 70, 40, label_text, 900),
+        label(f"{rid}_label", 70, 40, label_text, min(900, w - 140)),
     ])
     return f"""// Written by specs/math_town/make_specs.py. Change the script, not this file.
 (
@@ -250,6 +260,28 @@ HOUSE_WALKS = {
 }
 
 
+#: Where each house front one can go into paints its door: the middle of the
+#: door across the frame, and its height (world units; the house's margin
+#: included). The numbers are the art's (`math_town_facades`): change them
+#: with it. The arcade has no door: one goes in under its third arch.
+HOUSE_DOORS = {
+    "math_house_gable": (24 + 170 - 42, 64),
+    "math_house_arcade": (24 + 2.5 * 210 / 4, 72),
+    "math_observatory": (24 + 190 / 2, 56),
+}
+
+#: The width to the height of the door the game draws (`DOOR_SPRITE_ASPECT`).
+DOOR_ASPECT = 126 / 242
+
+
+def painted_door(zone, name, cx, floor, h, to_room, to_zone):
+    """A door `h` tall centred on `cx`: the game draws its door as tall as
+    the zone, so this one covers the door the house front paints."""
+    w = round(h * DOOR_ASPECT)
+    return (f'( type: "LoadingZone", px: [{round(cx - w / 2)}, {floor - h}], size: [{w}, {h}], fields: ( id: "{zone}", name: "{name}", '
+            f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
+
+
 def house(prefix, kind, x, floor):
     """The front of house `kind` with the left of its art at `x`, standing on
     `floor`, and a still one-way platform on each place its art draws to
@@ -344,6 +376,16 @@ def street():
     e.append(solid("stair_parapet", STAIR_X, landing_y - 48, 16, 48))
     # The houses: the street's, then the first terrace's, the surveyor's
     # office on the second, the observatory on the summit.
+    # The doors into the houses one can go into, over the doors their fronts
+    # paint (`HOUSE_DOORS`).
+    for prefix, kind, x, ground, room_id in [
+        ("cafe_house", "math_house_gable", CLIFF1 + 48, T1, CAFE),
+        ("surveyors_office", "math_house_arcade", CLIFF2 + 48, T2, OFFICE),
+        ("observatory", "math_observatory", CLIFF3 + 52, SUMMIT, OBSERVATORY),
+    ]:
+        _, (fx, _fy) = standing(prefix, kind, x, ground)
+        cx, door_h = HOUSE_DOORS[kind]
+        e.append(painted_door(f"{room_id}_street", f"into the {room_id.removeprefix('math_').replace('_', ' ')}", fx + cx, ground, door_h, room_id, f"{room_id}_door"))
     e += [
         *house("rose_house", "math_house_rose", 192, STREET_Y),
         *house("dome_house", "math_house_dome", 432, STREET_Y),
@@ -367,10 +409,10 @@ def street():
         wanderer("townsperson_peggy", "npc_peggy", 420, STREET_Y),
         wanderer("townsperson_victor", "npc_victor", 900, STREET_Y),
         wanderer("townsperson_lovelace", "npc_data_lovelace", 1300, STREET_Y),
-        wanderer("townsperson_erdish", "npc_erdish", 2100, T1),
         wanderer("townsperson_olivia", "npc_olivia", CLIFF1 + 60, T1),
-        wanderer("surveyor_canter", "npc_georg_canter", CLIFF2 + 120, T2),
-        wanderer("astronomer_hylbert", "npc_davy_hylbert", CLIFF3 + 60, SUMMIT),
+        # Canter and Hylbert are at work inside, and Erdish is at the cafe.
+        wanderer("townsperson_leib", "npc_leib_knives", CLIFF2 + 120, T2),
+        wanderer("stargazer_hypatia", "npc_hypatia_prime", CLIFF3 + 60, SUMMIT),
         label("street_sign", 180, STREET_Y - 300, "Euclid Street (the long way round)", 380),
         label("passage_sign", w - 300, TUNNEL_TOP + 12, "The long way round: shut", 240),
         label("office_sign", CLIFF2 + 60, T2 - 300, "Surveyor's Office", 240),
@@ -379,10 +421,128 @@ def street():
     return rid, room(rid, e, "The town of the Math dimension: the street under the terraces.")
 
 
-ROOMS = (gate_hall, street)
+# ---- Inside the houses ---------------------------------------------------------
+#
+# Each room is one screen: a tiled floor, plaster walls and a ceiling (theme
+# `math_interior`), its furniture as props (`math_town_interiors`), and the door
+# back out at its west end. The heights of the walks the art draws are the
+# art's (`math_town_interiors.COUNTER_H`, `GALLERY_FLOOR`, `PLATFORM_FLOOR`).
+INTERIOR = "math_interior"
+INSIDE_FLOOR = 64
+INSIDE_CEILING = 32
+COUNTER_H, GALLERY_FLOOR, PLATFORM_FLOOR, PIECE_MARGIN = 40, 90, 60, 6
+
+
+def shell(rid):
+    """A room's floor, walls and ceiling, its camera, and its door out at its
+    west end. Returns the entities and its floor."""
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    street_zone = f"{rid}_street"
+    return [
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        door(f"{rid}_door", "out to the street", 40, floor, STREET, street_zone),
+    ], floor
+
+
+def piece(name, kind, x, bottom):
+    """Furniture `kind` with the left of its drawing at `x` and its foot at
+    `bottom`: the piece's frame has `PIECE_MARGIN` round the drawing."""
+    return standing(name, kind, x, bottom)[0]
+
+
+def cafe():
+    """The cafe of the first terrace, "The Convergent Series": windows on the
+    terrace, the menu, three marble tables, the counter (walked on) with its
+    espresso machine, the shelf of jars, lamps. Erdish drinks the coffee;
+    Emmy Noether keeps the counter."""
+    rid = CAFE
+    e, floor = shell(rid)
+    _, w, _h = ROOMS_AT[rid]
+    counter_x = 620
+    e += [
+        f'( type: "PlayerStart", px: [96, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        piece("cafe_lamps", "math_cafe_lamps", 120, INSIDE_CEILING + 140),
+        piece("cafe_window_west", "math_cafe_window", 140, floor - 150),
+        piece("cafe_menu", "math_cafe_menu", 330, floor - 190),
+        piece("cafe_window_east", "math_cafe_window", 500, floor - 150),
+        piece("cafe_shelf", "math_cafe_shelf", 650, floor - 200),
+        piece("cafe_table_a", "math_cafe_table", 170, floor),
+        piece("cafe_table_b", "math_cafe_table", 330, floor),
+        piece("cafe_table_c", "math_cafe_table", 470, floor),
+        piece("cafe_counter", "math_cafe_counter", counter_x, floor),
+        still("cafe_counter_top", counter_x, floor - COUNTER_H, 220, 4),
+        wanderer("cafe_erdish", "npc_erdish", 300, floor),
+        wanderer("cafe_noether", "npc_emmy_noether", counter_x + 240, floor),
+    ]
+    return rid, room(rid, e, "The Convergent Series: the cafe of the first terrace.", theme=INTERIOR)
+
+
+def surveyors_office():
+    """The Surveyor's Office: the great map of the town on the wall, the
+    drafting table, the cabinet of drawers, the theodolite, and the gallery
+    of rolled maps up its ladder (walked on). Canter works here."""
+    rid = OFFICE
+    e, floor = shell(rid)
+    _, w, _h = ROOMS_AT[rid]
+    gallery_x = w - WALL - 380
+    gallery_top = floor - 300 + GALLERY_FLOOR
+    e += [
+        f'( type: "PlayerStart", px: [96, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        piece("office_map", "math_office_map", 130, floor - 120),
+        piece("office_gallery", "math_office_gallery", gallery_x, floor),
+        still("office_gallery_floor", gallery_x + 20, gallery_top, 380 - 20, 4),
+        piece("office_drafting", "math_office_drafting", 470, floor),
+        piece("office_cabinet", "math_office_cabinet", 620, floor),
+        piece("office_theodolite", "math_office_theodolite", 104, floor),
+        wanderer("office_canter", "npc_georg_canter", 420, floor),
+    ]
+    return rid, room(rid, e, "The Surveyor's Office of the second terrace.", theme=INTERIOR)
+
+
+def observatory():
+    """The Observatory on the summit: the dome open on the night, the brass
+    telescope on its pier pointing up the slit, the platform up its stair
+    (walked on), the star chart and the astronomer's desk. Hylbert watches."""
+    rid = OBSERVATORY
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    dome_h = 260
+    e = [
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("west_wall", 0, dome_h, WALL, floor - dome_h),
+        solid("east_wall", w - WALL, dome_h, WALL, floor - dome_h),
+        door(f"{rid}_door", "out to the summit", 40, floor, STREET, f"{rid}_street"),
+        f'( type: "PlayerStart", px: [96, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        piece("obs_dome", "math_obs_dome", 0, dome_h),
+        piece("obs_chart", "math_obs_chart", 110, floor - 150),
+        piece("obs_desk", "math_obs_desk", 100, floor),
+        piece("obs_telescope", "math_obs_telescope", 250, floor),
+    ]
+    # The platform at the east wall, and its stair up from the floor: the
+    # stair's line, then the platform's.
+    platform_w = 420
+    px0 = w - WALL - platform_w
+    top = floor - 260 + PLATFORM_FLOOR
+    stair_top = px0 + round(platform_w * 0.55)
+    e += [
+        piece("obs_platform", "math_obs_platform", px0, floor),
+        line("obs_stair", [(px0 + 6, floor), (stair_top, top), (w - WALL, top)], "up"),
+        wanderer("obs_hylbert", "npc_davy_hylbert", 200, floor),
+    ]
+    return rid, room(rid, e, "The Observatory on the summit.", theme=INTERIOR)
+
+
+ROOMS = (gate_hall, street, cafe, surveyors_office, observatory)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
-PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS]
+PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [
+    # The ladder up to the office's gallery, at its west end (the art's).
+    (OFFICE, "Climbable", 1, (ROOMS_AT[OFFICE][1] - WALL - 380 - 8, ROOMS_AT[OFFICE][2] - INSIDE_FLOOR - 300 + GALLERY_FLOOR - 16), (32, 300 - GALLERY_FLOOR + 16)),
+]
 
 
 def home_gate_yaml() -> str:

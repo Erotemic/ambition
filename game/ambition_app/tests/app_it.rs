@@ -126,6 +126,7 @@ mod trex_fight;
 mod hunny_fight;
 mod shock_warden_shield;
 mod inugami_fight;
+mod math_town_interiors;
 mod spectral_wolf;
 mod wolfenstein_fight;
 mod the_trex_is_drawn_from_his_parts;

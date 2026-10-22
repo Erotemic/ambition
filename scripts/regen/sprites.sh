@@ -821,6 +821,24 @@ tackon_targets=(
     math_cliff_home_narrow
     math_cypress
     math_olive
+    # Inside the houses of the Math town: the cafe, the Surveyor's Office,
+    # the Observatory (LDtk `Prop`s, furniture).
+    math_cafe_counter
+    math_cafe_menu
+    math_cafe_table
+    math_cafe_shelf
+    math_cafe_window
+    math_cafe_lamps
+    math_office_map
+    math_office_drafting
+    math_office_cabinet
+    math_office_theodolite
+    math_office_gallery
+    math_obs_dome
+    math_obs_telescope
+    math_obs_platform
+    math_obs_chart
+    math_obs_desk
     # The keys and the doors of the Noodly Temple (`PickupSpawn.sprite`,
     # `LockWall.look`).
     temple_key_marinara

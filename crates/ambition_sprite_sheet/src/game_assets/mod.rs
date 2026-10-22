@@ -203,6 +203,10 @@ pub enum ParallaxTheme {
     /// The gate hall under the Math town: a vaulted undercroft of limestone,
     /// lamplit, with the day coming down through the grates of the street.
     MathUndercroft,
+    /// Inside the houses of the Math town: whitewashed plaster in lamplight,
+    /// a wainscot of hexagonal tiles, timber under the ceiling, a floor of
+    /// terracotta tiles. Each room's furniture is its own props.
+    MathInterior,
     /// The dark forest of the Evil dimension: black thorned trees under a
     /// blood-red sky, and far off Castle Godwin on its crag, its searchlights
     /// in the ash cloud. The rooms of `evil.ldtk` outside the castle name it.
@@ -275,6 +279,7 @@ impl ParallaxTheme {
         Self::Noodly,
         Self::MathTown,
         Self::MathUndercroft,
+        Self::MathInterior,
         Self::EvilForest,
         Self::CastleGodwin,
         Self::CastleGodwinLab,
@@ -306,6 +311,7 @@ impl ParallaxTheme {
             Self::Noodly => "noodly",
             Self::MathTown => "math_town",
             Self::MathUndercroft => "math_undercroft",
+            Self::MathInterior => "math_interior",
             Self::EvilForest => "evil_forest",
             Self::CastleGodwin => "castle_godwin",
             Self::CastleGodwinLab => "castle_godwin_lab",
@@ -405,6 +411,7 @@ impl ParallaxTheme {
             "noodly" | "noodle" | "pasta" => Some(Self::Noodly),
             "math_town" | "math" | "math_dimension" => Some(Self::MathTown),
             "math_undercroft" | "math_gate_hall" => Some(Self::MathUndercroft),
+            "math_interior" => Some(Self::MathInterior),
             "evil_forest" | "evil" => Some(Self::EvilForest),
             "castle_godwin" => Some(Self::CastleGodwin),
             "castle_godwin_lab" => Some(Self::CastleGodwinLab),

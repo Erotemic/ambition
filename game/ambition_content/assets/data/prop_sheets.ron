@@ -58,6 +58,25 @@
     "math_cliff_home_narrow": (),
     "math_cypress": (),
     "math_olive": (),
+    // Inside the town's houses (`targets/props/math_town_interiors.py`): the
+    // cafe, the Surveyor's Office, the Observatory. All are decoration; where
+    // the art draws a top to stand on, the room places a still platform.
+    "math_cafe_counter": (),
+    "math_cafe_menu": (),
+    "math_cafe_table": (),
+    "math_cafe_shelf": (),
+    "math_cafe_window": (),
+    "math_cafe_lamps": (),
+    "math_office_map": (),
+    "math_office_drafting": (),
+    "math_office_cabinet": (),
+    "math_office_theodolite": (),
+    "math_office_gallery": (),
+    "math_obs_dome": (),
+    "math_obs_telescope": (),
+    "math_obs_platform": (),
+    "math_obs_chart": (),
+    "math_obs_desk": (),
     // Castle Godwin of the Evil dimension (`targets/props/castle_godwin.py`):
     // the front of the castle (the room's door is put over its doorway), the
     // sign at the road, and the thorns at its foot. All are decoration.

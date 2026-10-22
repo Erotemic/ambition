@@ -20,13 +20,6 @@ impl Namespace for KinematicPathId {
     const NAME: &'static str = "kinematic path";
 }
 
-/// The character archetypes a catalog knows.
-pub struct CharacterId;
-
-impl Namespace for CharacterId {
-    const NAME: &'static str = "character";
-}
-
 /// The resolvers a room sweep has on hand.
 ///
 /// Paths come from the room itself, so they are always checked, and

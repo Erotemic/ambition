@@ -565,7 +565,7 @@ impl RoomFeatureConstructionPlan {
         //
         // Held items are deliberately absent for the same reason:
         // `authored_ground_item_requests` REFUSES a room that names an unregistered one.
-        let bindings = crate::rooms::RoomBindings::default();
+        let bindings = ambition_platformer2d_world::rooms::RoomBindings::default();
         let binding_report = bindings.sweep(room);
         binding_report.log(&format!("room `{}` construction", room.id));
         // Authored-id uniqueness across actor-owned families, checked in the RAW

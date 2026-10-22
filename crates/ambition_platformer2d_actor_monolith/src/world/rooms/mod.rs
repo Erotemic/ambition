@@ -6,7 +6,6 @@
 #![allow(unused_imports)]
 use ambition_platformer2d_core as ae;
 
-pub mod binding;
 // `RoomTransitionApplication::apply` is the live commit and says the same things in the same
 // order. It surfaced while unifying room RESIDENCY: it carried its own `With<RoomScopedEntity>`
 // roster parameter, so it was a second place the "a carried object is not a resident" rule
@@ -18,15 +17,12 @@ pub mod residency;
 mod systems;
 
 #[cfg(test)]
-mod binding_tests;
-#[cfg(test)]
 mod tests;
 
 // ⛔ NO GLOB FORWARD OF `ambition_platformer2d_world::rooms`. Callers name that
 // crate: a forward here would let this crate's own coupling census count the
 // world crate as monolith coupling, which is what it did until 2026-08-26.
 // What this module re-exports below is what it OWNS.
-pub use binding::RoomBindings;
 pub use reconstitution::retire_the_previous_attempt;
 pub use residency::{another_player_stays, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
 pub use systems::{

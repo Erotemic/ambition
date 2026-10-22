@@ -5,9 +5,10 @@
 // Behaviour lives in `assets/data/boss_profiles.ron`; the conductor is
 // `ambition_content_modules::inugami`.
 //
-// Music: `galvanic_march` again, bound to its phases in
-// `assets/audio/music_cues.ron` (`boss_bindings`): silence while it rises,
-// the theremin howl when it fights.
+// Music: silence while it rises (its howl is a sound, not music), then
+// `iron_toccata` for the whole fight, the chase and the final hall (Jon,
+// 2026-10-22: "the wolf howl should be an sfx not music, and we need to give
+// the fight actual music. We can use Iron Toccata for now").
 (
     id: "wolfenstein_inugami",
     name: "Inugami",
@@ -22,9 +23,9 @@
     // at the end of the gallery.
     transition_seconds: 1.2,
     music_intro: "",
-    music_phase1: "",
-    music_phase2: "",
-    music_enrage: "",
+    music_phase1: "iron_toccata",
+    music_phase2: "iron_toccata",
+    music_enrage: "iron_toccata",
     voice: Some("npc_wolfenstein_inugami"),
     // Its killing blow ends the whole fight: time hangs while it falls
     // (`ambition_boss_encounter::finish`).

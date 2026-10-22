@@ -396,12 +396,11 @@ pub fn resolve_follow_camera_snapshot(
         desired.x += bias_x;
         desired.y += bias_y;
 
-        if let Some(zone) = active_zone {
-            if zone.cinematic_lock {
-                desired = zone.aabb.center();
-            }
-            desired += zone.target_offset;
-        }
+        // ⛔ Not the zone's offset or lock: those are the zone's composition,
+        // put on after the ease with the zone's clamp (see `compose_zone`).
+        // Eased here, a zone's offset started the ease at its full speed on
+        // the tick the zone changed: 160 units of look-ahead out of the throne
+        // room's arena went at 1300 units a second.
 
         if let Some(blink) = input.blink {
             if blink.blink_in_timer > 0.0 && blink.blink_in_duration > 0.0 {
@@ -507,6 +506,10 @@ pub fn resolve_follow_camera_snapshot(
         }
     };
 
+    // The zone's composition: its lock and its offset. A change of zone
+    // changes them in one tick, as it changes the clamp, and the handover
+    // below carries the step.
+    let target_world = if input.overview_camera { target_world } else { compose_zone(target_world, active_zone) };
     let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
     let target = world_to_centered_render(input.world, target_world);
     // Clamp the axis-aligned footprint of the rolled view, not the upright viewport dimensions.
@@ -570,6 +573,14 @@ pub fn resolve_follow_camera_snapshot(
     // (192 world units on the roof of Mary-O 1-2, 2026-10-12). The step is
     // carried and eased out. A cut (a snap, the overview, a new room) carries
     // nothing.
+    //
+    // ⛔ The ease is a critically damped spring, not an exponential. An
+    // exponential sets off at its full speed: out of the throne room's arena,
+    // whose clamp held the camera 300 units behind the body, the camera went
+    // from still to 2300 units a second in one tick and whipped after the body
+    // (Jon, 2026-10-22: "the cameras have weird issues with going into an out
+    // of arenas"). The spring keeps the handover's velocity: a change of zone
+    // keeps it, so the camera accelerates out of its hold and does not overshoot.
     let (center_world, unpadded_center_world) = match (input.mode, ease_state.as_deref_mut()) {
         (CameraSnapshotResolveMode::Eased, Some(state)) => {
             let zone = active_zone.and_then(|active| {
@@ -579,22 +590,29 @@ pub fn resolve_follow_camera_snapshot(
                     .position(|zone| std::ptr::eq(zone, active))
             });
             let cut = input.overview_camera || input.snap_camera || target_adopted;
-            let carried = match state.live_center_world {
-                Some(_) if cut => ae::Vec2::ZERO,
-                Some(previous) if state.live_zone != zone => previous - center_world,
-                Some(_) => state.zone_handover_world,
-                None => ae::Vec2::ZERO,
+            let (carried, velocity) = match state.live_center_world {
+                Some(_) if cut => (ae::Vec2::ZERO, ae::Vec2::ZERO),
+                Some(previous) if state.live_zone != zone => {
+                    (previous - center_world, state.zone_handover_velocity)
+                }
+                Some(_) => (state.zone_handover_world, state.zone_handover_velocity),
+                None => (ae::Vec2::ZERO, ae::Vec2::ZERO),
             };
             let handover_hz = active_zone
                 .and_then(|zone| zone.easing_hz)
                 .filter(|hz| *hz > 0.0)
-                .unwrap_or(DEFAULT_TARGET_EASE_HZ);
-            let mut handover = carried * (-handover_hz * dt).exp();
-            if handover.length() < ZONE_HANDOVER_EPSILON {
+                .unwrap_or(DEFAULT_ZONE_HANDOVER_HZ);
+            let (mut handover, mut velocity) =
+                critically_damped_step(carried, velocity, handover_hz, dt);
+            if handover.length() < ZONE_HANDOVER_EPSILON
+                && velocity.length() < ZONE_HANDOVER_EPSILON * handover_hz
+            {
                 handover = ae::Vec2::ZERO;
+                velocity = ae::Vec2::ZERO;
             }
             state.live_zone = zone;
             state.zone_handover_world = handover;
+            state.zone_handover_velocity = velocity;
             state.live_center_world = Some(center_world + handover);
             (center_world + handover, unpadded_center_world + handover)
         }
@@ -616,12 +634,36 @@ pub fn resolve_follow_camera_snapshot(
     }
 }
 
-/// The rate of the ease of the target, and of the handover between two zones,
-/// where the zone gives no `easing_hz`.
+/// Where a zone puts the camera's target: at the zone's middle under a
+/// cinematic lock, then moved by the zone's offset.
+fn compose_zone(target_world: ae::Vec2, zone: Option<&CameraZoneSpec>) -> ae::Vec2 {
+    match zone {
+        Some(zone) if zone.cinematic_lock => zone.aabb.center() + zone.target_offset,
+        Some(zone) => target_world + zone.target_offset,
+        None => target_world,
+    }
+}
+
+/// The rate of the ease of the target where the zone gives no `easing_hz`.
 const DEFAULT_TARGET_EASE_HZ: f32 = 8.0;
+
+/// The rate of the handover's spring where the zone gives no `easing_hz`.
+/// Out of the throne room's arena (460 units to make up, the body walking at
+/// 300 a second) 8 caught up at 1600 a second, five times the walk; 4 catches
+/// up at about 680, and has done so in a second.
+const DEFAULT_ZONE_HANDOVER_HZ: f32 = 4.0;
 
 /// Under this length, in world units, the handover is at its end.
 const ZONE_HANDOVER_EPSILON: f32 = 0.01;
+
+/// One step of `dt` seconds of a critically damped spring of rate `omega`
+/// (per second) toward zero, from offset `x` and velocity `v`: the closed form,
+/// so it is exact for any frame time. It does not overshoot.
+fn critically_damped_step(x: ae::Vec2, v: ae::Vec2, omega: f32, dt: f32) -> (ae::Vec2, ae::Vec2) {
+    let decay = (-omega * dt).exp();
+    let drive = v + x * omega;
+    ((x + drive * dt) * decay, (v - drive * omega * dt) * decay)
+}
 
 /// Return the camera target that keeps the subject's protected bounds inside
 /// the safe region, moving `previous` as little as possible.

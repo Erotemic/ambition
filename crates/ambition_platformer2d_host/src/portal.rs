@@ -1002,6 +1002,17 @@ mod host_adapter {
     impl Plugin for PortalObservationPlugin {
         fn build(&self, app: &mut App) {
             app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
+            // What the portal presentation reads. Asleep with it where no live
+            // room uses portals, after one frame that publishes the empty
+            // answers (no transiting body, no viewer).
+            app.configure_sets(
+                Update,
+                PortalObservationSet.in_set(
+                    ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::Portals,
+                    ),
+                ),
+            );
             app.add_plugins(ambition_platformer2d_runtime::host_intents::HostIntentPlugin::<
                 ambition_portal2d::TogglePortalGunsActive,
             >::default());

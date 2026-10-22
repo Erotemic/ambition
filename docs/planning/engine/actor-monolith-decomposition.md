@@ -28,10 +28,10 @@ python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 left it with K1. `construction` left it with K3. (K1 and K2 removed its
 session edge, but it still reached `world` through the crate-root re-export
 `crate::rooms`, which the instrument did not resolve until K3.)
-`construction` now has no out-edge in the monolith. **After K4 step 1
-(2026-10-21):** the component has nine modules, the eight above and
-`publication` (see K4). The `assets` and
-`character_sprites` pair remains a separate two-module cycle. The
+`construction` now has no out-edge in the monolith. **After K4 step 1 and
+the K5 asset slice (2026-10-21):** the component has nine modules, the
+eight above and `publication` (see K4); the `assets` and
+`character_sprites` cycle is gone (see K5). The
 instrument's single-edge cuts that would shrink the component further are
 `avatar -> session` (to six), `character_runtime -> avatar` and
 `features -> projectile` (each to seven). With `crate::rooms` resolved,
@@ -54,7 +54,7 @@ about 26,700 of them. Size alone is not a carve reason.
 | `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
 | `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
 | `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1; see K4 |
-| `assets <-> character_sprites` | 2 / 3 | Catalog and art materialization; group or move adapter after its readers are known |
+| `assets <-> character_sprites` | 0 / 3 | Broken with K5: the catalog-row projection moved to its consumer, and `game_assets` left `assets` |
 
 The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
 list is a **graph what-if**: it does not prove that the resulting crates
@@ -332,6 +332,17 @@ prepared definitions. Keep `avatar`, accepted control and body integration
 together unless A4 finds an independent authority. Handle the
 `assets <-> character_sprites` presentation cycle separately. Do not split
 one coherent actor kernel only to make its internal module graph acyclic.
+
+**Done 2026-10-21 — the asset cycle.** Its two edges were two different
+things. `assets -> character_sprites` was the asset catalog's row builder
+calling `all_character_sprite_filenames_in`, a projection of the character
+catalog into manifest rows that had one production consumer: it moved to
+`assets::platformer_assets` with its two tests. The other reads were
+`game_assets` (it loads every kind of art into `GameAssets`) calling the
+sheet builders; that is the higher layer, so `game_assets` is now a
+top-level module above both. `character_sprites -> assets` (the catalog
+ids) is the remaining, downward edge. No system or resource moved;
+`PropSheets`' rollback exemption follows its new type path.
 
 ### Migration acceptance for each packet
 

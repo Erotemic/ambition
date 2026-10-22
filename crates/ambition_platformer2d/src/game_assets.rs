@@ -163,7 +163,7 @@ impl Plugin for PlatformerAssetsPlugin {
             app.init_asset::<TextureAtlasLayout>();
         }
         app.init_resource::<GameAssets>();
-        app.init_resource::<ambition_platformer2d_actor_monolith::assets::game_assets::PropSheets>();
+        app.init_resource::<ambition_platformer2d_actor_monolith::game_assets::PropSheets>();
         app.add_systems(
             Startup,
             bind_game_assets.before(crate::presentation::PlatformerPresentationSetupSet),
@@ -187,10 +187,10 @@ fn bind_game_assets(
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
-    prop_sheets: Res<ambition_platformer2d_actor_monolith::assets::game_assets::PropSheets>,
+    prop_sheets: Res<ambition_platformer2d_actor_monolith::game_assets::PropSheets>,
     mut game_assets: ResMut<GameAssets>,
 ) {
-    *game_assets = ambition_platformer2d_actor_monolith::assets::game_assets::load_game_assets(
+    *game_assets = ambition_platformer2d_actor_monolith::game_assets::load_game_assets(
         &config,
         &character_catalog,
         &authored_sheets,

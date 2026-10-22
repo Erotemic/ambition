@@ -148,7 +148,7 @@ fn sandbox_catalog_inputs_without_worlds(
 ) -> Platformer2dAssetCatalogInputs {
     Platformer2dAssetCatalogInputs {
         scale_variants: texture_scale_variants(),
-        character_sprites: crate::character_sprites::all_character_sprite_filenames_in(
+        character_sprites: all_character_sprite_filenames_in(
             character_catalog,
         )
         .into_iter()
@@ -193,4 +193,134 @@ fn texture_scale_variants() -> Vec<AssetScaleVariant> {
             })
         })
         .collect()
+}
+
+/// Return every `(character_id, on-disk filename, source-qualified path)` the
+/// catalog declares, for asset-manifest registration. Used by the sandbox-
+/// assets aggregator (`builders/visuals.rs::extend_with_character_entries`)
+/// so adding a row to the catalog auto-registers the catalog id.
+///
+/// Filename is the basename of the catalog entry's `spritesheet`
+/// field (stripped of the `sprites/` prefix the catalog stores them
+/// under).
+///
+/// A path that names its own SOURCE — `game://sprites/mine.png`, the spelling
+/// the consumer asset overlay exists for — is returned WHOLE in the third slot
+/// instead. It has no basename under the engine's sprite folder, and reducing
+/// it to one produced `sprites/game://sprites/mine.png`: a path to nothing,
+/// which the silent-placeholder policy then rendered as a bare box. That is why
+/// "a consumer owns its own art" stopped at the asset reader and never reached a
+/// character.
+fn all_character_sprite_filenames_from_data(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
+) -> Vec<(String, String, Option<String>)> {
+    let mut out: Vec<(String, String, Option<String>)> =
+        Vec::with_capacity(catalog.characters.len());
+    for (cid, entry) in &catalog.characters {
+        let sheet = entry.spritesheet();
+        let sheet = sheet.as_str();
+        if ambition_asset_manager::platformer_assets::is_source_qualified(sheet) {
+            out.push((cid.clone(), sheet.to_string(), Some(sheet.to_string())));
+            continue;
+        }
+        let filename = sheet.strip_prefix("sprites/").unwrap_or(sheet).to_string();
+        out.push((cid.clone(), filename, None));
+    }
+    out
+}
+
+/// Project the caller's App-local catalog into asset-manifest rows.
+pub fn all_character_sprite_filenames_in(
+    character_catalog: &CharacterCatalog,
+) -> Vec<(String, String, Option<String>)> {
+    all_character_sprite_filenames_from_data(character_catalog.data())
+}
+
+#[cfg(test)]
+mod character_sprite_row_tests {
+    use super::*;
+
+    const CATALOG_A: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "alpha": (
+                display_name: "Alpha", 
+                manifest: "sprites/alpha.ron", tier: MainHall, body_kind: Standard,
+                composition: None, default_brain: "idle",
+                default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    const CATALOG_B: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "beta": (
+                display_name: "Beta", 
+                manifest: "sprites/beta.ron", tier: MainHall, body_kind: Standard,
+                composition: None, default_brain: "idle",
+                default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn catalog(ron: &str) -> CharacterCatalog {
+        CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(ron),
+        )
+    }
+
+    #[test]
+    fn sprite_manifest_projection_obeys_the_explicit_catalog() {
+        let first = catalog(CATALOG_A);
+        let second = catalog(CATALOG_B);
+
+        assert_eq!(
+            all_character_sprite_filenames_in(&first),
+            vec![("alpha".to_string(), "alpha.png".to_string(), None)]
+        );
+        assert_eq!(
+            all_character_sprite_filenames_in(&second),
+            vec![("beta".to_string(), "beta.png".to_string(), None)]
+        );
+    }
+
+    /// A consumer's own art survives catalog assembly.
+    ///
+    /// The engine's convention is a basename under the shared sprite folder, and
+    /// every path went through it: `game://sprites/mine.png` had no `sprites/`
+    /// prefix to strip, so the whole string became the "filename" and the
+    /// manifest rebuilt it as `sprites/game://sprites/mine.png` — a path to
+    /// nothing, silently placeheld into a bare box. The reader could reach the
+    /// consumer's tree the whole time; nothing could ADDRESS it from a catalog
+    /// .
+    #[test]
+    fn a_source_qualified_spritesheet_keeps_its_source() {
+        const CONSUMER: &str = r#"(
+            brain_presets: { "idle": StandStill },
+            action_set_presets: {
+                "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
+            },
+            characters: {
+                "outlander": (
+                    display_name: "Outlander", 
+                    manifest: "game://sprites/outlander.ron", tier: MainHall,
+                    body_kind: Standard, composition: None, default_brain: "idle",
+                    default_action_set: "peaceful", tags: [],
+                ),
+            },
+        )"#;
+        assert_eq!(
+            all_character_sprite_filenames_in(&catalog(CONSUMER)),
+            vec![(
+                "outlander".to_string(),
+                "game://sprites/outlander.png".to_string(),
+                Some("game://sprites/outlander.png".to_string()),
+            )],
+            "the source-qualified path must arrive whole, not reduced to a \
+             basename the engine will re-root under its own tree"
+        );
+    }
 }

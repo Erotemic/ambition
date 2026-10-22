@@ -1169,7 +1169,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "install-time declaration of which technique handlers this composition added; written once at plugin build and never by the simulation",
     ),
     (
-        "ambition_platformer2d_actor_monolith::assets::game_assets::PropSheets",
+        "ambition_platformer2d_actor_monolith::game_assets::PropSheets",
         "install-time declaration of which prop sheets this composition's content registered; written at plugin build, read when `GameAssets` is built, and never by the simulation",
     ),
     // ⛔⛔ **CONTENT SELECTION, AND REWINDING IT WOULD UNDO A RELOAD.** This

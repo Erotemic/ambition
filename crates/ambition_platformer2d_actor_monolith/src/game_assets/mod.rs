@@ -1,5 +1,10 @@
 //! Compatibility facade for game-asset resources and loaders.
 //!
+//! It loads the art of every kind (characters, props, effects, bosses) into
+//! `GameAssets`, so it sits above both the asset catalog (`crate::assets`)
+//! and the sheet builders (`crate::character_sprites`), which name neither it
+//! nor each other's loaders.
+//!
 //! TODO(compat-remove): move `load_game_assets` out of the actor monolith, migrate callers to
 //! `ambition_sprite_sheet::game_assets`, then delete this module.
 

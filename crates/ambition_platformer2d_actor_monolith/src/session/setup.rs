@@ -43,13 +43,13 @@ pub struct SimulationSetup<'a> {
     /// whose candidate session becomes authoritative only if this room published
     /// — says `UntilOwnerRetires` and owes a `retire_publication`. A direct-entry
     /// demo drops the handle and says `UntilTheVerdictIsRecorded`.
-    pub publication_retention: crate::world::rooms::transaction::PublicationRetention,
+    pub publication_retention: crate::publication::transaction::PublicationRetention,
     /// Where the first room's commit gets what the save says about its bodies.
     ///
     /// ⛔ The shell provider states the save of the session's own experience:
     /// its session is built while another one can be live. A direct-entry demo
     /// has one experience and says `TheWorldAtTheCommit`.
-    pub first_room_facts: crate::world::rooms::CommitFactsSource,
+    pub first_room_facts: crate::publication::CommitFactsSource,
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub tuning: &'a ae::ActiveMovementTuning,
@@ -118,7 +118,7 @@ pub struct SimulationWorld {
     pub player: Option<Entity>,
     /// The first room's publication. A caller that asked to retain it decides
     /// what happens to the session from this verdict.
-    pub publication: crate::world::rooms::transaction::PublicationHandle,
+    pub publication: crate::publication::transaction::PublicationHandle,
 }
 
 pub fn simulation_world(
@@ -168,7 +168,7 @@ pub fn simulation_world(
     // prepared against THIS binding or be refused publication as stale.
     commands
         .entity(session_root)
-        .insert(crate::world::rooms::transaction::ActiveContentBinding(
+        .insert(crate::publication::transaction::ActiveContentBinding(
             construction.binding,
         ));
     // The first room is the session's activation room: nothing has been
@@ -177,7 +177,7 @@ pub fn simulation_world(
     let session_scope = session_scope.in_room(Some(
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
     ));
-    let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
+    let room_plan = crate::publication::RoomConstructionPlan::prepare_from_parts(
         room_set,
         room_set.activation(),
         placement_lowering,

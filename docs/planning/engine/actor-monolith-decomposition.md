@@ -28,7 +28,9 @@ python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 left it with K1. `construction` left it with K3. (K1 and K2 removed its
 session edge, but it still reached `world` through the crate-root re-export
 `crate::rooms`, which the instrument did not resolve until K3.)
-`construction` now has no out-edge in the monolith. The `assets` and
+`construction` now has no out-edge in the monolith. **After K4 step 1
+(2026-10-21):** the component has nine modules, the eight above and
+`publication` (see K4). The `assets` and
 `character_sprites` pair remains a separate two-module cycle. The
 instrument's single-edge cuts that would shrink the component further are
 `avatar -> session` (to six), `character_runtime -> avatar` and
@@ -49,9 +51,9 @@ about 26,700 of them. Size alone is not a carve reason.
 | `session -> items` | 20 | Restoration coordinates item state; **KEEP_DIRECT** while item domain owns the restored values |
 | `features -> projectile` | 1 | Perception reads `ProjectileAllegiance`; **KEEP_DIRECT** |
 | `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
-| `world -> features` | 9 | Room feature plans and publication; **MOVE_AUTHORITY** as one room transaction packet |
-| `world -> session` | 12 | Room publication reads checkpoint and lifecycle facts; **MOVE_ADAPTER** with that packet |
-| `session -> world` | 7 | Session setup and publication handles; review as part of one transaction packet |
+| `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
+| `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
+| `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1; see K4 |
 | `assets <-> character_sprites` | 2 / 3 | Catalog and art materialization; group or move adapter after its readers are known |
 
 The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
@@ -204,16 +206,16 @@ qualified edge and ensure no new registration or hidden query work is added.
 ### K2 — Move commit-facts *selection* above construction — DONE 2026-10-21
 
 **Receipt:** `CommitFactsSource` is defined with the room publication
-transaction (`world/rooms/transaction.rs`, exported as
+transaction (`publication/transaction.rs`, exported as
 `rooms::CommitFactsSource`). Construction still receives one resolved
 `PersistedFates` per commit and no longer names
 `session::checkpoint::CheckpointOperationKey`; the `construction -> session`
-edge is gone. The selector's resolution in `world/rooms/stage.rs` is
+edge is gone. The selector's resolution in `publication/stage.rs` is
 unchanged, so no checkpoint consequence is evaluated earlier than before.
 The record below is the plan it executed.
 
 The selector `CommitFactsSource` contained
-`AfterTheRestore(CheckpointOperationKey)`. `world/rooms/stage.rs` resolves
+`AfterTheRestore(CheckpointOperationKey)`. `publication/stage.rs` resolves
 that selector, while construction owns the resulting `PersistedFates`.
 Move the *choice of when and where to get facts* to the publication/lifecycle
 coordinator. Construction must still receive one resolved value for a commit.
@@ -270,11 +272,38 @@ planning work without importing the monolith back into itself. If it cannot,
 keep planning separate from spawn materialization. Reuse A3's prepared-plan,
 `SimId`, provenance and preflight tests.
 
-### K4 — Extract room-publication coordination as one packet
+### K4 — Extract room-publication coordination as one packet — step 1 DONE 2026-10-21
+
+**Receipt (step 1, the coordinator module):** the room publication
+coordinator is the monolith's top-level module `publication`
+(`publication/stage.rs`, `publication/transaction.rs`, their tests). It
+left `world::rooms`, which now holds geometry, bindings, passages,
+residency and the door systems. Every caller names the new owner
+(`crate::publication::…`, `ambition_platformer2d::actors::publication::…`);
+`rooms` does not re-export it. No system, resource, component or wire name
+moved: the rollback exemptions in `rollback_coverage.rs` match the moved
+type paths (`::publication::stage::`, `::publication::transaction::`).
+
+Measured with `measure_kernel_module_graph.py`: `world -> features` 9 → 4,
+`world -> session` 13 → 6, and `world` names nothing in `publication`. The
+largest component is nine modules, because `publication` is now a node in
+it. The edges that hold it there:
+
+| Edge | Refs | What it is | Disposition |
+| --- | ---: | --- | --- |
+| `session -> publication` | 7 | `session/setup.rs` prepares a session's first room (`RoomConstructionPlan::prepare_from_parts`, `PublicationHandle`, `PublicationRetention`, `ActiveContentBinding`); `durable_horizon.rs` states `CommitFactsSource` | **MOVE_ADAPTER** with session setup: the setup's room half is publication work |
+| `publication -> session` | 7 | `CheckpointOperationKey`, `prospective_commit_fates`, `run_restore_consequences` | **KEEP_DIRECT**: session owns admitted operations and restore facts |
+| `publication -> items` | 5 | the custody handoffs (`record`/`apply`/`discard_custody_handoffs`) | **KEEP_DIRECT**: custody semantics are item-owned (A7) |
+| `items -> publication` | 3 | the same three functions take the `PublicationHandle` their handoffs are stored on | **HOLD**: the handle is a plain entity newtype; moving it lower only to cut the edge is not a reason |
+
+**Not done, and why:** an integration crate above the monolith would need
+`session/setup.rs`'s room preparation to move with it (otherwise the
+monolith depends on the crate), and the custody handoffs to take a handle
+that crate does not own. Step 2 is that move of session setup's room half.
 
 Inspect these together, not as separate file moves:
 
-- `world/rooms/stage.rs` and `world/rooms/transaction.rs`;
+- `publication/stage.rs` and `publication/transaction.rs`;
 - `features/ecs/spawn/mod.rs` (`RoomFeatureConstructionPlan` and receipt);
 - `session/setup.rs`, checkpoint and durable-horizon admission;
 - the current publication and rollback registration path.
@@ -368,7 +397,7 @@ because it is durable decomposition doctrine.
 | `crates/ambition_characters/src/actor/character_catalog/registry.rs`, `crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs`, or `game/ambition_app/tests/app_local_catalog_composition.rs` | `the-catalog-owners-map-is-not-a-provider-authority` |
 | `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
 | `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs` or `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
-| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs` | `only-the-candidate-builder-hides-a-root` |
-| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs`, or `crates/ambition_platformer2d_provider/src/lifecycle.rs` | `only-the-publication-authority-publishes-a-candidate` |
+| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs` | `only-the-candidate-builder-hides-a-root` |
+| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs`, or `crates/ambition_platformer2d_provider/src/lifecycle.rs` | `only-the-publication-authority-publishes-a-candidate` |
 | `crates/ambition_platformer2d_provider/src/authoring.rs` or `crates/ambition_game_shell/` | `one-registrar-installs-the-session-teardown` |
 | `crates/ambition_platformer2d_world/src/collision.rs`, `crates/ambition_platformer2d_world/src/platforms/mod.rs`, or `game/ambition_demo_mary_o/src/bricks.rs` | `only-the-collision-world-composes-collision` |

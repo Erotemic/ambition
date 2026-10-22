@@ -472,7 +472,7 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`.
     let verification = app
         .world()
-        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
         .clone();
     assert!(
         verification.published,
@@ -1068,7 +1068,7 @@ fn a_committed_world_reload_applies_its_effects() {
     // `retire_publication`. MEASURED here rather than argued from five call
     // sites — which is exactly how the candidate slot's missing exits hid.
     assert_eq!(
-        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
         0,
         "a publication receipt is still standing after a committed reload settled"
     );
@@ -1736,7 +1736,7 @@ fn a_world_reload_rebuilds_every_live_room() {
         // candidate is left, and each live room can be described.
         assert_eq!(
             (
-                ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+                ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
                 ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
             ),
             (0, 0),
@@ -1995,7 +1995,7 @@ fn a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none() {
     );
     assert_eq!(
         (
-            ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+            ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
             ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
         ),
         (0, 0),
@@ -2134,7 +2134,7 @@ fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
     assert_eq!(the_only_prepared_epoch(&mut app), epoch_before, "the generation of the session moved");
     assert_eq!(
         (
-            ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+            ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
             ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
         ),
         (0, 0),
@@ -2205,7 +2205,7 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
 
     let verdict = app
         .world()
-        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
         .clone();
     assert!(
         !verdict.published,
@@ -2259,7 +2259,7 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
     // above counts receipts; without this one, an owner that retired only on
     // success would pass every test on this road.
     assert_eq!(
-        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
         0,
         "⛔ A REFUSED WORLD RELOAD'S PUBLICATION RECEIPT IS STILL STANDING"
     );
@@ -2432,7 +2432,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
     // satisfied by an app that simply did nothing.
     let verdict = app
         .world()
-        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
         .clone();
     assert!(
         !verdict.published,
@@ -2526,7 +2526,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         "⛔ A REFUSED CANDIDATE'S HIDDEN ENTITIES ARE STILL IN THE WORLD"
     );
     assert_eq!(
-        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
         0,
         "⛔ A REFUSED CANDIDATE'S PUBLICATION RECEIPT IS STILL STANDING"
     );
@@ -2715,7 +2715,7 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
 
     let verification = app
         .world()
-        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
         .clone();
     assert!(
         verification.published,
@@ -2759,7 +2759,7 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
          discarded"
     );
     assert_eq!(
-        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
         0,
         "a publication receipt is still standing after the handoff settled"
     );
@@ -2991,7 +2991,7 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
          this is the mechanical state of a world nothing is playing"
     );
     assert_eq!(
-        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        ambition_platformer2d::actors::publication::outstanding_publications(app.world_mut()),
         0,
         "⛔ A PUBLICATION RECEIPT OUTLIVED ITS OPERATION. An `UntilOwnerRetires` \
          receipt is an entity that stands until its owner retires it, and a \
@@ -3052,7 +3052,7 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
         app.update();
         let published = app
             .world()
-            .get_resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
             .is_some_and(|verification| verification.published);
         if published && room_published_at.is_none() {
             room_published_at = Some(frame);
@@ -3356,7 +3356,7 @@ fn a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_sessio
         }
         window_frames += 1;
         frozen_high_water = frozen_high_water.max(
-            ambition_platformer2d::actors::rooms::publications_holding_frozen_effects(
+            ambition_platformer2d::actors::publication::publications_holding_frozen_effects(
                 app.world_mut(),
             ),
         );
@@ -3410,7 +3410,7 @@ fn a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_sessio
          every per-attempt reader still believes it is in the previous room"
     );
     assert_eq!(
-        ambition_platformer2d::actors::rooms::publications_holding_frozen_effects(
+        ambition_platformer2d::actors::publication::publications_holding_frozen_effects(
             app.world_mut()
         ),
         0,
@@ -3740,7 +3740,7 @@ fn a_superseded_transaction_cannot_publish_in_the_shipped_app() {
 /// ⛔⛤ **AND THE FIRST POISON PASSED, WHICH IS A FACT ABOUT THE TREE RATHER
 /// THAN ABOUT THIS ARM.** Neutering `hide_candidate_session_root` changed
 /// nothing here: it has exactly ONE production caller
-/// (`actor_monolith/src/world/rooms/stage.rs:1576`) and every other caller is a
+/// (`actor_monolith/src/publication/stage.rs:1576`) and every other caller is a
 /// test. The road that hides THIS root is `SessionSpawnScope::apply_to`
 /// (`shared_tangle/src/lifecycle/session.rs:293-300`), which applies the
 /// candidate policy to every session-owned spawn — *"which is why the candidate

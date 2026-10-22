@@ -163,7 +163,7 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     // A direct-entry demo has one experience, so its first room reads the
     // save of the world it lands in, and says so.
-    pub use ambition_platformer2d_actor_monolith::rooms::CommitFactsSource;
+    pub use ambition_platformer2d_actor_monolith::publication::CommitFactsSource;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
@@ -171,7 +171,7 @@ pub mod demo_fixture {
         simulation_world, SimulationSetup,
     };
     // A direct-entry demo drops the first room's receipt, so it says so.
-    pub use ambition_platformer2d_actor_monolith::rooms::PublicationRetention;
+    pub use ambition_platformer2d_actor_monolith::publication::PublicationRetention;
     pub use ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry;
     pub use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
     // Demo simulation reads the neutral movement-tuning authority, not dev-tools mirror state.

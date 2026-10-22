@@ -1231,7 +1231,7 @@ impl RoomFeatureConstructionPlan {
     ///
     /// A feature plan is one participant in a room transaction, not the transaction, so it
     /// cannot know when the room is complete. The bracket lives with the outer artifact that
-    /// does — see [`crate::world::rooms::transaction`].
+    /// does — see [`crate::publication::transaction`].
     /// ⛔ EVERY ROOT, IN EVERY LANE, IS AN INACTIVE CANDIDATE. There is no way to
     /// ask for anything else: a room whose construction rows were hidden while
     /// its capability lanes went live is a half-visible scene, which is the state

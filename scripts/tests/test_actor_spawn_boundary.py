@@ -55,7 +55,7 @@ SPAWN_ROADS = (
     "/features/ecs/spawn_static.rs",
     "/features/ecs/summon.rs",
     "/features/feature_bundles.rs",
-    "/world/rooms/stage.rs",
+    "/publication/stage.rs",
     "/character_runtime/match_activation.rs",
     # The session's home body is CONSTRUCTED here, through the same prepared
     # grant a seat and a room spawn use (`grant_prepared_character_body`).

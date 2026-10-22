@@ -2,7 +2,7 @@
 
 ⛔⛤ A FILE THAT NAMES A CONSTRUCTOR IN PROSE READS EXACTLY LIKE A FILE THAT
 CALLS IT, and that is not hypothetical: `Q144`'s own table counted four
-`for_live_session` roads because `world/rooms/stage.rs` names the constructor in
+`for_live_session` roads because `publication/stage.rs` names the constructor in
 the doc comment on an error variant. The arms below plant both shapes.
 """
 

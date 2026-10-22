@@ -15,9 +15,7 @@ pub mod binding;
 mod reconstitution;
 pub mod passage;
 pub mod residency;
-pub(crate) mod stage;
 mod systems;
-pub(crate) mod transaction;
 
 #[cfg(test)]
 mod binding_tests;
@@ -31,20 +29,8 @@ mod tests;
 pub use binding::RoomBindings;
 pub use reconstitution::retire_the_previous_attempt;
 pub use residency::{another_player_stays, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
-pub use stage::{
-    LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
-};
 pub use systems::{
     detect_room_transition_system, tick_portal_phases_system,
-};
-pub use transaction::{
-    commit_held_publication, finalize_room_publication, outstanding_publications,
-    publication_is_held, publication_succeeded, refuse_held_publication, settle_publication,
-    publications_holding_frozen_effects,
-    retire_publication, ActiveContentBinding,
-    LastConstructionVerification,
-    CommitFactsSource, LiveRoomSuccession, PublicationHandle, PublicationRetention, PublicationVerdict,
-    StagedArrival, StagedWorldViolation,
 };
 
 #[cfg(test)]

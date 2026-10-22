@@ -877,7 +877,7 @@ fn two_hosts_at_different_content_epochs_share_one_construction_provenance() {
         enter(&mut app);
 
         let epoch = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::actors::rooms::ActiveContentBinding,
+            ambition_platformer2d::actors::publication::ActiveContentBinding,
         >(app.world())
         .expect("a live session publishes its content binding on its root")
         .0

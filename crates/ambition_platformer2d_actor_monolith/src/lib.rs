@@ -53,6 +53,7 @@ pub mod music;
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
 pub mod projectile;
+pub mod publication;
 pub mod repertoire;
 pub mod session;
 mod snapshot_impls;

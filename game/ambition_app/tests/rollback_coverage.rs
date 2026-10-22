@@ -54,7 +54,7 @@ const WAIVED: &[(&str, &str)] = &[
     // (`local_ggrs_restart_policy`) and REFUSES outright on an external/P2P
     // session — so no rewind crosses a change to it.
     (
-        "ambition_platformer2d_actor_monolith::world::rooms::transaction::ActiveContentBinding",
+        "ambition_platformer2d_actor_monolith::publication::transaction::ActiveContentBinding",
         "the session's content generation: written only by a content authority in `Update` (activation, hot reload), never by the simulation; the hot reload restarts the local session and refuses an external one, so no rewind crosses a change",
     ),
     // A body's technique DECLARATIONS, which the action scheme reads. The boss
@@ -1729,11 +1729,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     ("ambition_sim_schedule::SimSchedule", "schedule handle"),
     (
-        "::rooms::stage::LastRoomConstructionCommit",
+        "::publication::stage::LastRoomConstructionCommit",
         "construction receipt: lifecycle evidence, not frame state",
     ),
     (
-        "::rooms::transaction::",
+        "::publication::transaction::",
         "construction transaction bookkeeping (verification record, live binding)",
     ),
     // Install-once content latches: set exactly once when the intro content

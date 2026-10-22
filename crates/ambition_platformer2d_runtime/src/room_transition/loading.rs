@@ -16,7 +16,7 @@ use ambition_load::{
     BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection, LoadCoordinator,
     LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
-use ambition_platformer2d_actor_monolith::rooms;
+use ambition_platformer2d_actor_monolith::publication;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent;
@@ -169,7 +169,7 @@ pub struct ActiveRoomTransitionLoad {
     /// cannot be told. The cover waits on this room's art, not on every live
     /// room of the target's definition.
     pub arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
+    pub construction_plan: Option<Arc<publication::RoomConstructionPlan>>,
     pub barrier: LoadBarrierRef,
     /// The pass of the readiness set that opened this transaction is not
     /// over.
@@ -619,7 +619,7 @@ pub fn begin_room_transition_load_system(
     // skip this system where the binding is legitimately absent.
     active_binding: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding,
+            ambition_platformer2d_actor_monolith::publication::ActiveContentBinding,
         >,
     >,
     // The set, and which room of it each live room is. The room a crossing
@@ -1365,10 +1365,10 @@ pub fn begin_room_transition_load_system(
             // generation-N derivative and part current App — exactly the
             // fail-open shape the `for_live_session` rule exists to remove.
             (_, None) => Err(
-                rooms::RoomConstructionError::LiveGenerationMechanicsMissing,
+                publication::RoomConstructionError::LiveGenerationMechanicsMissing,
             ),
             (Some(plan), Some(_)) => Ok(plan),
-            (None, Some(mechanics)) => rooms::RoomConstructionPlan::prepare_from_parts(
+            (None, Some(mechanics)) => publication::RoomConstructionPlan::prepare_from_parts(
                 room_set.rooms(),
                 resolved_target_index,
                 &construction_services.0,
@@ -1395,7 +1395,7 @@ pub fn begin_room_transition_load_system(
                     // it mints is stamped with it. Stating nothing left two
                     // peers at different prepared content projecting the same
                     // `TransactionId`.
-                    ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding::live_or(
+                    ambition_platformer2d_actor_monolith::publication::ActiveContentBinding::live_or(
                         active_binding.as_deref().map(|binding| &**binding),
                         // ⚠ And the transition-local counter is what a fixture
                         // with no session binding has to name, nothing more: it

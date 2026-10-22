@@ -638,7 +638,7 @@ def test_the_residual_is_a_different_shape_than_the_wrapper_gap():
     unlocated = set(guard.unlocated_message_systems())
     assert "finalize_room_publication" in unlocated, (
         "the residual specimen resolved. `finalize_room_publication` is called from "
-        "`world/rooms/transaction.rs`, not registered — if it now has a schedule, either a "
+        "`publication/transaction.rs`, not registered — if it now has a schedule, either a "
         "call-graph road landed (say so) or something is attributing a non-system."
     )
 

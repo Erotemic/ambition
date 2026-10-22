@@ -291,7 +291,7 @@ def main() -> int:
     # MEASURED 2026-09-16: of nine items whose `representation` is exactly
     # "Resource", EIGHT were right and one was not. `AUTH-CONTENT-BINDING` --
     # marked SOURCE_CONFIRMED -- recorded `ActiveContentBinding` as a Resource; it
-    # is a Component, one declaration, `world/rooms/transaction.rs`. ⇒ The
+    # is a Component, one declaration, `publication/transaction.rs`. ⇒ The
     # distinction is load-bearing: a Resource is PROCESS-GLOBAL and a Component is
     # carried by an ENTITY, which for C05 is the difference between "another
     # App-global write at the generation boundary" and "a value the admitted

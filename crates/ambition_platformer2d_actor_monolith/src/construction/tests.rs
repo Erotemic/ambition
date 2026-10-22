@@ -235,13 +235,13 @@ fn commit_bracketed(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut Wo
         // an undeclared baseline would verify these rooms against a claim the
         // production road no longer makes, and would go on passing after the
         // production road's declaration broke.
-        let publication = crate::world::rooms::transaction::begin_publication(
+        let publication = crate::publication::transaction::begin_publication(
             &mut commands,
             plan.room().id.clone(),
             plan.construction_transactions(SessionSpawnScope::UNSCOPED),
-            crate::world::rooms::transaction::PublicationRetention::UntilOwnerRetires,
+            crate::publication::transaction::PublicationRetention::UntilOwnerRetires,
         );
-        crate::world::rooms::transaction::open(
+        crate::publication::transaction::open(
             &mut commands,
             publication,
             &plan,
@@ -250,16 +250,16 @@ fn commit_bracketed(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut Wo
         // ⛔ THE PRODUCTION CONSTRUCTION BOUNDARY, NOT A COPY OF IT. Calling
         // `spawn_room_feature_entities_from_plan` directly here would leave every
         // arm below certifying a road production does not take.
-        crate::world::rooms::stage::construct_room_candidate(
+        crate::publication::stage::construct_room_candidate(
             &mut commands,
             publication,
             &plan,
             SessionSpawnScope::UNSCOPED,
             None,
             None,
-            crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+            crate::publication::CommitFactsSource::TheWorldAtTheCommit,
         );
-        crate::world::rooms::transaction::close(
+        crate::publication::transaction::close(
             &mut commands,
             publication,
             &plan,
@@ -1532,12 +1532,12 @@ fn a_room_that_fails_verification_is_not_published() {
     let mut app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::world::rooms::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default()));
+            crate::publication::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default()));
     });
 
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>()
+        .resource::<crate::publication::LastConstructionVerification>()
         .clone();
     assert!(
         !verification.published,
@@ -1570,7 +1570,7 @@ fn the_same_room_publishes_once_its_relation_lands() {
 
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>()
+        .resource::<crate::publication::LastConstructionVerification>()
         .clone();
     assert!(
         verification.violations.is_empty(),
@@ -2588,7 +2588,7 @@ fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
 
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         verification.published,
         "the staged-giant room publishes: {:?}",
@@ -3013,7 +3013,7 @@ fn a_committed_mount_pair_is_welded_both_ways_and_published() {
 
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         verification.published,
         "the mounted room publishes: {:?}",
@@ -3094,7 +3094,7 @@ fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
     let mut app = commit(plan);
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         verification.published,
         "the boss-rider room publishes: {:?}",
@@ -3404,7 +3404,7 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
 
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(verification.published, "{:?}", verification.violations);
     assert_eq!(verification.violations, Vec::new());
 
@@ -3678,7 +3678,7 @@ fn a_committed_placement_room_publishes_with_a_stamped_pickup() {
     let mut app = commit(plan);
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(verification.published, "{:?}", verification.violations);
     assert_eq!(verification.violations, Vec::new());
 
@@ -3784,7 +3784,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
     let mut app = commit(plan);
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(verification.published, "{:?}", verification.violations);
     assert_eq!(verification.violations, Vec::new());
 
@@ -3836,11 +3836,11 @@ fn a_stale_plans_room_is_refused_publication() {
     let app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::world::rooms::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
+            crate::publication::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
     });
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(!verification.published, "a stale plan cannot publish");
     assert!(
         verification
@@ -3865,11 +3865,11 @@ fn a_plan_matching_the_live_binding_publishes() {
     let app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::world::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
+            crate::publication::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
     });
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(verification.published, "{:?}", verification.violations);
 }
 
@@ -4190,7 +4190,7 @@ fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
     let mut app = commit_bracketed(plan, |_| {});
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         !verification.published,
         "a room was published as a CANDIDATE into a world where `InactiveCandidate` \
@@ -4278,7 +4278,7 @@ fn a_world_that_cannot_hide_a_candidate_constructs_no_candidate_at_all() {
     assert!(
         !refused
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .published,
         "the room PUBLISHED in a world that cannot hide a candidate, so this arm \
          is not about a refusal at all"
@@ -4320,7 +4320,7 @@ fn a_world_that_cannot_hide_a_candidate_constructs_no_candidate_at_all() {
     assert!(
         control
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .published,
         "the control room was refused in a world that hides candidates, so the \
          refusal above is about something other than the filter"
@@ -4345,7 +4345,7 @@ fn the_same_candidate_room_publishes_once_the_filter_is_installed() {
     });
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         verification.published,
         "a bracketed room was refused in a world that DOES hide candidates, so the \
@@ -4383,7 +4383,7 @@ fn a_shell_composition_missing_its_content_binding_refuses_the_room() {
     });
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         !verification.published,
         "a shell-routed composition published a room with NO `ActiveContentBinding` \
@@ -4405,7 +4405,7 @@ fn a_direct_entry_fixture_with_no_content_binding_still_publishes() {
     let app = commit(plan);
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         verification.published,
         "a direct-entry fixture was refused for stating no content binding, which \
@@ -4445,7 +4445,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
 
-    let live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default());
+    let live = crate::publication::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default());
     let plan = RoomFeatureConstructionPlan::prepare(
         &room,
         &Default::default(),
@@ -4506,8 +4506,8 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
 
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let expected_live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default());
-    let replacement = |expected: &crate::rooms::ActiveContentBinding| {
+    let expected_live = crate::publication::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default());
+    let replacement = |expected: &crate::publication::ActiveContentBinding| {
         RoomFeatureConstructionPlan::prepare(
             &room,
             &Default::default(),
@@ -4532,11 +4532,11 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     let app = commit_over(replacement(&expected_live), |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
+            crate::publication::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
     });
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>()
+        .resource::<crate::publication::LastConstructionVerification>()
         .clone();
     assert!(
         !verification.published,
@@ -4566,11 +4566,11 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     let app = commit_over(replacement(&expected_live), |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
+            crate::publication::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
     });
     let verification = app
         .world()
-        .resource::<crate::world::rooms::LastConstructionVerification>();
+        .resource::<crate::publication::LastConstructionVerification>();
     assert!(
         verification.published,
         "a replacement arriving at exactly the world it expected was refused, so \

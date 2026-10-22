@@ -2020,7 +2020,7 @@ fn discard_candidate_world(
     world: &mut bevy::prelude::World,
     root: bevy::prelude::Entity,
     scope: SessionScopeId,
-    publication: ambition_platformer2d_actor_monolith::rooms::PublicationHandle,
+    publication: ambition_platformer2d_actor_monolith::publication::PublicationHandle,
     experience: &str,
     activation: ambition_game_shell::ShellActivationId,
     why: &'static str,
@@ -2029,7 +2029,7 @@ fn discard_candidate_world(
         ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
             world, root, scope,
         );
-    ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
+    ambition_platformer2d_actor_monolith::publication::retire_publication(world, publication);
     ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
         "session-{why} experience={experience} activation={activation:?} \
          ({discarded} entities discarded)"
@@ -2242,7 +2242,7 @@ fn candidate_session_gate(
         return ShellGateVerdict::Hold;
     }
     match world
-        .get::<ambition_platformer2d_actor_monolith::rooms::PublicationVerdict>(publication.0)
+        .get::<ambition_platformer2d_actor_monolith::publication::PublicationVerdict>(publication.0)
     {
         // In flight: the room's transaction has not closed yet.
         None => ShellGateVerdict::Hold,
@@ -2603,7 +2603,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // below: the candidate session becomes authoritative only if the
                 // room it was built around published.
                 publication_retention:
-                    ambition_platformer2d_actor_monolith::rooms::PublicationRetention::UntilOwnerRetires,
+                    ambition_platformer2d_actor_monolith::publication::PublicationRetention::UntilOwnerRetires,
                 // ⛔ THE FATES OF THE FIRST ROOM'S BODIES, FROM THE CANDIDATE'S
                 // OWN SAVE. The commit lands in a world where the live save
                 // can be another session's. See `CommitFactsSource`.
@@ -2766,7 +2766,7 @@ pub struct PreparedCandidateSession {
     activation_id: ambition_game_shell::ShellActivationId,
     experience: String,
     /// The first room's receipt. The activation decision IS this verdict.
-    publication: ambition_platformer2d_actor_monolith::rooms::PublicationHandle,
+    publication: ambition_platformer2d_actor_monolith::publication::PublicationHandle,
     /// The route this candidate is HOLDING, so its hold can be released when it
     /// leaves by any exit. ⛔ Recorded rather than re-derived: a candidate
     /// superseded by a route of a DIFFERENT name cannot be cleaned up from the
@@ -2862,7 +2862,7 @@ impl PreparedCandidateSession {
         // reader runs inside this exclusive call — so it is not observed until
         // after B is live and A is retired either way.
         let left_to_custodian =
-            ambition_platformer2d_actor_monolith::rooms::finalize_room_publication(
+            ambition_platformer2d_actor_monolith::publication::finalize_room_publication(
                 world,
                 publication,
             );
@@ -2875,7 +2875,7 @@ impl PreparedCandidateSession {
         checkpoint.adopt_onto(world, root);
         // ⛔ THE OWNER CONSUMES ITS RECEIPT. The room published and its effects
         // are the world's; the receipt has done its work.
-        ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
+        ambition_platformer2d_actor_monolith::publication::retire_publication(world, publication);
         // ⚠ NO `road=` ANY MORE: there is one road. The label existed to say
         // which of two guarantees a session got, and the weaker one is deleted.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
@@ -3015,7 +3015,7 @@ mod tests {
             ReservedGameplayScopes, ShellActivationId, ShellActivationGates, ShellGateVerdict,
             ShellRouteHolds, ShellRouteId,
         };
-        use ambition_platformer2d_actor_monolith::rooms::{PublicationHandle, PublicationVerdict};
+        use ambition_platformer2d_actor_monolith::publication::{PublicationHandle, PublicationVerdict};
         use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
         const ACTIVATION: ShellActivationId = ShellActivationId(7);

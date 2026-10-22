@@ -10,6 +10,7 @@ use bevy::prelude::*;
 
 use ambition_render::rendering::FeatureVisual;
 use ambition_render::spirit_field::{SpiritAura, SpiritFieldPlugin};
+use ambition_sprite_sheet::boss::BossAnimator;
 use ambition_sim_view::{BossFrameIndex, BossRenderIndex, FeatureViewIndex};
 
 /// The field reaches this many of its body's sizes from its middle.
@@ -24,7 +25,12 @@ pub fn install(app: &mut App) {
     if app.is_plugin_added::<SpiritFieldPlugin>() || app.get_sub_app(bevy::render::RenderApp).is_none() {
         return;
     }
-    app.add_plugins(SpiritFieldPlugin).add_systems(Update, reconcile_inugami_fields);
+    // An aura is given to a boss visual and taken from any visual: with no
+    // boss visual and no aura (e.g. in another game), there is no work.
+    app.add_plugins(SpiritFieldPlugin).add_systems(
+        Update,
+        reconcile_inugami_fields.run_if(any_with_component::<BossAnimator>.or_else(any_with_component::<SpiritAura>)),
+    );
 }
 
 /// Make the aura of each boss visual what its boss is now: the risen Inugami

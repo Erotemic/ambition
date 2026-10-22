@@ -69,14 +69,18 @@ pub fn install(app: &mut App) {
     app.add_systems(
         Update,
         (
+            // Each one acts on a boss visual or on its own overlay: with
+            // neither (no boss in the room, e.g. in another game), it has no work.
             (attach_flames, sync_flames, cleanup_flames)
                 .chain()
                 .in_set(BossOverlaySet)
-                .run_if(resource_exists::<Assets<FlameMaterial>>),
+                .run_if(resource_exists::<Assets<FlameMaterial>>)
+                .run_if(any_with_component::<BossAnimator>.or_else(any_with_component::<FlameOverlay>)),
             present_space
                 .in_set(SessionScopeSet::Presentation)
                 .run_if(resource_exists::<Assets<Mesh>>)
-                .run_if(resource_exists::<Assets<SpaceMaterial>>),
+                .run_if(resource_exists::<Assets<SpaceMaterial>>)
+                .run_if(any_with_component::<BossConfig>.or_else(any_with_component::<SpaceSky>)),
         ),
     );
 }

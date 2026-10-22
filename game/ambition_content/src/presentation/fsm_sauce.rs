@@ -42,7 +42,10 @@ pub fn install(app: &mut App) {
         Update,
         (attach_sauce_overlays, sync_sauce_overlays, cleanup_sauce_overlays)
             .chain()
-            .in_set(BossOverlaySet),
+            .in_set(BossOverlaySet)
+            // Each one acts on a drawn boss cell or on an overlay: with
+            // neither (no boss in the room, e.g. in another game), it has no work.
+            .run_if(any_with_component::<BossDrawnCell>.or_else(any_with_component::<SauceOverlay>)),
     );
 }
 

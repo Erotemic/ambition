@@ -76,9 +76,9 @@ pub use plugins::{
     add_presentation_plugins, add_simulation_plugins, AmbitionGamePresentationPlugin,
     AmbitionGameSimulationPlugin,
 };
-pub use resources::{
-    init_sandbox_resources, SeatsAMatchInsteadOfAHomeBody, StartRoomMustResolve, StartRoomOverride,
-    StartingCharacterOverride,
+pub use ambition_content::world_preparation::{
+    SeatsAMatchInsteadOfAHomeBody, StartRoomMustResolve, StartRoomOverride, StartingCharacterOverride,
 };
+pub use resources::init_sandbox_resources;
 pub use sim_systems::apply_player_reset_input_system;
 pub use world_flow::RoomTransitionCoverSet;

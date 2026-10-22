@@ -72,6 +72,7 @@ pub use ambition_content_pack::CandidateGeneration;
 /// The authored audio registries (music/SFX RON), registered as an App-local
 /// provider fragment.
 pub mod provider;
+pub mod world_preparation;
 // `features` (the feature-ECS actor/boss world) was promoted to
 // `ambition_platformer2d_actor_monolith::features` (lib root): machinery presentation/dev still read
 // its named bits (doc 20 B3/B4), so it stays in the sandbox lib when

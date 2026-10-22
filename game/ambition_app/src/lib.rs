@@ -32,10 +32,10 @@ static GLOBAL_ALLOCATOR: ambition_platformer2d::dev_tools::perf_probe::CountingA
 
 /// The LDtk nouns THIS composition understands.
 ///
-/// one place, because it is a composition decision. The sandbox authors only engine vocabulary,
-/// so today this is just the engine's.
+/// one place, because it is a composition decision. The world this app loads is Ambition's, and
+/// its provider prepares it, so the provider states the vocabulary.
 pub fn composed_ldtk_vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
-    ambition_platformer2d::ldtk_map::LdtkVocabulary::engine()
+    ambition_content::world_preparation::ldtk_vocabulary()
 }
 
 pub mod app;

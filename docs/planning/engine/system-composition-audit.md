@@ -270,11 +270,21 @@ Next steps, each its own commit:
   lost `tile_spine`: it was "the host has a render app", which the provider
   reads directly. Witness: the hub's render smoke capture
   (`central_hub_complex`) with the provider's install poisoned off drops
-  the LDtk systems and changes 4411 of 57600 pixels. **Still in the hub:**
-  the host world, which `init_sandbox_resources` builds from Ambition's
-  world manifest (its asset catalog, LDtk project and room set). That is
-  the K2 host-world work: the asset catalog is built before any plugin and
-  reads Ambition's registries.
+  the LDtk systems and changes 4411 of 57600 pixels. **Done 2026-10-22 for
+  the world:** Ambition's provider prepares its world before it installs
+  anything (`ambition_content::world_preparation`): the LDtk project, its
+  validation against the pack, the room set, the start room, the prepared
+  world, the active project and its hot-reload watcher, and the SFX bank
+  path. The start-room and seating requests moved with their reader; the
+  hub states a typed `--start-room` as those requests, and an App with no
+  asset catalog (a provider declaration test) gets no world. A world that
+  fails to load or validate is now a panic with the diagnostics above it,
+  where it was `exit(2)`. Witnesses: the hub's capture of Ambition's route
+  draws the hall; an unknown strict start room still panics with the room
+  list. **Still in the hub:** the asset catalog, which the hub builds from
+  Ambition's registries and world manifest before any plugin (every plugin
+  resolves paths through it). Building it from each selected game's
+  fragments is the K2 work that remains.
 - Door passages are a rule Ambition's rooms declare
   (`DeclaredRules<ZonePassageRules>`, 2026-10-21), not a hub resource the
   selection switched on.

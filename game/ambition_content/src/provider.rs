@@ -119,7 +119,8 @@ impl Plugin for AmbitionExperiencePlugin {
     fn build(&self, app: &mut App) {
         // Ambition's game is installed by its provider, as Mary-O's is by
         // hers: a hub that selects Ambition names this plugin and no other
-        // Ambition plugin.
+        // Ambition plugin. Its world first: the content's reload reads it.
+        crate::world_preparation::prepare_ambition_world(app);
         install_ambition_game(app);
         let text = ambition_content_schemas::text::lowered_ambition_text(&crate::pack::select(app.world_mut()))
             .expect("Ambition's pack states its launcher row (`data/ambition_text.ron`)");

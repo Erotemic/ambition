@@ -136,7 +136,7 @@ rl_sim = ["dep:ambition_sim_harness"]
 causal = ["ambition_platformer2d/causal"]
 headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
-dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
+dev_hot_reload = ["ambition_platformer2d/dev_hot_reload", "ambition_content/dev_hot_reload"]
 static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
 # Embed generated content RON. Rides with every build that embeds the world
 # JSON, for the same reason: no filesystem (web/Android) or no source tree

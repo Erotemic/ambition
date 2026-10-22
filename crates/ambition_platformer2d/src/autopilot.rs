@@ -40,7 +40,7 @@ use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
-use ambition_platformer2d_world::collision::{world_with_sandbox_solids, CollisionWorld, GeometryRevision};
+use ambition_platformer2d_world::collision::{CollisionWorld, GeometryRevision};
 use ambition_platformer2d_world::navigation::{FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey};
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 
@@ -349,7 +349,7 @@ pub fn drive_autopilot(
     };
     let unchanged = pilot.inputs.as_ref().is_some_and(|kept| kept.same_as(&inputs));
     if pilot.wanted.is_none() || !unchanged || pilot.body != Some(body) {
-        let world = world_with_sandbox_solids(room.base(), &[], &inputs.overlay);
+        let world = room.still_solids();
         let exits = inputs.exits.clone();
         let key = NavGraphKey::new(&world, &exits, body.spec, body.abilities, body.size, body.base_size, motion);
         // A graph not kept and not on the way is built. A build for an

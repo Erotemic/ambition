@@ -747,6 +747,15 @@ impl<'a> RoomCollision<'a> {
         )))
     }
 
+    /// The walls a body meets when nothing in the room moves: the authored
+    /// room and the still part of its overlay
+    /// ([`FeatureEcsWorldOverlay::still`]), with no moving platform. A
+    /// navigation graph is built over these.
+    pub fn still_solids(self) -> ae::World {
+        let still = self.overlay.map(FeatureEcsWorldOverlay::still).unwrap_or_default();
+        world_with_sandbox_solids(&self.geometry.0, &[], &still)
+    }
+
     /// The bare authored geometry, no overlay. For metadata / bounds / layout
     /// reads only — never for collision. Prefer `solids()` / `solids_for()`.
     /// The room's collision overlay (contributed solids, gate solids,

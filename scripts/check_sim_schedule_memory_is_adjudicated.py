@@ -181,6 +181,16 @@ ADJUDICATED: dict[str, str] = {
         "the kind of true-today sentence a later edit falsifies in silence "
         "(read 2026-09-18, found by a review 2026-09-18)"
     ),
+    # ── A LOG LATCH: decides only whether a line is printed ─────────────────
+    "publish_portal_passages": (
+        "A LOG LATCH. `rings_said` holds the portal rings each room last "
+        "reported, and its only reader is the `if` around one "
+        "`bevy::log::info!` (`ambition_portal2d/src/passages.rs:57`); it is "
+        "rewritten whole each run (`*rings_said = rings`). Nothing it holds "
+        "reaches `PortalPassages` or any rollback row: a replay prints the "
+        "line again or not, and computes the same passages either way "
+        "(read 2026-10-21)"
+    ),
     # ── SCRATCH: cleared or reset before use ────────────────────────────────
     "integrate_sim_bodies": (
         "SCRATCH. `contact_scratch` is handed to `BodyContactField::field_for`, "

@@ -365,6 +365,9 @@ record! {
     35 ally_called: bool,
     /// The run to the final hall after its transition: seconds into it.
     36 run: Option<f32>,
+    /// It is in the final hall: it ran you there and swept in. Until then it
+    /// flies the whole room.
+    37 arrived: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -607,8 +610,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let room_w = inu.room.map_or(c.hall_right + WALL, |room| room[0]);
     let east = if c.rise_x < room_w * 0.5 { 1.0 } else { -1.0 };
     let (final_lo, final_hi) = if east > 0.0 { (room_w - FINAL_W, room_w - WALL) } else { (WALL, FINAL_W) };
-    // The run and the sweep into the hall cross the room; then the hall holds it.
-    let in_final = (c.frenzied || inu.enraged) && c.run.is_none() && c.appear.is_none();
+    // The run and the sweep into the hall cross the room; then the hall holds
+    // it. ⛔ Not "it is frenzied and not running": it is frenzied from the
+    // first tick of its transition, before its run, and the hall's bounds put
+    // it 7000 px down the castle on that tick (Jon, 2026-10-22: "The head
+    // still teleports to the other side").
+    let in_final = c.arrived;
     let (lo, hi) = if in_final { (final_lo, final_hi) } else { (WALL, room_w - WALL) };
     let hall = Hall { floor, left: lo, right: hi };
     let built = Head::of_height(inu.size[1] / c.scale.max(0.1));
@@ -772,8 +779,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             c.to_y = hall.floor - h.jaws_down().0.y - h.jaws_down().1.y + h.len(SINK_PX);
                         }
                         Move::Vanish => {
-                            // Behind you: on the far side from where it was.
-                            let away = if target.x < at.x { -1.0 } else { 1.0 };
+                            // Behind you. In the final hall, on the far side
+                            // from where it was; in the chase, on the side it
+                            // hunts you from, or it came back in front of you
+                            // and flew back through you.
+                            let away = if !in_final {
+                                -east
+                            } else if target.x < at.x {
+                                -1.0
+                            } else {
+                                1.0
+                            };
                             let to = clamp(Vec2::new(target.x + away * h.len(BEHIND), target.y - h.len(OVER)));
                             c.to_x = to.x;
                             c.to_y = to.y;
@@ -900,6 +916,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if c.appear.is_some_and(|t| t >= ARRIVE_S) {
         // Over the hall: its blows land again, and it howls the fight on.
         c.appear = None;
+        c.arrived = true;
         inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
         shake(inv, SHAKE_HOWL)?;
         burst(inv, at, 40, 360.0, FIRE, "spark")?;

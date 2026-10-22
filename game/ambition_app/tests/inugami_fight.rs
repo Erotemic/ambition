@@ -110,10 +110,20 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
 
     // Hurt it past its transition: it hunts you to the final hall. It stays
     // with you while you are not there, and it comes into the hall when you do.
+    // It flies there: no tick moves it further than a fast flight does (it
+    // was put in the final hall on the tick of its transition, and flew back).
     wound(&mut sim, INUGAMI_ID, 0.45);
-    for _ in 0..60 * 4 {
+    let mut last = head(&mut sim).kin.pos;
+    let mut jump = (0.0_f32, 0usize);
+    for k in 0..60 * 4 {
         sim.step(AgentAction::default());
+        let now = head(&mut sim).kin.pos;
+        if (now - last).length() > jump.0 {
+            jump = ((now - last).length(), k);
+        }
+        last = now;
     }
+    assert!(jump.0 < MOST_IN_A_TICK, "it jumped {} px in one tick ({} ticks after its wound)", jump.0, jump.1);
     let h = head(&mut sim);
     assert!(h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_X, "it did not stay on you: {h:?}");
     sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
@@ -162,6 +172,10 @@ const FINAL_HALL_X: f32 = 8000.0;
 const FINAL_HALL_FLOOR: f32 = 880.0;
 
 /// Wound the boss `id` to `fraction` of its health.
+/// The most the head flies in one tick: its fastest run (`RUN_SPEED` times
+/// its catch up, 594 px/s) is 10 px a tick.
+const MOST_IN_A_TICK: f32 = 24.0;
+
 fn wound(sim: &mut Platformer2dSimHarness, id: &str, fraction: f32) {
     let entity = boss_entity(sim, id);
     let world = sim.world_mut();

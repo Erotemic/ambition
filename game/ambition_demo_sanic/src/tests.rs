@@ -2577,7 +2577,7 @@ fn sanic_states_its_portal_cones_for_its_own_rooms_only() {
         app.add_plugins(rules);
         app.world_mut()
             .run_system_once(
-                |rules: ambition_platformer2d::actors::session::governing_rules::GoverningRules<
+                |rules: ambition_platformer2d::combat::governing_rules::GoverningRules<
                     PortalViewConeMode,
                 >| rules.get(),
             )

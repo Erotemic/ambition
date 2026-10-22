@@ -20,7 +20,6 @@ pub mod death;
 /// The DURABLE save horizon: occurrence whereabouts, custody and runtime-minted
 /// descriptions on disk, and the load that resumes from them.
 pub mod durable_horizon;
-pub mod governing_rules;
 /// A second seat joins the session (Q153 default).
 pub mod join;
 /// Host intents (a menu press) enter the simulation on a stamped tick.

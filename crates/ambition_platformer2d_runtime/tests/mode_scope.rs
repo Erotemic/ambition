@@ -643,7 +643,7 @@ fn a_room_rule_projects_into_its_read_model_and_changes_only_with_the_answer() {
 #[test]
 fn a_rule_and_its_gate_agree_about_no_room_an_untagged_room_and_a_mode() {
     use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
-    use ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules;
+    use ambition_combat::governing_rules::GoverningRules;
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn read(app: &mut App) -> (Option<u8>, bool, Option<u16>, bool) {

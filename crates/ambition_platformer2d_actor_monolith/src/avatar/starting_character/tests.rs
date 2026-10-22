@@ -3089,7 +3089,7 @@ fn the_driven_body_wears_the_techniques_of_its_own_live_room() {
             }]),
         );
         app.add_systems(Update, gate_body_control);
-        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
         let room = if stage { hall.next() } else { hall };
         let mut frame = ActorControlFrame::neutral();
         frame.melee_pressed = true;

@@ -307,12 +307,12 @@ pub fn rebuild_control_prompt(
     // it. Undeclared (the ordinary case) is `ByMove` — the behaviour every
     // experience had before the knob existed. The subject's OWN room (OW1):
     // with two rooms live, THE live room's rules were the rules of no room.
-    naming: ambition_platformer2d_actor_monolith::session::governing_rules::RulesOf<
+    naming: ambition_combat::governing_rules::RulesOf<
         PromptNaming,
     >,
     // The techniques the subject's room's rules give the driven body, which
     // the gate also reads.
-    driven: ambition_platformer2d_actor_monolith::session::governing_rules::RulesOf<
+    driven: ambition_combat::governing_rules::RulesOf<
         ambition_characters::action_scheme::DrivenTechniques,
     >,
     mut last_driven: Local<Option<ambition_characters::action_scheme::DrivenTechniques>>,

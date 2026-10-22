@@ -63,6 +63,9 @@ bevy = { version = "0.19.1", default-features = false }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 
 [features]
+# The two-game session fixture (`governing_rules::test_fixtures`) for the
+# tests of crates that read rules per room.
+test-support = []
 # The authored-content schema this capability owns.
 content_pack = ["dep:ambition_content_pack", "dep:ron"]
 # Publish this crate's causal facts (the stock lifecycle, for now).

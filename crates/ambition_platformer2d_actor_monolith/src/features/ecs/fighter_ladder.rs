@@ -17,7 +17,7 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 /// content-generation commit and candidate adoption could apply a new
 /// ladder to fighters in the outgoing session.
 pub fn project_authored_fighter_ladder(
-    ladders: crate::session::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
+    ladders: ambition_combat::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
     mut brains: bevy::prelude::Query<(bevy::prelude::Entity, &mut Brain)>,
 ) {
     // One resolution for each room, not one for each fighter: a resolution
@@ -163,7 +163,7 @@ mod ladder_projection_tests {
             FighterBrainLadder::from_ron(&LADDER.replace("apm_cap: 60.0", "apm_cap: 30.0"))
                 .expect("the stage's ladder parses"),
         );
-        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
         app.add_systems(Update, project_authored_fighter_ladder);
         let in_hall = app.world_mut().spawn((fighter_brain(1), InRoomInstance(hall))).id();
         let on_stage = app.world_mut().spawn((fighter_brain(1), InRoomInstance(hall.next()))).id();

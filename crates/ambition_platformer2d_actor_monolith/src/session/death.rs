@@ -2,7 +2,7 @@
 //!
 //! Death opens [`DeathInterlude`] and marks the participant [`OutOfPlay`]; the
 //! interlude advances on simulation time, then the death rules that govern the
-//! dying body's live room ([`RulesOf`](crate::session::governing_rules::RulesOf)) decide
+//! dying body's live room ([`RulesOf`](ambition_combat::governing_rules::RulesOf)) decide
 //! whether the active room should replay. Body restart is owned elsewhere and
 //! clears `OutOfPlay` through the shared `BodyRestarted` observer.
 
@@ -31,7 +31,7 @@ pub fn open_death_interlude(
     mut deaths: MessageReader<ActorDiedMessage>,
     // The victim's own room's rules (OW1): with two rooms live, THE live
     // room's rules were the rules of no room.
-    rules: crate::session::governing_rules::RulesOf<DeathRules>,
+    rules: ambition_combat::governing_rules::RulesOf<DeathRules>,
     participants: Query<
         (
             Entity,
@@ -118,7 +118,7 @@ pub fn open_death_interlude(
 /// makes NSMB co-op and a one-participant platformer the same rule.
 pub fn close_death_interlude(
     // Each closing body's own room's rules (OW1).
-    rules: crate::session::governing_rules::RulesOf<DeathRules>,
+    rules: ambition_combat::governing_rules::RulesOf<DeathRules>,
     mut closing: Query<(Entity, &mut DeathInterlude)>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
     // The restore's subject. Its room is the only room a death sends back.

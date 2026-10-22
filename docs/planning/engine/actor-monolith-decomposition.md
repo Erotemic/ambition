@@ -36,9 +36,12 @@ eight above and `publication` (see K4); the `assets` and
 it, because no module in it names `publication` now. **After K5's room
 sweep (2026-10-22): seven**, `world` left it: its one `features -> world`
 reference was the room reference sweep, which moved to the world crate (see
-K5). The instrument's single-edge cuts that would shrink the component
-further are `avatar -> session` (to four), and `character_runtime ->
-avatar`, `features -> projectile` and `projectile -> avatar` (each to six).
+K5). **After K5's rules reading (2026-10-22): four**, `abilities`,
+`features`, `items`, `session`: the per-room rules reading moved beside the
+rule declarations (see K5), which took `avatar -> session` to zero and
+`avatar`, `character_runtime` and `projectile` out of the cycle. No single
+edge splits the four; the instrument reports a knot that needs a
+coordinated cut (`items <-> session` is A7's).
 The
 monolith has about 73,600 production source lines; `features` accounts for
 about 26,700 of them. Size alone is not a carve reason.
@@ -48,7 +51,7 @@ about 26,700 of them. Size alone is not a carve reason.
 | `body_whereabouts -> session` | 0 | Moved with K1 (custody adapter in the runtime transition) |
 | `construction -> session` | 0 | Moved with K2 (the selector is the room transaction's) |
 | `construction -> world` | 0 | Moved with K3 (`HeldItemId` is the held-item registry's) |
-| `avatar -> session` | 1 | Per-room rules in a generic body control gate; **HOLD** until the rules-input owner is clear |
+| `avatar -> session` | 0 | Moved with K5's rules reading: the per-room rules reading is `ambition_combat::governing_rules`, beside `scoped_rules` |
 | `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
 | `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
 | `session -> items` | 20 | Restoration coordinates item state; **KEEP_DIRECT** while item domain owns the restored values |
@@ -435,6 +438,22 @@ direction). `target_is_ignored`, which only damage reads, stayed in
 `features/ecs/damage`. No system, resource or message moved. The
 component is still eight: `projectile -> avatar` (3, a parry heal) holds
 `projectile` in it, and that is a correct write, not a misplaced helper.
+
+**Done 2026-10-22 — the rules reading.** `avatar -> session` was the
+body control gate reading `session::governing_rules::RulesOf`: which rules
+govern the live room an entity is in. Its owner is the rule declarations'
+owner, not the session. The module (`CurrentRoom`, `LiveRuleRooms`,
+`GoverningRules`, `RulesOf`) names nothing else in the monolith: it reads
+`DeclaredRules` and `ActiveRoom` (`ambition_combat::scoped_rules`), the
+world crate's rooms and shared_tangle's lifecycle, all of which
+`ambition_combat` already depends on. So it is
+`ambition_combat::governing_rules`, with its tests; its two-game session
+fixture is `governing_rules::test_fixtures` under combat's `test-support`
+feature, which the monolith's tests take as a dev-dependency. Readers in
+the monolith (avatar, features, world, session's death rules), the
+runtime, the sim view and the Smash and Sanic crates name it there. They
+are SystemParams: no system, resource or message moved. The cycle went from
+seven modules to four.
 
 **Done 2026-10-22 — the room sweep.** `features -> world` was one
 reference: room feature construction calling `RoomBindings::sweep`, which

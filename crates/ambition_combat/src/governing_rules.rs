@@ -1,8 +1,9 @@
-//! The rules that govern the active room.
+//! The rules that govern each live room: the reading of the declarations
+//! in [`crate::scoped_rules`], for the room a system or an entity is in.
 
 use bevy::prelude::*;
 
-use ambition_combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
+use crate::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
 
 /// The active room as a rule scope sees it: none, untagged, or in a mode.
 ///
@@ -191,5 +192,7 @@ impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> RulesOf<'_, '_, T> {
     }
 }
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_fixtures;
 #[cfg(test)]
-pub(crate) mod tests;
+mod tests;

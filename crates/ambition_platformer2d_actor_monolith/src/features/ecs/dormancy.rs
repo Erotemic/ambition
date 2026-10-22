@@ -61,7 +61,7 @@ pub fn assess_dormancy(
     mut commands: Commands,
     // Each actor's own room's rule (OW1): with two rooms live, THE live
     // room's rule was the rule of no room, so no actor slept.
-    rule: crate::session::governing_rules::RulesOf<DormancyRule>,
+    rule: ambition_combat::governing_rules::RulesOf<DormancyRule>,
     observers: Query<(Entity, &ae::BodyKinematics), With<ambition_characters::control::DrivingParticipant>>,
     mut actors: Query<(
         Entity,
@@ -476,7 +476,7 @@ mod tests {
                 hostile_wake_radius: RADIUS,
             },
         );
-        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
         let stage = hall.next();
         app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(

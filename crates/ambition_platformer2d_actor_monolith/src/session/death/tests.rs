@@ -114,7 +114,7 @@ fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
 
 /// Two live rooms of two games: Ambition's hall (#0) replays its level after
 /// a 1.5 s beat, and Smash's stage (#1) holds a 4 s beat and never replays.
-fn app_with_two_games_death_rules() -> (App, crate::session::governing_rules::tests::TwoRooms) {
+fn app_with_two_games_death_rules() -> (App, ambition_combat::governing_rules::test_fixtures::TwoRooms) {
     use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
     let mut app = App::new();
     app.add_message::<ActorDiedMessage>()
@@ -128,7 +128,7 @@ fn app_with_two_games_death_rules() -> (App, crate::session::governing_rules::te
             level_reset: LevelReset::Never,
         },
     );
-    let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+    let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
     (app, (hall, hall.next()))
 }
 

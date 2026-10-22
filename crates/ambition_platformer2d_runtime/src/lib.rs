@@ -88,7 +88,7 @@ pub use mode_scope::{
     project_room_rule, room_uses, ModeOwnersSpawned, ModeScopePlugin, ModeScopes, RulesScopeSet,
     ScopedSystemsAppExt,
 };
-pub use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
+pub use ambition_combat::governing_rules::CurrentRoom;
 /// The one road a host input takes into the simulation. See the module docs.
 pub use ambition_platformer2d_actor_monolith::session::host_intents;
 pub use player_schedule::PlayerSchedulePlugin;

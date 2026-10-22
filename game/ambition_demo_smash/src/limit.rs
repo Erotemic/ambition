@@ -52,7 +52,7 @@ pub fn guarding_is_the_safe_option(fill: &LimitMeterFill) -> bool {
 pub fn fill_limit_meters(
     // Each fighter's own room's fill (OW1): with two rooms live, THE live
     // room's rule was the rule of no room, and no meter filled.
-    rule: ambition_platformer2d::actors::session::governing_rules::RulesOf<SmashLimitFill>,
+    rule: ambition_platformer2d::combat::governing_rules::RulesOf<SmashLimitFill>,
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
     mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,

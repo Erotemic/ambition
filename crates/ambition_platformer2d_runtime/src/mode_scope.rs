@@ -14,7 +14,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhase, SimScheduleExt as _,
 };
-use ambition_platformer2d_actor_monolith::session::governing_rules::{CurrentRoom, GoverningRules};
+use ambition_combat::governing_rules::{CurrentRoom, GoverningRules};
 use ambition_platformer2d_shared_tangle::capability::{Capability, CapabilitySet, UsedCapabilities};
 
 /// Run condition: the active room belongs to the game mode `name`.
@@ -223,7 +223,7 @@ pub fn despawn_departed_mode_entities(
 /// change per room change. An app without `R` has no reader, and this does
 /// nothing.
 pub fn project_room_rule<T, R>(
-    rule: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<T>,
+    rule: ambition_combat::governing_rules::GoverningRules<T>,
     out: Option<ResMut<R>>,
 ) where
     T: Clone + std::fmt::Debug + Send + Sync + 'static,

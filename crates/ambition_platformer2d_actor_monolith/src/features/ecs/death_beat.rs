@@ -14,7 +14,7 @@ use ambition_combat::components::DeathBeat;
 /// kill and the body is not hidden for a frame before its death row plays.
 pub fn advance_death_beats(
     world_time: Res<ambition_time::WorldTime>,
-    rules: crate::session::governing_rules::RulesOf<Corpse>,
+    rules: ambition_combat::governing_rules::RulesOf<Corpse>,
     mut bodies: Query<(
         Entity,
         &ambition_characters::actor::BodyHealth,
@@ -22,7 +22,7 @@ pub fn advance_death_beats(
         Option<&ambition_combat::CombatCapabilities>,
     )>,
     // The kill's own beat, as the game of the body's room states it.
-    beats: crate::session::governing_rules::RulesOf<ambition_combat::KillBeat>,
+    beats: ambition_combat::governing_rules::RulesOf<ambition_combat::KillBeat>,
     tick: Option<Res<ambition_time::SimTick>>,
     mut hold: Option<ResMut<ambition_combat::impact_hitstop::ImpactHitstop>>,
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,

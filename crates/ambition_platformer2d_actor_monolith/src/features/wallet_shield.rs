@@ -33,7 +33,7 @@ pub fn project_wallet_shields(
     mut commands: Commands,
     // Each body's own room's rule (OW1): with two rooms live, THE live room's
     // rule was the rule of no room, and no wallet shielded anywhere.
-    rule: crate::session::governing_rules::RulesOf<WalletShieldRule>,
+    rule: ambition_combat::governing_rules::RulesOf<WalletShieldRule>,
     cast: ambition_characters::prepared::SessionCast,
     // Only a body that wears a character or has the shield can change: with no
     // filter the query visited every entity of the world each tick.
@@ -188,7 +188,7 @@ mod tests {
             .prepared,
         );
         app.insert_resource(cast);
-        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
         app.declare_rules(RulesScope::Mode("smash"), WalletShieldRule);
         app.add_systems(Update, project_wallet_shields);
         let bodies = [hall, hall.next()].map(|room| {

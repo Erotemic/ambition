@@ -317,7 +317,7 @@ fn governing<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &mut App) -
     use bevy::ecs::system::RunSystemOnce as _;
     app.world_mut()
         .run_system_once(
-            |rules: ambition_platformer2d::actors::session::governing_rules::GoverningRules<T>| {
+            |rules: ambition_platformer2d::combat::governing_rules::GoverningRules<T>| {
                 rules.get()
             },
         )

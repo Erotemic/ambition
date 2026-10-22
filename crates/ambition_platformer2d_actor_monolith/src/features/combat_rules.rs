@@ -33,17 +33,17 @@ use bevy::prelude::{Commands, Res};
 /// one tick where they differ.
 pub fn project_combat_rules(
     mut commands: Commands,
-    declared: crate::session::governing_rules::GoverningRules<ambition_combat::rules::CombatRules>,
+    declared: ambition_combat::governing_rules::GoverningRules<ambition_combat::rules::CombatRules>,
     // The room's line between light and heavy hits: a rule of its own, so a
     // game that declares no combat ruleset can still draw it.
-    strike_weight: crate::session::governing_rules::GoverningRules<
+    strike_weight: ambition_combat::governing_rules::GoverningRules<
         ambition_combat::strike_weight::StrikeWeightRules,
     >,
     // The room's share of each move's landing lag: a rule of its own too.
-    landing_lag: crate::session::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
+    landing_lag: ambition_combat::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
-    rule_rooms: crate::session::governing_rules::LiveRuleRooms,
+    rule_rooms: ambition_combat::governing_rules::LiveRuleRooms,
     roots: bevy::prelude::Query<
         (
             bevy::prelude::Entity,

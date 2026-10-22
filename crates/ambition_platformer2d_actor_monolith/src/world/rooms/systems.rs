@@ -119,7 +119,7 @@ pub fn detect_room_transition_system(
     talkable: crate::features::ecs::TalkableBodies,
     // A room whose game plays passages: a door or a gate starts one, and the
     // passage records the crossing when its going-in ends (`passage`).
-    passage_rules: crate::session::governing_rules::RulesOf<super::passage::ZonePassageRules>,
+    passage_rules: ambition_combat::governing_rules::RulesOf<super::passage::ZonePassageRules>,
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_sfx::SfxWriter,
 ) {

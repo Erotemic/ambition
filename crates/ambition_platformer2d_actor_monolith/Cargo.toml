@@ -457,6 +457,8 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+# The two-game session fixture the per-room rule readers' tests share.
+ambition_combat = { path = "../ambition_combat", features = ["test-support"] }
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
 ambition_items = { path = "../ambition_items", features = ["test-support"] }
 # Test the encounter/actor schedule composition without a production edge.

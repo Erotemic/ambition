@@ -67,6 +67,7 @@ pub mod room_rules;
 pub mod rules;
 mod snapshot_impls;
 pub mod scoped_rules;
+pub mod governing_rules;
 pub mod stale;
 pub mod stocks;
 /// Authoritative strike damage volumes, lifecycle state, and world-anchored

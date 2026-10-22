@@ -208,7 +208,7 @@ runs right for four seconds, finishes 1-1 at its pole (a room transition)
 and replays 1-2, and the second visit reads the same as the first. The
 two-live-room semantics (a gate opens while any live room is in its scope;
 each subject reads its own room's rules) are the unit tests in
-`ambition_platformer2d_actor_monolith/src/session/governing_rules/tests.rs`.
+`ambition_combat/src/governing_rules/tests.rs`.
 A session is one game, so the shipped hub has no two live rooms of
 different games to test end to end.
 

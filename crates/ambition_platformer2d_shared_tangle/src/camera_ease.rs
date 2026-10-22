@@ -52,6 +52,11 @@ pub struct CameraEaseState {
     /// centre and eases it to zero, so the camera moves to the new zone and
     /// does not jump to it.
     pub zone_handover_world: ae::Vec2,
+    /// How fast the handover changes, world units a second. The handover is
+    /// a critically damped spring, and this is its velocity: it starts at
+    /// zero, so the camera does not set off at full speed when a zone lets it
+    /// go.
+    pub zone_handover_velocity: ae::Vec2,
 }
 
 /// How fast the presented observer roll follows its reference frame.
@@ -98,6 +103,7 @@ impl Default for CameraEaseState {
             live_zone: None,
             live_center_world: None,
             zone_handover_world: ae::Vec2::ZERO,
+            zone_handover_velocity: ae::Vec2::ZERO,
         }
     }
 }

@@ -274,3 +274,69 @@ fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
     }
     assert!(before - hp(&mut sim) >= 8, "a full charge from 160 px took {} from him", before - hp(&mut sim));
 }
+
+/// The camera on the chase's route, from the throne room through the gallery,
+/// up the stair tower, along the battlements and into the final hall: the
+/// player is carried along it at a run's pace, and the camera's centre is read
+/// each tick (Jon, 2026-10-22: "the cameras have weird issues with going into
+/// an out of arenas").
+#[test]
+fn the_camera_follows_the_chase_route_without_a_whip() {
+    let mut sim = arena();
+    let route = [
+        ae::Vec2::new(900.0, 2180.0),
+        ae::Vec2::new(4700.0, 2180.0),
+        ae::Vec2::new(4700.0, 820.0),
+        ae::Vec2::new(9200.0, 820.0),
+    ];
+    const PACE: f32 = 300.0;
+    let body = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        q.single(world).expect("the player")
+    };
+    let mut rows = Vec::new();
+    for leg in route.windows(2) {
+        let (a, b) = (leg[0], leg[1]);
+        let ticks = ((b - a).length() / PACE * 60.0).ceil() as usize;
+        let vel = (b - a).normalize() * PACE;
+        for k in 0..ticks {
+            let at = a + (b - a) * (k as f32 / ticks as f32);
+            {
+                let world = sim.world_mut();
+                let mut kin = world.get_mut::<ae::BodyKinematics>(body).expect("a body");
+                kin.pos = at;
+                kin.vel = vel;
+            }
+            sim.step(AgentAction::default());
+            let world = sim.world_mut();
+            let view = ambition_platformer2d::sim_view::the_only_view(world);
+            let snap = world
+                .entity(view)
+                .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+                .and_then(|s| s.frame())
+                .map(|f| f.snapshot.clone());
+            if let Some(snap) = snap {
+                rows.push((at, snap.center_world));
+            }
+        }
+    }
+    assert!(rows.len() > 1000, "the camera was framed on {} ticks of the route", rows.len());
+    // The camera does not jerk: the step it takes in a tick changes by little
+    // from one tick to the next, also where a zone hands it on.
+    let mut jerk = (0.0_f32, 0usize);
+    for (i, three) in rows.windows(3).enumerate() {
+        let change = ((three[2].1 - three[1].1) - (three[1].1 - three[0].1)).length();
+        if change > jerk.0 {
+            jerk = (change, i + 2);
+        }
+    }
+    // Before the handover was a spring, the camera went from still to 38
+    // units a tick on leaving the throne room's arena.
+    assert!(
+        jerk.0 < 12.0,
+        "the camera's step changed by {:.1} units in one tick at {:?}",
+        jerk.0,
+        rows[jerk.1].0
+    );
+}

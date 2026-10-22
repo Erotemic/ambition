@@ -12,6 +12,10 @@
 //! or in the air by its flight map), with the input a person would give, and
 //! the policy presses Interact there.
 //!
+//! A cutscene that plays on a room's entry (the hub's boot line from the
+//! Warden) holds the body until its line is dismissed: the policy presses
+//! Confirm, as a person would.
+//!
 //! What it does not do: talk (a conversation reads the menu input, which no
 //! script drives), fight, or pick up. It is a load, not a playthrough.
 
@@ -52,7 +56,8 @@ pub const ITINERARY: [Stop; 4] = [
     Stop { room: "central_hub_complex", way: Way::Fly, cross: false },
 ];
 
-/// Frames between two presses of Interact at a door.
+/// Frames between two presses of Interact at a door, or of Confirm in a
+/// cutscene.
 const PRESS_EVERY: u32 = 20;
 /// Frames the body may spend in one room on its way before the policy gives
 /// that stop up and takes the next.
@@ -93,6 +98,7 @@ pub fn play_ambition(
     autopilot: Option<Res<Autopilot>>,
     rooms: Option<LiveRoomSpecs>,
     players: Query<(Entity, &ae::BodyKinematics), With<PrimaryPlayer>>,
+    cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
 ) {
     let Ok((entity, kin)) = players.single() else {
         *order = AutopilotOrder::Idle;
@@ -104,6 +110,15 @@ pub fn play_ambition(
     };
     let it = &mut *itinerary;
     it.frames_since_press = it.frames_since_press.saturating_add(1);
+    if cutscene.is_some_and(|cutscene| cutscene.is_playing()) {
+        *order = if it.frames_since_press >= PRESS_EVERY {
+            it.frames_since_press = 0;
+            AutopilotOrder::Press(ControlFrame { confirm_pressed: true, ..ControlFrame::default() })
+        } else {
+            AutopilotOrder::Idle
+        };
+        return;
+    }
     it.frames_in_room = it.frames_in_room.saturating_add(1);
     if it.room.as_deref() != Some(room.id.as_str()) {
         it.room = Some(room.id.clone());

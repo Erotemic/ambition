@@ -39,6 +39,26 @@ fn crouched(anim: CharacterAnim) -> bool {
     matches!(anim, CharacterAnim::Crouch | CharacterAnim::CrouchWalk | CharacterAnim::Crawl)
 }
 
+/// How long a crouched body takes to go down onto its hands when it moves,
+/// and to come back up into its crouch when it stops.
+pub const CRAWL_SECS: f32 = 0.15;
+
+/// The row of the way down from the crouch into the crawl: its first frame is
+/// the crouch, its last the crawl. Backward, it is the way back up.
+const CRAWL_CLIP: &str = "crawl_start";
+
+/// The poses of a body that moves in its crouch.
+fn crawling(anim: CharacterAnim) -> bool {
+    matches!(anim, CharacterAnim::CrouchWalk | CharacterAnim::Crawl)
+}
+
+/// How long a body that stops walking or running draws its `walk_stop` row,
+/// slaved to this time.
+pub const STOP_SECS: f32 = 0.2;
+
+/// The row of a stop.
+const STOP_CLIP: &str = "walk_stop";
+
 /// The row of a look up.
 const LOOK_UP_CLIP: &str = "idle_look_up";
 
@@ -110,6 +130,16 @@ pub struct BodyPoseView {
     /// body stands up. A body that stands still or crouches still between 0
     /// and 1 is drawn in the `crouch_start` row at this fraction.
     pub crouch: f32,
+    /// How far down onto its hands a crouched body is, 0 to 1: it rises over
+    /// [`CRAWL_SECS`] while the body moves in its crouch and falls as fast
+    /// when it stops. Between 0 and 1 the body is drawn in the `crawl_start`
+    /// row at this fraction. The crouch holds while this is above 0, so a
+    /// body that stands up from a crawl comes up through its crouch.
+    pub crawl: f32,
+    /// Seconds since the body stopped walking or running on the ground, and
+    /// `f32::INFINITY` before any stop. The first [`STOP_SECS`] of a stand
+    /// are drawn in the `walk_stop` row.
+    pub stop_secs: f32,
     /// Where in its climb row a body on a ladder is, 0 to 1. It moves with the
     /// distance the body climbs ([`CLIMB_CYCLE_PX`] a cycle), so a body that
     /// holds still on a ladder holds still in its picture.
@@ -321,6 +351,8 @@ impl Default for BodyPoseView {
             turn_secs: f32::INFINITY,
             look_up: 0.0,
             crouch: 0.0,
+            crawl: 0.0,
+            stop_secs: f32::INFINITY,
             climb_phase: 0.0,
             wall_secs: f32::INFINITY,
             // A body with no pose yet is playing no move.
@@ -631,17 +663,40 @@ pub fn rebuild_body_pose_views(
         } else {
             0.0
         };
+        // The crawl goes down onto the hands while the crouched body moves,
+        // and comes up into the crouch when it stops or stands.
+        let crawl = if crawling(anim) {
+            let before = pose.as_deref().map_or(0.0, |before| before.crawl);
+            if free { (before + dt / CRAWL_SECS).min(1.0) } else { 1.0 }
+        } else if free && matches!(anim, CharacterAnim::Crouch | CharacterAnim::Idle) {
+            let before = pose.as_deref().map_or(0.0, |before| before.crawl);
+            (before - dt / CRAWL_SECS).max(0.0)
+        } else {
+            0.0
+        };
         // The crouch goes down while the body crouches and comes up when it
-        // stands. A move that crouches is in its crouch at once; any other
-        // pose is out of it at once.
+        // stands, after the crawl is up. A move that crouches is in its crouch
+        // at once; any other pose is out of it at once.
         let crouch = if crouched(anim) {
             let before = pose.as_deref().map_or(0.0, |before| before.crouch);
             if free { (before + dt / CROUCH_SECS).min(1.0) } else { 1.0 }
         } else if free && anim == CharacterAnim::Idle {
             let before = pose.as_deref().map_or(0.0, |before| before.crouch);
-            (before - dt / CROUCH_SECS).max(0.0)
+            if crawl > 0.0 { before } else { (before - dt / CROUCH_SECS).max(0.0) }
         } else {
             0.0
+        };
+        // The stop: the body stood after it walked or ran.
+        let stop_secs = match pose.as_deref() {
+            Some(before)
+                if free
+                    && anim == CharacterAnim::Idle
+                    && matches!(before.anim, CharacterAnim::Walk | CharacterAnim::Run) =>
+            {
+                0.0
+            }
+            Some(before) => before.stop_secs + dt,
+            None => f32::INFINITY,
         };
         // The climb row moves with the distance climbed.
         let climb_phase = {
@@ -665,6 +720,8 @@ pub fn rebuild_body_pose_views(
             turn_secs,
             look_up,
             crouch,
+            crawl,
+            stop_secs,
             climb_phase,
             wall_secs,
             roll_angle: roll.map_or(0.0, |r| r.angle),
@@ -678,7 +735,7 @@ pub fn rebuild_body_pose_views(
                 .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()).over_legs(legs))
                 .or_else(|| {
                     // A row slaved to a fraction of the body's own: the turn,
-                    // the crouch, the look up, the climb. A sheet with none of these rows
+                    // the crawl, the crouch, the stop, the look up, the climb. A sheet with none of these rows
                     // draws the body's own pose.
                     let slaved = |clip: &str, phase: f32| crate::ClipRequest {
                         clip: clip.to_string(),
@@ -689,11 +746,19 @@ pub fn rebuild_body_pose_views(
                     if turning {
                         Some(slaved(TURNAROUND_CLIP, turn_secs / TURN_SECS))
                     } else if free
+                        && 0.0 < crawl
+                        && crawl < 1.0
+                        && (crouched(anim) || anim == CharacterAnim::Idle)
+                    {
+                        Some(slaved(CRAWL_CLIP, crawl))
+                    } else if free
                         && 0.0 < crouch
                         && crouch < 1.0
                         && matches!(anim, CharacterAnim::Crouch | CharacterAnim::Idle)
                     {
                         Some(slaved(CROUCH_CLIP, crouch))
+                    } else if free && anim == CharacterAnim::Idle && stop_secs < STOP_SECS && look_up == 0.0 {
+                        Some(slaved(STOP_CLIP, stop_secs / STOP_SECS))
                     } else if look_up > 0.0 {
                         Some(slaved(LOOK_UP_CLIP, look_up))
                     } else if free && anim == CharacterAnim::LadderClimb {

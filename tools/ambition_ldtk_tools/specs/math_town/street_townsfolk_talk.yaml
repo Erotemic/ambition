@@ -1,0 +1,19 @@
+# Euclid Street's six townsfolk speak the dialogues their placements name.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/math_town/street_townsfolk_talk.yaml \
+#       --ldtk game/ambition_content/assets/worlds/math.ldtk --in-place
+level_id: math_town_street
+edits:
+  - target: { iid: NpcSpawn-208035 }
+    fields: { dialogue_id: "peggy" }
+  - target: { iid: NpcSpawn-208036 }
+    fields: { dialogue_id: "victor" }
+  - target: { iid: NpcSpawn-208037 }
+    fields: { dialogue_id: "data_lovelace" }
+  - target: { iid: NpcSpawn-208039 }
+    fields: { dialogue_id: "olivia" }
+  - target: { iid: NpcSpawn-208040 }
+    fields: { dialogue_id: "leib_knives" }
+  - target: { iid: NpcSpawn-208041 }
+    fields: { dialogue_id: "hypatia_prime" }

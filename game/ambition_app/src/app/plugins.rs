@@ -505,7 +505,12 @@ fn install_fx_and_hud_systems(app: &mut App) {
         Update,
         (
             update_hud,
-            ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay,
+            // A named boss's bar: asleep where no live room's game has one.
+            ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay.in_set(
+                ambition_platformer2d::platformer::capability::CapabilityPresentationSet(
+                    ambition_platformer2d::platformer::capability::Capability::BossEncounters,
+                ),
+            ),
             // It is now CHAINED after the input in one plugin, which those two never were here.
             ambition_platformer2d::render::cutscene::sync_cutscene_ui,
             // Keeps the overlay in the reading rect as the layout moves; the

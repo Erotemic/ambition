@@ -37,7 +37,12 @@ pub fn install(app: &mut App) {
     if !app.is_plugin_added::<VoidFieldPlugin>() && app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(VoidFieldPlugin);
     }
-    app.add_systems(Update, (drain_around_finishing_bosses, show_finish_bars));
+    // A finish is a named boss's: asleep where no live room's game has one,
+    // after the frame that takes the drain and the bars away.
+    app.add_systems(
+        Update,
+        (drain_around_finishing_bosses, show_finish_bars).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+    );
 }
 
 /// Give each boss visual in its finish the drain about it, and take it away

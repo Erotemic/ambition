@@ -39,24 +39,6 @@ pub struct CameraEaseState {
     /// state. `WorldFixed` views are unaffected because their target roll is
     /// identically zero — which is every camera Ambition currently ships.
     pub live_observer_roll: Option<f32>,
-    /// The camera zone of the last resolve: its index in the zones of the room,
-    /// `None` outside each zone. A change of room starts the state again, so
-    /// an index is not compared across two rooms.
-    pub live_zone: Option<usize>,
-    /// The centre the last resolve presented. `None` until the first resolve.
-    pub live_center_world: Option<ae::Vec2>,
-    /// What is left of the step that a change of zone made in the centre.
-    ///
-    /// A zone changes the clamp, the lock and the offset of the camera in one
-    /// tick, AFTER the ease of the target. The resolver adds this to the
-    /// centre and eases it to zero, so the camera moves to the new zone and
-    /// does not jump to it.
-    pub zone_handover_world: ae::Vec2,
-    /// How fast the handover changes, world units a second. The handover is
-    /// a critically damped spring, and this is its velocity: it starts at
-    /// zero, so the camera does not set off at full speed when a zone lets it
-    /// go.
-    pub zone_handover_velocity: ae::Vec2,
 }
 
 /// How fast the presented observer roll follows its reference frame.
@@ -100,10 +82,6 @@ impl Default for CameraEaseState {
             target_initialized: false,
             scroll_watermark_x: None,
             live_observer_roll: None,
-            live_zone: None,
-            live_center_world: None,
-            zone_handover_world: ae::Vec2::ZERO,
-            zone_handover_velocity: ae::Vec2::ZERO,
         }
     }
 }

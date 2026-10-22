@@ -126,8 +126,41 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     assert!(jump.0 < MOST_IN_A_TICK, "it jumped {} px in one tick ({} ticks after its wound)", jump.0, jump.1);
     let h = head(&mut sim);
     assert!(h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_X, "it did not stay on you: {h:?}");
-    sim.teleport_player((FINAL_HALL_X + 800.0, FINAL_HALL_FLOOR - 40.0));
-    step_until(&mut sim, 60 * 8, "it to come into the final hall after you", |sim| {
+    // You run the route to the final hall (carried along it at a run), and it
+    // hunts you there on its own wings, along your scent: no sweep, no
+    // teleport, and nowhere it is held (Jon, 2026-10-22: "there is a spot that
+    // the head cant actually pass on the way to the final arena").
+    let body = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        q.single(world).expect("the player")
+    };
+    let route = [
+        ae::Vec2::new(1700.0, 2130.0),
+        ae::Vec2::new(4960.0, 2130.0),
+        ae::Vec2::new(4960.0, 840.0),
+        ae::Vec2::new(FINAL_HALL_X + 800.0, 840.0),
+    ];
+    let mut last = head(&mut sim).kin.pos;
+    let mut jump = 0.0_f32;
+    for leg in route.windows(2) {
+        let (a, b) = (leg[0], leg[1]);
+        let ticks = ((b - a).length() / 260.0 * 60.0).ceil() as usize;
+        for i in 0..ticks {
+            {
+                let world = sim.world_mut();
+                let mut kin = world.get_mut::<ae::BodyKinematics>(body).expect("a body");
+                kin.pos = a + (b - a) * (i as f32 / ticks as f32);
+                kin.vel = (b - a).normalize() * 260.0;
+            }
+            sim.step(AgentAction::default());
+            let now = head(&mut sim).kin.pos;
+            jump = jump.max((now - last).length());
+            last = now;
+        }
+    }
+    assert!(jump < MOST_IN_A_TICK, "it jumped {jump} px in one tick on its run");
+    step_until(&mut sim, 60 * 15, "it to come into the final hall after you", |sim| {
         let h = head(sim);
         h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X && h.view.is_some_and(|v| v.performing.is_some())
     });

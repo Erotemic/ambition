@@ -150,8 +150,13 @@ const DIVE_HIGH: f32 = 440.0;
 /// THE FINAL HALL: the last `FINAL_W` of its room the way it chases you,
 /// where the fight is finished (phase 2 and the enrage).
 const FINAL_W: f32 = 1600.0;
-/// Its transition: its fire flares and it howls.
+/// Its transition: its fire flares and it howls for `FLARE_S`, then it
+/// crashes through the arena's wall on the way out (Jon, 2026-10-22: "maybe
+/// when he enrages he crashes into a wall so you can do the run and chase").
+/// It goes at the wall at `CRASH_SPEED`, and the wall breaks when the
+/// encounter's second phase starts (the wall's `boss.past_first_phase`).
 const FLARE_S: f32 = 0.5;
+const CRASH_SPEED: f32 = 1300.0;
 /// THE RUN. When you have hurt it enough (its transition), it hunts you to
 /// the final hall (Jon, 2026-10-21: "There is also no chase sequence, when you
 /// beat him after the first part (24/48 health) he just kinda disappears and
@@ -164,13 +169,25 @@ const FLARE_S: f32 = 0.5;
 /// middle over `ARRIVE_S`, howling, and the fight goes on there.
 const RUN_GAP: f32 = 90.0;
 const RUN_OVER: f32 = 40.0;
+/// It hunts over the floor, its bottom this far over your feet: a head of
+/// its size that kept to your height dragged along the floor and was held
+/// on a 48 px step at the throne room's door and under the battlements'
+/// floor at the top of the tower (measured, 2026-10-22).
+const RUN_CLEAR: f32 = 64.0;
 const RUN_SPEED: f32 = 270.0;
 const RUN_CATCH_UP: f32 = 2.2;
 const RUN_FAR: f32 = 520.0;
 const RUN_FIRE_EVERY_S: f32 = 3.0;
-/// You are in the final hall this far past its door.
-const RUN_HOME: f32 = 60.0;
+/// It howls over the final hall for this long when it comes into it.
 const ARRIVE_S: f32 = 1.1;
+/// THE SCENT. It hunts you along where you went, not in a straight line at
+/// you: a straight line held it 10 s in the stair tower's top corner, under
+/// the battlements' floor (measured, 2026-10-22). It is a hunting dog. A point
+/// of your feet every `SCENT_STEP` you go, the last `SCENT_MAX` of them; it
+/// has a point when it is within `SCENT_REACH` of it.
+const SCENT_STEP: f32 = 48.0;
+const SCENT_MAX: u32 = 96;
+const SCENT_REACH: f32 = 40.0;
 
 const BITE_REACH: f32 = 560.0;
 const BITE_DAMAGE: i32 = 2;
@@ -251,10 +268,17 @@ const SFX_HOWLS: [(f32, &str); 3] =
     [(1.08, "boss.inugami.howl"), (1.22, "boss.inugami.howl_large"), (f32::INFINITY, "boss.inugami.howl_giant")];
 
 /// Every cue it plays: each must have a recipe, or it plays silence.
-pub const SOUNDS: [&str; 10] = [
+pub const SOUNDS: [&str; 11] = [
     SFX_HOWLS[0].1, SFX_HOWLS[1].1, SFX_HOWLS[2].1, SFX_BITE, SFX_DART, SFX_SLAM, SFX_FLING, SFX_VANISH, SFX_GUTTER,
-    SFX_CATCH,
+    SFX_CATCH, SFX_STING,
 ];
+
+/// The theremin of his march, as the seam round his neck pops: the cue that
+/// something is wrong with the head (Jon, 2026-10-22). Iron Toccata comes in
+/// when the head tears off (`music_intro_from` of its encounter).
+const SFX_STING: &str = "boss.inugami.unsewn_sting";
+/// The first stitch pops this long into his `unsewn` row (frame 4 of 14, 80 ms).
+const FIRST_STITCH: f32 = 0.28;
 
 /// The howl for a head built at `scale` times its build.
 pub fn howl_cue(scale: f32) -> &'static str {
@@ -357,7 +381,7 @@ record! {
     31 scale: f32,
     /// Its size when it died: it shrinks from it to his head's.
     32 dying_scale: f32,
-    /// Coming back in the final hall: seconds into it.
+    /// Its howl when it comes into the final hall: seconds into it.
     33 appear: Option<f32>,
     /// Kagero: seconds you have been in the final hall with it, and whether
     /// it has called her (once).
@@ -365,9 +389,14 @@ record! {
     35 ally_called: bool,
     /// The run to the final hall after its transition: seconds into it.
     36 run: Option<f32>,
-    /// It is in the final hall: it ran you there and swept in. Until then it
-    /// flies the whole room.
+    /// It is in the final hall: it ran you there, on its own wings. Until
+    /// then it flies the whole room.
     37 arrived: bool,
+    /// Its crash into the arena's wall has hit the wall.
+    38 crashed: bool,
+    /// Your scent while it hunts you: where your feet were, a point every
+    /// `SCENT_STEP`, oldest first. It flies along it (`hunt_goal`).
+    39 scent: Vec<[f32; 2]> [max SCENT_MAX],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -610,11 +639,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let room_w = inu.room.map_or(c.hall_right + WALL, |room| room[0]);
     let east = if c.rise_x < room_w * 0.5 { 1.0 } else { -1.0 };
     let (final_lo, final_hi) = if east > 0.0 { (room_w - FINAL_W, room_w - WALL) } else { (WALL, FINAL_W) };
-    // The run and the sweep into the hall cross the room; then the hall holds
-    // it. ⛔ Not "it is frenzied and not running": it is frenzied from the
-    // first tick of its transition, before its run, and the hall's bounds put
-    // it 7000 px down the castle on that tick (Jon, 2026-10-22: "The head
-    // still teleports to the other side").
+    // The run crosses the room; then the hall holds it. ⛔ Not "it is
+    // frenzied and not running": it is frenzied from the first tick of its
+    // transition, before its run, and the hall's bounds put it 7000 px down
+    // the castle on that tick (Jon, 2026-10-22: "The head still teleports to
+    // the other side").
     let in_final = c.arrived;
     let (lo, hi) = if in_final { (final_lo, final_hi) } else { (WALL, room_w - WALL) };
     let hall = Hall { floor, left: lo, right: hi };
@@ -636,6 +665,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         )
     };
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
+    // The arena's wall on its way out, as it is measured under it now (the
+    // gate stands in it until the second phase): it crashes into it, its face
+    // against the wall.
+    let walls = inu.hall.map_or((hall.left, hall.right), |w| (w.left, w.right));
+    let crash_at = |at: Vec2| Vec2::new(if east > 0.0 { walls.1 - half.x } else { walls.0 + half.x }, at.y);
+    // Your feet, under the box it tracks.
+    let feet = inu.target_body.as_ref().map_or(target.y + 24.0, |b| b.position[1] + b.size[1] * 0.5);
     // Where it rises from: his head, at his head's size, followed until it
     // tears off; or where it was placed, at its own size.
     let before_rise = !c.woke && c.intro.is_none_or(|t| t < rise_at(&inu));
@@ -841,8 +877,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if t >= FLARE_S && t - dt < FLARE_S {
             burst(inv, at, 30, 320.0, FIRE_CORE, "spark")?;
         }
+        // It meets the arena's wall: stone and fire, and a slam.
+        if t >= FLARE_S && !c.crashed && (crash_at(at) - at).x.abs() < 2.0 {
+            c.crashed = true;
+            let face = Vec2::new(at.x + east * half.x, at.y);
+            play(inv, SFX_SLAM, face)?;
+            burst(inv, face, 40, 380.0, DUST, "dust")?;
+            burst(inv, face, 24, 300.0, FIRE, "spark")?;
+            shake(inv, SHAKE_DIVE * 1.5)?;
+        }
         c.rearing = Some(t);
     } else if c.rearing.take().is_some() {
+        // The wall is down (the second phase): through the gap after you.
         // It comes after you: the run to the final hall.
         inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.0, card: 0.0 })?;
         inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
@@ -850,19 +896,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── The run: it hunts you to the final hall ──
-    let home = target.x >= final_lo + RUN_HOME && target.x <= final_hi;
+    // It comes into the hall on its own wings, after you: if you are there
+    // first, it is still hunting you there (Jon, 2026-10-22: "if you get to the
+    // final arena before he does he just teleports there, that is no good").
+    let head_home = at.x - half.x >= final_lo && at.x + half.x <= final_hi;
     if let Some(t) = c.run {
         let t = t + dt;
-        if home {
-            // You are in the hall: it sweeps past you to its middle.
+        if head_home {
+            // In the hall: it howls over it, and the fight goes on there.
             c.run = None;
+            c.arrived = true;
             c.appear = Some(0.0);
-            c.from_x = at.x;
-            c.from_y = at.y;
-            c.to_x = (final_lo + final_hi) * 0.5;
-            // Over you (you stand in the hall; the floor under it may be
-            // another part of the castle's).
-            c.to_y = target.y - h.len(HOVER_DY) - 40.0;
             play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 30, 320.0, FIRE, "spark")?;
         } else {
@@ -879,7 +923,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Kagero comes to your aid, once, in the final hall ──
-    if c.frenzied && !c.ally_called && !inu.between_phases && c.appear.is_none() {
+    if c.arrived && !c.ally_called && !inu.between_phases && c.appear.is_none() {
         if target.x >= final_lo && target.x <= final_hi {
             c.ally_wait = Some(c.ally_wait.map_or(0.0, |t| t + dt));
         }
@@ -991,13 +1035,39 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // It tumbles on past you, slowing.
             at + along * (MISS_DRIFT / MISS_S) * (1.0 - t / MISS_S).max(0.0) * dt
         }
-        None if c.rearing.is_some() => at,
-        None if c.appear.is_some() => from + (to - from) * ease(c.appear.unwrap_or(0.0) / ARRIVE_S),
-        None if c.run.is_some() => {
+        None if c.rearing.is_some() => {
+            // It flares where it is, then goes at the wall.
             side = east;
-            let goal = Vec2::new(target.x - east * RUN_GAP, target.y - RUN_OVER + bob);
+            if c.rearing.is_some_and(|t| t < FLARE_S) {
+                at
+            } else {
+                let goal = crash_at(at);
+                let step = goal - at;
+                let stride = CRASH_SPEED * dt;
+                if step.length() > stride { at + step.normalize() * stride } else { goal }
+            }
+        }
+        None if c.appear.is_some() => at,
+        None if c.run.is_some() => {
+            // Your scent: where your feet were, and the head over them.
+            let over = |p: Vec2| Vec2::new(p.x, p.y - RUN_CLEAR - half.y);
+            if c.scent.last().is_none_or(|last| Vec2::from(*last).distance(Vec2::new(target.x, feet)) >= SCENT_STEP) {
+                if c.scent.len() >= SCENT_MAX as usize {
+                    c.scent.remove(0);
+                }
+                c.scent.push([target.x, feet]);
+            }
+            // It has the points it has come to.
+            while c.scent.first().is_some_and(|p| over(Vec2::from(*p)).distance(at) < SCENT_REACH) {
+                c.scent.remove(0);
+            }
+            // On your heels it closes behind you; else it runs your scent.
+            let behind = Vec2::new(target.x - east * RUN_GAP, (target.y - RUN_OVER).min(feet - RUN_CLEAR - half.y) + bob);
+            let heels = c.scent.len() <= 2;
+            let goal = if heels { behind } else { over(Vec2::from(c.scent[0])) };
+            side = if goal.x < at.x { -1.0 } else { 1.0 };
             let step = goal - at;
-            let speed = RUN_SPEED * if step.length() > RUN_FAR { RUN_CATCH_UP } else { 1.0 };
+            let speed = RUN_SPEED * if !heels && c.scent.len() as f32 * SCENT_STEP > RUN_FAR { RUN_CATCH_UP } else { 1.0 };
             let stride = speed * dt;
             clamp(if step.length() > stride { at + step.normalize() * stride } else { goal })
         }
@@ -1092,6 +1162,10 @@ fn rise(
     let was = t - dt;
     let crossed = |s: f32| t >= s && was < s;
     inv.submit::<BossStagePort>(rise_stage_at(t, start))?;
+    let sting = if inu.predecessor.is_some() { wolfenstein::UNSEW_AT + FIRST_STITCH } else { 0.0 };
+    if crossed(sting) {
+        play(inv, SFX_STING, from)?;
+    }
     if t < start {
         set_scale(c, inv, c.rise_scale)?;
         return held_at(inv, at, from, side, ("unseen", 0.0, true), dt);
@@ -1127,7 +1201,8 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
         return span("rekindle", 0.0, 6.0, 0.06, t / REKINDLE_S);
     }
     if let Some(t) = c.rearing {
-        return ("howl", t, false);
+        // It flares and howls, then goes at the wall jaws first.
+        return if t < FLARE_S { ("howl", t, false) } else { span("bite", 0.0, 8.0, 0.05, 0.35) };
     }
     if let Some(t) = c.appear {
         // It sweeps into the hall, then howls over it.

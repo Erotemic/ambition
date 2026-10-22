@@ -5,10 +5,13 @@
 // Behaviour lives in `assets/data/boss_profiles.ron`; the conductor is
 // `ambition_content_modules::inugami`.
 //
-// Music: silence while it rises (its howl is a sound, not music), then
-// `iron_toccata` for the whole fight, the chase and the final hall (Jon,
-// 2026-10-22: "the wolf howl should be an sfx not music, and we need to give
-// the fight actual music. We can use Iron Toccata for now").
+// Music: silence while it waits in his body. As the seam round his neck pops,
+// the theremin of his own march (a sting: `boss.inugami.unsewn_sting`, played
+// by the conductor) cues that something is wrong with the head; when the head
+// tears off, `iron_toccata` comes in under the rest of the rise and plays the
+// whole fight (Jon, 2026-10-22: "I did like the theramin to cue the player
+// into something being up with the head, but we should also probably start
+// iron toccata a bit sooner", then "When it tears off").
 (
     id: "wolfenstein_inugami",
     name: "Inugami",
@@ -19,10 +22,15 @@
     // his body while his death plays out, his head tears off, the fire catches
     // and it howls under its name.
     intro_seconds: 9.9,
-    // The chase ends here: it flares, vanishes, and comes back in the hall
-    // at the end of the gallery.
-    transition_seconds: 1.2,
-    music_intro: "",
+    // It flares and howls, then crashes through the arena's wall on the way
+    // out (`ambition_content_modules::inugami`, `FLARE_S`, `CRASH_SPEED`): the
+    // wall breaks when its second phase starts, and it hunts you to the final
+    // hall through the gap.
+    transition_seconds: 2.4,
+    music_intro: "iron_toccata",
+    // His head tears off this long after the Inugami wakes, which is when he
+    // dies: `ambition_content_modules::wolfenstein::HEAD_OFF_AT` (7.26 s).
+    music_intro_from: 7.26,
     music_phase1: "iron_toccata",
     music_phase2: "iron_toccata",
     music_enrage: "iron_toccata",

@@ -17,8 +17,8 @@ use bevy::ecs::entity::Entity;
 use bevy::prelude::{Commands, Resource};
 
 use super::transaction;
-use crate::features::{self, RoomFeatureConstructionPlan};
-use crate::construction::placements::PlacementLoweringRegistry;
+use ambition_platformer2d_actor_monolith::features::{self, RoomFeatureConstructionPlan};
+use ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
@@ -126,7 +126,7 @@ pub(crate) fn construct_room_candidate(
     session_scope: SessionSpawnScope,
     stamp: Option<RoomCommitStamp>,
     predicted: Option<BTreeSet<String>>,
-    facts: crate::publication::CommitFactsSource,
+    facts: crate::CommitFactsSource,
 ) {
     let plan = plan.clone();
     commands.queue(move |world: &mut bevy::prelude::World| {
@@ -138,16 +138,16 @@ pub(crate) fn construct_room_candidate(
         let facts = match facts {
             // Read HERE, on the world this commit lands in — not with the
             // plan, which a replay commits again after the save has moved.
-            crate::publication::CommitFactsSource::TheWorldAtTheCommit => {
-                crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
+            crate::CommitFactsSource::TheWorldAtTheCommit => {
+                ambition_platformer2d_actor_monolith::construction::PersistedFates::of_world(world).with_scheduled_returns(
                     features::ecs::world_time_schedule::remaining_scheduled_returns(world),
                 )
             }
             // ⛔ NOT THE WORLD. The session of this room is not live yet, so
             // the save and the schedule in the world are another session's.
-            crate::publication::CommitFactsSource::Stated(facts) => facts,
-            crate::publication::CommitFactsSource::AfterTheRestore(key) => {
-                crate::session::checkpoint::prospective_commit_fates(world, key)
+            crate::CommitFactsSource::Stated(facts) => facts,
+            crate::CommitFactsSource::AfterTheRestore(key) => {
+                ambition_platformer2d_actor_monolith::session::checkpoint::prospective_commit_fates(world, key)
             }
         };
         let receipt = {
@@ -349,7 +349,7 @@ impl RoomConstructionPlan {
     pub fn respawn_authoritative_entity(
         &self,
         commands: &mut Commands,
-        facts: &crate::construction::PersistedFates,
+        facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates,
         authored_id: &str,
     ) -> bool {
         self.features
@@ -362,7 +362,7 @@ impl RoomConstructionPlan {
     pub fn respawn_authoritative_sim_id(
         &self,
         commands: &mut Commands,
-        facts: &crate::construction::PersistedFates,
+        facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates,
         sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> bool {
         self.features
@@ -397,7 +397,7 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         retention: transaction::PublicationRetention,
-        facts: crate::publication::CommitFactsSource,
+        facts: crate::CommitFactsSource,
     ) -> transaction::PublicationHandle {
         let publication = transaction::begin_publication(
             commands,
@@ -421,7 +421,7 @@ impl RoomConstructionPlan {
         publication: transaction::PublicationHandle,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        facts: crate::publication::CommitFactsSource,
+        facts: crate::CommitFactsSource,
     ) {
         // The room declares what it will rebuild before it creates candidates.
         transaction::open(commands, publication, &self.features, session_scope);
@@ -527,7 +527,7 @@ impl RoomConstructionPlan {
         arrival: Option<transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
-        restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
+        restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
     ) -> transaction::PublicationHandle {
         self.stage_live_world(
             commands,
@@ -581,7 +581,7 @@ impl RoomConstructionPlan {
         arrival: Option<transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
-        restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
+        restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
         held: bool,
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
@@ -640,7 +640,7 @@ impl RoomConstructionPlan {
                 scope,
                 None,
                 Some(BTreeSet::new()),
-                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
+                crate::CommitFactsSource::TheWorldAtTheCommit,
             );
             transaction::close(commands, publication, &nothing, scope);
         } else {
@@ -651,8 +651,8 @@ impl RoomConstructionPlan {
                 commands,
                 scope,
                 match restore {
-                    Some(key) => crate::publication::CommitFactsSource::AfterTheRestore(key),
-                    None => crate::publication::CommitFactsSource::TheWorldAtTheCommit,
+                    Some(key) => crate::CommitFactsSource::AfterTheRestore(key),
+                    None => crate::CommitFactsSource::TheWorldAtTheCommit,
                 },
             );
         }
@@ -730,7 +730,7 @@ mod tests {
                         },
                     );
                 definition.vitals.max_health = Some(4);
-                let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+                let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
                     definition,
                     &ambition_characters::prepared::CharacterBindings::default(),
                 );
@@ -741,7 +741,7 @@ mod tests {
     }
 
     fn prepare(spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
-        let recipes = crate::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
@@ -767,7 +767,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "portal")]
     #[test]
     fn portal_gun_is_a_capability_owned_construction_lane() {
         let mut spec = empty_spec("portal-lane");
@@ -809,7 +808,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
+                crate::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -830,7 +829,7 @@ mod tests {
             .is_some());
         assert!(
             app.world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .published,
             "all typed construction lanes must verify before RoomLoaded",
         );
@@ -848,7 +847,7 @@ mod tests {
         cast: &ambition_characters::prepared::PreparedCharacterRegistry,
         epoch: ae::ContentEpoch,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
-        let recipes = crate::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
@@ -887,7 +886,7 @@ mod tests {
                 rest: None,
             });
         }
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -1052,7 +1051,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
+                crate::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1066,7 +1065,7 @@ mod tests {
         // unexpected or legacy would appear here.
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>();
+            .resource::<crate::LastConstructionVerification>();
         assert!(
             verification.published,
             "the giant room publishes: {:?}",
@@ -1151,7 +1150,7 @@ mod tests {
                 }]
             })
             .expect("stager registers");
-        let recipes = crate::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let plan = RoomConstructionPlan::prepare_spec(
@@ -1202,7 +1201,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
+                crate::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.update();
@@ -1333,7 +1332,7 @@ mod tests {
                 }]
             })
             .expect("stager registers");
-        let recipes = crate::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
@@ -1617,7 +1616,7 @@ mod tests {
             );
             let published = app
                 .world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .published;
             (published, app.world().get_entity(predecessor).is_ok())
         }
@@ -1702,7 +1701,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             verification.published,
@@ -1777,7 +1776,7 @@ mod tests {
             stage_the_candidate(&mut app, candidate_plan(), outgoing);
             let published = app
                 .world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .published;
             (published, live_world(&mut app) == before)
         };
@@ -1830,7 +1829,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1910,7 +1909,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1977,7 +1976,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2027,7 +2026,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2317,7 +2316,7 @@ mod tests {
         );
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(!verification.published, "control: a room pinned to an identity already minted published");
         assert!(
@@ -2383,7 +2382,7 @@ mod tests {
             stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
             let verification = app
                 .world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .clone();
             (verification.published, app.world().get_entity(body).is_ok())
         };
@@ -2441,7 +2440,7 @@ mod tests {
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
             let published = app
                 .world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .published;
             let mut bodies = rooms_of_planned_roots(&mut app);
             bodies.sort();
@@ -2542,7 +2541,7 @@ mod tests {
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
             let verification = app
                 .world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .clone();
             let mut bodies = rooms_of_planned_roots(&mut app);
             bodies.sort();
@@ -2550,7 +2549,7 @@ mod tests {
                 .expect("the session keeps its room set")
                 .next_live_room();
             // Who holds each live room after the publication: (room, slots).
-            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = crate::world::rooms::residency::live_room_claims_in(app.world_mut())
+            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = ambition_platformer2d_actor_monolith::world::rooms::residency::live_room_claims_in(app.world_mut())
                 .into_iter()
                 .map(|(room, claims)| (room, claims.iter().map(|claim| claim.slot.0).collect()))
                 .collect();
@@ -2668,7 +2667,7 @@ mod tests {
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
         let plan_of = |index: usize, spec: RoomSpec| {
-            let recipes = crate::construction::engine_construction_registry();
+            let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
             let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
             let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
             RoomConstructionPlan::prepare_spec(
@@ -2729,7 +2728,7 @@ mod tests {
             .expect("the staging system runs");
             let verification = app
                 .world()
-                .resource::<crate::publication::LastConstructionVerification>()
+                .resource::<crate::LastConstructionVerification>()
                 .clone();
             (verification.published, verification.staged_violations, live_room_definitions(&mut app))
         };
@@ -2787,7 +2786,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2828,7 +2827,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2865,7 +2864,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::publication::LastConstructionVerification>()
+            .resource::<crate::LastConstructionVerification>()
             .clone();
         assert!(verification.published, "{verification:?}");
         assert_eq!(
@@ -2937,7 +2936,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
+                crate::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -2987,7 +2986,7 @@ mod tests {
         index: usize,
         remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
-        let recipes = crate::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let mut construction =
@@ -3023,7 +3022,7 @@ mod tests {
             .iter()
             .find(|entity| entity.sim_id() == sim_id)
             .map(|entity| match entity.parameters() {
-                crate::construction::ActorConstructionParams::GroundItem { spec, .. } => spec.pos,
+                ambition_platformer2d_actor_monolith::construction::ActorConstructionParams::GroundItem { spec, .. } => spec.pos,
                 other => {
                     panic!("the planned row is not the ground item it was authored as: {other:?}")
                 }

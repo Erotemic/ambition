@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::publication;
+use ambition_platformer2d::publication;
 use ambition_platformer2d::platformer::lifecycle::RoomResident;
 use ambition_platformer2d::world::rooms as world_rooms;
 
@@ -368,7 +368,7 @@ fn stage_held_live_room(
 /// The violations a room's last verification recorded, for a status line.
 fn verification_reasons(world: &World, room: &str) -> Vec<String> {
     world
-        .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+        .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
         .filter(|verification| verification.room_id == room)
         .map(|verification| {
             verification
@@ -584,7 +584,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     } else {
         candidate_content.with_epoch(epochs.allocate())
     };
-    let live_binding = ambition_platformer2d::actors::publication::ActiveContentBinding::content(
+    let live_binding = ambition_platformer2d::publication::ActiveContentBinding::content(
         prepared_content.epoch(),
         // ⭐ THE PEER HALF, FROM THE SAME VALUE THAT CARRIES THE EPOCH.
         // `PreparedContent` exposes `epoch()` and `fingerprint()` side by side,
@@ -968,7 +968,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // apply, which is after `transaction::close` has recorded the first room's
     // verdict. It is one exclusive call, so no system runs between two rooms.
     commands.queue(move |world: &mut bevy::prelude::World| {
-        use ambition_platformer2d::actors::publication as held;
+        use ambition_platformer2d::publication as held;
         if !held::publication_is_held(world, publication) {
             held::retire_publication(world, publication);
             report_status(world, false, None);

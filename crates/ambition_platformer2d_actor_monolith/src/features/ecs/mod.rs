@@ -156,11 +156,13 @@ pub use spawn::{
     OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
-// ⛔ The room construction boundary and the receipt it produces are consumed by
-// the room verdict, both inside this crate. No consumer outside it.
-pub(crate) use spawn::{
-    spawn_room_feature_entities_from_plan, spawn_runtime_minion, summon_cast, RoomFeatureConstructionReceipt,
-};
+pub(crate) use spawn::{spawn_runtime_minion, summon_cast};
+// ⛔ The room construction boundary and the receipt it produces are consumed
+// only by the room coordinator (`ambition_platformer2d_publication`), which
+// spawns a plan inside a publication transaction and verifies the receipt.
+// The absence contract `only-the-room-coordinator-spawns-a-room-plan` keeps
+// every other crate off it.
+pub use spawn::{spawn_room_feature_entities_from_plan, RoomFeatureConstructionReceipt};
 // ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
 // is unchanged (`features::apply_summon_effects`) — the schedule in
 // `ambition_platformer2d_runtime` and an ordering in `ambition_demo_smash` both

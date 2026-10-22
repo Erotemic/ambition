@@ -72,7 +72,12 @@ def strip_inline_test_modules(text: str) -> str:
         i = j + 1
 
 
-FILE_LEVEL_TEST = re.compile(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", re.MULTILINE)
+#: `#![cfg(test)]`, or `#![cfg(any(test, feature = "test-support"))]` for a
+#: fixture file another crate's tests share: neither ships.
+FILE_LEVEL_TEST = re.compile(
+    r'^\s*#!\[\s*cfg\s*\(\s*(?:test|any\s*\(\s*test\s*,\s*feature\s*=\s*"test-support"\s*\))\s*\)\s*\]',
+    re.MULTILINE,
+)
 
 
 def is_file_level_test(path: Path) -> bool:
@@ -136,7 +141,7 @@ def count_lines(path: Path) -> int:
 
 def measure() -> tuple[dict[str, int], dict[str, int], dict[str, collections.Counter]]:
     mods = modules()
-    prod = {m: sum(count_lines(f) for f in fs if not is_test_file(f)) for m, fs in mods.items()}
+    prod = {m: sum(count_lines(f) for f in fs if not (is_test_file(f) or is_file_level_test(f))) for m, fs in mods.items()}
     total = {m: sum(count_lines(f) for f in fs) for m, fs in mods.items()}
     edges: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
     aliases = root_aliases(mods)

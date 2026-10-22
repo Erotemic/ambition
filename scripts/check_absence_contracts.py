@@ -45,6 +45,29 @@ class SentinelLockfileStale(RuntimeError):
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "only-the-room-coordinator-spawns-a-room-plan",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/features/",
+            ":(exclude)crates/ambition_platformer2d_publication/",
+        ],
+        "patterns": [
+            r"\b(spawn_room_feature_entities_from_plan|RoomFeatureConstructionReceipt|verify_committed_construction)\b",
+        ],
+        "reason": (
+            "A ROOM PLAN IS SPAWNED ONLY INSIDE A PUBLICATION TRANSACTION. Until "
+            "2026-10-22 the spawn, its receipt and the verify step were `pub(crate)` "
+            "in the actor monolith, and the room coordinator was their one caller. "
+            "K4 moved the coordinator to its own crate "
+            "(`ambition_platformer2d_publication`), so the compiler can no longer "
+            "say who may call them: this contract does. A caller outside the "
+            "coordinator spawns a room's features with no candidate root, no "
+            "baseline and no verdict, and the room publishes nothing it can check."
+        ),
+    },
+    {
         "id": "only-the-collision-world-composes-collision",
         "paths": [
             "crates/",
@@ -117,7 +140,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "examples/",
             ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
             ":(exclude)crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+            ":(exclude)crates/ambition_platformer2d_publication/src/stage.rs",
         ],
         "patterns": [
             r"construction::(hide_candidate_session_root|hide_candidate_session_entity)\(",
@@ -150,7 +173,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "examples/",
             ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
+            ":(exclude)crates/ambition_platformer2d_publication/src/transaction.rs",
             ":(exclude)crates/ambition_platformer2d_provider/src/lifecycle.rs",
         ],
         "patterns": [

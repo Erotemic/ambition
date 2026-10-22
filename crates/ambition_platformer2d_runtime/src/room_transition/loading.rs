@@ -16,7 +16,7 @@ use ambition_load::{
     BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection, LoadCoordinator,
     LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
-use ambition_platformer2d_actor_monolith::publication;
+use ambition_platformer2d_publication as publication;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent;
@@ -619,7 +619,7 @@ pub fn begin_room_transition_load_system(
     // skip this system where the binding is legitimately absent.
     active_binding: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_actor_monolith::publication::ActiveContentBinding,
+            ambition_platformer2d_publication::ActiveContentBinding,
         >,
     >,
     // The set, and which room of it each live room is. The room a crossing
@@ -1395,7 +1395,7 @@ pub fn begin_room_transition_load_system(
                     // it mints is stamped with it. Stating nothing left two
                     // peers at different prepared content projecting the same
                     // `TransactionId`.
-                    ambition_platformer2d_actor_monolith::publication::ActiveContentBinding::live_or(
+                    ambition_platformer2d_publication::ActiveContentBinding::live_or(
                         active_binding.as_deref().map(|binding| &**binding),
                         // ⚠ And the transition-local counter is what a fixture
                         // with no session binding has to name, nothing more: it

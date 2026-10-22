@@ -427,11 +427,11 @@ impl<'a> ActorConstructionContext<'a> {
 
 /// Inspectable receipt for the authoritative roots scheduled by one feature plan.
 ///
-/// ⛔ `pub(crate)`: it is produced by the room construction boundary and consumed
-/// by the verdict, both inside this crate. MEASURED 2026-09-15 — no consumer
-/// outside it, in production or test.
+/// ⛔ Produced only by [`spawn_room_feature_entities_from_plan`] (its fields are
+/// private, so no other road can make one) and consumed by the room
+/// coordinator's verdict (`ambition_platformer2d_publication`).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RoomFeatureConstructionReceipt {
+pub struct RoomFeatureConstructionReceipt {
     authoritative_ids: BTreeSet<String>,
     construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
     capability_lanes: capability_lanes::CapabilityReceipts,
@@ -950,13 +950,13 @@ impl RoomFeatureConstructionPlan {
     /// itself against the shared baseline. A lane accessor exists so a test can
     /// prove an identity lives in one lane and not another — which is a claim
     /// only a test makes, and the reason these were dead code in every build.
-    #[cfg(all(test, feature = "portal"))]
-    pub(crate) fn portal_construction(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
+    #[cfg(all(any(test, feature = "test-support"), feature = "portal"))]
+    pub fn portal_construction(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
         self.capability_lanes.portal()
     }
 
-    #[cfg(test)]
-    pub(crate) fn gravity_construction(
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn gravity_construction(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan
     {
@@ -1002,7 +1002,7 @@ impl RoomFeatureConstructionPlan {
     ///
     /// ⚠ `debug_assert_binding` checks the lanes share a content BINDING, which
     /// is a different fact and is why it did not catch this.
-    pub(crate) fn construction_transactions(
+    pub fn construction_transactions(
         &self,
         session: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
     ) -> Vec<ambition_platformer2d_shared_tangle::construction::TransactionId> {
@@ -1015,7 +1015,7 @@ impl RoomFeatureConstructionPlan {
     ///
     /// ⛔ What `transaction::open` declares it is RECONSTRUCTING. See that
     /// function for the measurement that nothing declared anything at all.
-    pub(crate) fn planned_sim_ids(
+    pub fn planned_sim_ids(
         &self,
     ) -> BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let mut all: BTreeSet<_> = self.construction.planned_ids().into_iter().collect();
@@ -1023,7 +1023,7 @@ impl RoomFeatureConstructionPlan {
         all
     }
 
-    pub(crate) fn construction_binding(
+    pub fn construction_binding(
         &self,
     ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {
         // ⛔ THE EXPECTED-LIVE ONE: this feeds `transaction::close`'s staleness
@@ -1038,7 +1038,7 @@ impl RoomFeatureConstructionPlan {
     /// Verify every independently typed construction lane against the same
     /// pre-transaction baseline. The room transaction owns publication; each
     /// lane keeps its own parameter, service, and postcondition vocabulary.
-    pub(crate) fn verify_committed_construction(
+    pub fn verify_committed_construction(
         &self,
         receipt: &RoomFeatureConstructionReceipt,
         baseline: &ambition_platformer2d_shared_tangle::construction::TransactionBaseline,
@@ -1092,7 +1092,7 @@ impl RoomFeatureConstructionPlan {
     /// This room's plan with nothing in it, for a crossing that joins a live
     /// room already built (OW1 cut 6e). The transactions are the same, so
     /// the publication verifies an empty roster against them.
-    pub(crate) fn emptied(&self) -> Self {
+    pub fn emptied(&self) -> Self {
         Self {
             room: self.room.clone(),
             content_requests: Vec::new(),
@@ -1231,7 +1231,7 @@ impl RoomFeatureConstructionPlan {
     ///
     /// A feature plan is one participant in a room transaction, not the transaction, so it
     /// cannot know when the room is complete. The bracket lives with the outer artifact that
-    /// does — see [`crate::publication::transaction`].
+    /// does — see `ambition_platformer2d_publication::transaction`.
     /// ⛔ EVERY ROOT, IN EVERY LANE, IS AN INACTIVE CANDIDATE. There is no way to
     /// ask for anything else: a room whose construction rows were hidden while
     /// its capability lanes went live is a half-visible scene, which is the state
@@ -1306,7 +1306,7 @@ impl RoomFeatureConstructionPlan {
     }
 }
 
-pub(crate) fn spawn_room_feature_entities_from_plan(
+pub fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,

@@ -32,7 +32,7 @@ pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefu
 /// An absent receipt means no candidates were built and publication fails.
 #[derive(Component)]
 pub(crate) struct PendingConstructionReceipt(
-    pub(crate) crate::features::RoomFeatureConstructionReceipt,
+    pub(crate) ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionReceipt,
 );
 
 /// Read the opening decision before constructing a room.
@@ -86,11 +86,11 @@ pub enum CommitFactsSource {
     /// A value that the caller states. For the first room of a session that is
     /// built from the save of its own experience
     /// (`session::durable_horizon::CandidateSave`).
-    Stated(crate::construction::PersistedFates),
+    Stated(ambition_platformer2d_actor_monolith::construction::PersistedFates),
     /// The world at the commit, as the consequences of this checkpoint
     /// restore will leave it (`session::checkpoint::prospective_commit_fates`).
     /// Those consequences run only when the room's publication is accepted.
-    AfterTheRestore(crate::session::checkpoint::CheckpointOperationKey),
+    AfterTheRestore(ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey),
 }
 
 /// The lifetime of a publication receipt.
@@ -419,7 +419,7 @@ pub(crate) struct PendingWorldReplacement {
     /// The checkpoint restore this publication is, if it is one. When the
     /// verdict accepts the room, its consequences run before anything of the
     /// old room is retired (`session::checkpoint::run_restore_consequences`).
-    restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
+    restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
     /// The verdict waits for the owner of a sequence of publications. A room
     /// that passes its check promotes nothing until the owner commits it
     /// ([`commit_held_publication`]) or refuses it
@@ -607,7 +607,7 @@ impl PendingWorldReplacement {
     }
 
     /// This publication is checkpoint restore `restore`.
-    pub(crate) fn restoring(mut self, restore: Option<crate::session::checkpoint::CheckpointOperationKey>) -> Self {
+    pub(crate) fn restoring(mut self, restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>) -> Self {
         self.restore = restore;
         self
     }
@@ -1014,7 +1014,7 @@ pub(crate) fn apply_world_replacement(
         let mut commands = bevy::prelude::Commands::new(&mut queue, world);
         for (entity, is_physics) in &pending.outgoing {
             if *is_physics {
-                crate::world::physics::retire_physics_entity(&mut commands, *entity);
+                ambition_platformer2d_actor_monolith::world::physics::retire_physics_entity(&mut commands, *entity);
             } else {
                 // `try_despawn`: the outgoing roster was collected before this
                 // frame's commands flushed, so an entity in it can already have
@@ -1415,7 +1415,7 @@ pub struct LastConstructionVerification {
 pub(crate) fn open(
     commands: &mut Commands,
     publication: PublicationHandle,
-    plan: &crate::features::RoomFeatureConstructionPlan,
+    plan: &ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
 ) {
     let planned = plan.planned_sim_ids();
@@ -1593,7 +1593,7 @@ pub(crate) fn open(
 pub(crate) fn close(
     commands: &mut Commands,
     publication: PublicationHandle,
-    plan: &crate::features::RoomFeatureConstructionPlan,
+    plan: &ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
 ) {
     let plan = plan.clone();
@@ -1792,7 +1792,7 @@ fn promote_and_finalize(
         .get::<PendingWorldReplacement>(publication.0)
         .and_then(|pending| pending.restore);
     if let Some(key) = restore {
-        crate::session::checkpoint::run_restore_consequences(world, key);
+        ambition_platformer2d_actor_monolith::session::checkpoint::run_restore_consequences(world, key);
     }
     let admitted: usize = transactions
         .iter()
@@ -1859,7 +1859,7 @@ fn promote_and_finalize(
 fn verify_and_publish(
     world: &mut World,
     publication: PublicationHandle,
-    plan: &crate::features::RoomFeatureConstructionPlan,
+    plan: &ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
 ) {
     // ⛔⛤ **WHAT THIS PUBLICATION IS ABOUT IS READ OFF THE PUBLICATION.** The

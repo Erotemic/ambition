@@ -19,6 +19,7 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
     "headless",
     "input",
 ] }
+ambition_platformer2d_publication = { path = "../ambition_platformer2d_publication" }
 # `WorldItemSimulationPlugin`, composed beside `ItemPickupSimulationPlugin`
 # above so neither item domain registers the other.
 ambition_world_items = { path = "../ambition_world_items" }

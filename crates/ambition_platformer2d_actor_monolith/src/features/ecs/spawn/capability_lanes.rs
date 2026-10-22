@@ -413,7 +413,7 @@ impl CapabilityLanes {
     /// built something. It asks for the roster, and each lane verifies itself
     /// against the shared baseline. A lane accessor exists so a test can prove an
     /// identity lives in one lane and not another — a claim only a test makes.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn gravity(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan
@@ -421,7 +421,7 @@ impl CapabilityLanes {
         &self.gravity
     }
 
-    #[cfg(all(test, feature = "portal"))]
+    #[cfg(all(any(test, feature = "test-support"), feature = "portal"))]
     pub(crate) fn portal(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
         &self.portal
     }

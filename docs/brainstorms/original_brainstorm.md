@@ -923,3 +923,25 @@ an identification of space, so maybe that is treated differently in lore.
 
 
 Chained portals might be an interesting puzzle component. 
+
+
+----
+
+For Wolfenstein, we could do an Inugami-themed secondary boss: a spectral wolf
+head chasing you. That would also let us add spectral hounds as on theme enemy
+characters.
+
+---
+
+Cantor should say to infinity and beyond.
+
+---
+
+A Reddit post I made, which I think should inform some of the direction of the
+game:
+
+I'm proudly making a game with AI, even if it invites backlash. Because I want to prove that a single developer with AI can make a quality game if they don't rush it. The progress I've seen over the past few months has been astounding.
+
+I think the backlash is stemming from a vocal uninformed minority.
+
+The tricky part is that there are real problems with LLMs, and by saying words like "proudly" and "uninformed", that doesn't do enough justice to those real issues. But I think I need to first state the counter-case firmly before I dive into the real nuance. There are real problems around energy usage, power centralization, the proliferation of competent workers following the orders of bad-faith actors, the flood of low-effort content, and more. I'm hoping to explore these ideas in my game. 

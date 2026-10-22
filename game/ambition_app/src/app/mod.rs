@@ -6,14 +6,12 @@
 //!
 //! * [`AmbitionGameSimulationPlugin`] — all sim resources + systems; safe for
 //!   headless and visible builds.
-//! * [`AmbitionGameLdtkRuntimePlugin`] — LDtk runtime spine + `LdtkPlugin`; visible only.
 //! * [`AmbitionGamePresentationPlugin`] — input, audio, VFX, HUD, debug; visible only.
 //!
 //! ## Function API (lower-level)
 //!
 //! * [`init_sandbox_resources`] — parse + validate LDtk world, insert resources.
 //! * [`add_simulation_plugins`] — register sim plugins and update schedule.
-//! * [`add_ldtk_runtime_plugin`] — register LDtk runtime.
 //! * [`add_presentation_plugins`] — register presentation systems.
 //!
 //! Use the function API when you need to inject resources between steps
@@ -30,7 +28,6 @@ mod hud;
 #[cfg(not(feature = "static_content"))]
 pub mod movement_defaults_watch;
 pub mod hub_games;
-mod ldtk_clean;
 mod phases;
 mod player_tick;
 mod plugins;
@@ -76,8 +73,8 @@ pub use hud::update_quest_panel;
 pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
-    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins,
-    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
+    add_presentation_plugins, add_simulation_plugins, AmbitionGamePresentationPlugin,
+    AmbitionGameSimulationPlugin,
 };
 pub use resources::{
     init_sandbox_resources, SeatsAMatchInsteadOfAHomeBody, StartRoomMustResolve, StartRoomOverride,

@@ -1,5 +1,6 @@
 //! Plugins that connect the LDtk runtime spine to the Bevy app.
 //!
+//! `LdtkRuntimePlugin` installs the LDtk runtime of a game painted in LDtk.
 //! `AmbitionLdtkRegistrationPlugin` registers the entity bundle and markers so
 //! bevy_ecs_ldtk spawns Ambition entities. `LdtkRuntimeSpinePlugin` adds the
 //! index-rebuild system. `sync_plugin_spawned_ambition_entities` attaches
@@ -7,13 +8,58 @@
 //! `components`, the rebuild system in `systems`.
 
 use bevy::prelude::{
-    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut,
+    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Startup, Update,
 };
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntityAppExt};
 
 use super::components::{AmbitionLdtkEntity, AmbitionLdtkMarkerBundle};
 use super::indices::LdtkRuntimeSpineStats;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+/// The LDtk runtime of a game whose rooms are painted in LDtk: `LdtkPlugin`,
+/// the entity registrations, a handle per world file of the manifest, and
+/// each live room's painted levels at its own origin.
+///
+/// Needs a `RenderApp`: `bevy_ecs_tilemap`, inside `LdtkPlugin`, panics
+/// without one. A game's provider adds it where the host has one.
+///
+/// Nothing in the simulation reads the entities it spawns: collision and
+/// placements come from the world IR the LDtk backend converts into
+/// (ADR 0021), which a host with no render app builds the same way.
+pub struct LdtkRuntimePlugin;
+
+impl Plugin for LdtkRuntimePlugin {
+    fn build(&self, app: &mut App) {
+        use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
+        app.add_plugins(bevy_ecs_ldtk::prelude::LdtkPlugin);
+        super::clean::install(app);
+        app.insert_resource(LdtkSettings {
+            // The engine renders the rooms; bevy_ecs_ldtk owns the level and
+            // entity lifecycle without also drawing a background rectangle
+            // behind every level.
+            level_background: LevelBackground::Nonexistent,
+            // bevy_ecs_ldtk's default `IntGridRendering::Colorful` spawns a
+            // colored tile sprite per non-zero IntGrid cell when no tileset
+            // is configured (1004 sprites for central_hub_main alone). Those
+            // tiles render in raw LDtk world-pixel coordinates from
+            // `LdtkWorldBundle`'s default transform, while the compose path
+            // (`int_grid_value_to_block` → `spawn_block`) renders in the
+            // centered Bevy frame via `world_to_bevy`. The two frames disagree
+            // by ~half-room-width on x, so the plugin's IntGrid output appeared
+            // as a duplicated, horizontally-shifted copy of the room. Collision
+            // comes from the world IR, not from these cells.
+            int_grid_rendering: IntGridRendering::Invisible,
+            ..Default::default()
+        });
+        app.add_plugins(AmbitionLdtkRegistrationPlugin)
+            .add_systems(Startup, super::asset::load_ldtk_asset_handle)
+            .add_systems(
+                Update,
+                super::asset::present_ldtk_levels_per_live_room
+                    .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+            );
+    }
+}
 
 pub struct AmbitionLdtkRegistrationPlugin;
 

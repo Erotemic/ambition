@@ -260,11 +260,21 @@ Next steps, each its own commit:
   (where the host selected a rollback backend) and, where the renderer's
   presentation is installed, `AmbitionPresentationPlugin` and the item art.
   Every composition that selects Ambition adds the provider, after the
-  engine plugins, as Mary-O's and Sanic's hosts add theirs. **Still in the
-  hub:** the host world, which `init_sandbox_resources` builds from
-  Ambition's world manifest (its asset catalog, LDtk project and room set),
-  and `AmbitionGameLdtkRuntimePlugin`. Those are the K2 host-world work: the
-  asset catalog is built before any plugin and reads Ambition's registries.
+  engine plugins, as Mary-O's and Sanic's hosts add theirs. **Done
+  2026-10-21 for the LDtk runtime:** `ambition_platformer2d_ldtk`'s
+  `LdtkRuntimePlugin` (`LdtkPlugin`, its settings, the respawn-clean
+  workaround that was the hub's `ldtk_clean`, the entity registrations, a
+  handle per world file and each live room's painted levels) is installed
+  by Ambition's provider where the host has a render app, with Ambition's
+  startup collection. The hub names no LDtk type, and `VisibleGameSpec`
+  lost `tile_spine`: it was "the host has a render app", which the provider
+  reads directly. Witness: the hub's render smoke capture
+  (`central_hub_complex`) with the provider's install poisoned off drops
+  the LDtk systems and changes 4411 of 57600 pixels. **Still in the hub:**
+  the host world, which `init_sandbox_resources` builds from Ambition's
+  world manifest (its asset catalog, LDtk project and room set). That is
+  the K2 host-world work: the asset catalog is built before any plugin and
+  reads Ambition's registries.
 - Door passages are a rule Ambition's rooms declare
   (`DeclaredRules<ZonePassageRules>`, 2026-10-21), not a hub resource the
   selection switched on.

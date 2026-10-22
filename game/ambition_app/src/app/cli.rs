@@ -1156,12 +1156,6 @@ pub fn build_visible_app_with(
         &mut app,
         super::visible_composition::VisibleGameSpec {
             shell_hosted,
-            // bevy_ecs_tilemap (inside LdtkPlugin) requires a RenderApp, which
-            // the `backends: None` no-window recipe deliberately omits. Ambition's
-            // own room visuals are ordinary sprites and still draw; only the
-            // painted LDtk tile spine is absent in that mode, and the session
-            // LDtk roots guard on the asset registry so nothing dangles.
-            tile_spine: !matches!(render, VisibleRenderMode::NoWindow),
             startup_loading_curtain: direct_windowed,
             asset_config,
         },

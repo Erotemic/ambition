@@ -9,9 +9,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-use super::plugins::{
-    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
-};
+use super::plugins::{AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin};
 
 /// The few genuine choices a platform host makes about the game it composes.
 ///
@@ -29,13 +27,6 @@ pub struct VisibleGameSpec {
     /// `--direct` and every `--start-room` alias mean. Renaming it would touch
     /// 33 call sites to restate a boolean whose two values are unchanged.
     pub shell_hosted: bool,
-    /// Whether to install the LDtk runtime — the painted tile spine.
-    ///
-    /// `false` only for hosts that have no render app to draw it into:
-    /// `bevy_ecs_tilemap` (inside `LdtkPlugin`) requires a `RenderApp`, and the
-    /// `backends: None` no-window recipe deliberately omits one. Ambition's own
-    /// room visuals are ordinary sprites and still draw without it.
-    pub tile_spine: bool,
     /// Whether to hold gameplay behind the opaque boot curtain
     /// (`InitialGameplayReadiness::closed()` + the direct startup reveal).
     ///
@@ -61,9 +52,6 @@ impl VisibleGameSpec {
             // screen, the same one a desktop player sees. `--direct` is a
             // development entry and a browser has no command line to pass it on.
             shell_hosted: true,
-            // A canvas is a real render surface with a real RenderApp, so the
-            // painted LDtk tile spine has somewhere to go.
-            tile_spine: true,
             // The boot curtain hides a desktop compositor showing stale pixels
             // behind a window that exists before its first frame. A canvas has
             // no such window, and `web/index.html` owns the page's own loading
@@ -138,16 +126,9 @@ pub fn compose_ambition_visible_game(
     // plugin builds, which is the deadline every composition input has.
     compose_inputs(app);
 
-    // The LDtk runtime draws Ambition's world; the other games do not use it.
-    if spec.tile_spine && super::hub_games::installs("ambition") {
-        app.add_plugins((
-            AmbitionGameSimulationPlugin,
-            AmbitionGameLdtkRuntimePlugin,
-            AmbitionGamePresentationPlugin,
-        ));
-    } else {
-        app.add_plugins((AmbitionGameSimulationPlugin, AmbitionGamePresentationPlugin));
-    }
+    // The LDtk runtime that paints Ambition's world is Ambition's provider's
+    // to install, where the host has a render app to paint into.
+    app.add_plugins((AmbitionGameSimulationPlugin, AmbitionGamePresentationPlugin));
 
     // K2b: the shell host is composed EITHER WAY, and the mode only
     // decides which route it boots into. Direct entry stops being a second way

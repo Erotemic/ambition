@@ -169,6 +169,19 @@ fn install_ambition_game(app: &mut App) {
     if !app.is_plugin_added::<crate::AmbitionContentPlugin>() {
         app.add_plugins(crate::AmbitionContentPlugin);
     }
+    // Ambition's rooms are painted in LDtk. The painting needs a render app
+    // (`bevy_ecs_tilemap` panics without one); with none, the rooms still
+    // draw their own sprites.
+    #[cfg(feature = "ldtk_runtime")]
+    if app.get_sub_app(bevy::render::RenderApp).is_some()
+        && !app.is_plugin_added::<ambition_platformer2d_ldtk::LdtkRuntimePlugin>()
+    {
+        use bevy_asset_loader::asset_collection::AssetCollectionApp;
+        app.add_plugins(ambition_platformer2d_ldtk::LdtkRuntimePlugin);
+        // After `LdtkPlugin`: the collection holds a typed LDtk handle, so the
+        // LDtk asset type must be registered before the handles are made.
+        app.init_collection::<ambition_platformer2d_actor_monolith::assets::loading::Platformer2dStartupAssets>();
+    }
     // Yarn compiles its project through the asset server; an App with no
     // asset server (a provider declaration test) gets no dialogue runtime.
     #[cfg(feature = "ui")]

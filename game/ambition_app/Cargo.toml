@@ -164,7 +164,8 @@ android = [
 ]
 android_dev = ["android", "dev_tools"]
 
-ldtk_runtime = ["ambition_platformer2d/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+# The LDtk runtime that paints Ambition's world: its provider installs it.
+ldtk_runtime = ["ambition_platformer2d/ldtk_runtime", "ambition_content/ldtk_runtime"]
 audio = [
     "ambition_platformer2d/audio",
     "ambition_content/audio",
@@ -215,8 +216,6 @@ ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional 
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "bevy_dev_tools"] }
 bevy_common_assets = { version = "0.17", features = ["ron"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
-bevy_asset_loader = { version = "0.27", optional = true }
-bevy_ecs_ldtk = { version = "0.15", optional = true }
 bevy-inspector-egui = { version = "0.37", optional = true }
 bevy_kira_audio = { version = "0.26", default-features = false, features = ["wav", "ogg"], optional = true }
 bevy_framepace = { version = "0.22", default-features = false, optional = true }

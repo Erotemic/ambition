@@ -6,6 +6,7 @@
 //! entities feed only the debug overlay and the headless summary.
 
 mod asset;
+mod clean;
 mod components;
 mod indices;
 mod plugin;

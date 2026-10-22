@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
 use ambition_content::content_validation;
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
@@ -350,26 +349,6 @@ fn insert_host_resources(
         // the settled fact the old sentence read as. Left in place — removing
         // it is a change that needs a headless run, not a prose repair.
         .insert_resource(physics::PhysicsSandboxSettings::default())
-        .insert_resource(LdtkSettings {
-            // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
-            // own level/entity lifecycle without also drawing LDtk background
-            // rectangles behind every level.
-            level_background: LevelBackground::Nonexistent,
-            // bevy_ecs_ldtk's default `IntGridRendering::Colorful` spawns a
-            // colored tile sprite per non-zero IntGrid cell when no tileset
-            // is configured (1004 sprites for central_hub_main alone). Those
-            // tiles render in raw LDtk world-pixel coordinates from
-            // `LdtkWorldBundle`'s default transform, while our compose path
-            // (`int_grid_value_to_block` → `spawn_block`) renders in
-            // Ambition's centered Bevy frame via `world_to_bevy`. The two
-            // frames disagree by ~half-room-width on x, so the plugin's
-            // IntGrid output appeared as a duplicated, horizontally-shifted
-            // copy of our render. Force the plugin to emit no visual at all
-            // for IntGrid cells. Collision comes from the world IR, not
-            // from these cells.
-            int_grid_rendering: IntGridRendering::Invisible,
-            ..default()
-        })
         .insert_resource(sandbox_data)
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())

@@ -137,7 +137,7 @@ fn the_probes_can_see_an_uncomposed_app() {
 }
 
 /// The browser persona is a VALUE, not a passage inside `run_web` — so the
-/// three answers a `<canvas>` host gives can be read here rather than
+/// two answers a `<canvas>` host gives can be read here rather than
 /// re-derived from a `cfg(wasm32)` function no native test can reach.
 ///
 /// what this defends is the shape of the repair, not the booleans: as long as
@@ -146,16 +146,11 @@ fn the_probes_can_see_an_uncomposed_app() {
 /// a fourth game-side step to `run_web` directly, this file is where the reader
 /// is told it does not belong there.
 #[test]
-fn the_browser_persona_boots_the_launcher_with_the_tile_spine_and_no_desktop_curtain() {
+fn the_browser_persona_boots_the_launcher_with_no_desktop_curtain() {
     let spec = VisibleGameSpec::browser(GameAssetConfig::default());
     assert!(
         spec.shell_hosted,
         "the browser must boot the launcher; a player's first screen is the same on every platform"
-    );
-    assert!(
-        spec.tile_spine,
-        "a canvas has a real RenderApp, so dropping the LDtk tile spine there would \
-         paint a different game than the desktop draws"
     );
     assert!(
         !spec.startup_loading_curtain,

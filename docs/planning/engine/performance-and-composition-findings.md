@@ -190,7 +190,8 @@ tick; `SaveWorld`'s 1,146 systems do not run each tick. The archetype count
 does not grow during idle play (2,049 after 15 s, desktop, new
 `[frame-census]` columns); each query that is made new each run matches all of
 them, which is the cost of the LDtk, Yarn and `bevy_light` systems. LDtk is
-fixed (`app::ldtk_clean`). Yarn's system and set are private to the crate: an
+fixed (`ambition_platformer2d_ldtk`'s `bevy_runtime::clean`, the hub's `app::ldtk_clean`
+until 2026-10-21). Yarn's system and set are private to the crate: an
 upstream fix (keep the `SystemState`) or a fork, for Jon.
 
 ### F26 — Rigged part slots were written every frame

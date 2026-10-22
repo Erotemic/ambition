@@ -7,7 +7,6 @@
 // below is ALREADY unconditional, so this file has never been able to compile without an LDtk
 // runtime. The two imports stand or fall together, and the warning above still applies to both —
 // gate the USES and the IMPORT as one pair, or neither.
-use ambition_platformer2d::actors::assets::loading;
 
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics;
@@ -19,7 +18,6 @@ use ambition_platformer2d::dev_tools::dev_tools::{
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_platformer2d::inventory_ui;
-use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhase, PresentationSetupSet, SimScheduleExt,
 };
@@ -31,8 +29,6 @@ use ambition_platformer2d::render::fx;
 use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
 use ambition_platformer2d::render::ui_fonts;
 use bevy::prelude::*;
-use bevy_asset_loader::asset_collection::AssetCollectionApp;
-use bevy_ecs_ldtk::prelude::LdtkPlugin;
 
 use crate::dev::debug_overlay;
 use crate::host::windowing;
@@ -194,41 +190,6 @@ fn register_app_local_sim_systems(app: &mut App) {
     // the primary player's current form decoded — its starting id AND any runtime
     // power-form swap — so a content game's hero draws its real sprite instead of
     // the colored-rectangle fallback. Resource-guarded: a no-op in headless.
-}
-
-/// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue
-/// (entity registrations, asset collection, LdtkWorldBundle spawn,
-/// level-set sync, asset handle preload). Visible binary only —
-/// `LdtkPlugin` panics in headless because its tile pipeline expects a
-/// `RenderApp` sub-app, and `asset_server.load::<LdtkProject>` requires
-/// the LDtk asset type to be registered.
-///
-/// Nothing in the simulation reads the entities it spawns: collision and
-/// placements come from the world IR the LDtk backend converts into
-/// (ADR 0021), which headless builds the same way.
-pub fn add_ldtk_runtime_plugin(app: &mut App) {
-    // `Platformer2dStartupAssets` includes a typed LDtk handle, so the LDtk
-    // asset type and loader must be initialized before bevy_asset_loader
-    // allocates collection handles. Keep this before `init_collection`.
-    app.add_plugins(LdtkPlugin);
-    super::ldtk_clean::install(app);
-    app.init_collection::<loading::Platformer2dStartupAssets>()
-        .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
-        .add_systems(
-            Startup,
-            // K2b edit 3: the direct-entry world-spine spawn is GONE.
-            // It ran only when `AmbitionShellHosted` was absent, and every
-            // composition inserts it now — so it was dead code that looked
-            // live. Each live room's bundles are spawned by
-            // `present_ldtk_levels_per_live_room` (V4b), the only path.
-            ldtk_world::load_ldtk_asset_handle,
-        )
-        .add_systems(
-            Update,
-            // Each live room's painted levels, at its own origin (V4b).
-            ldtk_world::present_ldtk_levels_per_live_room
-                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-        );
 }
 
 /// Register presentation-side plugins (input, dialogue, inspector, audio
@@ -770,16 +731,6 @@ impl Plugin for AmbitionGameSimulationPlugin {
         // and nothing here needs the two to agree.
         init_sandbox_resources(app);
         add_simulation_plugins(app);
-    }
-}
-
-/// Installs LDtk runtime spine registrations and `LdtkPlugin`. Visible
-/// binary only — `LdtkPlugin` panics in headless (no `RenderApp`).
-pub struct AmbitionGameLdtkRuntimePlugin;
-
-impl Plugin for AmbitionGameLdtkRuntimePlugin {
-    fn build(&self, app: &mut App) {
-        add_ldtk_runtime_plugin(app);
     }
 }
 

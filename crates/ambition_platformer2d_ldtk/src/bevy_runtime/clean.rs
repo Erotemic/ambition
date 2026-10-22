@@ -31,7 +31,7 @@ type CleanParams<'w, 's> = (
 
 /// Put [`clean_respawn_entities`] in place of the upstream system. Call it
 /// after `LdtkPlugin` is added.
-pub fn install(app: &mut App) {
+pub(super) fn install(app: &mut App) {
     let removed = app.remove_systems_in_set(
         ProcessLdtkApi,
         bevy_ecs_ldtk::systems::clean_respawn_entities,

@@ -31,6 +31,9 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 # downstream of it. Turn this ON wherever there is no filesystem to read from
 # (web, Android) or the binary ships without the source tree (Steam Deck).
 static_content = []
+# The LDtk runtime that paints this game's rooms, which the provider installs
+# where the host has a render app, and the startup collection it loads.
+ldtk_runtime = ["ambition_platformer2d_ldtk/ldtk_runtime", "dep:bevy_asset_loader", "bevy/bevy_render"]
 
 [build-dependencies]
 # `build.rs` embeds each source `assets/pack.ron` declares, under
@@ -116,6 +119,7 @@ ambition_interaction = { path = "../../crates/ambition_interaction" }
 ambition_items = { path = "../../crates/ambition_items", features = ["content_pack"] }
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
+bevy_asset_loader = { version = "0.27", optional = true }
 # The Yarn compiler bevy_yarnspinner runs, for checking a saved dialogue edit
 # whole before the running project takes it (`content_watch`).
 yarnspinner = { version = "0.9", optional = true }

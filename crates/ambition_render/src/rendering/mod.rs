@@ -412,8 +412,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // Measurement only (D-HEADLESS-DESPAWN): a view-cone capture rig
             // renders to an `Image`. With `backends: None` there is no RenderApp,
             // so the image never fills, and despawning its `Camera` runs a hook
-            // that reads a resource only `SyncWorldPlugin` creates. Same reasoning
-            // as `tile_spine`.
+            // that reads a resource only `SyncWorldPlugin` creates. The LDtk
+            // runtime is gated on the same fact (Ambition's provider).
             let has_render_app = app.get_sub_app(bevy::render::RenderApp).is_some();
             app.add_plugins(PortalPresentationPlugin {
                 view_cones: has_render_app,

@@ -780,6 +780,34 @@ pub fn serialize_main_schedules(app: &mut App) {
             s.set_executor(SingleThreadedExecutor::new());
         });
     }
+    // The schedules other plugins make after this call (a font shelter, the
+    // LDtk API pass, the input read, the fixed loop, the rollback advance) are
+    // serialized when the app is complete. Each was a multi-threaded run of a
+    // few systems each frame. MEASURED (profiling build with the probe, hub
+    // Mary-O route, 2026-10-22): ~30 multi-threaded schedule runs a frame, and
+    // `ShelterFontSources`, one system, at ~330 us a frame.
+    if !app.is_plugin_added::<SerialScheduleSweep>() {
+        app.add_plugins(SerialScheduleSweep);
+    }
+}
+
+/// Serializes every main-world schedule that exists when the app is
+/// complete (`Plugin::cleanup`, after every plugin's `finish`): the ones
+/// [`serialize_main_schedules`] names, and each one another plugin added.
+/// The render sub-app has its own world and keeps its executors.
+pub struct SerialScheduleSweep;
+
+impl Plugin for SerialScheduleSweep {
+    fn build(&self, _app: &mut App) {}
+
+    fn cleanup(&self, app: &mut App) {
+        use bevy::ecs::schedule::{Schedules, SingleThreadedExecutor};
+        if let Some(mut schedules) = app.world_mut().get_resource_mut::<Schedules>() {
+            for (_, schedule) in schedules.iter_mut() {
+                schedule.set_executor(SingleThreadedExecutor::new());
+            }
+        }
+    }
 }
 
 pub use session_world::{

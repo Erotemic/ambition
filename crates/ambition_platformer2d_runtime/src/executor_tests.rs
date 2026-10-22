@@ -79,3 +79,38 @@ fn every_main_schedule_runs_its_systems_on_the_calling_thread() {
         assert_eq!(away, 0, "{away} of {} probe runs of {name} were on another thread", runs.len());
     }
 }
+
+#[derive(bevy::ecs::schedule::ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+struct MadeLater;
+
+/// A schedule a plugin makes after the policy call runs serially too, once
+/// the app is complete (`finish`, then `cleanup`, as `App::run` does).
+#[test]
+fn a_schedule_made_after_the_policy_runs_on_the_calling_thread() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    serialize_main_schedules(&mut app);
+    app.init_schedule(MadeLater);
+    let ran = Ran::default();
+    app.insert_resource(ran.clone());
+    for _ in 0..16 {
+        app.add_systems(MadeLater, |ran: Res<Ran>| {
+            ran.0.lock().unwrap().push(("MadeLater", std::thread::current().id()));
+        });
+    }
+    app.finish();
+    app.cleanup();
+    for _ in 0..5 {
+        app.world_mut().run_schedule(MadeLater);
+    }
+    let threads = bevy::tasks::ComputeTaskPool::get().thread_num();
+    if threads < 2 {
+        eprintln!("NOT RUN: the compute pool has {threads} thread; build with bevy/multi_threaded to compare the executors");
+        return;
+    }
+    let here = std::thread::current().id();
+    let ran = ran.0.lock().unwrap();
+    assert!(!ran.is_empty(), "the premise: the schedule ran its probes");
+    let away = ran.iter().filter(|(_, thread)| *thread != here).count();
+    assert_eq!(away, 0, "{away} of {} probe runs were on another thread", ran.len());
+}

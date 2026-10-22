@@ -19,6 +19,56 @@ Each claim is **MEASURED** (a run, a census, a profile, or a read of source)
 or **REASONED** (inferred). A number here has the run that made it; run it
 again before you quote it.
 
+## Run progress (live, 2026-10-22 24h)
+
+**Asked by:** Jon, 2026-10-22: "a 24 hour goal to work on monolith
+decomposition and system consolidation (esp ones that might make maryo and
+ambition faster if it is still bottlenecked on cpu scheduling)". Started
+2026-10-22T21:49Z, ends 2026-10-23T21:49Z. Order: the answer (F40), then
+the systems that run for nothing on the Mary-O route, then the larger
+consolidations and the monolith packets.
+
+| slice | status | measured effect |
+| --- | --- | --- |
+| F40: is the phone still bound by scheduling? | done | see F40 |
+
+### F40 — Is the phone still bound by the scheduler? (2026-10-22)
+
+MEASURED (phone, `android-all-mary_o-auto-20261022T213742Z`, build
+`315d36bf0`, the main thread tid 28744, `symbolize_android_profile.py
+--ours --by-system --thread`, rows grouped):
+
+| run | main thread, % of process | in our systems (framework under them included) | framework systems | the executor's own loop | run conditions |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `maryo-1-1` (10-16) | 53.5 | 55.2% | 26.1% | 13.0% | 3.5% |
+| `maryo-1-1-morning3` (10-16) | 49.6 | 56.4% | 24.0% | 14.2% | 2.9% |
+| `maryo-terrain` (10-16) | 38.0 | 58.9% | 20.0% | 14.8% | 3.9% |
+| `mary_o-auto-…213742Z` (10-22) | 34.6 | 52.3% | 22.9% | 13.0% | 2.7% |
+
+The main thread is 83% busy (one core), so it is still the limit; the
+other threads are not (the async pool's 19% in this run is the autopilot's
+navigation build, autoplay only). The executor's own loop and the run
+conditions are ~16% of the main thread and have not changed share since
+10-16: the per-frame work fell with the system count, but each system still
+pays the executor. F0's "a third" counted every sample with no system body
+on the stack, a wider set, and is not comparable with this column.
+
+MEASURED (desktop census, `capture_scene --route mary_o_gameplay --warmup
+600`, dev build, `AMBITION_SYSTEM_LIST`): 1,320 of 2,121 systems ran in one
+frame (1,394 on 10-17, F37). Still running for nothing while Mary-O plays:
+Smash's select screen 15, portal presentation 19 and portal publishers 6,
+Ambition's room looks, overlays, vanity card and Inugami field ~30, Sanic's
+dressers 3, the versus roster 3.
+
+Answer (REASONED from the two): yes, in part. The scheduler's share is
+steady at ~16% of the bound thread, so each system that runs for nothing
+costs the frame on the phone; removing them is the lever with no behaviour
+change. The rest of the bound thread is real work in our systems and in
+Bevy's transform, UI and visibility systems (`mark_dirty_trees` ~2.8% of
+the main thread, `ui_layout_system` ~2.4%, `check_visibility_cpu_culling`
+~1.5%, material specialization ~1.4%), which scale with entities and
+changes, not with the system count.
+
 ## Hub first (2026-10-16, from 13:30Z)
 
 **Target, from Jon:** the four-game app with Mary-O active, on the phone

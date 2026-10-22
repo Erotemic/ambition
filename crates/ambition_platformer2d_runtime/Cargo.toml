@@ -99,6 +99,11 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_state",
 ] }
 
+[dev-dependencies]
+# `governing_rules::test_fixtures::two_game_session`: a session with an
+# Ambition hall and a Smash stage, for the capability conditions' witnesses.
+ambition_combat = { path = "../ambition_combat", features = ["test-support"] }
+
 [features]
 # Structured causal facts. Optional and default-OFF for the same §2e reason the
 # character capability's is: a game that never opens an inspector must not link

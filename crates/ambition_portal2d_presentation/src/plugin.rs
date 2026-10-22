@@ -80,6 +80,16 @@ impl Default for PortalPresentationPlugin {
 
 impl Plugin for PortalPresentationPlugin {
     fn build(&self, app: &mut App) {
+        // Asleep where no live room uses portals (Mary-O's), after one frame
+        // that takes the quads down and gives back the bodies they hid.
+        app.configure_sets(
+            Update,
+            PortalPresentationSet.in_set(
+                ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Portals,
+                ),
+            ),
+        );
         // Crate-owned seam resources. `PortalAimHint` is render-only state, so
         // it is initialised HERE, not by the headless mechanic's plugin; the
         // host's input adapter writes it each frame.

@@ -290,7 +290,7 @@ fn a_frontend_runs_on_its_routes_and_on_the_frame_that_leaves_them() {
         Update,
         (|mut runs: ResMut<Runs>| runs.0 += 1).run_if(shell_scope_is_on_screen_or_routing("game")),
     );
-    let mut step = |app: &mut App| {
+    let step = |app: &mut App| {
         let before = app.world().resource::<Runs>().0;
         app.update();
         app.world().resource::<Runs>().0 - before

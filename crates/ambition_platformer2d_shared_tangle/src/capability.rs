@@ -140,6 +140,14 @@ impl Capability {
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CapabilitySet(pub Capability);
 
+/// The presentation of one capability: systems that reconcile what is drawn
+/// with what the simulation has. They run where a live room uses the
+/// capability, and on the first frame after no live room does, so a pass with
+/// no subjects takes the drawn things down and gives back what it hid. The
+/// runtime gives each set that condition in `Update` and `PostUpdate`.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CapabilityPresentationSet(pub Capability);
+
 /// The capabilities one game's rooms use: a rule each game declares for its
 /// own rule scope (`declare_rules(scope, UsedCapabilities::..)`). A room with
 /// no declaration uses every capability.

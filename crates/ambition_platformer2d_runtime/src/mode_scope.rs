@@ -15,7 +15,9 @@ use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhase, SimScheduleExt as _,
 };
 use ambition_combat::governing_rules::{CurrentRoom, GoverningRules};
-use ambition_platformer2d_shared_tangle::capability::{Capability, CapabilitySet, UsedCapabilities};
+use ambition_platformer2d_shared_tangle::capability::{
+    Capability, CapabilityPresentationSet, CapabilitySet, UsedCapabilities,
+};
 
 /// Run condition: the active room belongs to the game mode `name`.
 ///
@@ -96,6 +98,20 @@ pub fn room_uses(
     capability: Capability,
 ) -> impl FnMut(GoverningRules<UsedCapabilities>) -> bool + Clone {
     move |rules: GoverningRules<UsedCapabilities>| rules.any_live_room_uses(capability)
+}
+
+/// Run condition: [`room_uses`], or it held on the frame before. The one frame
+/// more is for a [`CapabilityPresentationSet`]: its reconcile pass, with no
+/// subjects left, takes down what it drew.
+pub fn room_uses_or_did(
+    capability: Capability,
+) -> impl FnMut(GoverningRules<UsedCapabilities>, Local<bool>) -> bool + Clone {
+    move |rules: GoverningRules<UsedCapabilities>, mut used_before: Local<bool>| {
+        let used = rules.any_live_room_uses(capability);
+        let run = used || *used_before;
+        *used_before = used;
+        run
+    }
 }
 
 /// Run condition: a live session is in Ambition's OWN base mode — an active room
@@ -377,11 +393,66 @@ impl Plugin for ModeScopePlugin {
                 );
             }
         }
+        for schedule in [Update.intern(), PostUpdate.intern()] {
+            for capability in Capability::ALL {
+                app.configure_sets(
+                    schedule,
+                    CapabilityPresentationSet(capability).run_if(room_uses_or_did(capability)),
+                );
+            }
+        }
         app.add_systems(sim, follow_mode_owner_rooms.in_set(ModeOwnerStep::Placed));
         app.add_systems(
             sim,
             despawn_departed_mode_entities
                 .in_set(Platformer2dSimulationPhase::Progression),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_combat::governing_rules::test_fixtures::two_game_session;
+    use ambition_combat::scoped_rules::{DeclaredRules, RulesScope};
+
+    #[derive(Resource, Default)]
+    struct Runs(u32);
+
+    fn uses(app: &mut App, portals: bool) {
+        let used = if portals { UsedCapabilities::ALL } else { UsedCapabilities::ALL.without(Capability::Portals) };
+        let mut rules = DeclaredRules::<UsedCapabilities>::default();
+        rules.declare(RulesScope::UntaggedRooms, used);
+        app.insert_resource(rules);
+    }
+
+    /// A capability's presentation runs while a live room uses it, once more
+    /// after none does (its pass takes the drawn things down), and then sleeps.
+    #[test]
+    fn a_capabilitys_presentation_runs_one_frame_after_its_rooms_stop_using_it() {
+        let mut app = App::new();
+        two_game_session(&mut app, false);
+        uses(&mut app, true);
+        app.init_resource::<Runs>();
+        app.configure_sets(
+            Update,
+            CapabilityPresentationSet(Capability::Portals).run_if(room_uses_or_did(Capability::Portals)),
+        );
+        app.add_systems(
+            Update,
+            (|mut runs: ResMut<Runs>| runs.0 += 1).in_set(CapabilityPresentationSet(Capability::Portals)),
+        );
+        let step = |app: &mut App| {
+            let before = app.world().resource::<Runs>().0;
+            app.update();
+            app.world().resource::<Runs>().0 - before
+        };
+        assert_eq!(step(&mut app), 1, "it did not run where the room uses portals");
+        uses(&mut app, false);
+        assert_eq!(step(&mut app), 1, "it did not run the frame after the room stopped using portals");
+        assert_eq!(step(&mut app), 0, "it ran two frames after the room stopped using portals");
+        assert_eq!(step(&mut app), 0, "it ran while no room uses portals");
+        uses(&mut app, true);
+        assert_eq!(step(&mut app), 1, "it did not wake when the room used portals again");
     }
 }

@@ -12,7 +12,10 @@
 
 use bevy::prelude::*;
 
-use super::primitives::{FeatureVisual, LoadingZoneVisual, PlayerVisual};
+use ambition_sprite_sheet::game_assets::GameAssets;
+
+use super::primitives::{EntityArt, FeatureVisual, LoadingZoneVisual, PlayerVisual};
+use super::world::BoundEntitySprite;
 
 #[cfg(test)]
 mod tests;
@@ -133,26 +136,92 @@ pub struct DoorOpening {
     layout: Option<Handle<TextureAtlasLayout>>,
 }
 
-/// Draw each door a passage goes through at its opening frame, and give it
-/// back its closed picture when the passage is gone.
+/// The closed door image is the current art, not the last animation frame.
+/// A room look binds `EntityArt`; an ordinary door binds `BoundEntitySprite`.
+/// A themed door has neither after it is dressed, so it keeps the sprite
+/// chosen by its theme. Only an active opening strip is not a closed image.
+fn closed_door_image(
+    sprite: &Sprite,
+    opening: Option<&DoorOpening>,
+    art: Option<&EntityArt>,
+    bound: Option<&BoundEntitySprite>,
+    catalog: Option<&GameAssets>,
+) -> Handle<Image> {
+    if let Some(EntityArt(key)) = art {
+        if let Some(image) = catalog.and_then(|catalog| catalog.entities.get(*key)) {
+            return image.clone();
+        }
+    } else if let Some(bound) = bound {
+        if let Some(image) = catalog.and_then(|catalog| catalog.entities.get(bound.key)) {
+            return image.clone();
+        }
+    }
+    if let Some(opening) = opening {
+        if sprite.image == opening.strip {
+            return opening.closed.clone();
+        }
+    }
+    sprite.image.clone()
+}
+
+/// An opening strip is published beside the closed image, with the same
+/// asset source and name followed by `_opening.png`.
+fn opening_strip(assets: &AssetServer, closed: &Handle<Image>) -> Option<Handle<Image>> {
+    let path = assets.get_path(closed)?;
+    let file = path.path().to_string_lossy();
+    let stem = file.strip_suffix(".png")?;
+    let strip = bevy::asset::AssetPath::from(format!("{stem}_opening.png"))
+        .with_source(path.source().clone_owned())
+        .into_owned();
+    Some(assets.load::<Image>(strip))
+}
+
+/// Draw each door a passage goes through at its opening frame. Follow any
+/// change to the door's closed art while the passage is open, and restore
+/// the current art when the passage ends.
 pub fn sync_door_openings(
     mut commands: Commands,
     passages: Option<Res<ambition_sim_view::PassageViews>>,
     assets: Option<Res<AssetServer>>,
     images: Option<Res<Assets<Image>>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
-    mut doors: Query<(Entity, &LoadingZoneVisual, &mut Sprite, Option<&mut DoorOpening>)>,
+    catalog: Option<Res<GameAssets>>,
+    mut doors: Query<(
+        Entity,
+        &LoadingZoneVisual,
+        &mut Sprite,
+        Option<&EntityArt>,
+        Option<&BoundEntitySprite>,
+        Option<&mut DoorOpening>,
+    )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let (Some(passages), Some(assets), Some(images), Some(mut layouts)) = (passages, assets, images, layouts) else {
         return;
     };
-    for (entity, visual, mut sprite, opening) in &mut doors {
+    for (entity, visual, mut sprite, art, bound, opening) in &mut doors {
         let open = passages.door_open(rooms.of(entity), &visual.id).filter(|open| *open > 0.0);
         match (open, opening) {
             (Some(open), Some(mut opening)) => {
+                let closed = closed_door_image(&sprite, Some(&opening), art, bound, catalog.as_deref());
+                if closed != opening.closed {
+                    let Some(strip) = opening_strip(&assets, &closed) else {
+                        // The new art has no strip. Draw its closed image,
+                        // not an opening of the previous kind of door.
+                        sprite.image = closed;
+                        sprite.texture_atlas = None;
+                        commands.entity(entity).try_remove::<DoorOpening>();
+                        continue;
+                    };
+                    opening.closed = closed;
+                    opening.strip = strip;
+                    opening.layout = None;
+                }
                 if opening.layout.is_none() {
                     let Some(image) = images.get(&opening.strip) else {
+                        // Keep the new closed art while its strip loads.
+                        sprite.image = opening.closed.clone();
+                        sprite.texture_atlas = None;
                         continue;
                     };
                     let size = image.size();
@@ -176,22 +245,17 @@ pub fn sync_door_openings(
                 if sprite.texture_atlas.is_some() {
                     continue;
                 }
-                let Some(path) = assets.get_path(&sprite.image) else {
+                let closed = closed_door_image(&sprite, None, art, bound, catalog.as_deref());
+                if sprite.image != closed {
+                    sprite.image = closed.clone();
+                }
+                let Some(strip) = opening_strip(&assets, &closed) else {
                     continue;
                 };
-                let file = path.path().to_string_lossy().to_string();
-                let Some(stem) = file.strip_suffix(".png") else {
-                    continue;
-                };
-                // From the source the closed picture came from.
-                let strip = bevy::asset::AssetPath::from(format!("{stem}_opening.png"))
-                    .with_source(path.source().clone_owned())
-                    .into_owned();
-                let strip = assets.load::<Image>(strip);
-                commands.entity(entity).try_insert(DoorOpening { closed: sprite.image.clone(), strip, layout: None });
+                commands.entity(entity).try_insert(DoorOpening { closed, strip, layout: None });
             }
             (None, Some(opening)) => {
-                sprite.image = opening.closed.clone();
+                sprite.image = closed_door_image(&sprite, Some(&opening), art, bound, catalog.as_deref());
                 sprite.texture_atlas = None;
                 commands.entity(entity).try_remove::<DoorOpening>();
             }

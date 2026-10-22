@@ -615,6 +615,12 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
                     .before(actors::rigged::drive_rigged_presentations),
+                // Do not pin this after room spawning or dressing. This set
+                // runs before RoomTransitionCoverSet, while the room visuals
+                // and their art are presented after that cover. An ordering
+                // edge to dress_themed_doors creates an Update schedule cycle.
+                // The next tick sees the resolved EntityArt/closed sprite;
+                // sync_door_openings follows later art changes itself.
                 passage_visuals::sync_door_openings.after(actors::sync_visuals),
             )
                 .in_set(

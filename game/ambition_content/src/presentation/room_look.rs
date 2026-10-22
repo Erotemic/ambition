@@ -65,7 +65,7 @@ use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, R
 use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
 use ambition_render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_render::rendering::{
-    BlockVisual, EntityArt, LoadingZoneVisual, RoomVisual, DOOR_SPRITE_ASPECT,
+    apply_entity_art, present_live_room_visuals, BlockVisual, EntityArt, LoadingZoneVisual, RoomVisual, DOOR_SPRITE_ASPECT,
 };
 use ambition_sprite_sheet::game_assets::ParallaxTheme;
 use ambition_sprite_sheet::game_assets::EntitySprite;
@@ -653,7 +653,15 @@ where
             .run_if(looks_are_in_budget),
     );
     // In each budget: the door is the look's with each shader off.
-    app.add_systems(Update, dress_doors::<M>.run_if(resource_exists::<Assets<M>>));
+    app.add_systems(
+        Update,
+        dress_doors::<M>
+            // The first door frame must use the room's art. Flush the
+            // spawn before selecting it, then flush EntityArt before bind.
+            .after(present_live_room_visuals)
+            .before(apply_entity_art)
+            .run_if(resource_exists::<Assets<M>>),
+    );
 }
 
 /// Whether a room asks for the look `M`.

@@ -127,3 +127,200 @@ fn a_feature_body_its_passage_fades_is_declared_as_one_image() {
         "(fading, opaque, outside a passage)"
     );
 }
+
+/// A new room may request its door animation on the same update on which
+/// the room look inserts `EntityArt`. Capture only after that art is bound.
+#[test]
+fn a_new_hub_door_opens_with_its_room_art_and_restores_it() {
+    use ambition_sprite_sheet::game_assets::{EntitySprite, GameAssets};
+    use super::super::world::{apply_entity_art, BoundEntitySprite};
+
+    #[derive(Resource)]
+    struct WantedArt(EntitySprite);
+    #[derive(Resource, Default)]
+    struct NewDoor(Option<Entity>);
+
+    fn spawn_new_door(
+        mut commands: Commands,
+        mut born: ResMut<NewDoor>,
+        assets: Res<GameAssets>,
+    ) {
+        if born.0.is_some() {
+            return;
+        }
+        let ordinary = assets.entities.get(EntitySprite::DoorZone).unwrap().clone();
+        let door = commands.spawn((
+            LoadingZoneVisual { id: "hub_entry".into() },
+            Sprite::from_image(ordinary),
+            BoundEntitySprite { key: EntitySprite::DoorZone },
+        )).id();
+        born.0 = Some(door);
+    }
+
+    fn dress_new_door(
+        mut commands: Commands,
+        wanted: Res<WantedArt>,
+        doors: Query<Entity, (With<LoadingZoneVisual>, Without<EntityArt>)>,
+    ) {
+        for door in &doors {
+            commands.entity(door).try_insert(EntityArt(wanted.0));
+        }
+    }
+
+    for kind in [EntitySprite::DoorStone, EntitySprite::DoorVoxel] {
+        let mut app = door_test_app();
+        add_door_art_catalog(&mut app);
+        app.insert_resource(WantedArt(kind));
+        app.init_resource::<NewDoor>();
+        // `chain` flushes deferred commands between the four stages ordered
+        // by the shipped composition. The door is born on this update.
+        app.add_systems(Update, (spawn_new_door, dress_new_door, apply_entity_art, sync_door_openings).chain());
+
+        let zone = "hub_entry";
+        let intended = app.world().resource::<GameAssets>().entities.get(kind).unwrap().clone();
+        set_open_door(&mut app, zone);
+        app.update();
+        let door = app.world().resource::<NewDoor>().0.expect("a door spawned in Update");
+
+        let opening = app.world().get::<DoorOpening>(door).expect("an opening on the first entry update");
+        assert_eq!(opening.closed, intended, "the first opening captures {kind:?}");
+        let strip = opening.strip.clone();
+        assert!(
+            image_path(&app, &strip).ends_with(match kind {
+                EntitySprite::DoorStone => "door_stone_opening.png",
+                _ => "door_voxel_opening.png",
+            }),
+            "the strip must match the look art",
+        );
+        put_strip_image(&mut app, &strip);
+        app.update();
+        let sprite = app.world().get::<Sprite>(door).unwrap();
+        assert_eq!(sprite.image, strip, "the matching strip plays");
+        assert_eq!(sprite.texture_atlas.as_ref().unwrap().index, 5, "fully open is the last frame");
+
+        app.insert_resource(ambition_sim_view::PassageViews::default());
+        app.update();
+        assert_eq!(app.world().get::<Sprite>(door).unwrap().image, intended, "closing restores the current look");
+        assert!(app.world().get::<DoorOpening>(door).is_none());
+        assert!(app.world().get::<Sprite>(door).unwrap().texture_atlas.is_none());
+    }
+}
+
+/// A front moving across an open door must change the active strip and the
+/// image restored on close. The old snapshot must not survive the change.
+#[test]
+fn changing_a_door_from_pure_to_corrupt_while_open_updates_its_strip() {
+    use ambition_sprite_sheet::game_assets::{EntitySprite, GameAssets};
+    use super::super::world::{apply_entity_art, BoundEntitySprite};
+
+    let mut app = door_test_app();
+    add_door_art_catalog(&mut app);
+    app.add_systems(Update, (apply_entity_art, sync_door_openings).chain());
+    let zone = "hub_entry";
+    let pure = app.world().resource::<GameAssets>().entities.get(EntitySprite::DoorStone).unwrap().clone();
+    let corrupt = app.world().resource::<GameAssets>().entities.get(EntitySprite::DoorVoxel).unwrap().clone();
+    let door = app.world_mut().spawn((
+        LoadingZoneVisual { id: zone.into() },
+        Sprite::from_image(pure.clone()),
+        BoundEntitySprite { key: EntitySprite::DoorZone },
+        EntityArt(EntitySprite::DoorStone),
+    )).id();
+    set_open_door(&mut app, zone);
+    app.update();
+    let first_strip = app.world().get::<DoorOpening>(door).unwrap().strip.clone();
+    put_strip_image(&mut app, &first_strip);
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(door).unwrap().image, first_strip);
+
+    // The room's advancing front changes art while the old strip plays.
+    app.world_mut().entity_mut(door).insert(EntityArt(EntitySprite::DoorVoxel));
+    app.update();
+    let opening = app.world().get::<DoorOpening>(door).unwrap();
+    assert_eq!(opening.closed, corrupt);
+    assert!(image_path(&app, &opening.strip).ends_with("door_voxel_opening.png"));
+    let next_strip = opening.strip.clone();
+    put_strip_image(&mut app, &next_strip);
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(door).unwrap().image, next_strip);
+
+    app.insert_resource(ambition_sim_view::PassageViews::default());
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(door).unwrap().image, corrupt);
+    assert!(app.world().get::<DoorOpening>(door).is_none());
+}
+
+/// A themed door has no `EntityArt` or entity-sheet binding once dressed.
+/// The door animation must still follow its theme's current closed image.
+#[test]
+fn a_themed_door_restores_the_current_theme_image() {
+    let mut app = door_test_app();
+    app.add_systems(Update, sync_door_openings);
+    let assets = app.world().resource::<AssetServer>().clone();
+    let theme = assets.load::<Image>("sprites/dressing/forest/door.png");
+    let replacement = assets.load::<Image>("sprites/dressing/cave/door.png");
+    let zone = "theme_entry";
+    let door = app.world_mut().spawn((LoadingZoneVisual { id: zone.into() }, Sprite::from_image(theme.clone()))).id();
+    set_open_door(&mut app, zone);
+    app.update();
+    assert_eq!(app.world().get::<DoorOpening>(door).unwrap().closed, theme);
+    let strip = app.world().get::<DoorOpening>(door).unwrap().strip.clone();
+    put_strip_image(&mut app, &strip);
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(door).unwrap().image, strip);
+
+    app.world_mut().get_mut::<Sprite>(door).unwrap().image = replacement.clone();
+    app.insert_resource(ambition_sim_view::PassageViews::default());
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(door).unwrap().image, replacement);
+    assert!(app.world().get::<DoorOpening>(door).is_none());
+}
+
+fn door_test_app() -> App {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
+    app.init_asset::<Image>();
+    app.init_asset::<TextureAtlasLayout>();
+    app.insert_resource(ambition_sim_view::PassageViews::default());
+    app
+}
+
+fn set_open_door(app: &mut App, zone: &str) {
+    app.insert_resource(ambition_sim_view::PassageViews {
+        doors: vec![(None, zone.to_string(), 1.0)],
+        ..Default::default()
+    });
+}
+
+fn image_path(app: &App, image: &Handle<Image>) -> String {
+    app.world()
+        .resource::<AssetServer>()
+        .get_path(image)
+        .expect("the image has a source path")
+        .path()
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn put_strip_image(app: &mut App, strip: &Handle<Image>) {
+    let image = Image::new_fill(
+        bevy::render::render_resource::Extent3d { width: 60, height: 10, depth_or_array_layers: 1 },
+        bevy::render::render_resource::TextureDimension::D2,
+        &[255, 255, 255, 255],
+        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+        bevy::asset::RenderAssetUsages::default(),
+    );
+    app.world_mut().resource_mut::<Assets<Image>>().insert(strip, image).expect("the opening strip is writable");
+}
+
+fn add_door_art_catalog(app: &mut App) {
+    use ambition_asset_manager::{platformer_assets::Platformer2dAssetCatalog, AmbitionAssetCatalog, AssetProfile};
+    use ambition_sprite_sheet::game_assets::{load_entity_sprites, sandbox_image_manifest, GameAssets};
+
+    let catalog = Platformer2dAssetCatalog::new(
+        AmbitionAssetCatalog::new(sandbox_image_manifest("sprites")),
+        AssetProfile::AndroidBundle,
+    );
+    let assets = app.world().resource::<AssetServer>().clone();
+    let entities = load_entity_sprites(&catalog, &assets, None);
+    app.insert_resource(GameAssets { entities, ..Default::default() });
+}

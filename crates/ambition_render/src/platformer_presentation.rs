@@ -139,6 +139,12 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(Update, crate::rendering::daylight::light_the_world.after(crate::rendering::camera_follow));
         // The light a boss asks for in its room (`ambition.boss.stage`).
         app.add_systems(Update, crate::rendering::boss_stage::light_the_boss_stage.after(crate::rendering::camera_follow));
+        // And its name card, while the conductor asks for it.
+        app.add_systems(
+            Update,
+            crate::rendering::boss_stage::show_boss_name_card
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+        );
         // A boss's slow-motion finish: the picture drained but the boss, and
         // cinema bars (`ambition_boss_encounter::finish`).
         crate::rendering::boss_finish::install(app);

@@ -97,6 +97,10 @@ pub struct PresentedPose {
     spanned: u32,
     presented: Vec2,
     tick: u64,
+    /// The body's size at `current`. A body that changes size with its feet
+    /// planted (a crouch, a stand) moves its centre without travelling; see
+    /// [`resize_shift`].
+    size: Vec2,
 }
 
 impl PresentedPose {
@@ -107,6 +111,7 @@ impl PresentedPose {
             spanned: 1,
             presented: pos,
             tick,
+            size: Vec2::ZERO,
         }
     }
 
@@ -156,7 +161,11 @@ impl PresentedPose {
     /// not TRAVEL here (portal, room change, respawn, possession swap): the
     /// history collapses so the jump is drawn as a jump and never extrapolated
     /// along.
-    fn push(&mut self, pos: Vec2, tick: u64, continuous: bool) {
+    ///
+    /// `resized` is how far a change of size moved the centre since the last
+    /// pose ([`resize_shift`]). It is not travel: the history is moved by it, so
+    /// the step that is extrapolated is only what the body travelled.
+    fn push(&mut self, pos: Vec2, tick: u64, continuous: bool, resized: Vec2) {
         // Clamped to at least one: a host that republished the same tick would
         // divide by zero, and a rollback that somehow moved the counter
         // backwards would underflow. Neither is reachable through
@@ -164,7 +173,7 @@ impl PresentedPose {
         // GGRS resimulates forward to the frame it already reached), but the
         // arithmetic must not depend on that being true.
         self.spanned = tick.saturating_sub(self.tick).clamp(1, u32::MAX as u64) as u32;
-        self.previous = if continuous { self.current } else { pos };
+        self.previous = if continuous { self.current + resized } else { pos };
         self.current = pos;
         self.tick = tick;
     }
@@ -184,6 +193,14 @@ impl PresentedPose {
     fn resample(&mut self, phase: f32) {
         self.presented = self.current + self.tick_delta() * phase;
     }
+}
+
+/// How far a body's centre moved because its size changed from `before` to
+/// `now` with its feet planted (`ae::resize_feet_planted`: the centre moves by
+/// half the shrink along `down`). The feet did not move, so neither did the
+/// body: a crouch must not be drawn, or framed, as a step down.
+pub fn resize_shift(before: Vec2, now: Vec2, down: Vec2) -> Vec2 {
+    down * ((before - now) * 0.5)
 }
 
 /// The one call every body-anchored visual makes instead of reading
@@ -237,16 +254,18 @@ pub fn advance_presented_body_poses(
         Entity,
         &ambition_platformer2d_core::BodyKinematics,
         Option<&mut PresentedPose>,
+        // The body's own down, the one its feet-planted resizes hold to.
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
     let phase = phase.get();
-    for (entity, pose, presented) in &mut bodies {
+    for (entity, pose, presented, frame) in &mut bodies {
         let Some(mut presented) = presented else {
             // First sight: no history, so it presents exactly where it spawned
             // rather than extrapolating away from a default.
-            commands
-                .entity(entity)
-                .insert(PresentedPose::new(pose.pos, tick.0));
+            let mut first = PresentedPose::new(pose.pos, tick.0);
+            first.size = pose.size;
+            commands.entity(entity).insert(first);
             continue;
         };
         // A new pose arrives only on a new tick; `BodyPoseView::pos` is read
@@ -259,10 +278,18 @@ pub fn advance_presented_body_poses(
             if warps.as_ref().is_some_and(|warps| warps.0.contains(&entity)) {
                 presented.push_warped(pose.pos, pose.vel, tick.0);
             } else {
-                let continuous =
-                    travelled_under_own_power(presented.current, pose.pos, pose.vel, spanned);
-                presented.push(pose.pos, tick.0, continuous);
+                let down = frame
+                    .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+                let resized = resize_shift(presented.size, pose.size, down);
+                let continuous = travelled_under_own_power(
+                    presented.current + resized,
+                    pose.pos,
+                    pose.vel,
+                    spanned,
+                );
+                presented.push(pose.pos, tick.0, continuous, resized);
             }
+            presented.size = pose.size;
         }
         // Resample EVERY frame — that is the entire point.
         presented.resample(phase);
@@ -316,7 +343,9 @@ pub fn advance_presented_feature_poses(
                     let spanned = tick.0.saturating_sub(pose.tick).clamp(1, u32::MAX as u64) as f32;
                     let leap = view.size.max_element().max(TRAVEL_FLOOR_PX) * 3.0 * spanned;
                     let continuous = pose.current.distance(view.pos) <= leap;
-                    pose.push(view.pos, tick.0, continuous);
+                    // A row carries no frame, so a change of its size cannot
+                    // be told from travel here.
+                    pose.push(view.pos, tick.0, continuous, Vec2::ZERO);
                 }
                 pose.resample(phase);
             }
@@ -449,7 +478,7 @@ mod tests {
             }
             // Exactly what `advance_presented_body_poses` does, once per FRAME.
             if pose.tick != tick {
-                pose.push(Vec2::new(per_tick * tick as f32, 0.0), tick, true);
+                pose.push(Vec2::new(per_tick * tick as f32, 0.0), tick, true, Vec2::ZERO);
             }
             pose.resample(accumulator as f32 / TICK_NS as f32);
             // Truth on the sim's own terms: `per_tick` of travel for every
@@ -503,7 +532,7 @@ mod tests {
     fn a_frame_that_advanced_two_ticks_extrapolates_one_tick_of_travel() {
         let mut pose = pose_at(Vec2::ZERO);
         // ONE frame, TWO ticks: 6 px of travel each.
-        pose.push(Vec2::new(12.0, 0.0), 2, true);
+        pose.push(Vec2::new(12.0, 0.0), 2, true, Vec2::ZERO);
         assert_eq!(
             pose.tick_delta(),
             Vec2::new(6.0, 0.0),
@@ -617,7 +646,7 @@ mod tests {
     #[test]
     fn presented_leads_the_tick_pose_by_the_phase() {
         let mut pose = pose_at(Vec2::ZERO);
-        pose.push(Vec2::new(6.0, 0.0), 1, true);
+        pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
 
         pose.resample(0.0);
         assert_eq!(
@@ -632,7 +661,7 @@ mod tests {
     #[test]
     fn a_resting_body_never_drifts() {
         let mut pose = pose_at(Vec2::new(10.0, 20.0));
-        pose.push(Vec2::new(10.0, 20.0), 1, true);
+        pose.push(Vec2::new(10.0, 20.0), 1, true, Vec2::ZERO);
         for phase in [0.0, 0.5, 0.99] {
             pose.resample(phase);
             assert_eq!(pose.presented(), Vec2::new(10.0, 20.0));
@@ -645,9 +674,26 @@ mod tests {
         // after 1.0. Extrapolation rides the REAL displacement, so it cannot
         // predict deep into the wall.
         let mut pose = pose_at(Vec2::ZERO);
-        pose.push(Vec2::new(1.0, 0.0), 1, true);
+        pose.push(Vec2::new(1.0, 0.0), 1, true, Vec2::ZERO);
         pose.resample(1.0);
         assert_eq!(pose.presented(), Vec2::new(2.0, 0.0));
+    }
+
+    #[test]
+    fn a_body_that_crouches_is_not_drawn_stepping_down() {
+        // A feet-planted crouch halves the box and moves the centre down by a
+        // quarter of the standing height; the feet hold still. Extrapolating
+        // that move as travel drew the body, and framed the camera, a further
+        // step down for a frame.
+        let mut pose = pose_at(Vec2::ZERO);
+        pose.size = Vec2::new(20.0, 40.0);
+        let crouched = Vec2::new(20.0, 20.0);
+        let resized = resize_shift(pose.size, crouched, Vec2::new(0.0, 1.0));
+        assert_eq!(resized, Vec2::new(0.0, 10.0));
+        pose.push(Vec2::new(0.0, 10.0), 1, true, resized);
+        pose.resample(0.75);
+        assert_eq!(pose.presented(), Vec2::new(0.0, 10.0));
+        assert_eq!(pose.tick_delta(), Vec2::ZERO);
     }
 
     #[test]
@@ -676,7 +722,7 @@ mod tests {
         ));
 
         let mut pose = pose_at(Vec2::ZERO);
-        pose.push(Vec2::new(900.0, 0.0), 1, false);
+        pose.push(Vec2::new(900.0, 0.0), 1, false, Vec2::ZERO);
         pose.resample(1.0);
         assert_eq!(
             pose.presented(),
@@ -689,19 +735,19 @@ mod tests {
     fn a_short_warp_keeps_the_pace_and_is_not_drawn_a_hop_ahead() {
         // Walking 4.5 px a tick, then a thin-wall door carries it 16 px more.
         let mut pose = pose_at(Vec2::ZERO);
-        pose.push(Vec2::new(4.5, 0.0), 1, true);
+        pose.push(Vec2::new(4.5, 0.0), 1, true, Vec2::ZERO);
         pose.push_warped(Vec2::new(25.0, 0.0), Vec2::new(270.0, 0.0), 2);
         pose.resample(1.0);
         assert_eq!(pose.presented(), Vec2::new(29.5, 0.0));
         // A pair that turns it: the pace goes the way it now moves.
         let mut turned = pose_at(Vec2::ZERO);
-        turned.push(Vec2::new(4.0, 0.0), 1, true);
+        turned.push(Vec2::new(4.0, 0.0), 1, true, Vec2::ZERO);
         turned.push_warped(Vec2::new(50.0, 50.0), Vec2::new(0.0, -240.0), 2);
         turned.resample(0.5);
         assert_eq!(turned.presented(), Vec2::new(50.0, 48.0));
         // At rest it parks.
         let mut rest = pose_at(Vec2::ZERO);
-        rest.push(Vec2::new(4.0, 0.0), 1, true);
+        rest.push(Vec2::new(4.0, 0.0), 1, true, Vec2::ZERO);
         rest.push_warped(Vec2::new(50.0, 0.0), Vec2::ZERO, 2);
         rest.resample(1.0);
         assert_eq!(rest.presented(), Vec2::new(50.0, 0.0));
@@ -712,11 +758,11 @@ mod tests {
         // Same speed, a tenth of the sim dt: the tick delta shrinks, so the
         // presented lead shrinks with it. Nothing reads `time_scale` to do it.
         let mut full = pose_at(Vec2::ZERO);
-        full.push(Vec2::new(6.7, 0.0), 1, true);
+        full.push(Vec2::new(6.7, 0.0), 1, true, Vec2::ZERO);
         full.resample(0.5);
 
         let mut slow = pose_at(Vec2::ZERO);
-        slow.push(Vec2::new(0.67, 0.0), 1, true);
+        slow.push(Vec2::new(0.67, 0.0), 1, true, Vec2::ZERO);
         slow.resample(0.5);
 
         assert!(slow.presented().x < full.presented().x * 0.2);
@@ -725,7 +771,7 @@ mod tests {
     #[test]
     fn authoritative_stays_the_tick_pose() {
         let mut pose = pose_at(Vec2::ZERO);
-        pose.push(Vec2::new(6.0, 0.0), 1, true);
+        pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
         pose.resample(1.0);
         assert_eq!(
             pose.authoritative(),
@@ -788,7 +834,7 @@ mod tests {
     #[test]
     fn the_delta_is_the_presented_lead_over_the_authoritative_pose() {
         let mut pose = pose_at(Vec2::ZERO);
-        pose.push(Vec2::new(10.0, 0.0), 1, true);
+        pose.push(Vec2::new(10.0, 0.0), 1, true, Vec2::ZERO);
         pose.resample(0.5);
         assert_eq!(pose.authoritative(), Vec2::new(10.0, 0.0));
         assert_eq!(pose.presented(), Vec2::new(15.0, 0.0));
@@ -809,7 +855,7 @@ mod tests {
     #[test]
     fn carrying_by_the_delta_equals_replacing_only_for_the_bodys_own_pose() {
         let mut pose = pose_at(Vec2::new(100.0, 0.0));
-        pose.push(Vec2::new(112.0, 0.0), 1, true);
+        pose.push(Vec2::new(112.0, 0.0), 1, true, Vec2::ZERO);
         pose.resample(0.5);
 
         let own = pose.authoritative();

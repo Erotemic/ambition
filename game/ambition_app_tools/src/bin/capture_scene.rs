@@ -2491,8 +2491,10 @@ fn apply_capture_snapshot(
     // The sim body, not the render visual. `PlayerVisual` is a render-side
     // marker on an entity with no kinematics, so querying it would never
     // match and `player` focus would fall back to the origin.
+    // With its standing size, so a crouch is framed as the game frames it
+    // (`CameraFocus2d::stable_center`), not as a step down.
     player_q: Query<
-        &ambition_platformer2d::actor::BodyKinematics,
+        (&ambition_platformer2d::actor::BodyKinematics, Option<&ae::BodyBaseSize>),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
@@ -2501,14 +2503,11 @@ fn apply_capture_snapshot(
     let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
-    let focus_center = if config.follow_player {
-        player_q
-            .iter()
-            .next()
-            .map(|k| k.pos)
-            .unwrap_or(config.focus)
-    } else {
-        config.focus
+    // A fixed focus is a point; a followed player is its body.
+    let followed = player_q.iter().next().filter(|_| config.follow_player);
+    let (focus_center, focus_size, focus_base) = match followed {
+        Some((kin, base)) => (kin.pos, kin.size, base.map_or(kin.size, |b| b.base_size)),
+        None => (config.focus, ae::Vec2::new(30.0, 48.0), ae::Vec2::new(30.0, 48.0)),
     };
     // `--fit-room`: the whole room, centred, scaled to fit. The resolver below
     // clamps to the room and to camera zones, so it cannot give a wide shot.
@@ -2538,8 +2537,8 @@ fn apply_capture_snapshot(
             focus: CameraFocus2d {
                 center_world: focus_center,
                 tick_center_world: focus_center,
-                size: ae::Vec2::new(30.0, 48.0),
-                base_size: ae::Vec2::new(30.0, 48.0),
+                size: focus_size,
+                base_size: focus_base,
                 facing: 1.0,
                 velocity_world: ae::Vec2::ZERO,
             },

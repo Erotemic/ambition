@@ -31,7 +31,9 @@ session edge, but it still reached `world` through the crate-root re-export
 `construction` now has no out-edge in the monolith. **After K4 step 1 and
 the K5 asset slice (2026-10-21):** the component has nine modules, the
 eight above and `publication` (see K4); the `assets` and
-`character_sprites` cycle is gone (see K5). The
+`character_sprites` cycle is gone (see K5). **After K4 step 2
+(2026-10-21):** eight again, the same eight as after K3; `publication` left
+it, because no module in it names `publication` now. The
 instrument's single-edge cuts that would shrink the component further are
 `avatar -> session` (to six), `character_runtime -> avatar` and
 `features -> projectile` (each to seven). With `crate::rooms` resolved,
@@ -53,7 +55,7 @@ about 26,700 of them. Size alone is not a carve reason.
 | `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
 | `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
 | `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
-| `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1; see K4 |
+| `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1, and 0 with step 2; see K4 |
 | `assets <-> character_sprites` | 0 / 3 | Broken with K5: the catalog-row projection moved to its consumer, and `game_assets` left `assets` |
 
 The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
@@ -272,7 +274,7 @@ planning work without importing the monolith back into itself. If it cannot,
 keep planning separate from spawn materialization. Reuse A3's prepared-plan,
 `SimId`, provenance and preflight tests.
 
-### K4 — Extract room-publication coordination as one packet — step 1 DONE 2026-10-21
+### K4 — Extract room-publication coordination as one packet — steps 1 and 2 DONE 2026-10-21
 
 **Receipt (step 1, the coordinator module):** the room publication
 coordinator is the monolith's top-level module `publication`
@@ -300,6 +302,37 @@ it. The edges that hold it there:
 `session/setup.rs`'s room preparation to move with it (otherwise the
 monolith depends on the crate), and the custody handoffs to take a handle
 that crate does not own. Step 2 is that move of session setup's room half.
+
+**Receipt (step 2, the session's first room and the custody handoffs):**
+the first room of a session is published by
+`publication::publish_first_room` (`publication/first_room.rs`), which
+takes a `FirstRoom` (the spec, the plan inputs and the commit facts) and
+returns the `PublicationHandle`. Session setup no longer prepares a room:
+`SimulationSetup` lost its room inputs, and `durable_horizon` states the
+facts as `first_room_fates() -> PersistedFates`, which the caller wraps in
+`CommitFactsSource::Stated`. The caller (the provider's lifecycle, the
+`demo_fixture` re-export and the host test support) publishes the first
+room into the session root, then builds the simulation world. The A10
+Model A custody handoffs (`record`/`apply`/`discard_custody_handoffs` and
+their tests) moved from `items/pickup` to `publication/custody_handoffs.rs`:
+they are stored on the publication handle and settled with it.
+This revises step 1's `publication -> items` KEEP_DIRECT. What a hand
+holds and how it is stripped stay item-owned (`HeldItem`, `GroundItem`,
+`ambition_combat::hand`, `restore_custody_to_checkpoint`); the record of
+what a publication owes, which only that publication creates, drains or
+discards, is the coordinator's adapter to them.
+
+Measured with `measure_kernel_module_graph.py`: `session -> publication`
+7 → 0, `items -> publication` 3 → 0, `publication -> items` 5 → 0. Nothing
+in the component names `publication`, so it left it; the component is the
+eight of K3. `publication` keeps its out-edges (`features` 7, `session` 7,
+`construction` 6, `world` 1): it is above the component, which is the
+direction an integration crate needs.
+
+**Not done:** the integration crate itself. `publication` is now a
+candidate for it, but the move is a crate split with its own proof list
+(below), not a module move. The `items -> publication` HOLD above is
+spent: the handoffs that took the handle are publication's own now.
 
 Inspect these together, not as separate file moves:
 

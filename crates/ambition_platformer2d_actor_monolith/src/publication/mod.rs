@@ -7,9 +7,12 @@
 //! (`crate::session`), and the world owns geometry and live-room identity
 //! (`crate::rooms`). See K4 in `docs/planning/engine/actor-monolith-decomposition.md`.
 
+pub(crate) mod custody_handoffs;
+mod first_room;
 pub(crate) mod stage;
 pub(crate) mod transaction;
 
+pub use first_room::{publish_first_room, FirstRoom};
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };

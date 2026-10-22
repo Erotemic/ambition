@@ -308,7 +308,7 @@ pub fn refuse_held_publication(world: &mut World, publication: PublicationHandle
     if !held {
         return;
     }
-    crate::items::pickup::discard_custody_handoffs(world, publication);
+    super::custody_handoffs::discard_custody_handoffs(world, publication);
     if let Ok(mut entity) = world.get_entity_mut(publication.0) {
         entity.remove::<(PendingWorldReplacement, FrozenPublicationEffects)>();
     }
@@ -1514,7 +1514,7 @@ pub(crate) fn open(
                     let mut handed_off = std::collections::BTreeSet::new();
                     let mut left_to_custodian = std::collections::BTreeSet::new();
                     for (sim_id, entity) in in_custody {
-                        if crate::items::pickup::record_custody_handoff(
+                        if super::custody_handoffs::record_custody_handoff(
                             world,
                             publication,
                             &sim_id,
@@ -1748,7 +1748,7 @@ pub fn finalize_room_publication(world: &mut World, publication: PublicationHand
     // can declare a custody supersession too. An undrained ledger is strictly
     // worse than the Model B window it replaces — a permanently stale hand
     // rather than a duplicate that closes itself inside the frame.
-    let stripped = crate::items::pickup::apply_custody_handoffs(world, publication);
+    let stripped = super::custody_handoffs::apply_custody_handoffs(world, publication);
     ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
         "room-loaded {room_id} ({admitted} roots admitted, \
          {} declared departures retired, {} left to their custodian, \
@@ -1928,7 +1928,7 @@ fn verify_and_publish(
         // ⛔ A REFUSED PUBLICATION DESPAWNED NOTHING, so the hands its recorded
         // handoffs describe are still correct — draining them would strip an item
         // off a body for a world that was never built.
-        crate::items::pickup::discard_custody_handoffs(world, publication);
+        super::custody_handoffs::discard_custody_handoffs(world, publication);
         // ⛔⛤ **THE STAGED WORLD IS DROPPED HERE, EXPLICITLY.** This comment used
         // to say `retire_candidate` took it because the staged world was
         // "candidate-owned state stamped with this room's transaction". MEASURED
@@ -2245,7 +2245,7 @@ fn verify_and_publish(
         // ⛔ AND THE SAME ON THE LATE REFUSAL. Handoffs were recorded when this
         // transaction DECLARED its supersessions; nothing was despawned, so the
         // hands they describe are still holding the right things.
-        crate::items::pickup::discard_custody_handoffs(world, publication);
+        super::custody_handoffs::discard_custody_handoffs(world, publication);
         let failure_count =
             violations.len() + projection_violations.len() + staged_violations.len();
         // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the

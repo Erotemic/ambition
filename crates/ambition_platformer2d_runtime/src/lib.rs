@@ -170,6 +170,8 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,
     };
+    // The first room is published before the session's bodies are built.
+    pub use ambition_platformer2d_actor_monolith::publication::{publish_first_room, FirstRoom};
     // A direct-entry demo drops the first room's receipt, so it says so.
     pub use ambition_platformer2d_actor_monolith::publication::PublicationRetention;
     pub use ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry;

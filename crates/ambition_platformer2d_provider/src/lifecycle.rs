@@ -2583,7 +2583,9 @@ impl PlatformerSessionBuilder<'_, '_> {
         self.commands
             .spawn_session_scoped(SessionSpawnScope::candidate(scope), live_room);
 
-        let built = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
+        // The first room, published into the candidate before any of its
+        // bodies is built.
+        let publication = ambition_platformer2d_actor_monolith::publication::publish_first_room(
             &mut self.commands,
             // ⛔⛤ **`candidate`, NOT `scoped` — AND THIS ONE WORD IS WHAT HIDES
             // THE WHOLE SESSION.** `SessionSpawnScope::apply_to` is the single
@@ -2594,27 +2596,23 @@ impl PlatformerSessionBuilder<'_, '_> {
             // ownership, and the gameplay queries that find a body find it by its
             // own markers.
             SessionSpawnScope::candidate(scope),
-            ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
-                // ⛔ THE ROOT THIS ACTIVATION JUST SPAWNED. Setup publishes the
+            ambition_platformer2d_actor_monolith::publication::FirstRoom {
+                // ⛔ THE ROOT THIS ACTIVATION JUST SPAWNED. This publishes the
                 // session's content generation ON it — not into a process global
                 // that a second session would have to overwrite.
                 session_root: world,
                 // ⛔ THE ACTIVATION DECISION READS THIS RECEIPT. See the closure
                 // below: the candidate session becomes authoritative only if the
                 // room it was built around published.
-                publication_retention:
+                retention:
                     ambition_platformer2d_actor_monolith::publication::PublicationRetention::UntilOwnerRetires,
                 // ⛔ THE FATES OF THE FIRST ROOM'S BODIES, FROM THE CANDIDATE'S
                 // OWN SAVE. The commit lands in a world where the live save
                 // can be another session's. See `CommitFactsSource`.
-                first_room_facts: horizon.first_room_facts(),
-                world: &geometry,
+                facts: ambition_platformer2d_actor_monolith::publication::CommitFactsSource::Stated(
+                    horizon.first_room_fates(),
+                ),
                 room_set: &room_set,
-                tuning: &self.tuning,
-                initial_body: &initial_body,
-                home_body_resources: &home_body_resources,
-                home_body_abilities: &home_body_abilities,
-                prepared_characters: cast.cast(),
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
                 // Activation is the one place that holds the exact prepared
@@ -2683,6 +2681,18 @@ impl PlatformerSessionBuilder<'_, '_> {
                         ),
                     ),
                 boss_catalog: &mechanical.bosses,
+            },
+        );
+        let built = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
+            &mut self.commands,
+            SessionSpawnScope::candidate(scope),
+            ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
+                world: &geometry,
+                tuning: &self.tuning,
+                initial_body: &initial_body,
+                home_body_resources: &home_body_resources,
+                home_body_abilities: &home_body_abilities,
+                prepared_characters: cast.cast(),
                 default_character_id,
             },
         );
@@ -2739,7 +2749,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             horizon,
             prepared_from,
             starting_bag,
-            publication: built.publication,
+            publication,
             mechanics: mechanical.clone(),
             cast: cast.clone(),
         }

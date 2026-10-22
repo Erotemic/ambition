@@ -134,7 +134,7 @@ fn the_resize_holds_the_feet() {
             },
         ))
         .id();
-    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    app.add_systems(bevy::prelude::Update, (sync_sprite_posed_bodies, place_sprite_posed_bodies).chain());
     app.update();
 
     let kin = app
@@ -189,7 +189,7 @@ fn a_stance_survives_the_per_tick_resync() {
             },
         ))
         .id();
-    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    app.add_systems(bevy::prelude::Update, (sync_sprite_posed_bodies, place_sprite_posed_bodies).chain());
     // Twice: once to settle, once to prove it is not a first-tick effect.
     app.update();
     app.update();
@@ -221,7 +221,7 @@ fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
             ae::BodyKinematics::default(),
         ))
         .id();
-    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    app.add_systems(bevy::prelude::Update, (sync_sprite_posed_bodies, place_sprite_posed_bodies).chain());
     app.update();
     let unpinned = app
         .world()
@@ -280,7 +280,7 @@ fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32)
             },
         ))
         .id();
-    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    app.add_systems(bevy::prelude::Update, (sync_sprite_posed_bodies, place_sprite_posed_bodies).chain());
     // Twice: the stance is applied ONCE, on the tick the mode changes, while this
     // pass runs every tick. A placement that only survives the first tick is not
     // a placement.
@@ -398,7 +398,7 @@ fn the_resize_holds_the_face_of_the_bodys_own_gravity() {
             frame,
         ))
         .id();
-    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    app.add_systems(bevy::prelude::Update, (sync_sprite_posed_bodies, place_sprite_posed_bodies).chain());
     app.update();
 
     let kin = app

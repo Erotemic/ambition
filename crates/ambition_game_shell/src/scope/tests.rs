@@ -269,3 +269,39 @@ fn the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope() {
         "a departure did not release the provider's state"
     );
 }
+
+/// A provider's frontend sleeps while another game is on screen, runs on each
+/// of its own routes, and runs once more on the frame the route leaves it, so
+/// it can take its screen down.
+#[test]
+fn a_frontend_runs_on_its_routes_and_on_the_frame_that_leaves_them() {
+    use bevy::prelude::{IntoScheduleConfigs, ResMut, Update};
+
+    #[derive(Resource, Default)]
+    struct Runs(u32);
+
+    let mut app = app_with_scope();
+    app.init_resource::<Runs>();
+    app.add_systems(
+        Update,
+        (|mut runs: ResMut<Runs>| runs.0 += 1).run_if(shell_scope_is_on_screen_or_routing("game")),
+    );
+    let mut step = |app: &mut App| {
+        let before = app.world().resource::<Runs>().0;
+        app.update();
+        app.world().resource::<Runs>().0 - before
+    };
+
+    // The first frame sees the router as new: it runs once, then sleeps.
+    step(&mut app);
+    assert_eq!(step(&mut app), 0, "it ran with no route on screen");
+
+    app.world_mut().resource_mut::<ShellRouter>().active = Some(active("game_select", "game.select"));
+    assert_eq!(step(&mut app), 1, "it did not run on its own select route");
+    assert_eq!(step(&mut app), 1, "it did not run on a later frame of its own route");
+
+    app.world_mut().resource_mut::<ShellRouter>().active = Some(active("other_play", "other"));
+    assert_eq!(step(&mut app), 1, "it did not run on the frame that left its routes");
+    assert_eq!(step(&mut app), 0, "it ran while another game was on screen");
+    assert_eq!(step(&mut app), 0, "it ran while another game was on screen");
+}

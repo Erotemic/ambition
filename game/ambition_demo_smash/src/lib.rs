@@ -1418,11 +1418,17 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // 2. Itself: arrival resets the previous match's decision before the
         //    transition out reads it. The other order re-enters the stage on
         //    arrival.
+        // 3. Asleep while another game is on screen: every system here acts
+        //    on Smash's own routes, or on the frame that leaves them.
+        let smash_frontend = ambition_platformer2d::game_shell::shell_scope_is_on_screen_or_routing(SMASH_EXPERIENCE);
         app.configure_sets(
             bevy::prelude::Update,
-            bevy::prelude::IntoScheduleConfigs::in_set(
-                SmashSelectSet,
-                ambition_platformer2d::input::InputSet::Consume,
+            bevy::prelude::IntoScheduleConfigs::run_if(
+                bevy::prelude::IntoScheduleConfigs::in_set(
+                    SmashSelectSet,
+                    ambition_platformer2d::input::InputSet::Consume,
+                ),
+                smash_frontend.clone(),
             ),
         );
         // The screen claims its seats' input in `ResolveContext`, ahead of
@@ -1430,9 +1436,12 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // `context_priority::PAUSE`) outranks it. See `drive_the_select_screen`.
         app.add_systems(
             bevy::prelude::Update,
-            bevy::prelude::IntoScheduleConfigs::in_set(
-                declare_the_select_input_context,
-                ambition_platformer2d::input::InputSet::ResolveContext,
+            bevy::prelude::IntoScheduleConfigs::run_if(
+                bevy::prelude::IntoScheduleConfigs::in_set(
+                    declare_the_select_input_context,
+                    ambition_platformer2d::input::InputSet::ResolveContext,
+                ),
+                smash_frontend.clone(),
             ),
         );
         // The screen's confirm cue: what confirming means here. It is also
@@ -1445,9 +1454,12 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         app.init_resource::<ambition_platformer2d::input::ActiveUiCues>();
         app.add_systems(
             bevy::prelude::Update,
-            bevy::prelude::IntoScheduleConfigs::in_set(
-                publish_the_select_ui_cue,
-                ambition_platformer2d::input::InputSet::PublishCues,
+            bevy::prelude::IntoScheduleConfigs::run_if(
+                bevy::prelude::IntoScheduleConfigs::in_set(
+                    publish_the_select_ui_cue,
+                    ambition_platformer2d::input::InputSet::PublishCues,
+                ),
+                smash_frontend,
             ),
         );
         app.add_systems(

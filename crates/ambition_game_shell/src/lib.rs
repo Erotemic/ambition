@@ -47,7 +47,8 @@ pub use route_seating::{
 };
 pub use router::*;
 pub use scope::{
-    release_departed_experience_state, shell_experience_is_active, ExperienceScope,
+    release_departed_experience_state, shell_experience_is_active, shell_scope_is_on_screen_or_routing,
+    ExperienceScope,
     ExperienceScopeBuilder, ReleaseKind, ShellExperienceScopeAppExt, ShellExperienceScopes,
 };
 pub use sequence::*;

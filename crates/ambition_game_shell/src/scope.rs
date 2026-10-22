@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 
-use bevy::prelude::{App, Res, Resource, World};
+use bevy::prelude::{App, DetectChanges, Res, Resource, World};
 
 use crate::{ShellExperienceId, ShellRouter};
 
@@ -123,6 +123,38 @@ pub fn shell_experience_is_active(
                 .active
                 .as_ref()
                 .is_some_and(|active| active.experience_id == experience)
+        })
+    }
+}
+
+/// Must a provider's frontend systems run this frame?
+///
+/// True while the active experience is inside `owner`'s scope (its declared
+/// [`ExperienceScope`], or `owner` alone when it declares none), and on each
+/// frame the router changed. The change arm is for the frame that leaves the
+/// scope: a system that took its screen down or retracted its claim when the
+/// route was another one still sees that route once. Between route changes
+/// in another game, the systems do not run. A host with no router reads as
+/// false.
+///
+/// The change is read since this condition last ran, which is each frame,
+/// so a route change later in a frame is seen on the next one.
+pub fn shell_scope_is_on_screen_or_routing(
+    owner: impl Into<ShellExperienceId>,
+) -> impl Fn(Option<Res<ShellRouter>>, Option<Res<ShellExperienceScopes>>) -> bool + Clone {
+    let owner = owner.into();
+    move |router, scopes| {
+        let Some(router) = router else {
+            return false;
+        };
+        if router.is_changed() {
+            return true;
+        }
+        router.active.as_ref().is_some_and(|active| {
+            match scopes.as_deref().and_then(|scopes| scopes.get(owner.as_str())) {
+                Some(scope) => scope.covers(&active.experience_id),
+                None => active.experience_id == owner,
+            }
         })
     }
 }

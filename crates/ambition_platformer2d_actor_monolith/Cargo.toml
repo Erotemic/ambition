@@ -13,6 +13,8 @@ description = "Ambition gameplay core: content-free simulation systems, runtime 
 crate-type = ["rlib"]
 
 [features]
+# The construction fixtures the room coordinator's tests build from.
+test-support = ["ambition_characters/test-support", "ambition_boss_encounter/test-support"]
 # Forward all causal feature dependencies used by this crate.
 causal = ["dep:ambition_causal", "ambition_combat/causal", "ambition_damage/causal"]
 # Default preserves the full desktop sandbox / development posture. Android

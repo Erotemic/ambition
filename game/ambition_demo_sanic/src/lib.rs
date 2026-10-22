@@ -31,6 +31,22 @@ pub const DARKNESS_ROOM_ID: &str = "sanic_darkness";
 /// Act 3's level file.
 pub static DARKNESS_WORLD: PackText = ambition_platformer2d::content_text!("assets/worlds/sanic_darkness.ldtk");
 
+/// The engine capabilities Sanic's rooms use (see the declaration in
+/// `SanicRulesPlugin`). A host of several games leaves out what none of them
+/// uses.
+pub const USED_CAPABILITIES: ambition_platformer2d::platformer::capability::UsedCapabilities = {
+    use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
+    UsedCapabilities::ALL
+        .without(Capability::BossEncounters)
+        .without(Capability::Dialogue)
+        .without(Capability::HeldUse)
+        .without(Capability::FighterSpecials)
+        .without(Capability::Mounts)
+        .without(Capability::Encounters)
+        .without(Capability::Captures)
+        .without(Capability::Trails)
+};
+
 /// The game-mode tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition hosts this demo by loading its rooms alongside its own; a Sanic
@@ -551,15 +567,7 @@ impl Plugin for SanicRulesPlugin {
             // are portals.
             app.declare_rules(
                 scope,
-                ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
-                    .without(ambition_platformer2d::platformer::capability::Capability::BossEncounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue)
-                    .without(ambition_platformer2d::platformer::capability::Capability::HeldUse)
-                    .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Encounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Captures)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Trails),
+                crate::USED_CAPABILITIES,
             );
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(

@@ -407,7 +407,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         // its set, and bridges host seams (see `ambition_portal2d::host_adapter`).
         // Gravity visuals and the F7 dev off-switch stay host-side.
         #[cfg(feature = "portal_render")]
-        {
+        if ambition_portal2d_presentation::portals_are_simulated(app) {
             use ambition_portal2d_presentation::{PortalPresentationPlugin, PortalPresentationSet};
             // Measurement only (D-HEADLESS-DESPAWN): a view-cone capture rig
             // renders to an `Image`. With `backends: None` there is no RenderApp,
@@ -429,14 +429,16 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(camera::camera_follow)
                     .after(ambition_portal2d_presentation::PortalObservationSet),
             );
-            app.add_systems(
-                Update,
-                (
-                    gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
-                )
-                    .run_if(session_presentation_is_ready),
-            );
         }
+        // Gravity zones are not portals; they shared the portal build feature.
+        #[cfg(feature = "portal_render")]
+        app.add_systems(
+            Update,
+            (
+                gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
+            )
+                .run_if(session_presentation_is_ready),
+        );
     }
 }
 

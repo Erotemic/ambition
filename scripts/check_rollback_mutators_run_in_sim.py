@@ -713,7 +713,13 @@ def _is_test_path(path: Path) -> bool:
 #: so the proxy had no overlap with the fact at all. Found by chasing
 #: `materialize_projectiles_for_this_tick`, which read as a serious breach —
 #: projectile spawning is simulation, not presentation — and was a fixture.
-_FILE_IS_TEST_ONLY = re.compile(r"^[ \t]*#!\[cfg\(test\)\]", re.M)
+#: ⚠ AND `#![cfg(any(test, feature = "test-support"))]` IS THE SAME FACT: a
+#: fixture file another crate's tests share (the construction fixtures the room
+#: coordinator's tests build from, 2026-10-22) is compiled for tests and for
+#: that feature only, never into a shipped build.
+_FILE_IS_TEST_ONLY = re.compile(
+    r'^[ \t]*#!\[cfg\((?:test|any\(test,\s*feature\s*=\s*"test-support"\))\)\]', re.M
+)
 
 
 @functools.cache

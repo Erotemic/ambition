@@ -12,6 +12,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["headless", "input"] }
+ambition_platformer2d_publication = { path = "../ambition_platformer2d_publication" }
 # The room vocabulary this crate queries (`RoomSet`) is the world crate's, not
 # the monolith's; it reached it through a re-export until 2026-08-26.
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }

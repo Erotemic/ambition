@@ -8,10 +8,6 @@
 // runtime. The two imports stand or fall together, and the warning above still applies to both —
 // gate the USES and the IMPORT as one pair, or neither.
 
-#[cfg(feature = "physics_debris")]
-use ambition_platformer2d::actors::world::physics;
-#[cfg(feature = "physics_debris")]
-use ambition_platformer2d::actors::world::physics::physics_spawn_debris_messages;
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
@@ -117,7 +113,15 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host));
+    //
+    // Portals are left out when no game this hub installs uses them; the
+    // host's and the renderer's portal halves follow the simulation.
+    let mut engine = ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host);
+    let portals = ambition_platformer2d::platformer::capability::Capability::Portals;
+    if !super::hub_games::selection_uses(portals) {
+        engine = engine.without(portals);
+    }
+    app.add_plugins(engine);
 
     // This is the composition statement that replaced it; it must come after the group, which is
     // what sets `SimulationHost` for the rollback registrar.
@@ -233,8 +237,8 @@ pub fn add_presentation_plugins(app: &mut App) {
 }
 
 /// Visible-side resources, registered types, and presentation child
-/// plugins (input, audio, dev_tools, physics_debris, ui, mobile touch,
-/// FPS overlay, font loader).
+/// plugins (input, audio, dev_tools, ui, mobile touch, FPS overlay, font
+/// loader). Ambition's provider installs its physics debris.
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
@@ -275,7 +279,6 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // reads as.
     app.add_systems(bevy::prelude::PostStartup, report_shadowed_character_sheets);
     app.add_plugins(crate::dev::DevToolsPlugin);
-    add_physics_debris_plugins(app);
     // No UI-widget-framework plugin is installed here, and there is no `add_ui_plugins` to
     // call. This app's UI is plain Bevy UI plus the typography Ambition owns (`MenuFont`, and
     // menu text sizes authored as `FontSize::Vh`). See the note on the `ui` feature in
@@ -645,24 +648,6 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
-
-/// Install the Avian2D secondary-physics plugin and its presentation-side
-/// debris subscriber. Gated by `physics_debris` so headless / minimal
-/// builds drop `avian2d` from the dep graph entirely. Per ADR 0007, this
-/// is secondary physics for debris/ragdoll visuals only — the player
-/// controller stays kinematic.
-#[cfg(feature = "physics_debris")]
-pub(super) fn add_physics_debris_plugins(app: &mut App) {
-    app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
-        Update,
-        physics_spawn_debris_messages
-            .after(Platformer2dSimulationPhase::CoreSimulation)
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-    );
-}
-
-#[cfg(not(feature = "physics_debris"))]
-pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
 // Ambition's UI is plain Bevy UI, and no widget framework is installed here.
 // Typography is owned by `ambition_menu` — `MenuFont`, and menu text sizes

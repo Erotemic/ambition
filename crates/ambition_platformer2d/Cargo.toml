@@ -195,6 +195,7 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_shrine = { path = "../ambition_shrine" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+ambition_platformer2d_publication = { path = "../ambition_platformer2d_publication" }
 # Re-exported as `world_items`: the touched-collectible domain the kernel gave
 # up in D33. A game names this rather than `actors::items`.
 ambition_world_items = { path = "../ambition_world_items" }

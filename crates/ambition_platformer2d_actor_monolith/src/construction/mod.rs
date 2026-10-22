@@ -21,6 +21,8 @@ use ambition_boss_encounter::BossCatalog;
 
 #[cfg(test)]
 mod tests;
+// Shared with the room coordinator's tests, which commit what these build.
+pub mod test_fixtures;
 
 /// An LDtk-authored ground item (a walk-into pickup).
 pub const RECIPE_AUTHORED_GROUND_ITEM: &str = "ambition.authored-ground-item";

@@ -516,8 +516,10 @@ impl Plugin for HostCameraPlugin {
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
 
+        // Only where portals are simulated: a host of games that use none
+        // leaves the simulation out, and this reads its state.
         #[cfg(feature = "portal_render")]
-        {
+        if app.is_plugin_added::<ambition_portal2d::PortalSimulationPlugin>() {
             app.add_plugins(crate::portal::PortalObservationPlugin);
             app.add_systems(
                 Update,

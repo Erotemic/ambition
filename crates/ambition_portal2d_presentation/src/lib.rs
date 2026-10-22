@@ -47,6 +47,12 @@ pub use clip_material::{
 // `PortalChannel`, which takes a `PortalChannelColor`, so without them the
 // struct cannot be built outside this crate.
 pub use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor};
+
+/// Whether `app` simulates portals. The presentation reads the simulation's
+/// state, so a host installs it only where this is true.
+pub fn portals_are_simulated(app: &App) -> bool {
+    app.is_plugin_added::<ambition_portal2d::PortalSimulationPlugin>()
+}
 pub use far_side::{composite_far_side_bodies, PortalFarSideHidden, PortalFarSidePiece};
 pub use source_visibility::{
     resolve_portal_source_visibility, PortalDependantHidden, PortalSourceHidden, PortalTransitHidden,

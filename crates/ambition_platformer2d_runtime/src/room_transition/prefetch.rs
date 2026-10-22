@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use bevy::prelude::Resource;
 
-use ambition_platformer2d_actor_monolith::publication::RoomConstructionPlan;
+use ambition_platformer2d_publication::RoomConstructionPlan;
 use ambition_platformer2d_shared_tangle::lifecycle::{RoomOccurrenceOutlook, SessionScopeId};
 use ambition_platformer2d_world::rooms::RoomSpec;
 

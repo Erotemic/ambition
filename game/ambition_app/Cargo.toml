@@ -136,7 +136,7 @@ rl_sim = ["dep:ambition_sim_harness"]
 causal = ["ambition_platformer2d/causal"]
 headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
-dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
+dev_hot_reload = ["ambition_platformer2d/dev_hot_reload", "ambition_content/dev_hot_reload"]
 static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
 # Embed generated content RON. Rides with every build that embeds the world
 # JSON, for the same reason: no filesystem (web/Android) or no source tree
@@ -174,7 +174,7 @@ audio = [
 # `ui` is the DIALOGUE/YARN umbrella, not a widget-framework switch. What `ui` still buys is the
 # Yarn runtime and `ambition_dialog/ui` downstream. Ambition's own UI is plain Bevy UI.
 ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_yarnspinner"]
-physics_debris = ["ambition_platformer2d/physics_debris"]
+physics_debris = ["ambition_platformer2d/physics_debris", "ambition_content/physics_debris"]
 input = ["ambition_platformer2d/input", "dep:leafwing-input-manager"]
 mobile_touch = ["input", "ambition_platformer2d/mobile_touch"]
 bevy_ui_menu = ["ambition_platformer2d/bevy_ui_menu"]

@@ -103,7 +103,7 @@ def test_a_live_leaf_under_a_dead_module_path_is_not_a_subject():
     segment above where it was looking.
     """
     names, modules, _by_module = guard._tree_facts()
-    live = "ambition_platformer2d_actor_monolith::publication::transaction::ActiveContentBinding"
+    live = "ambition_platformer2d_publication::transaction::ActiveContentBinding"
     prefix, _, leaf = live.rpartition("::")
     assert leaf in names, "fixture drifted: pick another declared leaf"
     assert guard.module_is_live(prefix, modules), "the real path must read live"
@@ -124,7 +124,7 @@ def test_the_relative_spelling_is_still_live():
     leading `::`. Measured 2026-09-18: 37 of the 127 qualified subjects use the
     relative form, so an exact match would report all 37 as dead."""
     _names, modules, _by_module = guard._tree_facts()
-    assert guard.module_is_live("::publication::transaction", modules)
+    assert guard.module_is_live("::content_identity", modules)
     assert guard.module_is_live("", modules), "an unqualified leaf has no path to check"
 
 

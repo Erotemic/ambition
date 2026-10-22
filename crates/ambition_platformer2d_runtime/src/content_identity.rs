@@ -520,7 +520,7 @@ pub fn publish_session_content(world: &mut World, content: PreparedContent) {
     };
     insert_session_world_component(
         world,
-        ambition_platformer2d_actor_monolith::publication::ActiveContentBinding::content(
+        ambition_platformer2d_publication::ActiveContentBinding::content(
             content.epoch(),
             ambition_platformer2d_core::PeerContentIdentity::from_bytes(*content.fingerprint().as_bytes()),
         ),

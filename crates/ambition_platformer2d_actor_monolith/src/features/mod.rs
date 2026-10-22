@@ -145,8 +145,8 @@ pub use ecs::{
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     CHALLENGE_GRACE_S,
 };
-// ⛔ Crate-internal: see `features::ecs`.
-pub(crate) use ecs::{spawn_room_feature_entities_from_plan, RoomFeatureConstructionReceipt};
+// ⛔ The room coordinator's only: see `features::ecs`.
+pub use ecs::{spawn_room_feature_entities_from_plan, RoomFeatureConstructionReceipt};
 
 pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,

@@ -10,7 +10,7 @@
 //! param wiring and pairs it with the presentation-side spawns.
 //!
 //! The session's first room is not built here: the caller publishes it first
-//! (`crate::publication::publish_first_room`), into the same session root, and
+//! (`ambition_platformer2d_publication::publish_first_room`), into the same session root, and
 //! decides from its receipt whether the session becomes authoritative.
 
 use ambition_platformer2d_core as ae;
@@ -101,7 +101,7 @@ pub fn simulation_world(
         default_character_id,
     } = params;
     // The first room is the session's activation room, published before this
-    // (`crate::publication::publish_first_room`), so the home body that starts
+    // (`ambition_platformer2d_publication::publish_first_room`), so the home body that starts
     // in it is in instance #0.
     let session_scope = session_scope.in_room(Some(
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,

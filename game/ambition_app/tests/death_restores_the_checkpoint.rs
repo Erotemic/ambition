@@ -1596,7 +1596,7 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
         // adding it up every frame would count one window 240 times.
         if let Some(verification) = sim
             .world()
-            .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
         {
             if verification.published {
                 published_supersessions = published_supersessions.max(verification.supersessions);
@@ -1605,7 +1605,7 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
         custody_windows = custody_windows.max(
             sim.world()
                 .get_resource::<
-                    ambition_platformer2d::actors::publication::LastConstructionVerification,
+                    ambition_platformer2d::publication::LastConstructionVerification,
                 >()
                 .map_or(0, |verification| verification.left_to_custodian),
         );

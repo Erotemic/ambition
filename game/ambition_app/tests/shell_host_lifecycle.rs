@@ -3546,7 +3546,7 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
     }
     let verdict = veteran
         .world()
-        .resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::publication::LastConstructionVerification>()
         .clone();
     assert!(
         !verdict.published,

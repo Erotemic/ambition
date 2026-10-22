@@ -1,0 +1,32 @@
+[package]
+name = "ambition_platformer2d_publication"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Room publication: prepare a hidden candidate room, check its construction receipt, and publish or refuse it as one operation."
+
+[dependencies]
+# The domains the coordinator joins: construction, session, features and world.
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_held_items = { path = "../ambition_held_items" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+bevy = { version = "0.19.1", default-features = false }
+serde_json = "1"
+
+[dev-dependencies]
+# `portal`: the portal gun is a capability-owned construction lane, which one test proves.
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["test-support", "portal"] }
+ambition_portal2d = { path = "../ambition_portal2d" }
+ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }
+ambition_mount = { path = "../ambition_mount" }
+ambition_shrine = { path = "../ambition_shrine" }

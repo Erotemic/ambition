@@ -309,13 +309,13 @@ struct SessionGeneration {
     modules: String,
     identity: ambition_platformer2d::runtime::PreparedContentIdentity,
     prepared: ambition_platformer2d::runtime::PreparedContentIdentity,
-    binding: Option<ambition_platformer2d::actors::publication::ActiveContentBinding>,
-    expected_binding: Option<ambition_platformer2d::actors::publication::ActiveContentBinding>,
+    binding: Option<ambition_platformer2d::publication::ActiveContentBinding>,
+    expected_binding: Option<ambition_platformer2d::publication::ActiveContentBinding>,
 }
 
 /// The declared modules, and what the session root says about them.
 fn session_generation(sim: &mut Platformer2dSimHarness) -> SessionGeneration {
-    use ambition_platformer2d::actors::publication::ActiveContentBinding;
+    use ambition_platformer2d::publication::ActiveContentBinding;
     use ambition_platformer2d::runtime::{PreparedContent, PreparedContentIdentity};
     let world = sim.world_mut();
     let generation = world.resource::<ambition_platformer2d::extension::ExtensionGeneration>().0.clone();

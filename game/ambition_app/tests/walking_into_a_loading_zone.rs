@@ -377,7 +377,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         // targets the live session's own root.
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             sim.world_mut(),
-            ambition_platformer2d::actors::publication::ActiveContentBinding::content(ambition_platformer2d::engine_core::ContentEpoch(epoch), Default::default()),
+            ambition_platformer2d::publication::ActiveContentBinding::content(ambition_platformer2d::engine_core::ContentEpoch(epoch), Default::default()),
         );
         let here = body_pos(&mut sim);
         arm_the_discriminators(&mut sim);
@@ -388,7 +388,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         // than the start room's own load.
         let verdict = sim
             .world_mut()
-            .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
             .cloned();
         if let Some(verdict) = verdict {
             if !verdict.published && verdict.room_id != before_room {
@@ -403,7 +403,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
              reached the zone, the transition never asked for a room, or the room \
              published under a binding nothing could match. Last verdict: {:?}",
             sim.world_mut().get_resource::<
-                ambition_platformer2d::actors::publication::LastConstructionVerification,
+                ambition_platformer2d::publication::LastConstructionVerification,
             >()
         )
     });
@@ -549,7 +549,7 @@ fn a_crossing_that_publishes_does_every_transition_effect() {
         sim.step(walk_toward(target_x, here.x, base()));
         let verdict = sim
             .world_mut()
-            .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
             .cloned();
         if let Some(verdict) = verdict {
             if verdict.published && verdict.room_id != before_room {
@@ -645,7 +645,7 @@ fn the_shipped_apps_own_first_room_publishes() {
     let room = active_room(&mut sim);
     let verification = sim
         .world_mut()
-        .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+        .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
         .cloned()
         .expect("booting the shipped app runs a room construction transaction");
     assert_eq!(
@@ -725,7 +725,7 @@ fn probe_what_closes_a_seated_conversation_while_the_room_transaction_is_refused
         epoch += 1;
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             sim.world_mut(),
-            ambition_platformer2d::actors::publication::ActiveContentBinding::content(
+            ambition_platformer2d::publication::ActiveContentBinding::content(
                 ambition_platformer2d::engine_core::ContentEpoch(epoch),
                 Default::default(),
             ),
@@ -736,7 +736,7 @@ fn probe_what_closes_a_seated_conversation_while_the_room_transaction_is_refused
         let flash = preset_flash(&mut sim);
         let verdict = sim
             .world_mut()
-            .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
             .map(|v| (v.published, v.room_id.clone()));
         println!("frame {frame:3}  conversation_live={live}  preset_flash={flash}  verdict={verdict:?}");
         if !live {

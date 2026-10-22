@@ -168,7 +168,10 @@ to create before it has a real owner packet. An `ambition_engine` catch-all
 would not make the responsibilities clearer. Keep integration code in the
 existing runtime where that is the narrowest present owner, then add the
 integration crate **only if** the room-publication move gives it a stable
-independent implementation and dependency direction.
+independent implementation and dependency direction. **It did (K4 step 3,
+2026-10-22), and the crate is named for that one packet,
+`ambition_platformer2d_publication`, not for the layer: a second packet
+that belongs at this level earns its own crate or a deliberate rename.**
 
 The target dependency direction is host/provider -> runtime -> integration
 -> domains -> foundations. Runtime may also install domain plugins directly.
@@ -276,14 +279,14 @@ planning work without importing the monolith back into itself. If it cannot,
 keep planning separate from spawn materialization. Reuse A3's prepared-plan,
 `SimId`, provenance and preflight tests.
 
-### K4 — Extract room-publication coordination as one packet — steps 1 and 2 DONE 2026-10-21
+### K4 — Extract room-publication coordination as one packet — DONE 2026-10-22 (steps 1–3)
 
 **Receipt (step 1, the coordinator module):** the room publication
 coordinator is the monolith's top-level module `publication`
 (`publication/stage.rs`, `publication/transaction.rs`, their tests). It
 left `world::rooms`, which now holds geometry, bindings, passages,
 residency and the door systems. Every caller names the new owner
-(`crate::publication::…`, `ambition_platformer2d::actors::publication::…`);
+(`crate::publication::…`, `ambition_platformer2d::publication::…`);
 `rooms` does not re-export it. No system, resource, component or wire name
 moved: the rollback exemptions in `rollback_coverage.rs` match the moved
 type paths (`::publication::stage::`, `::publication::transaction::`).
@@ -331,10 +334,50 @@ eight of K3. `publication` keeps its out-edges (`features` 7, `session` 7,
 `construction` 6, `world` 1): it is above the component, which is the
 direction an integration crate needs.
 
-**Not done:** the integration crate itself. `publication` is now a
-candidate for it, but the move is a crate split with its own proof list
-(below), not a module move. The `items -> publication` HOLD above is
-spent: the handoffs that took the handle are publication's own now.
+The `items -> publication` HOLD above is spent: the handoffs that took
+the handle are publication's own now.
+
+**Receipt (step 3, the integration crate, 2026-10-22):** the coordinator
+is its own crate, `ambition_platformer2d_publication`, above the
+monolith. The monolith does not name it; the runtime's room transition,
+the provider's first room and the GGRS lifecycle commit do, and the
+facade exports it as `ambition_platformer2d::publication`. No system,
+resource, component or wire name changed; the rollback waivers name the
+new type paths (`ambition_platformer2d_publication::stage::`,
+`::transaction::`).
+
+What crossed the boundary, and how it is held:
+
+- **The feature-construction seam.** The coordinator spawns a room's
+  feature plan and verifies the receipt (`spawn_room_feature_entities_from_plan`,
+  `RoomFeatureConstructionReceipt`, and the plan's
+  `verify_committed_construction`, `construction_transactions`,
+  `planned_sim_ids`, `construction_binding`, `emptied`). They were
+  `pub(crate)` with the coordinator as their only caller; they are `pub`
+  now. The receipt is still unforgeable (its fields are private and only
+  the spawn makes one), and the absence contract
+  `only-the-room-coordinator-spawns-a-room-plan` keeps every other crate
+  off the spawn, the receipt and the verify step.
+- **The construction tests that commit.** 45 of the 100 tests in
+  `construction/tests.rs` build a room and commit it through a
+  publication; they moved to the coordinator's crate
+  (`construction_tests.rs`). The 30 fixtures both halves use are
+  `construction::test_fixtures`, compiled only for tests and for the
+  monolith's new `test-support` feature (`#![cfg(any(test, feature =
+  "test-support"))]`), which the coordinator enables as a dev-dependency.
+  The scanners that tell test code from production
+  (`check_rollback_mutators_run_in_sim.py`, which the static and request
+  censuses reuse, and `measure_kernel_module_graph.py`) read that gate as
+  test code.
+- **The portal lane test** ran only under the monolith's `portal`
+  feature; in the coordinator's crate its dev-dependencies enable portal,
+  so it runs in the default test run.
+
+Measured: the monolith's lib tests went 1430 → 1349 and the coordinator's
+crate has 82 (the 81 that moved, and the portal lane test). The graph is
+the eight of K3, unchanged. The capability-footprint sentinel links one
+more node (59 → 60), a carve in code: see the baseline's
+`publication_entered_the_closure_2026_10_22` row.
 
 Inspect these together, not as separate file moves:
 
@@ -469,7 +512,7 @@ because it is durable decomposition doctrine.
 | `crates/ambition_characters/src/actor/character_catalog/registry.rs`, `crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs`, or `game/ambition_app/tests/app_local_catalog_composition.rs` | `the-catalog-owners-map-is-not-a-provider-authority` |
 | `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
 | `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs` or `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
-| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs` | `only-the-candidate-builder-hides-a-root` |
-| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs`, or `crates/ambition_platformer2d_provider/src/lifecycle.rs` | `only-the-publication-authority-publishes-a-candidate` |
+| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_publication/src/stage.rs` | `only-the-candidate-builder-hides-a-root` |
+| `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_publication/src/transaction.rs`, or `crates/ambition_platformer2d_provider/src/lifecycle.rs` | `only-the-publication-authority-publishes-a-candidate` |
 | `crates/ambition_platformer2d_provider/src/authoring.rs` or `crates/ambition_game_shell/` | `one-registrar-installs-the-session-teardown` |
 | `crates/ambition_platformer2d_world/src/collision.rs`, `crates/ambition_platformer2d_world/src/platforms/mod.rs`, or `game/ambition_demo_mary_o/src/bricks.rs` | `only-the-collision-world-composes-collision` |

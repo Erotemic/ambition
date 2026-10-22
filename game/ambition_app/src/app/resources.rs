@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use ambition_content::content_validation;
+use ambition_content::world_preparation::{StartRoomMustResolve, StartRoomOverride};
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::sim as physics;
 use ambition_platformer2d::dev_tools::dev_tools::{
@@ -11,68 +11,20 @@ use ambition_platformer2d::ldtk_map as ldtk_world;
 
 use super::cli::cli_start_room_arg;
 
-/// Programmatic start-room override. Platformer2dSimHarness and other library
-/// callers insert this resource before `init_sandbox_resources` runs;
-/// the function consumes it (taking precedence over the
-/// `--start-room` CLI flag) so callers do not need to manipulate
-/// `std::env::args` to pin a starting room.
-#[derive(Resource, Clone, Debug)]
-pub struct StartRoomOverride(pub String);
-
-/// Treat an unresolvable [`StartRoomOverride`] as FATAL.
-///
-/// The ordinary behaviour is a warning and the authored start room, which is
-/// right for the game: a stale `--start-room` in someone's shell history should
-/// not stop them playing. It is wrong for a VERIFICATION TOOL, where quietly
-/// photographing a different room is the worst thing the tool can do — Z1 said
-/// so when `capture_scene` was first written (*"it should FAIL LOUDLY on an
-/// unknown room or route rather than falling back — a capture that silently
-/// photographs somewhere else is how a blind agent reports the wrong thing with
-/// confidence"*) and then it shipped without this.
-///
-/// Opt-in, so nothing else changes behaviour.
-#[derive(bevy::prelude::Resource, Debug, Clone, Copy, Default)]
-pub struct StartRoomMustResolve;
-
-/// Host composition input selecting the character for the next prepared world.
-///
-/// This resource is consumed during sandbox preparation and never becomes gameplay authority.
-#[derive(Resource, Clone, Debug, Default)]
-pub struct StartingCharacterOverride(pub ambition_platformer2d::actors::avatar::StartingCharacter);
-
-/// Host composition input: this composition SEATS A MATCH into Ambition's
-/// world, so it must not also lower a home avatar.
-///
-/// Same shape and same lifetime as [`StartingCharacterOverride`] — consumed
-/// during preparation, never gameplay authority — and it answers the other half
-/// of the same question: that one picks WHICH character the home body wears,
-/// this one says whether there is a home body at all.
-///
-/// not a convenience. A match's local seat and an exploration home avatar
-/// both claim the session's control channel, and preparation refuses that
-/// combination by name rather than building two bodies that fight over it. A
-/// composition that seats fighters into this world — a rollback match fixture,
-/// a CPU-vs-CPU bout rig — has to be able to SAY so before the world is built,
-/// because by the time the roster is published the avatar already exists.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct SeatsAMatchInsteadOfAHomeBody;
-
-#[cfg(test)]
-fn sandbox_init_failed() -> ! {
-    panic!("sandbox resource initialization failed; see diagnostics above");
-}
-
-#[cfg(not(test))]
-fn sandbox_init_failed() -> ! {
-    std::process::exit(2);
-}
-
 pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_data = ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
     if !super::hub_games::installs("ambition") {
         init_host_resources_without_ambition(app);
         insert_host_resources(app, sandbox_data);
         return;
+    }
+    // A flag a human typed is a request, not a preference: it must resolve.
+    // A programmatic override, when there is one, names the room.
+    if let Some(start_room) = cli_start_room_arg() {
+        app.insert_resource(StartRoomMustResolve);
+        if !app.world().contains_resource::<StartRoomOverride>() {
+            app.insert_resource(StartRoomOverride(start_room));
+        }
     }
     // Register this provider's authored audio and character fragments into the
     // App-local registries. Boss content is contributed by
@@ -148,176 +100,12 @@ pub fn init_sandbox_resources(app: &mut App) {
             &music_registry,
             &world_manifest,
         );
-    #[cfg(feature = "audio")]
-    let sfx_bank_asset_path = sandbox_catalog
-        .path_for(&ambition_platformer2d::asset_manager::platformer_assets::ids::sfx_bank())
-        .map(|path| {
-            ambition_platformer2d::audio::SfxBankAssetPath::new(
-                ambition_content::AMBITION_CONTENT_PROVIDER,
-                path,
-            )
-        });
-
-    let ldtk_project =
-        match ldtk_world::LdtkProject::load_default(&sandbox_catalog, &world_manifest) {
-            Ok(project) => project,
-            Err(error) => {
-                eprintln!("failed to load sandbox LDtk map: {error}");
-                sandbox_init_failed();
-            }
-        };
-    // The App's own pack: validation judges the content this App installed.
-    let selected_pack = ambition_content::pack::select(app.world_mut());
-    let content_report = content_validation::validate_content_graph(
-        &selected_pack,
-        &music_registry,
-        &ldtk_project,
-        &character_catalog,
-    );
-    for warning in &content_report.warnings {
-        eprintln!("content validation warning: {warning}");
-    }
-    if !content_report.is_ok() {
-        eprintln!("sandbox content graph failed validation; fix authored content before running:");
-        for error in &content_report.errors {
-            eprintln!("  - {error}");
-        }
-        sandbox_init_failed();
-    }
-    let mut room_set =
-        match ldtk_project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
-            Ok(room_set) => room_set,
-            Err(errors) => {
-                eprintln!(
-                    "sandbox LDtk world failed validation; fix the configured map before running:"
-                );
-                for error in &errors {
-                    eprintln!("  - {error}");
-                }
-                sandbox_init_failed();
-            }
-        };
-    // Programmatic override (Platformer2dSimHarness / library callers) takes
-    // precedence over the CLI flag. Either one resolving by id wins;
-    // the other is silently ignored. If neither matches, the LDtk
-    // project's authored start room stays active.
-    let strict_start_room = app
-        .world_mut()
-        .remove_resource::<StartRoomMustResolve>()
-        .is_some();
-    let resource_override = app
-        .world_mut()
-        .remove_resource::<StartRoomOverride>()
-        .map(|r| r.0);
-    // A FLAG A HUMAN TYPED IS A REQUEST, NOT A PREFERENCE.
-    //
-    // * a PROGRAMMATIC override comes from a library caller (`Platformer2dSimHarness`, the RL
-    //   harness) that may legitimately name a room outside this composition;
-    //   falling back is the tolerant, correct answer.
-    // * the CLI FLAG was typed, just now, by somebody who wanted that room. The
-    //   likeliest mistake is using an LDtk LEVEL name (`central_hub_main`) for a
-    //   runtime room id (`central_hub_complex`), which is exactly the error a
-    //   silent fallback hides — and the same one that cost the room sweep two
-    //   captures before `StartRoomMustResolve` existed.
-    //
-    // the tolerant case the marker's doc argues for — *"a stale `--start-room`
-    // in someone's shell history should not stop them playing"* — is the one this
-    // does NOT change its mind about lightly. But a stale flag in history is still
-    // a flag the user is passing, and booting a different room without saying so
-    // is not playing: it is playing something else. The error lists every valid
-    // id, so recovering is reading one line rather than hunting a file.
-    let cli_start_room = cli_start_room_arg();
-    let strict_start_room = strict_start_room || cli_start_room.is_some();
-    if let Some(start_room) = resource_override.or(cli_start_room) {
-        if room_set.set_start_by_id(&start_room) {
-            eprintln!("[ambition] start room: {start_room}");
-        } else if strict_start_room {
-            // NAME WHAT IS AVAILABLE. The ids this resolves against are runtime
-            // room ids, which are NOT the LDtk level identifiers — reading the
-            // `.ldtk` file and using the level names it lists is how the sweep
-            // that found this asked for two rooms that do not exist. An error
-            // that only says "no" sends the reader back to the wrong file.
-            let mut available: Vec<&str> = room_set.rooms.iter().map(|r| r.id.as_str()).collect();
-            available.sort_unstable();
-            panic!(
-                "start-room '{start_room}' did not match any room id/name. Something asked \
-                 for a specific room and the boot would otherwise have silently used the \
-                 authored start room instead — either `--start-room` on the command line or \
-                 `StartRoomMustResolve`.\n\
-                 ⚠ these are RUNTIME ROOM IDS, not LDtk level identifiers: `central_hub_main` \
-                 is a level, the room is `central_hub_complex`.\n\
-                 Available room ids ({}): {}",
-                available.len(),
-                available.join(", ")
-            );
-        } else {
-            eprintln!(
-                "[ambition] warning: start-room '{start_room}' did not match any room id/name"
-            );
-        }
-    }
-    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project);
-    // `StartingCharacterOverride` is composition input, not live gameplay
-    // authority. Consume it before publishing the session-root
-    // `StartingCharacter` component so the title route cannot observe a
-    // process-resident character selection.
-    let starting_character = app
-        .world_mut()
-        .remove_resource::<StartingCharacterOverride>()
-        .map(|selection| selection.0)
-        .unwrap_or_default();
-    // Consumed the same way and for the same reason: a composition decision,
-    // made before the world exists, that must not survive as process state.
-    let builds_a_home_body = app
-        .world_mut()
-        .remove_resource::<SeatsAMatchInsteadOfAHomeBody>()
-        .is_none();
-
-    // Immutable boot preparation. Every shell activation clones this value and
-    // inserts the resulting bundle on its exact session root.
-    app.insert_resource(ambition_content::provider::AmbitionPreparedWorld {
-        room_set: room_set.clone(),
-        ldtk_index: ldtk_index.clone(),
-        starting_character: starting_character.clone(),
-        builds_a_home_body,
-    });
-
-    // the watcher does not resolve its own path any more. The catalog, the manifest and this
-    // binary's `dev_hot_reload` feature all live HERE, so the resolution does too.
-    //
-    // and the feature check is only truthful here.
-    let hot_reload = match sandbox_catalog.hot_reload_local_path(&world_manifest.primary().id) {
-        Some(path) => {
-            let mut state = ambition_platformer2d::dev_tools::WorldSourceHotReload::watching(path);
-            if state.last_modified.is_some() {
-                state.last_status = if cfg!(feature = "dev_hot_reload") {
-                    "LDtk hot reload watching; use Apply Reload or toggle Auto-Apply from the developer controls"
-                        .to_string()
-                } else {
-                    "LDtk hot reload polling; run with --features dev_hot_reload for Bevy file watching too"
-                        .to_string()
-                };
-            }
-            state
-        }
-        None => ambition_platformer2d::dev_tools::WorldSourceHotReload::unavailable(format!(
-            "LDtk hot reload inactive: profile {} does not support filesystem watching",
-            sandbox_catalog.profile().label(),
-        )),
-    };
-
-    app.insert_resource(ldtk_world::ActiveLdtkProject(ldtk_project.clone()))
-        .insert_resource(hot_reload)
-        .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
+    app.insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(music_registry)
         .insert_resource(sfx_registry)
         .insert_resource(sandbox_catalog);
     insert_host_resources(app, sandbox_data);
-    #[cfg(feature = "audio")]
-    if let Some(path) = sfx_bank_asset_path {
-        app.insert_resource(path);
-    }
 }
 
 /// The host's own resources: tuning, settings, input and developer state. A
@@ -334,9 +122,9 @@ fn insert_host_resources(
         ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
     app
         // `PhysicsSandboxSettings` must exist before the plugins that would
-        // otherwise provide it: on the visible binary `AmbitionPhysicsPlugin`
-        // re-inserts the default (harmless — same default), but headless does
-        // not load that plugin, because it depends on `ScenePlugin`.
+        // otherwise provide it: where Ambition's provider installs
+        // `AmbitionPhysicsPlugin` (the App presents) it re-inserts the default
+        // (harmless — same default), but headless does not load that plugin.
         //
         // ⚠ THE READER NAMED HERE WAS `setup_simulation_system`, DELETED IN
         // `d3135def0`, AND THE COMMENT KEPT CITING IT UNTIL 2026-09-19. The

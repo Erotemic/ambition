@@ -72,6 +72,23 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 // does a session with no opinion start in" is genuinely a shipped-game decision rather than a
 // level's own property.
 
+/// The engine capabilities Mary-O's rooms use (see the declaration in
+/// `MaryORulesPlugin`). A host of several games leaves out what none of them
+/// uses.
+pub const USED_CAPABILITIES: ambition_platformer2d::platformer::capability::UsedCapabilities = {
+    use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
+    UsedCapabilities::ALL
+        .without(Capability::BossEncounters)
+        .without(Capability::Dialogue)
+        .without(Capability::HeldUse)
+        .without(Capability::FighterSpecials)
+        .without(Capability::Portals)
+        .without(Capability::Mounts)
+        .without(Capability::Encounters)
+        .without(Capability::Captures)
+        .without(Capability::Trails)
+};
+
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition can host this demo alongside its own rooms; [`MaryORulesPlugin`] gates
@@ -1437,16 +1454,7 @@ impl Plugin for MaryORulesPlugin {
             // for those sleeps there.
             app.declare_rules(
                 scope,
-                ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
-                    .without(ambition_platformer2d::platformer::capability::Capability::BossEncounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue)
-                    .without(ambition_platformer2d::platformer::capability::Capability::HeldUse)
-                    .without(ambition_platformer2d::platformer::capability::Capability::FighterSpecials)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Portals)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Mounts)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Encounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Captures)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Trails),
+                crate::USED_CAPABILITIES,
             );
             // The modifier runs, whichever body she drives. The cinder beacon
             // relabels the same slot while she wears it (see `run_technique`).

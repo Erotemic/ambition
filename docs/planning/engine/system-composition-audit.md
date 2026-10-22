@@ -270,16 +270,54 @@ Next steps, each its own commit:
   lost `tile_spine`: it was "the host has a render app", which the provider
   reads directly. Witness: the hub's render smoke capture
   (`central_hub_complex`) with the provider's install poisoned off drops
-  the LDtk systems and changes 4411 of 57600 pixels. **Still in the hub:**
-  the host world, which `init_sandbox_resources` builds from Ambition's
-  world manifest (its asset catalog, LDtk project and room set). That is
-  the K2 host-world work: the asset catalog is built before any plugin and
-  reads Ambition's registries.
+  the LDtk systems and changes 4411 of 57600 pixels. **Done 2026-10-22 for
+  the world:** Ambition's provider prepares its world before it installs
+  anything (`ambition_content::world_preparation`): the LDtk project, its
+  validation against the pack, the room set, the start room, the prepared
+  world, the active project and its hot-reload watcher, and the SFX bank
+  path. The start-room and seating requests moved with their reader; the
+  hub states a typed `--start-room` as those requests, and an App with no
+  asset catalog (a provider declaration test) gets no world. A world that
+  fails to load or validate is now a panic with the diagnostics above it,
+  where it was `exit(2)`. Witnesses: the hub's capture of Ambition's route
+  draws the hall; an unknown strict start room still panics with the room
+  list. **Still in the hub:** the asset catalog, which the hub builds from
+  Ambition's registries and world manifest before any plugin (every plugin
+  resolves paths through it). Building it from each selected game's
+  fragments is the K2 work that remains.
 - Door passages are a rule Ambition's rooms declare
   (`DeclaredRules<ZonePassageRules>`, 2026-10-21), not a hub resource the
   selection switched on.
 - Install the portal, physics debris and 3D lighting plugins only for a
-  selected game that uses them (S3 profiles).
+  selected game that uses them (S3 profiles). **Done 2026-10-22 for physics
+  debris:** Ambition's provider installs `AmbitionPhysicsPlugin` and the
+  debris subscriber where the renderer's presentation is installed, under
+  `ambition_content/physics_debris` (the app's `physics_debris` forwards to
+  it); the hub names neither. Measured, Mary-O in the hub
+  (`AMBITION_HUB_GAMES=mary_o`), systems run in one frame: 1264 before, 1247
+  after, and no `avian2d` system (15 before). The full hub on Ambition's
+  route still runs Avian's 16 and the subscriber. **Done 2026-10-22 for
+  portals:** each game crate states the capabilities its rooms use once, as
+  `USED_CAPABILITIES`, which its rules declaration uses; the hub
+  (`hub_games::selection_uses`) leaves `Capability::Portals` out of the
+  engine group when no game it installs uses portals (Ambition and the
+  versus stage declare nothing, so they use every capability; Sanic's rifts
+  and Smash's specials are portals). `Capability::Portals.omit` now disables
+  `PortalSchedulePlugin`, and the windowed host's portal wiring and the
+  renderer's portal presentation install only where the portal simulation
+  is installed (`ambition_portal2d_presentation::portals_are_simulated`).
+  Measured, Mary-O alone in the hub: 1247 systems before, 1204 after, and
+  7 systems with "portal" in their path (50 before): the room gates'
+  visuals (a door, not a portal), the extension host's lowering of held
+  portal pairs, and the parallax's portal-capture pass. The picture is the
+  same scene. **3D lighting is the hub's own, not a game's:** the 31
+  `bevy_pbr`/`bevy_light` systems are Bevy's `PbrPlugin` and light
+  plugins in the default group, compiled in for the kaleidoscope cube pause
+  menu (`ambition_menu_kaleidoscope`, which draws lit 3D faces) and
+  `bevy_gizmos_render`. Every game in the hub opens that menu, so there is
+  no game to limit them to; the cube already sleeps light visibility while
+  no light exists (`sleep_light_visibility_without_lights`). Removing the
+  rest means a 2D pause menu or a lights-off cube, a product decision.
 - Move the techniques more than one game uses out of `ambition_demo_smash`.
   **Done 2026-10-21:** the fourteen fighter specials (each a module of
   `ambition_demo_smash_modules`) install from `ambition_fighter_specials`,
@@ -290,7 +328,11 @@ Next steps, each its own commit:
   `smash.vitality`, `smash.trapdoor`, `smash.flyline`, capture, pogo bounce)
   are unchanged; they belong to S3's capability inventory.
 - A Mary-O-only APK (`AMBITION_HUB_GAMES=mary_o ./build_for_android.sh`),
-  measured on the phone against the full hub.
+  measured on the phone against the full hub. **Not run (2026-10-22):** the
+  measurement is on the phone, and the development VM has no Android SDK,
+  NDK, `adb` or device (`build_for_android.sh --doctor` fails on the SDK).
+  The desktop census above is the hub-side half; the phone half waits for a
+  machine with the toolchain and the phone.
 
 Found on the way: `capture_scene` retargeted every camera to its capture
 image, including the offscreen cameras of the rig impostor atlases and the

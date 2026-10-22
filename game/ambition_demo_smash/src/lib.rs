@@ -41,6 +41,17 @@ pub mod stages;
 pub mod tether;
 pub mod text;
 
+/// The engine capabilities Smash's stages use (see the declaration in
+/// `SmashRulesPlugin`). A host of several games leaves out what none of them
+/// uses.
+pub const USED_CAPABILITIES: ambition_platformer2d::platformer::capability::UsedCapabilities = {
+    use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
+    UsedCapabilities::ALL
+        .without(Capability::BossEncounters)
+        .without(Capability::Dialogue)
+        .without(Capability::Trails)
+};
+
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
 
@@ -429,10 +440,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             // Smash stage: the engine's work for those sleeps there.
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
-                ambition_platformer2d::platformer::capability::UsedCapabilities::ALL
-                    .without(ambition_platformer2d::platformer::capability::Capability::BossEncounters)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Dialogue)
-                    .without(ambition_platformer2d::platformer::capability::Capability::Trails),
+                crate::USED_CAPABILITIES,
             );
             // Name prompts by button. A Smash Attack slot hosts a dozen moves
             // chosen by direction and posture, so naming the move would change

@@ -1418,7 +1418,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // ⛔ ON THE SESSION ROOT — see `ActiveContentBinding`.
         Option<
             ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-                ambition_platformer2d::actors::publication::ActiveContentBinding,
+                ambition_platformer2d::publication::ActiveContentBinding,
             >,
         >,
         Option<
@@ -1626,7 +1626,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.stale.remove(&room.id);
         cache.preparations = cache.preparations.saturating_add(1);
         let construction_plan =
-            match ambition_platformer2d::actors::publication::RoomConstructionPlan::prepare_from_parts(
+            match ambition_platformer2d::publication::RoomConstructionPlan::prepare_from_parts(
                 rooms,
                 index,
                 &placement_lowering,
@@ -1652,7 +1652,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     // content already running, so that content is its provenance.
                     // See `room_transition/loading.rs`: "publishes no content" is
                     // a fact about the boundary, not about the stamp.
-                    ambition_platformer2d::actors::publication::ActiveContentBinding::live_or(
+                    ambition_platformer2d::publication::ActiveContentBinding::live_or(
                         active_binding.as_deref().map(|binding| &**binding),
                         ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(
                             ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),

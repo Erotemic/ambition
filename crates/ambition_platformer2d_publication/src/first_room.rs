@@ -1,7 +1,7 @@
 //! A session's first room: published into a session root that may still be a
 //! hidden candidate, before any body of the session is built.
 //!
-//! Session setup (`crate::session::setup`) builds the home body after this; the
+//! Session setup (`ambition_platformer2d_actor_monolith::session::setup`) builds the home body after this; the
 //! caller that activates the session runs both and decides from the receipt.
 
 use bevy::prelude::*;
@@ -35,13 +35,13 @@ pub struct FirstRoom<'a> {
     /// room's authored placements through THIS registry — the same one
     /// room transition and snapshot restore consume — so there is no
     /// setup-only reconstruction of the six built-in interpreters.
-    pub placement_lowering: &'a crate::construction::placements::PlacementLoweringRegistry,
+    pub placement_lowering: &'a ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry,
     /// The App-installed room-content staging seam. The first room drains its registered content stagers exactly as transition, reset,
     /// hot-reload, and restore staging do — one construction authority.
-    pub content_staging: &'a crate::features::RoomContentStagingRegistry,
+    pub content_staging: &'a ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
     /// The App-installed construction recipe table plus the content generation
     /// this session was prepared under (Phase 3 planned families).
-    pub construction: crate::features::ActorConstructionContext<'a>,
+    pub construction: ambition_platformer2d_actor_monolith::features::ActorConstructionContext<'a>,
     /// App-local boss profiles, encounter specs, sheets, and special rows.
     pub boss_catalog: &'a ambition_boss_encounter::BossCatalog,
 }

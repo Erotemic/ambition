@@ -382,6 +382,8 @@ NOT_TREE_NAMES: dict[str, str] = {
     "ambition_sim_harness": "a crate, not a system — the TEST HARNESS crate, which is in the population precisely because neither of this census's two exclusions (a `#[cfg(test)]` item, a whole test file) reaches an ordinary crate",
     "leafwing_input_manager": "an EXTERNAL crate, not a system — and the distinction the verdict rests on: the four writers in `virtual_device.rs` are its trait impls",
     "app_it": "the app's integration-test TARGET, not a function",
+    "capture_scene": "the capture tool's BINARY target (`ambition_app_tools`), not a function",
+    "changed_renderables": "a field of bevy's `DirtySpecializations`, declared outside this tree",
     "configure_sets": "bevy's `App::configure_sets`, declared outside this tree",
     "in_set": "bevy's `IntoScheduleConfigs::in_set`, same",
     "init_resource": "bevy's `App::init_resource`, declared outside this tree",

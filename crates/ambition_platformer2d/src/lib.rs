@@ -789,6 +789,9 @@ pub use ambition_mount as mount;
 pub use ambition_shrine as shrine;
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
+/// Room publication: prepare a hidden candidate room, check its receipt, and
+/// publish or refuse it as one operation.
+pub use ambition_platformer2d_publication as publication;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]

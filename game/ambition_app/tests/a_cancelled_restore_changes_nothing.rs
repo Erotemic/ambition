@@ -109,7 +109,7 @@ enum Refusal {
     AtTheVerdict,
 }
 
-type Verification = ambition_platformer2d::actors::publication::LastConstructionVerification;
+type Verification = ambition_platformer2d::publication::LastConstructionVerification;
 
 /// A checkpoint at 7 coins; after it, a boss defeated, its bounty paid, and
 /// the body moved away from the checkpoint. Then a restore is asked for.
@@ -207,7 +207,7 @@ fn ask_for_a_restore(sim: &mut Platformer2dSimHarness, road: Road) -> Option<Che
             epoch += 1;
             ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
                 sim.world_mut(),
-                ambition_platformer2d::actors::publication::ActiveContentBinding::content(
+                ambition_platformer2d::publication::ActiveContentBinding::content(
                     ambition_platformer2d::engine_core::ContentEpoch(epoch),
                     Default::default(),
                 ),

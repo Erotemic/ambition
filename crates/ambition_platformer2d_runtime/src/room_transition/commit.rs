@@ -6,7 +6,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
 
-use ambition_platformer2d_actor_monolith::publication;
+use ambition_platformer2d_publication as publication;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_world::rooms as world_rooms;
 
@@ -490,7 +490,7 @@ impl RoomTransitionApplication<'_, '_> {
                     player_size,
                 );
                 staged_arrival = Some(
-                    ambition_platformer2d_actor_monolith::publication::StagedArrival {
+                    ambition_platformer2d_publication::StagedArrival {
                         subject,
                         arrival,
                         air_jumps: tuning.air_jumps,
@@ -546,7 +546,7 @@ impl RoomTransitionApplication<'_, '_> {
             )
         });
         let succession = departing.zip(mints).map(|(leaves, mints)| {
-            ambition_platformer2d_actor_monolith::publication::LiveRoomSuccession::for_crossing(
+            ambition_platformer2d_publication::LiveRoomSuccession::for_crossing(
                 leaves,
                 mints,
                 another_player_stays,

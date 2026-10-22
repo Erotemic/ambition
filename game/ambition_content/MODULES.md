@@ -38,10 +38,11 @@
 | [`reload`](src/reload.rs) | Reload every move table from disk into a running host. |
 | [`room_look_state`](src/room_look_state.rs) | The state of a two-state room: pure, balanced or corrupt. |
 | [`tuning`](src/tuning.rs) | Ambition's own tuning: the pack's `data/ambition_rules.ron` (schema `ambition_rules`, owned by `ambition_content_schemas`). |
+| [`world_preparation`](src/world_preparation.rs) | Ambition's world, prepared from the asset catalog the host built: its LDtk project, validated against the pack, as the room set a session enters. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -119,7 +119,8 @@ impl Plugin for AmbitionExperiencePlugin {
     fn build(&self, app: &mut App) {
         // Ambition's game is installed by its provider, as Mary-O's is by
         // hers: a hub that selects Ambition names this plugin and no other
-        // Ambition plugin.
+        // Ambition plugin. Its world first: the content's reload reads it.
+        crate::world_preparation::prepare_ambition_world(app);
         install_ambition_game(app);
         let text = ambition_content_schemas::text::lowered_ambition_text(&crate::pack::select(app.world_mut()))
             .expect("Ambition's pack states its launcher row (`data/ambition_text.ron`)");
@@ -224,7 +225,26 @@ fn install_ambition_game(app: &mut App) {
         if !app.is_plugin_added::<crate::items::AmbitionItemRosterPlugin>() {
             app.add_plugins(crate::items::AmbitionItemRosterPlugin);
         }
+        // Breakables and defeated enemies throw Avian debris. It is a look
+        // (ADR 0007: the bodies stay kinematic), so a composition with no
+        // presentation does not pay for the physics engine.
+        #[cfg(feature = "physics_debris")]
+        install_physics_debris(app);
     }
+}
+
+#[cfg(feature = "physics_debris")]
+fn install_physics_debris(app: &mut App) {
+    use ambition_platformer2d_actor_monolith::world::physics;
+    if app.is_plugin_added::<physics::AmbitionPhysicsPlugin>() {
+        return;
+    }
+    app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
+        Update,
+        physics::physics_spawn_debris_messages
+            .after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+    );
 }
 
 /// The most local seats an Ambition session offers.

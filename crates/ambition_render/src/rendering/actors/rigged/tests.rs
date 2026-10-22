@@ -1776,3 +1776,21 @@ fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
     assert!(shown(&app), "the frame a view shows the body, it is shown");
     assert_eq!(drawn(&app), first, "the frame a view shows the body, it is posed");
 }
+
+/// A frame draw writes only what differs. Drawn again with nothing advanced,
+/// it reports no write, so an animator system that bypasses change detection
+/// leaves the sprite and its anchor unmarked; a new facing is a sprite write.
+#[test]
+fn a_frame_drawn_again_unchanged_writes_nothing() {
+    use crate::rendering::actors::animation::{draw_animator_frame, FrameWrites, StanceSquash};
+    let sheet = raider(false);
+    let mut animator = CharacterAnimator::new(&sheet);
+    let mut sprite = Sprite::from_atlas_image(Handle::default(), TextureAtlas { layout: Handle::default(), index: 0 });
+    sprite.custom_size = Some(RENDER);
+    let mut anchor = Anchor::BOTTOM_CENTER;
+    let _ = draw_animator_frame(&mut sprite, &mut animator, Some(&mut anchor), 0.0, false, StanceSquash::NONE);
+    let again = draw_animator_frame(&mut sprite, &mut animator, Some(&mut anchor), 0.0, false, StanceSquash::NONE);
+    assert_eq!(again, FrameWrites::default(), "an unchanged frame reported a write");
+    let flipped = draw_animator_frame(&mut sprite, &mut animator, Some(&mut anchor), 0.0, true, StanceSquash::NONE);
+    assert!(flipped.sprite, "a new facing did not report a sprite write");
+}

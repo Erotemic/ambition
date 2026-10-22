@@ -67,7 +67,7 @@ pub(crate) fn apply_character_frame(
     gravity_dir: ambition_platformer2d_core::Vec2,
     color: Color,
     stance: StanceSquash,
-) {
+) -> FrameWrites {
     // The stance squash is a placeholder for sheets that lack a row for the
     // compact pose.
     let stance = if animator.spec.maps(anim) {
@@ -99,8 +99,37 @@ pub(crate) fn apply_character_frame(
     // A sheet drawn from both sides answers the flip with its mirror rows, so
     // the texture is flipped only for a character that is left-right symmetric.
     let flip = animator.face(flip);
-    draw_animator_frame(sprite, animator, anchor, dt, flip, stance);
-    sprite.color = color;
+    let mut writes = draw_animator_frame(sprite, animator, anchor, dt, flip, stance);
+    if sprite.color != color {
+        sprite.color = color;
+        writes.sprite = true;
+    }
+    writes
+}
+
+/// Which of the two components a frame draw wrote. The draw compares before it
+/// writes, so a system that hands it the components with change detection
+/// bypassed marks each one changed only when it was written: an animated
+/// sprite whose frame did not advance is not marked changed, and its bounds
+/// and its readers are not done again.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[must_use]
+pub(crate) struct FrameWrites {
+    pub sprite: bool,
+    pub anchor: bool,
+}
+
+impl FrameWrites {
+    /// Mark what was written changed: the draw was given both with change
+    /// detection bypassed.
+    pub(crate) fn mark(self, sprite: &mut Mut<Sprite>, anchor: Option<&mut Mut<bevy::sprite::Anchor>>) {
+        if self.sprite {
+            sprite.set_changed();
+        }
+        if let (true, Some(anchor)) = (self.anchor, anchor) {
+            anchor.set_changed();
+        }
+    }
 }
 
 /// Tick `animator` by `dt` and draw its current frame on `sprite`: the page,
@@ -117,7 +146,8 @@ pub(crate) fn draw_animator_frame(
     dt: f32,
     flip: bool,
     stance: StanceSquash,
-) {
+) -> FrameWrites {
+    let mut writes = FrameWrites::default();
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.
     // Single-page sheets (the common case) skip this entirely, so their
@@ -126,21 +156,37 @@ pub(crate) fn draw_animator_frame(
     if animator.is_paged() {
         let page = animator.current_page();
         if let Some(pg) = animator.pages.get(page as usize) {
-            sprite.image = pg.texture.clone();
+            if sprite.image != pg.texture {
+                sprite.image = pg.texture.clone();
+                writes.sprite = true;
+            }
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                atlas.layout = pg.layout.clone();
+                if atlas.layout != pg.layout {
+                    atlas.layout = pg.layout.clone();
+                    writes.sprite = true;
+                }
             }
         }
     }
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
-        atlas.index = index;
+        if atlas.index != index {
+            atlas.index = index;
+            writes.sprite = true;
+        }
     }
     // A piece that touches the next piece samples inside its frame, and each
     // frame has its own size.
     if animator.samples_inside_frame {
-        sprite.rect = animator.sample_rect();
+        let rect = animator.sample_rect();
+        if sprite.rect != rect {
+            sprite.rect = rect;
+            writes.sprite = true;
+        }
     }
-    sprite.flip_x = flip;
+    if sprite.flip_x != flip {
+        sprite.flip_x = flip;
+        writes.sprite = true;
+    }
     // Compatibility fallback for legacy sprite construction. Normal construction
     // seeds this basis before the sprite is drawable, so frame zero of a packed
     // sheet does not flash at full logical size. No-op once initialized.
@@ -149,7 +195,7 @@ pub(crate) fn draw_animator_frame(
     }
     // A column that tiles fills the box its owner gave it.
     if animator.keeps_its_quad {
-        return;
+        return writes;
     }
     // The anchor x mirrors with the facing flip so an off-centre trim stays consistent
     // left/right.
@@ -157,12 +203,19 @@ pub(crate) fn draw_animator_frame(
         // Crouch/crawl/slide/morph: scale the trimmed height by the collision
         // ratio so the feet stay on the floor.
         (size.y, anchor_v.y) = stance.squash(size.y, anchor_v.y);
-        sprite.custom_size = Some(size);
+        if sprite.custom_size != Some(size) {
+            sprite.custom_size = Some(size);
+            writes.sprite = true;
+        }
         if flip {
             anchor_v.x = -anchor_v.x;
         }
-        anchor.0 = anchor_v;
+        if anchor.0 != anchor_v {
+            anchor.0 = anchor_v;
+            writes.anchor = true;
+        }
     }
+    writes
 }
 
 /// Draw `animator`'s current frame on `sprite` without advancing it: the
@@ -175,7 +228,8 @@ pub fn draw_held_frame(
     anchor: &mut bevy::sprite::Anchor,
     flip: bool,
 ) {
-    draw_animator_frame(sprite, animator, Some(anchor), 0.0, flip, StanceSquash::NONE);
+    // Plain references: the caller owns any change marking.
+    let _ = draw_animator_frame(sprite, animator, Some(anchor), 0.0, flip, StanceSquash::NONE);
 }
 
 /// Drive the player sprite's animation state, atlas index, and facing flip.
@@ -207,10 +261,11 @@ pub fn animate_player(
         animator.head_turn = (pose.head_up > 0.0).then_some((ambition_sim_view::LOOK_UP_CLIP, pose.head_up));
         // Hit feedback is the white-silhouette overlay in `rendering::hit_flash`.
         // The source sprite stays `WHITE`.
-        apply_character_frame(
-            &mut sprite,
+        let mut anchor = anchor;
+        let writes = apply_character_frame(
+            sprite.bypass_change_detection(),
             &mut animator,
-            anchor.map(|a| a.into_inner()),
+            anchor.as_mut().map(|anchor| anchor.bypass_change_detection()),
             pose.anim,
             // A human and a CPU fighter on the same character draw the same row for
             // the same move.
@@ -228,6 +283,7 @@ pub fn animate_player(
                 about_quad_foot: pose.authored_offset.is_some(),
             },
         );
+        writes.mark(&mut sprite, anchor.as_mut());
     }
 }
 
@@ -301,10 +357,11 @@ pub fn animate_characters(
         // the source sprite stays `WHITE`. Actors do not tint on their own attack.
         // Per-character attack presentation belongs in a game-authored spec, not a
         // default here.
-        apply_character_frame(
-            &mut sprite,
+        let mut anchor = anchor;
+        let writes = apply_character_frame(
+            sprite.bypass_change_detection(),
             &mut animator,
-            anchor.map(|a| a.into_inner()),
+            anchor.as_mut().map(|anchor| anchor.bypass_change_detection()),
             frame.anim,
             frame.clip.as_ref(),
             frame.conversation_held,
@@ -318,6 +375,7 @@ pub fn animate_characters(
             // Enemies and NPCs do not use the stance squash.
             StanceSquash::NONE,
         );
+        writes.mark(&mut sprite, anchor.as_mut());
     }
 }
 
@@ -360,10 +418,11 @@ pub fn animate_feature_sprites(
             continue;
         }
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
-        apply_character_frame(
-            &mut sprite,
+        let mut anchor = anchor;
+        let writes = apply_character_frame(
+            sprite.bypass_change_detection(),
             &mut animator,
-            anchor.map(|a| a.into_inner()),
+            anchor.as_mut().map(|anchor| anchor.bypass_change_detection()),
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             // A prop plays no moves.
             None,
@@ -376,6 +435,7 @@ pub fn animate_feature_sprites(
             // An animated feature doesn't crouch — full standing height.
             StanceSquash::NONE,
         );
+        writes.mark(&mut sprite, anchor.as_mut());
     }
 }
 
@@ -415,10 +475,11 @@ pub fn animate_props(
         } else {
             presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale))
         };
-        apply_character_frame(
-            &mut sprite,
+        let mut anchor = anchor;
+        let writes = apply_character_frame(
+            sprite.bypass_change_detection(),
             &mut animator,
-            anchor.map(|a| a.into_inner()),
+            anchor.as_mut().map(|anchor| anchor.bypass_change_detection()),
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             // A prop plays no moves; the row its game names, if any.
             clip.map(|clip| &clip.0),
@@ -431,6 +492,7 @@ pub fn animate_props(
             // Props don't crouch — full standing height.
             StanceSquash::NONE,
         );
+        writes.mark(&mut sprite, anchor.as_mut());
     }
 }
 

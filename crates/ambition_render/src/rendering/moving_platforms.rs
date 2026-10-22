@@ -240,7 +240,8 @@ pub fn sync_moving_platform_visuals(
                 transform.translation = world_to_bevy(&world.0, sheet_point(platform), z);
                 // A loop: no move plays a platform's row, so nothing ends it.
                 animator.request_loop([row], ambition_sprite_sheet::character::CharacterAnim::Walk);
-                super::actors::draw_animator_frame(
+                // `&mut` through the `Mut` marks the components already.
+                let _ = super::actors::draw_animator_frame(
                     &mut sprite,
                     &mut animator,
                     anchor.map(|anchor| anchor.into_inner()),

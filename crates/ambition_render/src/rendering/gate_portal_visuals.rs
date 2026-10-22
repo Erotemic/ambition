@@ -126,7 +126,8 @@ pub fn sync_portal_sprite_animation(
                 (GatePortalPhase::On, Some((_, progress))) => animator.slave_clip_to(Some(progress)),
                 _ => animator.slave_clip_to(phase.sequence_progress()),
             }
-            draw_animator_frame(
+            // `&mut` through the `Mut` marks the components already.
+            let _ = draw_animator_frame(
                 &mut sprite,
                 &mut animator,
                 anchor.as_deref_mut(),
@@ -181,7 +182,8 @@ pub fn sync_portal_ring_animation(
                 None => animator.request(CharacterAnim::Idle),
             }
             animator.slave_clip_to(opening);
-            draw_animator_frame(
+            // `&mut` through the `Mut` marks the components already.
+            let _ = draw_animator_frame(
                 &mut sprite,
                 &mut animator,
                 anchor.as_deref_mut(),

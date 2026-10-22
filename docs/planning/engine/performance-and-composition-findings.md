@@ -31,6 +31,55 @@ consolidations and the monolith packets.
 | slice | status | measured effect |
 | --- | --- | --- |
 | F40: is the phone still bound by scheduling? | done | see F40 |
+| Smash's select screen sleeps off its routes (`shell_scope_is_on_screen_or_routing`, `5c6846a02`) | done | Smash 14 → 0 systems a frame on the hub's Mary-O route |
+| Sanic's dressers and readout, same condition (`c26e34cb4`) | done | Sanic 4 → 1 |
+| Boss overlays (sauce, flames, space sky, Inugami aura) run only with a boss visual or an overlay (`41c22de78`) | done | Ambition content 54 → 46; all three slices: 1,320 → 1,295 systems a frame |
+| Portal presentation in `CapabilityPresentationSet(Portals)`: asleep where no live room uses portals, one clean-up frame after (`f40a9ba7a`) | done | not yet re-measured |
+| The touch joystick's UI stage runs only with work (`93238b9e3`): its two `Node`s were written each frame, so the UI was laid out each frame | done | not yet re-measured; `ui_layout_system` was ~2.4% of the phone's main thread |
+| Conversation effects (challenge, pet, wear, talker spacing) in `CapabilitySet(Dialogue)`; boss volumes and limbs in `BossEncounters`; new `Capability::MatchStocks` (`70657f415`) | done | not yet re-measured; 15 systems a tick in Mary-O's rooms by the census list |
+| Boss presentation (sprites, part binding, stage light, name card, finish, health bar) in `CapabilityPresentationSet(BossEncounters)` (`aa1cb7565`) | done | not yet re-measured; 11 systems a frame |
+| Every main-world schedule serial: `SerialScheduleSweep` in `Plugin::cleanup` (`42e1843d4`) | done | see F41: `ShelterFontSources` 334 → 8 µs a frame, `ProcessLdtkApi` 469 → 24, `ReadInputs` 96 → 28 |
+
+### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
+
+MEASURED (profiling build with `perf_probe`, `capture_scene --route
+mary_o_gameplay --warmup 900`, frames after 300, the VM; read ranks and
+ratios, the probe adds cost to each span):
+
+- **Schedules outside the serial policy.** `serialize_main_schedules`
+  named twelve schedules and ran before the plugins that make the rest, so
+  ~30 schedule runs a frame were on the multi-threaded executor. Each paid a
+  hand-off to the pool for a few systems: `ShelterFontSources` (one system)
+  334 µs a frame, `ProcessLdtkApi` (four) 469, `ReadInputs` (three) 96.
+  `SerialScheduleSweep` serializes every main-world schedule in
+  `Plugin::cleanup` (`42e1843d4`): 8, 24 and 28 µs, and no multi-threaded
+  executor span left. On the phone each hand-off woke pool threads
+  (the compute pool's four threads were ~13% busy each in F40's profile);
+  the next phone profile measures it there.
+- **Avian** stepped on ~60% of frames while debris lived: ~1 ms a stepped
+  frame here, of it ~200 µs in the substep systems themselves. Its
+  schedules are already serial (avian sets them); the rest is the probe's
+  cost per span over ~120 spans a step. Not a lever found here.
+- **Run conditions that read the live rooms**: `room_uses` 13 calls a frame,
+  `in_rules_scope` 14, `session_world_exists` 35, ~1.5-1.8 µs a call. One
+  reading of the live rooms per tick would serve them all, but a room can
+  change inside a tick (a transition commits in the simulation), so a
+  cached reading must be refreshed after the commit too, under rollback.
+  Not done; a measured candidate.
+- **Material2d specialization checks** (upstream `check_entities_needing_specialization`,
+  a `par_iter` with asset-change filters each frame for each material
+  type): hit flash 57, Mary-O's shimmer 47, the portal clip 47, the bubble
+  shield 26, the rigged parts 22 µs a frame. A fork item for Jon.
+- **Changed every frame for nothing** (`changes_by_site.csv`): the animator
+  writes each animated sprite's `Anchor` (34 a frame) and `Sprite` colour
+  each frame with no compare (`draw_animator_frame`,
+  `apply_character_frame`), so each of them is extracted and re-bounded
+  each frame. Bevy UI re-inserts the target camera of each of ~30 UI roots
+  each frame (`propagate_ui_target_cameras`, upstream; its propagation to
+  children compares, so layout does not follow from it).
+- **Extension lowerings** (~30 a tick in Mary-O) each drain an empty
+  outbox. A condition on the whole `ExtensionSet::Lower(phase)` is not
+  exact: `bond_limbs` and others do per-tick work beside the drain.
 
 ### F40 — Is the phone still bound by the scheduler? (2026-10-22)
 

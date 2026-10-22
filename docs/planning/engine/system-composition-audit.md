@@ -279,7 +279,14 @@ Next steps, each its own commit:
   (`DeclaredRules<ZonePassageRules>`, 2026-10-21), not a hub resource the
   selection switched on.
 - Install the portal, physics debris and 3D lighting plugins only for a
-  selected game that uses them (S3 profiles).
+  selected game that uses them (S3 profiles). **Done 2026-10-22 for physics
+  debris:** Ambition's provider installs `AmbitionPhysicsPlugin` and the
+  debris subscriber where the renderer's presentation is installed, under
+  `ambition_content/physics_debris` (the app's `physics_debris` forwards to
+  it); the hub names neither. Measured, Mary-O in the hub
+  (`AMBITION_HUB_GAMES=mary_o`), systems run in one frame: 1264 before, 1247
+  after, and no `avian2d` system (15 before). The full hub on Ambition's
+  route still runs Avian's 16 and the subscriber.
 - Move the techniques more than one game uses out of `ambition_demo_smash`.
   **Done 2026-10-21:** the fourteen fighter specials (each a module of
   `ambition_demo_smash_modules`) install from `ambition_fighter_specials`,

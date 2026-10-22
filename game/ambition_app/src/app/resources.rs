@@ -334,9 +334,9 @@ fn insert_host_resources(
         ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
     app
         // `PhysicsSandboxSettings` must exist before the plugins that would
-        // otherwise provide it: on the visible binary `AmbitionPhysicsPlugin`
-        // re-inserts the default (harmless — same default), but headless does
-        // not load that plugin, because it depends on `ScenePlugin`.
+        // otherwise provide it: where Ambition's provider installs
+        // `AmbitionPhysicsPlugin` (the App presents) it re-inserts the default
+        // (harmless — same default), but headless does not load that plugin.
         //
         // ⚠ THE READER NAMED HERE WAS `setup_simulation_system`, DELETED IN
         // `d3135def0`, AND THE COMMENT KEPT CITING IT UNTIL 2026-09-19. The

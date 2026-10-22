@@ -174,7 +174,7 @@ audio = [
 # `ui` is the DIALOGUE/YARN umbrella, not a widget-framework switch. What `ui` still buys is the
 # Yarn runtime and `ambition_dialog/ui` downstream. Ambition's own UI is plain Bevy UI.
 ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_yarnspinner"]
-physics_debris = ["ambition_platformer2d/physics_debris"]
+physics_debris = ["ambition_platformer2d/physics_debris", "ambition_content/physics_debris"]
 input = ["ambition_platformer2d/input", "dep:leafwing-input-manager"]
 mobile_touch = ["input", "ambition_platformer2d/mobile_touch"]
 bevy_ui_menu = ["ambition_platformer2d/bevy_ui_menu"]

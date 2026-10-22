@@ -250,6 +250,13 @@ pub struct MeleeTactics {
     /// the body that swung is locked out. `None` does not answer.
     #[serde(default)]
     pub counter: Option<Counter>,
+    /// Between its swings it is FADED (a spirit, Jon 2026-10-22: the
+    /// spectral wolf "fades between attacks"): drawn faint, nothing hits it,
+    /// and its touch does not hurt. It is solid from the start of a swing to
+    /// the end of its recovery, and while it reels from a hit. The rule is
+    /// `ambition_combat::fade`.
+    #[serde(default)]
+    pub fades: bool,
 }
 
 /// The answer to a deflected strike ([`MeleeTactics::counter`]).

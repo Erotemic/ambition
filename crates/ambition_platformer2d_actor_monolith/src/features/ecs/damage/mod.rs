@@ -94,6 +94,9 @@ pub struct FeatureHitWriters<'w, 's> {
     pub sfx: SfxWriter<'w>,
     pub vfx: VfxWriter<'w>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
+    /// The shots a body bursts into when it dies (`CombatCapabilities::bursts_into`).
+    /// `Option`: a composition with no projectiles bursts into nothing.
+    pub projectiles: Option<MessageWriter<'w, ambition_projectiles::ProjectileSpawnRequest>>,
     pub wallet_shield_spent: MessageWriter<'w, ambition_damage::WalletShieldSpent>,
     /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands

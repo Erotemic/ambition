@@ -38,6 +38,35 @@ pub struct CharacterDeathTraits {
     /// is taken away by its own death (it explodes) states `Vanish`; it still
     /// plays its whole death row first.
     pub corpse: Option<Corpse>,
+    /// Shots it bursts into when it dies ([`DeathBurst`]): a spirit's fire
+    /// that runs the floor out of it. `None` bursts into nothing.
+    pub bursts_into: Option<DeathBurst>,
+}
+
+/// The shots a body bursts into when it dies: `count` of them out of the
+/// corpse along the floor, each way in turn, the later ones slower, so they
+/// come at you one after another (the spectral wolf's wisps, Jon 2026-10-22:
+/// it "bursts into wisps"). They are the dead body's: hostile to whom it was.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeathBurst {
+    /// The projectile visual (`projectile_visuals.ron`).
+    pub visual: String,
+    pub count: u32,
+    /// The speed of the first pair (px/s); each later pair is `slowing` of it.
+    pub speed: f32,
+    #[serde(default = "DeathBurst::default_slowing")]
+    pub slowing: f32,
+    pub damage: i32,
+    /// Half its box (px).
+    pub half_extent: [f32; 2],
+    pub life_s: f32,
+}
+
+impl DeathBurst {
+    fn default_slowing() -> f32 {
+        0.7
+    }
 }
 
 /// What a dead body leaves once its death row has played.

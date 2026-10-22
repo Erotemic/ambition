@@ -225,6 +225,24 @@ Ledge occupancy (one holder per edge) is owned by
 [`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md#ledge-occupancy)
 §5 (receipt LEDGE-OCCUPANCY in the queue).
 
+### A body that fades between its attacks
+
+`MeleeTactics::fades` (the Spectral Wolf, Jon 2026-10-22: it "fades between
+attacks"). The rule is `ambition_combat::fade::faded`: the body is faded
+unless it is in a swing (windup to the end of recovery) or in hitstun. Three
+readers derive their state from it every tick, so it holds no state:
+
+- `refresh_body_damageable_volumes` publishes an empty hurtbox: nothing hits it.
+- `withdraw_faded_contact` sets `ContactThreatWithdrawn`: its touch does not hurt.
+- `pin_fade_rows` pins `faded` (a loop), `fade_in` over the windup and
+  `fade_out` over the recovery. The sheet draws these rows faint.
+
+The readers run at different points of the tick, so on the first tick of a
+fade they can disagree for that one tick.
+
+A row that states `abilities` must include `Attack` to swing at all. Content
+check: `a_melee_enemy_can_attack`.
+
 ## Damage and launch variants
 
 New reaction forms should be explicit authored policy. If a fighter needs fixed

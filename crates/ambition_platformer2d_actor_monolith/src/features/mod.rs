@@ -212,6 +212,8 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // The row a character rests in, when its catalog row states
                 // one (the giant gnu whole, with its arms on it).
                 ecs::pin_rest_rows,
+                // The rows of a body that fades between its attacks.
+                ecs::pin_fade_rows,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
                 crate::items::narrative::apply_item_uses,
@@ -1370,6 +1372,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             apply_actor_contact_damage
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
                 .before(tick_npc_idle_barks),
+        );
+        // A body that fades between its attacks does not hurt by touch while
+        // it is faded: derived before the contact pass reads it.
+        app.add_systems(
+            sim,
+            ecs::withdraw_faded_contact
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
+                .before(apply_actor_contact_damage),
         );
         // Hazard contacts read the settled path (`BodyPathSet`), against where
         // the hazard moved to this tick.

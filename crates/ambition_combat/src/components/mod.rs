@@ -86,6 +86,9 @@ pub struct CombatCapabilities {
     /// What this body leaves after its death row; `None` leaves what its
     /// room's game states. See [`ambition_characters::actor::Corpse`].
     pub corpse: Option<ambition_characters::actor::Corpse>,
+    /// The shots it bursts into when it dies. See
+    /// [`ambition_characters::actor::DeathBurst`].
+    pub bursts_into: Option<ambition_characters::actor::DeathBurst>,
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
@@ -100,6 +103,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             drops_held_item,
             death_sound,
             corpse,
+            bursts_into,
         } = traits;
         Self {
             explodes_on_death: *explodes_on_death,
@@ -109,6 +113,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             drops_held_item: *drops_held_item,
             death_sound: death_sound.clone(),
             corpse: *corpse,
+            bursts_into: bursts_into.clone(),
         }
     }
 }

@@ -485,6 +485,7 @@ impl MeleeBruteCfg {
             footsies: None,
             flinch_back_s: 0.0,
             counter: None,
+            fades: false,
         },
     };
     pub const BRUTE_DEFAULT: Self = Self {
@@ -500,6 +501,7 @@ impl MeleeBruteCfg {
             footsies: None,
             flinch_back_s: 0.0,
             counter: None,
+            fades: false,
         },
     };
 }

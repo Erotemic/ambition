@@ -30,6 +30,7 @@
         ( type: "EnemySpawn", px: [1060, 589], size: [30, 67], fields: ( name: "evil_gate_forest_zombie_2", brain: "combatant", character_id: "npc_evil_zombie", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1130, 589], size: [30, 67], fields: ( name: "evil_gate_forest_zombie_3", brain: "combatant", character_id: "npc_evil_zombie", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1288, 589], size: [30, 67], fields: ( name: "evil_gate_forest_zombie_4", brain: "combatant", character_id: "npc_evil_zombie", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [820, 600], size: [56, 56], fields: ( name: "evil_gate_forest_wolf_1", brain: "combatant", character_id: "npc_evil_spectral_wolf", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1760, 720], fields: ( id: "evil_gate_forest_camera", name: "evil_gate_forest_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "evil_gate_forest_label", text: "The forest of the Evil dimension: the way to Castle Godwin.", category: "Custom" ) ),
     ],

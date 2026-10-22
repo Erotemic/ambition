@@ -25,6 +25,30 @@ pub fn installs(game: &str) -> bool {
     selection().is_none_or(|games| games.iter().any(|g| g == game))
 }
 
+/// Whether a game this hub installs uses `capability` in its rooms.
+pub fn selection_uses(capability: ambition_platformer2d::platformer::capability::Capability) -> bool {
+    uses(selection(), capability)
+}
+
+/// The engine capabilities each game's rooms use. Ambition and the versus
+/// stage declare none, and a room that declares none uses every capability.
+fn uses(
+    selection: Option<&[String]>,
+    capability: ambition_platformer2d::platformer::capability::Capability,
+) -> bool {
+    use ambition_platformer2d::platformer::capability::UsedCapabilities;
+    let games: [(&str, UsedCapabilities); 5] = [
+        ("ambition", UsedCapabilities::ALL),
+        ("sanic", ambition_demo_sanic::USED_CAPABILITIES),
+        ("mary_o", ambition_demo_mary_o::USED_CAPABILITIES),
+        ("smash", ambition_demo_smash::USED_CAPABILITIES),
+        ("versus", UsedCapabilities::ALL),
+    ];
+    games.iter().any(|(game, used)| {
+        selection.is_none_or(|games| games.iter().any(|g| g == game)) && used.uses(capability)
+    })
+}
+
 /// The named games, or `None` when the hub installs all of them.
 pub fn selection() -> Option<&'static [String]> {
     static SELECTION: std::sync::OnceLock<Option<Vec<String>>> = std::sync::OnceLock::new();
@@ -65,4 +89,27 @@ pub fn boot_route() -> Option<String> {
         .or_else(|| BUILT_BOOT_ROUTE.map(str::to_owned))
         .map(|route| route.trim().to_owned())
         .filter(|route| !route.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::uses;
+    use ambition_platformer2d::platformer::capability::Capability;
+
+    fn named(games: &[&str]) -> Vec<String> {
+        games.iter().map(|game| game.to_string()).collect()
+    }
+
+    /// Mary-O alone uses no portal; a hub that adds Sanic (his rifts) or
+    /// Ambition does. Control: every game, and a capability Mary-O uses.
+    #[test]
+    fn a_hub_uses_portals_only_with_a_game_that_does() {
+        assert!(!uses(Some(&named(&["mary_o"])), Capability::Portals));
+        assert!(uses(Some(&named(&["mary_o", "sanic"])), Capability::Portals));
+        assert!(uses(Some(&named(&["ambition"])), Capability::Portals));
+        assert!(uses(Some(&named(&["smash"])), Capability::Portals));
+        assert!(uses(None, Capability::Portals));
+        assert!(uses(Some(&named(&["mary_o"])), Capability::Inventory));
+        assert!(!uses(Some(&named(&[])), Capability::Inventory));
+    }
 }

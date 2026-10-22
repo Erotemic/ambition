@@ -113,7 +113,15 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host));
+    //
+    // Portals are left out when no game this hub installs uses them; the
+    // host's and the renderer's portal halves follow the simulation.
+    let mut engine = ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host);
+    let portals = ambition_platformer2d::platformer::capability::Capability::Portals;
+    if !super::hub_games::selection_uses(portals) {
+        engine = engine.without(portals);
+    }
+    app.add_plugins(engine);
 
     // This is the composition statement that replaced it; it must come after the group, which is
     // what sets `SimulationHost` for the rollback registrar.

@@ -316,22 +316,21 @@ pub fn resolve_follow_camera_snapshot(
     input: CameraSnapshotResolveInput<'_>,
     mut ease_state: Option<&mut CameraEaseState>,
 ) -> CameraSnapshot2d {
-    let focus_aabb = input.focus.zone_aabb();
-    let mut active_camera_zones = 0usize;
-    let active_zone = input
-        .camera_zones
+    // Which zones frame the subject, and how much each: a zone frames it alone
+    // deep inside, and near its edge it shares the frame with what is past
+    // the edge (`zone_weights`). The zone with the most of the frame is the
+    // active one.
+    let weights = zone_weights(input.camera_zones, input.focus.tick_center_world, input.base_view * 0.5);
+    let active_camera_zones = weights.iter().filter(|(zone, _)| zone.is_some()).count();
+    let active_zone = weights
         .iter()
-        .filter(|zone| focus_aabb.strict_intersects(zone.aabb))
-        .inspect(|_| active_camera_zones += 1)
-        .max_by(|a, b| {
-            a.priority
-                .cmp(&b.priority)
-                .then_with(|| zone_area(a).total_cmp(&zone_area(b)))
-        });
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .and_then(|(zone, _)| *zone);
 
-    let camera_zone_scale = active_zone
-        .map(CameraZoneSpec::effective_zoom)
-        .unwrap_or(1.0);
+    let camera_zone_scale: f32 = weights
+        .iter()
+        .map(|(zone, weight)| zone.map_or(1.0, CameraZoneSpec::effective_zoom) * weight)
+        .sum();
     let target_scale = if input.overview_camera {
         input.overview_scale
     } else {
@@ -477,9 +476,6 @@ pub fn resolve_follow_camera_snapshot(
     };
 
     // The target is adopted, not eased, on the first resolve of a room.
-    let target_adopted = ease_state
-        .as_deref()
-        .is_some_and(|state| !state.target_initialized);
     let target_world = match input.mode {
         CameraSnapshotResolveMode::Instant => desired_target_world,
         CameraSnapshotResolveMode::Eased => {
@@ -506,41 +502,43 @@ pub fn resolve_follow_camera_snapshot(
         }
     };
 
-    // The zone's composition: its lock and its offset. A change of zone
-    // changes them in one tick, as it changes the clamp, and the handover
-    // below carries the step.
-    let target_world = if input.overview_camera { target_world } else { compose_zone(target_world, active_zone) };
-    let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
-    let target = world_to_centered_render(input.world, target_world);
     // Clamp the axis-aligned footprint of the rolled view, not the upright viewport dimensions.
     let (clamp_half_w, clamp_half_h) =
         rolled_view_half_extents(half_view_w, half_view_h, rotation_radians);
-    let (normal_host_x, normal_host_y) = clamp_camera_target(
-        input.world,
-        target,
-        clamp_half_w,
-        clamp_half_h,
-        bounds,
-        active_zone,
-        None,
-        //  the must-frame relaxation applies to the UNPADDED diagnostic too:
-        // `unpadded_center_world` reports the camera without the portal
-        // adapter's PADDING, not without the framing the game asked for.
-        input.must_frame_world,
-    );
-    let (host_x, host_y) = if let Some(padding_center) = input.extra_clamp_center_world {
+    // Each zone that frames the subject puts the camera where its composition
+    // (its lock and its offset) and its clamp put it, and the centre is those
+    // places mixed by the zones' weights. A zone's rules are a step at its
+    // edge; mixed over the band, the camera moves only as the subject moves
+    // across it (Jon, 2026-10-22: off the stair tower's top, the tower's clamp
+    // held the camera at the tower's middle and the walk's look-ahead put it
+    // 430 units on, and the camera made that up on its own in under a second).
+    let frame_in = |zone: Option<&CameraZoneSpec>, padding: Option<ae::Vec2>| {
+        let composed = if input.overview_camera { target_world } else { compose_zone(target_world, zone) };
         clamp_camera_target(
             input.world,
-            target,
+            world_to_centered_render(input.world, composed),
             clamp_half_w,
             clamp_half_h,
-            bounds,
-            active_zone,
-            Some(padding_center),
+            zone.map(|zone| zone.clamp_mode).unwrap_or_default(),
+            zone,
+            padding,
+            //  the must-frame relaxation applies to the UNPADDED diagnostic too:
+            // `unpadded_center_world` reports the camera without the portal
+            // adapter's PADDING, not without the framing the game asked for.
             input.must_frame_world,
         )
-    } else {
-        (normal_host_x, normal_host_y)
+    };
+    let mix = |padding: Option<ae::Vec2>| {
+        weights.iter().fold((0.0, 0.0), |(x, y), (zone, weight)| {
+            let (zx, zy) = frame_in(*zone, padding);
+            (x + zx * weight, y + zy * weight)
+        })
+    };
+    let target_world = if input.overview_camera { target_world } else { compose_zone(target_world, active_zone) };
+    let (normal_host_x, normal_host_y) = mix(None);
+    let (host_x, host_y) = match input.extra_clamp_center_world {
+        Some(padding_center) => mix(Some(padding_center)),
+        None => (normal_host_x, normal_host_y),
     };
 
     // `host_x` is centered-render x, which is monotone in world x.
@@ -568,57 +566,6 @@ pub fn resolve_follow_camera_snapshot(
         input.world.size.y * 0.5 - normal_host_y,
     );
 
-    // A change of zone changes the clamp in one tick, and the clamp comes
-    // after the ease of the target: the centre stepped by the whole difference
-    // (192 world units on the roof of Mary-O 1-2, 2026-10-12). The step is
-    // carried and eased out. A cut (a snap, the overview, a new room) carries
-    // nothing.
-    //
-    // ⛔ The ease is a critically damped spring, not an exponential. An
-    // exponential sets off at its full speed: out of the throne room's arena,
-    // whose clamp held the camera 300 units behind the body, the camera went
-    // from still to 2300 units a second in one tick and whipped after the body
-    // (Jon, 2026-10-22: "the cameras have weird issues with going into an out
-    // of arenas"). The spring keeps the handover's velocity: a change of zone
-    // keeps it, so the camera accelerates out of its hold and does not overshoot.
-    let (center_world, unpadded_center_world) = match (input.mode, ease_state.as_deref_mut()) {
-        (CameraSnapshotResolveMode::Eased, Some(state)) => {
-            let zone = active_zone.and_then(|active| {
-                input
-                    .camera_zones
-                    .iter()
-                    .position(|zone| std::ptr::eq(zone, active))
-            });
-            let cut = input.overview_camera || input.snap_camera || target_adopted;
-            let (carried, velocity) = match state.live_center_world {
-                Some(_) if cut => (ae::Vec2::ZERO, ae::Vec2::ZERO),
-                Some(previous) if state.live_zone != zone => {
-                    (previous - center_world, state.zone_handover_velocity)
-                }
-                Some(_) => (state.zone_handover_world, state.zone_handover_velocity),
-                None => (ae::Vec2::ZERO, ae::Vec2::ZERO),
-            };
-            let handover_hz = active_zone
-                .and_then(|zone| zone.easing_hz)
-                .filter(|hz| *hz > 0.0)
-                .unwrap_or(DEFAULT_ZONE_HANDOVER_HZ);
-            let (mut handover, mut velocity) =
-                critically_damped_step(carried, velocity, handover_hz, dt);
-            if handover.length() < ZONE_HANDOVER_EPSILON
-                && velocity.length() < ZONE_HANDOVER_EPSILON * handover_hz
-            {
-                handover = ae::Vec2::ZERO;
-                velocity = ae::Vec2::ZERO;
-            }
-            state.live_zone = zone;
-            state.zone_handover_world = handover;
-            state.zone_handover_velocity = velocity;
-            state.live_center_world = Some(center_world + handover);
-            (center_world + handover, unpadded_center_world + handover)
-        }
-        _ => (center_world, unpadded_center_world),
-    };
-
     CameraSnapshot2d {
         base_view: input.base_view,
         requested_view: ae::Vec2::new(target_view_w, target_view_h),
@@ -634,6 +581,65 @@ pub fn resolve_follow_camera_snapshot(
     }
 }
 
+/// The zones that frame a subject at `at`, each with its part of the frame;
+/// `None` is the room with no zone. The parts sum to one.
+///
+/// A zone's own part is a smoothstep of how deep `at` is in it, measured in
+/// `band` (half the view, on each axis): a zone starts to take the frame half
+/// a band before its edge, has half of it on the edge, and all of it half a
+/// band inside. So the frame changes zone over about a view's travel, as the
+/// zone comes on screen, and the camera moves with the subject (a band of 256
+/// units still moved the camera three times the walk off the stair tower).
+/// Zones of one priority share what they cover in proportion; a higher
+/// priority is laid over the lower ones by what it covers, as a layer over a
+/// picture.
+fn zone_weights(zones: &[CameraZoneSpec], at: ae::Vec2, band: ae::Vec2) -> Vec<(Option<&CameraZoneSpec>, f32)> {
+    let mut weights: Vec<(Option<&CameraZoneSpec>, f32)> = vec![(None, 1.0)];
+    let mut priorities: Vec<i32> = zones.iter().map(|zone| zone.priority).collect();
+    priorities.sort_unstable();
+    priorities.dedup();
+    for priority in priorities {
+        let level: Vec<(&CameraZoneSpec, f32)> = zones
+            .iter()
+            .filter(|zone| zone.priority == priority)
+            .map(|zone| (zone, smoothstep(depth_in(zone.aabb, at, band) + 0.5)))
+            .filter(|(_, part)| *part > 0.0)
+            .collect();
+        let total: f32 = level.iter().map(|(_, part)| part).sum();
+        if total <= 0.0 {
+            continue;
+        }
+        let covered = total.min(1.0);
+        for (_, weight) in &mut weights {
+            *weight *= 1.0 - covered;
+        }
+        weights.extend(level.into_iter().map(|(zone, part)| (Some(zone), covered * part / total)));
+    }
+    weights.retain(|(_, weight)| *weight > 0.0);
+    weights
+}
+
+/// How far `at` is inside `aabb` from its nearest edge, in `band`s (each axis
+/// in its own); negative outside it, by how far it is from the box.
+fn depth_in(aabb: ae::Aabb, at: ae::Vec2, band: ae::Vec2) -> f32 {
+    let band = band.max(ae::Vec2::ONE);
+    let inside = ((at.x - aabb.left()) / band.x)
+        .min((aabb.right() - at.x) / band.x)
+        .min((at.y - aabb.top()) / band.y)
+        .min((aabb.bottom() - at.y) / band.y);
+    if inside >= 0.0 {
+        return inside;
+    }
+    let dx = (aabb.left() - at.x).max(at.x - aabb.right()).max(0.0) / band.x;
+    let dy = (aabb.top() - at.y).max(at.y - aabb.bottom()).max(0.0) / band.y;
+    -(dx * dx + dy * dy).sqrt()
+}
+
+fn smoothstep(u: f32) -> f32 {
+    let u = u.clamp(0.0, 1.0);
+    u * u * (3.0 - 2.0 * u)
+}
+
 /// Where a zone puts the camera's target: at the zone's middle under a
 /// cinematic lock, then moved by the zone's offset.
 fn compose_zone(target_world: ae::Vec2, zone: Option<&CameraZoneSpec>) -> ae::Vec2 {
@@ -646,24 +652,6 @@ fn compose_zone(target_world: ae::Vec2, zone: Option<&CameraZoneSpec>) -> ae::Ve
 
 /// The rate of the ease of the target where the zone gives no `easing_hz`.
 const DEFAULT_TARGET_EASE_HZ: f32 = 8.0;
-
-/// The rate of the handover's spring where the zone gives no `easing_hz`.
-/// Out of the throne room's arena (460 units to make up, the body walking at
-/// 300 a second) 8 caught up at 1600 a second, five times the walk; 4 catches
-/// up at about 680, and has done so in a second.
-const DEFAULT_ZONE_HANDOVER_HZ: f32 = 4.0;
-
-/// Under this length, in world units, the handover is at its end.
-const ZONE_HANDOVER_EPSILON: f32 = 0.01;
-
-/// One step of `dt` seconds of a critically damped spring of rate `omega`
-/// (per second) toward zero, from offset `x` and velocity `v`: the closed form,
-/// so it is exact for any frame time. It does not overshoot.
-fn critically_damped_step(x: ae::Vec2, v: ae::Vec2, omega: f32, dt: f32) -> (ae::Vec2, ae::Vec2) {
-    let decay = (-omega * dt).exp();
-    let drive = v + x * omega;
-    ((x + drive * dt) * decay, (v - drive * omega * dt) * decay)
-}
 
 /// Return the camera target that keeps the subject's protected bounds inside
 /// the safe region, moving `previous` as little as possible.
@@ -753,10 +741,6 @@ fn apply_soft_subject_framing(
     anchor + to_world(resolved)
 }
 
-fn zone_area(zone: &CameraZoneSpec) -> f32 {
-    let half = zone.aabb.half_size();
-    (half.x * 2.0).max(0.0) * (half.y * 2.0).max(0.0)
-}
 
 fn world_to_centered_render(world: &ae::World, p: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new(p.x - world.size.x * 0.5, world.size.y * 0.5 - p.y)
@@ -2111,12 +2095,16 @@ mod m2_forward_scroll_tests {
 /// A room as high as two views, with a zone on its lower rows: the corridor
 /// of Mary-O 1-2 under its top road.
 #[cfg(test)]
-mod zone_handover_tests {
+mod zone_change_tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
 
     const ZONE_TOP: f32 = 256.0;
     const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
+    /// Her feet this far into the zone put her centre more than half a band
+    /// (the band is half the 270-unit view) inside it: the zone frames her
+    /// alone.
+    const DEEP: f32 = 200.0;
 
     fn world() -> ae::World {
         ae::World::new("rows", ae::Vec2::new(4000.0, 672.0), ae::Vec2::ZERO, Vec::new())
@@ -2205,8 +2193,9 @@ mod zone_handover_tests {
         );
     }
 
-    /// She goes down through the line. The clamp of the zone is there at once,
-    /// and the centre goes to it over a number of ticks.
+    /// She goes down through the line and into the zone, at a walk. The zone
+    /// takes the frame over across its band, and the centre goes to the zone's
+    /// clamp with her and never steps.
     #[test]
     fn the_centre_does_not_step_when_the_zone_changes() {
         let zones = [corridor()];
@@ -2218,36 +2207,31 @@ mod zone_handover_tests {
         let above = last.center_world.y;
 
         let mut largest = 0.0f32;
-        for _ in 0..240 {
-            let next = resolve(&zones, ZONE_TOP + 1.0, 0.0, &mut ease);
-            assert_eq!(next.active_camera_zone.as_deref(), Some("corridor"));
+        for k in 0..240 {
+            // Down 2 units a tick until her centre is past the band.
+            let feet = ZONE_TOP + (2.0 * k as f32).min(DEEP);
+            let next = resolve(&zones, feet, 0.0, &mut ease);
             largest = largest.max((next.center_world.y - last.center_world.y).abs());
             last = next;
         }
+        assert_eq!(last.active_camera_zone.as_deref(), Some("corridor"));
         let travelled = last.center_world.y - above;
         assert!(travelled > 100.0, "the zone did not move the camera: {travelled}");
         assert!(
             largest < travelled * 0.2,
             "the camera went {largest} of {travelled} units in one tick"
         );
-        // The handover ends: the centre is the clamped centre of the zone.
-        assert_eq!(ease.zone_handover_world, ae::Vec2::ZERO);
-        assert!((last.center_world.y - (ZONE_TOP + 135.0)).abs() < 0.5, "{}", last.center_world.y);
+        // The centre ends where the zone frames her alone (a camera that
+        // starts there, with no history).
+        let alone = resolve(&zones, ZONE_TOP + DEEP, 0.0, &mut CameraEaseState::default());
+        assert!(
+            (last.center_world.y - alone.center_world.y).abs() < 0.5,
+            "{} against {}",
+            last.center_world.y,
+            alone.center_world.y
+        );
     }
 
-    /// A cut is a cut: a snap carries no handover into the new zone.
-    #[test]
-    fn a_snap_carries_nothing_between_zones() {
-        let zones = [corridor()];
-        let mut ease = CameraEaseState::default();
-        for _ in 0..60 {
-            resolve(&zones, ZONE_TOP, 0.0, &mut ease);
-        }
-        ease.target_initialized = false;
-        let cut = resolve(&zones, ZONE_TOP + 200.0, 0.0, &mut ease);
-        assert_eq!(ease.zone_handover_world, ae::Vec2::ZERO);
-        assert!(cut.center_world.y >= ZONE_TOP + 135.0 - 0.5, "{}", cut.center_world.y);
-    }
 }
 
 #[cfg(test)]
@@ -3585,5 +3569,88 @@ mod resolved_snapshot_lifetime_tests {
             wide.x > authored.x * 2.0,
             "control: a wide cast grows the view to hold it: {wide}"
         );
+    }
+}
+
+#[cfg(test)]
+mod zone_blend_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
+
+    fn zone(id: &str, x0: f32, x1: f32, offset: f32, zoom: Option<f32>, clamp: CameraClampMode) -> CameraZoneSpec {
+        CameraZoneSpec {
+            id: id.into(),
+            name: id.into(),
+            aabb: ae::Aabb::new(ae::Vec2::new((x0 + x1) * 0.5, 1880.0), ae::Vec2::new((x1 - x0) * 0.5, 424.0)),
+            priority: 0,
+            zoom,
+            target_offset: ae::Vec2::new(offset, 0.0),
+            easing_hz: None,
+            cinematic_lock: false,
+            clamp_mode: clamp,
+            scroll_policy: CameraScrollPolicy::Free,
+        }
+    }
+
+    /// A body walks out of an arena (a clamped zone, at the legacy breath
+    /// zoom) into a gallery (no clamp, its own zoom and a look-ahead), as out
+    /// of the Inugami's throne room. The two frame it 400 units apart; the
+    /// camera goes from one to the other as the body goes, and its step changes
+    /// smoothly from tick to tick: no hold, no jump. (The arena's own clamp
+    /// stops the camera at its edge before that, as a room's edge does.)
+    #[test]
+    fn walking_out_of_an_arena_the_camera_never_steps() {
+        let world = ae::World::new("throne", ae::Vec2::new(9600.0, 2304.0), ae::Vec2::ZERO, Vec::new());
+        let zones = [
+            zone("throne", 0.0, 1920.0, 0.0, None, CameraClampMode::ZoneBounds),
+            zone("gallery", 1920.0, 4480.0, 160.0, Some(0.85), CameraClampMode::default()),
+        ];
+        let mut ease = CameraEaseState::default();
+        let mut last: Option<ae::Vec2> = None;
+        let mut last_step: Option<ae::Vec2> = None;
+        let mut jerk = 0.0f32;
+        for k in 0..200 {
+            let x = 1500.0 + 5.0 * k as f32;
+            let at = ae::Vec2::new(x, 2180.0);
+            let snap = resolve_follow_camera_snapshot(
+                CameraSnapshotResolveInput {
+                    world: &world,
+                    camera_zones: &zones,
+                    focus: CameraFocus2d { center_world: at, tick_center_world: at, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0) },
+                    base_view: default_base_view(),
+                    viewport_px: ae::Vec2::new(1280.0, 720.0),
+                    aspect_policy: CameraAspectPolicy::FixedHeight,
+                    framing: CameraFramingPreset::default(),
+                    overview_scale: 1.0,
+                    encounter_scale: 1.0,
+                    overview_camera: false,
+                    snap_camera: false,
+                    blink: None,
+                    dt: 1.0 / 60.0,
+                    mode: CameraSnapshotResolveMode::Eased,
+                    extra_clamp_center_world: None,
+                    chart_transit: None,
+                    must_frame_world: None,
+                    screen_framing: None,
+                    reference_frame: CameraReferenceFrame::default(),
+                    subject_down: None,
+                    ease_tuning: Default::default(),
+                },
+                Some(&mut ease),
+            );
+            if let Some(l) = last {
+                let step = snap.center_world - l;
+                // From where the arena's clamp has stopped the camera, through
+                // the hand-over to the gallery.
+                if let Some(before) = last_step.filter(|_| x > 1650.0) {
+                    jerk = jerk.max((step - before).length());
+                }
+                last_step = Some(step);
+            }
+            last = Some(snap.center_world);
+        }
+        // The body steps 5 a tick; at the old hand-over the camera held still
+        // for a tick and then went on at 14.
+        assert!(jerk < 1.5, "the camera's step changed by {jerk} in one tick");
     }
 }

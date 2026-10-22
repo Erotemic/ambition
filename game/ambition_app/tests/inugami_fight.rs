@@ -283,9 +283,20 @@ fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
 #[test]
 fn the_camera_follows_the_chase_route_without_a_whip() {
     let mut sim = arena();
+    // Both fights over, so their arena walls are down: a body carried into a
+    // wall is held by it and then let through, and that is a jump of the body.
+    kill(&mut sim, WOLFENSTEIN_ID);
+    step_until(&mut sim, 30, "it to wake", |sim| head(sim).phase != BossEncounterPhase::Dormant);
+    kill(&mut sim, INUGAMI_ID);
+    step_until(&mut sim, 60 * 10, "the arena to open", |sim| head(sim).phase == BossEncounterPhase::Death || !head(sim).alive);
+    for _ in 0..60 * 6 {
+        sim.step(AgentAction::default());
+    }
+    // Over the gallery's steps and rubble: a body carried into a step is
+    // pushed out of it, and the camera rightly follows that jump.
     let route = [
-        ae::Vec2::new(900.0, 2180.0),
-        ae::Vec2::new(4700.0, 2180.0),
+        ae::Vec2::new(900.0, 2130.0),
+        ae::Vec2::new(4700.0, 2130.0),
         ae::Vec2::new(4700.0, 820.0),
         ae::Vec2::new(9200.0, 820.0),
     ];
@@ -331,10 +342,11 @@ fn the_camera_follows_the_chase_route_without_a_whip() {
             jerk = (change, i + 2);
         }
     }
-    // Before the handover was a spring, the camera went from still to 38
-    // units a tick on leaving the throne room's arena.
+    // Measured 3.99, where the throne room's clamp stops the camera at its
+    // edge. Before zones were mixed across their edges the camera went from
+    // still to 38 units a tick on leaving the arena.
     assert!(
-        jerk.0 < 12.0,
+        jerk.0 < 5.0,
         "the camera's step changed by {:.1} units in one tick at {:?}",
         jerk.0,
         rows[jerk.1].0

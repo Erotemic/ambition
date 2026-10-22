@@ -365,7 +365,7 @@ pub fn sync_visuals(
                 // number, so there is no ratio.
                 sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
                 // Placement comes from the same publisher.
-                // `sync_sprite_posed_bodies` computes the offset that puts the art
+                // `place_sprite_posed_bodies` computes the offset that puts the art
                 // on the box, and the actor path reads it too. With the offset the
                 // anchor is CENTER. Bevy y runs up and sheet y runs down, so y is
                 // negated.

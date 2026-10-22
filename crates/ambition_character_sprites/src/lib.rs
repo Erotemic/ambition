@@ -20,13 +20,13 @@ pub use attack_hitbox::{
 };
 pub use posed_body::{
     PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, posed_body_inset_hurtboxes,
-    posed_body_world_per_pixel, published_body_rig,
+    place_sprite_posed_bodies, posed_body_world_per_pixel, published_body_rig,
     sync_sprite_posed_bodies,
 };
 
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin};
 
-use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, PlayerInputSet, SimScheduleExt};
 
 /// Installs [`sync_sprite_posed_bodies`] in [`PlayerInputSet::PosedGeometry`],
 /// after the character projection that decides which `SpritePosedBody` a body
@@ -50,6 +50,13 @@ impl Plugin for SpritePosedBodyPlugin {
         app.add_systems(
             sim,
             sync_sprite_posed_bodies.in_set(PlayerInputSet::PosedGeometry),
+        );
+        // The quad's place on the box is the stance the body ends the tick in,
+        // so it is published after the stance transition and the movement that
+        // follows it (`place_sprite_posed_bodies`).
+        app.add_systems(
+            sim,
+            place_sprite_posed_bodies.in_set(Platformer2dSimulationPhase::PresentationSync),
         );
         // Pay the file-root index at Startup instead of on the first punch. See
         // `attack_hitbox::warm_file_root_registry` for the 189ms frame this cost.

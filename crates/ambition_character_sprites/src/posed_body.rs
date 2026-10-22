@@ -217,8 +217,9 @@ fn inset_timeline(
     }
 }
 
-/// Keep every [`SpritePosedBody`] actor's collision box, sprite quad, and quad
-/// offset equal to what its sheet says about the pose it is showing.
+/// Keep every [`SpritePosedBody`] actor's collision box and sprite quad equal
+/// to what its sheet says about the pose it is showing. Where the quad goes on
+/// the box is [`place_sprite_posed_bodies`], later in the tick.
 ///
 /// A projection of the pose only. The standing identity box (`BodyBaseSize`)
 /// and the initial quad are published with `SpritePosedBody` itself, when a
@@ -233,7 +234,6 @@ pub fn sync_sprite_posed_bodies(
         Option<&ActorAnimOverride>,
         &mut ae::BodyKinematics,
         &mut ActorRenderSize,
-        &mut ActorSpriteOffset,
         // The STANCE, which composes with the pose rather than competing with
         // it. Absent  a body that never body-modes, and the pose IS the box.
         Option<&ae::BodyModeState>,
@@ -242,7 +242,7 @@ pub fn sync_sprite_posed_bodies(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
-    for (posed, pinned, mut kin, mut render_size, mut offset, body_mode, frame) in &mut bodies {
+    for (posed, pinned, mut kin, mut render_size, body_mode, frame) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -258,9 +258,7 @@ pub fn sync_sprite_posed_bodies(
         // the two cannot disagree about what crouching means. It applies to the
         // POSE's rectangle, not to `base_size`, so a body whose silhouette
         // changes shape crouches from the height it is actually showing.
-        let posed_collision = body_mode.map_or(geometry.collision, |mode| {
-            mode.body_mode.shape(geometry.collision).size
-        });
+        let posed_collision = stance_box(&geometry, body_mode);
         // In a reversed or horizontal-gravity room a resize anchored to world +y
         // pushed the body into or off its own support. The module's contract is
         // that the +gravity face stays planted; the direction has to be the
@@ -275,6 +273,33 @@ pub fn sync_sprite_posed_bodies(
         if render_size.0 != geometry.render {
             render_size.0 = geometry.render;
         }
+    }
+}
+
+/// Keep every [`SpritePosedBody`] actor's quad offset equal to where its sheet
+/// puts the art on the box, in the stance the body ENDS the tick in.
+///
+/// ⛔ After the stance transition, not with [`sync_sprite_posed_bodies`]. The
+/// box must be published before the crouch decision (see the plugin), but the
+/// decision then moves the box. An offset written before it carried the
+/// stance of the tick before: on the tick a body crouched the art was drawn a
+/// quarter of its height into the floor, and on the tick it stood up, as far
+/// over it.
+pub fn place_sprite_posed_bodies(
+    mut bodies: Query<(
+        &SpritePosedBody,
+        Option<&ActorAnimOverride>,
+        &mut ActorSpriteOffset,
+        Option<&ae::BodyModeState>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
+) {
+    for (posed, pinned, mut offset, body_mode, frame) in &mut bodies {
+        let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
+        let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
+            continue;
+        };
+        let gravity_dir = frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
         // The stance moved the body's CENTRE without moving its FEET, and the
         // quad is placed relative to that centre — so the placement owes the
         // same shift back, or the art is drawn where a STANDING body's centre
@@ -283,15 +308,20 @@ pub fn sync_sprite_posed_bodies(
         //
         // `geometry.sprite_offset` answers "where does the frame go so the
         // POSE's rectangle lands on the box", and that box is the one the SHEET
-        // measured. `resize_feet_planted` then slid the centre by half the
-        // stance shrink along gravity, so the same term reverses it. Both facts
-        // are published from here, by the one pass that knows both.
-        let stance_shift = gravity_dir * ((geometry.collision - posed_collision) * 0.5);
+        // measured. `resize_feet_planted` slid the centre by half the stance
+        // shrink along gravity, so the same term reverses it.
+        let stance_shift = gravity_dir * ((geometry.collision - stance_box(&geometry, body_mode)) * 0.5);
         let sprite_offset = geometry.sprite_offset - stance_shift;
         if offset.0 != sprite_offset {
             offset.0 = sprite_offset;
         }
     }
+}
+
+/// The box of a posed body in its stance: the pose's rectangle, shaped by the
+/// body mode (`BodyMode::shape`, the function the stance transition uses).
+fn stance_box(geometry: &PosedBodyGeometry, body_mode: Option<&ae::BodyModeState>) -> ae::Vec2 {
+    body_mode.map_or(geometry.collision, |mode| mode.body_mode.shape(geometry.collision).size)
 }
 
 #[cfg(test)]

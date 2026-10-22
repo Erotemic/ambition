@@ -62,6 +62,8 @@
     "gravity_grenade": (path: "sprites/props/gauntlet_gravity_grenade.png", size: (26.0, 26.0)),
     "mark_recall": (path: "sprites/props/gauntlet_mark_recall.png", size: (26.0, 26.0)),
     "blink": (path: "sprites/props/gauntlet_blink.png", size: (26.0, 26.0)),
-    "puppy_slug_gun": (path: "sprites/props/gauntlet_puppy_slug_gun.png", size: (26.0, 26.0)),
+    // The puppy-slug gun is a prop of its own (`_puppy_slug_gun_art.py`): a
+    // gun that is a puppy slug, 144x90, held at the middle of its grip.
+    "puppy_slug_gun": (path: "sprites/props/gauntlet_puppy_slug_gun.png", size: (36.0, 22.5), grip: Some(0.26)),
     "fireball": (path: "sprites/props/gauntlet_fireball.png", size: (26.0, 26.0)),
 }

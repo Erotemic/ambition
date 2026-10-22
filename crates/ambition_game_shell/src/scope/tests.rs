@@ -280,6 +280,10 @@ fn a_frontend_runs_on_its_routes_and_on_the_frame_that_leaves_them() {
     #[derive(Resource, Default)]
     struct Runs(u32);
 
+    // A host with no shell runs one game: its frontend is always on screen.
+    let mut bare = App::new();
+    assert!(bare.world_mut().run_system_once(shell_scope_is_on_screen_or_routing("game")).unwrap());
+
     let mut app = app_with_scope();
     app.init_resource::<Runs>();
     app.add_systems(

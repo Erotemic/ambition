@@ -134,8 +134,8 @@ pub fn shell_experience_is_active(
 /// frame the router changed. The change arm is for the frame that leaves the
 /// scope: a system that took its screen down or retracted its claim when the
 /// route was another one still sees that route once. Between route changes
-/// in another game, the systems do not run. A host with no router reads as
-/// false.
+/// in another game, the systems do not run. A host with no router (a
+/// standalone game with no shell) has no other game on screen: true.
 ///
 /// The change is read since this condition last ran, which is each frame,
 /// so a route change later in a frame is seen on the next one.
@@ -145,7 +145,7 @@ pub fn shell_scope_is_on_screen_or_routing(
     let owner = owner.into();
     move |router, scopes| {
         let Some(router) = router else {
-            return false;
+            return true;
         };
         if router.is_changed() {
             return true;

@@ -127,7 +127,15 @@ impl Plugin for SanicExperiencePlugin {
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, sanic_prepared_session_world);
-        app.add_systems(bevy::prelude::Update, publish_sanic_ring_readout);
+        // Sanic's readouts, only while Sanic is on screen: in the hub, another
+        // game's player has HUD facts too.
+        app.add_systems(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::run_if(
+                publish_sanic_ring_readout,
+                ambition_platformer2d::game_shell::shell_scope_is_on_screen_or_routing(SANIC_EXPERIENCE),
+            ),
+        );
         app.add_plugins(SanicRulesPlugin::hosted());
     }
 }

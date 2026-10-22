@@ -406,9 +406,14 @@ pub fn install_sanic_content(app: &mut App) {
         app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&pack::PACK));
         // Presentation reads sim state and writes render components, in
         // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).
+        // Asleep while another game is on screen in the hub: no Sanic room is
+        // live then.
         app.add_systems(
             bevy::prelude::Update,
-            (monitors::dress_monitor_boxes, scenery::dress_goal_posts),
+            bevy::prelude::IntoScheduleConfigs::run_if(
+                (monitors::dress_monitor_boxes, scenery::dress_goal_posts),
+                ambition_platformer2d::game_shell::shell_scope_is_on_screen_or_routing(provider::SANIC_EXPERIENCE),
+            ),
         );
     }
 

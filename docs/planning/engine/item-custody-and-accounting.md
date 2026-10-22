@@ -117,13 +117,60 @@ Centralize occurrence minting only where it centralizes a real invariant
 - An object the attempt reclaims (`SpawnedThisAttempt`) is not durable. An
   object made durable stops carrying `SpawnedThisAttempt`.
 
+## Lifetime matrix (2026-10-22)
+
+Each item lifetime, its owner and its phase. Paths: `AM` is
+`crates/ambition_platformer2d_actor_monolith/src`, `HI` is
+`crates/ambition_held_items/src/lib.rs`, `ST` is
+`crates/ambition_platformer2d_shared_tangle/src`, `RT` is
+`crates/ambition_platformer2d_runtime/src`. Durable families: **H** is
+`set_durable_horizon` (occurrences and custody, `AM/session/durable_horizon.rs`,
+`DurableHorizonSet::SessionMirror`), **M** is `set_minted_items`
+(`AM/items/pickup/minted_horizon.rs`, `DomainMirror`), **I** is the inventory
+(`AM/items/persist.rs`, `DomainMirror`).
+
+| Lifetime | Owner | Phase | State written | Durable |
+| --- | --- | --- | --- | --- |
+| Authored room baseline | `construct_authored_ground_item` (`AM/construction/mod.rs`), planned by the room feature plan (`AM/features/ecs/spawn/mod.rs`) | Plan in `Update` (room-transition load); built at the commit, `RoomTransitionSet::Apply` | `GroundItem`, `SettledItem`, `ItemCustody::InWorld`; no occurrence row until first carried | H, once moved |
+| Runtime mints | Producers: `throw_held_item_system` (`HI`), `drop_held_weapon` (`AM/features/ecs/damage_drops.rs`); admission `record_placed_ground_items` (`HI`); baseline `capture_minted_item_baseline` | `HeldItemStep::Throw`; `ResidencyStep::Record`; `CheckpointCapture` | `AuthoredOccurrences` (mint flag), `MintedItemBaseline`, `BagSpendsSinceCheckpoint` | M, and H's mint flag |
+| Inventory | `OwnedItems` (`ambition_items`); capture, checkpoint restore and mirror in `minted_horizon.rs` and `persist.rs` | `CheckpointCapture`, `CheckpointDomainApply`, `DomainMirror`, `DurableRestoreSet::Domains` | `OwnedItems`, `OwnedItemsBaseline`, the primary `BodyWallet` | I |
+| Equipment | Sim: `pickup_held_item_system` / `equip_held_spec`, `return_released_items` (`HI`). Menu: `apply_menu_action` (`game/ambition_app/src/menu/effects.rs`) | Pickup and Release steps; the menu in `Update` | `HeldItem`/`PortalGun`, `ItemCustody::Held`, `InCustodyOf{Restored}` | H custody rows, for a hand backed by a ground item |
+| Stock loss | `spend_fighter_stocks` (`crates/ambition_combat/src/stocks.rs`); elimination despawn in Smash | `FighterStocksSpent` | Stocks, health, markers; no item or bag state | none |
+| Same-room replay | `apply_committed_checkpoint_restore` (`AM/session/checkpoint.rs`): `restore_owned_items_to_checkpoint`, then `restore_custody_to_checkpoint`; `retract_mints_of_retracted_boss_defeats`; `retire_the_previous_attempt` | `CheckpointRestore`, `CheckpointDomainApply`, `ContentRoomReplayResetSet` / `ReplayContent`, `RoomReset` | `OwnedItems`, wallet, `ItemCustody`, `HeldItem`, `AuthoredOccurrences`, grants and spends | H, M, I at the next mirror |
+| Room exit | The commit's resident sweep (`RT/room_transition/commit.rs`); ledger producers in `HI` and `ST/lifecycle/continuity.rs`; `record_bodies_away_from_home` | `RoomTransitionSet::Apply`; residency steps | Residents despawned; carried items cross with their holder; Placed/InCustody rows | reads M at a door crossing |
+| New session / durable restore | Fresh: `start_the_item_domain_fresh`, `begin_fresh_run` (`AM/session/reset/mod.rs`). Load: `adopt_occurrence_checkpoint_from_save`, `restore_inventory_from_save`, `complete_durable_restore` | `CheckpointDomainApply`; `DurableRestoreSet` Lifecycle → Domains → Complete | All baselines, `AuthoredOccurrences`, `SaveRestored`; a fresh run replaces the save | reads H, M, I; a fresh run clears them |
+
+Gaps the matrix shows:
+
+- **The save write is three setters in two sets.** M and I are written in
+  `DomainMirror`, H later in `SessionMirror`; nothing reconciles M with the
+  occurrences H keeps (the atomic durable horizon row below).
+- **Match items have no road back.** `spawn_match_items`
+  (`AM/items/match_spawn.rs`) gives an item a `SimId` but no `SpawnOrigin`,
+  so the minted baseline and mint admission do not see it.
+- **Stock loss has no item owner.** An eliminated holder is despawned and its
+  item stays `Held` by a body that no longer exists: `return_released_items`
+  skips it and residency keeps it (`TODO(item-orphan)` in `HI`).
+- **Equipment has two writers on two clocks.** The sim pickup runs in
+  `HeldItemStep::Pickup`; the menu's Equip runs in `Update` and writes
+  `HeldItem` with no occurrence, so a menu-equipped hand is not persisted.
+- **A door crossing reads M from the save**, not from `MintedItemBaseline`,
+  so re-entering a room that holds an unattended mint depends on the save
+  mirror (inferred from code, untested).
+- **Durable restore has two roads**: the in-sim `DurableRestoreSet` chain and
+  the candidate road (`CandidateDurableHorizon`), which leaves out
+  `OwnedItemsBaseline` deliberately.
+
 ## Open work
 
 | Item | Work | Acceptance |
 | --- | --- | --- |
 | Atomic durable horizon | `PersistedMintedItem` has its own setter (`set_minted_items`) and writer (`minted_horizon.rs`), separate from `set_durable_horizon`, which takes occurrences and custody together. Fold minted items into `set_durable_horizon` | One write; the guard `no_durable_row_names_an_occurrence_the_save_does_not_hold` becomes a property of the writer, not only a fixture test |
 | `durably_held` width | It matches the `ItemCustody` component, so it holds items lying on the ground too. Narrowing it to `Held` is a durability decision | Decide it explicitly; dropping a save row is the dangerous direction |
-| Lifetime matrix (before further A7 cuts) | Write the matrix for authored room baseline, runtime mints, inventory, equipment, stock loss, same-room replay, room exit and new-session/durable restore | Each row names its owner and phase |
+| Lifetime matrix | **Done 2026-10-22**, above | Each row names its owner and phase |
+| Orphaned holder | An eliminated or despawned holder leaves its item `Held` by nobody (`TODO(item-orphan)`); stock loss has no item owner | An item outlives its holder in exactly one stated way |
+| Match items | `spawn_match_items` gives no `SpawnOrigin`, so match items are invisible to minted accounting | A match item is either minted (described) or stated session-only |
+| Menu equip | The menu's Equip writes `HeldItem` in `Update`, outside custody | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |
 | Agent surface | `item where`, `item list --room/--body`, `item audit`, `item explain` | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |
 

@@ -33,13 +33,13 @@ the K5 asset slice (2026-10-21):** the component has nine modules, the
 eight above and `publication` (see K4); the `assets` and
 `character_sprites` cycle is gone (see K5). **After K4 step 2
 (2026-10-21):** eight again, the same eight as after K3; `publication` left
-it, because no module in it names `publication` now. The
-instrument's single-edge cuts that would shrink the component further are,
-after K5's A2 slice, `avatar -> session` (to five), and
-`character_runtime -> avatar`, `features -> world`, `features -> projectile`
-and `projectile -> avatar` (each to seven). With `crate::rooms` resolved,
-`session -> world` (7 references) and `items -> world` (3) no longer shrink
-it alone. The
+it, because no module in it names `publication` now. **After K5's room
+sweep (2026-10-22): seven**, `world` left it: its one `features -> world`
+reference was the room reference sweep, which moved to the world crate (see
+K5). The instrument's single-edge cuts that would shrink the component
+further are `avatar -> session` (to four), and `character_runtime ->
+avatar`, `features -> projectile` and `projectile -> avatar` (each to six).
+The
 monolith has about 73,600 production source lines; `features` accounts for
 about 26,700 of them. Size alone is not a carve reason.
 
@@ -55,6 +55,7 @@ about 26,700 of them. Size alone is not a carve reason.
 | `features -> projectile` | 2 | Perception reads `ProjectileAllegiance`; a brain-driven shot is born by `clear_of_the_feet`; **KEEP_DIRECT** |
 | `projectile -> features` | 0 | Moved with K5's A2 slice: the swept contact pair and the shot-birth rule are projectile's |
 | `projectile -> avatar` | 3 | A parry heals the player (`PlayerHealRequested`); **KEEP_DIRECT** |
+| `features -> world` | 0 | Moved with K5's room sweep: `RoomBindings` checks a `RoomSpec`, so it is the world crate's |
 | `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
 | `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
 | `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1, and 0 with step 2; see K4 |
@@ -434,6 +435,16 @@ direction). `target_is_ignored`, which only damage reads, stayed in
 `features/ecs/damage`. No system, resource or message moved. The
 component is still eight: `projectile -> avatar` (3, a parry heal) holds
 `projectile` in it, and that is a correct write, not a misplaced helper.
+
+**Done 2026-10-22 — the room sweep.** `features -> world` was one
+reference: room feature construction calling `RoomBindings::sweep`, which
+resolves a room's patrol and motion path references before construction
+mutates the world. The sweep reads only `RoomSpec` and the binding ledger,
+both below the monolith, so it is the world crate's
+(`ambition_platformer2d_world::rooms::binding`), with its tests; any content
+backend can now run it without the monolith. No system, resource or message
+moved. Its unused `CharacterId` namespace marker, left over from AC6, was
+deleted first. The component is seven: `world` is out of it.
 
 **Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
 (1) is match preparation reading the session root's `InitialBodyPolicy`, to

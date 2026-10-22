@@ -4,6 +4,9 @@ use ambition_platformer2d_core as ae;
 use bevy_ecs::prelude::{Component, Message};
 use petgraph::graph::{Graph, NodeIndex};
 
+pub mod binding;
+#[cfg(test)]
+mod binding_tests;
 mod camera;
 mod gate_portal;
 mod graph;
@@ -14,6 +17,7 @@ mod rollback;
 mod spawn;
 mod specs;
 
+pub use binding::RoomBindings;
 pub use camera::*;
 pub use gate_portal::*;
 pub use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;

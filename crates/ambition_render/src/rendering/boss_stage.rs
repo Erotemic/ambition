@@ -105,7 +105,8 @@ pub fn light_the_boss_stage(
 pub fn show_boss_name_card(
     mut commands: Commands,
     cards: Query<Entity, With<BossNameCard>>,
-    index: Res<BossRenderIndex>,
+    // A composition without the boss read model shows no card.
+    index: Option<Res<BossRenderIndex>>,
     sprites: Query<(Entity, &super::primitives::FeatureVisual)>,
     rooms: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     primary: PrimaryLiveRoom,
@@ -118,7 +119,7 @@ pub fn show_boss_name_card(
     let Some(session_scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
         return;
     };
-    let Some(here) = primary.get() else {
+    let (Some(here), Some(index)) = (primary.get(), index) else {
         return;
     };
     let Some((view, card)) = sprites

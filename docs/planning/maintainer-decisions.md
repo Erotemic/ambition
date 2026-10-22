@@ -349,8 +349,8 @@ and `scripts/check_host_produced_sim_consumed_requests.py` checks
 `ingress-census`. Each script owns its own classification; when a number moves,
 update the marker in the same change and name what moved in the commit message.
 
-<!-- crossing-census: both_side_resources=49 rollback_registered=29 adjudicated_harmless=18 session_edge_only=2 filed=0 unclassified=0 -->
-<!-- ingress-census: spent_resources=61 resource_crossings=1 written_messages=94 message_crossings=1 unlocated=52 unlocated_types=18 -->
+<!-- crossing-census: both_side_resources=51 rollback_registered=30 adjudicated_harmless=19 session_edge_only=2 filed=0 unclassified=0 -->
+<!-- ingress-census: spent_resources=60 resource_crossings=1 written_messages=97 message_crossings=1 unlocated=64 unlocated_types=23 -->
 
 ## Maintenance rule
 

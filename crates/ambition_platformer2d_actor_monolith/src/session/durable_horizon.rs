@@ -180,8 +180,8 @@ impl CandidateDurableHorizon {
     /// What the commit of the candidate's first room reads for the fates of
     /// its bodies: the candidate's own save. No occurrence is scheduled to
     /// return, because the world-time schedule of a new session is empty.
-    pub fn first_room_facts(&self) -> crate::publication::CommitFactsSource {
-        crate::publication::CommitFactsSource::Stated(self.fates.clone())
+    pub fn first_room_fates(&self) -> crate::construction::PersistedFates {
+        self.fates.clone()
     }
 
     /// What the candidate's construction reads to rebuild a runtime mint.

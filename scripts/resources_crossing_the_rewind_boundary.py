@@ -141,12 +141,6 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # `Update`, so only the host side writes it now.
     "GameplayTraceBuffer": "dev trace ring",
     "RelativisticOpticalView2d": "derived presentation view",
-    "ShieldRingsView": (
-        "derived presentation view, cleared and rebuilt each sim tick "
-        "(`rebuild_shield_rings_view`); the `Update` writer is `capture_scene`'s "
-        "`draw_guards`, which appends a tool's synthetic guards for a picture "
-        "and which no rule reads"
-    ),
     "RelativisticTargetingView2d": "derived presentation view",
     "RelativityClockView2d": "derived presentation view",
     "RelativitySignalView2d": "derived presentation view",

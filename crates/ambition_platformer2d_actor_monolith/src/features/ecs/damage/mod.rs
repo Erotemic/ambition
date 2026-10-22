@@ -27,7 +27,6 @@ use ambition_combat::util::approximately_same_aabb;
 // spawners live in `damage_drops`.
 #[cfg(test)]
 use super::damage_drops::EXPLODER_BLAST_DAMAGE;
-use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use ambition_combat::components::PickupFeature;
 use ambition_combat::events::ActorStimulus;
@@ -36,6 +35,16 @@ use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 use ambition_vfx::vfx::VfxWriter;
+
+/// Whether an event's ignore list names `prefix:id`.
+fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &str) -> bool {
+    ignored_targets.iter().any(|ignored| {
+        ignored
+            .strip_prefix(prefix)
+            .and_then(|rest| rest.strip_prefix(':'))
+            == Some(id)
+    })
+}
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (

@@ -207,6 +207,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ComposedBodyDemand": (
         "crates/ambition_render/src/rendering/actors/rigged.rs",
         "crates/ambition_render/src/rendering/hit_flash.rs",
+        "crates/ambition_render/src/rendering/passage_visuals.rs",
         "crates/ambition_render/src/rendering/portal_compositing.rs",
         "game/ambition_content/src/presentation/deep_dream.rs",
         "game/ambition_demo_mary_o/src/quasar_shader.rs",
@@ -217,16 +218,24 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension/contact.rs",
+        "crates/ambition_combat/src/extension/reaction.rs",
+        "crates/ambition_combat/src/extension/special.rs",
+        "crates/ambition_combat/src/extension/status.rs",
         "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
     ),
     "ExtensionOutbox": (
         "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_abilities/src/module_entity.rs",
+        "crates/ambition_abilities/src/ride.rs",
         "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
+        "crates/ambition_combat/src/extension/blast.rs",
         "crates/ambition_combat/src/extension/contact.rs",
+        "crates/ambition_combat/src/extension/reaction.rs",
+        "crates/ambition_combat/src/extension/special.rs",
+        "crates/ambition_combat/src/extension/status.rs",
         "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
         "crates/ambition_portal2d/src/extension.rs",
@@ -254,8 +263,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
         "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
+        "crates/ambition_shrine/src/lib.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_content/src/encounters.rs",
@@ -365,10 +374,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/death.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/passage.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
-        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_departure.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
     ),
     "QuestRegistry": (
@@ -415,6 +425,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
         "crates/ambition_platformer2d_runtime/src/portal_seat.rs",
         "game/ambition_app/src/app/sim_systems.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "SlotInteractionState": (
         "crates/ambition_platformer2d_actor_monolith/src/body_mode/mechanics/mod.rs",
@@ -611,9 +622,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/kaleidoscope_app/pointer.rs",
     ),
     "LocalSessionOwnership": (
+        "crates/ambition_platformer2d/src/rollback.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
-        "game/ambition_content/src/reload.rs",
     ),
     "MusicPlaybackState": (
         "crates/ambition_audio/src/music/director/mod.rs",
@@ -662,10 +673,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ActiveGameplaySession": (
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
-    ),
-    "BodyClocksView": (
-        "crates/ambition_sim_view/src/facts.rs",
-        "game/ambition_demo_smash/src/mark.rs",
     ),
     "CameraShakeState": (
         "crates/ambition_platformer2d_shared_tangle/src/camera_ease.rs",
@@ -731,7 +738,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/headless.rs",
     ),
     "ImpactHitstop": (
+        "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_combat/src/impact_hitstop/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/death_beat.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "InventoryUiState": (
@@ -778,13 +787,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/dev/portal_inspector.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
-    "PortalCameraContinuityState": (
-        "crates/ambition_platformer2d_host/src/portal.rs",
-        "crates/ambition_render/src/rendering/camera.rs",
-    ),
     "PortalEffectSelection": (
         "game/ambition_app/src/dev/portal_inspector.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "PortalViewConeDebugDumpRequest": (
         "crates/ambition_portal2d_presentation/src/view_cones/debug.rs",
@@ -863,7 +869,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app_tools/src/bin/preview_vanity_card.rs",
     ),
     "ShrineActivationPulse": (
-        "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
+        "crates/ambition_shrine/src/lib.rs",
         "crates/ambition_sim_view/src/facts.rs",
     ),
     "SmashSelect": (
@@ -898,6 +904,38 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_dialog/src/bindings.rs",
         "crates/ambition_dialog/src/bridge.rs",
     ),
+    "ActorAnimIndex": (
+        "crates/ambition_sim_view/src/anim_index.rs",
+        "crates/ambition_sim_view/src/passage_view.rs",
+    ),
+    "AutopilotOrder": (
+        "game/ambition_content/src/autoplay.rs",
+        "game/ambition_demo_mary_o/src/autoplay.rs",
+    ),
+    "DeclaredPoseWarps": (
+        "crates/ambition_platformer2d_host/src/portal.rs",
+        "crates/ambition_sim_view/src/presented_pose.rs",
+    ),
+    "DirtySpecializations": (
+        "crates/ambition_render/src/mesh2d_late_meshes.rs",
+        "crates/ambition_render/src/quality.rs",
+    ),
+    "PortalCameraContinuityHostView": (
+        "crates/ambition_render/src/rendering/camera.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "PortalObserverViews": (
+        "crates/ambition_render/src/rendering/camera.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "ScriptedControls": (
+        "crates/ambition_platformer2d/src/autopilot.rs",
+        "crates/ambition_platformer2d/src/scripted_input.rs",
+    ),
+    "ShieldRingsView": (
+        "crates/ambition_sim_view/src/pose_view.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
 }
 
 #: ⚠ `MovingPlatformSet` LEFT THIS POPULATION ON 2026-09-29 (OW1 cut 3b): it is
@@ -922,12 +960,88 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "ActorAnimIndex": (
+        "CORRECT — ONE REBUILDER AND ONE DECORATOR ORDERED AFTER IT. "
+        "`rebuild_actor_anim_index` (anim_index) rebuilds every row each sim "
+        "tick; `rebuild_passage_views` (passage_view) only edits the row of a "
+        "body in a door or gate passage (`frame_mut`: anim, clip, "
+        "`passage_look`) and never adds or removes a row. The sim_view plugin "
+        "orders the decorator `.after(rebuild_actor_anim_index)`, so the "
+        "rebuild cannot overwrite the passage look, and the next rebuild drops "
+        "it, which is why it needs no removal. ⚠ No test witnesses the edge: "
+        "the passage unit test runs the decorator alone on a `from_rows` index."
+    ),
+    "AutopilotOrder": (
+        "CORRECT — ONE POLICY PER GAME, AND ONE GAME PER APP. Ambition's "
+        "`autoplay.rs` and Mary-O's `autoplay.rs` each write the order from a "
+        "system gated by `scripted_input::autoplay_is(<own id>)` (content "
+        "plugin, Mary-O lib). `Autoplay` holds one name, so in one app at most "
+        "one policy runs; both are in `AutoplayPolicy`, which runs before "
+        "`AutopilotDrive`, the one reader. A third game's policy is the same "
+        "shape."
+    ),
+    "ScriptedControls": (
+        "CORRECT — TWO ROADS THAT NO APP INSTALLS TOGETHER. `drive_autopilot` "
+        "(autopilot) writes the seat's frame every frame, and exists only where "
+        "`install_autoplay` ran. `scripted_input::hold`/`release` are a test's "
+        "hand on the seat between updates (World access, not a system), used "
+        "where only `drive_the_local_participant` ran (the Sanic spikes test). "
+        "⚠ Nothing refuses a `hold` under autoplay: the autopilot would "
+        "overwrite it on the next frame."
+    ),
+    "DeclaredPoseWarps": (
+        "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS. The portal host's "
+        "`declare_portal_pose_warps` only appends the bodies a portal pair "
+        "carried (`declare`), in `PresentedPoseSet` before "
+        "`PresentedPoseStage::Resample`; `advance_presented_body_poses` "
+        "(presented_pose), in Resample, reads them and clears the list. A "
+        "second declarer (any other warp) is the same shape."
+    ),
+    "DirtySpecializations": (
+        "CORRECT — TWO INSERTERS INTO BEVY'S OWN PER-FRAME DIRTY SETS, ON TWO "
+        "FIELDS. The type is Bevy's (`bevy::render::camera`), in the render "
+        "world, and Bevy's specialize step consumes it. "
+        "`respecialize_meshes_that_arrived` (mesh2d_late_meshes) only inserts "
+        "into `changed_renderables`; `respecialize_views_after_an_msaa_change` "
+        "(quality) only inserts into `views`. Both run before "
+        "`RenderSystems::Specialize`. Insertion commutes and no field is "
+        "written by both."
+    ),
+    "ShieldRingsView": (
+        "CORRECT — ONE REBUILDER AND ONE TOOL THAT APPENDS AFTER IT, IN ONE "
+        "SCHEDULE. `rebuild_shield_rings_view` (pose_view) rebuilds the list "
+        "each sim tick. capture_scene's `--guard` (`draw_guards`) appends "
+        "staged guards, and is added to the sim schedule "
+        "`.after(rebuild_shield_rings_view)`. Until 2026-10-21 it was in "
+        "`Update` with an edge to the sim system, which orders nothing across "
+        "schedules, so a frame with no sim tick appended the guards again onto "
+        "the last tick's list. NOT RUN: no `--guard` capture was taken after "
+        "the move."
+    ),
+    "PortalCameraContinuityHostView": (
+        "CORRECT — ONE SAMPLER AND ONE TOOL PIN AFTER IT. `camera_follow` "
+        "(render camera) samples the camera each frame; capture_scene's "
+        "`apply_capture_snapshot` pins `current_center_world` to the capture's "
+        "resolved centre, once the sampler has initialized the view. The "
+        "capture binary is a tool, not a game; no shipped app has the second "
+        "writer."
+    ),
+    "PortalObserverViews": (
+        "CORRECT — the same pair and the same argument as "
+        "`PortalCameraContinuityHostView`, per view. The through-portal windows "
+        "read THIS (`view_cones` takes `observer_views.of(viewer.observer)`), "
+        "not the one host view. capture_scene pinned only the host view until "
+        "2026-10-21, so a capture drew each window for the follow camera's "
+        "centre and not for the pinned one; it now pins each local view's own "
+        "sample."
+    ),
     "ComposedBodyDemand": (
         "EVERY PRODUCER IS AN IDEMPOTENT SET-INSERT AND THE ONE CONSUMER CLEARS "
         "WHAT IT READ. `crates/ambition_sprite_sheet/src/character/rigged.rs` "
-        "stores `HashSet<Entity>`; `declare` only inserts. The four producers "
+        "stores `HashSet<Entity>`; `declare` only inserts. The five producers "
         "(`declare_hit_flash_demand`, `declare_portal_body_demand`, "
-        "`declare_deep_dream_demand`, `declare_quasar_demand`) each insert the "
+        "`declare_deep_dream_demand`, `declare_quasar_demand`, and "
+        "`declare_passage_fade_demand` for a body a door's passage fades) each insert the "
         "roots they read as one image, in `ComposedBodyDemandSet`, which is "
         "ordered before `drive_rigged_presentations`; the driver reads every "
         "declaration and then clears the set. Insertion commutes, so producer "
@@ -955,7 +1069,10 @@ ADJUDICATED: dict[str, str] = {
         "custom-brain trigger `queue_actor_thinks` (in the combat crate's "
         "extension/think file, phase actor_think) the sixth, and the body-contact "
         "trigger `queue_body_contacts` (in the combat crate's extension/contact "
-        "file, phase body_contact) the seventh. "
+        "file, phase body_contact) the seventh; the combat crate's reaction "
+        "triggers `queue_parries` and `queue_strikes` (phase hit_reaction), "
+        "its `queue_fighter_specials` and `queue_status_ticks` (phase "
+        "technique_execution), are the eighth to tenth files. "
         "Each adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
@@ -980,12 +1097,20 @@ ADJUDICATED: dict[str, str] = {
         "`lower_actor_fires` (in the combat crate's extension/think file), the "
         "contact adapters `lower_contact_bounces` and `lower_body_defeats` (in "
         "its extension/contact file), and the portal domain's "
-        "`lower_held_portal_pairs` and `lower_light_lines` (in ambition_portal2d), in "
+        "`lower_held_portal_pairs` and `lower_light_lines` (in ambition_portal2d), "
+        "the ride adapters (`lower_summon_rides`, `lower_dismounts`, "
+        "`lower_held_courses`, `lower_dismissals`, in ambition_abilities), and "
+        "the combat crate's blast, reaction, special and status adapters "
+        "(`lower_blasts`, `lower_parry_answers`, `lower_body_strikes`, "
+        "`lower_sleep_areas`, `lower_refills`, `lower_parry_windows`, "
+        "`lower_held_statuses`, `lower_time_scales`, `lower_status_clocks`), in "
         "`ExtensionSet::Lower`, chained "
         "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
         "by install order); a drain takes only "
-        "its own port's items. Each port has exactly one adapter: admission refuses a second "
-        "offer for a port in a phase (`Refusal::DuplicateOffer`)."
+        "its own port's items. Each port has exactly one adapter IN EACH PHASE: "
+        "admission refuses a second offer for a port in a phase "
+        "(`Refusal::DuplicateOffer`); `BlastPort` and `HoldStatusPort` are each "
+        "offered in two phases, by one adapter per phase."
     ),
     "BrokenBricks": (
         "A SET THAT ONLY GROWS IN A TICK, ON DISJOINT NAMES (read 2026-10-12). "
@@ -1435,7 +1560,10 @@ ADJUDICATED: dict[str, str] = {
         "one surface at a time. ⛔ Both are `#[cfg(feature = \"portal_render\")]` "
         "and the inspector prints `missing_resource` rather than inserting a "
         "default when the resource is absent — a surface that INSERTED one would "
-        "be a third opinion about the initial value."
+        "be a third opinion about the initial value. The third file is the "
+        "`capture_scene` tool's `--portal-effect off`: an `Update` closure that "
+        "sets `Off` every frame, a scripted pin in a tool binary that wins by "
+        "design and is not a surface a player has."
     ),
     "PortalCameraContinuitySelection": (
         "CORRECT — the same pair, the same argument, and the same one-field "
@@ -1732,7 +1860,13 @@ ADJUDICATED: dict[str, str] = {
         "when the composition has neither a latch nor (under the rollback "
         "wrapper) a `PendingSeatInputs`, which is the smallest headless fixture. "
         "Collapsed onto one owner 2026-09-18 — the rollback crate carried a "
-        "duplicate of this arm."
+        "duplicate of this arm.\n"
+        "    THE SEVENTH FILE IS A TOOL. `capture_scene`'s `hold_player_controls` "
+        "writes the primary slot directly, in the sim's `PlayerInput`, after the "
+        "committers and before the control frame is mirrored: a capture's "
+        "stand-in for a device. It is not a client of `shape_seat_frame` (it "
+        "writes `SlotControls` only), so the helper's ceiling is not breached, "
+        "and no shipped composition installs it."
     ),
     "QuestRegistry": (
         "CORRECT — AN APPEND-ONLY QUEUE WITH SIX PRODUCERS AND ONE DRAIN, AND "
@@ -2077,10 +2211,16 @@ ADJUDICATED: dict[str, str] = {
         "two owners of one fact."
     ),
     "ImpactHitstop": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY. "
-        "The impact freeze is armed only by "
-        "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, its one "
-        "`ResMut` site); the other file is `SESSION_SCOPE_RESET`, where "
+        "CORRECT — THREE ARMERS THAT SHARE ONE MAX-MERGE, PLUS THE SESSION "
+        "BOUNDARY. The impact freeze is armed by "
+        "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, a "
+        "hit's hitlag), `boss_phase_transition_feedback` (`ambition_boss_encounter/"
+        "src/systems.rs`, a boss's death) and `advance_death_beats` "
+        "(`features/ecs/death_beat.rs`, a kill's beat), all in the sim schedule "
+        "and unordered against one another. Each writes `until_tick = "
+        "max(held, until)`, which commutes, so their order cannot change the "
+        "freeze; the resource is rollback-registered. The fourth file is "
+        "`SESSION_SCOPE_RESET`, where "
         "`SessionScopedResources::reset` clears it at the session edge. It holds an "
         "absolute expiry on `SimTick`, which the same reset sets to 0 (Q128), so a "
         "freeze kept across the edge would hold the new session until the old "
@@ -2386,8 +2526,8 @@ ADJUDICATED: dict[str, str] = {
         "that plays can change before the adoption."
     ),
     "PendingLifecycleCommit": (
-        "CORRECT — ONE EARLIEST-STICKY SLOT WITH A STATED PRIORITY LADDER. Five "
-        "production systems can ARM it and all five go through `record`, whose "
+        "CORRECT — ONE EARLIEST-STICKY SLOT WITH A STATED PRIORITY LADDER. Six "
+        "production systems can ARM it and all six go through `record`, whose "
         "policy is inside the method (earliest wins, idempotent under resim) and "
         "whose `#[must_use]` says a refusal must not have its consequences run. "
         "Every armer honours that. ⇒ The resolution order is not ambiguous: it is "
@@ -2399,6 +2539,8 @@ ADJUDICATED: dict[str, str] = {
         "PlayerSimulation\n"
         "      detect_room_transition_system         RoomTransitionSet::Detect     "
         "RoomTransition\n"
+        "      run_zone_passages                     RoomTransitionSet::Detect, "
+        "after the door      RoomTransition\n"
         "    with `(PlayerInput, WorldPrep, PlayerSimulation, RoomTransition, ..)"
         "`.chain()` at `schedule/schedule.rs:91`. So a checkpoint resume outranks a "
         "replay admission outranks a session-start restore outranks a door, within "
@@ -2407,7 +2549,13 @@ ADJUDICATED: dict[str, str] = {
         "`retract_transition_for_subject` from `open_death_interlude`, all after "
         "the operation they end, plus the `SessionScopedResources::reset` road in "
         "`session/teardown.rs` (an eighth writer, visible once the census learned "
-        "`ResMut<'w, T>`). "
+        "`ResMut<'w, T>`), and the door passage's own `retract` "
+        "(`world/rooms/passage.rs`, the ninth file), which withdraws only the "
+        "exact crossing it recorded, after `CROSSING_GIVE_UP_S`. ⭐ THE PASSAGE "
+        "DOES NOT REPEAT THE PRESS DEFECT BELOW: the door spends the press when "
+        "the passage starts, and the passage then asks the slot every tick until "
+        "it is admitted, so a refusal costs dwell, not the crossing; only a body "
+        "moved to another room first ends the passage, and with it the crossing. "
         "⛔⛤ AND THE DOOR ARMER WAS SPENDING THE PLAYER'S PRESS BEFORE ASKING: it "
         "cleared the interact buffer and then discarded the `Admission`, so a TAP "
         "was consumed on a crossing this slot REFUSED. Found by review 2026-09-17 "
@@ -2648,14 +2796,6 @@ ADJUDICATED: dict[str, str] = {
         "sim/presentation boundary. Measured by CalculexAmbition, "
         "2026-09-18."
     ),
-    "PortalCameraContinuityState": (
-        "ALREADY REASONED THROUGH BY THE MAINTAINERS. "
-        "`crates/ambition_render/src/rendering/camera.rs:203-204`'s own "
-        "comment: portal camera continuity is one global for the whole "
-        "process, and the writes are last-camera-wins once a composition "
-        "really has two. An accepted design, not an oversight. Measured by "
-        "CalculexAmbition, 2026-09-18."
-    ),
     "PortalViewConeDebugDumpRequest": (
         "TWO INPUT SURFACES FOR ONE USER ACTION, SAME METHOD. Both writers "
         "call the identical `request(reason)` "
@@ -2751,19 +2891,6 @@ ADJUDICATED: dict[str, str] = {
         "the shipped game's own App. `census.shared_targets` is empty. "
         "Measured by CalculexAmbition, 2026-09-18."
     ),
-    "BodyClocksView": (
-        "AN INTENTIONAL ACCUMULATOR, DOCUMENTED AS SUCH. The struct's own "
-        "`BodyClockViewSet` doc "
-        "(`crates/ambition_sim_view/src/facts.rs:342-348`) states it "
-        "outright: a Reset phase empties the view and a Contribute phase is "
-        "where every mechanic pushes its own clocks and nothing else. "
-        "`rebuild_body_clocks_view` (`facts.rs:355`) is the Reset-phase "
-        "clearer; `publish_status_clocks` (the same file, the clocks of the "
-        "statuses bodies hold, which the delayed mark's module sets) is one "
-        "Contribute-phase pusher among however many exist, ordered after "
-        "Reset by the set chain. Not a race. Measured by CalculexAmbition, "
-        "2026-09-18; the pusher replaced 2026-10-20."
-    ),
     "PresentationPhase": (
         "MUTUALLY EXCLUSIVE BY SIMULATION-BACKEND SELECTION. "
         "`sample_fixed_overstep_phase` "
@@ -2782,10 +2909,10 @@ ADJUDICATED: dict[str, str] = {
         "AN ARM/DECAY PAIR, SAME SHAPE AS `WorldSourceHotReload`'S "
         "`auto_apply` AND `DeveloperRuntimeState`'S `preset_flash`. "
         "`heal_save_shrine_system` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/shrine.rs:195`) "
+        "(`crates/ambition_shrine/src/lib.rs:206`) "
         "arms it once per activation trigger (`activation.remaining = "
         "0.78`); `tick_shrine_activation_pulse` "
-        "(`crates/ambition_sim_view/src/facts.rs:401-408`) decays it every "
+        "(`crates/ambition_sim_view/src/facts.rs:661`) decays it every "
         "frame toward zero, guarded on it being positive. "
         "`census.shared_targets` names `remaining` as mutation-shaped in both "
         "files, which is expected for an arm/decay pair — the roles are "

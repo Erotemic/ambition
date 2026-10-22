@@ -31,10 +31,13 @@ session edge, but it still reached `world` through the crate-root re-export
 `construction` now has no out-edge in the monolith. **After K4 step 1 and
 the K5 asset slice (2026-10-21):** the component has nine modules, the
 eight above and `publication` (see K4); the `assets` and
-`character_sprites` cycle is gone (see K5). The
-instrument's single-edge cuts that would shrink the component further are
-`avatar -> session` (to six), `character_runtime -> avatar` and
-`features -> projectile` (each to seven). With `crate::rooms` resolved,
+`character_sprites` cycle is gone (see K5). **After K4 step 2
+(2026-10-21):** eight again, the same eight as after K3; `publication` left
+it, because no module in it names `publication` now. The
+instrument's single-edge cuts that would shrink the component further are,
+after K5's A2 slice, `avatar -> session` (to five), and
+`character_runtime -> avatar`, `features -> world`, `features -> projectile`
+and `projectile -> avatar` (each to seven). With `crate::rooms` resolved,
 `session -> world` (7 references) and `items -> world` (3) no longer shrink
 it alone. The
 monolith has about 73,600 production source lines; `features` accounts for
@@ -49,11 +52,12 @@ about 26,700 of them. Size alone is not a carve reason.
 | `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
 | `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
 | `session -> items` | 20 | Restoration coordinates item state; **KEEP_DIRECT** while item domain owns the restored values |
-| `features -> projectile` | 1 | Perception reads `ProjectileAllegiance`; **KEEP_DIRECT** |
-| `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
+| `features -> projectile` | 2 | Perception reads `ProjectileAllegiance`; a brain-driven shot is born by `clear_of_the_feet`; **KEEP_DIRECT** |
+| `projectile -> features` | 0 | Moved with K5's A2 slice: the swept contact pair and the shot-birth rule are projectile's |
+| `projectile -> avatar` | 3 | A parry heals the player (`PlayerHealRequested`); **KEEP_DIRECT** |
 | `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
 | `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
-| `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1; see K4 |
+| `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1, and 0 with step 2; see K4 |
 | `assets <-> character_sprites` | 0 / 3 | Broken with K5: the catalog-row projection moved to its consumer, and `game_assets` left `assets` |
 
 The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
@@ -272,7 +276,7 @@ planning work without importing the monolith back into itself. If it cannot,
 keep planning separate from spawn materialization. Reuse A3's prepared-plan,
 `SimId`, provenance and preflight tests.
 
-### K4 — Extract room-publication coordination as one packet — step 1 DONE 2026-10-21
+### K4 — Extract room-publication coordination as one packet — steps 1 and 2 DONE 2026-10-21
 
 **Receipt (step 1, the coordinator module):** the room publication
 coordinator is the monolith's top-level module `publication`
@@ -300,6 +304,37 @@ it. The edges that hold it there:
 `session/setup.rs`'s room preparation to move with it (otherwise the
 monolith depends on the crate), and the custody handoffs to take a handle
 that crate does not own. Step 2 is that move of session setup's room half.
+
+**Receipt (step 2, the session's first room and the custody handoffs):**
+the first room of a session is published by
+`publication::publish_first_room` (`publication/first_room.rs`), which
+takes a `FirstRoom` (the spec, the plan inputs and the commit facts) and
+returns the `PublicationHandle`. Session setup no longer prepares a room:
+`SimulationSetup` lost its room inputs, and `durable_horizon` states the
+facts as `first_room_fates() -> PersistedFates`, which the caller wraps in
+`CommitFactsSource::Stated`. The caller (the provider's lifecycle, the
+`demo_fixture` re-export and the host test support) publishes the first
+room into the session root, then builds the simulation world. The A10
+Model A custody handoffs (`record`/`apply`/`discard_custody_handoffs` and
+their tests) moved from `items/pickup` to `publication/custody_handoffs.rs`:
+they are stored on the publication handle and settled with it.
+This revises step 1's `publication -> items` KEEP_DIRECT. What a hand
+holds and how it is stripped stay item-owned (`HeldItem`, `GroundItem`,
+`ambition_combat::hand`, `restore_custody_to_checkpoint`); the record of
+what a publication owes, which only that publication creates, drains or
+discards, is the coordinator's adapter to them.
+
+Measured with `measure_kernel_module_graph.py`: `session -> publication`
+7 → 0, `items -> publication` 3 → 0, `publication -> items` 5 → 0. Nothing
+in the component names `publication`, so it left it; the component is the
+eight of K3. `publication` keeps its out-edges (`features` 7, `session` 7,
+`construction` 6, `world` 1): it is above the component, which is the
+direction an integration crate needs.
+
+**Not done:** the integration crate itself. `publication` is now a
+candidate for it, but the move is a crate split with its own proof list
+(below), not a module move. The `items -> publication` HOLD above is
+spent: the handoffs that took the handle are publication's own now.
 
 Inspect these together, not as separate file moves:
 
@@ -343,6 +378,32 @@ sheet builders; that is the higher layer, so `game_assets` is now a
 top-level module above both. `character_sprites -> assets` (the catalog
 ids) is the remaining, downward edge. No system or resource moved;
 `PropSheets`' rollback exemption follows its new type path.
+
+**Done 2026-10-21 — A2's contact helpers.** `projectile -> features` was
+four references to helpers only the projectile road calls: the swept pair
+`projectile_reaches_breakable` and `projectile_reaches_boss` with their
+`FeatureContact` order (`features/ecs/damage_predicates.rs`), and
+`clear_of_the_feet`, the rule that a shot is born clear of its shooter's
+feet line. The pair is now `projectile/feature_contact.rs`, with its tests;
+the rule is `projectile/shot_birth.rs`, and the brain-driven fire road in
+`features` calls it there (`features -> projectile` 1 → 2, the KEEP_DIRECT
+direction). `target_is_ignored`, which only damage reads, stayed in
+`features/ecs/damage`. No system, resource or message moved. The
+component is still eight: `projectile -> avatar` (3, a parry heal) holds
+`projectile` in it, and that is a correct write, not a misplaced helper.
+
+**Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
+(1) is match preparation reading the session root's `InitialBodyPolicy`, to
+refuse a local seat in a session that also lowers a home avatar; that is a
+real read of home-avatar policy, and moving the declaration out of `avatar`
+would only reshape the graph. `items -> session` (4 counted, 3 production)
+is item systems joining session-declared boundary sets
+(`DurableHorizonSet`, `DurableRestoreSet`, `ContentRoomReplayResetSet`) and
+reading `SaveRestored`: session coordinates the boundary and the item
+domain places itself in it, which is A7's stated destination. A7's open
+work is the atomic durable horizon (one writer for occurrences, custody and
+minted items) in [item custody](item-custody-and-accounting.md#open-work),
+a save-semantics change with its own proof, not a module move.
 
 ### Migration acceptance for each packet
 

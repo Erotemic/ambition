@@ -109,24 +109,18 @@ fn fixture_setup(
         ambition_platformer2d_runtime::demo_fixture::ActorConstructionRegistry,
     >,
 ) {
-    ambition_platformer2d_runtime::demo_fixture::simulation_world(
+    ambition_platformer2d_runtime::demo_fixture::publish_first_room(
         &mut commands,
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
+        ambition_platformer2d_runtime::demo_fixture::FirstRoom {
             session_root: *session_root,
             // A smoke fixture drops the first room's receipt.
-            publication_retention:
+            retention:
                 ambition_platformer2d_runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
             // One experience: the save of the world is the save of this room.
-            first_room_facts:
+            facts:
                 ambition_platformer2d_runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
-            world: &world,
             room_set: &room_set,
-            tuning: &tuning,
-            initial_body: &initial_body,
-            home_body_resources: &home_body_resources,
-            home_body_abilities: &home_body_abilities,
-            prepared_characters: prepared_characters.as_deref(),
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             construction:
@@ -139,6 +133,18 @@ fn fixture_setup(
                     ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(Default::default()),
                 ),
             boss_catalog: &boss_catalog,
+        },
+    );
+    ambition_platformer2d_runtime::demo_fixture::simulation_world(
+        &mut commands,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
+            world: &world,
+            tuning: &tuning,
+            initial_body: &initial_body,
+            home_body_resources: &home_body_resources,
+            home_body_abilities: &home_body_abilities,
+            prepared_characters: prepared_characters.as_deref(),
             default_character_id: "player",
         },
     );

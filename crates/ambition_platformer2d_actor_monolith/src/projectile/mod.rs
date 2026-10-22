@@ -16,7 +16,10 @@
 /// projectile model content-free is the same boundary that puts this component
 /// beside the stepper that reads it.
 mod allegiance;
+pub(crate) mod feature_contact;
 pub mod intercept;
+mod shot_birth;
+pub use shot_birth::clear_of_the_feet;
 pub use allegiance::{stamp_new_projectile_allegiance, ProjectileAllegiance};
 
 pub mod systems;

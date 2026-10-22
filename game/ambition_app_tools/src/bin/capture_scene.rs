@@ -939,7 +939,7 @@ impl GuardAt {
 }
 
 /// `--guard`: add each configured guard to the shield read model, each
-/// frame, after the simulation's own guards. Presentation only: no body
+/// sim tick, after the simulation's own guards. Presentation only: no body
 /// holds these, and no rule reads them. Each is the size of the robot.
 fn draw_guards(
     config: Res<SceneCaptureConfig>,
@@ -1182,12 +1182,10 @@ fn install_room_capture(app: &mut App) {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
     }
     if !app.world().resource::<SceneCaptureConfig>().guards.is_empty() {
-        app.add_systems(
-            Update,
-            draw_guards
-                .after(ambition_platformer2d::sim_view::rebuild_shield_rings_view)
-                .before(ambition_platformer2d::render::rendering::bubble_shield::sync_bubble_shield_visual),
-        );
+        // In the schedule that rebuilds the view, after the rebuild: an edge
+        // from `Update` to a sim system orders nothing, so a frame with no sim
+        // tick appended the guards again onto the last tick's list.
+        app.add_systems(sim, draw_guards.after(ambition_platformer2d::sim_view::rebuild_shield_rings_view));
     }
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
@@ -2487,7 +2485,10 @@ fn apply_capture_snapshot(
     ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,
     // `CameraViewState` is a component on the local view. A capture app
     // stages one view, so write that one.
-    mut view_states: Query<&mut CameraViewState, With<ambition_platformer2d::sim_view::LocalView>>,
+    mut view_states: Query<
+        (Entity, &mut CameraViewState),
+        With<ambition_platformer2d::sim_view::LocalView>,
+    >,
     // The sim body, not the render visual. `PlayerVisual` is a render-side
     // marker on an entity with no kinematics, so querying it would never
     // match and `player` focus would fall back to the origin.
@@ -2499,6 +2500,7 @@ fn apply_capture_snapshot(
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
     host_view: Option<ResMut<ambition_platformer2d::portal_presentation::PortalCameraContinuityHostView>>,
+    mut observer_views: Option<ResMut<ambition_platformer2d::portal_presentation::PortalObserverViews>>,
 ) {
     let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
@@ -2568,13 +2570,20 @@ fn apply_capture_snapshot(
 
     let x = snapshot.center_world.x - world.0.size.x * 0.5;
     let y = world.0.size.y * 0.5 - snapshot.center_world.y;
-    for mut view_state in &mut view_states {
+    // `camera_follow` sampled the camera before this pin, into the host view
+    // and into each view's own sample. The portal windows read the view's own
+    // sample (`PortalObserverViews`), so pin both. A window drawn for the
+    // follow camera's centre shows its far side's backdrop for the wrong eye
+    // (29 px off on the c146/c147 corridor, 2026-10-16).
+    for (view_entity, mut view_state) in &mut view_states {
         *view_state = CameraViewState::from(&snapshot);
+        if let Some(observer_views) = observer_views.as_deref_mut() {
+            let view = observer_views.of_mut(view_entity);
+            if view.initialized {
+                view.current_center_world = snapshot.center_world;
+            }
+        }
     }
-    // The portal windows read where the camera is from the host view, which
-    // `camera_follow` sampled before this pin. A window drawn for the follow
-    // camera's centre shows its far side's backdrop for the wrong eye (29 px
-    // off on the c146/c147 corridor, 2026-10-16), so the pin is the sample.
     if let Some(mut host_view) = host_view {
         if host_view.initialized {
             host_view.current_center_world = snapshot.center_world;

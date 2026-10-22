@@ -3,7 +3,7 @@
 //! The pure helpers `apply_actor_hit` / `apply_boss_hit` (in `damage/`) call
 //! these when something dies — currency coins, health hearts, ability pickups,
 //! the exploding-mite death blast, and the dividing-mite split. Sibling of
-//! `damage/` (which owns hit application) and `damage_predicates`.
+//! `damage/`, which owns hit application.
 
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::lifecycle::{

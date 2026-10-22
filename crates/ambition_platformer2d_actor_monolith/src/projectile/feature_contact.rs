@@ -28,14 +28,6 @@ use ambition_combat::components::{
 };
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
-pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &str) -> bool {
-    ignored_targets.iter().any(|ignored| {
-        ignored
-            .strip_prefix(prefix)
-            .and_then(|rest| rest.strip_prefix(':'))
-            == Some(id)
-    })
-}
 /// Whether this breakable can receive a projectile contact at all.
 fn breakable_is_eligible(feature: &BreakableFeature) -> bool {
     !feature.broken()

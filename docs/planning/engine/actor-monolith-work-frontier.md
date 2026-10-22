@@ -91,9 +91,11 @@ obstruction half (both branches sweep the shot's box under its own
 `UnresolvedFeatures`. A2b's swept-target half and A2c have also landed: contacts
 over the traveled segment are ordered by time of impact, and a direct contact
 names its recipient (`HitTarget::Feature`). The protocol doc's "Current shape"
-table lists the witnesses. **Open:** only the optional move of pure flight helpers
-to `ambition_projectiles`; do it when it removes an authority or a dependency
-edge.
+table lists the witnesses. The swept contact pair and the shot-birth rule moved
+from `features` to the monolith's `projectile` module (K5, 2026-10-21), which
+removed `projectile -> features`. **Open:** only the optional move of pure
+flight helpers to `ambition_projectiles`; do it when it removes an authority or
+a dependency edge.
 
 **A2c:** a direct contact names its recipient once. Interception and terminal
 flight response happen during stepping; ordinary damage resolves in its later

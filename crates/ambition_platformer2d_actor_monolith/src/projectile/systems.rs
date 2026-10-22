@@ -261,7 +261,7 @@ pub fn charge_projectile_input(
             let local = player_projectile_hand_local_offset(hand, local_dir, facing, kin.size, half_extent);
             // A hand can be at knee height, and a shot born touching the
             // floor dies on its first tick.
-            crate::features::ecs::clear_of_the_feet(
+            super::clear_of_the_feet(
                 kin.pos + frame.to_world(local),
                 kin.pos,
                 kin.size.y,
@@ -1117,7 +1117,7 @@ pub fn step_projectiles(
             // impact, and a family name is not a time.
             let feature_half = shot_half;
             let feature_leg = leg;
-            let feature_contact = crate::features::projectile_reaches_breakable(
+            let feature_contact = super::feature_contact::projectile_reaches_breakable(
                 leg_start,
                 feature_half,
                 feature_leg,
@@ -1128,7 +1128,7 @@ pub fn step_projectiles(
                 &ecs_breakables,
             )
             .into_iter()
-            .chain(crate::features::projectile_reaches_boss(
+            .chain(super::feature_contact::projectile_reaches_boss(
                 leg_start,
                 feature_half,
                 feature_leg,
@@ -1148,7 +1148,7 @@ pub fn step_projectiles(
             // through it. Same rule as the bodies below, same single sweep, same
             // strict comparison.
             .filter(|contact| !wall_blocks_reaching(contact.time, &contact.target_id))
-            .min_by(crate::features::FeatureContact::order_for_caller);
+            .min_by(super::feature_contact::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()
                 .filter(|victim| carved.room_of(victim.entity) == shot_room)

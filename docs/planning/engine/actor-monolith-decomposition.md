@@ -34,9 +34,10 @@ eight above and `publication` (see K4); the `assets` and
 `character_sprites` cycle is gone (see K5). **After K4 step 2
 (2026-10-21):** eight again, the same eight as after K3; `publication` left
 it, because no module in it names `publication` now. The
-instrument's single-edge cuts that would shrink the component further are
-`avatar -> session` (to six), `character_runtime -> avatar` and
-`features -> projectile` (each to seven). With `crate::rooms` resolved,
+instrument's single-edge cuts that would shrink the component further are,
+after K5's A2 slice, `avatar -> session` (to five), and
+`character_runtime -> avatar`, `features -> world`, `features -> projectile`
+and `projectile -> avatar` (each to seven). With `crate::rooms` resolved,
 `session -> world` (7 references) and `items -> world` (3) no longer shrink
 it alone. The
 monolith has about 73,600 production source lines; `features` accounts for
@@ -51,8 +52,9 @@ about 26,700 of them. Size alone is not a carve reason.
 | `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
 | `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
 | `session -> items` | 20 | Restoration coordinates item state; **KEEP_DIRECT** while item domain owns the restored values |
-| `features -> projectile` | 1 | Perception reads `ProjectileAllegiance`; **KEEP_DIRECT** |
-| `projectile -> features` | 4 | Concrete boss/breakable contact work; **MOVE_ADAPTER** under A2 after contact parity |
+| `features -> projectile` | 2 | Perception reads `ProjectileAllegiance`; a brain-driven shot is born by `clear_of_the_feet`; **KEEP_DIRECT** |
+| `projectile -> features` | 0 | Moved with K5's A2 slice: the swept contact pair and the shot-birth rule are projectile's |
+| `projectile -> avatar` | 3 | A parry heals the player (`PlayerHealRequested`); **KEEP_DIRECT** |
 | `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
 | `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
 | `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1, and 0 with step 2; see K4 |
@@ -376,6 +378,32 @@ sheet builders; that is the higher layer, so `game_assets` is now a
 top-level module above both. `character_sprites -> assets` (the catalog
 ids) is the remaining, downward edge. No system or resource moved;
 `PropSheets`' rollback exemption follows its new type path.
+
+**Done 2026-10-21 — A2's contact helpers.** `projectile -> features` was
+four references to helpers only the projectile road calls: the swept pair
+`projectile_reaches_breakable` and `projectile_reaches_boss` with their
+`FeatureContact` order (`features/ecs/damage_predicates.rs`), and
+`clear_of_the_feet`, the rule that a shot is born clear of its shooter's
+feet line. The pair is now `projectile/feature_contact.rs`, with its tests;
+the rule is `projectile/shot_birth.rs`, and the brain-driven fire road in
+`features` calls it there (`features -> projectile` 1 → 2, the KEEP_DIRECT
+direction). `target_is_ignored`, which only damage reads, stayed in
+`features/ecs/damage`. No system, resource or message moved. The
+component is still eight: `projectile -> avatar` (3, a parry heal) holds
+`projectile` in it, and that is a correct write, not a misplaced helper.
+
+**Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
+(1) is match preparation reading the session root's `InitialBodyPolicy`, to
+refuse a local seat in a session that also lowers a home avatar; that is a
+real read of home-avatar policy, and moving the declaration out of `avatar`
+would only reshape the graph. `items -> session` (4 counted, 3 production)
+is item systems joining session-declared boundary sets
+(`DurableHorizonSet`, `DurableRestoreSet`, `ContentRoomReplayResetSet`) and
+reading `SaveRestored`: session coordinates the boundary and the item
+domain places itself in it, which is A7's stated destination. A7's open
+work is the atomic durable horizon (one writer for occurrences, custody and
+minted items) in [item custody](item-custody-and-accounting.md#open-work),
+a save-semantics change with its own proof, not a module move.
 
 ### Migration acceptance for each packet
 

@@ -60,7 +60,6 @@ pub mod fighter_ladder;
 // what it actually depended on — so the carve was a move rather than a design.
 mod attempt;
 mod damage_drops;
-mod damage_predicates;
 pub mod dormancy;
 pub mod effect_bus;
 mod encounter_rewards;
@@ -115,13 +114,10 @@ pub use ambition_boss_encounter::ecs::{
 };
 // ⛔ EXCEPT THIS ONE, which did not go: see `boss_bodies`.
 pub use boss_bodies::integrate_boss_bodies;
-pub use brain_effects::{clear_of_the_feet, spawn_projectiles_from_brain_actions};
+pub use brain_effects::spawn_projectiles_from_brain_actions;
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
 pub use damage::apply_feature_hit_events;
-pub use damage_predicates::{
-    projectile_reaches_boss, projectile_reaches_breakable, FeatureContact,
-};
 pub use encounter_rewards::{
     clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs, EncounterRewardSyncPlugin,
 };

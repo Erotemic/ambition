@@ -500,6 +500,13 @@
             move_style: Walk,
             melee: Some(Bite(windup_s: 0.18, active_s: 0.10, recover_s: 0.30, damage: 1, reach_px: 52.0)),
         ),
+        // The Spectral Wolf's bite. Its windup is its fade in (`fade_in`, 6 x
+        // 60 ms) and its recovery its fade out (`fade_out`, 6 x 70 ms): it is
+        // solid, and hittable, from the start of the one to the end of the other.
+        "spectral_wolf_bite": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.36, active_s: 0.10, recover_s: 0.42, damage: 1, reach_px: 56.0)),
+        ),
         "officer_sidearm": (
             move_style: Walk,
             ranged: Some(Weapon((
@@ -5209,7 +5216,7 @@
             composition: None,
             default_action_set: "evil_hound_bite",
             locomotion: Some((run_speed: 380.0, move_style: Walk, baseline_free_flight: Some(false))),
-            abilities: Some([Walk, Jump]),
+            abilities: Some([Walk, Jump, Attack]),
             contact_damage: Some((strength: 0.5, amount: 1)),
             autonomous_profile: Some((
                 template: MeleeBrute,
@@ -5233,6 +5240,48 @@
             hall: ["GRRRR. *it will not be petted*", "Woof. (Papers.)"],
         ),
         hall_dialogue_id: Some("hall_npc_evil_attack_hound"),
+        ),
+        // The Spectral Wolf: a dog of the regime, dead and risen, red like the
+        // Inugami (Jon, 2026-10-22). It FADES between its attacks: faint and
+        // intangible while it circles you, solid from its windup to the end of
+        // its recovery (`tactics.fades`). It holds off out of reach, comes in,
+        // bites and is gone again. When it dies it bursts into wisps that run
+        // the floor out of it (`bursts_into`). A test placement outside the
+        // castle; Jon will use it more later.
+        "npc_evil_spectral_wolf": (
+            display_name: "Spectral Wolf",
+            manifest: "sprites/evil_spectral_wolf_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(56.0),
+            composition: None,
+            default_action_set: "spectral_wolf_bite",
+            locomotion: Some((run_speed: 360.0, move_style: Walk, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Jump, Attack]),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            death_traits: Some((
+                corpse: Some(Vanish),
+                bursts_into: Some((visual: "spectral_wolf_wisp", count: 4, speed: 300.0, damage: 1, half_extent: (22.0, 14.0), life_s: 3.0)),
+            )),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 820.0,
+                attack_range: 56.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                shares_sightings: true,
+                retreat_after_swing_s: 0.6,
+                navigates: true,
+                tactics: (flinch_back_s: 0.35, fades: true),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "evil", "animal", "wolf", "quadruped", "spirit"],
+        barks: (
+            on_hit: ["*a hollow yelp*", "Hhhhh."],
+            idle: ["*a howl from nowhere*", "*breath, and no wolf*"],
+            hall: ["*it is there, and then it is not*", "AWOOO. (The leash is gone.)"],
+        ),
+        hall_dialogue_id: Some("hall_npc_evil_spectral_wolf"),
         ),
         // The Risen Conscript: a dead soldier of the regime, raised in the
         // castle lab. The first and the easiest enemy of Castle Godwin (Jon,
@@ -5344,7 +5393,7 @@
                 cling_breaks_on_hit: true,
                 baseline_free_flight: Some(false),
             )),
-            abilities: Some([Walk]),
+            abilities: Some([Walk, Attack]),
             contact_damage: Some((strength: 0.5, amount: 1)),
             autonomous_profile: Some((
                 template: MeleeBrute,

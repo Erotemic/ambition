@@ -60,7 +60,7 @@ edits:
   - target: { identifier: LockWall, match: { id: castle_godwin_throne_gallery_gate } }
     fields:
       id: hall_wolfenstein_arena_gallery_gate
-      gated_by: boss.engaged hall.wolfenstein_inugami
+      gated_by: boss.past_first_phase hall.wolfenstein_inugami
   - target: { identifier: DebugLabel }
     fields:
       name: hall_wolfenstein_arena_label

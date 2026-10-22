@@ -101,10 +101,13 @@ HEAVY, PROTOTYPE, HOUND = "npc_evil_heavy", "npc_evil_failed_prototype", "npc_ev
 #: soldier); the Shock Warden behind its electric shield; the Searchlight
 #: Crawler on its spider legs.
 ZOMBIE, WARDEN, CRAWLER = "npc_evil_zombie", "npc_shock_warden", "npc_searchlight_crawler"
+#: The Spectral Wolf: a dog of the regime, dead and risen, that fades between
+#: its attacks.
+WOLF = "npc_evil_spectral_wolf"
 BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 50), ZOMBIE: (30, 67), WARDEN: (40, 64),
-       CRAWLER: (48, 34)}
+       CRAWLER: (48, 34), WOLF: (56, 56)}
 KIND = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound", ZOMBIE: "zombie", WARDEN: "warden",
-        CRAWLER: "crawler"}
+        CRAWLER: "crawler", WOLF: "wolf"}
 
 SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
@@ -271,6 +274,10 @@ def forest():
         soldier(rid, 2, 1060, floor, ZOMBIE),
         soldier(rid, 3, 1130, floor, ZOMBIE),
         soldier(rid, 4, entrance_x - 120, floor, ZOMBIE),
+        # One spectral wolf on the road, to try it (Jon, 2026-10-22: "We will
+        # put one in the outside of the castle so we can test it, but I want
+        # to use it more properly later").
+        soldier(rid, 1, 820, floor, WOLF),
     ]
     return rid, room(rid, e, "The forest of the Evil dimension: the way to Castle Godwin.", FOREST_THEME, FOREST_MUSIC, FOREST_BG)
 
@@ -462,8 +469,10 @@ def throne():
     galleries to jump to over his sweeps, and a high one.
 
     East of it, behind an iron gate over a sill, the castle goes on: the
-    Inugami breaks the gate open when it rises (`boss.engaged`) and chases
-    you out. No soldier stands in the way: the chase is the castle's own.
+    gate opens when the Inugami is past its first phase
+    (`boss.past_first_phase`), and it chases you out (Jon, 2026-10-22: "You
+    shouldn't be able to move into a chase zone until you damage him enough
+    in phase 1"). No soldier stands in the way: the chase is the castle's own.
 
     - The lab gallery: rubble and the lab's furniture to jump, ledges to get
       above its dives.
@@ -512,7 +521,7 @@ def throne():
         # rises and breaks it open.
         solid("gallery_sill", gallery_x - WALL, lo - sill, 2 * WALL, sill),
         (f'( type: "LockWall", px: [{gallery_x - WALL}, {LOW_VAULT}], size: [{2 * WALL}, {lo - sill - LOW_VAULT}], fields: ( id: "{rid}_gallery_gate", '
-         f'name: "the gate of the long gallery", gated_by: "boss.engaged {INUGAMI_ENCOUNTER}", look: "temple_gate_iron" ) ),'),
+         f'name: "the gate of the long gallery", gated_by: "boss.past_first_phase {INUGAMI_ENCOUNTER}", look: "temple_gate_iron" ) ),'),
         # ── The lab gallery ──
         solid("rubble_a", gallery_x + 420, lo - 48, 96, 48),
         standing("gallery_vat_a", "castle_specimen_vat", gallery_x + 660, lo),
@@ -527,7 +536,9 @@ def throne():
         # onto the battlements ──
         solid("tower_vault", tower_x, TOWER_VAULT - 48, TOWER_W, 48),
         solid("tower_west_wall", tower_x - WALL, TOWER_VAULT, WALL, LOW_VAULT - TOWER_VAULT),
-        solid("tower_east_wall", tower_x + TOWER_W, TOWER_VAULT, WALL, hi - 176 - TOWER_VAULT),
+        # Its door onto the battlements is 336 high: the Inugami (212 tall)
+        # flies through it after you (Jon, 2026-10-22: "Widen the route").
+        solid("tower_east_wall", tower_x + TOWER_W, TOWER_VAULT, WALL, hi - 336 - TOWER_VAULT),
         solid("tower_east_base", tower_x + TOWER_W, hi, WALL, lo - hi),
     ]
     # The stair: ledges from side to side, each a jump over the last.

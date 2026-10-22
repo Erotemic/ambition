@@ -679,6 +679,32 @@ pub(crate) fn apply_actor_hit(
                         pose: ambition_vfx::FxPose::UPRIGHT,
                     });
                 }
+                // A spirit bursts into shots that run the floor out of it.
+                if let (Some(burst), Some(projectiles)) = (caps.bursts_into.as_ref(), writers.projectiles.as_mut()) {
+                    let feet = em.kin.pos.y + em.kin.size.y * 0.5;
+                    for k in 0..burst.count {
+                        let dir = if k % 2 == 0 { 1.0 } else { -1.0 };
+                        let spawn = ambition_projectiles::ProjectileSpawn {
+                            origin: ae::Vec2::new(em.kin.pos.x, feet - burst.half_extent[1] - 2.0),
+                            dir: ae::Vec2::new(dir, 0.0),
+                            speed: burst.speed * burst.slowing.powi((k / 2) as i32),
+                            damage: burst.damage,
+                            max_lifetime: burst.life_s,
+                            half_extent: ae::Vec2::from(burst.half_extent),
+                            gravity: 0.0,
+                            visual_id: burst.visual.clone(),
+                            bounces: 0,
+                            bounce_on_world_contact: false,
+                            splash_half_extent: 0.0,
+                            boomerang_return_s: None,
+                        };
+                        projectiles.write(ambition_projectiles::ProjectileSpawnRequest::open(
+                            actor_entity,
+                            spawn,
+                            ambition_projectiles::ProjectileStart::StepThisTick,
+                        ));
+                    }
+                }
                 if let Some(offspring) = caps.divides_into.as_deref() {
                     spawn_split_offspring(
                         &mut writers.commands,

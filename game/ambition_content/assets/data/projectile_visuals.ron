@@ -267,6 +267,25 @@
         label: "meatball",
         expiry_vfx: None,
     ),
+    // A wisp of red ghost fire that runs the floor out of a dying spectral
+    // wolf (its `bursts_into`).
+    "spectral_wolf_wisp": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "ghostfire",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 1.9,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (1.0, 0.38, 0.36, 1.0),
+        label: "spectral_wolf_wisp",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.6,
+        )),
+    ),
     // The Mockingbird's fireball once its fire is cold (phase 3): the same
     // ball, blue.
     "mockingbird_coldfire": (

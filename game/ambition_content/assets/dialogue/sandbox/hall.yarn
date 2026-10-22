@@ -1048,6 +1048,15 @@ Attack Hound: GRRRRRR.
     Attack Hound: *the tag has the regime's mark on it, and the dog will not let you closer*
 ===
 
+title: hall_npc_evil_spectral_wolf
+---
+Spectral Wolf: *a red shape at the edge of the light; then only the light*
+-> Here, boy?
+    Spectral Wolf: *it is beside you; it was always beside you*
+-> Whose dog were you?
+    Spectral Wolf: *the snapped collar still has the regime's tag on it. The wolf does not care any more*
+===
+
 title: hall_npc_evil_heavy
 ---
 Iron Trooper: State your business. Slowly. The barrels are already turning.

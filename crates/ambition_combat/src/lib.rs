@@ -41,6 +41,7 @@ pub mod death_rules;
 pub mod dormancy_rule;
 pub mod events;
 pub mod extension;
+pub mod fade;
 pub mod falling_chest;
 pub mod feel;
 pub mod finish_zoom;

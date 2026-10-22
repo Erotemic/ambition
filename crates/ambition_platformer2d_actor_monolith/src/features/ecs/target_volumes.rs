@@ -31,6 +31,12 @@ pub fn refresh_body_damageable_volumes(
             Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
             Option<&ambition_platformer2d_core::BodyKinematics>,
             &mut DamageableVolumes,
+            // A body that fades between its attacks (`ambition_combat::fade`).
+            (
+                Option<&ambition_combat::actor_tuning::ActorPolicy>,
+                ambition_combat::moveset::MeleeSwingQuery,
+                Option<&ambition_characters::actor::BodyCombat>,
+            ),
         ),
         // Bosses and breakables publish their own family-specific volumes.
         (
@@ -39,10 +45,12 @@ pub fn refresh_body_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, health, (out_of_play, plane, unmirrored), hurtboxes, kin, mut damageable) in &mut bodies {
+    for (aabb, health, (out_of_play, plane, unmirrored), hurtboxes, kin, mut damageable, (policy, swing, combat)) in &mut bodies {
         // Dead, out-of-play and backdrop bodies publish no target volume;
-        // disposition does not affect tangibility.
-        if ambition_combat::util::body_is_untouchable(health, out_of_play, plane) {
+        // disposition does not affect tangibility. Nor does a faded body.
+        if ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
+            || ambition_combat::fade::faded(policy, swing.swing().as_ref(), combat)
+        {
             damageable.clear();
             continue;
         }

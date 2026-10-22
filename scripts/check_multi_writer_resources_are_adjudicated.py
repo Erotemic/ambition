@@ -263,7 +263,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/assets/game_assets/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/game_assets/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_sprites/rigged.rs",
         "crates/ambition_render/src/rendering/parallax.rs",
@@ -3028,7 +3028,7 @@ ADJUDICATED: dict[str, str] = {
         "the trial through the shipped load road, which must stay unchanged "
         "until the trial is adopted. Fold it in then. Measured by "
         "NamekAmbition, 2026-09-30. "
-        "`reload_prop_sheets` (`assets/game_assets/mod.rs`, 2026-10-15) "
+        "`reload_prop_sheets` (`game_assets/mod.rs`, 2026-10-15) "
         "writes only `characters.props`, and only the kinds a content "
         "reload restated from the pack (a sheet loaded again, or a dropped "
         "kind removed). It runs at the reload's publication boundary, in "

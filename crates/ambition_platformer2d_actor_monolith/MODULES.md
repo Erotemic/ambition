@@ -27,12 +27,14 @@
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
+| [`game_assets`](src/game_assets/mod.rs) | Compatibility facade for game-asset resources and loaders. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
 | [`items`](src/items/mod.rs) | Item adapters that compose actor simulation with item capabilities. |
 | [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
+| [`publication`](src/publication/mod.rs) | Room publication: prepare a hidden candidate room, check its construction receipt, and publish it into the live world or refuse it, as one operation. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
@@ -43,7 +45,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_38 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

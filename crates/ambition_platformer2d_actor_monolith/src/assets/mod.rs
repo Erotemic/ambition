@@ -1,7 +1,5 @@
 //! Asset registries and load-time wiring.
 //!
-//! - `game_assets` — Bevy `AssetServer` wiring + fallback-friendly load
-//!   paths for sprite/audio/font assets.
 //! - `platformer_assets` — sandbox-side aggregator for the
 //!   [`ambition_asset_manager`] catalog.
 //! - `loading` — the startup asset COLLECTION, which is LDtk-shaped and so
@@ -12,7 +10,6 @@
 //!   crate — it yielded a crate that would not compile. A boundary the
 //!   manifest states and the code does not honour is not a boundary.
 
-pub mod game_assets;
 pub mod gameplay_defaults;
 #[cfg(feature = "ldtk_runtime")]
 pub mod loading;

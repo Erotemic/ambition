@@ -10,22 +10,16 @@
 //! Snapshot reconstruction also executes this canonical construction plan; it
 //! is not a second construction authority.
 
-use ambition_characters::actor::ActorFaction;
 use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 
 use bevy::ecs::entity::Entity;
-use bevy::ecs::query::With;
 use bevy::prelude::{Commands, Resource};
 
 use super::transaction;
 use crate::features::{self, RoomFeatureConstructionPlan};
-use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::construction::placements::PlacementLoweringRegistry;
-use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
-use ambition_platformer2d_shared_tangle::lifecycle::{
-    session_world_component_mut, LiveRoomInstance, SessionSpawnScope,
-};
+use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
 
@@ -132,7 +126,7 @@ pub(crate) fn construct_room_candidate(
     session_scope: SessionSpawnScope,
     stamp: Option<RoomCommitStamp>,
     predicted: Option<BTreeSet<String>>,
-    facts: crate::world::rooms::CommitFactsSource,
+    facts: crate::publication::CommitFactsSource,
 ) {
     let plan = plan.clone();
     commands.queue(move |world: &mut bevy::prelude::World| {
@@ -144,15 +138,15 @@ pub(crate) fn construct_room_candidate(
         let facts = match facts {
             // Read HERE, on the world this commit lands in — not with the
             // plan, which a replay commits again after the save has moved.
-            crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit => {
+            crate::publication::CommitFactsSource::TheWorldAtTheCommit => {
                 crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
                     features::ecs::world_time_schedule::remaining_scheduled_returns(world),
                 )
             }
             // ⛔ NOT THE WORLD. The session of this room is not live yet, so
             // the save and the schedule in the world are another session's.
-            crate::world::rooms::CommitFactsSource::Stated(facts) => facts,
-            crate::world::rooms::CommitFactsSource::AfterTheRestore(key) => {
+            crate::publication::CommitFactsSource::Stated(facts) => facts,
+            crate::publication::CommitFactsSource::AfterTheRestore(key) => {
                 crate::session::checkpoint::prospective_commit_fates(world, key)
             }
         };
@@ -403,7 +397,7 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         retention: transaction::PublicationRetention,
-        facts: crate::world::rooms::CommitFactsSource,
+        facts: crate::publication::CommitFactsSource,
     ) -> transaction::PublicationHandle {
         let publication = transaction::begin_publication(
             commands,
@@ -427,7 +421,7 @@ impl RoomConstructionPlan {
         publication: transaction::PublicationHandle,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        facts: crate::world::rooms::CommitFactsSource,
+        facts: crate::publication::CommitFactsSource,
     ) {
         // The room declares what it will rebuild before it creates candidates.
         transaction::open(commands, publication, &self.features, session_scope);
@@ -646,7 +640,7 @@ impl RoomConstructionPlan {
                 scope,
                 None,
                 Some(BTreeSet::new()),
-                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
             );
             transaction::close(commands, publication, &nothing, scope);
         } else {
@@ -657,8 +651,8 @@ impl RoomConstructionPlan {
                 commands,
                 scope,
                 match restore {
-                    Some(key) => crate::world::rooms::CommitFactsSource::AfterTheRestore(key),
-                    None => crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+                    Some(key) => crate::publication::CommitFactsSource::AfterTheRestore(key),
+                    None => crate::publication::CommitFactsSource::TheWorldAtTheCommit,
                 },
             );
         }
@@ -697,6 +691,7 @@ fn construction_plan_id(
 mod tests {
     use super::*;
     use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomScopedEntity};
     use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 
     fn empty_spec(id: &str) -> RoomSpec {
@@ -814,7 +809,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -835,7 +830,7 @@ mod tests {
             .is_some());
         assert!(
             app.world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .published,
             "all typed construction lanes must verify before RoomLoaded",
         );
@@ -1057,7 +1052,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1071,7 +1066,7 @@ mod tests {
         // unexpected or legacy would appear here.
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>();
+            .resource::<crate::publication::LastConstructionVerification>();
         assert!(
             verification.published,
             "the giant room publishes: {:?}",
@@ -1207,7 +1202,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.update();
@@ -1622,7 +1617,7 @@ mod tests {
             );
             let published = app
                 .world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .published;
             (published, app.world().get_entity(predecessor).is_ok())
         }
@@ -1707,7 +1702,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             verification.published,
@@ -1782,7 +1777,7 @@ mod tests {
             stage_the_candidate(&mut app, candidate_plan(), outgoing);
             let published = app
                 .world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .published;
             (published, live_world(&mut app) == before)
         };
@@ -1835,7 +1830,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1915,7 +1910,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1982,7 +1977,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2032,7 +2027,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2322,7 +2317,7 @@ mod tests {
         );
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(!verification.published, "control: a room pinned to an identity already minted published");
         assert!(
@@ -2388,7 +2383,7 @@ mod tests {
             stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
             let verification = app
                 .world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .clone();
             (verification.published, app.world().get_entity(body).is_ok())
         };
@@ -2446,7 +2441,7 @@ mod tests {
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
             let published = app
                 .world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .published;
             let mut bodies = rooms_of_planned_roots(&mut app);
             bodies.sort();
@@ -2547,7 +2542,7 @@ mod tests {
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
             let verification = app
                 .world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .clone();
             let mut bodies = rooms_of_planned_roots(&mut app);
             bodies.sort();
@@ -2734,7 +2729,7 @@ mod tests {
             .expect("the staging system runs");
             let verification = app
                 .world()
-                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .resource::<crate::publication::LastConstructionVerification>()
                 .clone();
             (verification.published, verification.staged_violations, live_room_definitions(&mut app))
         };
@@ -2792,7 +2787,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2833,7 +2828,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2870,7 +2865,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .resource::<crate::publication::LastConstructionVerification>()
             .clone();
         assert!(verification.published, "{verification:?}");
         assert_eq!(
@@ -2942,7 +2937,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::world::rooms::CommitFactsSource::TheWorldAtTheCommit,
+                crate::publication::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();

@@ -68,7 +68,7 @@ are.
 
 ⛔⛤ **AND THAT MEASUREMENT CORRECTED `Q144`'S OWN TABLE, WHICH COUNTED FOUR
 `for_live_session` ROADS.** The fourth was *"room stage"*, and
-`world/rooms/stage.rs` never constructs mechanics: it owns the ERROR VARIANT
+`publication/stage.rs` never constructs mechanics: it owns the ERROR VARIANT
 `RoomConstructionError::LiveGenerationMechanicsMissing`, whose doc comment names
 the constructor. `construct_room_candidate` is HANDED an
 `ActorConstructionContext` built by its caller, and the only producer of that
@@ -151,7 +151,7 @@ DECLARED: dict[tuple[str, str], tuple[int, str]] = {
         "ROOM TRANSITION, loading half. Same argument as reset, and this is the "
         "one site that turns the `None` into "
         "`RoomConstructionError::LiveGenerationMechanicsMissing` — so it is the "
-        "only producer of the variant `world/rooms/stage.rs` declares "
+        "only producer of the variant `publication/stage.rs` declares "
         "(read 2026-09-18)",
     ),
     (

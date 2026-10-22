@@ -218,7 +218,11 @@ OPEN_ROWS: dict[str, str] = {}
 UNCLAIMED_BUDGET = 0
 
 _QUALIFIED_PATH = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)")
-_ADD_SYSTEMS = re.compile(r"\badd_systems\s*\(")
+# `add_scoped_systems(schedule, scope, systems)` (`ScopedSystemsAppExt`) is the
+# same registration with a rules scope between: since 2026-10-17 Mary-O's and
+# Sanic's rules register through it, and a scan that read only `add_systems`
+# lost every system they hold.
+_ADD_SYSTEMS = re.compile(r"\badd_(scoped_)?systems\s*\(")
 # `run_if` is a PREDICATE and `after`/`before`/`ambiguous_with` name a system
 # somebody ELSE registered. Neither is a registration, and reading them as one is
 # how this script first reported `sync_morph_ball_visual` and
@@ -230,7 +234,8 @@ _NOT_A_REGISTRATION = re.compile(r"\b(?:run_if|after|before|ambiguous_with)\s*\(
 
 
 def add_systems_bodies(source: str) -> list[str]:
-    """The text inside each `add_systems( … )`, by paren balance."""
+    """The text inside each `add_systems( … )` and `add_scoped_systems( … )`,
+    by paren balance."""
     bodies = []
     for match in _ADD_SYSTEMS.finditer(source):
         depth = 1
@@ -242,8 +247,29 @@ def add_systems_bodies(source: str) -> list[str]:
             elif char == ")":
                 depth -= 1
             index += 1
-        bodies.append(source[match.end() : index - 1])
+        body = source[match.end() : index - 1]
+        if match.group(1):
+            body = _without_second_argument(body)
+        bodies.append(body)
     return bodies
+
+
+def _without_second_argument(body: str) -> str:
+    """`schedule, scope, systems` as `schedule, systems`: every reader of a
+    body takes the first argument as the schedule and the rest as systems."""
+    depth, commas = 0, []
+    for index, char in enumerate(body):
+        if char in "([{<":
+            depth += 1
+        elif char in ")]}>":
+            depth -= 1
+        elif char == "," and depth == 0:
+            commas.append(index)
+            if len(commas) == 2:
+                break
+    if len(commas) < 2:
+        return body
+    return body[: commas[0]] + body[commas[1] :]
 
 
 def strip_run_conditions(body: str) -> str:

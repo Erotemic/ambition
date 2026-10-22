@@ -53,6 +53,7 @@ pub mod music;
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
 pub mod projectile;
+pub mod publication;
 pub mod repertoire;
 pub mod session;
 mod snapshot_impls;
@@ -66,6 +67,7 @@ pub mod world_facts;
 /// reads it, so it lives here and not in the spawn capability that builds bodies.
 pub mod actor_clusters;
 pub mod features;
+pub mod game_assets;
 pub use dev::trace;
 pub use world::rooms;
 

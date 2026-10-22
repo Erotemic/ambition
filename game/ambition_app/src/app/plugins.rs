@@ -96,12 +96,8 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     app.add_plugins(super::sim_resources::AmbitionGameSimulationSetupPlugin);
 
-    // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
-    // hooks, and portal adapters. Installed after simulation resources so content
-    // registries land at the expected assembly point.
-    if super::hub_games::installs("ambition") {
-        app.add_plugins(ambition_content::AmbitionContentPlugin);
-    }
+    // Ambition's content, dialogue, rollback rows and looks are installed by
+    // its provider (`AmbitionExperiencePlugin`), which the shell host adds.
     // A saved movement-defaults edit is played by a running development build.
     #[cfg(not(feature = "static_content"))]
     super::movement_defaults_watch::register(app);
@@ -114,27 +110,6 @@ pub fn add_simulation_plugins(app: &mut App) {
     // state, and register the commands / functions / markup used by content.
     #[cfg(feature = "ui")]
     {
-        if super::hub_games::installs("ambition") {
-            app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
-            // Yarn's work each frame (its line fetch, its runtime, its waits)
-            // sleeps where the active room's game uses no dialogue: in the
-            // hub with Mary-O, its fetch was ~0.16 ms a frame for no line. It
-            // runs until its project is compiled, so a session that starts in
-            // such a room still has the project when it reaches a room that
-            // talks.
-            {
-                use bevy::ecs::schedule::common_conditions::{not, resource_exists};
-                use bevy::prelude::{IntoScheduleConfigs as _, SystemCondition as _};
-                use ambition_platformer2d::platformer::capability::Capability;
-                app.configure_sets(
-                    bevy::prelude::Update,
-                    bevy_yarnspinner::prelude::YarnSpinnerSystemSet.run_if(
-                        not(resource_exists::<bevy_yarnspinner::prelude::YarnProject>)
-                            .or_else(ambition_platformer2d::runtime::room_uses(Capability::Dialogue)),
-                    ),
-                );
-            }
-        }
         app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBridgePlugin);
         app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBindingsPlugin);
     }
@@ -151,15 +126,6 @@ pub fn add_simulation_plugins(app: &mut App) {
     // This is the composition statement that replaced it; it must come after the group, which is
     // what sets `SimulationHost` for the rollback registrar.
     app.add_plugins(ambition_platformer2d::runtime::LdtkWorldPlugin);
-
-    // Ambition-specific content and the selected LDtk backend live above the
-    // content-free engine and therefore are not part of its declaration list.
-    // Under rollback, install those same domain-owned declarations through the
-    // concrete backend registrar after the backend has built.
-    if simulation_host.is_rollback() && super::hub_games::installs("ambition") {
-        let mut registrar = ambition_platformer2d::rollback::GgrsRollbackRegistrar::new(app);
-        ambition_content::register_rollback_state(&mut registrar);
-    }
 
     // The rules of Ambition's own rooms (death replay, heavy hits, landing
     // lag) are content: `AmbitionContentPlugin` declares them from the pack's
@@ -287,11 +253,6 @@ pub fn add_presentation_plugins(app: &mut App) {
     ));
     install_menu_setup_and_hotkeys(app);
     app.add_plugins(ambition_platformer2d::render::rendering::PresentationVisualAnimationPlugin);
-    // Ambition's named presentation passes (puppy-slug deep-dream) compose onto
-    // the renderer's public `ActorOverlaySet` seam the plugin above positions.
-    if super::hub_games::installs("ambition") {
-        app.add_plugins(ambition_content::presentation::AmbitionPresentationPlugin);
-    }
     install_camera_and_debug_overlay_systems(app);
     app.add_plugins(ambition_platformer2d::render::rendering::ActorNameplatePresentationPlugin);
     install_fx_and_hud_systems(app);
@@ -406,10 +367,6 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
 /// hotkeys.
 fn install_menu_setup_and_hotkeys(app: &mut App) {
-    // Starter item-ownership roster (the 24-item catalog default set).
-    if super::hub_games::installs("ambition") {
-        app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
-    }
     // An open inventory OWNS the seat's input, declared rather than derived:
     // every site that wanted this fact used to spell it `Paused &&
     // inventory.visible`, which is the `GameMode` derivation the participant
@@ -425,7 +382,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // decides that it wants them at all, which is what keeps a host without a
     // keyboard from being handed a keyboard system.
     ambition_platformer2d::menu::map::install_map_menu_systems(app);
-    app.init_resource::<ambition_platformer2d::actors::assets::game_assets::PropSheets>();
+    app.init_resource::<ambition_platformer2d::actors::game_assets::PropSheets>();
     app.insert_resource(inventory_ui::InventoryUiState::default())
         .add_systems(
             Startup,

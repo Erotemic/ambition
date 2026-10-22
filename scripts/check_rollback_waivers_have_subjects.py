@@ -12,7 +12,7 @@ a module that does not exist, and every arm in that file stayed green.
 was a Rust arm sweeping the shipped composition's live resources and reporting
 rows that matched none. It named FIFTEEN, and the premise was wrong rather than
 the rows: a resource absent from the world one `update()` after boot is usually
-LAZILY INSERTED or composition-specific, not deleted. `::rooms::transaction::`
+LAZILY INSERTED or composition-specific, not deleted. `::publication::transaction::`
 exists only DURING a room transaction; `SessionMechanics` only while a
 generation is active; `ActiveRollbackAuthority` only with a session;
 `PlayerManaRegen` only once a mana-having character spawns; and the

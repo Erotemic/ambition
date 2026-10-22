@@ -104,8 +104,8 @@
       "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs: unresolved `crate::update_time_scale`",
       "crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs: unresolved `refresh_world_time`",
       "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs: private `prepare_authored_gate -> names_its_own_condition`",
-      "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs: private `spawn_contents -> transaction::close`",
-      "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs: private `spawn_contents -> transaction::open`"
+      "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs: private `spawn_contents -> transaction::close`",
+      "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs: private `spawn_contents -> transaction::open`"
     ],
     "ambition_platformer2d_core": [
       "crates/ambition_platformer2d_core/src/abilities.rs: unresolved `AxisSweptParams`",

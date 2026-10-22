@@ -289,7 +289,7 @@ set's counter. The target and definition checks already resolve rooms by id.
 
 **The defect.** `reload_ldtk_world_from_disk` publishes the room of the
 primary seat, and then each other live room in turn (`republish_live_room`).
-`verify_and_publish` (`world/rooms/transaction.rs`) checks a room, promotes its
+`verify_and_publish` (`publication/transaction.rs`) checks a room, promotes its
 candidates (`publish_candidate`) and finalizes it (`finalize_room_publication`)
 in one call. So when a later room is refused, the first room is already the
 world's, and the result is a mixed world.

@@ -5,7 +5,8 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
-use ambition_platformer2d_actor_monolith::rooms;
+
+use ambition_platformer2d_actor_monolith::publication;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_world::rooms as world_rooms;
 
@@ -333,7 +334,7 @@ impl RoomTransitionApplication<'_, '_> {
     /// cancels the intent instead.
     pub fn stage(
         &mut self,
-        plan: &rooms::RoomConstructionPlan,
+        plan: &publication::RoomConstructionPlan,
         subject: Option<Entity>,
         // Whose crossing this is, as the intent recorded it.
         participant: Option<ambition_characters::control::PlayerSlot>,
@@ -489,7 +490,7 @@ impl RoomTransitionApplication<'_, '_> {
                     player_size,
                 );
                 staged_arrival = Some(
-                    ambition_platformer2d_actor_monolith::rooms::StagedArrival {
+                    ambition_platformer2d_actor_monolith::publication::StagedArrival {
                         subject,
                         arrival,
                         air_jumps: tuning.air_jumps,
@@ -545,7 +546,7 @@ impl RoomTransitionApplication<'_, '_> {
             )
         });
         let succession = departing.zip(mints).map(|(leaves, mints)| {
-            ambition_platformer2d_actor_monolith::rooms::LiveRoomSuccession::for_crossing(
+            ambition_platformer2d_actor_monolith::publication::LiveRoomSuccession::for_crossing(
                 leaves,
                 mints,
                 another_player_stays,
@@ -608,14 +609,14 @@ impl RoomTransitionApplication<'_, '_> {
 /// A crossing that has been prepared and whose candidate room is built but
 /// HIDDEN, waiting on its publication's verdict.
 ///
-/// ⚠ **PLAIN DATA, HOST-LOCAL.** It holds a [`rooms::PublicationHandle`], which
+/// ⚠ **PLAIN DATA, HOST-LOCAL.** It holds a [`publication::PublicationHandle`], which
 /// is control-plane identity and never canonical rollback state, plus the facts
 /// finalization cannot re-derive afterwards — the body's pre-transit position
 /// for the door cue, its size and gravity frame for the landing diagnostic, and
 /// the TARGET room's geometry, which the live component does not hold until the
 /// verdict.
 pub struct StagedRoomTransition {
-    pub publication: rooms::PublicationHandle,
+    pub publication: publication::PublicationHandle,
     /// What the crossing leaves standing.
     pub scope: CrossingScope,
     pub subject: Option<Entity>,
@@ -853,13 +854,13 @@ impl RoomTransitionFinalize<'_, '_> {
 /// what publication success means.
 ///
 /// ⭐ **AND IT CONSUMES THE RECEIPT EITHER WAY.** The publication was begun with
-/// [`rooms::PublicationRetention::UntilOwnerRetires`]; this is the owner, and a
+/// [`publication::PublicationRetention::UntilOwnerRetires`]; this is the owner, and a
 /// refused receipt is as consumed as an admitted one.
 pub fn finalize_room_transition(
     world: &mut bevy::prelude::World,
     staged: &StagedRoomTransition,
 ) -> bool {
-    rooms::settle_publication(
+    publication::settle_publication(
         world,
         staged.publication,
         |world| {

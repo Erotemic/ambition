@@ -101,7 +101,7 @@ pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> Pr
 /// `data/prop_sheets.ron`, keyed by the sheet target name (which is also the
 /// `PropSpec.kind` the level authors). They load with the rest of the art.
 pub fn register_mary_o_construction_props(app: &mut App) {
-    use ambition_platformer2d::actors::assets::game_assets::PropSheetsAppExt;
+    use ambition_platformer2d::actors::game_assets::PropSheetsAppExt;
     app.register_prop_sheet_rows(
         ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(crate::pack::PACK.prepared())
             .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),

@@ -3102,20 +3102,20 @@
       "id": "AUTH-CONTENT-BINDING",
       "category": "authority",
       "name": "Live session content binding",
-      "owner": "ambition_platformer2d_actor_monolith::world::rooms::transaction",
+      "owner": "ambition_platformer2d_actor_monolith::publication::transaction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "ActiveContentBinding is the room-construction commit boundary answer for the content epoch under which the session is live. Session activation and hot reload write it; ordinary transitions and resets do not. CORRECTED 2026-09-16: this item recorded it as a Resource, and it is a Component (`#[derive(bevy::prelude::Component)]`, one declaration, `world/rooms/transaction.rs`). The distinction is load-bearing for C05 -- a Resource is process-global and a Component is carried by an entity, which is the difference between 'another App-global write at the generation boundary' and 'a value the admitted candidate already owns'.",
+      "current_truth": "ActiveContentBinding is the room-construction commit boundary answer for the content epoch under which the session is live. Session activation and hot reload write it; ordinary transitions and resets do not. CORRECTED 2026-09-16: this item recorded it as a Resource, and it is a Component (`#[derive(bevy::prelude::Component)]`, one declaration, `publication/transaction.rs`). The distinction is load-bearing for C05 -- a Resource is process-global and a Component is carried by an entity, which is the difference between 'another App-global write at the generation boundary' and 'a value the admitted candidate already owns'.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
         "game/ambition_app/src/app/dev_runtime.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "ActiveContentBinding is the room-construction commit boundary answer for the content epoch under which the session is live. Session activation and hot reload write it; ordinary transitions and resets do not. CORRECTED 2026-09-16: this item recorded it as a Resource, and it is a Component (`#[derive(bevy::prelude::Component)]`, one declaration, `world/rooms/transaction.rs`). The distinction is load-bearing for C05 -- a Resource is process-global and a Component is carried by an entity, which is the difference between 'another App-global write at the generation boundary' and 'a value the admitted candidate already owns'.",
+          "claim": "ActiveContentBinding is the room-construction commit boundary answer for the content epoch under which the session is live. Session activation and hot reload write it; ordinary transitions and resets do not. CORRECTED 2026-09-16: this item recorded it as a Resource, and it is a Component (`#[derive(bevy::prelude::Component)]`, one declaration, `publication/transaction.rs`). The distinction is load-bearing for C05 -- a Resource is process-global and a Component is carried by an entity, which is the difference between 'another App-global write at the generation boundary' and 'a value the admitted candidate already owns'.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
             "game/ambition_app/src/app/dev_runtime.rs"
           ]
         }
@@ -3265,7 +3265,7 @@
       "current_truth": "RoomSet is part of PlatformerSessionWorld on the canonical session root. RoomConstructionPlan::commit_deferred changes its active room before transaction verification.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/session_world.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
       ],
       "evidence": [
         {
@@ -3273,7 +3273,7 @@
           "claim": "RoomSet is part of PlatformerSessionWorld on the canonical session root. RoomConstructionPlan::commit_deferred changes its active room before transaction verification.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/session_world.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
           ]
         }
       ],
@@ -3324,7 +3324,7 @@
       "current_truth": "RoomGeometry is part of PlatformerSessionWorld and is replaced in commit_deferred before room verification publishes.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/session_world.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
       ],
       "evidence": [
         {
@@ -3332,7 +3332,7 @@
           "claim": "RoomGeometry is part of PlatformerSessionWorld and is replaced in commit_deferred before room verification publishes.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/session_world.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
           ]
         }
       ],
@@ -3380,7 +3380,7 @@
       "source_paths": [
         "crates/ambition_platformer2d_world/src/collision.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/setup.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
@@ -3389,7 +3389,7 @@
           "sources": [
             "crates/ambition_platformer2d_world/src/collision.rs",
             "crates/ambition_platformer2d_actor_monolith/src/session/setup.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],
@@ -3901,7 +3901,7 @@
       "current_truth": "`PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components carried by the session root, derived from one lowering of the prepared source; the hot reload's advance of the session's content generation is gated by `publication_succeeded`. Source records that gating as one of four roads closed on 2026-09-14.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/content_identity.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
         "game/ambition_app/src/app/dev_runtime.rs"
       ],
       "evidence": [
@@ -3910,7 +3910,7 @@
           "claim": "`PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components carried by the session root, derived from one lowering of the prepared source; the hot reload's advance of the session's content generation is gated by `publication_succeeded`. Source records that gating as one of four roads closed on 2026-09-14.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/content_identity.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
             "game/ambition_app/src/app/dev_runtime.rs"
           ]
         }
@@ -4051,16 +4051,16 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "LastRoomConstructionCommit and LastConstructionVerification are documented as developer/test evidence. RoomSet and spawned authoritative entities remain live authority.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "LastRoomConstructionCommit and LastConstructionVerification are documented as developer/test evidence. RoomSet and spawned authoritative entities remain live authority.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],
@@ -4077,8 +4077,8 @@
       "complexity": "ACCIDENTAL_COMPLEXITY",
       "current_truth": "One room replacement is staged whole in `PendingWorldReplacement`, built as hidden candidates, projected and validated, and published only on admission. Root components, MovingPlatformSet, room entities and generation state are projections of that one publication decision; a refusal drops the candidates and the staged world and leaves world N untouched.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
         "game/ambition_app/src/app/dev_runtime.rs"
       ],
       "evidence": [
@@ -4086,8 +4086,8 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "One room replacement is staged whole in `PendingWorldReplacement`, built as hidden candidates, projected and validated, and published only on admission. Root components, MovingPlatformSet, room entities and generation state are projections of that one publication decision; a refusal drops the candidates and the staged world and leaves world N untouched.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
             "game/ambition_app/src/app/dev_runtime.rs"
           ]
         }
@@ -4457,7 +4457,7 @@
       "current_truth": "Room transition prepares a RoomConstructionPlan and commits through replace_live_world after readiness and lifecycle authorization. The commit is one candidate publication: the outgoing room stands while the candidate is built and is swept only after the candidate publishes. The plan is shared with other room reconstruction roads.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
         "docs/planning/engine/room-transition-loading.md"
       ],
       "evidence": [
@@ -4466,7 +4466,7 @@
           "claim": "Room transition prepares a RoomConstructionPlan and commits through replace_live_world after readiness and lifecycle authorization. The commit is one candidate publication: the outgoing room stands while the candidate is built and is swept only after the candidate publishes. The plan is shared with other room reconstruction roads.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
             "docs/planning/engine/room-transition-loading.md"
           ]
         }
@@ -4578,7 +4578,7 @@
       "source_paths": [
         "game/ambition_app/src/app/dev_runtime.rs",
         "game/ambition_content/src/reload.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
       ],
       "evidence": [
         {
@@ -4587,7 +4587,7 @@
           "sources": [
             "game/ambition_app/src/app/dev_runtime.rs",
             "game/ambition_content/src/reload.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
           ]
         }
       ],
@@ -4671,8 +4671,8 @@
       "current_truth": "InactiveCandidate, publish_candidate and retire_candidate exist, and candidate isolation IS the normal room road as of 2026-09-15: the ROOM_CANDIDATE_BRACKET selector is deleted, so there is no alternate lifecycle to choose. commit_inactive remains as a construction-layer primitive with no room caller.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
       ],
       "evidence": [
         {
@@ -4680,8 +4680,8 @@
           "claim": "InactiveCandidate, publish_candidate and retire_candidate exist, and candidate isolation IS the normal room road as of 2026-09-15: the ROOM_CANDIDATE_BRACKET selector is deleted, so there is no alternate lifecycle to choose. commit_inactive remains as a construction-layer primitive with no room caller.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
           ]
         }
       ],
@@ -4761,16 +4761,16 @@
       "complexity": "ACCIDENTAL_COMPLEXITY",
       "current_truth": "`replace_live_world` stages the whole replacement in `PendingWorldReplacement` and publishes on admission; the outgoing sweep moved inside `apply_world_replacement`, so `RoomSet`, `RoomGeometry` and the platform state are projections of the publication rather than writes that precede it. A refusal drops the room AND the world it staged. Source records the change and its date: the four things once published before the verdict were closed on 2026-09-14.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "`replace_live_world` stages the whole replacement in `PendingWorldReplacement` and publishes on admission; the outgoing sweep moved inside `apply_world_replacement`, so `RoomSet`, `RoomGeometry` and the platform state are projections of the publication rather than writes that precede it. A refusal drops the room AND the world it staged. Source records the change and its date: the four things once published before the verdict were closed on 2026-09-14.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],
@@ -4898,14 +4898,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "RoomLoaded is written only when room construction verification has no violations. It is a notification after entity candidate publication, not the authority that makes pre-existing resource writes atomic.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "RoomLoaded is written only when room construction verification has no violations. It is a notification after entity candidate publication, not the authority that makes pre-existing resource writes atomic.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],
@@ -5373,14 +5373,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "RoomConstructionPlanId is a stable same-build identity from the frozen room spec and deterministic construction plan. It excludes SessionSpawnScope, TransactionId, Entity, and process-local values.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "RoomConstructionPlanId is a stable same-build identity from the frozen room spec and deterministic construction plan. It excludes SessionSpawnScope, TransactionId, Entity, and process-local values.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
           ]
         }
       ],
@@ -5473,14 +5473,14 @@
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "Room verification refuses a room whose session root holds no ActiveContentBinding, in a direct composition too (C07, 2026-10-08, witness stage::tests::a_direct_root_with_no_content_binding_refuses_the_room); a direct fixture with no session root states none.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Room verification refuses a room whose session root holds no ActiveContentBinding, in a direct composition too (C07, 2026-10-08, witness stage::tests::a_direct_root_with_no_content_binding_refuses_the_room); a direct fixture with no session root states none.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],
@@ -5651,14 +5651,14 @@
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "The transaction's opening baseline is carried as a COMPONENT on the PUBLICATION ENTITY -- `PendingConstructionBaseline` is inserted on `publication.0` at open and `take`n from that same entity at verify-and-publish. The source states why: \"ON THE PUBLICATION, not in a resource: a second publication in flight would have overwritten 'the pending baseline'.\" A baseline that failed to capture is carried as the Err arm and REFUSES the publication rather than being lost.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "The transaction's opening baseline is carried as a COMPONENT on the PUBLICATION ENTITY -- `PendingConstructionBaseline` is inserted on `publication.0` at open and `take`n from that same entity at verify-and-publish. The source states why: \"ON THE PUBLICATION, not in a resource: a second publication in flight would have overwritten 'the pending baseline'.\" A baseline that failed to capture is carried as the Err arm and REFUSES the publication rather than being lost.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],
@@ -5678,14 +5678,14 @@
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "replace_live_world stages the whole replacement and publishes on admission. Two rooms' bodies coexist for the length of one command flush, which no scheduled system can observe; a refusal publishes nothing and leaves world N intact.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "replace_live_world stages the whole replacement into PendingWorldReplacement and publishes it through begin_publication, so two rooms' bodies coexist only for the length of one command flush and a refusal publishes nothing. \u2b50 CONFIRMED 2026-09-19 FROM SOURCE, not inferred from the declared order: the method's own contract at stage.rs:550-553 states \"A CALLER MUST NOT READ THE LIVE GEOMETRY OR ROOM SET AFTER CALLING THIS AND EXPECT THE NEW ROOM. It has not been written yet and may never be.\" The publication is the only write road, at stage.rs:588.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs"
           ]
         }
       ],
@@ -5838,14 +5838,14 @@
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "Direct fixtures can verify rooms without ActiveContentBinding; shell-routed sessions cannot.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+        "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Direct fixtures can verify rooms without ActiveContentBinding; shell-routed sessions cannot.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
+            "crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs"
           ]
         }
       ],

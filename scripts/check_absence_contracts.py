@@ -117,7 +117,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "examples/",
             ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
             ":(exclude)crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
         ],
         "patterns": [
             r"construction::(hide_candidate_session_root|hide_candidate_session_entity)\(",
@@ -150,7 +150,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "examples/",
             ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/publication/transaction.rs",
             ":(exclude)crates/ambition_platformer2d_provider/src/lifecycle.rs",
         ],
         "patterns": [
@@ -172,7 +172,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "CALLER IS A SECOND AUTHORITY. A candidate world is only allowed to "
             "become authoritative through the exact sequence the level owns -- "
             "for a ROOM `publish_candidate` then `apply_world_replacement` then "
-            "`retire_superseded`, in `world/rooms/transaction.rs`; for a SESSION "
+            "`retire_superseded`, in `publication/transaction.rs`; for a SESSION "
             "`publish_candidate_session` in the provider's adoption, with "
             "`discard_candidate_session` as its refusal half. Each of those "
             "primitives is `pub` because it crosses a crate boundary, not because "

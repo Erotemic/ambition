@@ -10,12 +10,12 @@
 //! intro's cart) is laid on its platform; the renderer reads the looks each
 //! frame, and a reload restates them (`reload::publish_platform_looks`).
 
-use ambition_platformer2d_actor_monolith::assets::game_assets::PropSheetsAppExt;
+use ambition_platformer2d_actor_monolith::game_assets::PropSheetsAppExt;
 use ambition_render::rendering::moving_platforms::PlatformLooksAppExt;
 use bevy::prelude::{App, Resource};
 
 #[cfg(test)]
-use ambition_platformer2d_actor_monolith::assets::game_assets::PropSheets;
+use ambition_platformer2d_actor_monolith::game_assets::PropSheets;
 
 /// The prop kinds Ambition's pack registered: the rows a reload restates, and
 /// no other provider's.
@@ -41,7 +41,7 @@ pub(super) fn register(app: &mut App) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_actor_monolith::assets::game_assets::PropSheetSource;
+    use ambition_platformer2d_actor_monolith::game_assets::PropSheetSource;
     use ambition_sprite_sheet::prop_sheets::lowered_prop_sheets;
 
     fn source_of<'a>(sheets: &'a PropSheets, kind: &str) -> Option<&'a PropSheetSource> {

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::actors::publication;
 use ambition_platformer2d::platformer::lifecycle::RoomResident;
 use ambition_platformer2d::world::rooms as world_rooms;
 
@@ -343,11 +343,11 @@ pub(super) struct OtherLiveRoom {
 fn stage_held_live_room(
     world: &mut World,
     replaces: world_rooms::LiveRoomInstance,
-    plan: &rooms::RoomConstructionPlan,
+    plan: &publication::RoomConstructionPlan,
     residents: Vec<(Entity, bool)>,
     projected: world_rooms::RoomSet,
     mints: world_rooms::LiveRoomInstance,
-) -> rooms::PublicationHandle {
+) -> publication::PublicationHandle {
     let mut queue = bevy::ecs::world::CommandQueue::default();
     let publication = {
         let mut commands = Commands::new(&mut queue, world);
@@ -357,7 +357,7 @@ fn stage_held_live_room(
             None,
             Some(projected),
             None,
-            Some(rooms::LiveRoomSuccession::replacing(replaces, mints)),
+            Some(publication::LiveRoomSuccession::replacing(replaces, mints)),
             Vec::new(),
         )
     };
@@ -368,7 +368,7 @@ fn stage_held_live_room(
 /// The violations a room's last verification recorded, for a status line.
 fn verification_reasons(world: &World, room: &str) -> Vec<String> {
     world
-        .get_resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .get_resource::<ambition_platformer2d::actors::publication::LastConstructionVerification>()
         .filter(|verification| verification.room_id == room)
         .map(|verification| {
             verification
@@ -584,7 +584,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     } else {
         candidate_content.with_epoch(epochs.allocate())
     };
-    let live_binding = ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+    let live_binding = ambition_platformer2d::actors::publication::ActiveContentBinding::content(
         prepared_content.epoch(),
         // ⭐ THE PEER HALF, FROM THE SAME VALUE THAT CARRIES THE EPOCH.
         // `PreparedContent` exposes `epoch()` and `fingerprint()` side by side,
@@ -654,7 +654,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         // nothing about the new ones. Rebuilt from the records alone.
         None,
     );
-    let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
+    let construction_plan = publication::RoomConstructionPlan::prepare_spec(
         transaction.next_room_set.activation(),
         transaction.next_spec.clone(),
         placement_lowering,
@@ -703,7 +703,7 @@ pub(super) fn reload_ldtk_world_from_disk(
                 other.room_id, other.live
             )]);
         };
-        let plan = rooms::RoomConstructionPlan::prepare_spec(
+        let plan = publication::RoomConstructionPlan::prepare_spec(
             index,
             transaction.next_room_set.rooms[index].clone(),
             placement_lowering,
@@ -744,7 +744,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         residents
     };
     let outgoing = residents_of(live_room);
-    let other_rooms: Vec<(world_rooms::LiveRoomInstance, rooms::RoomConstructionPlan, Vec<(Entity, bool)>)> =
+    let other_rooms: Vec<(world_rooms::LiveRoomInstance, publication::RoomConstructionPlan, Vec<(Entity, bool)>)> =
         other_plans
             .into_iter()
             .map(|(live, plan)| {
@@ -778,7 +778,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         None,
         // The rebuilt room is the session's next live room.
         live_room.map(|replaces| {
-            rooms::LiveRoomSuccession::replacing(replaces, room_set.next_live_room())
+            publication::LiveRoomSuccession::replacing(replaces, room_set.next_live_room())
         }),
         Vec::new(),
     );
@@ -968,7 +968,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // apply, which is after `transaction::close` has recorded the first room's
     // verdict. It is one exclusive call, so no system runs between two rooms.
     commands.queue(move |world: &mut bevy::prelude::World| {
-        use ambition_platformer2d::actors::rooms as held;
+        use ambition_platformer2d::actors::publication as held;
         if !held::publication_is_held(world, publication) {
             held::retire_publication(world, publication);
             report_status(world, false, None);

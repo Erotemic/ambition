@@ -719,7 +719,7 @@ pub struct CustodyHandoffs(Vec<CustodyHandoff>);
 /// not strip either.
 pub fn record_custody_handoff(
     world: &mut World,
-    publication: crate::rooms::PublicationHandle,
+    publication: crate::publication::PublicationHandle,
     occurrence: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     entity: Entity,
 ) -> bool {
@@ -765,7 +765,7 @@ pub fn record_custody_handoff(
 /// stripping that hand would take away an item this publication has no claim on.
 pub fn apply_custody_handoffs(
     world: &mut World,
-    publication: crate::rooms::PublicationHandle,
+    publication: crate::publication::PublicationHandle,
 ) -> usize {
     let Ok(mut receipt) = world.get_entity_mut(publication.entity()) else {
         return 0;
@@ -816,7 +816,7 @@ pub fn apply_custody_handoffs(
 /// to make unexpressible.
 pub fn discard_custody_handoffs(
     world: &mut World,
-    publication: crate::rooms::PublicationHandle,
+    publication: crate::publication::PublicationHandle,
 ) {
     if let Ok(mut receipt) = world.get_entity_mut(publication.entity()) {
         receipt.remove::<CustodyHandoffs>();
@@ -862,8 +862,8 @@ mod custody_handoff_tests {
         (holder, occurrence)
     }
 
-    fn a_publication(world: &mut World) -> crate::rooms::PublicationHandle {
-        crate::rooms::PublicationHandle(world.spawn_empty().id())
+    fn a_publication(world: &mut World) -> crate::publication::PublicationHandle {
+        crate::publication::PublicationHandle(world.spawn_empty().id())
     }
 
     /// ⛔⛤ **REVIEW FINDING 1: ONE PUBLICATION'S HANDOFFS ARE ITS OWN.**

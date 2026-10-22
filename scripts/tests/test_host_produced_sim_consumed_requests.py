@@ -580,11 +580,24 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     speech-bubble port's adapter `show_speech_bubbles` writes `VfxInRoom`.
     The native GNU-ton conductor that writes the same bubble is located, and
     leaves when its module lands.
+
+    **64** on 2026-10-21, and two findings, measured apart. ⛔ THE SCAN HAD LOST
+    GROUND: since 2026-10-17 Mary-O's and Sanic's rules register through
+    `add_scoped_systems(schedule, scope, systems)` (`ScopedSystemsAppExt`),
+    which `add_systems_bodies` did not read, and the count stood at 91. It
+    follows that road now (27 recovered, `apply_contact_harm` among them).
+    ⭐ THE REST IS POPULATION: the same scan reads 57 on the 2026-10-10 tree
+    (`853f4bdf3`), so it did not change. Ten joined — the extension request
+    adapters `lower_contact_bounces`, `lower_dismounts`, `lower_lightning`,
+    `lower_lightning_auras`, `lower_module_item_spawns`, `lower_parry_answers`,
+    `lower_summon_rides`, and `queue_fighter_specials`, `queue_parries`,
+    `queue_strikes` — and three left (`lower_effects`,
+    `lower_module_entity_spawns`, `lower_wielded_bursts`).
     """
     unlocated = guard.unlocated_message_systems()
-    assert 34 <= len(unlocated) <= 57, (
-        f"{len(unlocated)} unlocated message systems; 57 on 2026-10-10 (five extension "
-        "request adapters joined); the 2026-09-19 reading after "
+    assert 34 <= len(unlocated) <= 64, (
+        f"{len(unlocated)} unlocated message systems; 64 on 2026-10-21 (the scoped "
+        "road followed; ten adapters and queues joined, three left); the 2026-09-19 reading after "
         "the local-tuple road is 42 (61 before it, 47 before bundle fields joined "
         "the population, 77 before the wrapper road). A fall means another "
         "attribution road landed — name it here and re-measure the exposed-type "
@@ -638,7 +651,7 @@ def test_the_residual_is_a_different_shape_than_the_wrapper_gap():
     unlocated = set(guard.unlocated_message_systems())
     assert "finalize_room_publication" in unlocated, (
         "the residual specimen resolved. `finalize_room_publication` is called from "
-        "`world/rooms/transaction.rs`, not registered — if it now has a schedule, either a "
+        "`publication/transaction.rs`, not registered — if it now has a schedule, either a "
         "call-graph road landed (say so) or something is attributing a non-system."
     )
 

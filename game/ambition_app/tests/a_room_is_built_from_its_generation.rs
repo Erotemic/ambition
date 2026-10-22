@@ -545,7 +545,7 @@ fn an_ordinary_room_transition_stamps_its_roots_with_the_session_content() {
     // `content-unstated` is the honest answer everywhere and the arm would be
     // about the fixture rather than about the road.
     let live_binding = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-        ambition_platformer2d::actors::rooms::ActiveContentBinding,
+        ambition_platformer2d::actors::publication::ActiveContentBinding,
     >(sim.world())
     .map(|binding| binding.0);
     assert!(

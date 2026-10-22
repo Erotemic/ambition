@@ -99,6 +99,11 @@ def _without_thread_locals(text: str) -> str:
 #: that the sharing is harmless. Read the uses before adding one.
 ADJUDICATED: dict[tuple[str, str], str] = {
     (
+        "crates/ambition_platformer2d_core/tests/partition_allocations.rs",
+        "ALLOCATIONS",
+    ): "the counter of a `#[global_allocator]`, which must be a static; the "
+    "file is its own test binary with one arm, so no other arm shares it",
+    (
         "crates/ambition_persistence/src/settings/persistence/tests.rs",
         "TEST_DIR_LOCK",
     ): "a serialising lock: cross-arm exclusion is the whole job",
@@ -117,7 +122,7 @@ ADJUDICATED: dict[tuple[str, str], str] = {
     ): "a `OnceLock` built by `get_or_init` from a deterministic builder, read "
     "only afterwards: every arm sees the same value, and none can change it",
     (
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/publication/stage.rs",
         "CAST",
     ): "the same once-built immutable fixture cast as the row above",
     (

@@ -59,8 +59,16 @@ pub const STOP_SECS: f32 = 0.2;
 /// The row of a stop.
 const STOP_CLIP: &str = "walk_stop";
 
-/// The row of a look up.
-const LOOK_UP_CLIP: &str = "idle_look_up";
+/// The row of a look up. A body that looks up while it walks or runs has its
+/// head turned as this row turns it (`BodyPoseView::head_up`).
+pub const LOOK_UP_CLIP: &str = "idle_look_up";
+
+/// The poses a body looks up in: standing (the `idle_look_up` row), walking
+/// and running (its head only, over the walk: Jon, 2026-10-22, "if you press
+/// up while moving it tilts the robots head up").
+fn looks_up_in(anim: CharacterAnim) -> bool {
+    matches!(anim, CharacterAnim::Idle | CharacterAnim::Walk | CharacterAnim::Run)
+}
 
 /// How far a body climbs in one cycle of its climb row (px).
 pub const CLIMB_CYCLE_PX: f32 = 120.0;
@@ -125,6 +133,11 @@ pub struct BodyPoseView {
     /// it lets go. The `idle_look_up` row is drawn at this fraction, so the
     /// head goes up and comes down through its frames.
     pub look_up: f32,
+    /// How far up the head of a body that looks up while it walks or runs is
+    /// turned, 0 to 1 (its `look_up` then): the head turns as the
+    /// `idle_look_up` row turns it, over the row the body moves in. `0` for a
+    /// body that stands, whose whole body is drawn in that row.
+    pub head_up: f32,
     /// How far down into its crouch this body is, 0 to 1: it rises over
     /// [`CROUCH_SECS`] while the body crouches, and falls as fast when the
     /// body stands up. A body that stands still or crouches still between 0
@@ -350,6 +363,7 @@ impl Default for BodyPoseView {
             facing: 1.0,
             turn_secs: f32::INFINITY,
             look_up: 0.0,
+            head_up: 0.0,
             crouch: 0.0,
             crawl: 0.0,
             stop_secs: f32::INFINITY,
@@ -600,9 +614,10 @@ pub fn rebuild_body_pose_views(
                         | CharacterAnim::FloatGlide
                 )
             });
-        // A body that stands and holds the stick up looks up. It is a picture
-        // only: the control frame is read, and nothing is written.
-        let looking_up = anim == CharacterAnim::Idle
+        // A body that stands, walks or runs and holds the stick up looks up.
+        // It is a picture only: the control frame is read, and nothing is
+        // written.
+        let looking_up = looks_up_in(anim)
             && anim_override.is_none()
             && control.is_some_and(|control| control.0.locomotion.y < -LOOK_UP_AXIS);
         // A content pose PIN wins over the picked pose — the SAME rule `rebuild_actor_anim_index`
@@ -654,9 +669,10 @@ pub fn rebuild_body_pose_views(
         };
         let turning = free && turns_on_the_ground(anim) && turn_secs < TURN_SECS;
         let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
-        // The look up rises while it is asked for and falls when it is not; a
-        // body that does anything but stand has its head level at once.
-        let look_up = if free && anim == CharacterAnim::Idle {
+        // The look up rises while it is asked for and falls when it is not, as
+        // the body stands, walks or runs; a body that does anything else has
+        // its head level at once.
+        let look_up = if free && looks_up_in(anim) {
             let before = pose.as_deref().map_or(0.0, |before| before.look_up);
             let step = dt / LOOK_UP_SECS;
             if looking_up { (before + step).min(1.0) } else { (before - step).max(0.0) }
@@ -719,6 +735,8 @@ pub fn rebuild_body_pose_views(
             facing: drawn_facing,
             turn_secs,
             look_up,
+            // Not through a turn: the turn's row goes round through the front.
+            head_up: if free && !turning && matches!(anim, CharacterAnim::Walk | CharacterAnim::Run) { look_up } else { 0.0 },
             crouch,
             crawl,
             stop_secs,
@@ -759,7 +777,7 @@ pub fn rebuild_body_pose_views(
                         Some(slaved(CROUCH_CLIP, crouch))
                     } else if free && anim == CharacterAnim::Idle && stop_secs < STOP_SECS && look_up == 0.0 {
                         Some(slaved(STOP_CLIP, stop_secs / STOP_SECS))
-                    } else if look_up > 0.0 {
+                    } else if look_up > 0.0 && anim == CharacterAnim::Idle {
                         Some(slaved(LOOK_UP_CLIP, look_up))
                     } else if free && anim == CharacterAnim::LadderClimb {
                         Some(slaved(CLIMB_CLIP, climb_phase))

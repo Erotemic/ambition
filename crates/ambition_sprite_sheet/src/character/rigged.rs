@@ -189,6 +189,21 @@ pub fn is_lower_body_track(name: &str) -> bool {
         })
 }
 
+/// Is a track of this name a part of the head: the head and what turns with
+/// it (its face, its eyes, its antennae)? By the words of the name, as
+/// [`is_lower_body_track`].
+pub fn is_head_track(name: &str) -> bool {
+    name.split(['_', ':', '~']).any(|word| {
+        matches!(word, "head" | "face" | "eye" | "eyes" | "antenna" | "antennae" | "visor" | "mouth" | "brow" | "ear" | "ears" | "hat" | "hair")
+    })
+}
+
+/// Is a track of this name the head itself (`head`, `head_side`): the part
+/// whose pivot the head turns about?
+fn is_head_pivot_track(name: &str) -> bool {
+    name.split(['_', ':', '~']).next() == Some("head")
+}
+
 /// The four corners of a part's quad, from its pivot.
 fn part_corners(part: &RigPart) -> [Vec2; 4] {
     [Vec2::ZERO, Vec2::new(part.size.x, 0.0), Vec2::new(0.0, part.size.y), part.size].map(|corner| corner - part.pivot)
@@ -743,6 +758,52 @@ impl RiggedSpriteAsset {
         let behind: Vec<PartDraw> =
             scratch.iter().zip(&placed).filter(|(draw, placed)| !**placed && lower(draw)).map(|(draw, _)| *draw).collect();
         out.splice(0..0, behind);
+        true
+    }
+
+    /// Turn the head of the draws in `out` as `look_row` turns its head,
+    /// `fraction` (0..1) of the way through its frames (tweened between two),
+    /// against its first frame: the head of a body that looks up while it
+    /// walks, drawn on the walk.
+    ///
+    /// THE RULE. The turn is the head's angle in `look_row` at `fraction` less
+    /// its angle in the row's first frame. Each draw of the head
+    /// ([`is_head_track`]: the head, its face, its antennae) is turned by it
+    /// about the pivot of the head's own draw in `out`, so the face stays on
+    /// the head and the head on its neck. Every other draw is as it was.
+    ///
+    /// `false`, and `out` as it was, when `look_row` is not a part clip or one
+    /// of the two draws no head.
+    pub fn head_turned_as(&self, look_row: &str, fraction: f32, out: &mut [PartDraw]) -> bool {
+        let Some(clip) = self.clips.get(look_row) else {
+            return false;
+        };
+        let name_of = |draw: &PartDraw| draw.track.and_then(|track| self.tracks.get(usize::from(track))).map(String::as_str);
+        let Some(pivot) = out.iter().find(|draw| name_of(draw).is_some_and(is_head_pivot_track)).copied() else {
+            return false;
+        };
+        let angle = |index: usize| {
+            let frame = self.frame(look_row, index)?;
+            frame
+                .iter()
+                .find(|draw| draw.track == pivot.track)
+                .or_else(|| frame.iter().find(|draw| name_of(draw).is_some_and(is_head_pivot_track)))
+                .map(|draw| draw.rotation)
+        };
+        let last = clip.frames.len().saturating_sub(1);
+        let at = fraction.clamp(0.0, 1.0) * last as f32;
+        let index = (at.floor() as usize).min(last);
+        let (Some(level), Some(from), Some(to)) = (angle(0), angle(index), angle((index + 1).min(last))) else {
+            return false;
+        };
+        let turn = shorter_turn(level, from + shorter_turn(from, to) * at.fract());
+        let (c, s) = (turn.cos(), turn.sin());
+        for draw in out.iter_mut().filter(|draw| name_of(draw).is_some_and(is_head_track)) {
+            // Clockwise with +y down, as a draw turns.
+            let off = draw.at - pivot.at;
+            draw.at = pivot.at + Vec2::new(c * off.x - s * off.y, s * off.x + c * off.y);
+            draw.rotation += turn;
+        }
         true
     }
 

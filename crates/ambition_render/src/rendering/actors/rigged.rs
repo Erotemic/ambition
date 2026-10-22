@@ -1468,6 +1468,10 @@ fn frame_draws<'a>(
             flipbook.legs_under(legs_row, frame, t, drawn, posed_draws);
         }
     }
+    // A body that looks up while it walks: its head turns up on the walk.
+    if let Some((look_row, fraction)) = animator.head_turn.filter(|(_, fraction)| *fraction > 0.0) {
+        flipbook.head_turned_as(look_row, fraction, drawn);
+    }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);

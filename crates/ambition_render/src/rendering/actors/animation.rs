@@ -202,6 +202,9 @@ pub fn animate_player(
     for (mut sprite, mut animator, pose, scale, anchor) in &mut query {
         // Presentation dt, scaled by the world clock and proper time.
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        // A body that looks up while it moves: its head turns up over the row
+        // it walks or runs in.
+        animator.head_turn = (pose.head_up > 0.0).then_some((ambition_sim_view::LOOK_UP_CLIP, pose.head_up));
         // Hit feedback is the white-silhouette overlay in `rendering::hit_flash`.
         // The source sprite stays `WHITE`.
         apply_character_frame(

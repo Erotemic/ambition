@@ -54,7 +54,7 @@ pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_guard_breaks_view, rebuild_launched_bodies_view,
     rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
-    LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
+    LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP,
 };
 pub use presented_pose::{
     DeclaredPoseWarps, PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,

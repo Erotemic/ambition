@@ -528,7 +528,7 @@ Oni Leader, a different ninja. We can have some story play in with that."
 `projectile_visuals.ron`); its own sounds (it borrows cues); its own music
 state (it plays `galvanic_march` "howl" and "storm").
 
-### Rework (Jon, 2026-10-22) — PROPOSED, the identity and art wait for Jon
+### Rework (Jon, 2026-10-22) — slices 1-3 built
 
 Jon, after playing it: "there is a spot that the head cant actually pass on
 the way to the final arena, the camera zones snap the camera in really weird
@@ -577,7 +577,7 @@ smoother."
 5. **Tired less.** It lies spent on the floor (the gutter) once a phase, at
    the end of its longest string, not at the end of every cycle.
 
-**Identity — PROPOSED.** The Inugami is a hunting dog of the regime, set
+**Identity — Jon: "Yes, build it".** The Inugami is a hunting dog of the regime, set
 free, and its fight is the hunt and the leash it broke. Every move names a
 hunting dog's verb and reads from its silhouette and its fire:
 
@@ -591,14 +591,25 @@ hunting dog's verb and reads from its silhouette and its fire:
 | **howl** (kept, readable) | head back, the ring is drawn on the floor first | a ring pushes you off; from phase 2 it calls the pack back | it stays still for the howl |
 | vanish | — | REMOVED: a teleport, and Jon rejected the teleports | — |
 
-Phase 1 (the arena): stalk, lunge, pounce, howl; the pack once a cycle. The
-chase: lunges at your back and the pack running ahead of it; you turn and
-hit it when a lunge skids past. Phase 2 and the enrage (the final hall): the
-broken leash comes in; the enrage chains leash into pounce. Kagero stays as
-built.
+Built (`inugami.rs`, `boss_profiles.ron`): each phase is three picks from a
+table, then the gutter (once a cycle of three moves). Phase 1: lunge, pack
+(3 wisps), leash, pounce, howl. Phase 2: a two-lunge chain, a pack of four,
+and the howl sends a wisp each way. The enrage chains a lunge into the
+leash, and the pack into the pounce. The chase: on your heels, every 2.4 s a
+lunge at your back (gather, dart, skid: the skid is unguarded) or a wisp
+along your floor, in turn. The leash hurts only at its tip, which crosses
+the floor under it from behind to in front over the strike; its slack (1.2 s)
+is a window, and Kagero comes in at it too. Kagero stays as built.
 
-**Art — PROPOSED.** Both bosses are drawn by procedural poses
-(`wolfenstein.py`, 47 rows; `wolfenstein_inugami.py`, 22 rows). The work:
+**Art — Jon: "Procedural, more rows".** Built: the Inugami got `hunt`,
+`crash`, `pack_tell`, `pack` (one bark a wisp), `leash_tell`, `leash_whip`,
+`leash_slack` (the chain is drawn from its neck to its frame's foot; its tip
+is the game's sparks), and more `idle` and `howl` frames; `onibi`, `vanish`
+and `appear` are gone. Wolfenstein got `turn` (drawn for 0.24 s when he turns
+between moves) and more frames on `walk`, `prowl`, `run`, the three tells and
+the four recoveries. Not built yet from the list below: the Inugami's
+`turn`, `hurt_flinch` and squash on the darts; Wolfenstein's in-betweens
+from a tell into its strike. The proposal was:
 
 - Inugami: new rows `stalk` (a pacing loop), `lunge_gather`, `lunge_skid`,
   `pounce_turn`, `leash_tell`, `leash_whip`, `leash_slack`, `pack_call`,

@@ -93,9 +93,9 @@
         // The Inugami's conducted moves: its module draws them, row by row.
         "inu_bite": ["bite"],
         "inu_dive": ["dive"],
-        "inu_onibi": ["onibi"],
+        "inu_pack": ["pack"],
         "inu_howl": ["howl"],
-        "inu_vanish": ["appear"],
+        "inu_leash": ["leash_whip"],
         "inu_gutter": ["guttered"],
     },
     // The sheet rows each geometry strike claims. The first row is the

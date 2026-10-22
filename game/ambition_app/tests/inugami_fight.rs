@@ -173,7 +173,9 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     step_until(&mut sim, 60 * 4, "Kagero to leave", |sim| kagero(sim).is_none());
     assert!(head(&mut sim).view.is_some_and(|v| v.ally_called));
     let cut = before - health(&mut sim, INUGAMI_ID);
-    assert!(cut >= 3, "her cuts took {cut} from it");
+    // Three cuts, one blow each (2 + 2 + 3): a box that lived on cut it on
+    // every tick.
+    assert!((3..=7).contains(&cut), "her cuts took {cut} from it");
     for _ in 0..60 * 3 {
         sim.step(AgentAction::default());
     }

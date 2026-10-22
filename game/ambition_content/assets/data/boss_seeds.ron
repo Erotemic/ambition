@@ -22,6 +22,8 @@
             "cradle",               // GNU-ton: Newton's cradle, one fist swinging at a time
             "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
             "noodle_lash",          // the FSM: one noodle whipped out at ledge height, toward you
+            "inu_leash", // the Inugami: a ghost chain from its neck, its tip cracks the floor from behind it to in front of it
+            "inu_pack", // the Inugami: its wolf wisps run the floor at you, one at a time
         ],
         recipes: [
             (
@@ -55,7 +57,7 @@
         telegraph: (min_s: 0.50, max_s: 1.20),
         active: (min_s: 0.25, max_s: 2.00),
         instances: [
-            "inu_dive", // the Inugami: up over you, nose down, and its teeth into the floor: the long window
+            "inu_dive", // the Inugami: up over you, nose down, its teeth into the floor and a shock both ways: the long window
             "inu_gutter", // the Inugami: its fire spent, it drops to the floor and lies there: the longest window
             "wolf_rake", // Wolfenstein: the claws across in front of him, two blows, a step on each
             "wolf_rake_thrice", // Wolfenstein, unleashed: three blows, the last one high
@@ -210,10 +212,9 @@
         skill_tested: "Read a radial pattern under time pressure; pick the gap.",
         fair_counters: [Dash, WalkOut, Blink, Shield],
         threat: Light,
-        telegraph: (min_s: 0.60, max_s: 1.50),
+        telegraph: (min_s: 0.65, max_s: 1.50),
         active: (min_s: 0.35, max_s: 0.90),
         instances: [
-            "inu_onibi", // the Inugami: blue fire balls kindle round it and it flings them at you
             "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
             "meatball_volley",        // the FSM: 3 (5 enraged) lobbed meatballs fanned at you; a ledge is an umbrella
             "mockingbird_missile", // the Mockingbird: a missile off its wingtip, at you
@@ -278,8 +279,7 @@
         telegraph: (min_s: 0.40, max_s: 1.10),
         active: (min_s: 0.45, max_s: 2.00),
         instances: [
-            "inu_bite", // the Inugami: it draws back, darts straight through where you are, and tumbles past
-            "inu_vanish", // the Inugami: it fades out and comes back on your other side
+            "inu_bite", // the Inugami: it gathers back, darts straight through where you are, and skids past
             "wolf_lunge", // Wolfenstein: low, then a bite across most of the room; he skids
             "wolf_bound", // Wolfenstein, unleashed: a lunge into the wall behind you, a kick off it and back; he lands winded
             "trex_charge",    // the T-rex: a roar and a scrape, then the hall at a run into the wall, and the stun

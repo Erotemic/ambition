@@ -16,15 +16,26 @@
 //! placement is cleared (`BossConfig::wakes_after`), and it rises from where
 //! his body lies (`BossConduct::predecessor`).
 //!
-//! - The bite: it draws back, its jaws wide, then darts straight at you and
-//!   snaps twice. It tumbles past and shakes its head: the window.
-//! - The dive: it flies up over you, turns nose down, and drops; its teeth
-//!   sink into the floor, and it wrenches at them: the long window.
-//! - The onibi: fire balls kindle round it, and it flings them at you.
+//! Its identity (Jon, 2026-10-22, "it just doesn't have a strong boss
+//! identity or attack patterns"): a hunting dog of the regime, set free. Each
+//! move is a hunting dog's verb, and each reads from its shape and its fire.
+//!
+//! - The stalk: between moves it keeps a hunting distance at your height and
+//!   paces you.
+//! - The lunge (`inu_bite`): it gathers back, jaws open, then darts straight
+//!   at you and snaps. It skids past and shakes its head: the window.
+//! - The pounce (`inu_dive`): it climbs over you, points its nose down and
+//!   drops; a shock runs the floor both ways, and its teeth are in the floor:
+//!   the long window.
+//! - The pack (`inu_pack`): its blue hitodama drop to the floor and run at you
+//!   as wolf wisps, one at a time along the floor: jump each.
 //! - The howl: it throws its head back, and a ring pushes you off it. From
-//!   the transition on the ring throws fire balls all round.
-//! - The vanish: it fades out, and comes back behind you (a bite follows).
-//! - The gutter: its fire is spent at the end of each cycle. It sinks to the
+//!   the transition on the howl calls the pack back along the floor.
+//! - The broken leash (`inu_leash`, its signature): the stitches at its neck
+//!   burn and a ghost chain unrolls; its tip cracks along the floor from
+//!   behind it to in front of it: jump it as it passes you. Then the chain
+//!   falls slack and it pants: a window.
+//! - The gutter: its fire is spent once in a long cycle. It sinks to the
 //!   floor and lies there, dim, until its next tell kindles it again.
 //!
 //! Once you have been in the final hall with it a while, Kagero comes to
@@ -44,7 +55,7 @@ use ambition_boss_special_port::{
     BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort,
+    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, RidingHitbox, RidingHitboxPort,
     RidingKnockback,
 };
 use ambition_extension_sdk::{
@@ -108,10 +119,9 @@ impl Head {
         self.art(0.0, 22.0).y
     }
 
-    /// Where the ring of its fire balls is, about its middle.
-    fn onibi(self, degrees: f32) -> Vec2 {
-        let a = degrees.to_radians();
-        self.art(-1.0, -6.0) + Vec2::new(a.cos(), a.sin() * 0.8) * self.len(37.0)
+    /// Its neck, where his stitches were: the leash comes out of it.
+    fn neck(self) -> Vec2 {
+        self.art(-4.0, 24.0)
     }
 }
 
@@ -123,10 +133,14 @@ fn dead_head_of(p: &Predecessor) -> (Vec2, f32) {
     (Vec2::from(p.position) + Vec2::new(off.x * p.side, off.y), body.head_px())
 }
 
-/// Between moves it hangs this far to the side of you and over you (head
-/// pixels: a giant head keeps a giant's distance).
-const HOVER_DX: f32 = 70.0;
-const HOVER_DY: f32 = 42.0;
+/// THE STALK. Between moves it keeps a hunting distance at your height: this
+/// far to your side (head pixels: a giant head keeps a giant's distance), its
+/// bottom `STALK_CLEAR` over your feet, and it paces you, `STALK_PACE` head
+/// pixels either way at `STALK_PACE_HZ`.
+const STALK_DX: f32 = 80.0;
+const STALK_CLEAR: f32 = 24.0;
+const STALK_PACE: f32 = 14.0;
+const STALK_PACE_HZ: f32 = 0.35;
 const HOVER_SPEED: f32 = 150.0;
 const HOVER_SPEED_FRENZIED: f32 = 210.0;
 /// The top of the room it flies to, over its floor.
@@ -134,17 +148,6 @@ const CEILING: f32 = 740.0;
 /// Its room's side walls.
 const WALL: f32 = 16.0;
 
-/// PHASE 1, THE CHASE (Jon, 2026-10-20): it chases you down the long gallery
-/// from the throne room. It hangs this far behind you and over you (head
-/// pixels), at this pace, and faster when you have got far ahead of it.
-const CHASE_BEHIND: f32 = 55.0;
-const CHASE_OVER: f32 = 34.0;
-const CHASE_SPEED: f32 = 230.0;
-const CHASE_CATCH_UP: f32 = 1.8;
-const CHASE_FAR: f32 = 600.0;
-/// In the chase its dive lands this far ahead of you (head pixels): in your
-/// way, its teeth in the floor for you to turn on.
-const DIVE_AHEAD: f32 = 40.0;
 /// It dives from this high over you (world units), or the top of the room.
 const DIVE_HIGH: f32 = 440.0;
 /// THE FINAL HALL: the last `FINAL_W` of its room the way it chases you,
@@ -164,9 +167,10 @@ const CRASH_SPEED: f32 = 1300.0;
 /// vanish and a return in the hall; now it comes after you, `RUN_GAP` behind
 /// and `RUN_OVER` above you, at `RUN_SPEED` (faster when it is `RUN_FAR`
 /// behind): stand and its burning head reaches you. Its blows are turned and
-/// its pattern waits while it runs; every `RUN_FIRE_EVERY_S` it throws fire
-/// after you. When you are in the final hall it sweeps past you to the hall's
-/// middle over `ARRIVE_S`, howling, and the fight goes on there.
+/// its pattern waits while it runs. On your heels, every `RUN_BEAT_S` it
+/// lunges at your back (gather, dart past, skid: turn and hit it in the skid)
+/// or sends a wisp of its pack along the floor after you, in turn. It comes
+/// into the final hall on its own wings.
 const RUN_GAP: f32 = 90.0;
 const RUN_OVER: f32 = 40.0;
 /// It hunts over the floor, its bottom this far over your feet: a head of
@@ -177,7 +181,10 @@ const RUN_CLEAR: f32 = 64.0;
 const RUN_SPEED: f32 = 270.0;
 const RUN_CATCH_UP: f32 = 2.2;
 const RUN_FAR: f32 = 520.0;
-const RUN_FIRE_EVERY_S: f32 = 3.0;
+const RUN_BEAT_S: f32 = 2.4;
+/// Its lunge in the run: it gathers this long, then darts this long past you.
+const RUN_GATHER_S: f32 = 0.45;
+const RUN_DART_S: f32 = 0.35;
 /// It howls over the final hall for this long when it comes into it.
 const ARRIVE_S: f32 = 1.1;
 /// THE SCENT. It hunts you along where you went, not in a straight line at
@@ -207,27 +214,47 @@ const PULL_S: f32 = 0.42;
 /// How deep its teeth go into the floor, head pixels.
 const SINK_PX: f32 = 6.0;
 
-const ONIBI_VISUAL: &str = "inugami_onibi";
-const ONIBI_DAMAGE: i32 = 1;
-const ONIBI_HALF: Vec2 = Vec2::new(14.0, 14.0);
-const ONIBI_SPEED: f32 = 280.0;
-const ONIBI_SPEED_FRENZIED: f32 = 340.0;
-const ONIBI_LIFE: f32 = 4.5;
-/// The fire balls round it at the end of the tell (its sheet's ring, turned
-/// by the tell), and the two more it kindles from the transition on.
-const ONIBI_AT: [f32; 5] = [-110.0, 10.0, 130.0, -50.0, 70.0];
-/// From the transition on its howl throws this many all round.
-const HOWL_ONIBI: u32 = 6;
+/// THE PACK, in place of the onibi (Jon, 2026-10-22: "the spirit fires are
+/// hard to reason about"): wolf wisps that run along the floor at you, one
+/// every `PACK_GAP` of the strike, `PACK` of them (`PACK_FRENZIED` from the
+/// transition). Each is jumped.
+const WISP_VISUAL: &str = "inugami_wisp";
+const WISP_DAMAGE: i32 = 1;
+const WISP_HALF: Vec2 = Vec2::new(26.0, 16.0);
+const WISP_SPEED: f32 = 330.0;
+const WISP_SPEED_FRENZIED: f32 = 390.0;
+const WISP_LIFE: f32 = 4.0;
+const PACK_GAP: f32 = 0.35;
+const PACK: u32 = 3;
+const PACK_FRENZIED: u32 = 4;
+
+/// THE BROKEN LEASH, its signature: a ghost chain from its neck, its tip
+/// `LEASH_REACH` of its body heights out, cracks along the floor from behind
+/// it to in front of it. Only the tip hurts (`LEASH_TIP_HALF`): the chain over
+/// it is fire, drawn. Then it falls slack for `LEASH_SLACK_S`, and the head
+/// pants: a window.
+const LEASH_REACH: f32 = 2.2;
+const LEASH_TIP_HALF: Vec2 = Vec2::new(34.0, 20.0);
+const LEASH_DAMAGE: i32 = 2;
+const LEASH_KNOCKBACK: f32 = 1.3;
+const LEASH_LINKS: u32 = 9;
+const LEASH_SLACK_S: f32 = 1.2;
+
+/// The pounce's shock along the floor, both ways from where its teeth go in.
+const SHOCK_SPEED: f32 = 420.0;
+const SHOCK_HALF: Vec2 = Vec2::new(22.0, 16.0);
+const SHOCK_DAMAGE: i32 = 1;
+const SHOCK_KNOCKBACK: f32 = 1.1;
+const SHOCK_LIFETIME_S: f32 = 4.0;
+/// Held damage box slots: the two shocks, the leash's tip.
+const SLOT_SHOCK: [u32; 2] = [0, 1];
+const SLOT_LEASH: u32 = 2;
 
 const HOWL_DAMAGE: i32 = 1;
 const HOWL_KNOCKBACK: f32 = 2.2;
 /// The ring's radius, in its body heights.
 const HOWL_RADIUS: f32 = 0.9;
 
-/// It comes back this far behind you, and this far over you.
-/// (Head pixels.)
-const BEHIND: f32 = 80.0;
-const OVER: f32 = 26.0;
 /// It swells as the fight goes on: from the transition, and more at the
 /// enrage (Jon, 2026-10-20: "the head should also get bigger in the fight"),
 /// this much of its build each second.
@@ -256,8 +283,9 @@ const ALLY_HEALTH: u32 = 200;
 /// Its fire, and dust.
 const FIRE: [f32; 4] = [1.0, 0.36, 0.34, 1.0];
 const FIRE_CORE: [f32; 4] = [1.0, 0.88, 0.84, 1.0];
-/// Its onibi are blue: cold fire about the red head (Jon, 2026-10-20).
-const ONIBI_FIRE: [f32; 4] = [0.45, 0.75, 1.0, 1.0];
+/// Its hitodama and its pack are blue: cold fire about the red head (Jon,
+/// 2026-10-20).
+const WISP_FIRE: [f32; 4] = [0.45, 0.75, 1.0, 1.0];
 const DUST: [f32; 4] = [0.74, 0.70, 0.66, 1.0];
 
 /// Its howl, a described one (the SFX renderer's `howl` mode), at three
@@ -268,9 +296,9 @@ const SFX_HOWLS: [(f32, &str); 3] =
     [(1.08, "boss.inugami.howl"), (1.22, "boss.inugami.howl_large"), (f32::INFINITY, "boss.inugami.howl_giant")];
 
 /// Every cue it plays: each must have a recipe, or it plays silence.
-pub const SOUNDS: [&str; 11] = [
-    SFX_HOWLS[0].1, SFX_HOWLS[1].1, SFX_HOWLS[2].1, SFX_BITE, SFX_DART, SFX_SLAM, SFX_FLING, SFX_VANISH, SFX_GUTTER,
-    SFX_CATCH, SFX_STING,
+pub const SOUNDS: [&str; 13] = [
+    SFX_HOWLS[0].1, SFX_HOWLS[1].1, SFX_HOWLS[2].1, SFX_BITE, SFX_DART, SFX_SLAM, SFX_FLING, SFX_WHIP, SFX_GUTTER,
+    SFX_CATCH, SFX_STING, SFX_SHOCK, SFX_PANT,
 ];
 
 /// The theremin of his march, as the seam round his neck pops: the cue that
@@ -288,31 +316,35 @@ const SFX_BITE: &str = "boss.trex.chomp";
 const SFX_DART: &str = "enemy.burning_flying_shark.flame_flyby";
 const SFX_SLAM: &str = "boss.trex.stomp";
 const SFX_FLING: &str = "projectile.fireball.shoot";
-const SFX_VANISH: &str = "enemy.shadow_oni.vanish";
+const SFX_WHIP: &str = "boss.trex.tail_whip";
+const SFX_SHOCK: &str = "vfx.explosion.shockwave";
+const SFX_PANT: &str = "boss.trex.growl_chuff_a";
 const SFX_GUTTER: &str = "ability.fire.power_down";
 const SFX_CATCH: &str = "ability.fire.release";
 
 /// Its moves: the `Special` keys of its pattern.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Move {
+    /// The lunge.
     Bite,
+    /// The pounce.
     Dive,
-    Onibi,
+    Pack,
     Howl,
-    Vanish,
+    Leash,
     Gutter,
 }
 
 impl Move {
-    pub const ALL: [Move; 6] = [Move::Bite, Move::Dive, Move::Onibi, Move::Howl, Move::Vanish, Move::Gutter];
+    pub const ALL: [Move; 6] = [Move::Bite, Move::Dive, Move::Pack, Move::Howl, Move::Leash, Move::Gutter];
 
     pub fn key(self) -> &'static str {
         match self {
             Move::Bite => "inu_bite",
             Move::Dive => "inu_dive",
-            Move::Onibi => "inu_onibi",
+            Move::Pack => "inu_pack",
             Move::Howl => "inu_howl",
-            Move::Vanish => "inu_vanish",
+            Move::Leash => "inu_leash",
             Move::Gutter => "inu_gutter",
         }
     }
@@ -332,7 +364,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 1);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 2);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -397,6 +429,20 @@ record! {
     /// Your scent while it hunts you: where your feet were, a point every
     /// `SCENT_STEP`, oldest first. It flies along it (`hunt_goal`).
     39 scent: Vec<[f32; 2]> [max SCENT_MAX],
+    /// The wisps of the pack it has sent in this strike.
+    40 pack_sent: u32,
+    /// Its leash fallen slack, it pants: seconds into it.
+    41 slack: Option<f32>,
+    /// The pounce's shocks rolling the floor (their x), and the floor's line.
+    42 shock_left: Option<f32>,
+    43 shock_right: Option<f32>,
+    44 shock_floor: f32,
+    /// The generation of its held damage boxes (a new shock, a new whip).
+    45 box_generation: u32,
+    /// Its lunge in the run: seconds into it (gather, dart, skid).
+    46 lunge: Option<f32>,
+    /// The beats of its run: lunges and wisps, in turn.
+    47 run_beats: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -441,6 +487,12 @@ impl Conductor {
         self.ally_called
     }
 
+    /// Its leash fallen slack (the window after the whip), for tests and
+    /// inspectors.
+    pub fn slack(&self) -> bool {
+        self.slack.is_some()
+    }
+
     fn part(&self) -> Option<Part> {
         Move::of_code(self.part_move).map(|mv| Part { mv, striking: self.part_striking, t: self.part_t, dur: self.part_dur })
     }
@@ -475,6 +527,7 @@ pub fn module() -> ModuleDescriptor {
                 BurstPort::KEY,
                 CameraShakePort::KEY,
                 RidingHitboxPort::KEY,
+                HeldDamageBoxPort::KEY,
                 ProjectileSpawnPort::KEY,
                 BodySoundPort::KEY,
                 BossGuardPort::KEY,
@@ -536,17 +589,20 @@ fn riding(
     })
 }
 
-/// A ball of its fire, from `origin` along `dir`.
-fn onibi(inv: &mut Invocation<'_>, origin: Vec2, dir: Vec2, speed: f32) -> Result<(), Fault> {
+/// A wisp of its pack: on the floor at `x` (its line `floor`), running
+/// along it the way `dir` says.
+fn wisp(inv: &mut Invocation<'_>, x: f32, floor: f32, dir: f32, speed: f32) -> Result<(), Fault> {
+    let origin = Vec2::new(x, floor - WISP_HALF.y - 2.0);
+    burst(inv, origin, 10, 160.0, WISP_FIRE, "spark")?;
     inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
         origin,
-        dir: dir.normalize_or(Vec2::X),
+        dir: Vec2::new(if dir < 0.0 { -1.0 } else { 1.0 }, 0.0),
         speed,
-        damage: ONIBI_DAMAGE,
-        max_lifetime: ONIBI_LIFE,
-        half_extent: ONIBI_HALF,
+        damage: WISP_DAMAGE,
+        max_lifetime: WISP_LIFE,
+        half_extent: WISP_HALF,
         gravity: 0.0,
-        visual_id: ONIBI_VISUAL.to_string(),
+        visual_id: WISP_VISUAL.to_string(),
         bounces: 0,
         bounce_on_world_contact: false,
         splash_half_extent: 0.0,
@@ -786,19 +842,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         play(inv, SFX_CATCH, at)?;
                         burst(inv, at, 24, 280.0, FIRE, "spark")?;
                     }
+                    c.slack = None;
                     side = face(at.x);
                     if mv == Move::Dive {
-                        // Over you, near the top of the room; in the chase,
-                        // over the way ahead of you.
-                        let ahead = if in_final { 0.0 } else { east * h.len(DIVE_AHEAD) };
-                        let over = clamp(Vec2::new(target.x + ahead, (target.y - DIVE_HIGH).max(top)));
+                        // Over you, near the top of the room.
+                        let over = clamp(Vec2::new(target.x, (target.y - DIVE_HIGH).max(top)));
                         c.to_x = over.x;
                         c.to_y = over.y;
                     }
                     // Its tell's own sound is its pattern's (`telegraph.cue`).
-                    if mv == Move::Vanish {
-                        inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
-                    }
                 } else {
                     match mv {
                         Move::Bite => {
@@ -814,22 +866,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             c.to_x = at.x;
                             c.to_y = hall.floor - h.jaws_down().0.y - h.jaws_down().1.y + h.len(SINK_PX);
                         }
-                        Move::Vanish => {
-                            // Behind you. In the final hall, on the far side
-                            // from where it was; in the chase, on the side it
-                            // hunts you from, or it came back in front of you
-                            // and flew back through you.
-                            let away = if !in_final {
-                                -east
-                            } else if target.x < at.x {
-                                -1.0
-                            } else {
-                                1.0
-                            };
-                            let to = clamp(Vec2::new(target.x + away * h.len(BEHIND), target.y - h.len(OVER)));
-                            c.to_x = to.x;
-                            c.to_y = to.y;
-                            side = -away;
+                        Move::Pack => {
+                            c.pack_sent = 0;
+                        }
+                        Move::Leash => {
+                            // A new whip: its tip is a new held box.
+                            c.box_generation = c.box_generation.wrapping_add(1);
                         }
                         Move::Gutter => {
                             c.to_x = at.x;
@@ -852,7 +894,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 Move::Bite => c.miss = Some(0.0),
                 Move::Dive => c.buried = Some(0.0),
                 Move::Gutter => c.guttered = Some(0.0),
-                Move::Vanish => inv.submit::<BossGuardPort>(BossGuard { guarded: false })?,
+                Move::Leash => {
+                    c.slack = Some(0.0);
+                    play(inv, SFX_PANT, at)?;
+                }
                 _ => {}
             }
         }
@@ -910,13 +955,44 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 30, 320.0, FIRE, "spark")?;
         } else {
-            if t > 1.0 && (t / RUN_FIRE_EVERY_S).floor() != ((t - dt) / RUN_FIRE_EVERY_S).floor() {
-                for degrees in ONIBI_AT.iter().take(3) {
-                    let off = h.onibi(*degrees);
-                    let origin = at + Vec2::new(off.x * side, off.y);
-                    onibi(inv, origin, target - origin, ONIBI_SPEED)?;
+            // On your heels, a beat every `RUN_BEAT_S`: a lunge at your back,
+            // or a wisp after you along your floor, in turn.
+            let on_heels = c.scent.len() <= 2 && (target - at).length() < RUN_FAR;
+            if c.lunge.is_none() && on_heels && (t / RUN_BEAT_S).floor() != ((t - dt) / RUN_BEAT_S).floor() {
+                if c.run_beats % 2 == 0 {
+                    c.lunge = Some(0.0);
+                    c.from_x = at.x;
+                    c.from_y = at.y;
+                } else {
+                    wisp(inv, at.x, feet, east, WISP_SPEED_FRENZIED)?;
+                    play(inv, SFX_FLING, at)?;
                 }
-                play(inv, SFX_FLING, at)?;
+                c.run_beats = c.run_beats.wrapping_add(1);
+            }
+            if let Some(l) = c.lunge {
+                let l = l + dt;
+                let was = l - dt;
+                if l >= RUN_GATHER_S && was < RUN_GATHER_S {
+                    // It darts past where you are now.
+                    let from = Vec2::new(c.from_x, c.from_y);
+                    let aim = (target - from).normalize_or(Vec2::X * east);
+                    let to = clamp(from + aim * ((target - from).length() + 120.0).min(BITE_REACH));
+                    c.to_x = to.x;
+                    c.to_y = to.y;
+                    riding(inv, h.jaws(), if aim.x < 0.0 { -1.0 } else { 1.0 }, None, BITE_DAMAGE, BITE_KNOCKBACK, RUN_DART_S, "inu_bite")?;
+                    play(inv, SFX_DART, at)?;
+                    play(inv, SFX_BITE, at)?;
+                }
+                if l >= RUN_GATHER_S + RUN_DART_S && was < RUN_GATHER_S + RUN_DART_S {
+                    // It skids past you, open: turn and hit it.
+                    inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+                }
+                if l >= RUN_GATHER_S + RUN_DART_S + MISS_S {
+                    inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
+                    c.lunge = None;
+                } else {
+                    c.lunge = Some(l);
+                }
             }
             c.run = Some(t);
         }
@@ -928,8 +1004,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.ally_wait = Some(c.ally_wait.map_or(0.0, |t| t + dt));
         }
         // She comes when it opens a window (its teeth in the floor, its fire
-        // spent): her cuts land while it cannot guard or vanish.
-        let window_opens = c.buried.is_some_and(|t| t <= 0.0) || c.guttered.is_some_and(|t| t <= 0.0);
+        // spent, its leash slack): her cuts land while it cannot guard.
+        let window_opens = c.buried.is_some_and(|t| t <= 0.0)
+            || c.guttered.is_some_and(|t| t <= 0.0)
+            || c.slack.is_some_and(|t| t <= 0.0);
         if c.ally_wait.is_some_and(|t| t >= ALLY_AFTER_S) && window_opens {
             c.ally_called = true;
             let out = -face(at.x) * (half.x + ALLY_OUT);
@@ -949,7 +1027,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
-    for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear] {
+    for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear, &mut c.slack] {
         if let Some(t) = timer.as_mut() {
             *t += dt;
         }
@@ -971,6 +1049,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if c.buried.is_some_and(|t| t >= BURIED_S + PULL_S) {
         c.buried = None;
     }
+    if c.slack.is_some_and(|t| t >= LEASH_SLACK_S) {
+        c.slack = None;
+    }
 
     // ── It swells as the fight goes on ──
     let swell = if inu.enraged { SWELL_ENRAGED } else if c.frenzied { SWELL_FRENZIED } else { 1.0 };
@@ -984,27 +1065,24 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let to = Vec2::new(c.to_x, c.to_y);
     let bob = 8.0 * (c.clock * 2.2).sin();
     let hover = |side: f32| {
-        let (goal, speed) = if in_final {
-            // In the final hall: at your side, over you; it waits over the
-            // middle of the hall while you are still in the gallery.
-            let waiting = target.x < final_lo || target.x > final_hi;
-            let goal = if waiting {
-                Vec2::new((final_lo + final_hi) * 0.5, top + h.len(20.0) + bob)
-            } else {
-                Vec2::new(target.x - side * h.len(HOVER_DX), target.y - h.len(HOVER_DY) + bob)
-            };
-            (goal, if c.frenzied { HOVER_SPEED_FRENZIED } else { HOVER_SPEED })
+        // It stalks you: at your height, a hunting distance to your side,
+        // pacing. In the final hall, while you are not in it yet, it waits
+        // over its middle.
+        let waiting = in_final && (target.x < final_lo || target.x > final_hi);
+        let pace = h.len(STALK_PACE) * (c.clock * std::f32::consts::TAU * STALK_PACE_HZ).sin();
+        let goal = if waiting {
+            Vec2::new((final_lo + final_hi) * 0.5, top + h.len(20.0) + bob)
         } else {
-            // The chase: behind you, over you, and faster when far behind.
-            let goal = Vec2::new(target.x - east * h.len(CHASE_BEHIND), target.y - h.len(CHASE_OVER) + bob);
-            let far = (goal - at).length() > CHASE_FAR;
-            (goal, CHASE_SPEED * if far { CHASE_CATCH_UP } else { 1.0 })
+            Vec2::new(target.x - side * h.len(STALK_DX) + pace, feet - STALK_CLEAR - half.y + bob * 0.5)
         };
+        let speed = if c.frenzied { HOVER_SPEED_FRENZIED } else { HOVER_SPEED };
         let goal = clamp(goal);
         let step = goal - at;
         let stride = speed * dt;
         if step.length() > stride { at + step.normalize() * stride } else { goal }
     };
+    // A position the run's lunge sets over its hunt.
+    let mut return_pos: Option<Vec2> = None;
     let pos = match part {
         Some(Part { mv: Move::Bite, striking: true, t, dur }) => from + (to - from) * ease_out(t / dur),
         Some(Part { mv: Move::Dive, striking: false, t, dur }) => from + (to - from) * ease(t / (dur * DIVE_RISE_U)),
@@ -1012,13 +1090,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             let u = (t / dur).min(1.0);
             from + (to - from) * u * u
         }
-        Some(Part { mv: Move::Vanish, striking: true, .. }) => to,
         Some(Part { mv: Move::Gutter, striking: false, t, dur }) => {
             let u = t / dur;
             Vec2::new(at.x, from.y + (ground - from.y) * u * u)
         }
         Some(Part { mv: Move::Gutter, striking: true, .. }) => Vec2::new(at.x, ground),
-        Some(Part { mv: Move::Vanish, striking: false, .. }) => at,
         Some(Part { striking: true, .. }) => at,
         Some(_) => {
             side = face(at.x);
@@ -1029,6 +1105,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             Vec2::new(at.x, to.y - h.len(SINK_PX + 10.0) * ease((t - BURIED_S) / PULL_S))
         }
         None if c.guttered.is_some() => Vec2::new(at.x, ground),
+        // Its leash slack, it pants where it is.
+        None if c.slack.is_some() => at,
         None if c.miss.is_some() => {
             let t = c.miss.unwrap_or(0.0);
             let along = (to - from).normalize_or(Vec2::ZERO);
@@ -1066,10 +1144,30 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             let heels = c.scent.len() <= 2;
             let goal = if heels { behind } else { over(Vec2::from(c.scent[0])) };
             side = if goal.x < at.x { -1.0 } else { 1.0 };
+            // Its lunge at your back: it gathers back, darts past you, skids.
+            if let Some(l) = c.lunge {
+                let from = Vec2::new(c.from_x, c.from_y);
+                let to = Vec2::new(c.to_x, c.to_y);
+                let dart = (l - RUN_GATHER_S) / RUN_DART_S;
+                return_pos = Some(if l < RUN_GATHER_S {
+                    from - Vec2::new(east * h.len(6.0) * ease(l / RUN_GATHER_S), 0.0)
+                } else if dart < 1.0 {
+                    side = if to.x < from.x { -1.0 } else { 1.0 };
+                    from + (to - from) * ease_out(dart)
+                } else {
+                    let skid = (l - RUN_GATHER_S - RUN_DART_S) / MISS_S;
+                    let along = (to - from).normalize_or(Vec2::ZERO);
+                    side = if along.x < 0.0 { -1.0 } else { 1.0 };
+                    at + along * (MISS_DRIFT / MISS_S) * (1.0 - skid).max(0.0) * dt
+                });
+            }
             let step = goal - at;
             let speed = RUN_SPEED * if !heels && c.scent.len() as f32 * SCENT_STEP > RUN_FAR { RUN_CATCH_UP } else { 1.0 };
             let stride = speed * dt;
-            clamp(if step.length() > stride { at + step.normalize() * stride } else { goal })
+            return_pos.take().map_or_else(
+                || clamp(if step.length() > stride { at + step.normalize() * stride } else { goal }),
+                clamp,
+            )
         }
         None => {
             side = face(at.x);
@@ -1092,16 +1190,49 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 riding(inv, h.jaws_down(), side, None, DIVE_DAMAGE, DIVE_KNOCKBACK, part.dur + 0.1, "inu_dive")?;
                 play(inv, SFX_DART, pos)?;
             }
-            Move::Onibi if onset => {
-                let count = if c.frenzied { ONIBI_AT.len() } else { 3 };
-                let speed = if c.frenzied { ONIBI_SPEED_FRENZIED } else { ONIBI_SPEED };
-                for degrees in ONIBI_AT.iter().take(count) {
-                    let off = h.onibi(*degrees);
-                    let origin = pos + Vec2::new(off.x * side, off.y);
-                    onibi(inv, origin, target - origin, speed)?;
-                    burst(inv, origin, 6, 140.0, ONIBI_FIRE, "spark")?;
+            Move::Pack => {
+                // One wisp every `PACK_GAP`, along its floor at you.
+                let count = if c.frenzied { PACK_FRENZIED } else { PACK };
+                let speed = if c.frenzied { WISP_SPEED_FRENZIED } else { WISP_SPEED };
+                if c.pack_sent < count && part.t >= c.pack_sent as f32 * PACK_GAP {
+                    let dir = if target.x < pos.x { -1.0 } else { 1.0 };
+                    wisp(inv, pos.x + dir * half.x * 0.5, hall.floor, dir, speed)?;
+                    play(inv, SFX_FLING, pos)?;
+                    c.pack_sent += 1;
                 }
-                play(inv, SFX_FLING, pos)?;
+            }
+            Move::Leash => {
+                // The chain from its neck down to the floor under it, and
+                // along the floor to its tip, which sweeps from behind it to
+                // in front of it. The tip hurts; the chain is fire.
+                let u = (part.t / part.dur).clamp(0.0, 1.0);
+                let reach = LEASH_REACH * inu.size[1];
+                let tip_x = pos.x + side * reach * (2.0 * ease(u) - 1.0);
+                let floor = hall.floor - LEASH_TIP_HALF.y;
+                let neck = h.neck();
+                let neck = pos + Vec2::new(neck.x * side, neck.y);
+                let under = Vec2::new(pos.x, floor);
+                let tip = Vec2::new(tip_x, floor);
+                if onset {
+                    play(inv, SFX_WHIP, pos)?;
+                }
+                if c.ticks % 2 == 0 {
+                    for k in 0..=LEASH_LINKS {
+                        let f = k as f32 / LEASH_LINKS as f32;
+                        let link = if f < 0.4 { neck + (under - neck) * (f / 0.4) } else { under + (tip - under) * ((f - 0.4) / 0.6) };
+                        burst(inv, link, 1, 40.0, FIRE, "spark")?;
+                    }
+                    burst(inv, tip, 3, 160.0, FIRE_CORE, "spark")?;
+                }
+                inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
+                    slot: SLOT_LEASH,
+                    generation: c.box_generation,
+                    center: tip.into(),
+                    half_extent: (LEASH_TIP_HALF * c.scale).into(),
+                    damage: LEASH_DAMAGE,
+                    knockback: LEASH_KNOCKBACK,
+                    lifetime_s: part.dur + 0.1,
+                })?;
             }
             Move::Howl if onset => {
                 let radius = inu.size[1] * HOWL_RADIUS;
@@ -1109,16 +1240,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 play(inv, howl_cue(c.scale), pos)?;
                 shake(inv, SHAKE_HOWL)?;
                 burst(inv, pos, 30, 360.0, FIRE_CORE, "spark")?;
+                // From the transition the howl calls the pack back: a wisp
+                // each way along the floor.
                 if c.frenzied {
-                    for k in 0..HOWL_ONIBI {
-                        let a = std::f32::consts::TAU * (k as f32 + 0.5) / HOWL_ONIBI as f32;
-                        onibi(inv, pos, Vec2::new(a.cos(), a.sin()), ONIBI_SPEED)?;
-                    }
+                    wisp(inv, pos.x - half.x * 0.5, hall.floor, -1.0, WISP_SPEED)?;
+                    wisp(inv, pos.x + half.x * 0.5, hall.floor, 1.0, WISP_SPEED)?;
                 }
-            }
-            Move::Vanish if onset => {
-                play(inv, SFX_VANISH, pos)?;
-                burst(inv, pos, 20, 240.0, FIRE, "spark")?;
             }
             Move::Gutter if onset => {
                 play(inv, SFX_SLAM, Vec2::new(pos.x, hall.floor - 4.0))?;
@@ -1127,13 +1254,44 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             _ => {}
         }
     }
-    // The dive lands: its teeth go into the floor.
+    // The dive lands: its teeth go into the floor, and a shock runs the
+    // floor both ways.
     if c.buried.is_some_and(|t| t <= dt) {
         let jaws = Vec2::new(pos.x, hall.floor - 4.0);
         play(inv, SFX_SLAM, jaws)?;
+        play(inv, SFX_SHOCK, jaws)?;
         shake(inv, SHAKE_DIVE)?;
         burst(inv, jaws, 30, 320.0, DUST, "dust")?;
         burst(inv, jaws, 16, 260.0, FIRE, "spark")?;
+        c.box_generation = c.box_generation.wrapping_add(1);
+        c.shock_left = Some(pos.x);
+        c.shock_right = Some(pos.x);
+        c.shock_floor = hall.floor;
+    }
+    // The shocks roll the floor to its walls.
+    for (slot, wave, dir) in [(SLOT_SHOCK[0], &mut c.shock_left, -1.0f32), (SLOT_SHOCK[1], &mut c.shock_right, 1.0)] {
+        let Some(x) = wave.as_mut() else {
+            continue;
+        };
+        *x += dir * SHOCK_SPEED * dt;
+        if *x < hall.left + SHOCK_HALF.x || *x > hall.right - SHOCK_HALF.x {
+            *wave = None;
+            continue;
+        }
+        let x = *x;
+        if c.ticks % 2 == 0 {
+            burst(inv, Vec2::new(x, c.shock_floor - 8.0), 5, 200.0, DUST, "dust")?;
+            burst(inv, Vec2::new(x, c.shock_floor - 8.0), 2, 160.0, FIRE, "spark")?;
+        }
+        inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
+            slot,
+            generation: c.box_generation,
+            center: [x, c.shock_floor - SHOCK_HALF.y],
+            half_extent: SHOCK_HALF.into(),
+            damage: SHOCK_DAMAGE,
+            knockback: SHOCK_KNOCKBACK,
+            lifetime_s: SHOCK_LIFETIME_S,
+        })?;
     }
 
     let row = drawn_row(&c, part);
@@ -1202,26 +1360,38 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
     }
     if let Some(t) = c.rearing {
         // It flares and howls, then goes at the wall jaws first.
-        return if t < FLARE_S { ("howl", t, false) } else { span("bite", 0.0, 8.0, 0.05, 0.35) };
+        return if t < FLARE_S { ("howl", t, false) } else { ("crash", t - FLARE_S, true) };
     }
     if let Some(t) = c.appear {
-        // It sweeps into the hall, then howls over it.
-        return if t < 0.6 * ARRIVE_S { ("drift", t, true) } else { ("howl", t - 0.6 * ARRIVE_S, false) };
+        // It howls over the hall it came into.
+        return ("howl", t, false);
+    }
+    if let Some(l) = c.lunge {
+        // Its lunge at your back: gather, dart, skid.
+        return if l < RUN_GATHER_S {
+            span("bite_tell", 0.0, 8.0, 0.07, l / RUN_GATHER_S)
+        } else if l < RUN_GATHER_S + RUN_DART_S {
+            span("bite", 0.0, 8.0, 0.05, (l - RUN_GATHER_S) / RUN_DART_S)
+        } else {
+            span("bite_miss", 0.0, 12.0, 0.07, (l - RUN_GATHER_S - RUN_DART_S) / MISS_S)
+        };
     }
     if let Some(t) = c.run {
-        return ("drift", t, true);
+        // It hunts: ears back, low, at a run.
+        return ("hunt", t, true);
     }
     match part {
         Some(p @ Part { mv: Move::Bite, striking: false, .. }) => tell("bite_tell", 8.0, 0.07, u(p)),
         Some(p @ Part { mv: Move::Bite, .. }) => span("bite", 0.0, 8.0, 0.05, u(p)),
         Some(p @ Part { mv: Move::Dive, striking: false, .. }) => tell("dive_tell", 8.0, 0.08, u(p)),
         Some(Part { mv: Move::Dive, t, .. }) => ("dive", t, true),
-        Some(p @ Part { mv: Move::Onibi, striking: false, .. }) => span("onibi_tell", 0.0, 10.0, 0.08, u(p)),
-        Some(p @ Part { mv: Move::Onibi, .. }) => span("onibi", 0.0, 8.0, 0.06, u(p)),
+        Some(p @ Part { mv: Move::Pack, striking: false, .. }) => span("pack_tell", 0.0, 10.0, 0.08, u(p)),
+        // A bark a wisp: its row is `PACK_GAP` long, and loops.
+        Some(Part { mv: Move::Pack, t, .. }) => ("pack", t, true),
+        Some(p @ Part { mv: Move::Leash, striking: false, .. }) => span("leash_tell", 0.0, 10.0, 0.08, u(p)),
+        Some(p @ Part { mv: Move::Leash, .. }) => span("leash_whip", 0.0, 10.0, 0.06, u(p)),
         Some(p @ Part { mv: Move::Howl, striking: false, .. }) => tell("howl_tell", 6.0, 0.08, u(p)),
         Some(Part { mv: Move::Howl, t, .. }) => ("howl", t, false),
-        Some(p @ Part { mv: Move::Vanish, striking: false, .. }) => span("vanish", 0.0, 8.0, 0.06, u(p)),
-        Some(p @ Part { mv: Move::Vanish, .. }) => span("appear", 0.0, 8.0, 0.06, u(p)),
         Some(p @ Part { mv: Move::Gutter, striking: false, .. }) => span("gutter", 0.0, 10.0, 0.08, u(p)),
         Some(Part { mv: Move::Gutter, t, .. }) => ("guttered", t, true),
         None => {
@@ -1233,6 +1403,8 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
                 }
             } else if let Some(t) = c.guttered {
                 ("guttered", t, true)
+            } else if let Some(t) = c.slack {
+                ("leash_slack", t, true)
             } else if let Some(t) = c.miss {
                 span("bite_miss", 0.0, 12.0, 0.07, t / MISS_S)
             } else {

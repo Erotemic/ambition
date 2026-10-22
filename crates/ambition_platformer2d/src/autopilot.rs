@@ -355,8 +355,11 @@ pub fn drive_autopilot(
         // A graph not kept and not on the way is built. A build for an
         // older geometry is dropped, which cancels it.
         if pilot.graphs.get(&key).is_none() && pilot.pending.as_ref().is_none_or(|pending| pending.key != key) {
-            let task = AsyncComputeTaskPool::get()
-                .spawn(async move { NavGraph::build_avoiding(&world, &exits, &key.probe_body(), motion) });
+            // In the background, and its surfaces on the background pool too,
+            // not on the pool the frame's systems run on.
+            let task = AsyncComputeTaskPool::get().spawn(async move {
+                NavGraph::build_on(&world, &exits, &key.probe_body(), motion, Some(&**AsyncComputeTaskPool::get()))
+            });
             pilot.pending = Some(PendingGraph { key, task });
         }
         pilot.wanted = Some(key);

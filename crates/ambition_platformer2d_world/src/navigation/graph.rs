@@ -143,7 +143,12 @@ impl NavGraph {
     }
 
     /// [`Self::build_avoiding`] on `pool`, or on this thread with none.
-    pub(crate) fn build_on(
+    ///
+    /// A build that runs in the background passes the pool it runs on: on the
+    /// compute pool its surfaces queue ahead of the frame's systems, and the
+    /// frame waits for the whole build (1.2 s a broken block in Mary-O 1-2 on
+    /// the phone: MEASURED, `android-all-mary_o-auto-20261022T205211Z`).
+    pub fn build_on(
         world: &World,
         exits: &[ae::Aabb],
         body: &BodyClusterScratch,

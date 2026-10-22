@@ -573,11 +573,17 @@ pub struct MenuFocusKey {
 /// Controls in the world carry their semantic action and kind as components,
 /// so hover, focus, accessibility, and other input can be ECS systems.
 #[derive(Component, Clone, Debug, PartialEq)]
+#[require(AnyMenuControl)]
 pub struct AmbitionMenuControl<Action> {
     pub kind: MenuControlKind,
     pub action: Option<Action>,
     pub focus: MenuFocusKey,
 }
+
+/// On every [`AmbitionMenuControl`], whatever its action type: a system can ask
+/// whether any menu control exists without naming the host's action.
+#[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct AnyMenuControl;
 
 /// Runtime visual state for a control.
 ///

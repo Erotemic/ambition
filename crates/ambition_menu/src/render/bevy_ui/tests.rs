@@ -1272,3 +1272,65 @@ fn hovering_a_selected_row_does_not_move_the_selection() {
         "a restyle draws the selected control as selected, not as focused"
     );
 }
+
+fn drain_previews(app: &mut App) -> Vec<crate::MenuActionPreviewed<Action>> {
+    app.world_mut()
+        .resource_mut::<Messages<crate::MenuActionPreviewed<Action>>>()
+        .drain()
+        .collect()
+}
+
+#[test]
+fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
+    // The flat menu's readers sleep while no menu control exists. The frame
+    // after the last one goes they still run once, so the hover edge resets.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let row = equip_row(&mut app);
+    set_interaction(&mut app, row, Interaction::Hovered);
+    assert_eq!(drain_previews(&mut app).len(), 1);
+
+    let roots: Vec<Entity> = app
+        .world_mut()
+        .query_filtered::<Entity, With<BevyUiMenuRoot>>()
+        .iter(app.world())
+        .collect();
+    for root in roots {
+        app.world_mut().entity_mut(root).despawn();
+    }
+    app.update();
+    app.update();
+
+    // The reopened row is hovered by the first frame its readers see it (the
+    // focus pass can run between the spawn and them).
+    let (page, _) = sample_page();
+    let tabs = tab_set();
+    app.world_mut().commands().queue(move |world: &mut World| {
+        let view = BevyUiMenuView {
+            tabs: &tabs,
+            active_tab: 0,
+            page: &page,
+            focused: None,
+            focused_tab: None,
+        };
+        spawn_bevy_ui_menu(&mut world.commands(), &view);
+        world.flush();
+        let row = world
+            .query::<(Entity, &AmbitionMenuControl<Action>)>()
+            .iter(world)
+            .find_map(|(entity, control)| {
+                (control.action == Some(Action::Equip)).then_some(entity)
+            })
+            .expect("sample page has an Equip row");
+        world.entity_mut(row).insert(Interaction::Hovered);
+    });
+    app.update();
+    assert_eq!(
+        drain_previews(&mut app),
+        vec![crate::MenuActionPreviewed {
+            action: Action::Equip,
+        }],
+        "the reopened menu's hovered row is a new hover",
+    );
+}

@@ -765,6 +765,24 @@ fn publish_bevy_ui_menu_tabs(
     }
 }
 
+/// The things the flat menu's systems read: its controls (a menu tree's, and
+/// lone ones such as the shell's startup card) and its tabs.
+type FlatMenuParts = Or<(With<crate::AnyMenuControl>, With<BevyUiMenuTab>)>;
+
+/// True while a menu control or tab exists, and on the first frame after the
+/// last one goes: that frame lets the edge-triggered readers see no controls
+/// and forget the last hover, so a menu reopened under a resting pointer
+/// previews its row again.
+pub fn a_flat_menu_is_up_or_was() -> impl FnMut(Query<(), FlatMenuParts>) -> bool + Clone {
+    let mut was_up = false;
+    move |parts: Query<(), FlatMenuParts>| {
+        let up = !parts.is_empty();
+        let run = up || was_up;
+        was_up = up;
+        run
+    }
+}
+
 /// Install pointer/touch activation for one host action type.
 ///
 /// Call once for every concrete `Action` rendered through
@@ -895,6 +913,16 @@ pub struct BevyUiMenuRestylePlugin;
 
 impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        // Every member acts on menu controls and tabs: with none (each menu
+        // closed, in play) there is nothing to read or restyle.
+        // Every installer of the set installs this plugin, once.
+        app.configure_sets(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::run_if(
+                BevyUiMenuInteractionSet,
+                a_flat_menu_is_up_or_was(),
+            ),
+        );
         app.add_systems(
             bevy::prelude::Update,
             (
@@ -948,9 +976,13 @@ pub fn install_bevy_ui_menu_scroll(app: &mut App) {
     app.add_observer(bevy_ui_scrollbar_drag);
     app.add_observer(bevy_ui_scrollbar_release);
     // Maintain the last good rect before the tracker reads it each frame.
+    // A scrollbar is a menu control: with no control there is no track to
+    // keep and no drag of this backend's to follow.
     app.add_systems(
         Update,
-        (bevy_ui_maintain_track_rect, bevy_ui_scrollbar_press_drag).chain(),
+        (bevy_ui_maintain_track_rect, bevy_ui_scrollbar_press_drag)
+            .chain()
+            .run_if(a_flat_menu_is_up_or_was()),
     );
 }
 

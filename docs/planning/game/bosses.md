@@ -528,6 +528,93 @@ Oni Leader, a different ninja. We can have some story play in with that."
 `projectile_visuals.ron`); its own sounds (it borrows cues); its own music
 state (it plays `galvanic_march` "howl" and "storm").
 
+### Rework (Jon, 2026-10-22) — PROPOSED, the identity and art wait for Jon
+
+Jon, after playing it: "there is a spot that the head cant actually pass on
+the way to the final arena, the camera zones snap the camera in really weird
+ways. Its just a very unbalanced fight. It's got a lot of really good bones on
+it, but it needs to be executed correctly." Then: "You shouldn't be able to
+move into a chase zone until you damage him enough in phase 1 of the fight,
+maybe when he enrages he crashes into a wall so you can do the run and
+chase", "if you get to the final arena before he does he just teleports
+there, that is no good", "I did like the theramin to cue the player into
+something being up with the head, but we should also probably start iron
+toccata a bit sooner". On balance: "Its unpolished ... the spirit fires are
+hard to reason about, but it just doesn't have a strong boss identity or
+attack patterns. And it probably shouldn't get tired so much." And: "add
+more animations and poses to the inugami boss. I.e. better art. Can also add
+more art / animations / posing to wolfenstein too to make the boss move
+smoother."
+
+**Measured (2026-10-22, `inugami_fight.rs`):**
+
+- At its transition the final hall's bounds put the head 7428 px down the
+  castle for one tick (fixed: `arrived`, 5886379b5).
+- The head (176 x 212) was held 11 s on a 48 px step at the throne room's
+  door, and 10 s under the battlements' floor at the top of the tower: its
+  run keeps it 40 px over your centre, so it drags along the floor.
+- Out of the throne room the camera went from still to 38 px a tick; off the
+  tower's top it made up 430 px on its own in under a second (fixed: zones
+  mix across their edges, 0e4bf34ba).
+
+**The fight's new shape (rulings; to build):**
+
+1. **Phase 1 in the throne room.** The arena's walls stay up after
+   Wolfenstein falls; the Inugami's phase 1 is fought in his arena.
+2. **The crash.** At its transition the head goes back, flares, and crashes
+   through the gallery wall: the wall breaks (a gated lock wall the conductor
+   opens, with debris, shake and a slam), and the chase starts through the
+   gap.
+3. **The chase hunts you there.** It flies after you through the whole route,
+   high enough that its jaws are at your height and its bulk is over you
+   (not on the floor), and the route is widened where its 176 x 212 does not
+   fit (Jon: "Widen the route"). If you are in the final hall before it, it
+   comes in after you, at its own speed: no sweep, no teleport.
+4. **Music.** Silence while it waits in his body. When the seam pops, the
+   theremin (Galvanic March's `unleash`) cues that something is wrong with the
+   head; Iron Toccata comes in under the rest of the rise (Jon: "When it tears
+   off").
+5. **Tired less.** It lies spent on the floor (the gutter) once a phase, at
+   the end of its longest string, not at the end of every cycle.
+
+**Identity — PROPOSED.** The Inugami is a hunting dog of the regime, set
+free, and its fight is the hunt and the leash it broke. Every move names a
+hunting dog's verb and reads from its silhouette and its fire:
+
+| move | tell | what it does | window |
+|---|---|---|---|
+| **stalk** (replaces the float) | low, ears flat, circles at your height | it keeps a hunting distance and paces you | — |
+| **lunge** (the bite, kept) | it gathers back, jaws open, eyes flare | a straight dart with a fire trail; two snaps | it skids past, shakes its head |
+| **pounce** (the dive, kept) | it climbs over you and points its nose down | drops jaws first; a shock along the floor both ways | its teeth in the floor |
+| **broken leash** (NEW, signature) | the stitches at its neck burn and a ghost chain unrolls | the chain whips across the room in one arc: jump it or duck it | the chain falls slack, it pants |
+| **the pack** (replaces the onibi) | the four blue hitodama drop to the floor and become wolf wisps | they run along the floor at you one at a time, in a visible line: jump each | — |
+| **howl** (kept, readable) | head back, the ring is drawn on the floor first | a ring pushes you off; from phase 2 it calls the pack back | it stays still for the howl |
+| vanish | — | REMOVED: a teleport, and Jon rejected the teleports | — |
+
+Phase 1 (the arena): stalk, lunge, pounce, howl; the pack once a cycle. The
+chase: lunges at your back and the pack running ahead of it; you turn and
+hit it when a lunge skids past. Phase 2 and the enrage (the final hall): the
+broken leash comes in; the enrage chains leash into pounce. Kagero stays as
+built.
+
+**Art — PROPOSED.** Both bosses are drawn by procedural poses
+(`wolfenstein.py`, 47 rows; `wolfenstein_inugami.py`, 22 rows). The work:
+
+- Inugami: new rows `stalk` (a pacing loop), `lunge_gather`, `lunge_skid`,
+  `pounce_turn`, `leash_tell`, `leash_whip`, `leash_slack`, `pack_call`,
+  `crash` (into the wall), `hurt_flinch` (two directions), `turn` (it turns
+  to face you over 4 frames, not a flip), `pant`; more frames on `idle`
+  (breath and ears), `bite` and `howl`; and squash and stretch on every dart.
+- Wolfenstein: in-between frames where his moves now cut (`walk` to `prowl`
+  to `run`, each tell to its strike); a `turn` row; settle frames after
+  `hammer_pull`, `lunge_skid` and `rake_recover`; more frames on `walk` and
+  `run`.
+- Whether the art stays procedural or becomes an authored SVG rig (as the
+  robot's) is Jon's call.
+
+**Slices, in order:** (1) the shape, music and route (rulings, no taste
+call); (2) the identity, after Jon's yes; (3) the art, after Jon's yes.
+
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged

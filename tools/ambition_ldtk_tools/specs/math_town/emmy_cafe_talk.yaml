@@ -1,0 +1,10 @@
+# Emmy Ethereal in the cafe speaks her own node. The title carries the room
+# because the symmetry kernel already owns `emmy_noether`.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/math_town/emmy_cafe_talk.yaml \
+#       --ldtk game/ambition_content/assets/worlds/math.ldtk --in-place
+level_id: math_cafe
+edits:
+  - target: { iid: NpcSpawn-208340 }
+    fields: { dialogue_id: "emmy_noether_cafe" }

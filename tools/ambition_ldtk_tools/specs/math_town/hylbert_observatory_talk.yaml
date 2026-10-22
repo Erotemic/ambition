@@ -1,0 +1,9 @@
+# Davy Hylbert in the Observatory.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/math_town/hylbert_observatory_talk.yaml \
+#       --ldtk game/ambition_content/assets/worlds/math.ldtk --in-place
+level_id: math_observatory
+edits:
+  - target: { iid: NpcSpawn-208319 }
+    fields: { dialogue_id: "davy_hylbert" }

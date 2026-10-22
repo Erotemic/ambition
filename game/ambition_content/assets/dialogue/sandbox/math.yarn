@@ -1,5 +1,122 @@
+title: math_context
+---
+// The Math dimension's conversations, one node per townsfolk. Node ids are
+// the character's own, bare: the town's voice. `emmy_noether_cafe` carries
+// the room because the symmetry kernel already owns `emmy_noether`.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
 title: erdish
 ---
 Erdish: My mind is open.
 -> Close.
+===
+
+title: trent
+---
+Trent: New in town, or just new to me? I make the introductions. It keeps the street honest.
+-> How do you decide who to vouch for?
+    Trent: I don't. I introduce them, and the street checks. Somebody has to start the handshake.
+-> Do you vouch for yourself?
+    Trent: Just Trent. Nothing more. The street takes that on faith, and I try to make the faith reasonable.
+===
+
+title: walter
+---
+Walter: The gate log. Everything that passes the cradle gets a line, and I read every line.
+-> What do you look for?
+    Walter: "Weather is fine" could be weather. It could be an agreed signal. I inspect the ink either way.
+-> Do they get caught?
+    Walter: The message slips past me, not the page. Two dull words, a secret between them. Maddening.
+===
+
+title: busy_beaver
+---
+Busy Beaver: You've found the foreman. The gate cradle is mine, and it is not finished.
+-> When is the work done?
+    Busy Beaver: Give me a bound and I will try to pass it. Nobody can tell me how long this takes. That is the interesting part.
+-> Aren't you tired?
+    Busy Beaver: One more course. Then I stop. Probably.
+===
+
+title: peggy
+---
+Peggy: I can prove I know the way out of anywhere. You will never learn the route. Watch?
+-> That sounds impossible.
+    Peggy: I answer questions only someone with the route could answer. Do that enough times and cheating gets very unlikely.
+-> Why not just show me?
+    Peggy: A secret you reveal to spend, you spend once. I never spend.
+===
+
+title: victor
+---
+Victor: Peggy's examiner. I ask questions only someone with the route could answer. I retain nothing.
+-> Don't you want to see the route?
+    Victor: If she shows me, there are two of us who can lose it. I confirm everything and keep none of it.
+-> Doesn't it frustrate you?
+    Victor: Of course. She enjoys that part. She also has not failed a challenge yet.
+===
+
+title: data_lovelace
+---
+Data Lovelace: The loom weaves flowers. The engine weaves algebra. Somebody must imagine what the machine is for.
+-> Can the engine think?
+    Data Lovelace: It follows operations we specify. I would be cautious about granting it more than that.
+-> Why the punch cards?
+    Data Lovelace: Cards that steer a loom can steer an engine. My notes ran longer than the paper they annotated. I regret nothing.
+===
+
+title: olivia
+---
+Olivia: The oracle of Euclid Street. Ask what you actually want to know. I answer once.
+-> Can I ask anything at all?
+    Olivia: You can. I answer the words, not the wish. Choose them accordingly.
+-> What was the last question?
+    Olivia: "Can that door open?" He never asked how. Every answer is correct. Whether it helps is on you.
+===
+
+title: leib_knives
+---
+Gottfried Leib-Knives: Mind your notation. A symbol should do useful work, not hide it.
+-> Duelists carry blades, not proofs.
+    Gottfried Leib-Knives: A derivative tells you how quickly the present is becoming the future. In a duel, that is practical information.
+-> What would you prove first?
+    Gottfried Leib-Knives: An infinitesimal cut still counts. Very well. Let us differentiate.
+===
+
+title: hypatia_prime
+---
+Hypatia: The observatory's glass is the oldest argument in town. Sit down, if you like.
+-> What are you looking for?
+    Hypatia: Conic sections, the astrolabe. The record is incomplete; that is not permission to stop reading.
+-> Aren't you a reconstruction?
+    Hypatia: You are speaking to a reconstruction, yes. A copy of a copy can still preserve an angle.
+===
+
+title: emmy_noether_cafe
+---
+Emmy Ethereal: The cafe keeps its hours because time keeps its laws. Sit anywhere. The symmetry holds.
+-> What does the theorem say, exactly?
+    Emmy Ethereal: Every symmetry hides a conservation law. Spin the rules and the laws do not change. That is not luck.
+-> Energy or momentum?
+    Emmy Ethereal: Energy, because today is like yesterday. I can show you the derivation if you have a chalkboard and an hour.
+===
+
+title: georg_canter
+---
+Georg Canter: The surveyor's office counts the finite things. I count the rest.
+-> How big is "the rest"?
+    Georg Canter: Pick a list of reals. I change the nth digit of the nth entry. The new number is on no list you own.
+-> Do people believe you?
+    Georg Canter: I showed the line holds more than the counting numbers, and was told this was indecent. Count again. Slower.
+===
+
+title: davy_hylbert
+---
+Davy Hylbert: The observatory is fully booked tonight. We can still take you.
+-> How is that possible?
+    Davy Hylbert: Move the guest in room n to n plus one. Room one is free. Yes, everybody complains.
+-> What are you working on?
+    Davy Hylbert: Infinite-dimensional spaces. A tidy axiom should survive inspection and keep its hat on.
 ===

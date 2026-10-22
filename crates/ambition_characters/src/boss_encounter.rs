@@ -37,6 +37,12 @@ pub struct BossEncounterSpec {
     pub music_phase1: String,
     pub music_phase2: String,
     pub music_enrage: String,
+    /// Seconds into the intro before `music_intro` starts: the intro opens in
+    /// silence (a death, a rise) and its track comes in at a moment of it.
+    /// The Inugami's comes in when his head tears off his body (Jon,
+    /// 2026-10-22: "When it tears off"). 0 starts it with the intro.
+    #[serde(default)]
+    pub music_intro_from: f32,
     /// Authored phase triggers appended to the intrinsic HP / time-in-phase
     /// ones (`intrinsic_from_spec`). This is the content seam for `External`
     /// gates a boss can't derive from HP alone — e.g. a mounted boss's

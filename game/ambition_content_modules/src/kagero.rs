@@ -71,6 +71,12 @@ const CUT_FORWARD: [f32; 2] = [52.0, -4.0];
 const CUT_HALF: [f32; 2] = [62.0, 54.0];
 const CUT_DAMAGE: [i32; 3] = [2, 2, 3];
 const CUT_KNOCKBACK: f32 = 0.0;
+/// Her cut is one blow: its box meets what it meets on the tick she cuts and
+/// is gone (half a tick). A strike from a module has no move to remember whom
+/// it hit, and a boss takes a module's strike on every tick that its box
+/// lives (measured 2026-10-22: a 0.08 s box cut the Inugami 5 times, 10 of
+/// its health a cut).
+const CUT_LIFE_S: f32 = 0.5 / 60.0;
 
 /// Where her line hangs from: up and away from the head.
 const LINE_UP: f32 = 1400.0;
@@ -315,7 +321,7 @@ fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             half_extent: CUT_HALF,
             damage,
             knockback: CUT_KNOCKBACK,
-            lifetime_s: 0.08,
+            lifetime_s: CUT_LIFE_S,
             hit_sound: Some(SFX_CUT_HIT.into()),
         })?;
         inv.submit::<BurstPort>(Burst { at: at.into(), count: 10, speed: 260.0, color: STEEL, kind: "streak".into() })?;

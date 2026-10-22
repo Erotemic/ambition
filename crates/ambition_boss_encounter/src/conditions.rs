@@ -117,6 +117,46 @@ pub fn engaged(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     ConditionOutcome::from_bool(beaten || fighting, || WhyNot::new("boss.engaged", boss, "it sleeps, or plays its intro"))
 }
 
+/// `boss.past_first_phase(boss)` — has this boss been driven out of its first
+/// phase?
+pub fn past_first_phase_descriptor() -> ConditionDescriptor {
+    ConditionDescriptor {
+        id: ConditionId::new(DOMAIN, "past_first_phase"),
+        summary: "true once the named boss fights its second phase or later, or has been defeated",
+        params: &[BOSS],
+    }
+}
+
+/// `boss.past_first_phase` — see [`past_first_phase_descriptor`]. A wall the
+/// boss breaks open when you have hurt it enough (the Inugami's, out of the
+/// throne room: Jon, 2026-10-22, "You shouldn't be able to move into a chase
+/// zone until you damage him enough in phase 1") waits on it. It stands through
+/// the boss's transition, which is the boss breaking it, and opens when the
+/// second phase starts; it stays open once the boss is beaten.
+pub fn past_first_phase(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(boss) = args[0].as_name() else {
+        return ConditionOutcome::unanswerable("`boss` must be a name");
+    };
+    let beaten = world
+        .get_resource::<ambition_persistence::save::AmbitionGameSave>()
+        .is_some_and(|save| save.data().boss(boss) == PersistedEncounterState::Cleared);
+    let past = world.try_query::<(&crate::BossConfig, &crate::BossEncounter)>().is_some_and(|mut bosses| {
+        bosses.iter(world).any(|(config, status)| {
+            config.id == boss
+                && matches!(
+                    status.encounter_phase(),
+                    crate::BossEncounterPhase::Phase2
+                        | crate::BossEncounterPhase::Stagger
+                        | crate::BossEncounterPhase::Enrage
+                        | crate::BossEncounterPhase::Death
+                )
+        })
+    });
+    ConditionOutcome::from_bool(beaten || past, || {
+        WhyNot::new("boss.past_first_phase", boss, "it is asleep, or in its first phase or its transition")
+    })
+}
+
 /// Publishes the boss domain's conditions.
 ///
 /// One plugin for one registration line, matching the world-fact, inventory,
@@ -129,6 +169,7 @@ impl bevy::prelude::Plugin for BossConditionsPlugin {
         use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
         app.publish_condition(cleared_descriptor(), cleared);
         app.publish_condition(engaged_descriptor(), engaged);
+        app.publish_condition(past_first_phase_descriptor(), past_first_phase);
     }
 }
 

@@ -286,9 +286,10 @@
             scale: 0.6,
         )),
     ),
-    // The Inugami's onibi: a ball of blue ghost fire (Jon, 2026-10-20: "the
-    // spirits around the head should be blue"; the cold fire's art for now).
-    "inugami_onibi": (
+    // A wolf wisp of the Inugami's pack: blue ghost fire that runs the floor
+    // (Jon, 2026-10-20: "the spirits around the head should be blue"; the
+    // cold fire's art, until the wisp is drawn).
+    "inugami_wisp": (
         source: Sheet(
             target: "shot_kit",
             animation: "coldfire",
@@ -299,7 +300,7 @@
         ),
         rotation: VelocityAligned,
         debug_tint: (0.36, 0.72, 1.0, 1.0),
-        label: "inugami_onibi",
+        label: "inugami_wisp",
         expiry_vfx: Some((
             fx: "classic_burst",
             scale: 0.6,

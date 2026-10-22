@@ -487,16 +487,16 @@
                 duration_secs: 0.09,
             )),
             (DashEcho, (
-                frame_count: 12,
-                duration_secs: 0.1,
+                frame_count: 16,
+                duration_secs: 0.075,
+            )),
+            (DashEcho, (
+                frame_count: 16,
+                duration_secs: 0.052,
             )),
             (DashEcho, (
                 frame_count: 12,
-                duration_secs: 0.07,
-            )),
-            (DashEcho, (
-                frame_count: 8,
-                duration_secs: 0.085,
+                duration_secs: 0.057,
             )),
             (Rest, (
                 frame_count: 6,
@@ -511,8 +511,8 @@
                 duration_secs: 0.07,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.08,
+                frame_count: 12,
+                duration_secs: 0.055,
             )),
             (SideSweep, (
                 frame_count: 6,
@@ -527,12 +527,12 @@
                 duration_secs: 0.055,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.08,
+                frame_count: 10,
+                duration_secs: 0.05,
             )),
             (Rest, (
-                frame_count: 10,
-                duration_secs: 0.1,
+                frame_count: 14,
+                duration_secs: 0.07,
             )),
             (FloorSlam, (
                 frame_count: 6,
@@ -543,20 +543,20 @@
                 duration_secs: 0.08,
             )),
             (Rest, (
+                frame_count: 10,
+                duration_secs: 0.04,
+            )),
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.06,
+            )),
+            (Rest, (
                 frame_count: 6,
                 duration_secs: 0.06,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.09,
-            )),
-            (Rest, (
-                frame_count: 6,
-                duration_secs: 0.06,
-            )),
-            (Rest, (
-                frame_count: 8,
-                duration_secs: 0.05,
+                frame_count: 12,
+                duration_secs: 0.035,
             )),
             (Rest, (
                 frame_count: 6,
@@ -669,8 +669,8 @@
         rows: [
             // idle
             (Rest, (
-                frame_count: 12,
-                duration_secs: 0.09,
+                frame_count: 16,
+                duration_secs: 0.07,
             )),
             // drift
             (DashEcho, (
@@ -727,16 +727,6 @@
                 frame_count: 6,
                 duration_secs: 0.07,
             )),
-            // onibi_tell
-            (Rest, (
-                frame_count: 10,
-                duration_secs: 0.08,
-            )),
-            // onibi
-            (SpikeHalo, (
-                frame_count: 8,
-                duration_secs: 0.06,
-            )),
             // howl_tell
             (Rest, (
                 frame_count: 6,
@@ -744,18 +734,43 @@
             )),
             // howl
             (SpikeHalo, (
-                frame_count: 12,
+                frame_count: 16,
+                duration_secs: 0.055,
+            )),
+            // hunt
+            (DashEcho, (
+                frame_count: 8,
                 duration_secs: 0.07,
             )),
-            // vanish
+            // crash
             (Rest, (
-                frame_count: 8,
+                frame_count: 4,
+                duration_secs: 0.05,
+            )),
+            // pack_tell
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.08,
+            )),
+            // pack
+            (Rest, (
+                frame_count: 7,
+                duration_secs: 0.05,
+            )),
+            // leash_tell
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.08,
+            )),
+            // leash_whip
+            (Rest, (
+                frame_count: 10,
                 duration_secs: 0.06,
             )),
-            // appear
+            // leash_slack
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.06,
+                frame_count: 10,
+                duration_secs: 0.1,
             )),
             // gutter
             (Rest, (

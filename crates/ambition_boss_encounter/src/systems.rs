@@ -364,7 +364,8 @@ pub fn update_boss_encounters(
         // (placement_id, archetype_id, spawn): the reward sync keys the chest
         // and looted flag by placement and resolves the DropChest reward via
         // the archetype profile.
-        if let Some(track) = phase_music_track(&spec, phase) {
+        let phase_elapsed = feature.status.encounter.as_ref().map_or(0.0, |p| p.phase_elapsed);
+        if let Some(track) = phase_music_track(&spec, phase, phase_elapsed) {
             if !track.is_empty() {
                 active_music_tracks
                     .entry(rooms.live().of(boss_entity))
@@ -485,14 +486,18 @@ pub fn notify_bosses_on_mount_death(
     }
 }
 
-/// The adaptive-music track a boss plays in `phase`, from its authored spec.
-/// `None` for `Dormant` / `Death` (no boss music — room music resumes).
+/// The adaptive-music track a boss plays in `phase`, `elapsed` seconds into
+/// it, from its authored spec. `None` for `Dormant` / `Death` (no boss music —
+/// room music resumes), and for the part of the intro before
+/// `music_intro_from`.
 fn phase_music_track(
     spec: &crate::BossEncounterSpec,
     phase: crate::BossEncounterPhase,
+    elapsed: f32,
 ) -> Option<&str> {
     use crate::BossEncounterPhase as P;
     let track = match phase {
+        P::Intro if elapsed < spec.music_intro_from => return None,
         P::Intro => &spec.music_intro,
         P::Phase1 | P::Transition => &spec.music_phase1,
         P::Phase2 | P::Stagger => &spec.music_phase2,

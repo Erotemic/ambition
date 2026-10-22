@@ -390,7 +390,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the monster.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 5);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "wolfenstein.conductor", 6);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -469,6 +469,8 @@ record! {
     /// While he takes the serum: seconds until his bolts may throw you back
     /// again.
     47 keep_off: f32,
+    /// He has turned round: seconds into coming round (`turn`).
+    48 turning: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1405,6 +1407,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         pose: conducts.then(|| Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
         side: Some(side),
     })?;
+    // He turned round between moves: he comes round over `TURN_S`.
+    c.turning = c.turning.map(|t| t + dt).filter(|t| *t < TURN_S);
+    if side != wolf.side && part.is_none_or(|p| !p.striking) {
+        c.turning = Some(0.0);
+    }
     let row = drawn_row(&c, part, walking);
     inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;
     c.store(inv)
@@ -1412,6 +1419,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
 /// He shakes in the lightning this long between two phases, then howls.
 const REAR_SHAKE_S: f32 = 0.9;
+/// He comes round over this long when he turns (`turn`).
+const TURN_S: f32 = 0.24;
 /// He comes up out of a rake over this long (`rake_recover`).
 const RECOVER_S: f32 = 0.48;
 
@@ -1449,7 +1458,7 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
     }
     let u = |p: Part| p.t / p.dur;
     match part {
-        Some(p @ Part { mv: Move::Rake | Move::RakeThrice, striking: false, .. }) => tell("rake_tell", 8.0, 0.08, u(p)),
+        Some(p @ Part { mv: Move::Rake | Move::RakeThrice, striking: false, .. }) => tell("rake_tell", 12.0, 0.055, u(p)),
         Some(Part { mv: mv @ (Move::Rake | Move::RakeThrice), striking: true, t, .. }) => {
             let blow = BLOW_AT.iter().take(mv.blows()).filter(|at| t >= **at).count().max(1);
             let into = (t - BLOW_AT[blow - 1]) / BLOW_S;
@@ -1459,9 +1468,9 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
                 _ => span("rake_c", 0.0, 8.0, 0.055, into),
             }
         }
-        Some(p @ Part { mv: Move::Hammer, striking: false, .. }) => tell("hammer_tell", 10.0, 0.1, u(p)),
+        Some(p @ Part { mv: Move::Hammer, striking: false, .. }) => tell("hammer_tell", 14.0, 0.07, u(p)),
         Some(p @ Part { mv: Move::Hammer, .. }) => span("hammer_slam", 0.0, 6.0, 0.05, u(p)),
-        Some(p @ Part { mv: Move::Lunge | Move::Bound, striking: false, .. }) => tell("lunge_tell", 8.0, 0.09, u(p)),
+        Some(p @ Part { mv: Move::Lunge | Move::Bound, striking: false, .. }) => tell("lunge_tell", 12.0, 0.06, u(p)),
         Some(Part { mv: Move::Lunge, t, .. }) => ("lunge", t, true),
         Some(p @ Part { mv: Move::Bound, t, .. }) => {
             let u = u(p);
@@ -1490,22 +1499,26 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         Some(p @ Part { mv: Move::Stab, .. }) => span("stab", 0.0, 6.0, 0.06, u(p)),
         None => {
             if let Some(t) = c.skid {
-                span("lunge_skid", 0.0, 8.0, 0.05, t / SKID_S)
+                span("lunge_skid", 0.0, 12.0, 0.035, t / SKID_S)
             } else if let Some(t) = c.stuck {
                 if t < STUCK_S {
                     ("hammer_stuck", t, true)
                 } else {
-                    span("hammer_pull", 0.0, 6.0, 0.06, (t - STUCK_S) / PULL_S)
+                    span("hammer_pull", 0.0, 10.0, 0.04, (t - STUCK_S) / PULL_S)
                 }
             } else if let Some(t) = c.winded {
                 ("winded", t, true)
             } else if let Some(t) = c.recover {
-                span("rake_recover", 0.0, 6.0, 0.08, t / RECOVER_S)
+                span("rake_recover", 0.0, 10.0, 0.05, t / RECOVER_S)
             } else if let Some(t) = c.overreached {
-                span("stab_recover", 0.0, 8.0, 0.08, t / OVERREACH_S)
+                span("stab_recover", 0.0, 12.0, 0.055, t / OVERREACH_S)
             } else if let Some(t) = c.flat {
                 // His charge spent: down on his hands, his head hung.
                 ("flatline", t, true)
+            } else if let Some(t) = c.turning {
+                // He comes round: the sheet faces him the new way, and his
+                // body follows it.
+                span("turn", 0.0, 6.0, 0.04, t / TURN_S)
             } else if walking && c.unleashed {
                 // Unleashed, he stalks on all fours.
                 ("prowl", c.clock, true)

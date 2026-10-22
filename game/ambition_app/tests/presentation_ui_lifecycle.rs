@@ -632,3 +632,23 @@ fn px(value: Val) -> f32 {
         other => panic!("expected Px, got {other:?}"),
     }
 }
+
+/// The stick's two nodes are written only when the stick has work. The crate's
+/// UI stage wrote them each frame, so the whole UI was laid out each frame.
+#[test]
+fn an_idle_joystick_writes_neither_of_its_nodes() {
+    let mut app = joystick_app(ae::Vec2::new(1600.0, 900.0), profiles::adaptive_platformer());
+    ambition_platformer2d::touch_input::bevy_plugin::quiet_the_joystick_ui_stage(&mut app);
+    for _ in 0..5 {
+        app.update();
+    }
+    let mut parts = app.world_mut().query_filtered::<Ref<Node>, Or<(
+        With<ambition_platformer2d::touch_input::bevy_plugin::VirtualJoystickUIBackground>,
+        With<ambition_platformer2d::touch_input::bevy_plugin::VirtualJoystickUIKnob>,
+    )>>();
+    let before: Vec<_> = parts.iter(app.world()).map(|node| node.last_changed()).collect();
+    assert_eq!(before.len(), 2, "the stick has a base and a knob");
+    app.update();
+    let after: Vec<_> = parts.iter(app.world()).map(|node| node.last_changed()).collect();
+    assert_eq!(before, after, "an idle frame wrote the stick's nodes");
+}

@@ -42,7 +42,9 @@ pub const TOUCH_HUD_Z: i32 = 5000;
 ///
 /// A composer that installs only [`crate::placement::TouchPresentationPlugin`]
 /// still needs the joystick so that the discovery step finds it.
-pub use virtual_joystick::{VirtualJoystickNode, VirtualJoystickPlugin};
+pub use virtual_joystick::{
+    VirtualJoystickNode, VirtualJoystickPlugin, VirtualJoystickUIBackground, VirtualJoystickUIKnob,
+};
 
 /// Joystick id for the generic `virtual_joystick` plugin: Move (left stick)
 /// and Aim (right stick).
@@ -315,7 +317,57 @@ impl Plugin for TouchControlsPlugin {
                 PostUpdate,
                 drive_joystick_knob_from_axis.after(JoystickSystems::UpdateUI),
             );
+        quiet_the_joystick_ui_stage(app);
     }
+}
+
+/// The crate's UI stage writes both nodes of the stick each frame, and the
+/// axis mirror then writes the knob again, so the UI was laid out again each
+/// frame. With this, the stage runs only when it has work
+/// ([`the_joystick_ui_has_work`]). Public so a test composes the same
+/// statement.
+pub fn quiet_the_joystick_ui_stage(app: &mut App) {
+    app.configure_sets(PostUpdate, JoystickSystems::UpdateUI.run_if(the_joystick_ui_has_work));
+}
+
+/// What `virtual_joystick`'s `update_ui` derives the stick's two nodes from,
+/// for one stick: its base offset and knob delta, the base and knob sizes in
+/// logical pixels.
+type StickPlacement = (Vec2, Vec2, Vec2, Vec2);
+
+/// Run condition of `JoystickSystems::UpdateUI`: a finger or the mouse is on a
+/// stick or has just left it (the crate's drag actions and the knob follow it),
+/// or what `update_ui` places the nodes from changed since the stage last ran.
+/// On a frame with neither, the stage would write the nodes it wrote before:
+/// without this condition the base and knob `Node`s were marked changed each
+/// frame, and Bevy laid the UI out again each frame.
+///
+/// It compares values, not change ticks: the crate's input system writes
+/// `VirtualJoystickState` each frame, and a layout pass can write
+/// `ComputedNode`s whose values are the same.
+fn the_joystick_ui_has_work(
+    joysticks: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
+    bases: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,
+    knobs: Query<&ComputedNode, With<VirtualJoystickUIKnob>>,
+    mut placed: Local<Vec<StickPlacement>>,
+) -> bool {
+    let logical = |node: &ComputedNode| node.size() * node.inverse_scale_factor;
+    let mut now = Vec::with_capacity(placed.len());
+    let mut touched = false;
+    for (state, children) in &joysticks {
+        touched |= state.pointer_state.is_some() || state.just_released;
+        let base = children.iter().find_map(|child| bases.get(child).ok()).map(logical);
+        let knob = children.iter().find_map(|child| knobs.get(child).ok()).map(logical);
+        now.push((state.base_offset, state.delta, base.unwrap_or(Vec2::NAN), knob.unwrap_or(Vec2::NAN)));
+    }
+    // NAN marks a node not laid out yet; it never equals itself, so the stage
+    // runs until both nodes exist.
+    let same = now.len() == placed.len() && now.iter().zip(placed.iter()).all(|(a, b)| a == b);
+    if touched || !same {
+        *placed = now;
+        return true;
+    }
+    false
 }
 
 /// Inset the drawn stick within its reserved footprint.

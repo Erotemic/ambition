@@ -192,23 +192,27 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // ARMING a challenge is first, so the grace that
                 // `tick_pending_challenges` counts down starts on the tick the
                 // narrative asked for it rather than the one after.
-                ecs::arm_requested_challenges,
+                //
+                // A challenge, a pet, a look to wear and the talkers' spacing
+                // are asked for only by a conversation (the Yarn vocabulary),
+                // so they sleep with dialogue where a game uses none.
+                ecs::arm_requested_challenges.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // Before the pet: a pet asked for in the conversation puts its
                 // own walk on the initiator after this has moved its step,
                 // so the pet's walk is the one that stays.
-                ecs::space_the_talkers,
-                ecs::apply_pet_requests,
+                ecs::space_the_talkers.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                ecs::apply_pet_requests.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The pet's script: the walk's arrival, the gesture's end, and
                 // its interruption. After the request, so a petter already on
                 // the mark starts the gesture on the tick it asked.
-                ecs::advance_pet_beats,
+                ecs::advance_pet_beats.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The holds and the two poses, from the beats as this tick
                 // leaves them: the next control gate reads the pet's state
                 // and not the state one tick before it.
-                ecs::project_pet_holds,
+                ecs::project_pet_holds.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // A look a conversation asked a body to wear. The template is
                 // applied by the wear system on the tick after.
-                ecs::apply_wear_requests,
+                ecs::apply_wear_requests.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The row a character rests in, when its catalog row states
                 // one (the giant gnu whole, with its arms on it).
                 ecs::pin_rest_rows,
@@ -229,7 +233,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
-                ecs::tick_pending_challenges.in_set(GameplayGated),
+                ecs::tick_pending_challenges.in_set(GameplayGated).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 ecs::apply_actor_stimuli,
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
@@ -312,7 +316,11 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     // them. Publishing here is what lets the consumers stop asking.
     app.add_systems(
         sim,
-        (refresh_body_damageable_volumes, refresh_boss_damageable_volumes)
+        (
+            refresh_body_damageable_volumes,
+            // Only named bosses have boss volumes.
+            refresh_boss_damageable_volumes.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+        )
             .in_set(ambition_combat::components::DamageFacingVolumesPublished)
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
             // Victim geometry is published between the move clock and the damage pass: AFTER
@@ -962,6 +970,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::stocks::tick_respawn_grace
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                 .in_set(ambition_combat::stocks::RespawnGraceTicked)
                 .after(ambition_combat::stocks::FighterRespawnsDue)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
@@ -970,7 +979,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             (
+                // The stock systems sleep where a game has no stocks match
+                // (`Capability::MatchStocks`). The causal observers below
+                // record every hit, and stay awake.
                 ambition_combat::stocks::spend_fighter_stocks
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                     .in_set(ambition_combat::stocks::FighterStocksSpent),
                 // D192: the return is decided AFTER the spend and BEFORE any
                 // ruleset places a body. An interval of zero still resolves on
@@ -982,13 +995,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // CONSEQUENCE, and it still has to sit between the spend that
                 // opens the window and the ruleset that places the body.
                 ambition_combat::stocks::respawn_when_the_interlude_closes
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                     .in_set(ambition_combat::stocks::FighterRespawnsDue)
                     .after(ambition_combat::stocks::FighterStocksSpent),
                 crate::features::stocks_match::decide_stocks_match
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                     .in_set(ambition_combat::stocks::MatchOutcomeDecided),
                 // Reading the latch on the frame BEFORE the one that sets it would let the
                 // winner play on for one tick, which is the window a final KO happens in.
-                crate::features::stocks_match::state_the_matchs_pace,
+                crate::features::stocks_match::state_the_matchs_pace.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks)),
                 // The causal OBSERVER, last in the chain so it reads this tick's
                 // decision rather than the previous one. It holds no authority
                 // over any of the above — it reads their messages — which is why
@@ -1060,7 +1075,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (
                 refresh_body_damageable_volumes,
-                refresh_boss_damageable_volumes,
+                refresh_boss_damageable_volumes.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
                 refresh_breakable_damageable_volumes,
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
@@ -1429,6 +1444,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
+                // A boss's limbs exist only where named bosses do.
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                 .after(ambition_mount::MountsSteeredByRiders)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,

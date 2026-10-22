@@ -57,10 +57,15 @@ pub enum Capability {
     /// The player trail: its emission, its loops, and the gizmo groups that
     /// draw it in each live room's band.
     Trails,
+    /// A stocks match: a fighter's stocks spent on a knockout, its return when
+    /// the interlude closes and the grace after it, the match's outcome and its
+    /// pace. The engine installs them for every game, so this is not removable
+    /// from the engine group.
+    MatchStocks,
 }
 
 impl Capability {
-    pub const ALL: [Capability; 11] = [
+    pub const ALL: [Capability; 12] = [
         Capability::Cutscenes,
         Capability::Dialogue,
         Capability::BossEncounters,
@@ -72,6 +77,7 @@ impl Capability {
         Capability::Encounters,
         Capability::Captures,
         Capability::Trails,
+        Capability::MatchStocks,
     ];
 
     /// The capabilities a composition can leave out of the engine group (the
@@ -98,6 +104,7 @@ impl Capability {
             Capability::Encounters => "encounters",
             Capability::Captures => "captures",
             Capability::Trails => "trails",
+            Capability::MatchStocks => "match-stocks",
         }
     }
 
@@ -125,7 +132,8 @@ impl Capability {
             | Capability::Mounts
             | Capability::Encounters
             | Capability::Captures
-            | Capability::Trails => None,
+            | Capability::Trails
+            | Capability::MatchStocks => None,
         }
     }
 

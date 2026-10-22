@@ -85,6 +85,9 @@ impl CapabilityComposition for Capability {
             Capability::Trails => {
                 group.disable::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin>()
             }
+            // Not a unit either: the world-prep schedule registers the stock
+            // systems with the rest of its combat settle.
+            Capability::MatchStocks => group,
         }
     }
 
@@ -128,6 +131,9 @@ impl CapabilityComposition for Capability {
             Capability::Trails => {
                 app.is_plugin_added::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin>()
                     || world.contains_resource::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailEnabled>()
+            }
+            Capability::MatchStocks => {
+                app.is_plugin_added::<ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin>()
             }
         }
     }

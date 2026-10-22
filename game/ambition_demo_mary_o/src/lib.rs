@@ -87,6 +87,7 @@ pub const USED_CAPABILITIES: ambition_platformer2d::platformer::capability::Used
         .without(Capability::Encounters)
         .without(Capability::Captures)
         .without(Capability::Trails)
+        .without(Capability::MatchStocks)
 };
 
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).

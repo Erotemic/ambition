@@ -391,7 +391,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     shrine_visuals::animate_shrine_visuals
                         .run_if(bevy::prelude::any_with_component::<shrine_visuals::ShrineVisual>)
                         .after(actors::animate_props),
-                    unauthored_volumes::draw_unauthored_attack_volumes,
+                    unauthored_volumes::draw_unauthored_attack_volumes
+                        .run_if(unauthored_volumes::a_strike_or_its_volume_stands),
                     // A swing's passes run only while a cue is unread or a
                     // swing is on screen.
                     slash_visuals::spawn_slash_effects
@@ -458,7 +459,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         app.add_systems(
             Update,
             (
-                gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
+                gravity_visuals::sync_gravity_zone_visual
+                    .run_if(gravity_visuals::a_zone_or_its_visual_stands)
+                    .after(actors::sync_visuals),
             )
                 .run_if(session_presentation_is_ready),
         );
@@ -733,10 +736,13 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             Update,
             (
                 launch_trail::emit_launch_trails,
-                knockout::emit_knockout_beat,
+                knockout::emit_knockout_beat
+                    .run_if(bevy::prelude::on_message::<ambition_vfx::vfx::KnockoutBeatRequested>),
                 body_cues::emit_smash_charge_cues,
                 body_cues::emit_parry_cues,
-                dizzy_stars::emit_dizzy_stars,
+                // Stars only over a shattered guard.
+                dizzy_stars::emit_dizzy_stars
+                    .run_if(|breaks: bevy::prelude::Res<ambition_sim_view::GuardBreaksView>| !breaks.0.is_empty()),
             )
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,

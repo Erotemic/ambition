@@ -30,6 +30,15 @@ pub struct ZoneDraw {
 /// The visuals are spawned again only when what the zones draw changed, or a
 /// visual is gone (a room or session teardown took it). Spawning them every
 /// frame gave the same picture and two archetype moves per visual per frame.
+/// Run condition of [`sync_gravity_zone_visual`]: a gravity zone stands, or
+/// a visual of one remains to retire.
+pub fn a_zone_or_its_visual_stands(
+    zones: Query<(), With<GravityZone>>,
+    visuals: Query<(), With<GravityZoneVisual>>,
+) -> bool {
+    !zones.is_empty() || !visuals.is_empty()
+}
+
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
     // Each zone is drawn in its own live room, by that room's geometry.

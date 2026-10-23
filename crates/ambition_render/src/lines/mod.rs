@@ -194,7 +194,14 @@ impl Plugin for LinesPlugin {
         use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
         app.add_systems(
             Update,
-            (receive_decorations, follow_ray_strikes, lay_out_lines)
+            (
+                receive_decorations,
+                // Only while a strike stands: a ray is one of its strikes.
+                follow_ray_strikes.run_if(|view: Option<bevy::prelude::Res<CombatGeometryView>>| {
+                    view.is_some_and(|view| !view.strikes.is_empty())
+                }),
+                lay_out_lines,
+            )
                 .chain()
                 .after(Platformer2dSimulationPhase::CoreSimulation)
                 // A body end is where its body is drawn this frame.

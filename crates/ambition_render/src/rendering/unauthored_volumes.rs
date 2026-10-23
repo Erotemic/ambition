@@ -52,6 +52,15 @@ pub(crate) struct UnauthoredVolumeVisual {
     hitbox: Entity,
 }
 
+/// Run condition of [`draw_unauthored_attack_volumes`]: a strike stands, or
+/// a volume drawn for one remains to retire.
+pub(crate) fn a_strike_or_its_volume_stands(
+    combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
+    drawn: Query<(), With<UnauthoredVolumeVisual>>,
+) -> bool {
+    !combat_geometry.strikes.is_empty() || !drawn.is_empty()
+}
+
 /// Draw every live hit volume whose owner authored no attack VFX, and stop
 /// when the volume stops existing.
 ///
@@ -332,6 +341,19 @@ fn swing_vertex_colors(
 
 #[cfg(test)]
 mod tests {
+    /// The pass runs while a volume it drew remains with no strike, so the
+    /// volume of an ended swing is taken away.
+    #[test]
+    fn an_ended_swings_volume_is_taken_away() {
+        let mut app = App::new();
+        app.init_resource::<ambition_sim_view::CombatGeometryView>();
+        app.add_systems(Update, draw_unauthored_attack_volumes.run_if(a_strike_or_its_volume_stands));
+        let hitbox = app.world_mut().spawn_empty().id();
+        let volume = app.world_mut().spawn((UnauthoredVolumeVisual { hitbox }, Transform::default())).id();
+        app.update();
+        assert!(app.world().get_entity(volume).is_err(), "the volume of an ended swing stayed drawn");
+    }
+
     use super::*;
 
     fn box_ring(half: f32) -> Vec<ae::Vec2> {

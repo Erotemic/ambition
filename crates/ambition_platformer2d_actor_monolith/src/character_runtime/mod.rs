@@ -893,13 +893,15 @@ impl Plugin for CharacterRuntimePlugin {
                 // Activation stays here because building bodies is simulation,
                 // and it replays correctly precisely because the plan it reads
                 // was decided outside the window and cannot have changed.
+                // Each only with its input: a plan to build, a match to release.
                 (
-                    match_activation::activate_the_prepared_match,
+                    match_activation::activate_the_prepared_match
+                        .run_if(resource_exists::<ambition_match::PreparedMatch>),
                     // The ceremony's other end: the tick the hold comes off.
                     // Chained after activation so a match whose ruleset declares
                     // NO countdown still releases on the tick it is built — the
                     // behaviour every match had before ceremonies existed.
-                    match_activation::release_the_opening_hold,
+                    match_activation::release_the_opening_hold.run_if(resource_exists::<ambition_match::ActiveMatch>),
                 )
                     .chain()
                     // Preparation needs an ASSEMBLED content composition, and a
@@ -950,6 +952,7 @@ impl Plugin for CharacterRuntimePlugin {
                 // condition itself rather than a schedule-level proxy for it,
                 // and a gate here would be a second opinion that could disagree.
                 live_match_clock::count_the_live_match_ticks
+                    .run_if(resource_exists::<ambition_match::ActiveMatch>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
             )
             .add_systems(
@@ -965,13 +968,20 @@ impl Plugin for CharacterRuntimePlugin {
                 (
                     // The same requirement as the activation registration above,
                     // named the same way.
-                    match_activation::prepare_the_match.run_if(resource_exists::<
-                        ambition_characters::actor::character_catalog::CharacterCatalog,
-                    >),
+                    match_activation::prepare_the_match
+                        .run_if(resource_exists::<ambition_characters::actor::character_catalog::CharacterCatalog>)
+                        // A match is prepared from a published roster; with none,
+                        // there is nothing to prepare.
+                        .run_if(resource_exists::<ambition_match::MatchParticipantRoster>),
                     // The camera's answer for a match with no local participant.
                     // In `Update` beside preparation because it is a projection
                     // FOR presentation, not simulation state.
-                    match_activation::declare_the_match_cast_as_the_view,
+                    match_activation::declare_the_match_cast_as_the_view.run_if(
+                        |active: Option<Res<ambition_match::ActiveMatch>>,
+                         framed: Option<Res<ambition_platformer2d_shared_tangle::markers::FramedCast>>| {
+                            active.is_some() || framed.is_some_and(|framed| !framed.0.is_empty())
+                        },
+                    ),
                 ),
             )
             .add_systems(

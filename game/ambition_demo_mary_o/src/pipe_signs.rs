@@ -101,8 +101,16 @@ fn present_pipe_signs(
             continue;
         }
         let spec = rooms.rooms().spec(definition);
+        // A room with no pipe to a level has no sign, and no stamp: the hub's
+        // rooms are not hers, and whether one was stamped depended on whether
+        // this set was awake when it was built (a boot is routing, a world
+        // reload is not).
+        let warps = crate::warp_pipes_for_room(&spec.id);
+        if warps.is_empty() {
+            continue;
+        }
         let scope = session_scope.in_room(Some(room));
-        for warp in crate::warp_pipes_for_room(&spec.id) {
+        for warp in warps {
             let title = rooms
                 .rooms()
                 .rooms

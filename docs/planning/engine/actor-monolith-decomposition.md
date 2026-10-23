@@ -505,6 +505,12 @@ hold and the seen-flag save effect, `CutsceneSchedulePlugin`) followed for
 the same reason: it read nothing else of the monolith, `ambition_cutscene`
 must stay gameplay-free, and the runtime installs it and is where a profile
 without the `Cutscenes` capability leaves it out. About 400 lines.
+The time module followed too, as the runtime's `sim_clock` (time control:
+intents, smoothing, reporting; and the `SimDt` mirror with its set): only
+the runtime named it. Its two source scans of the monolith's clock
+discipline stayed in the monolith (`clock_discipline_tests`), because what
+they scan is the monolith's source; left with the time module, they would
+have scanned the runtime's.
 
 **Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
 (1) is match preparation reading the session root's `InitialBodyPolicy`, to

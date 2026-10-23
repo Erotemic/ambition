@@ -365,7 +365,7 @@ fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Side
 /// one statement, both halves. A system that only spoke when the match was
 /// over would leave the freeze standing: nothing else says "back to full speed"
 /// on a CPU-vs-CPU stage, because the only other producer of a neutral request
-/// is [`emit_player_time_intent_system`](crate::time::time_control::emit_player_time_intent_system),
+/// is `ambition_platformer2d_runtime::sim_clock::time_control::emit_player_time_intent_system`,
 /// which reads the PRIMARY PLAYER and has nothing to say in a match with none.
 /// So the first frozen match would freeze every match after it. Saying the pace
 /// every tick makes it self-healing: a new activation is a new

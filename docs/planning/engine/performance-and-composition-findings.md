@@ -71,6 +71,7 @@ consolidations and the monolith packets.
 | Monolith packet: the gameplay trace recorder (`dev::trace`) leaves the actor monolith as `ambition_platformer2d_trace`; the runtime installs it, the facade names it `trace_recorder`. The room-entered quest producer moves to the runtime that installs it | done | ~1,340 production and ~910 test lines out of the monolith (36 tests); 0 systems added or removed |
 | Each narrative ledger's release and prune run only while the ledger holds a record (twelve ledgers, two systems each, ran every frame in Ambition's rooms); the match-decided camera zoom sleeps with the stocks rules (`CapabilitySet(MatchStocks)`), as the only writer of its message does; the quest panel builds its text only when the quests, the setting or the panel change | done | census: hub Ambition route 1,323 → 1,298 systems a frame, Mary-O route 1,142 → 1,141 |
 | Monolith packet: the cutscene player (`cutscene`, `CutsceneSchedulePlugin`) moves to the runtime that installs it and that the profiles disable it from | done | ~400 lines out of the monolith; 0 systems added or removed |
+| Monolith packet: the time module (time control and the `SimDt` mirror) moves to the runtime as `sim_clock`; the monolith keeps its two clock-discipline scans | done | ~400 production lines out of the monolith; 0 systems added or removed; monolith 1,240 and runtime 100 lib tests pass |
 
 ### F43 — What still changes, spawns and allocates each frame (2026-10-23)
 

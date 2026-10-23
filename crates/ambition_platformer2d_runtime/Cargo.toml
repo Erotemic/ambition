@@ -105,6 +105,9 @@ bevy = { version = "0.19.1", default-features = false, features = [
 # `governing_rules::test_fixtures::two_game_session`: a session with an
 # Ambition hall and a Smash stage, for the capability conditions' witnesses.
 ambition_combat = { path = "../ambition_combat", features = ["test-support"] }
+# System names in test builds: `sim_clock`'s installer witness identifies the
+# system it registered by name.
+bevy = { version = "0.19.1", default-features = false, features = ["debug"] }
 
 [features]
 # Structured causal facts. Optional and default-OFF for the same §2e reason the

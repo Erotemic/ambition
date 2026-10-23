@@ -37,12 +37,13 @@
 | [`runtime_census`](src/runtime_census.rs) | `[census] rooms` — WHICH ROOM IS LIVE, AND WHAT THE CROSSING IS DOING. |
 | [`sandbox_reset`](src/sandbox_reset.rs) | The sandbox reset authority and its room-replay consumer. |
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
+| [`sim_clock`](src/sim_clock/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`sim_identity`](src/sim_identity.rs) | Backend-neutral stable simulation identity maintenance. |
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

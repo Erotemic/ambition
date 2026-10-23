@@ -247,7 +247,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # The simulation's one time authority is `WorldTime`, published at
         # `SimClockHead` from Bevy's `Time`; `SimDt` is its derived mirror.
         "paths": [
-            "crates/ambition_platformer2d_actor_monolith/src/time/",
+            "crates/ambition_platformer2d_runtime/src/sim_clock/",
             "crates/ambition_platformer2d_actor_monolith/src/control/",
             "crates/ambition_platformer2d_trace/src/",
             "crates/ambition_dev_tools/src/lib.rs",

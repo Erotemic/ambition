@@ -51,7 +51,6 @@ pub mod projectile;
 pub mod repertoire;
 pub mod session;
 mod snapshot_impls;
-pub mod time;
 pub mod world;
 pub mod world_facts;
 
@@ -65,13 +64,13 @@ pub mod game_assets;
 pub use world::rooms;
 
 // Keep generic time vocabulary in `ambition_time`; export only the local bridge.
-pub use time::move_toward;
-pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
 #[cfg(test)]
 mod safe_pos_tests;
+#[cfg(test)]
+mod clock_discipline_tests;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;

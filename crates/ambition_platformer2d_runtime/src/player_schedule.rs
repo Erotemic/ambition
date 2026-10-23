@@ -47,8 +47,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // the runtime crate's neutral `SimDt` so every downstream
                 // runtime system (gravity / zones / orient-roll) reads scaled
                 // dt without a sandbox dependency.
-                ambition_platformer2d_actor_monolith::mirror_sim_dt_into_runtime
-                    .in_set(ambition_platformer2d_actor_monolith::SimDtMirrored),
+                crate::sim_clock::world_time::mirror_sim_dt_into_runtime
+                    .in_set(crate::sim_clock::world_time::SimDtMirrored),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
@@ -59,7 +59,7 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             ambition_time::advance_day_clock
                 .in_set(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
-                .after(ambition_platformer2d_actor_monolith::SimDtMirrored),
+                .after(crate::sim_clock::world_time::SimDtMirrored),
         );
 
         // Consume clock requests after every producer in the frame. `WorldTime` is still
@@ -68,11 +68,11 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::time::time_control::emit_player_time_intent_system
+                crate::sim_clock::time_control::emit_player_time_intent_system
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_scale_requests
                     .in_set(GameplayGated),
-                ambition_platformer2d_actor_monolith::time::time_control::smooth_sim_clock_toward_target_system
+                crate::sim_clock::time_control::smooth_sim_clock_toward_target_system
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_reset_requests
                     .in_set(GameplayGated),

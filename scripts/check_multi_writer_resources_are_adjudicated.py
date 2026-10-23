@@ -678,7 +678,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ClockState": (
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs",
+        "crates/ambition_platformer2d_runtime/src/sim_clock/time_control/mod.rs",
         "crates/ambition_time/src/time_control/mod.rs",
     ),
     "DayClock": (
@@ -2416,7 +2416,7 @@ ADJUDICATED: dict[str, str] = {
         "smoother cannot ramp back up underneath it. POISON-VERIFIED 2026-09-17: "
         "dropping the target write fails "
         "`suspended_frame_zeros_world_time_scaled_dt` "
-        "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
+        "(`ambition_platformer2d_runtime/src/sim_clock/time_control/tests.rs`), which is the arm that "
         "makes this a verdict rather than an opinion. The third file is "
         "`SESSION_SCOPE_RESET` (2026-10-04): `SessionScopedResources::reset` sets "
         "the pace to neutral at the session edge, the shape of `SimTick`. "

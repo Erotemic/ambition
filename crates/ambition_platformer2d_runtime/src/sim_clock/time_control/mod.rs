@@ -168,7 +168,7 @@ pub fn smooth_sim_clock_toward_target_system(
     } else {
         feel.time_ramp_up_rate
     };
-    clock.time_scale = crate::move_toward(clock.time_scale, target.sim_clock, rate * frame_dt);
+    clock.time_scale = crate::sim_clock::move_toward(clock.time_scale, target.sim_clock, rate * frame_dt);
 }
 
 /// Report sim-clock target changes and frozen/running transitions.

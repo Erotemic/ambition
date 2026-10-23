@@ -45,6 +45,9 @@ pub mod quest;
 /// The cutscene player: triggers, playback and its save effects (the
 /// `Cutscenes` capability; a profile without it leaves the plugin out).
 pub mod cutscene;
+/// The simulation clock's scale and its bridge into the neutral `SimDt`: time
+/// control (intents, smoothing, reporting) and the sim-dt mirror.
+pub mod sim_clock;
 pub mod posed_limbs;
 pub mod profile;
 pub mod projectile_schedule;

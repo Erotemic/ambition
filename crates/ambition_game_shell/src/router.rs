@@ -274,6 +274,15 @@ impl std::fmt::Display for ShellRequestId {
     }
 }
 
+/// The platform asks the live game to pause: the app went to the background
+/// (Android's screen off, home, the notification shade). The pause menu that
+/// serves the live session opens if it is closed, and stays open on return,
+/// so the player resumes by choice. An open menu stays open; this never closes
+/// one. Each pause menu that serves a session answers it (the shell's, Ambition's
+/// own).
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PauseRequested;
+
 #[derive(Message, Clone, Debug, Eq, PartialEq)]
 pub enum ShellCommand {
     Initialize,

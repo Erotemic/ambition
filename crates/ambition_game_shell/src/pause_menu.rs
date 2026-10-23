@@ -30,7 +30,8 @@ use bevy::prelude::*;
 use crate::abandon::{ShellAbandonOffer, ShellAbandonRequested};
 use crate::audio_controls::ShellAudioControl;
 use crate::{
-    shell_action_edges, ActiveGameplaySession, ShellCommand, ShellHostConfiguration, ShellRouter,
+    shell_action_edges, ActiveGameplaySession, PauseRequested, ShellCommand,
+    ShellHostConfiguration, ShellRouter,
 };
 
 
@@ -233,6 +234,7 @@ impl Plugin for ShellPauseMenuPlugin {
         ));
         app.init_resource::<ShellPauseMenu>()
             .init_resource::<ShellPauseMenuSuppressed>()
+            .add_message::<PauseRequested>()
             .add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
             // Input consumers: after every producer, in the same frame.
@@ -306,7 +308,11 @@ fn drive_shell_pause_menu(
     mut next_mode: Option<ResMut<NextState<GameMode>>>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
     mut sfx: SfxWriter,
+    mut pause_requests: MessageReader<PauseRequested>,
 ) {
+    // Read on every frame, so a request made while another surface owns the
+    // screen is not acted on later.
+    let pause_requested = pause_requests.read().count() > 0;
     // The launcher owns the screen. Close this menu if it is open.
     if launcher.as_deref().is_some_and(|state| state.active) {
         if menu.open {
@@ -349,6 +355,16 @@ fn drive_shell_pause_menu(
         },
         None => (shell_action_edges(menu_frame.as_deref()), None),
     };
+    // The platform's request opens a closed menu over a live session, with no
+    // cue: the screen is going off.
+    if pause_requested && !menu.open && in_session {
+        menu.open = true;
+        menu.cursor = 0;
+        menu.owner = None;
+        pause_sim(&game_mode, &mut next_mode);
+        return;
+    }
+
     // Escape / Start toggle; the controller B (`back`) also closes an open menu.
     let toggle = edges.pause || (menu.open && edges.back);
 
@@ -823,6 +839,33 @@ mod tests {
             f.start = true;
             f.back = true;
         });
+    }
+
+    /// The platform's pause (the app went to the background) opens the menu
+    /// over a live session, and another request does not close it.
+    #[test]
+    fn a_platform_pause_opens_the_menu_and_keeps_it_open() {
+        let mut app = app();
+        with_live_session(&mut app);
+        app.update();
+        app.world_mut().write_message(PauseRequested);
+        app.update();
+        assert!(app.world().resource::<ShellPauseMenu>().open);
+        app.world_mut().write_message(PauseRequested);
+        app.update();
+        assert!(
+            app.world().resource::<ShellPauseMenu>().open,
+            "a request is not a toggle"
+        );
+    }
+
+    /// With no session there is nothing to pause.
+    #[test]
+    fn a_platform_pause_without_a_session_opens_nothing() {
+        let mut app = app();
+        app.world_mut().write_message(PauseRequested);
+        app.update();
+        assert!(!app.world().resource::<ShellPauseMenu>().open);
     }
 
     fn with_live_session(app: &mut App) {

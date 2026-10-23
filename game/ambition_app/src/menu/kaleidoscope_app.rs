@@ -319,6 +319,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // panic is never `Option<T>`: that answers "may this be absent" when the
     // question is "who owns registering it". `add_message` is a no-op if present.
     app.add_message::<MenuActionActivated<MenuPageAction>>();
+    app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
     app.add_systems(Startup, spawn_kaleidoscope_scrim)
         // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates the cursor;
         // scroll/cache/republish derive the page model + System scroll window from it.
@@ -1929,7 +1930,26 @@ fn kaleidoscope_menu_open_routing(
     mut sfx: SfxWriter,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
+    mut pause_requests: MessageReader<ambition_platformer2d::game_shell::PauseRequested>,
 ) {
+    // The platform's pause (the app went to the background) opens the cube on
+    // the System page, as Start does; an open cube stays open.
+    if pause_requests.read().count() > 0
+        && !overlay.visible
+        && crate::menu::model::primary_overlay_may_open(*mode.get())
+    {
+        open_kaleidoscope_menu(
+            MenuPage::System,
+            &mut overlay,
+            mode.get(),
+            &mut next_mode,
+            &mut pages,
+            &mut cursor,
+            &mut system_nav,
+            &mut map,
+        );
+        return;
+    }
 
     // pause / Esc: toggle the cube on the System page.
     //

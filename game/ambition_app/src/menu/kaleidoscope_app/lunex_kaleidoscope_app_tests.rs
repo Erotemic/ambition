@@ -75,6 +75,7 @@ fn base_kaleidoscope_test_app() -> App {
     // announced to nobody. Registered in each harness because every one of
     // them installs one of the publishers.
     app.add_message::<MenuActionActivated<MenuPageAction>>();
+    app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
     app.add_systems(
         Update,
         kaleidoscope_menu_action_activated
@@ -925,6 +926,7 @@ fn real_input_cube_app(
     // announced to nobody. Registered in each harness because every one of
     // them installs one of the publishers.
     app.add_message::<MenuActionActivated<MenuPageAction>>();
+    app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
     app.add_systems(
         Update,
         kaleidoscope_menu_action_activated
@@ -2881,4 +2883,22 @@ fn the_cube_wears_what_the_host_file_states() {
     assert_eq!(look.selected, colour(file.selected), "the control under the cursor");
     assert_eq!(look.scrollbar_track, colour(file.scrollbar_track), "a scroll bar's track");
     assert_eq!(look, cube_look(&file), "each colour of the cube");
+}
+
+/// The platform's pause (the app went to the background) opens the cube on the
+/// System face and pauses the world; another request leaves it open.
+#[test]
+fn a_platform_pause_opens_the_cube_and_keeps_it_open() {
+    let mut app = open_app();
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::PauseRequested);
+    app.update();
+    app.update();
+    assert!(cube_is_open(&app), "the platform's pause opens the cube");
+    assert_eq!(active_page(&app), Some(MenuPage::System));
+    assert_eq!(cube_mode(&app), GameMode::Paused);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::PauseRequested);
+    app.update();
+    assert!(cube_is_open(&app), "a request is not a toggle");
 }

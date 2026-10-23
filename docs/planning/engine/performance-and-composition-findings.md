@@ -28,6 +28,14 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
+**Status, 2026-10-23 07:40Z (MEASURED, desktop census):** hub Mary-O route
+1,320 → 1,141 systems a frame; hub Ambition route 1,323 → 1,298 since the
+ledger slice; no surveyed room spawns an entity a frame. Monolith packets this
+run: audio, the trace recorder, the quest producer, the cutscene player and
+the time module (~5,000 production lines out). Last green commit for the
+slices' own tests: `d98eebc3b`. Waiting on: a phone profile of a build with
+these slices, the one measurement that says what they bought.
+
 | slice | status | measured effect |
 | --- | --- | --- |
 | F40: is the phone still bound by scheduling? | done | see F40 |

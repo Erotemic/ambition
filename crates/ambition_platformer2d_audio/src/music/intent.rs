@@ -219,7 +219,6 @@ pub fn compute_music_intent(
         encounter_music.desired_track(heard),
     );
 
-    intent.provider_id = audio_selection.provider_id().map(str::to_owned);
     // ⭐ A STATION IS THE MUSIC. The player chose it, so no authored cue (a
     // boss's, a fight's, the room's) plays beside or over it; turning the radio
     // off gives the music back to them. With an adaptive cue here the director
@@ -233,14 +232,22 @@ pub fn compute_music_intent(
     intent.simple_crossfade_s = if same_place && phase_track.is_some() { DAY_PHASE_CROSSFADE_SECONDS } else { 0.0 };
     // Provider-relative authority: the director may only play tracks this
     // session's provider authored. No selection is ungoverned (frontend); a
-    // provider with no music is deliberate silence.
-    let mut authority = audio_selection.music_authority();
-    // The actual selected provider catalog supplies both definitions and the
-    // cue-id authority. A cue cached for another provider is never visible.
-    if let Some(catalog) = active_catalog {
-        authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
+    // provider with no music is deliberate silence. Rebuilt only when the
+    // selection, the catalogs or the provider change: it holds a copy of each
+    // of the provider's track and cue ids, which was made again each frame.
+    if audio_selection.is_changed()
+        || catalogs.is_changed()
+        || intent.provider_id.as_deref() != audio_selection.provider_id()
+    {
+        intent.provider_id = audio_selection.provider_id().map(str::to_owned);
+        let mut authority = audio_selection.music_authority();
+        // The actual selected provider catalog supplies both definitions and the
+        // cue-id authority. A cue cached for another provider is never visible.
+        if let Some(catalog) = active_catalog {
+            authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
+        }
+        intent.authority = authority;
     }
-    intent.authority = authority;
 }
 
 /// The adaptive resolver's `id -> (phase, waves)` lookup: the encounter

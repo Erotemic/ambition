@@ -253,8 +253,15 @@ pub fn zone_acts_in(
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct GravityZonesCollected;
 
+/// Run condition of [`collect_gravity_zones`]: a zone stands, or the
+/// snapshot still holds one to clear.
+pub fn zones_or_their_snapshot(zones: Query<(), With<GravityZone>>, snapshot: bevy::prelude::Res<GravityZones>) -> bool {
+    !zones.is_empty() || !snapshot.zones.is_empty()
+}
+
 /// Rebuild the [`GravityZones`] snapshot from the live zone components. Runs
-/// before the actor integrators each frame.
+/// before the actor integrators while a zone or a snapshot row stands
+/// ([`zones_or_their_snapshot`]).
 ///
 /// ⛔⛔ THE SNAPSHOT'S ORDER IS THE PRECEDENCE RULE, and it used to be Bevy query
 /// order. Both resolvers below take the FIRST zone that contains the body, so
@@ -746,6 +753,31 @@ mod tests {
         });
         app.update();
         assert_eq!(app.world().resource::<GravityZones>().zones.len(), 1);
+    }
+
+    /// The collector runs only while a zone or a snapshot row stands
+    /// ([`zones_or_their_snapshot`]); despawning the last zone still clears the
+    /// snapshot on the next run, and an empty snapshot is then left unwritten.
+    #[test]
+    fn the_snapshot_is_cleared_after_the_last_zone_and_then_rests() {
+        let mut app = App::new();
+        app.init_resource::<GravityZones>();
+        app.add_systems(Update, collect_gravity_zones.run_if(zones_or_their_snapshot));
+        let zone = app
+            .world_mut()
+            .spawn(GravityZone {
+                aabb: ambition_platformer2d_core::Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0)),
+                dir: Vec2::new(0.0, -1.0),
+            })
+            .id();
+        app.update();
+        assert_eq!(app.world().resource::<GravityZones>().zones.len(), 1);
+        app.world_mut().despawn(zone);
+        app.update();
+        assert!(app.world().resource::<GravityZones>().zones.is_empty());
+        let cleared = app.world().resource_ref::<GravityZones>().last_changed();
+        app.update();
+        assert_eq!(app.world().resource_ref::<GravityZones>().last_changed(), cleared);
     }
 
     /// ⛔⛔ WHICH GRAVITY WINS WAS ARCHETYPE ORDER. Both resolvers take the FIRST

@@ -24,12 +24,6 @@ pub struct ZoneDraw {
     band: (Color, Vec2, Vec3),
 }
 
-/// Draw each gravity zone as a translucent tinted region so the player can see
-/// where gravity changes (violet = up, teal = down/other).
-///
-/// The visuals are spawned again only when what the zones draw changed, or a
-/// visual is gone (a room or session teardown took it). Spawning them every
-/// frame gave the same picture and two archetype moves per visual per frame.
 /// Run condition of [`sync_gravity_zone_visual`]: a gravity zone stands, or
 /// a visual of one remains to retire.
 pub fn a_zone_or_its_visual_stands(
@@ -39,6 +33,12 @@ pub fn a_zone_or_its_visual_stands(
     !zones.is_empty() || !visuals.is_empty()
 }
 
+/// Draw each gravity zone as a translucent tinted region so the player can see
+/// where gravity changes (violet = up, teal = down/other).
+///
+/// The visuals are spawned again only when what the zones draw changed, or a
+/// visual is gone (a room or session teardown took it). Spawning them every
+/// frame gave the same picture and two archetype moves per visual per frame.
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
     // Each zone is drawn in its own live room, by that room's geometry.

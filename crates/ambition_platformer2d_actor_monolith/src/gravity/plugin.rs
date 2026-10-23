@@ -72,10 +72,12 @@ impl Plugin for GravityPlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_shared_tangle::gravity::oscillate_gravity_zones,
+                // Each while it has a zone, or a snapshot of one to clear.
+                ambition_platformer2d_shared_tangle::gravity::oscillate_gravity_zones.run_if(any_with_component::<ambition_platformer2d_shared_tangle::gravity::OscillatingZone>),
                 ambition_platformer2d_shared_tangle::gravity::collect_gravity_zones
+                    .run_if(ambition_platformer2d_shared_tangle::gravity::zones_or_their_snapshot)
                     .in_set(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected),
-                collect_force_zones,
+                collect_force_zones.run_if(ambition_platformer2d_shared_tangle::frame_env::force_zones_or_their_snapshot),
             )
                 .chain()
                 .in_set(GravitySet::ZoneSnapshot)

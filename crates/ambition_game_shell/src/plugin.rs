@@ -276,6 +276,12 @@ fn process_shell_commands(
     }
 }
 
+/// Run condition: a route waits to activate. With none, `advance_pending_route`
+/// has nothing to do, and as an exclusive system it is dear to run each frame.
+fn a_route_is_pending(router: bevy::prelude::Res<ShellRouter>) -> bool {
+    router.pending.is_some()
+}
+
 /// Ask this route's activation gates, then activate, in one exclusive
 /// operation.
 ///
@@ -299,12 +305,6 @@ fn process_shell_commands(
 /// of the gates are released together, on the frame where each gate says
 /// `Admit` and no other hold is on the route. A `Refuse` cancels at once, as
 /// before.
-/// Run condition: a route waits to activate. With none, `advance_pending_route`
-/// has nothing to do, and as an exclusive system it is dear to run each frame.
-fn a_route_is_pending(router: bevy::prelude::Res<ShellRouter>) -> bool {
-    router.pending.is_some()
-}
-
 fn advance_pending_route(world: &mut bevy::prelude::World) {
     let pending_route = world
         .resource::<ShellRouter>()

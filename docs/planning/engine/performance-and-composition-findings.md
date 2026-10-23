@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 14:27Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 1,017 systems a frame; hub Ambition route 1,323 → 1,188 since
+**Status, 2026-10-23 17:25Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 1,012 systems a frame; hub Ambition route 1,323 → 1,184 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -106,6 +106,7 @@ says what they bought in frame time.
 | The simulation's request appliers run on their request: item grants, shop transactions, flag, quest, switch and gameplay-SFX effects, NPC provocations and their release, conversation-cut barks, and the projectiles of brain actions. Found on the way: `PauseRequested` (the Android pause, 10-22) was unnamed in the rollback message oracle; it is a shell channel no simulation crate can read, named now | done | census: 10 systems a tick fewer on the Mary-O route, 9 on the hub's Ambition route (1,194 a frame); monolith 1,229, 125 app flag, quest, switch, item, shop, provocation, bark and projectile tests and 129 rollback tests pass |
 | Three hit consumers run on their message: landed-hit effects (`LandedBodyHit`), the player-victim staging (`HitEvent`) and the impact hitstop request (`ResolvedBodyHit`). Not `apply_feature_hit_events`, which does more after its message loop than was vetted | done | census: 3 systems a tick fewer on both routes (Mary-O 1,020, Ambition 1,190 a frame); combat 790, Smash 293, 42 app hit and 229 app Smash, knockback, stock, rollback and combo tests pass |
 | The projectile owners' identity heal (twice a tick, head and tail) runs while a projectile is live; the falling chests while a chest falls | done | census: 3 systems a tick fewer on both routes (Mary-O 1,017, Ambition 1,188 a frame); runtime 114 and 37 app chest, projectile and identity tests pass |
+| Zone snapshots (gravity, force, oscillating zones) run while a zone or a snapshot row stands; item motion while an item moves; projectile perception while a projectile is live or its rows stand. Gated systems' docs no longer promise "every frame" | done | census: 5 systems a tick fewer on both routes (Mary-O 1,017 → 1,012, Ambition 1,188 → 1,184 a frame); poisoned witness `the_snapshot_is_cleared_after_the_last_zone_and_then_rests`; shared_tangle 334, world_items 19, monolith 1,229 tests pass |
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 

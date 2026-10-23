@@ -1213,7 +1213,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (
                 crate::features::ecs::perception::collect_perception_peers,
-                crate::features::ecs::perception::collect_perception_projectiles,
+                // While a projectile is live, or last tick's rows remain to clear.
+                crate::features::ecs::perception::collect_perception_projectiles.run_if(
+                    |live: Query<(), With<ambition_projectiles::LiveProjectile>>,
+                     rows: Res<crate::features::ecs::perception::PerceptionProjectiles>| {
+                        !live.is_empty() || !rows.0.is_empty()
+                    },
+                ),
                 observe_actor_decision_inputs,
                 crate::features::ecs::navigation::advise_navigation,
             )

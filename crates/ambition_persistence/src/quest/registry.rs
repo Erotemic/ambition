@@ -248,8 +248,6 @@ fn reached(
     rank(at) >= rank(mark)
 }
 
-/// Drain pending advance events into the registry and write quest
-/// progress back to the save resource. Runs each frame.
 impl QuestRegistry {
     /// Whether an advance event waits to be applied.
     pub fn has_pending_events(&self) -> bool {
@@ -257,6 +255,9 @@ impl QuestRegistry {
     }
 }
 
+/// Drain pending advance events into the registry and write quest
+/// progress back to the save resource. The progression schedule runs it while
+/// an event waits ([`QuestRegistry::has_pending_events`]).
 pub fn apply_quest_advance_events(
     mut registry: ResMut<QuestRegistry>,
     mut save: ResMut<crate::save::AmbitionGameSave>,

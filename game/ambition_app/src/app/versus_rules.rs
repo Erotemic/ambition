@@ -567,7 +567,6 @@ pub const HEALTH_HUD_SLOTS: [&str; 4] = [
 pub const ROUNDS_HUD_SLOT: &str = "versus_rounds";
 pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 
-/// Publish the scoreboard.
 /// Run condition of [`publish_versus_hud`]: a versus match runs with its
 /// roster, or one of its slots still holds a readout to clear. It cleared
 /// them every frame, which marked the readouts changed every frame.
@@ -583,6 +582,7 @@ pub fn a_versus_hud_is_owed(
             .any(|slot| readouts.holds(*slot))
 }
 
+/// Publish the scoreboard.
 pub fn publish_versus_hud(
     state: Option<Res<VersusMatch>>,
     roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,

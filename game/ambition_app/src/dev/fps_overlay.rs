@@ -184,6 +184,16 @@ fn shadow_the_fps_text(
     }
 }
 
+/// Run condition of [`place_fps_overlay`]: what it reads changed, the
+/// setting or where the menu row sits, or an overlay node is new.
+fn the_overlay_may_have_moved(
+    settings: Res<UserSettings>,
+    presentation: Option<Res<ResolvedGameplayPresentation>>,
+    added: Query<(), Added<GlobalZIndex>>,
+) -> bool {
+    settings.is_changed() || presentation.is_some_and(|presentation| presentation.is_changed()) || !added.is_empty()
+}
+
 /// Tuck the counter under the Menu/Back row instead of leaving it in a corner,
 /// and own its visibility.
 ///
@@ -212,16 +222,6 @@ fn shadow_the_fps_text(
 ///
 /// With no row published — a keyboard session publishes no touch footprint —
 /// there is nothing to sit under and the counter keeps its corner.
-/// Run condition of [`place_fps_overlay`]: what it reads changed, the
-/// setting or where the menu row sits, or an overlay node is new.
-fn the_overlay_may_have_moved(
-    settings: Res<UserSettings>,
-    presentation: Option<Res<ResolvedGameplayPresentation>>,
-    added: Query<(), Added<GlobalZIndex>>,
-) -> bool {
-    settings.is_changed() || presentation.is_some_and(|presentation| presentation.is_changed()) || !added.is_empty()
-}
-
 fn place_fps_overlay(
     settings: Res<UserSettings>,
     presentation: Option<Res<ResolvedGameplayPresentation>>,

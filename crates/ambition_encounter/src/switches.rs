@@ -487,15 +487,6 @@ pub struct ResolvedSwitchActivations(pub Vec<ResolvedSwitchActivation>);
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SwitchActivationDrained;
 
-/// THE drain. One system takes the queue, parses each action, performs the
-/// persisted toggle, and publishes the result.
-///
-/// ⛔ **ONE ORDERED DRAIN, AND ONE AUTHOR FOR THE TOGGLE.** Order is part of the
-/// queue's value — [`SwitchActivationQueue::checksum`] says so, and the queue is
-/// rollback-registered because a rewind that re-pushes predicted activations
-/// double-applies a reset. Four consumers each draining what interests them
-/// would race that order and each would need its own toggle; this drains once,
-/// in queue order, and every consumer reads [`ResolvedSwitchActivations`].
 /// Run condition of [`drain_switch_activations`]: an activation waits in the
 /// queue, or last tick's resolved list is still to clear. With neither, the
 /// drain would leave both as they are; it cleared the list each tick, so the
@@ -507,6 +498,15 @@ pub fn an_activation_is_queued_or_resolved(
     queue.is_some_and(|queue| !queue.0.is_empty()) || !resolved.0.is_empty()
 }
 
+/// THE drain. One system takes the queue, parses each action, performs the
+/// persisted toggle, and publishes the result.
+///
+/// ⛔ **ONE ORDERED DRAIN, AND ONE AUTHOR FOR THE TOGGLE.** Order is part of the
+/// queue's value — [`SwitchActivationQueue::checksum`] says so, and the queue is
+/// rollback-registered because a rewind that re-pushes predicted activations
+/// double-applies a reset. Four consumers each draining what interests them
+/// would race that order and each would need its own toggle; this drains once,
+/// in queue order, and every consumer reads [`ResolvedSwitchActivations`].
 pub fn drain_switch_activations(
     mut queue: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SwitchActivationQueue>,
     mut resolved: bevy::prelude::ResMut<ResolvedSwitchActivations>,

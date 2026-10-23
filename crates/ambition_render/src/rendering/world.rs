@@ -1715,6 +1715,14 @@ pub struct BlockFlinch {
     home: Option<Vec3>,
 }
 
+/// Run condition of [`sync_removed_block_visuals`]: a live room's overlay
+/// names a removed block. With none, no block visual is taken away.
+pub fn a_room_has_removed_blocks(
+    overlays: Query<&ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+) -> bool {
+    overlays.iter().any(|overlay| !overlay.removed_block_names.is_empty())
+}
+
 /// Despawn the sprite of any authored block the collision overlay subtracts
 /// this frame (`removed_block_names`). The overlay already drops the block from
 /// collision (`apply_overlay_subtractions`); this removes it from the drawn
@@ -1741,14 +1749,6 @@ pub struct BlockFlinch {
 /// Each block visual reads the overlay of its own live room (its stamp, or
 /// the sole live room), so a brick broken in one live room does not take the
 /// same-named brick of another (view half, cut V2j).
-/// Run condition of [`sync_removed_block_visuals`]: a live room's overlay
-/// names a removed block. With none, no block visual is taken away.
-pub fn a_room_has_removed_blocks(
-    overlays: Query<&ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
-) -> bool {
-    overlays.iter().any(|overlay| !overlay.removed_block_names.is_empty())
-}
-
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
     overlays: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<

@@ -10,6 +10,15 @@ use super::gun_pickup::PortalGunPickup;
 use super::gun_projectile::PortalShot;
 use super::types::PlacedPortal;
 
+/// Run condition of [`despawn_orphaned_portals`]: there is a portal or a
+/// shot that a gun's leaving could orphan.
+pub fn a_portal_or_shot_exists(
+    portals: Query<(), With<PlacedPortal>>,
+    shots: Query<(), With<PortalShot>>,
+) -> bool {
+    !portals.is_empty() || !shots.is_empty()
+}
+
 /// The gun's portals must not outlive the gun that made them: despawn the
 /// gun-pair portals plus in-flight shots whose PAIR no longer has a gun in the
 /// room — neither held ([`PortalGun`]) nor lying as a [`PortalGunPickup`].
@@ -20,15 +29,6 @@ use super::types::PlacedPortal;
 /// FIXME(portal-api): this should become a host-installed policy plugin or a
 /// generic "emitter owns portal set" cleanup rule. It is not part of the pure
 /// portal chart-transition model.
-/// Run condition of [`despawn_orphaned_portals`]: there is a portal or a
-/// shot that a gun's leaving could orphan.
-pub fn a_portal_or_shot_exists(
-    portals: Query<(), With<PlacedPortal>>,
-    shots: Query<(), With<PortalShot>>,
-) -> bool {
-    !portals.is_empty() || !shots.is_empty()
-}
-
 pub fn despawn_orphaned_portals(
     mut commands: Commands,
     guns: Query<&PortalGun>,

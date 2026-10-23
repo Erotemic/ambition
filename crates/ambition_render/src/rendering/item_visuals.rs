@@ -434,8 +434,8 @@ pub(super) fn resolve_world_item_art_when_the_manifest_changes()
 
 /// A sprite per walk-into world item: the real image when its `sprite` id is
 /// bound in [`WorldItemArt`], otherwise a quad tinted by the row it grants
-/// (star wand gold, cinder beacon ember, unknown magenta). Rebuilt each frame
-/// (there are few items), like [`sync_ground_item_visuals`].
+/// (star wand gold, cinder beacon ember, unknown magenta). Runs while a row or a
+/// drawn visual stands, like [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.

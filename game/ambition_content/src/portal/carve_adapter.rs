@@ -11,16 +11,6 @@ use ambition_platformer2d_core::cast::SolidWorldQuery;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRooms};
 use ambition_portal2d::{host_material_depth, PlacedPortal, PortalCarves, PortalHost, PortalHostDepthsByRoom};
 
-/// Copy this frame's portal-owned carves into the host collision overlay.
-///
-/// The copy clears and refills `portal_holes` so a frame with no transiting body re-seals the
-/// host wall, exactly as the old in-core write did.
-///
-/// ⭐ EACH CARVE GOES TO THE LIVE ROOM IT WAS CUT IN (OW1 cut 7l), and every
-/// room with no carve this frame is re-sealed. Portal core cuts a hole per
-/// room (`PortalCarves::holes` names the room of each), so two live rooms each
-/// carve the walls of their own pair. A hole in no live room goes to the sole
-/// live room, so while two rooms are live it is not written.
 /// Run condition of [`bridge_portal_carves`]: a carve stands this frame, or
 /// a room still holds a hole or a glue to clear. With neither, the bridge
 /// would leave every overlay as it is.
@@ -44,6 +34,16 @@ pub fn portals_or_depths_stand(
     !portals.is_empty() || !depths.0.is_empty()
 }
 
+/// Copy this frame's portal-owned carves into the host collision overlay.
+///
+/// The copy clears and refills `portal_holes` so a frame with no transiting body re-seals the
+/// host wall, exactly as the old in-core write did.
+///
+/// ⭐ EACH CARVE GOES TO THE LIVE ROOM IT WAS CUT IN (OW1 cut 7l), and every
+/// room with no carve this frame is re-sealed. Portal core cuts a hole per
+/// room (`PortalCarves::holes` names the room of each), so two live rooms each
+/// carve the walls of their own pair. A hole in no live room goes to the sole
+/// live room, so while two rooms are live it is not written.
 pub fn bridge_portal_carves(
     carves: Res<PortalCarves>,
     mut overlays: ambition_platformer2d::world::RoomOverlays,

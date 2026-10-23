@@ -92,7 +92,12 @@ impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
         // the same edge `ItemPickupSet::CoreHeldItems` carries for the held half.
         app.configure_sets(sim, WorldItemSet::Motion.after(BodyCustodySettled));
 
-        app.add_systems(sim, item_motion::step_item_motion.in_set(WorldItemSet::Motion));
+        app.add_systems(
+            sim,
+            item_motion::step_item_motion
+                .run_if(bevy::prelude::any_with_component::<ItemMotion>)
+                .in_set(WorldItemSet::Motion),
+        );
         app.add_systems(sim, world_item::collect_world_items.in_set(WorldItemSet::Collect));
     }
 }

@@ -113,6 +113,12 @@ impl ForceZones {
     }
 }
 
+/// Run condition of [`collect_force_zones`]: a force zone stands, or the
+/// snapshot still holds one to clear.
+pub fn force_zones_or_their_snapshot(zones: Query<(), With<ForceZone>>, snapshot: Res<ForceZones>) -> bool {
+    !zones.is_empty() || !snapshot.zones.is_empty()
+}
+
 /// Rebuild the [`ForceZones`] snapshot from live components. Scheduled with the
 /// gravity-zone snapshot, before the frame resolution phase.
 pub fn collect_force_zones(

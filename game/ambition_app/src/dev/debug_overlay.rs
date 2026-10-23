@@ -62,8 +62,9 @@ pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
 /// `hurtbox`, `contact`, `collision`. Player-facing text stays on the real
 /// typography stack.
 ///
-/// Still drains the buffer every frame, so toggling the overlay off (no pushes)
-/// clears the labels on the next frame exactly as before.
+/// Runs while a label is queued ([`a_debug_label_is_queued`]) and drains the
+/// buffer; gizmos last one frame, so toggling the overlay off (no pushes) clears
+/// the labels on the next frame exactly as before.
 pub(crate) fn render_debug_overlay_labels(
     mut gizmos: Gizmos,
     worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,

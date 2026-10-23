@@ -117,6 +117,45 @@ says what they bought in frame time.
 | Avatar passes: moving platforms advance while a room has one, scripted control frames blank while a body is held (`ControlHolds` is present exactly then), commanded moves drive while one is commanded, mana regenerates while a composition declares `PlayerManaRegen` | done | census: Mary-O 3 gated rows (964 a frame, 3 noise rows), Ambition 1,137 → 1,135; monolith 1,229, runtime 101 and 87 app reconstitution, platform, cutscene, hold, capture and conversation tests pass |
 | Hit passes: hitbox damage and lifetime while a hitbox stands, breakables while one stands, landed and resolved move-hit marks and the pogo bounce while their message waits (peek) | done | census: Mary-O 964 → 955, Ambition 1,135 → 1,129 (6 gated rows each); combat 792, monolith 1,229, runtime 101, Smash 293, Mary-O 204 and 186 app hit, strike, Smash, guard and reconstitution tests pass |
 
+### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
+
+Jon, 10-23: on the phone and the Steam Deck the central hub is far more
+expensive than any other level. REASONED from the shaders, not yet measured
+on a device. The hub (`central_hub_main`) is the one room with
+`palette = clean_corrupted`. With no saved state it is balanced, so the
+front crosses the middle of the room, and every pixel within the
+not-settled band (plane distance -560..740 px, most of a 1,900 px room)
+evaluates `look_claim` (`room_look_common.wgsl`): four block levels, each
+`look_field` (two `value_noise`) plus up to four `rand_cell`, about fifty
+hashes. A block pixel pays it in BOTH skin quads (`room_skin.wgsl`: each
+quad tests the claim to discard itself; the corrupted one tests again at an
+offset for its burning edge), and the room-wide overlay quad
+(`room_state.wgsl`) pays it again, so three to five claims a pixel, plus an
+alpha-blended full-room layer, which a tiled mobile GPU pays in bandwidth
+even where it writes nothing.
+
+The cuts, none of which changes the picture:
+
+1. The claim is piecewise constant on the 16 px grid (the finest level's
+   cell; each coarser level is a union of them). Render it once a frame
+   into a small target (about 120 x 64 for the hub) and let the three
+   shaders read it: about 250x fewer claim evaluations.
+2. One skin material that samples both skins and picks one: half the
+   claims on block pixels.
+3. The overlay's mesh covers only the not-settled band.
+4. Per-level settle bounds, so more pixels leave `look_claim` early.
+
+The test that confirms the cause on a device: the hub with screen shaders
+off (`budget.shaders`) against on; the look is built to read the same off
+(F-room-look rule, Jon 10-18). A CPU profile shows GPU time only as the
+render thread waiting on the driver.
+
+Monolith cycles, the same day (MEASURED, `measure_kernel_module_graph.py
+--scc --cuts`): one cyclic component of four modules, `abilities`,
+`features`, `items`, `session`; no single edge splits it (`items <->
+session`, 20 and 4 references, is A7's). `features` is 26,328 production
+lines.
+
 ### F45 — A run condition can eat a message its system never reads (2026-10-23)
 
 MEASURED (source and bisect). Bevy 0.19.1 evaluates a system's own run

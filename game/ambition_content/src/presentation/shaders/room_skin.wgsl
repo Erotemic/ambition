@@ -24,7 +24,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var skin_sampler: sampler;
 /// The room's front, one texel a cell (`room_front_field.wgsl`), and its grid.
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var<uniform> grid: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(5) var field: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(5) var front_field: texture_2d<f32>;
 
 // Linear values of the look's colours.
 const MAGENTA: vec3<f32> = vec3<f32>(1.0, 0.0221, 0.3967);
@@ -34,7 +34,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let t = globals.time;
     // The room is drawn centred on the origin, y up (`world_to_bevy`).
     let p = vec2<f32>(mesh.world_position.x + room.x * 0.5, room.y * 0.5 - mesh.world_position.y);
-    let corrupted = look_is_corrupt_in(field, grid, p, front, t);
+    let corrupted = look_is_corrupt_in(front_field, grid, p, front, t);
     if corrupted != (room.z > 0.5) {
         return vec4<f32>(0.0);
     }
@@ -49,7 +49,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         let cell_heat = heat * (0.45 + 0.55 * rand_cell(floor(p / 16.0), 603u));
         col = vec4<f32>(col.rgb + MAGENTA * cell_heat * 0.30 + vec3<f32>(cell_heat * cell_heat * 0.05), col.a);
         // The mass burns where it meets clean stone.
-        if !look_is_corrupt_in(field, grid, p - front.zw * 3.0, front, t) {
+        if !look_is_corrupt_in(front_field, grid, p - front.zw * 3.0, front, t) {
             col = vec4<f32>(MAGENTA * 0.9 + vec3<f32>(0.05), col.a);
         }
     } else {

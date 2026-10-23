@@ -10,7 +10,7 @@
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::globals
-#import ambition_content::room_look::{rand_cell, look_field, look_claim_in, look_is_corrupt_in, look_is_settled, LookClaim}
+#import ambition_content::room_look::{rand_cell, look_field, look_claim_in, look_is_corrupt_in, look_is_settled, look_plane, LookClaim}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -20,7 +20,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> front: vec4<f32>;
 /// The room's front, one texel a cell (`room_front_field.wgsl`), and its grid.
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> grid: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(4) var field: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var front_field: texture_2d<f32>;
 
 const MAGENTA: vec3<f32> = vec3<f32>(1.00, 0.16, 0.66);
 const CYAN: vec3<f32> = vec3<f32>(0.13, 0.88, 1.00);
@@ -36,7 +36,7 @@ fn field(p: vec2<f32>) -> f32 {
 
 /// Which block of the front claims `p`.
 fn claim(p: vec2<f32>) -> LookClaim {
-    return look_claim_in(field, grid, p, front, globals.time);
+    return look_claim_in(front_field, grid, p, front, globals.time);
 }
 
 // ------------------------------------------------------------------ veil --
@@ -59,7 +59,7 @@ fn veil(p: vec2<f32>) -> vec4<f32> {
     let lattice = smoothstep(1.3, 0.4, min(a, b));
     let rim = min(min(l.x, l.y), min(s.x - l.x, s.y - l.y));
     let frame = smoothstep(2.4, 1.2, rim);
-    if look_is_corrupt_in(field, grid, p, front, t) {
+    if look_is_corrupt_in(front_field, grid, p, front, t) {
         let cell = floor(p / 8.0);
         let beat = floor(t * 2.5 + rand_cell(cell, 750u) * 2.5);
         let flick = rand_cell(cell + vec2<f32>(beat * 3.0, 0.0), 751u);
@@ -117,6 +117,16 @@ fn overlay(p: vec2<f32>) -> vec4<f32> {
     // Tears: short runs of light, for a few frames, close to the front. Few
     // of them: motion at the edge of sight takes the eye off the play.
     // On the corrupted side of the front only: the clean side is still.
+    //
+    // Where no tear can be, the field is not worked out. `behind` is the
+    // plane distance within the field's swing (195): below -230 it is below
+    // -30, where `step` is 0; above 800 it is past 605, where the chance
+    // (0.010 * near_t^2, near_t < 1.2e-3) is below the smallest step of
+    // `roll`, so the roll never passes it.
+    let plane = look_plane(p, front);
+    if plane < -230.0 || plane > 800.0 {
+        return vec4<f32>(0.0);
+    }
     let behind = field(p);
     let near_t = exp(-abs(behind) / 90.0) * step(-30.0, behind);
     let band = floor(p.y / 2.0);

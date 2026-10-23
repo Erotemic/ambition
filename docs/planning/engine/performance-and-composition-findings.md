@@ -53,6 +53,7 @@ consolidations and the monolith packets.
 | The host intents' release and prune are one pass each over the registered types (`HostIntentTypes`), reading the live session once | done | 6 → 2 systems (REASONED from the three registered types; app host-intent tests green) |
 | Held and wielded item presentation (in-hand sprite, over-hand sprite, hand requests) in `HeldItemPresentationSet`: runs while an item is held or wielded and one frame after | done | 3 systems a frame where nothing is held (REASONED by count) |
 | Monolith packet: `audio` and `music` leave the actor monolith as `ambition_platformer2d_audio` (`9c23bfefc`); the facade's `audio` installs it, the monolith's `visible` no longer implies audio | done | ~1,200 production and ~1,400 test lines out of the monolith; 0 systems added or removed; Outlander and the minimal game stop linking the audio runtime (REASONED from the feature graph) |
+| New `[census] changed_transforms` (entities whose `Transform` was written this frame, by name). Ground items are kept visuals (they were despawned and spawned each frame); world labels, the shrine and the boss stage write their transform only when it moves | done | census, hub Ambition route: 83 → 53 changed transforms a frame (14 ground-item respawns a frame → 0); Mary-O route was 73-145, mostly moving rig parts and motes |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 

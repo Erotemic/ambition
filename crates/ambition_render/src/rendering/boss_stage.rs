@@ -93,8 +93,10 @@ pub fn light_the_boss_stage(
         return;
     }
     for (veil, mut transform, mut sprite) in &mut veils {
-        transform.translation.x = at.x;
-        transform.translation.y = at.y;
+        if transform.translation.truncate() != at {
+            transform.translation.x = at.x;
+            transform.translation.y = at.y;
+        }
         sprite.color = if veil.flash { flash } else { dark };
     }
 }

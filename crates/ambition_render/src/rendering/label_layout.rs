@@ -587,7 +587,11 @@ pub fn layout_world_labels(
         for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children, _) in
             &mut labels
         {
-            transform.translation = label.anchor;
+            // Written only when it moves: an unchanged write marks the label
+            // for propagation and extraction each frame.
+            if transform.translation != label.anchor {
+                transform.translation = label.anchor;
+            }
             let opacity = label.owner_opacity;
             label.rendered_opacity = opacity;
             *visibility = visibility_for(opacity);
@@ -711,7 +715,10 @@ fn apply_view_layout(
             paint_outlines(outline_colors, children, &label, 0.0);
             continue;
         };
-        transform.translation = placed.extend(label.anchor.z);
+        let translation = placed.extend(label.anchor.z);
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
         // Position snaps, opacity eases. A displaced label must be in place this
         // frame (its anchor moves with its actor); only a fade would pop.
         let opacity = label.rendered_opacity + (placement.opacity - label.rendered_opacity) * ease;

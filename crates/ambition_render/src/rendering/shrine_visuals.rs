@@ -112,7 +112,9 @@ pub fn sync_shrine_visual(
         if let Some(&entity) = visual_cache.get(&key) {
             let mut matched = true;
             if let Ok(mut transform) = transforms.get_mut(entity) {
-                transform.translation = translation;
+                if transform.translation != translation {
+                    transform.translation = translation;
+                }
             } else {
                 matched = false;
             }

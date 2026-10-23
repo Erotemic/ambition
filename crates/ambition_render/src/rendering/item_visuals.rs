@@ -7,7 +7,7 @@ use ambition_platformer2d_shared_tangle::binding::{
 };
 use ambition_platformer2d_shared_tangle::held_item_art::HeldItemSprite;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, LiveRoomInstance, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::world_item_art::WorldItemSprite;
 use ambition_sim_view::{GroundItemsView, HeldItemView};
@@ -270,6 +270,10 @@ pub(super) fn resolve_held_item_art_when_the_manifest_changes()
         .before(report_unloadable_item_art)
 }
 
+/// Draw each ground item row as a kept sprite: one visual per item and live
+/// room, its transform written only when the row moves it, and spawned again
+/// only when its room or item changes or the art is replaced. Until
+/// 2026-10-23 every visual was despawned and spawned again each frame.
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.
@@ -279,32 +283,57 @@ pub fn sync_ground_item_visuals(
     art: Option<Res<HeldItemArt>>,
     failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    visuals: Query<Entity, With<GroundItemVisual>>,
+    mut visuals: Query<(Entity, &GroundItemVisual, &GroundItemDrawn, &mut Transform)>,
     grounds: Res<GroundItemsView>,
-    // This system rebuilds every frame, so report each missing id once.
+    // Report each missing id once.
     mut reported: Local<ReportedOnce>,
 ) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
+        for (entity, ..) in &visuals {
+            commands.entity(entity).despawn();
+        }
         return;
     };
-    // A replaced manifest is new content, so earlier reports no longer
-    // apply.
-    if art.as_ref().is_some_and(|art| art.is_changed()) {
+    // A replaced manifest is new content: earlier reports no longer apply,
+    // and every visual is drawn again from it.
+    let art_replaced = art.as_ref().is_some_and(|art| art.is_changed());
+    if art_replaced {
         reported.clear();
     }
+    // The rows to draw, each with its room and transform. A row whose live
+    // room cannot be told is not drawn.
+    let mut wanted: Vec<(&ambition_sim_view::GroundItemFact, LiveRoomInstance, Transform, bool)> = Vec::new();
     for ground in &grounds.0 {
-        // A row whose live room cannot be told is not drawn.
         let Some((room, world)) = ground.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
-        let session_scope = session_scope.in_room(Some(room));
         let translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, GROUND_ITEM_Z);
+        let transform = Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(ground.roll));
+        wanted.push((ground, room, transform, false));
+    }
+    for (entity, link, drawn, mut transform) in &mut visuals {
+        let kept = (!art_replaced)
+            .then(|| {
+                wanted.iter_mut().find(|(ground, room, _, taken)| {
+                    !*taken && ground.item == link.0 && *room == drawn.room && ground.item_id == drawn.item_id
+                })
+            })
+            .flatten();
+        match kept {
+            Some((_, _, wanted_transform, taken)) => {
+                *taken = true;
+                transform.set_if_neq(*wanted_transform);
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for (ground, room, transform, taken) in wanted {
+        if taken {
+            continue;
+        }
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
             failed_art.as_deref().map(|failed| &failed.held),
@@ -324,15 +353,27 @@ pub fn sync_ground_item_visuals(
                 Sprite::from_color(Color::srgb(0.72, 0.52, 0.30), ground.half_extent * 2.0)
             });
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 GroundItemVisual(ground.item),
+                GroundItemDrawn {
+                    room,
+                    item_id: ground.item_id.clone(),
+                },
                 sprite,
-                Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(ground.roll)),
+                transform,
                 Name::new("Ground item visual"),
             ),
         );
     }
+}
+
+/// What a kept ground item visual was spawned for: a row with another room or
+/// another item id is drawn by a new visual.
+#[derive(Component)]
+pub struct GroundItemDrawn {
+    room: LiveRoomInstance,
+    item_id: String,
 }
 
 /// Marks a sprite entity visualizing a `WorldItem` (`ambition_world_items`).
@@ -890,5 +931,57 @@ mod tests {
             vec![(LiveRoomInstance::ACTIVATION, flip(big)), (second, flip(small))],
             "a world item was not drawn in its own live room, or a row with no room was drawn"
         );
+    }
+
+    /// A ground item's visual is kept: a still row keeps its entity and its
+    /// transform is not written, a moved row moves it, and a row that is gone
+    /// takes its visual with it. Until 2026-10-23 every visual was spawned
+    /// again each frame.
+    #[test]
+    fn a_ground_item_visual_is_kept_while_its_row_stays() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let geometry = ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "item room",
+            ambition_platformer2d_core::Vec2::new(800.0, 600.0),
+            ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+            Vec::new(),
+        ));
+        let mut app = App::new();
+        let mut active = ActiveSessionScope::default();
+        active.begin();
+        app.insert_resource(active);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry);
+        let item = app.world_mut().spawn_empty().id();
+        let row = |x: f32| ambition_sim_view::GroundItemFact {
+            item,
+            pos: ambition_platformer2d_core::Vec2::new(x, 200.0),
+            half_extent: ambition_platformer2d_core::Vec2::new(8.0, 8.0),
+            item_id: "key".to_string(),
+            room: Some(LiveRoomInstance::ACTIVATION),
+            roll: 0.0,
+        };
+        app.insert_resource(GroundItemsView(vec![row(100.0)]));
+        app.add_systems(Update, sync_ground_item_visuals);
+        app.update();
+        let visual = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<(Entity, Ref<Transform>), With<GroundItemVisual>>()
+                .iter(app.world())
+                .map(|(entity, transform)| (entity, transform.translation.x, transform.is_changed()))
+                .collect::<Vec<_>>()
+        };
+        let first = visual(&mut app);
+        assert_eq!(first.len(), 1, "one row, one visual");
+        app.update();
+        let still = visual(&mut app);
+        assert_eq!((still[0].0, still[0].2), (first[0].0, false), "a still row keeps its visual and writes nothing");
+        app.world_mut().resource_mut::<GroundItemsView>().0 = vec![row(140.0)];
+        app.update();
+        let moved = visual(&mut app);
+        assert_eq!(moved[0].0, first[0].0, "a moved row keeps its visual");
+        assert_eq!(moved[0].1 - first[0].1, 40.0, "and moves it");
+        app.world_mut().resource_mut::<GroundItemsView>().0.clear();
+        app.update();
+        assert!(visual(&mut app).is_empty(), "a row that is gone takes its visual");
     }
 }

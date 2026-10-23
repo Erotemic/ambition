@@ -959,6 +959,62 @@ pub fn report_entity_populations(
     eprintln!("{row}");
 }
 
+/// `[census] changed_transforms`: how many entities had their `Transform`
+/// written since the last frame, of how many have one, and the most common
+/// writers' subjects. A static entity in this row is a writer that assigns an
+/// unchanged value each frame, which costs `mark_dirty_trees`, propagation and
+/// the extraction of what it draws. Each changed entity is labelled by its
+/// `Name`, else by its first component of this repository (`ambition_*`).
+pub fn report_changed_transforms(
+    census: Res<RuntimeCensus>,
+    changed: Query<(Entity, Option<&Name>), Changed<Transform>>,
+    global: Query<(), Changed<GlobalTransform>>,
+    all: Query<(), With<Transform>>,
+    world: &World,
+) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    let mut by_label: Vec<(String, usize)> = Vec::new();
+    for (entity, name) in &changed {
+        let label = match name {
+            Some(name) => name.as_str().to_owned(),
+            None => world
+                .get_entity(entity)
+                .ok()
+                .and_then(|entity| {
+                    let mut ours: Vec<String> = entity
+                        .archetype()
+                        .components()
+                        .iter()
+                        .filter_map(|id| world.components().get_info(*id))
+                        .map(|info| info.name().to_string())
+                        .filter(|name| name.starts_with("ambition"))
+                        .map(|name| short_type_name(&name))
+                        .collect();
+                    ours.sort();
+                    ours.into_iter().next()
+                })
+                .unwrap_or_else(|| "<bevy only>".to_owned()),
+        };
+        match by_label.iter_mut().find(|(known, _)| *known == label) {
+            Some((_, total)) => *total += 1,
+            None => by_label.push((label, 1)),
+        }
+    }
+    by_label.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    let mut row = format!(
+        "[census] changed_transforms t={at:.3} changed={} global_changed={} of={}",
+        changed.iter().count(),
+        global.iter().count(),
+        all.iter().len()
+    );
+    for (label, count) in by_label.iter().take(24) {
+        row.push_str(&format!(" {}={count}", label.replace(' ', "_")));
+    }
+    eprintln!("{row}");
+}
+
 /// A component's type name without its path or generics — `Sprite`, not
 /// `bevy_sprite::sprite::Sprite`. The tail is what identifies it to a reader,
 /// and the path would make the row's width depend on crate layout.
@@ -1694,6 +1750,7 @@ impl Plugin for RuntimeCensusPlugin {
                     report_systems_ran_census,
                     report_schedule_load_census,
                     report_entity_populations,
+                    report_changed_transforms,
                     // The sim schedule exists only after a session activates, so the
                     // `PreStartup` pass cannot see it. Latches after one report.
                     report_sim_schedule_membership,

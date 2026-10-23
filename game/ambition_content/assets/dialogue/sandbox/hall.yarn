@@ -259,6 +259,24 @@ Shadow Duelist: You are already in range.
     Shadow Duelist: Not here. The hall forbids it. Outside, ask again.
 ===
 
+title: hall_npc_ninja_shadow_duelist_eye_band
+---
+Ninja Swordsman: You can see my eyes. Most people take that as a kindness.
+-> Isn't it?
+    Ninja Swordsman: It means I want to watch you understand.
+-> Why not hide them like the Duelist?
+    Ninja Swordsman: He hides his. I would rather see you coming.
+===
+
+title: hall_npc_ninja_shadow_duelist_blue_scarf
+---
+Blue Scarf Duelist: The dojo wears red. I earned the blue.
+-> How?
+    Blue Scarf Duelist: I beat the Duelist once. He still says it was a draw.
+-> Why a straight sword?
+    Blue Scarf Duelist: A straight blade forgives nothing. It suits me.
+===
+
 title: hall_npc_kernel_guide
 ---
 Kernel Guide: Look around before you touch anything.
@@ -585,6 +603,24 @@ Ninja Heavy: The heavy one is resting.
     Ninja Heavy: Others disappear. The heavy one walks after you.
 -> What are you waiting for?
     Ninja Heavy: He will come around that side. The heavy one is already here.
+===
+
+title: hall_npc_ninja_heavy_eye_band
+---
+Ninja Bruiser: The heavy one carries iron. I carry oak.
+-> Is oak better?
+    Ninja Bruiser: Oak is lighter. I swing it twice as often.
+-> What's the headband for?
+    Ninja Bruiser: So you know where to look. You won't get the chance.
+===
+
+title: hall_npc_ninja_heavy_bare_arms
+---
+Ninja Wrestler: No sleeves. Nothing to grab.
+-> Aren't ninjas supposed to wear black?
+    Ninja Wrestler: My trousers are black. The ring taught me the rest.
+-> What's the rope?
+    Ninja Wrestler: A champion's rope. Push me out of the hall and it is yours.
 ===
 
 title: hall_npc_olivia

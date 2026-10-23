@@ -1010,6 +1010,11 @@ tackon_targets=(
     mantis_lancer
     ninja_heavy
     ninja_shadow_duelist
+    # The dojo's heavies and blades who show their eyes (Looks of the two above).
+    ninja_heavy_eye_band
+    ninja_heavy_bare_arms
+    ninja_shadow_duelist_eye_band
+    ninja_shadow_duelist_blue_scarf
     # Kagero, who comes to your aid in the Inugami's fight.
     ninja_kagero
     ninja_shadow_oni_leader

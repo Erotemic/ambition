@@ -2072,6 +2072,44 @@
         ),
         hall_dialogue_id: Some("hall_npc_ninja_shadow_duelist"),
         ),
+        // Two more blades of the dojo, who show their eyes (Jon, 2026-10-23):
+        // Looks of the Shadow Duelist's sheet, his bones and poses.
+        "npc_ninja_shadow_duelist_eye_band": (
+            display_name: "Ninja Swordsman",
+            manifest: "sprites/ninja_shadow_duelist_eye_band_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm, as the Shadow Duelist.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["ninja", "enemy"],
+        barks: (
+            on_hit: ["Look me in the eye when you do that.", "A clean cut. Not yours.", "Again, from the guard."],
+            provoked: ["Draw."],
+            hall: ["The Duelist hides his eyes. I would rather see you coming.", "Stand where I can see your hands."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_shadow_duelist_eye_band"),
+        ),
+        "npc_ninja_shadow_duelist_blue_scarf": (
+            display_name: "Blue Scarf Duelist",
+            manifest: "sprites/ninja_shadow_duelist_blue_scarf_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm, as the Shadow Duelist.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["ninja", "enemy"],
+        barks: (
+            on_hit: ["The blue does not run.", "Straight blade, straight answer.", "You will remember the scarf."],
+            provoked: ["The blue line holds."],
+            hall: ["Red is the dojo's colour. I earned another.", "A straight blade forgives nothing. Neither do I."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_shadow_duelist_blue_scarf"),
+        ),
 
         // ===== Hub guides (peaceful, dialogue-only).
         "npc_architect": (
@@ -2968,6 +3006,45 @@
             hall: ["Others vanish. I arrive. The harder of the two.", "Heavy is not slow. Heavy is what slow pretends to be."],
         ),
         hall_dialogue_id: Some("hall_npc_ninja_heavy"),
+        ),
+        // Two more heavies of the dojo, who show their eyes (Jon, 2026-10-23:
+        // "make ninja variants that were like the originals ... normal eyes and
+        // skin showing"): Looks of the Ninja Heavy's sheet, his bones and poses.
+        "npc_ninja_heavy_eye_band": (
+            display_name: "Ninja Bruiser",
+            manifest: "sprites/ninja_heavy_eye_band_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // 198 cm, as the Ninja Heavy.
+            standing_height: Some(76.6),
+            composition: None,
+            default_brain: "melee_brute_brute",
+            default_action_set: "brute_lunge",
+            tags: ["ninja", "enemy", "heavy"],
+        barks: (
+            on_hit: ["Oak bends. It does not break.", "Again. Harder.", "You found the headband. Now find me."],
+            provoked: ["The dojo sends its bruiser."],
+            hall: ["They gave the heavy one iron. I asked for oak. It answers better.", "I keep my eyes open. It saves the club a trip."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_heavy_eye_band"),
+        ),
+        "npc_ninja_heavy_bare_arms": (
+            display_name: "Ninja Wrestler",
+            manifest: "sprites/ninja_heavy_bare_arms_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            // 198 cm, as the Ninja Heavy.
+            standing_height: Some(76.6),
+            composition: None,
+            default_brain: "melee_brute_brute",
+            default_action_set: "brute_lunge",
+            tags: ["ninja", "enemy", "heavy"],
+        barks: (
+            on_hit: ["Sleeves are for the cautious.", "A good push. Mine is better.", "Out of the ring with you."],
+            provoked: ["Step into the ring."],
+            hall: ["The others hide in black. I wear the rope of the ring.", "Sleeves only slow the arm down."],
+        ),
+        hall_dialogue_id: Some("hall_npc_ninja_heavy_bare_arms"),
         ),
         "npc_olivia": (
             display_name: "Olivia",

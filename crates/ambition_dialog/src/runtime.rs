@@ -259,6 +259,12 @@ impl DialogState {
         self.active
     }
 
+    /// Whether a start, a selection, an advance or a close waits for the
+    /// bridge to hand it to the runner.
+    pub fn has_pending_request(&self) -> bool {
+        self.pending_start.is_some() || self.pending_select.is_some() || self.pending_advance || self.pending_close
+    }
+
     /// Active dialogue id (matches the LDtk `NpcSpawn.dialogue_id`
     /// + the Yarn root node name). Empty when inactive.
     pub fn dialogue_id(&self) -> &str {

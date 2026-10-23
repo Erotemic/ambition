@@ -34,16 +34,26 @@ pub struct YarnBridgePlugin;
 impl Plugin for YarnBridgePlugin {
     fn build(&self, app: &mut App) {
         // `resource_added` fires only on the insert frame, and this system has no
-        // order against `compile_loaded_yarn_files`. Use `resource_exists` and a
-        // one-shot guard so the runner spawns on the first frame `YarnProject` exists.
+        // order against `compile_loaded_yarn_files`. So it runs on each frame the
+        // project exists and no runner does: once, unless a runner is never made.
         // The compiled project's node names, published for the SIMULATION to
         // ask "did content author a self branch?" without a Yarn dependency.
         app.init_resource::<DialogueNodeIndex>();
         app.add_systems(
             Update,
-            spawn_dialogue_runner.run_if(resource_exists::<YarnProject>),
+            spawn_dialogue_runner.run_if(
+                resource_exists::<YarnProject>.and_then(not(resource_exists::<DialogueRunnerEntity>)),
+            ),
         );
-        app.add_systems(Update, dispatch_pending_dialog_requests);
+        // Only with a request to hand over. It takes `DialogState` mutably, so
+        // a run with none still marked the state changed, and the dialogue's
+        // view and box were rebuilt each frame.
+        app.add_systems(
+            Update,
+            dispatch_pending_dialog_requests.run_if(|state: Option<Res<DialogState>>| {
+                state.is_some_and(|state| state.has_pending_request())
+            }),
+        );
         app.add_observer(on_present_line);
         app.add_observer(on_present_options);
         app.add_observer(on_dialogue_completed);
@@ -55,20 +65,15 @@ impl Plugin for YarnBridgePlugin {
 /// before spawning so authored content can use the full vocabulary on
 /// the first node entered.
 ///
-/// One-shot guarded by `DialogueRunnerEntity` already existing —
-/// the run condition (`resource_exists::<YarnProject>`) fires every
-/// frame, but the guard ensures we only spawn once.
+/// One-shot: its run condition holds only while no `DialogueRunnerEntity`
+/// exists, and the runner's insert ends it.
 fn spawn_dialogue_runner(
     mut commands: Commands,
     project: Res<YarnProject>,
     mirror: Res<YarnStateMirror>,
     content_bindings: Res<YarnContentBindings>,
     mut node_index: ResMut<DialogueNodeIndex>,
-    existing: Option<Res<DialogueRunnerEntity>>,
 ) {
-    if existing.is_some() {
-        return;
-    }
     let mut runner = project.create_dialogue_runner(&mut commands);
     // Publish the compiled node set. The interact dispatcher reads it to decide
     // whether a self-conversation has a branch to enter — before it opens a

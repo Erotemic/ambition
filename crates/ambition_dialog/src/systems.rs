@@ -153,18 +153,29 @@ pub fn dialog_pointer_input(
                 {
                     continue;
                 }
+                let now = DialogHoverUpdate {
+                    selected: dialogue.selected_option,
+                    pointer_armed: dialogue.pointer_armed,
+                    focus: dialogue.focus,
+                    last_pointer_position: dialogue.last_pointer_position,
+                };
                 let update = handle_dialog_choice_hover(
                     index,
-                    dialogue.selected_option,
-                    dialogue.pointer_armed,
-                    dialogue.focus,
-                    dialogue.last_pointer_position,
+                    now.selected,
+                    now.pointer_armed,
+                    now.focus,
+                    now.last_pointer_position,
                     cursor_position,
                 );
-                dialogue.selected_option = update.selected;
-                dialogue.pointer_armed = update.pointer_armed;
-                dialogue.focus = update.focus;
-                dialogue.last_pointer_position = update.last_pointer_position;
+                // Written only when the hover moves something. A write marks the
+                // dialogue changed, its box is rebuilt, and the new row under a
+                // resting cursor is hovered again.
+                if update != now {
+                    dialogue.selected_option = update.selected;
+                    dialogue.pointer_armed = update.pointer_armed;
+                    dialogue.focus = update.focus;
+                    dialogue.last_pointer_position = update.last_pointer_position;
+                }
                 // A mouse button released over the row it pressed reports
                 // `Hovered`, not `None` — so this is where an ordinary click
                 // completes.  but `Hovered` is also raised by mere motion, and a
@@ -222,7 +233,11 @@ pub fn dialog_pointer_input(
             // the pressed row reports `Hovered`, so a mouse `None` is always a leave.
             Interaction::None => {
                 if pointer_up != PointerUp::Touch {
-                    dialogue.row_press.left(index);
+                    // Only the armed row can be left. Asked first: each rebuilt
+                    // row arrives as `None`, and a write would rebuild the box.
+                    if dialogue.row_press.armed() == Some(&index) {
+                        dialogue.row_press.left(index);
+                    }
                     continue;
                 }
                 if dialogue.row_press.release(index, pointer_position) == Some(index) {
@@ -320,12 +335,12 @@ fn effective_dialog_tap_mode(
 pub fn dialog_input(
     menu: Res<MenuControlFrame>,
     participants: Query<&ParticipantContexts, With<InputParticipant>>,
-    mut dialogue: ResMut<DialogState>,
+    dialogue: ResMut<DialogState>,
 ) {
     if dialogue_input_is_captured(participants.iter()) {
         return;
     }
-    apply_dialog_menu_input(&menu, &mut dialogue);
+    apply_dialog_menu_input(&menu, dialogue);
 }
 
 /// Whether an overlay holds the conversation's input: a participant declares the
@@ -344,8 +359,13 @@ fn dialogue_input_is_captured<'a>(
     })
 }
 
+/// Apply one frame's menu controls to an open dialogue.
+///
+/// Generic over the borrow so a frame with no dialogue input reads the state
+/// without marking it changed: the system passes its `ResMut`, tests a
+/// `&mut DialogState`.
 #[cfg(feature = "input")]
-fn apply_dialog_menu_input(menu: &MenuControlFrame, dialogue: &mut DialogState) {
+fn apply_dialog_menu_input(menu: &MenuControlFrame, mut dialogue: impl std::ops::DerefMut<Target = DialogState>) {
     if !dialogue.active() {
         return;
     }
@@ -755,6 +775,23 @@ mod tests {
             !dialogue_input_is_captured([&ParticipantContexts::default()]),
             "no dialogue claim, no capture"
         );
+    }
+
+    /// An open dialogue waiting on the player, with no input and a choice row
+    /// that has just appeared, is read and not written. A write marks the
+    /// state changed, and the dialogue's view and box are rebuilt from it.
+    #[test]
+    fn a_waiting_dialogue_is_not_written() {
+        let mut app = App::new();
+        app.add_plugins(InputPlugin);
+        app.insert_resource(dialogue_with_options(2));
+        app.init_resource::<MenuControlFrame>();
+        app.add_systems(Update, (dialog_input, dialog_pointer_input));
+        app.update();
+        app.world_mut().spawn((Interaction::None, DialogChoiceSlot { index: 0 }));
+        let before = app.world().resource_ref::<DialogState>().last_changed();
+        app.update();
+        assert_eq!(app.world().resource_ref::<DialogState>().last_changed(), before);
     }
 
     fn dialogue_with_options(count: usize) -> DialogState {

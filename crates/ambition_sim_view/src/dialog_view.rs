@@ -176,8 +176,11 @@ mod tests {
         );
         app.update();
         assert!(app.world().resource::<DialogView>().active);
+        // The tick of the last write. `is_changed` read from outside a system
+        // is false after every `update`, which clears the trackers.
+        let before = app.world().resource_ref::<DialogView>().last_changed();
         app.update();
         let view = app.world().resource_ref::<DialogView>();
-        assert!(!view.is_changed(), "an unchanged open dialogue rewrote the view");
+        assert_eq!(view.last_changed(), before, "an unchanged open dialogue rewrote the view");
     }
 }

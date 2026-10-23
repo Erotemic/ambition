@@ -1177,11 +1177,14 @@ mod theme_load_tests {
         app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
 
         app.update();
-        // Two more frames: the theme is present, so neither may report a change.
+        // A later frame: the theme is present, so it may not write the assets.
+        // (`is_changed` read from outside a system is false after every
+        // `update`, which clears the trackers; the write's tick is the witness.)
+        let before = app.world().resource_ref::<GameAssets>().last_changed();
         app.update();
-        let changed = app.world().resource_ref::<GameAssets>().is_changed();
-        assert!(
-            !changed,
+        assert_eq!(
+            app.world().resource_ref::<GameAssets>().last_changed(),
+            before,
             "the theme load ran again on a frame where nothing was missing"
         );
     }

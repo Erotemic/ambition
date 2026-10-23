@@ -404,7 +404,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "BaseGravity": (
         "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs",
+        "crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
@@ -596,7 +596,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
     ),
     "ConstructionSchemaCatalog": (
-        "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs",
+        "crates/ambition_platformer2d_runtime/src/gravity/plugin.rs",
         "crates/ambition_platformer2d_runtime/src/sim_core_resources.rs",
         "crates/ambition_portal2d/src/plugin.rs",
     ),
@@ -3287,7 +3287,7 @@ ADJUDICATED: dict[str, str] = {
         "stores `domains: BTreeMap<String, String>`; `try_contribute` "
         "(`:52`) is idempotent for a repeated identical dump under one key "
         "and REFUSES (rather than clobbers) a differing one. "
-        "`crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs:56` "
+        "`crates/ambition_platformer2d_runtime/src/gravity/plugin.rs:56` "
         "contributes under `GRAVITY_ZONE_CONSTRUCTION_DOMAIN`, "
         "`crates/ambition_portal2d/src/plugin.rs:64` under "
         "`PORTAL_GUN_CONSTRUCTION_DOMAIN`, and "

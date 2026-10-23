@@ -25,7 +25,6 @@
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
 | [`game_assets`](src/game_assets/mod.rs) | Compatibility facade for game-asset resources and loaders. |
-| [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
 | [`items`](src/items/mod.rs) | Item adapters that compose actor simulation with item capabilities. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
@@ -38,7 +37,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D debris adapter (re-exported from its own crate), and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

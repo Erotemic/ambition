@@ -570,6 +570,14 @@ path). It installs no system: zero ECS invocations added or moved.
   `session`), unchanged. Capability footprint 62 → 63 nodes, a carve
   (`construction_entered_the_closure_2026_10_23`).
 
+**The gravity-zone mechanic moves up into the runtime (2026-10-23).**
+`GravityPlugin`, `GravitySet`, the body motion-frame resolution and the reset on
+a room reset are `ambition_platformer2d_runtime::gravity`: the runtime was
+the only installer and nothing else in the monolith named the module (its one
+edge, `ContentRoomResetSet`, the runtime names from above). The zone types and
+systems stay in `shared_tangle::gravity`. No system moved schedule or set.
+Monolith production lines 61,303 → 60,612.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

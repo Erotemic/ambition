@@ -71,9 +71,11 @@ pub fn install_for_boss_conduct(app: &mut App) {
 fn lower_slows(
     mut outbox: ResMut<ExtensionOutbox>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The footprint, not the level box: a body in turned gravity is turned
+    // (LEVEL-BOX-READERS). Every body publishes one.
     mut bodies: Query<(
         Entity,
-        &ae::BodyKinematics,
+        &ae::CenteredAabb,
         &mut ambition_characters::actor::BodyCombat,
         Option<&ambition_characters::actor::BodyHealth>,
         Has<crate::death_rules::OutOfPlay>,
@@ -84,14 +86,14 @@ fn lower_slows(
         let slow = submitted.value;
         let (centre, half) = (ae::Vec2::from(slow.center), ae::Vec2::from(slow.half_extent));
         let room = rooms.of(submitted.scope);
-        for (body, kin, mut combat, health, out_of_play, plane) in &mut bodies {
+        for (body, footprint, mut combat, health, out_of_play, plane) in &mut bodies {
             if body == submitted.scope
                 || rooms.of(body) != room
                 || crate::util::body_is_untouchable(health, out_of_play, plane)
             {
                 continue;
             }
-            let gap = (kin.pos - centre).abs() - (half + kin.size * 0.5);
+            let gap = (footprint.center - centre).abs() - (half + footprint.half_size);
             if gap.x < 0.0 && gap.y < 0.0 {
                 combat.slow(slow.speed_scale, slow.seconds);
             }

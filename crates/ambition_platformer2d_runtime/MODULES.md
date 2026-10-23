@@ -16,6 +16,7 @@
 | [`encounter_spawn_service`](src/encounter_spawn_service.rs) | The kernel's spawn server, registered where both sides are nameable. |
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
 | [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
+| [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
@@ -43,7 +44,7 @@
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

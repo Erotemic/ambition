@@ -10,7 +10,8 @@
     "a game with no turned gravity": "Mary-O, Smash and Sanic have no room whose gravity is turned; convert when one does",
     "the camera's framing bounds": "a bound of what the camera frames, not a contact",
     "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN",
-    "a lift's rider test at level gravity": "`advance_moving_platforms` asks `is_supporting_body` with the feet direction `Vec2::Y`, so it asks for the box a body has when its DOWN is the level's. Not measured against a room that turns gravity under a lift; when one is authored this read takes the rider's own box and its own DOWN, as the other platform readers do."
+    "a lift's rider test at level gravity": "`advance_moving_platforms` asks `is_supporting_body` with the feet direction `Vec2::Y`, so it asks for the box a body has when its DOWN is the level's. Not measured against a room that turns gravity under a lift; when one is authored this read takes the rider's own box and its own DOWN, as the other platform readers do.",
+    "a conducted limb": "a limb its conductor moves (`PoseHold::Conductor`) is a free body with no support and no stance: its size is its box, as a shot's is"
   },
   "reads": [
     {
@@ -59,12 +60,12 @@
       "class": "the centre only"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/gravity/resolve.rs",
+      "file": "crates/ambition_platformer2d_runtime/src/gravity/resolve.rs",
       "code": "resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response));",
       "class": "the gravity of a body"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/gravity/resolve.rs",
+      "file": "crates/ambition_platformer2d_runtime/src/gravity/resolve.rs",
       "code": "resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response));",
       "class": "the gravity of a body"
     },
@@ -140,13 +141,8 @@
     },
     {
       "file": "crates/ambition_portal2d_presentation/src/visuals.rs",
-      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "code": "let body = ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5));",
       "class": "a published view of the box the body has"
-    },
-    {
-      "file": "crates/ambition_projectiles/src/portal_transit.rs",
-      "code": "let half = kin.size * 0.5;",
-      "class": "a shot"
     },
     {
       "file": "crates/ambition_sim_view/src/camera_snapshot.rs",
@@ -179,26 +175,6 @@
       "class": "a game with no turned gravity"
     },
     {
-      "file": "game/ambition_demo_smash/src/bolt.rs",
-      "code": "let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;",
-      "class": "a game with no turned gravity"
-    },
-    {
-      "file": "game/ambition_demo_smash/src/bolt.rs",
-      "code": "let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;",
-      "class": "a game with no turned gravity"
-    },
-    {
-      "file": "game/ambition_demo_smash/src/bolt.rs",
-      "code": "let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;",
-      "class": "a game with no turned gravity"
-    },
-    {
-      "file": "game/ambition_demo_smash/src/spring.rs",
-      "code": "let reach = spring.half_extents + kin.size * 0.5;",
-      "class": "a game with no turned gravity"
-    },
-    {
       "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs",
       "code": "&& platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)",
       "class": "a lift's rider test at level gravity"
@@ -227,6 +203,21 @@
       "file": "game/ambition_demo_sanic/src/badnik.rs",
       "code": "(player, rooms.of(player), kin.aabb(), kin.vel, rolling.is_some(), harms_on_contact, id.cloned())",
       "class": "a game with no turned gravity"
+    },
+    {
+      "file": "crates/ambition_boss_encounter/src/conduct.rs",
+      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "class": "a conducted limb"
+    },
+    {
+      "file": "crates/ambition_platformer2d_runtime/src/posed_limbs.rs",
+      "code": "let half = kin.size * 0.5;",
+      "class": "a conducted limb"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "code": "half: kin.size * 0.5,",
+      "class": "a shot"
     }
   ]
 }

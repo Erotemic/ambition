@@ -9,7 +9,7 @@
 //! timeline each side sees on the same tick.
 
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::actors::gravity::GravitySet;
+use ambition_platformer2d::runtime::gravity::GravitySet;
 use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::time::SimTick;
 use bevy::prelude::*;

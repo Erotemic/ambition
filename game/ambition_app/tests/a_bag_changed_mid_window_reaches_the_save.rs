@@ -3371,7 +3371,7 @@ fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
 /// `apply_ambient_gravity_requests`
 /// (`crates/ambition_platformer2d_shared_tangle/src/gravity.rs:137`), which the
 /// monolith registers into the sim schedule
-/// (`crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs:96-105`).
+/// (`crates/ambition_platformer2d_runtime/src/gravity/plugin.rs:96-105`).
 /// A host-latched input edge, spent on a speculative frame, that nothing
 /// re-produces after the rewind — the clone's mechanism on a developer hotkey.
 ///
@@ -3398,7 +3398,7 @@ fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
 /// after 200 steps and the CONTROL failed — not because the in-sim cycle was
 /// lost, but because it landed at tick 100 and was restored to the authored
 /// default at step 158 by `reset_gravity_on_room_reset`
-/// (`crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs:28-39`),
+/// (`crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs:28-39`),
 /// which fires on `RoomReplayAdmitted`. An idle 200-frame window reaches a
 /// replay, so an endpoint reading would have called a working road broken.
 ///

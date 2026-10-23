@@ -48,6 +48,9 @@ pub mod cutscene;
 /// The simulation clock's scale and its bridge into the neutral `SimDt`: time
 /// control (intents, smoothing, reporting) and the sim-dt mirror.
 pub mod sim_clock;
+/// The gravity-zone mechanic: the zone snapshot, each body's motion frame,
+/// and the reset on a room reset.
+pub mod gravity;
 pub mod posed_limbs;
 pub mod profile;
 pub mod projectile_schedule;
@@ -505,7 +508,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The emitted player trail substrate.
             .add(ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.
-            .add(ambition_platformer2d_actor_monolith::gravity::GravityPlugin)
+            .add(crate::gravity::GravityPlugin)
             // The PRESSED collectible: a held weapon taken with `Attack`, its
             // use, throw, ground physics and custody-driven residency, and
             // the schedule they own (`ItemPickupSet::CoreHeldItems`, configured

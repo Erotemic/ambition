@@ -262,12 +262,12 @@ id = "game.app-installs-content-plugin"
 scope = "game"
 kind = "file-contains"
 owners = ["ambition_content"]
-watch_paths = ["game/ambition_app/src/app/plugins.rs"]
-rationale = "app installs AmbitionContentPlugin"
+watch_paths = ["game/ambition_content/src/provider.rs"]
+rationale = "Ambition's provider installs AmbitionContentPlugin (S2b)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_content::AmbitionContentPlugin"]
-file = "game/ambition_app/src/app/plugins.rs"
+contains = ["app.add_plugins(crate::AmbitionContentPlugin)"]
+file = "game/ambition_content/src/provider.rs"
 
 [[policy]]
 id = "game.app-sim-resources-no-inline-content"
@@ -391,7 +391,7 @@ watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "abilities must not live at the crate root"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/possession.rs", "crates/ambition_platformer2d_actor_monolith/src/mark_recall.rs", "crates/ambition_platformer2d_actor_monolith/src/beam.rs", "crates/ambition_platformer2d_actor_monolith/src/meteor.rs", "crates/ambition_platformer2d_actor_monolith/src/shockwave.rs", "crates/ambition_platformer2d_actor_monolith/src/vortex.rs", "crates/ambition_platformer2d_actor_monolith/src/volley.rs", "crates/ambition_platformer2d_actor_monolith/src/bomb.rs", "crates/ambition_platformer2d_actor_monolith/src/sentry.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/puppy_slug_gun.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/possession.rs", "crates/ambition_platformer2d_actor_monolith/src/mark_recall.rs", "crates/ambition_platformer2d_actor_monolith/src/beam.rs", "crates/ambition_platformer2d_actor_monolith/src/meteor.rs", "crates/ambition_platformer2d_actor_monolith/src/shockwave.rs", "crates/ambition_platformer2d_actor_monolith/src/vortex.rs", "crates/ambition_platformer2d_actor_monolith/src/volley.rs", "crates/ambition_platformer2d_actor_monolith/src/bomb.rs", "crates/ambition_platformer2d_actor_monolith/src/sentry.rs", "crates/ambition_platformer2d_runtime/src/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/puppy_slug_gun.rs"]
 
 [[policy]]
 id = "game.app-composes-engine-plugins"
@@ -458,7 +458,9 @@ id = "game.lib-dev-no-overlays"
 scope = "game"
 kind = "forbidden-path"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dev"]
+# The whole `dev` module has left (the trace recorder was the last of it), so the
+# watch is the crate's source root: a `dev/` coming back is what this forbids.
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "presentation-only overlays + dev-tool state/profiling moved out of the lib"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -468,12 +470,12 @@ paths = ["crates/ambition_platformer2d_actor_monolith/src/dev/debug_overlay.rs",
 id = "game.lib-dev-keeps-trace"
 scope = "game"
 kind = "required-path"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dev"]
-rationale = "sim-coupled trace recorder stays sim-side"
+owners = ["ambition_platformer2d_trace"]
+watch_paths = ["crates/ambition_platformer2d_trace/src"]
+rationale = "the sim-coupled trace recorder is its own crate, installed with the engine"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/dev/trace.rs", "crates/ambition_platformer2d_actor_monolith/src/dev/trace"]
+paths = ["crates/ambition_platformer2d_trace/src/lib.rs", "crates/ambition_platformer2d_trace/src/systems.rs"]
 
 [[policy]]
 id = "game.dev-tools-owns-state"

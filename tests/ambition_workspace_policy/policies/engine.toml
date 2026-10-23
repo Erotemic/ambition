@@ -1136,36 +1136,36 @@ id = "engine.time-facades-removed"
 scope = "engine"
 kind = "forbidden-path"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/sim_clock"]
 rationale = "clock_state/camera_ease facades removed"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/time/clock_state.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
+paths = ["crates/ambition_platformer2d_runtime/src/sim_clock/clock_state.rs", "crates/ambition_platformer2d_runtime/src/sim_clock/camera_ease.rs"]
 
 [[policy]]
 id = "engine.time-world-time-bridge"
 scope = "engine"
 kind = "file-contains"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/sim_clock/world_time.rs"]
 rationale = "world_time.rs is the sim-dt bridge naming ambition_time directly"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["mirror_sim_dt_into_runtime", "ambition_time::"]
-file = "crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs"
+file = "crates/ambition_platformer2d_runtime/src/sim_clock/world_time.rs"
 
 [[policy]]
 id = "engine.time-sandbox-policy-exists"
 scope = "engine"
 kind = "required-path"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time", "crates/ambition_combat/src"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/sim_clock", "crates/ambition_combat/src"]
 # The claim is unchanged (a game-specific time/feel policy exists somewhere a composition can
 # reach); only the address was stale.
 rationale = "sandbox game-specific time policy exists"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/time/time_control", "crates/ambition_combat/src/feel.rs"]
+paths = ["crates/ambition_platformer2d_runtime/src/sim_clock/time_control", "crates/ambition_combat/src/feel.rs"]
 
 
 # was: architecture_boundaries_input_crate_is_extracted
@@ -1782,6 +1782,11 @@ severity = "error"
 allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
     # Causal vocabulary is a foundation dependency used by runtime-side recording.
     "ambition_causal",
+    # Carves out of the actor monolith the runtime composes: the room publication
+    # coordinator (K4), the gameplay trace recorder, and actor construction (K6).
+    "ambition_platformer2d_publication",
+    "ambition_platformer2d_trace",
+    "ambition_platformer2d_construction",
     # Cutscene mechanics are lower-tier simulation state composed by the runtime.
     "ambition_cutscene",
     # Runtime snapshots provider-authored sheet vocabulary from this leaf crate.
@@ -2204,12 +2209,12 @@ skip_tests = true
 id = "engine.music-director-content-agnostic"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/music"]
+owners = ["ambition_platformer2d_audio"]
+watch_paths = ["crates/ambition_platformer2d_audio/src/music"]
 rationale = "music director consumes neutral MusicIntent; content mapping belongs in music::intent"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_platformer2d_actor_monolith/src/music"]
+roots = ["crates/ambition_platformer2d_audio/src/music"]
 forbid = ["crate::encounter", "crate::rooms", "crate::content"]
 skip_paths = ["intent.rs"]
 skip_tests = true
@@ -2220,12 +2225,12 @@ skip_tests = true
 id = "engine.gravity-mechanic-extracted"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/gravity"]
 rationale = "extracted gravity mechanic files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs"]
+paths = ["crates/ambition_platformer2d_runtime/src/gravity/mod.rs", "crates/ambition_platformer2d_runtime/src/gravity/plugin.rs", "crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs"]
 
 [[policy]]
 id = "engine.gravity-visuals-in-render"
@@ -2242,24 +2247,24 @@ paths = ["crates/ambition_render/src/rendering/gravity_visuals.rs"]
 id = "engine.gravity-owns-plugin"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/gravity/plugin.rs"]
 rationale = "gravity mechanic owns a GravityPlugin"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["pub struct GravityPlugin"]
-file = "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs"
+file = "crates/ambition_platformer2d_runtime/src/gravity/plugin.rs"
 
 [[policy]]
 id = "engine.gravity-portal-independent"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/gravity"]
 rationale = "gravity mechanic is portal-independent"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+roots = ["crates/ambition_platformer2d_runtime/src/gravity"]
 forbid = ["ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}", "ambition_platformer2d_actor_monolith::portal,", "ambition_portal2d "]
 
 [[policy]]
@@ -2273,7 +2278,7 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_portal2d/src"]
 forbid = ["GravityZoneVisual", "sync_gravity_zone_visual", "reset_gravity_on_room_reset"]
-allow_lines = ["ambition_platformer2d_actor_monolith::gravity"]
+allow_lines = ["ambition_platformer2d_runtime::gravity"]
 skip_tests = true
 
 
@@ -2669,7 +2674,7 @@ roots = ["crates", "game"]
 forbid = ["publish_resolved_frame("]
 skip_paths = [
     # The frame resolution phase itself — the one authority.
-    "ambition_platformer2d_actor_monolith/src/gravity/",
+    "ambition_platformer2d_runtime/src/gravity/",
     # The accessor's own definition.
     "ambition_platformer2d_shared_tangle/src/frame_env.rs",
 ]
@@ -2861,7 +2866,7 @@ roots = [
 forbid = [".dir_at(", "Res<GravityField>", "gravity_dir_or_default("]
 skip_paths = [
     # The gravity machinery + frame resolution phase itself.
-    "ambition_platformer2d_actor_monolith/src/gravity/",
+    "ambition_platformer2d_runtime/src/gravity/",
     # Free-body integrators resolve per body inline (dir_for) and feed the
     # shared world-forces seam through a local field value.
     "ambition_platformer2d_actor_monolith/src/items/pickup/",

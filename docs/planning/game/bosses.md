@@ -1047,6 +1047,18 @@ bright trail, and 6 (it needs rows with one arm on and one in its line).
   shoulder it was too low, and the player came out with no rise left.
 - Not tuned: the times, the damage, how many blows end phase 1.
 
+**Placed in the main game (2026-10-23).** Jon asked for a gravity and
+portal puzzle level with GNU-ton at its end. The level is the GNU-ton
+gravity handle (`gnu_ton_handle.ldtk`, a remote part of the Math manifold):
+four puzzle rooms (up fields; side fields; portals; a room that turns over)
+and his arena `gnu_ton_shoulders`. The arena is the hall's arena as it is,
+with his placement `gnu_ton_handle.gnu_ton`. A `LockWall` gated on
+`boss.cleared gnu_ton_handle.gnu_ton` opens the door home. Room by room:
+`tools/ambition_ldtk_tools/specs/gnu_ton_gravity/README.md`. Proof:
+`game/ambition_app/tests/the_gnu_ton_handle.rs`. Open: the hall's arena is
+not yet `practice` (the rule above for a hall boss that has a main-game
+placement; T-rex and the FSM are not either).
+
 ## The Smirking Behemoth — its eye beam (2026-10-13, Jon)
 
 Jon: "his eyes glow, but they should shoot some sort of laser beam or

@@ -354,3 +354,34 @@ fn a_wild_finish_zoom_request_cannot_invert_the_view() {
     let wild = FinishZoomTuning { max_close_fraction: 5.0, ..tuning };
     assert!(zoom.scale_factor(wild) > 0.0, "a wild tuning must not invert it");
 }
+
+/// The finishing zoom's tick runs while a zoom is held or releasing, so a
+/// zoom still comes all the way back out, and at rest it writes nothing.
+#[test]
+fn a_finishing_zoom_releases_and_then_rests_unwritten() {
+    use bevy::prelude::{App, DetectChanges as _, IntoScheduleConfigs as _, Time, Update};
+    use std::time::Duration;
+
+    let mut app = App::new();
+    app.init_resource::<Time>();
+    app.init_resource::<FinishZoomTuning>();
+    app.init_resource::<FinishZoomState>();
+    app.add_systems(Update, tick_finish_zoom.run_if(finish_zoom_is_active));
+    let tuning = *app.world().resource::<FinishZoomTuning>();
+    app.world_mut().resource_mut::<FinishZoomState>().kick(1.0, tuning);
+    let mut frames = 0;
+    while app.world().resource::<FinishZoomState>().closeness > 0.0 {
+        app.world_mut().resource_mut::<Time>().advance_by(Duration::from_millis(100));
+        app.update();
+        frames += 1;
+        assert!(frames < 1000, "the zoom never released");
+    }
+    let before = app.world().resource_ref::<FinishZoomState>().last_changed();
+    app.world_mut().resource_mut::<Time>().advance_by(Duration::from_millis(100));
+    app.update();
+    assert_eq!(
+        app.world().resource_ref::<FinishZoomState>().last_changed(),
+        before,
+        "a zoom at rest was written"
+    );
+}

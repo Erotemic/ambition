@@ -511,7 +511,8 @@ impl Plugin for HostCameraPlugin {
                 // ⭐ CHAINED AHEAD OF `camera_follow` FOR THE SAME REASON THE
                 // SHAKE IS: the follow reads both live values, so ticking after
                 // it would present a value one frame stale on every frame.
-                ambition_platformer2d_shared_tangle::camera_ease::tick_finish_zoom,
+                ambition_platformer2d_shared_tangle::camera_ease::tick_finish_zoom
+                    .run_if(ambition_platformer2d_shared_tangle::camera_ease::finish_zoom_is_active),
                 camera_follow,
             )
                 .chain()

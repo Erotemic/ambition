@@ -542,7 +542,14 @@ pub fn rest_the_camera_on_activation(
     *zoom = FinishZoomState::default();
 }
 
-/// Hold, then release. Runs every frame beside [`tick_camera_shake`].
+/// Run condition of [`tick_finish_zoom`]: a zoom is held or releasing. At
+/// rest the tick has nothing to do, and it wrote the state each frame.
+pub fn finish_zoom_is_active(zoom: bevy::prelude::Res<FinishZoomState>) -> bool {
+    zoom.hold_secs_left > 0.0 || zoom.closeness > 0.0
+}
+
+/// Hold, then release. Runs beside [`tick_camera_shake`] while
+/// [`finish_zoom_is_active`].
 pub fn tick_finish_zoom(
     time: bevy::prelude::Res<bevy::prelude::Time>,
     tuning: bevy::prelude::Res<FinishZoomTuning>,

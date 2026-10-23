@@ -134,8 +134,11 @@ pub fn install(app: &mut App) {
                 // After the rigged driver, as each overlay of a body is: the
                 // parts of this frame, not of the last.
                 .in_set(ActorOverlaySet)
+                .in_set(crate::MaryOPresentationSet)
                 .run_if(resource_exists::<CosmicBarrierQuad>)
                 .run_if(resource_exists::<Assets<MaryOCosmicBarrierMaterial>>),
+            // Never asleep: the quad is no child of her body, and a body torn
+            // down after the router moved still leaves one to take away.
             drop_the_barrier_of_a_body_that_is_gone,
         ),
     );

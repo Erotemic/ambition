@@ -76,7 +76,8 @@ fn add_systems(app: &mut App) {
                 .in_set(SessionScopeSet::Presentation)
                 .run_if(resource_exists::<WorldLabelLayoutSettings>),
             edges_take_the_font_of_their_sign,
-        ),
+        )
+            .in_set(crate::MaryOPresentationSet),
     );
 }
 

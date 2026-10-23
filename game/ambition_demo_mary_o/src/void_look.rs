@@ -51,7 +51,10 @@ pub fn install(app: &mut App) {
         return;
     }
     app.add_plugins(VoidFieldPlugin)
-        .add_systems(Update, (reconcile_void_auras, ward_her_with_the_quasar));
+        .add_systems(
+            Update,
+            (reconcile_void_auras, ward_her_with_the_quasar).in_set(crate::MaryOPresentationSet),
+        );
 }
 
 fn aura_of(sprite: &Sprite) -> VoidAura {

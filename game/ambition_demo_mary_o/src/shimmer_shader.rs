@@ -201,7 +201,8 @@ pub fn install(app: &mut App) {
                 .run_if(resource_exists::<Assets<MaryOShimmerMaterial>>)
                 .run_if(shimmer_is_in_budget),
             retire_shimmers_out_of_budget.run_if(not(shimmer_is_in_budget)),
-        ),
+        )
+            .in_set(crate::MaryOPresentationSet),
     );
 }
 

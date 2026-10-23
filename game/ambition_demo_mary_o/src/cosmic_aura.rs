@@ -116,6 +116,7 @@ pub fn install(app: &mut App) {
     app.add_systems(
         Update,
         light_her_while_she_is_cosmic
+            .in_set(crate::MaryOPresentationSet)
             .run_if(resource_exists::<CosmicAuraAssets>)
             .run_if(resource_exists::<Assets<MaryOCosmicAuraMaterial>>),
     );

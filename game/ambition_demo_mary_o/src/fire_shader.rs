@@ -121,7 +121,8 @@ pub fn install(app: &mut App) {
                 .run_if(resource_exists::<Assets<MaryOFireGlowMaterial>>)
                 .run_if(glow_is_in_budget),
             retire_glows_out_of_budget.run_if(not(glow_is_in_budget)),
-        ),
+        )
+            .in_set(crate::MaryOPresentationSet),
     );
 }
 

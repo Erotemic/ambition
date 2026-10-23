@@ -1162,7 +1162,20 @@ pub fn register_mary_o_cast(app: &mut App) {
 
 /// Register Mary-O's immutable authored character fragment in one Bevy `App`,
 /// for [`provider::MaryOExperiencePlugin`].
+/// Mary-O's presentation: systems that dress her rooms and bodies in
+/// `Update`. They sleep while another game is on screen in the hub (no Mary-O
+/// room is live then), and run on the frame the router moves.
+#[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MaryOPresentationSet;
+
 pub fn install_mary_o_content(app: &mut App) {
+    app.configure_sets(
+        bevy::prelude::Update,
+        bevy::prelude::IntoScheduleConfigs::run_if(
+            MaryOPresentationSet,
+            ambition_platformer2d::game_shell::shell_scope_is_on_screen_or_routing(provider::MARY_O_EXPERIENCE),
+        ),
+    );
     register_mary_o_cast(app);
     // A build that reads her pack off disk plays an edit to her tuning and
     // her ladder from the next session: both are read where they are used.
@@ -1191,7 +1204,7 @@ pub fn install_mary_o_content(app: &mut App) {
     scenery::register_mary_o_construction_props(app);
     app.add_systems(
         bevy::prelude::Update,
-        (
+        bevy::prelude::IntoScheduleConfigs::in_set((
             // the bonus blocks' LOOK, and it was in the SIM chain first.
             // Registered beside `bonk_power_blocks` because that is where the
             // powerup rules live — and it mutates RENDER entities, from inside
@@ -1207,7 +1220,7 @@ pub fn install_mary_o_content(app: &mut App) {
             scenery::dress_fire,
             // The switch of a castle, up or down, and its gate.
             castle_end::dress_the_goal,
-        ),
+        ), MaryOPresentationSet),
     );
 
     // Mary-O's mutable sim state joins the rollback contract through the same

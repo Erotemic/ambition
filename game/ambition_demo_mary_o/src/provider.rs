@@ -238,7 +238,10 @@ impl Plugin for MaryOExperiencePlugin {
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, mary_o_prepared_session_world);
-        app.add_systems(bevy::prelude::Update, publish_mary_o_readouts);
+        app.add_systems(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::in_set(publish_mary_o_readouts, crate::MaryOPresentationSet),
+        );
         app.add_plugins(MaryORulesPlugin::hosted());
     }
 }

@@ -106,7 +106,9 @@ pub fn install(app: &mut App) {
     app.register_type::<MaryOQuasarShaderSettings>();
     app.add_systems(
         Update,
-        declare_quasar_demand.in_set(ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemandSet),
+        declare_quasar_demand
+            .in_set(ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemandSet)
+            .in_set(crate::MaryOPresentationSet),
     );
     app.add_systems(
         Update,
@@ -117,6 +119,7 @@ pub fn install(app: &mut App) {
         )
             .chain()
             .in_set(ActorOverlaySet)
+            .in_set(crate::MaryOPresentationSet)
             // The render-world asset collections `attach_quasar_overlays` writes
             // into. Absent = this app does not draw, so there is nothing for an
             // overlay to be drawn on.

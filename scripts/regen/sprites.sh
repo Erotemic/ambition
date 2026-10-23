@@ -1162,6 +1162,15 @@ tackon_targets=(
     dog_honey
     dog_roadie
     dog_bezoar
+    # Five hall NPCs redrawn as SVG rigs (2026-10-23), one module
+    # (`targets/characters/hall_npcs_v2.py`): what the catalog draws. The
+    # Architect, the Vault Keeper, the Merchant Prototype and the General
+    # Hero keep their old toon sheets in `review_cues`.
+    architect_v2
+    manifest_clerk
+    vault_keeper_v2
+    merchant_prototype_v2
+    general_hero_v2
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as

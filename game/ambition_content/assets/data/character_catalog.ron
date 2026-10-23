@@ -2796,9 +2796,13 @@
         // Sandbox kamikaze mite (the exploding-mite archetype); spawn name "Exploding Mite".
         "npc_exploding_mite": (
             display_name: "Exploding Mite",
-            manifest: "sprites/exploding_mite_spritesheet.ron",
+            // The v2 art (2026-10-23): a mite on eight legs, not a biped.
+            manifest: "sprites/exploding_mite_v2_spritesheet.ron",
             tier: MainHall,
-            body_kind: Standard,
+            body_kind: Crawler,
+            // A mite is small: its shell and its legs, the fuse above, at the scale of the
+            // design (the player robot stands 48).
+            standing_height: Some(28.0),
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
@@ -2830,9 +2834,13 @@
         // Sandbox splitter mite (the dividing-mite archetype); spawn name "Dividing Mite".
         "npc_dividing_mite": (
             display_name: "Dividing Mite",
-            manifest: "sprites/dividing_mite_spritesheet.ron",
+            // The v2 art (2026-10-23): a mite on eight legs, not a biped.
+            manifest: "sprites/dividing_mite_v2_spritesheet.ron",
             tier: MainHall,
-            body_kind: Standard,
+            body_kind: Crawler,
+            // A mite is small: its two lobes and its legs, the feelers above, at the scale of the
+            // design (the player robot stands 48).
+            standing_height: Some(24.0),
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:

@@ -239,11 +239,11 @@ fn refresh_gamepad_probe_text(
     mut text: Query<(&mut Text, &mut Visibility), With<GamepadProbeText>>,
 ) {
     for (mut value, mut visibility) in &mut text {
-        *visibility = if probes.visible {
+        visibility.set_if_neq(if probes.visible {
             Visibility::Visible
         } else {
             Visibility::Hidden
-        };
+        });
         if probes.visible {
             value.0 = probes.report();
         }
@@ -284,10 +284,12 @@ impl Plugin for GamepadProbePlugin {
         app.add_systems(Startup, spawn_gamepad_probe_text);
         app.add_systems(
             Update,
+            // A toggle resets the peaks, so sampling while hidden is thrown
+            // away: it samples while shown, and the text follows the probes.
             (
-                toggle_gamepad_probe,
-                sample_gamepad_probes,
-                refresh_gamepad_probe_text,
+                toggle_gamepad_probe.run_if(on_message::<DeveloperAction>),
+                sample_gamepad_probes.run_if(|probes: Res<GamepadProbes>| probes.visible),
+                refresh_gamepad_probe_text.run_if(resource_changed::<GamepadProbes>),
             )
                 .chain(),
         );

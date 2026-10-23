@@ -208,18 +208,23 @@ impl Plugin for RollbackObservatoryPlugin {
                     .chain(),
             )
             .add_systems(Startup, spawn_rollback_proof_hud)
-            .add_systems(PreUpdate, record_pre_ggrs_state.before(RunGgrsSystems))
+            // The proof's own passes run while a proof runs; the observer and
+            // the HUD while anything of it shows (and the HUD one frame more,
+            // to hide itself).
+            .add_systems(PreUpdate, record_pre_ggrs_state.run_if(a_proof_runs).before(RunGgrsSystems))
             .add_systems(
                 LoadWorld,
                 capture_loaded_world.after(LoadWorldSystems::Mapping),
             )
             .add_systems(
                 AdvanceWorld,
-                count_advance_world_run.in_set(AdvanceWorldSystems::Last),
+                count_advance_world_run.run_if(a_proof_runs).in_set(AdvanceWorldSystems::Last),
             )
             .add_systems(
                 Update,
-                request_rollback_proof.in_set(RollbackProofUpdateSet::Control),
+                request_rollback_proof
+                    .run_if(on_message::<DeveloperAction>)
+                    .in_set(RollbackProofUpdateSet::Control),
             )
             .add_systems(
                 Update,
@@ -229,16 +234,18 @@ impl Plugin for RollbackObservatoryPlugin {
             )
             .add_systems(
                 Update,
-                observe_completed_host_update.in_set(RollbackProofUpdateSet::Observe),
+                observe_completed_host_update
+                    .run_if(the_observatory_shows)
+                    .in_set(RollbackProofUpdateSet::Observe),
             )
             .add_systems(
                 Update,
-                finish_completed_proof_pulse.in_set(RollbackProofUpdateSet::Finish),
+                finish_completed_proof_pulse.run_if(a_proof_runs).in_set(RollbackProofUpdateSet::Finish),
             )
             .add_systems(
                 Update,
                 (
-                    update_rollback_proof_hud,
+                    update_rollback_proof_hud.run_if(the_hud_shows_or_is_up),
                     draw_rollback_ghosts.run_if(rollback_proof_visible),
                 )
                     .in_set(RollbackProofUpdateSet::Present),
@@ -528,11 +535,11 @@ fn update_rollback_proof_hud(
     let visible = state.hud_seconds_left > 0.0
         || state.session_mode == Some(OwnedSessionMode::Proof)
         || state.startup_error.is_some();
-    *visibility = if visible {
+    visibility.set_if_neq(if visible {
         Visibility::Inherited
     } else {
         Visibility::Hidden
-    };
+    });
     if !visible {
         return;
     }
@@ -590,6 +597,29 @@ fn update_rollback_proof_hud(
         checksum,
         state.ghosts.len(),
     );
+}
+
+/// A proof pulse is running.
+fn a_proof_runs(state: Res<RollbackProofState>) -> bool {
+    state.session_mode == Some(OwnedSessionMode::Proof)
+}
+
+/// Anything of the observatory is up: a proof, its HUD's seconds, its
+/// ghosts, or a startup error. The observer's own early return, as a condition.
+fn the_observatory_shows(state: Res<RollbackProofState>) -> bool {
+    state.session_mode == Some(OwnedSessionMode::Proof)
+        || state.hud_seconds_left > 0.0
+        || state.ghost_seconds_left > 0.0
+        || state.startup_error.is_some()
+}
+
+/// Run condition of the HUD: the observatory shows, or the HUD is still up
+/// and has to hide.
+fn the_hud_shows_or_is_up(
+    state: Res<RollbackProofState>,
+    hud: Query<&Visibility, With<RollbackProofText>>,
+) -> bool {
+    the_observatory_shows(state) || hud.iter().any(|visibility| *visibility != Visibility::Hidden)
 }
 
 fn rollback_proof_visible(state: Res<RollbackProofState>) -> bool {
@@ -673,6 +703,33 @@ fn draw_world_aabb(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The HUD is written only while something of the observatory shows, and
+    /// hides itself the frame after: idle, it wrote its visibility each frame.
+    #[test]
+    fn an_idle_rollback_hud_is_not_written() {
+        use bevy::ecs::change_detection::DetectChanges as _;
+        let mut app = App::new();
+        app.init_resource::<RollbackProofState>();
+        app.add_systems(Update, update_rollback_proof_hud.run_if(the_hud_shows_or_is_up));
+        let hud = app
+            .world_mut()
+            .spawn((Text::new(""), Visibility::Inherited, RollbackProofText))
+            .id();
+        app.update();
+        assert_eq!(app.world().get::<Visibility>(hud), Some(&Visibility::Hidden), "the HUD did not hide");
+        let before = app.world().entity(hud).get_ref::<Visibility>().unwrap().last_changed();
+        app.update();
+        app.update();
+        assert_eq!(
+            app.world().entity(hud).get_ref::<Visibility>().unwrap().last_changed(),
+            before,
+            "an idle HUD was written"
+        );
+        app.world_mut().resource_mut::<RollbackProofState>().hud_seconds_left = 1.0;
+        app.update();
+        assert_eq!(app.world().get::<Visibility>(hud), Some(&Visibility::Inherited), "a showing HUD stayed hidden");
+    }
 
     #[test]
     fn proof_window_has_a_valid_sync_test_distance() {

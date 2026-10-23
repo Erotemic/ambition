@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-23 14:27Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 1,091 systems a frame; hub Ambition route 1,323 → 1,257 since
+route 1,320 → 1,082 systems a frame; hub Ambition route 1,323 → 1,248 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -92,6 +92,7 @@ says what they bought in frame time.
 | Physics debris: the burst subscriber runs on a burst message, the lifetimes while a piece exists, the retirement while a piece waits on its despawn (the avian pause still runs every frame and writes only on a change) | done | census: 3 systems a frame fewer on both routes (Mary-O 1,100 → 1,095 with two noise rows, Ambition 1,263 → 1,260); the plugin-level avian test now also despawns an expired piece through the gated passes and fails with the retirement gate poisoned |
 | Monolith packet: the debris physics adapter (`world::physics`: the avian install, room floors, bursts, lifetimes, retirement) leaves the actor monolith as `ambition_platformer2d_physics_debris`, a leaf the monolith re-exports as `world::physics` | done | ~580 production and ~460 test lines out of the monolith (11 tests with avian, 2 without, in the new crate); 0 systems added or removed; footprint 61 → 62 (declared); the footprint doc's quote, stale since the trace packet, re-quoted |
 | The FPS counter (on by default, also on the phone's `android_dev` build) syncs its setting and fonts on a change, toggles on the hotkey and is placed when the setting, the menu row or its node changes; Mary-O's quasar overlay syncs and tidies while a quasar source or overlay exists | done | census: Mary-O route 1,095 → 1,091 systems a frame (5 by the list diff, one noise row), hub Ambition route 1,260 → 1,257; witness `turning_the_counter_off_hides_it` fails with the placement condition poisoned |
+| The rollback observatory (dev, also in `android_dev`): its proof passes run while a proof runs, its observer while anything of it shows, its HUD while it shows or is still up, the proof request on its hotkey; the HUD wrote its visibility each frame. The gamepad probe samples while shown (a toggle resets its peaks, so hidden samples were thrown away), its text follows the probes and its visibility is written on a change | done | census: Mary-O route 1,091 → 1,082 systems a frame, hub Ambition route 1,257 → 1,248; visibility writes a frame 2 → 0 on both routes (none is left); witness `an_idle_rollback_hud_is_not_written` |
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 

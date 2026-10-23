@@ -382,11 +382,16 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes,
-                    slash_visuals::spawn_slash_effects,
+                    // A swing's passes run only while a cue is unread or a
+                    // swing is on screen.
+                    slash_visuals::spawn_slash_effects
+                        .run_if(bevy::prelude::on_message::<ambition_vfx::vfx::VfxInRoom>),
                     // After the spawn, so a swing born this frame is on its body
                     // when drawn.
-                    slash_visuals::follow_slash_owner.after(slash_visuals::spawn_slash_effects),
-                    slash_visuals::animate_slash,
+                    slash_visuals::follow_slash_owner
+                        .after(slash_visuals::spawn_slash_effects)
+                        .run_if(bevy::prelude::any_with_component::<slash_visuals::SlashVisual>),
+                    slash_visuals::animate_slash.run_if(bevy::prelude::any_with_component::<slash_visuals::SlashVisual>),
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
                     // A clock above a body that carries one (the delayed mark's
                     // telegraph). After `sync_visuals`, so it uses this frame's pose.

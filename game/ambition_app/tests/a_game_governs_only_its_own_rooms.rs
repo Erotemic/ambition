@@ -707,8 +707,8 @@ fn owning_crate(name: &str) -> &str {
 /// A game's gameplay in the simulation sleeps while another game plays: each
 /// simulation system a game crate registers has a run condition, on itself or
 /// on a set it is in (its rules scope, its mode, a capability it uses, a
-/// running match). The exceptions are named with the duty that must run
-/// everywhere.
+/// running match). A duty that must reach every room, such as releasing a
+/// claim the game left behind, is conditioned on that claim standing.
 ///
 /// Measured before this held (hub census, 2026-10-21): while Ambition, Mary-O
 /// or Sanic played, Smash's sudden-death round ran, and Ambition's cut-rope
@@ -719,12 +719,6 @@ fn a_games_simulation_systems_sleep_outside_its_rooms() {
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules};
 
-    // A retirement duty: it releases what the game held when the player left.
-    const EVERYWHERE: &[&str] = &[
-        // Claims the boss's music on a replay and must release it once the
-        // player is elsewhere, so it cannot sleep there.
-        "ambition_content::bosses::cut_rope::release_cut_rope_music_outside_its_room",
-    ];
     const GAMES: &[&str] = &["ambition_content", "ambition_demo_mary_o", "ambition_demo_sanic", "ambition_demo_smash"];
 
     let mut app = compose_the_host_simulated_by(Some(ambition_platformer2d::runtime::SimulationHost::Rollback));
@@ -759,7 +753,7 @@ fn a_games_simulation_systems_sleep_outside_its_rooms() {
             continue;
         };
         *counted.entry(game).or_default() += 1;
-        if conditions.is_empty() && !gated(NodeId::System(key)) && !EVERYWHERE.contains(&name.as_str()) {
+        if conditions.is_empty() && !gated(NodeId::System(key)) {
             awake.push(name);
         }
     }

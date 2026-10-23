@@ -160,6 +160,13 @@ impl EncounterMusicRequest {
         self.rooms.retain(|_, tiers| !tiers.is_empty());
     }
 
+    /// Whether a source of the kind `kind` claims any room: a kind that
+    /// releases with [`Self::release_priority_where`] has nothing to release
+    /// while this is false.
+    pub fn holds_claims_of_kind(&self, kind: &str) -> bool {
+        self.rooms.values().any(|tiers| tiers.claims.keys().any(|source| source.kind() == kind))
+    }
+
     /// The priority track that plays in `room`, if any, and WHO is not on
     /// offer: a caller that wants to change the tier goes through
     /// [`Self::claim_priority`] or [`Self::release_priority`] so the owner

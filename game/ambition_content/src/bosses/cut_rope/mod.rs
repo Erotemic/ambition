@@ -215,6 +215,18 @@ pub fn reset_cut_rope_boss_attempt(
     }
 }
 
+/// Run condition of [`release_cut_rope_music_outside_its_room`]: a cut-rope
+/// claim stands somewhere, so there may be one to release.
+pub fn cut_rope_music_is_claimed(
+    music: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_encounter::EncounterMusicRequest,
+        >,
+    >,
+) -> bool {
+    music.is_some_and(|music| music.holds_claims_of_kind(CUT_ROPE_MUSIC_OWNER))
+}
+
 /// Release the cut-rope boss's music claim in each room that is not its arena.
 ///
 /// `reset_cut_rope_boss_attempt` claims `CUT_ROPE_MUSIC_OWNER` for the intro
@@ -226,7 +238,8 @@ pub fn reset_cut_rope_boss_attempt(
 /// A claim released only by the system that took it is released only while
 /// that system runs, and a one-shot stops running. The generic boss system
 /// follows the same rule: it has no run condition, so it reaches its "no boss
-/// is fighting" arm every frame.
+/// is fighting" arm every frame. This one runs while a cut-rope claim stands
+/// ([`cut_rope_music_is_claimed`]), which is every frame it has one to release.
 ///
 /// It releases only its own claim (`release_priority` is owner-checked), so a
 /// conversation, a demo death cue or the generic boss owner keep theirs.

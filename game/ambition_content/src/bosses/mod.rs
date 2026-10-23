@@ -27,7 +27,7 @@ pub mod yarn;
 pub use banter::tick_boss_idle_barks;
 pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_the_conversation_ends,
-    is_cut_rope_boss, release_cut_rope_music_outside_its_room, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
+    cut_rope_music_is_claimed, is_cut_rope_boss, release_cut_rope_music_outside_its_room, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
     reset_cut_rope_boss_attempt, spawn_cut_rope_victory_npc,
     sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
     CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
@@ -348,13 +348,18 @@ impl Plugin for AmbitionBossContentPlugin {
             ),
         );
 
-        // No run condition, on purpose. `reset_cut_rope_attempt_on_replay` claims
-        // this boss's music on a room replay (a death), and a one-shot cannot
+        // Not scoped to Ambition's rooms, on purpose. `reset_cut_rope_attempt_on_replay`
+        // claims this boss's music on a room replay (a death), and a one-shot cannot
         // release it after it stops running. This reaches its release arm on every
-        // frame the player is elsewhere, like `ambition_boss_encounter`'s generic
-        // music system; otherwise the intro would follow the player and outrank
-        // room music.
-        app.add_systems(sim, release_cut_rope_music_outside_its_room);
+        // frame the player is elsewhere while that claim stands, like
+        // `ambition_boss_encounter`'s generic music system; otherwise the intro
+        // would follow the player and outrank room music. With no cut-rope claim
+        // there is nothing to release, so it does not run (and does not mark the
+        // request changed each tick).
+        app.add_systems(
+            sim,
+            release_cut_rope_music_outside_its_room.run_if(cut_rope_music_is_claimed),
+        );
 
         // Cut-rope post-damage flavor (rope-cut detection → gate, hazard→
         // visual mirror + impact flavor, prop visuals). Runs in the engine's

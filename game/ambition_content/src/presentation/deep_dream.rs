@@ -100,15 +100,19 @@ pub fn install(app: &mut App) {
         Update,
         (
             attach_puppy_slug_deep_dream_overlays,
-            sync_puppy_slug_deep_dream_overlays,
-            cleanup_puppy_slug_deep_dream_overlays,
+            // Only while a slug dreams, or an overlay outlives its slug: a
+            // room with no slug runs neither.
+            sync_puppy_slug_deep_dream_overlays.run_if(any_with_component::<PuppySlugDeepDreamSource>),
+            cleanup_puppy_slug_deep_dream_overlays.run_if(any_with_component::<PuppySlugDeepDreamOverlay>),
         )
             .chain()
             .in_set(ActorOverlaySet),
     );
     app.add_systems(
         Update,
-        declare_deep_dream_demand.in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet),
+        declare_deep_dream_demand
+            .run_if(any_with_component::<PuppySlugDeepDreamSource>)
+            .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet),
     );
 }
 

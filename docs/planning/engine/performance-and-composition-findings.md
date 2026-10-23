@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 06:59Z (MEASURED, desktop census):** hub Mary-O route
-1,320 → 1,141 systems a frame; hub Ambition route 1,323 → 1,298 since the
+**Status, 2026-10-23 13:14Z (MEASURED, desktop census):** hub Mary-O route
+1,320 → 1,119 systems a frame; hub Ambition route 1,323 → 1,283 since the
 ledger slice; no surveyed room spawns an entity a frame. Monolith packets this
 run: audio, the trace recorder, the quest producer, the cutscene player and
 the time module (~3,400 production lines out, by `wc -l` at each move). Last green commit for the
@@ -83,6 +83,7 @@ these slices, the one measurement that says what they bought.
 | `perf_probe`, hub Ambition route: the parallax theme retirement builds its keep-set only when the live rooms or the room set change (it looked up every live room's neighbours and their themes each frame, then compared); nameplate candidates borrow their ids and words from the nameplate index and the door snapshot instead of copying them, and a still plate's label is not rewritten | done | allocations a frame: `retire_departed_parallax_themes` 193 → 0, `sync_actor_nameplates` 248 → 96 |
 | The touch buttons' glyphs are built again only when the active device, the settings or the seat bindings change, or a button is new; each glyph string was built every frame to be compared | done | `perf_probe`, hub: `update_button_glyph_from_active_input` 22 → 0 allocations a frame. Left as they are, with reasons: the occurrence horizon's mirror key (18) compares cloned values on purpose so a rewind that changes an input is seen; the input action update (262) is leafwing's map, already cut from ~19,000 |
 | Mary-O's castle ending (5 rules: the ending, the charges, the lava, the gate, the thanks) is one set that runs only where the controlled body's room has the switch; each rule searched the room's blocks for the switch by name every tick, in every level | done | REASONED: 5 systems a tick fewer in a level without the switch, and one block search instead of five where there is one; Mary-O 204 lib and 11 switch/lap integration tests pass |
+| The effect pipeline's nine stages run only with work (a request stage while its message is unread, an ageing stage while a visual of its kind exists), as do the slash's three; the puppy slug's dream sync, clean-up and demand while a dreaming slug or an overlay exists; the cut-rope boss's music release while one of its claims stands (it took the music request mutably each tick, so the request was marked changed each tick in every game) | done | census: Mary-O route 1,137 → 1,119 systems a frame, hub Ambition route 1,299 → 1,283; witnesses `an_expired_visual_of_each_kind_is_still_removed` and `the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room` fail with a gate poisoned; the scoping guard lost its one exemption |
 
 ### F43 — What still changes, spawns and allocates each frame (2026-10-23)
 

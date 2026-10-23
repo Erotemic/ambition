@@ -1986,14 +1986,17 @@ mod tests {
 pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
-    use bevy::prelude::{IntoScheduleConfigs as _, Update};
+    use bevy::prelude::{any_with_component, on_message, IntoScheduleConfigs as _, Update};
 
+    // Each stage runs only when it has work: a request stage when its message
+    // is unread, an ageing stage while a visual of its kind exists. A room
+    // with no effect in flight runs none of the nine.
     app.add_systems(
         Update,
         (
-            process_fireworks_requests,
-            tick_firework_sequences,
-            process_fx_requests,
+            process_fireworks_requests.run_if(on_message::<FireworksRequest>),
+            tick_firework_sequences.run_if(any_with_component::<FireworkSequence>),
+            process_fx_requests.run_if(on_message::<FxRequest>),
         )
             .chain()
             .after(Platformer2dSimulationPhase::CoreSimulation)
@@ -2003,6 +2006,7 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     app.add_systems(
         Update,
         vfx_spawn_messages
+            .run_if(on_message::<VfxInRoom>)
             .after(process_fx_requests)
             .before(crate::rendering::WorldLabelLayoutSet)
             .run_if(session_world_exists),
@@ -2010,11 +2014,11 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     app.add_systems(
         Update,
         (
-            update_particles,
-            update_beams,
-            update_effects,
-            update_impacts,
-            update_speech_bubbles,
+            update_particles.run_if(any_with_component::<ParticleVisual>),
+            update_beams.run_if(any_with_component::<BeamVisual>),
+            update_effects.run_if(any_with_component::<EffectVisual>),
+            update_impacts.run_if(any_with_component::<ImpactVisual>),
+            update_speech_bubbles.run_if(any_with_component::<SpeechBubbleVisual>),
         )
             .chain()
             .before(crate::rendering::WorldLabelLayoutSet)
@@ -2060,5 +2064,61 @@ mod install_tests {
             "the FX pipeline lost a stage in the carve: 3 request systems + \
              vfx_spawn_messages + 5 ageing systems, plus 4 Bevy sync points"
         );
+    }
+
+    /// An ageing stage still runs while a visual of its kind exists. Each
+    /// stage is gated on its own component, so a gate naming the wrong one
+    /// would leave its visuals on screen forever.
+    #[test]
+    fn an_expired_visual_of_each_kind_is_still_removed() {
+        use super::*;
+        use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<FireworksRequest>();
+        app.add_message::<FxRequest>();
+        app.add_message::<VfxInRoom>();
+        super::install_fx_pipeline(&mut app);
+        app.world_mut().spawn(SessionRoot(SessionScopeId(0)));
+        let at = ae::Vec2::ZERO;
+        let particle = app
+            .world_mut()
+            .spawn((
+                ParticleVisual {
+                    kind: ParticleKind::Spark,
+                    pos: at,
+                    vel: at,
+                    age: 1.0,
+                    lifetime: 1.0,
+                    radius: 1.0,
+                    rgba: [1.0; 4],
+                    gravity: 0.0,
+                    drag: 0.0,
+                },
+                Transform::default(),
+                Sprite::default(),
+            ))
+            .id();
+        let beam = app
+            .world_mut()
+            .spawn((
+                BeamVisual { base: at, toward: at, length: 1.0, width: 1.0, rgba: [1.0; 4], age: 1.0, lifetime: 1.0 },
+                Transform::default(),
+                Sprite::default(),
+            ))
+            .id();
+        let impact = app
+            .world_mut()
+            .spawn((
+                ImpactVisual { pos: at, age: 1.0, duration: 1.0, radius: 1.0 },
+                Transform::default(),
+                Sprite::default(),
+            ))
+            .id();
+        app.update();
+        for (kind, entity) in [("particle", particle), ("beam", beam), ("impact", impact)] {
+            assert!(app.world().get_entity(entity).is_err(), "an expired {kind} was left on screen");
+        }
     }
 }

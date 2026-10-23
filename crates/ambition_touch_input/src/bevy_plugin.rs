@@ -1199,8 +1199,17 @@ pub fn update_button_glyph_from_active_input(
     devices: Res<ambition_input::SeatActiveDevices>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
-    mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
+    mut labels: Query<(&TouchActionLabel, Ref<TouchActionLabel>, &mut ButtonGlyph)>,
 ) {
+    // A glyph is a function of the active device, the preset and the seat's
+    // bindings: built again only when one of them changed or a button is new.
+    // Building every glyph each frame to compare it allocated a string each.
+    let inputs_changed = devices.is_changed()
+        || settings.as_ref().is_some_and(|settings| settings.is_changed())
+        || seat_bindings.as_ref().is_some_and(|bindings| bindings.is_changed());
+    if !inputs_changed && !labels.iter().any(|(_, label, _)| label.is_added()) {
+        return;
+    }
     // Default to Arrows+ZXC when there are no settings (headless host).
     let preset = settings
         .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
@@ -1211,7 +1220,7 @@ pub fn update_button_glyph_from_active_input(
     let bound = seat_bindings.as_deref().map_or(&empty, |seats| {
         seats.for_seat(ambition_input::ParticipantId::PRIMARY.slot())
     });
-    for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
+    for (TouchActionLabel(touch_action), _, mut glyph) in &mut labels {
         let Some(sa) = touch_action_to_sandbox_action(*touch_action) else {
             continue;
         };

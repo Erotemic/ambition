@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-23 14:27Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 1,044 systems a frame; hub Ambition route 1,323 → 1,210 since
+route 1,320 → 1,038 systems a frame; hub Ambition route 1,323 → 1,208 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -101,6 +101,7 @@ says what they bought in frame time.
 | Four world render passes run only with work: the block flinch on a strike or while a flinch plays, the lock-wall slide while a wall slides, the removed-block sweep while a live room's overlay names a removed block, the sprite-handle refresh when `GameAssets` changes (its own early return) | done | census: 4 systems a frame fewer on both routes (Mary-O 1,053 → 1,049, Ambition 1,221 → 1,218 with one noise row); witness `a_struck_block_flinches_and_settles_home`; render 443, 39 app lock, brick, block and wall tests and Mary-O's 102 integration tests pass |
 | The versus stage outside versus: its roster tracking runs while the versus route is open or its roster stands (the teardown arm), its reconciliation while a roster exists, and its scoreboard while a match runs or a slot still holds a readout; the scoreboard cleared its slots every frame in every game, marking the HUD readouts changed every frame | done | census: 3 systems a frame fewer on both routes (Mary-O 1,049 → 1,046, Ambition 1,218 → 1,213 with noise rows); witness `a_finished_scoreboard_is_cleared_once_and_then_rests`; 31 versus lib and 67 app versus, roster and HUD tests pass |
 | The debug and navigation overlays (dev, in `android_dev` too) run while switched on: each system's first test is its run condition, and the label pass runs while a label is queued | done | census: 3 systems a frame fewer on both routes (Mary-O 1,046 → 1,044 with one noise row, Ambition 1,213 → 1,210). REASONED: the conditions are the systems' own early returns, so what draws is unchanged; app lib 253 tests pass |
+| The passes that draw a simulation row view (ground and world items, shrines, mark beacons, body clocks) run while the view holds rows or a drawn entity remains to retire (`ambition_sim_view::rows_or_drawn`), the shrine animation while a shrine is drawn; a shrine's sprite size was written every frame | done | census: Mary-O route 1,044 → 1,038 systems a frame, hub Ambition route 1,210 → 1,208 (its hall has ground items and a shrine); witness `a_drawing_pass_runs_until_its_last_drawn_entity_is_retired`; render 444, sim_view 135 and 74 app item, shrine, mark and clock tests pass |
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 

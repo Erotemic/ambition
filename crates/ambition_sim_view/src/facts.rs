@@ -1214,6 +1214,14 @@ pub fn sources_or_rows<C: Component, V: RowView>(sources: Query<(), With<C>>, vi
     !sources.is_empty() || view.has_rows()
 }
 
+/// Run condition of a presentation pass that draws the rows of view `V` as
+/// entities marked `D`: the view holds rows, or a drawn entity remains for
+/// the pass to retire. While neither holds, the pass would leave the world
+/// as it is.
+pub fn rows_or_drawn<V: RowView, D: Component>(view: Res<V>, drawn: Query<(), With<D>>) -> bool {
+    view.has_rows() || !drawn.is_empty()
+}
+
 impl Plugin for SimViewPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
@@ -1518,6 +1526,29 @@ mod tests {
             "the possessed body holds no Mana, so the HUD must not show the \
              home avatar's pool as if it were this body's"
         );
+    }
+
+    /// A drawing pass keeps running while a drawn entity remains with no row,
+    /// so it can retire it, and stops once nothing is drawn.
+    #[test]
+    fn a_drawing_pass_runs_until_its_last_drawn_entity_is_retired() {
+        #[derive(Component)]
+        struct Drawn;
+        #[derive(Resource, Default)]
+        struct Runs(u32);
+        let mut app = App::new();
+        app.init_resource::<ShrinesView>();
+        app.init_resource::<Runs>();
+        app.add_systems(
+            Update,
+            (|mut runs: ResMut<Runs>| runs.0 += 1).run_if(rows_or_drawn::<ShrinesView, Drawn>),
+        );
+        let drawn = app.world_mut().spawn(Drawn).id();
+        app.update();
+        assert_eq!(app.world().resource::<Runs>().0, 1, "a drawn entity with no row was left to stand");
+        app.world_mut().despawn(drawn);
+        app.update();
+        assert_eq!(app.world().resource::<Runs>().0, 1, "the pass ran with nothing to draw or retire");
     }
 
     /// A row view keeps rebuilding the tick after its last source goes, so

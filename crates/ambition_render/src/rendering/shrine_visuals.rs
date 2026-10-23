@@ -119,7 +119,11 @@ pub fn sync_shrine_visual(
                 matched = false;
             }
             if let Ok(mut sprite) = sprites.get_mut(entity) {
-                sprite.custom_size = Some(shrine.half_extent * 2.0);
+                // Only a change: a written sprite is extracted again.
+                let size = Some(shrine.half_extent * 2.0);
+                if sprite.custom_size != size {
+                    sprite.custom_size = size;
+                }
             } else {
                 matched = false;
             }

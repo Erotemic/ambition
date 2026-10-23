@@ -363,10 +363,15 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     // It decides a sprite's visibility (a straddling item is
                     // drawn by its portal pieces), so it is a sprite authority.
+                    // The row-view passes run while their view holds rows or a
+                    // drawn entity remains to retire.
                     item_visuals::sync_ground_item_visuals
+                        .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::GroundItemsView, item_visuals::GroundItemVisual>)
                         .after(actors::sync_visuals)
                         .in_set(SpriteVisualSync),
-                    item_visuals::sync_world_item_visuals.after(actors::sync_visuals),
+                    item_visuals::sync_world_item_visuals
+                        .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::WorldItemsView, item_visuals::WorldItemVisual>)
+                        .after(actors::sync_visuals),
                     // Despawn any authored block the collision overlay removes this
                     // frame (a broken brick, a gate-dropped wall): the render half of
                     // `removed_block_names`.
@@ -380,8 +385,12 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         .after(actors::rigged::drive_rigged_presentations)
                         .in_set(posed_hand::HeldItemPresentationSet),
                     posed_hand::ask_holders_for_their_hands.in_set(posed_hand::HeldItemPresentationSet),
-                    shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
-                    shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
+                    shrine_visuals::sync_shrine_visual
+                        .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::ShrinesView, shrine_visuals::ShrineVisualKey>)
+                        .after(actors::sync_visuals),
+                    shrine_visuals::animate_shrine_visuals
+                        .run_if(bevy::prelude::any_with_component::<shrine_visuals::ShrineVisual>)
+                        .after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes,
                     // A swing's passes run only while a cue is unread or a
                     // swing is on screen.
@@ -393,10 +402,13 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         .after(slash_visuals::spawn_slash_effects)
                         .run_if(bevy::prelude::any_with_component::<slash_visuals::SlashVisual>),
                     slash_visuals::animate_slash.run_if(bevy::prelude::any_with_component::<slash_visuals::SlashVisual>),
-                    mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
+                    mark_beacon::sync_mark_beacon_visual
+                        .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::MarkBeaconsView, mark_beacon::MarkBeaconVisual>)
+                        .after(actors::sync_visuals),
                     // A clock above a body that carries one (the delayed mark's
                     // telegraph). After `sync_visuals`, so it uses this frame's pose.
                     body_clock::sync_body_clock_visuals
+                        .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::BodyClocksView, body_clock::BodyClockVisual>)
                         .in_set(BodyOwnedDrawableSync)
                         .after(actors::sync_visuals),
                     // Derived from `MovingPlatformSet`; never writes it. See

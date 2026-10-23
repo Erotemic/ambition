@@ -30,6 +30,7 @@ from ambition_ldtk_tools.generate_hall_of_characters import (
     main_floors_for,
     make_entity,
     merge_provider_entries,
+    provider_hall_entries,
     parse_catalog,
 )
 
@@ -238,3 +239,48 @@ def test_an_unknown_tier_is_refused_not_dropped():
 """
     with pytest.raises(ValueError, match="Colossal"):
         parse_catalog(catalog)
+
+
+def _catalog(rows: dict[str, str]) -> str:
+    """A catalog whose `characters` map has each id with the manifest given."""
+    body = "".join(
+        f'        "{cid}": (\n            manifest: "{manifest}",\n            tier: MainHall,\n        ),\n'
+        for cid, manifest in rows.items()
+    )
+    return "(\n    characters: {\n" + body + "    },\n)\n"
+
+
+def test_a_provider_stand_in_is_not_a_second_stand():
+    """A provider row that wears a sheet the Hall already shows is that
+    character; a row with its own sheet is exhibited, bound to its Hall
+    conversation only when it names one."""
+    content = _catalog({"robot": "sprites/robot_spritesheet.ron"})
+    provider = _catalog(
+        {
+            "duelist": "sprites/robot_spritesheet.ron",
+            "snake": "sprites/snake_spritesheet.ron",
+            "snake_again": "sprites/snake_spritesheet.ron",
+        }
+    )
+    assert provider_hall_entries(content, [provider]) == [("snake", "MainHall", None)]
+
+
+def test_the_committed_hall_is_the_one_the_catalogs_generate():
+    """Every hub character has a stand: the committed spec is what the
+    catalogs generate now. A character added without regenerating the Hall
+    (`python -m ambition_ldtk_tools.generate_hall_of_characters`) fails here."""
+    from ambition_ldtk_tools.generate_hall_of_characters import (
+        CATALOG_PATH,
+        HEADER,
+        PROVIDER_CATALOGS,
+        SPEC_PATH,
+    )
+    from ambition_ldtk_tools.ron_parse import dumps as ron_dumps
+
+    text = CATALOG_PATH.read_text()
+    main, basement, giants, dialogue_ids = parse_catalog(text)
+    main, basement, dialogue_ids = merge_provider_entries(
+        main, basement, dialogue_ids, provider_hall_entries(text, [p.read_text() for p in PROVIDER_CATALOGS])
+    )
+    expected = HEADER + ron_dumps(build_spec(main, basement, dialogue_ids, giants))
+    assert SPEC_PATH.read_text() == expected, "the Hall is stale: regenerate it"

@@ -605,30 +605,68 @@ HEADER = """\
 """
 
 
-# Provider-owned characters to EXHIBIT in the Hall. These ids are authored by
-# SEPARATE experience providers (ambition_demo_sanic, ambition_demo_mary_o, ...),
-# NOT by ambition_content's catalog, so they never appear via the tier scan of
-# the catalog file. We reference their CANONICAL ids here; at runtime each
-# resolves against the App-local ASSEMBLED catalog (every provider fragment is
-# merged before the Hall room loads). This is the authored inclusion list for
-# cross-provider exhibits — the single place to add/remove a provider character
-# from the Hall, never by editing the provider's own definition.
-#
-# (character_id, tier, hall_dialogue_id), where tier is "MainHall" or
-# "Basement". A transformation (super_sanic, mary_o_tall) is NOT listed: its
-# catalog row names its character in `form_of`, and the Hall shows it on that
-# character's body (`<<transform>>` in the character's conversation).
-PROVIDER_HALL_ENTRIES: list[tuple[str, str, str]] = [
-    ("sanic", "MainHall", "hall_sanic"),
-    ("mary_o", "MainHall", "hall_mary_o"),
+# The catalogs of the other games the hub ships (`game/ambition_app/src/app/
+# hub_games.rs`: Sanic, Mary-O, Smash, and the versus arena in the app's own
+# catalog). Their rows are not in ambition_content's catalog, so the tier scan
+# of that file never sees them; every row of these files is exhibited too
+# ([`provider_hall_entries`]). At runtime each id resolves against the App-local
+# ASSEMBLED catalog. A game outside the hub (the pocket and twintrack demos) is
+# not listed.
+PROVIDER_CATALOGS: list[Path] = [
+    REPO_ROOT / "game" / game / "assets" / "data" / "character_catalog.ron"
+    for game in ("ambition_demo_sanic", "ambition_demo_mary_o", "ambition_demo_smash", "ambition_app")
 ]
+
+
+def catalog_manifests(catalog_text: str) -> dict[str, str]:
+    """Each top-level ``characters`` row's sheet manifest, by id."""
+    characters_text = _named_map_body(catalog_text, "characters")
+    entry_pat = re.compile(r'^ {8}"(?P<id>[a-z0-9_]+)"\s*:\s*\(', re.MULTILINE)
+    matches = list(entry_pat.finditer(characters_text))
+    manifests: dict[str, str] = {}
+    for idx, match in enumerate(matches):
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(characters_text)
+        found = re.search(r'manifest:\s*"([^"]+)"', characters_text[match.end() : end])
+        if found:
+            manifests[match.group("id")] = found.group(1)
+    return manifests
+
+
+def provider_hall_entries(content_text: str, provider_texts: list[str]) -> list[tuple[str, str, str | None]]:
+    """Every row of the other games' catalogs that the Hall exhibits, as
+    ``(character_id, tier, hall_dialogue_id)``, in file order.
+
+    A transformation or a part (`form_of`, `part_of`) is not one
+    (``parse_catalog``). Nor is a STAND-IN: a row that wears the sheet of a
+    character already exhibited (Smash's duelists wear the player robots'
+    sheets, Sanic's base badnik wears Mary-O's AI Slop) is that character,
+    and the Hall has one stand for each. A row's Hall conversation
+    (`hall_dialogue_id`) is bound when it names one; an exhibit without one
+    speaks its barks, as most do (`the_full_hall_validates_...`).
+    """
+    worn = set(catalog_manifests(content_text).values())
+    entries: list[tuple[str, str, str | None]] = []
+    for text in provider_texts:
+        main, basement, giants, dialogue_ids = parse_catalog(text)
+        manifests = catalog_manifests(text)
+        tier_of = {cid: "MainHall" for cid in main} | {cid: "Basement" for cid in basement}
+        for cid in main + basement:
+            manifest = manifests.get(cid)
+            if manifest is not None and manifest in worn:
+                continue
+            if manifest is not None:
+                worn.add(manifest)
+            entries.append((cid, tier_of[cid], dialogue_ids.get(cid)))
+        if giants:
+            raise ValueError(f"provider rows {giants!r} are Giant tier; providers seat MainHall or Basement")
+    return entries
 
 
 def merge_provider_entries(
     main_ids: list[str],
     basement_ids: list[str],
     hall_dialogue_ids: dict[str, str],
-    provider_entries: list[tuple[str, str, str]],
+    provider_entries: list[tuple[str, str, str | None]],
 ) -> tuple[list[str], list[str], dict[str, str]]:
     """Append authored provider-owned exhibits and their Hall dialogue binding.
 
@@ -646,12 +684,13 @@ def merge_provider_entries(
         if tier not in ("MainHall", "Basement"):
             raise ValueError(f"provider exhibit {cid!r} has tier {tier!r}; providers seat MainHall or Basement")
         existing = hall_dialogue_ids.get(cid)
-        if existing is not None and existing != dialogue_id:
+        if existing is not None and dialogue_id is not None and existing != dialogue_id:
             raise ValueError(
                 f"provider Hall dialogue mismatch for {cid!r}: "
                 f"catalog={existing!r}, exhibit={dialogue_id!r}"
             )
-        hall_dialogue_ids[cid] = dialogue_id
+        if dialogue_id is not None:
+            hall_dialogue_ids[cid] = dialogue_id
         if cid in seen:
             continue
         seen.add(cid)
@@ -684,8 +723,9 @@ def main(argv: list[str] | None = None) -> int:
 
     text = args.catalog.read_text()
     main_ids, basement_ids, giant_ids, hall_dialogue_ids = parse_catalog(text)
+    provider_entries = provider_hall_entries(text, [path.read_text() for path in PROVIDER_CATALOGS])
     main_ids, basement_ids, hall_dialogue_ids = merge_provider_entries(
-        main_ids, basement_ids, hall_dialogue_ids, PROVIDER_HALL_ENTRIES
+        main_ids, basement_ids, hall_dialogue_ids, provider_entries
     )
     spec = build_spec(main_ids, basement_ids, hall_dialogue_ids, giant_ids)
     out_text = HEADER + ron_dumps(spec)

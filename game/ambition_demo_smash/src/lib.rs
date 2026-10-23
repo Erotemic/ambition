@@ -2095,7 +2095,7 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 /// shipped content. This also declares the audio fragment: preparation refuses
 /// an experience whose provider registered none. The stage declares music and
 /// no SFX; the fighters bring their own cues.
-fn install_smash_content(app: &mut bevy::prelude::App) {
+pub fn install_smash_content(app: &mut bevy::prelude::App) {
     use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
 
     // The cast is the pack's: every catalog row, with its move table and its

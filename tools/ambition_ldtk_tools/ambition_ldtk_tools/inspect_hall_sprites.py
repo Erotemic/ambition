@@ -50,14 +50,17 @@ CATALOG_PATH = default_character_catalog()
 LDTK_PATH = default_hall_ldtk()
 SPRITES_DIR = default_sprite_assets_dir()
 
-# The Hall deliberately exhibits a few characters owned by sibling game
-# providers. They are absent from Ambition's catalog by design and resolve
-# against the assembled runtime catalog. Share the generator's declaration so
-# this diagnostic does not report those intentional entries as LDtk drift.
-from .generate_hall_of_characters import PROVIDER_HALL_ENTRIES
+# The Hall exhibits the characters of the hub's other games too. They are
+# absent from Ambition's catalog by design and resolve against the assembled
+# runtime catalog. Share the generator's derivation so this diagnostic does not
+# report those intentional entries as LDtk drift.
+from .generate_hall_of_characters import CATALOG_PATH, PROVIDER_CATALOGS, provider_hall_entries
 
 PROVIDER_HALL_IDS = {
-    character_id for character_id, _tier, _dialogue in PROVIDER_HALL_ENTRIES
+    character_id
+    for character_id, _tier, _dialogue in provider_hall_entries(
+        CATALOG_PATH.read_text(), [path.read_text() for path in PROVIDER_CATALOGS]
+    )
 }
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent

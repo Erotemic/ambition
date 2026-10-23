@@ -27,6 +27,10 @@ fn register_mary_o(app: &mut App) {
     ambition_demo_mary_o::install_mary_o_content(app);
 }
 
+fn register_smash(app: &mut App) {
+    ambition_demo_smash::install_smash_content(app);
+}
+
 fn character_ids(app: &App) -> Vec<String> {
     app.world()
         .resource::<CharacterCatalog>()
@@ -189,13 +193,13 @@ fn separate_apps_select_independent_provider_sets() {
 }
 
 /// #13 — the FULL Hall validates against the merged Ambition + Sanic + Mary-O
-/// catalog. The embedded (Ambition-only) content check tolerates the Hall's
+/// + Smash catalog (the hub's games that exhibit in it). The embedded (Ambition-only) content check tolerates the Hall's
 /// cross-provider characters (`sanic`, `mary_o`, …); with every provider loaded,
 /// each Hall NPC's `character_id` exists and its `brain_override` resolves inside
 /// that character's provider namespace. It also proves every exhibit has a Hall
 /// bark and a catalog-backed LDtk dialogue binding that names a real Yarn node.
 #[test]
-fn the_full_hall_validates_with_all_three_provider_catalogs() {
+fn the_full_hall_validates_with_every_hub_provider_catalog() {
     use ambition_platformer2d::ldtk_map::{field_string, LdtkProject};
 
     // The world manifest (which names the Hall's secondary world) must be
@@ -205,6 +209,7 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
     register_ambition(&mut app);
     register_sanic(&mut app);
     register_mary_o(&mut app);
+    register_smash(&mut app);
     let catalog = app.world().resource::<CharacterCatalog>();
 
     let yarn_titles: std::collections::BTreeSet<&str> = ambition_content::dialogue::yarn_sources()

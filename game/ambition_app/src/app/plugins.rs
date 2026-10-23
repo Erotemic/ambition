@@ -316,7 +316,10 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         Update,
         (
             reload_visual_quality_assets_on_scale_change,
-            ambition_platformer2d::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
+            // Its own early return, as a condition: the handles move only with the assets.
+            ambition_platformer2d::render::rendering::refresh_entity_sprite_handles_on_game_assets_change.run_if(
+                resource_exists_and_changed::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
+            ),
         )
             .chain()
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
@@ -590,7 +593,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         (
             ambition_platformer2d::render::rendering::sync_lock_wall_visuals,
             // A wall that opens or shuts is seen to: its picture slides.
-            ambition_platformer2d::render::rendering::slide_lock_wall_visuals,
+            ambition_platformer2d::render::rendering::slide_lock_wall_visuals
+                .run_if(any_with_component::<ambition_platformer2d::render::rendering::LockWallSlide>),
         )
             .chain()
             .after(ambition_platformer2d::encounter_features::WaveEncounterDriven)

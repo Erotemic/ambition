@@ -1698,6 +1698,15 @@ pub fn flinch_struck_blocks(
     }
 }
 
+/// Run condition of [`flinch_struck_blocks`]: a block was struck, or one is
+/// still flinching (the flinch plays out over frames with no new strike).
+pub fn a_block_is_struck_or_flinching(
+    mut struck: MessageReader<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>,
+    flinching: Query<(), With<BlockFlinch>>,
+) -> bool {
+    struck.read().count() > 0 || !flinching.is_empty()
+}
+
 /// A block visual mid-flinch. Presentation only; never rewound.
 #[derive(Component, Debug)]
 pub struct BlockFlinch {
@@ -1732,6 +1741,14 @@ pub struct BlockFlinch {
 /// Each block visual reads the overlay of its own live room (its stamp, or
 /// the sole live room), so a brick broken in one live room does not take the
 /// same-named brick of another (view half, cut V2j).
+/// Run condition of [`sync_removed_block_visuals`]: a live room's overlay
+/// names a removed block. With none, no block visual is taken away.
+pub fn a_room_has_removed_blocks(
+    overlays: Query<&ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+) -> bool {
+    overlays.iter().any(|overlay| !overlay.removed_block_names.is_empty())
+}
+
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
     overlays: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
@@ -1761,6 +1778,40 @@ pub fn sync_removed_block_visuals(
             continue;
         }
         commands.entity(entity).despawn();
+    }
+}
+
+#[cfg(test)]
+mod flinch_tests {
+    use super::*;
+
+    /// A struck block rises and settles home over the frames after the
+    /// strike, with no strike message on them: the pass runs while a flinch
+    /// plays, not only on the frame of the strike.
+    #[test]
+    fn a_struck_block_flinches_and_settles_home() {
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins);
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(16)));
+        app.add_message::<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>();
+        app.add_systems(Update, flinch_struck_blocks.run_if(a_block_is_struck_or_flinching));
+        let id = ambition_platformer2d_core::GeoId::anon();
+        let block = app
+            .world_mut()
+            .spawn((BlockVisual { block_name: "brick".into(), geo_id: id.clone() }, Transform::default()))
+            .id();
+        app.update();
+        app.world_mut().write_message(ambition_platformer2d_shared_tangle::block_nudge::BlockStruck::new(id));
+        app.update();
+        let frames = (ambition_platformer2d_shared_tangle::block_nudge::NUDGE_SECONDS / 0.016) as usize + 8;
+        let mut rose = false;
+        for _ in 0..frames {
+            app.update();
+            rose |= app.world().get::<Transform>(block).unwrap().translation != Vec3::ZERO;
+        }
+        assert!(rose, "the struck block never rose");
+        assert!(app.world().get::<BlockFlinch>(block).is_none(), "the flinch never finished");
+        assert_eq!(app.world().get::<Transform>(block).unwrap().translation, Vec3::ZERO, "the block did not settle home");
     }
 }
 

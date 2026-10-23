@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-23 14:27Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 1,053 systems a frame; hub Ambition route 1,323 → 1,221 since
+route 1,320 → 1,049 systems a frame; hub Ambition route 1,323 → 1,218 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -98,6 +98,7 @@ says what they bought in frame time.
 | The combat trigger adapters (fighter specials, status ticks, actor thinks, body contacts, strikes, parries) queue only while an admitted entry binds their port, and once on the tick the admission changes (`ambition_extension_host::trigger_is_bound`); each built its list of bound selectors every tick. Not in the installer: `ModuleEntityTickPort` is bound by placed module entities, which no entry declares (a blanket gate silenced Smash's mines in its 4 tests) | done | census: 0 on both hub routes, which admit Ambition's and Smash's modules for all six ports. REASONED: a composition that admits none for a port (a Mary-O-only build) runs none of its adapters. Witness `a_trigger_adapter_runs_while_its_port_is_bound`; Smash 293, combat 790 and 53 app extension tests pass |
 | Versus-match activation runs only with a match to make or run: preparation while a roster is published, activation while a plan is prepared, the opening hold's release and the live match clock while a match is active, the camera's match framing while a match is active or a framed cast remains | done | census: 5 systems a frame fewer on both hub routes (Mary-O 1,060 → 1,053, Ambition 1,230 → 1,221 with noise rows); Mary-O-only hub (`AMBITION_HUB_GAMES=mary_o`) 981 → 976. Smash 293 and 136 app match, stock, knockout and seating tests pass; gating activation on the active match instead fails all 5 knockout tests |
 | The bubble shield's shader layer writes its scale only on a change, and compares its material before taking it mutably: `Assets::get_mut` marks the material modified, so every shown player's bubble material was prepared for the GPU again each frame (the hit flash already followed this rule and says so) | done | census: `Bubble_Shield_Fx` leaves the changed-transform rows on both routes (1 a frame → 0). REASONED from the code: one material preparation a frame fewer per shown bubble; the census does not count asset modifications |
+| Four world render passes run only with work: the block flinch on a strike or while a flinch plays, the lock-wall slide while a wall slides, the removed-block sweep while a live room's overlay names a removed block, the sprite-handle refresh when `GameAssets` changes (its own early return) | done | census: 4 systems a frame fewer on both routes (Mary-O 1,053 → 1,049, Ambition 1,221 → 1,218 with one noise row); witness `a_struck_block_flinches_and_settles_home`; render 443, 39 app lock, brick, block and wall tests and Mary-O's 102 integration tests pass |
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 

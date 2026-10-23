@@ -222,7 +222,8 @@ pub use world::{
     apply_entity_art, fit_tiled_block_tiles, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change, TiledBlockTile,
     present_live_room_visuals, spawn_room_visuals, spawn_surface_chain_visuals,
     DOOR_SPRITE_ASPECT,
-    slide_lock_wall_visuals, sync_lock_wall_visuals, sync_removed_block_visuals, LockWallSlide, PresentedRoomVisuals,
+    a_room_has_removed_blocks, slide_lock_wall_visuals, sync_lock_wall_visuals, sync_removed_block_visuals, LockWallSlide,
+    PresentedRoomVisuals,
 };
 
 /// How far above a body's own depth the things drawn ON the body reach: an
@@ -369,9 +370,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // Despawn any authored block the collision overlay removes this
                     // frame (a broken brick, a gate-dropped wall): the render half of
                     // `removed_block_names`.
-                    sync_removed_block_visuals,
+                    sync_removed_block_visuals.run_if(world::a_room_has_removed_blocks),
                     // A struck block flinches (presentation only; see `block_nudge`).
-                    flinch_struck_blocks,
+                    flinch_struck_blocks.run_if(world::a_block_is_struck_or_flinching),
                     // After the driver, which writes the hand of the frame it
                     // draws; else the item is one frame behind the hand.
                     item_visuals::sync_held_item_visual

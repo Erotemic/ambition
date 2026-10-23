@@ -417,12 +417,9 @@ fn spawn_spacetime_3d(
     }
 }
 
-/// `Option<Res<ButtonInput<..>>>`: a headless app installs no input plugin,
-/// and in Bevy 0.18 a missing `Res` panics through `Main::run_main` instead
-/// of skipping the system. The keyboard shortcut is a convenience beside the
-/// traveler's own `special` press. See `spawn_spacetime_3d`.
+/// The traveler's own `special` press toggles the minimap. See
+/// `spawn_spacetime_3d`.
 fn toggle_spacetime_minimap(
-    keys: Option<Res<ButtonInput<KeyCode>>>,
     slots: Res<ambition_platformer2d::characters::control::SlotControls>,
     traveler: Query<
         &ambition_platformer2d::characters::control::DrivingParticipant,
@@ -440,8 +437,9 @@ fn toggle_spacetime_minimap(
         .is_some_and(|driver| slots.get(driver.0).special_pressed);
     let special_edge = special && !*special_was_pressed;
     *special_was_pressed = special;
-    let key_edge = keys.is_some_and(|keys| keys.just_pressed(KeyCode::KeyM));
-    if special_edge || key_edge {
+    // Only the special button: a raw `M` read also toggled it, and the presets
+    // bind `M` to a short hop.
+    if special_edge {
         minimap.visible = !minimap.visible;
     }
 }

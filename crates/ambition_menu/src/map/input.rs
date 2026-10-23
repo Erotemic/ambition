@@ -1,8 +1,8 @@
 //! Map-screen keyboard/menu-control input: `handle_map_menu_hotkeys` toggles
-//! the map (`M`) and minimap (`N`) and drives zoom on `MapMenuState`. Under the
-//! cube inventory backend the `menu.map` intent opens the cube's Map page
-//! instead, so it is suppressed here; the `M` key still toggles this standalone
-//! panel. No-op stub when the `input` feature is off.
+//! the map (the bound `menu.map` intent) and the minimap (`N`) and drives zoom
+//! on `MapMenuState`. Under the cube inventory backend the `menu.map` intent
+//! opens the cube's Map page instead, so it is suppressed here. No-op stub
+//! when the `input` feature is off.
 
 // both are used only by the `input`-gated system below, so they carry the
 // SAME gate. Without it a build with the feature off warns on two unused
@@ -24,7 +24,7 @@ pub fn handle_map_menu_hotkeys(
     mut map: ResMut<MapMenuState>,
     // Fix 3: under the 3D-cube inventory backend, the map key opens the cube on its
     // Map page (`lunex_kaleidoscope_app::kaleidoscope_menu_open_routing`) instead of this standalone
-    // panel, so suppress the `menu.map` open here. The `M`/`N`/zoom keys still drive
+    // panel, so suppress the `menu.map` open here. The `N`/zoom keys still drive
     // the panel directly for users who toggle back to the Grid backend.
     kaleidoscope_backend: Option<Res<crate::backend::InventoryUiBackend>>,
 ) {
@@ -32,9 +32,10 @@ pub fn handle_map_menu_hotkeys(
     let kaleidoscope = kaleidoscope_backend
         .map(|b| b.effective() == crate::backend::InventoryUiBackend::LunexKaleidoscope)
         .unwrap_or(false);
-    // The `menu.map` intent routes to the cube under the Cube backend; the `M` key
-    // keeps toggling the standalone panel so it stays reachable for debugging.
-    if keys.just_pressed(KeyCode::KeyM) || (menu.map && !kaleidoscope) {
+    // The `menu.map` intent (bound to Tab) routes to the cube under the Cube
+    // backend. A raw `M` read used to toggle this panel too, and the presets
+    // that bind `M` to a short hop opened the map on every short hop.
+    if menu.map && !kaleidoscope {
         map.toggle_open();
     }
     if keys.just_pressed(KeyCode::KeyN) {

@@ -27,9 +27,14 @@ def test_the_binding_filter_is_not_the_label_table():
     """
     bound = guard.bound_keys()
     label_only = guard.label_only_keys()
-    assert "KeyM" in label_only, (
-        "`KeyM` is no longer label-only. If a preset now BINDS it, the map menu's "
-        f"raw `KeyCode::KeyM` read is a real collision. bound={sorted(bound)}"
+    # `KeyM` stopped being label-only when two presets bound it to the short
+    # hop, and this arm's warning came true: the map menu's raw `M` read was a
+    # real collision (a short hop opened the map). The read was removed
+    # 2026-10-23. `Backspace` is the label-only key the filter is held to now.
+    assert "KeyM" in bound, f"bound={sorted(bound)}"
+    assert "Backspace" in label_only, (
+        "`Backspace` is no longer label-only; pick another label-only key to hold "
+        f"the filter to. label_only={sorted(label_only)}"
     )
     assert not (bound & label_only), "a key cannot be both bound and label-only"
     assert 20 <= len(bound) <= 60, f"{len(bound)} bound keys is outside the sane band"

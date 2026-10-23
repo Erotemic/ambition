@@ -181,4 +181,30 @@ EOF_STEAM
         ssh "$DECK" "/usr/bin/steamos-add-to-steam '$STEAM_DESKTOP'"
         echo "Registered Steam shortcut: $STEAM_NAME"
     fi
+
+    # A launcher THROUGH Steam, for desktop mode. Only a program the Steam
+    # client launches gets Steam Input's virtual gamepad; launched from the
+    # desktop, the Deck's sticks and buttons are Steam's keyboard-and-mouse
+    # desktop layout and the game sees no controller. Steam saves a new
+    # shortcut a moment after it is added, so ask a few times.
+    STEAM_LAUNCHER="$APPDIR/ambition-steam.desktop"
+    GAME_ID=""
+    for _ in 1 2 3 4 5; do
+        GAME_ID="$(ssh "$DECK" "python3 - '$STEAM_NAME'" < "$REPO/scripts/steam_shortcut_gameid.py" || true)"
+        [[ -n "$GAME_ID" ]] && break
+        sleep 2
+    done
+    if [[ -n "$GAME_ID" ]]; then
+        ssh "$DECK" "cat > '$STEAM_LAUNCHER' && chmod +x '$STEAM_LAUNCHER' && mkdir -p ~/.local/share/applications && cp '$STEAM_LAUNCHER' ~/.local/share/applications/" <<EOF_LAUNCHER
+[Desktop Entry]
+Type=Application
+Name=$STEAM_NAME (controller)
+Exec=steam steam://rungameid/$GAME_ID
+Terminal=false
+Categories=Game;
+EOF_LAUNCHER
+        echo "Desktop-mode launcher with the controller: $STEAM_LAUNCHER (steam://rungameid/$GAME_ID)"
+    else
+        echo "Steam has not saved the shortcut yet: in desktop mode, start '$STEAM_NAME' from Steam's Library to get the controller."
+    fi
 fi

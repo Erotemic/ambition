@@ -1519,14 +1519,14 @@ impl Plugin for MaryORulesPlugin {
             begin_a_lap_on_arrival,
             flag::run_flag_sequence,
             // A room has a pole or a switch: one of the two drives her.
-            castle_end::run_castle_ending,
+            castle_end::run_castle_ending.in_set(castle_end::CastleEnding),
             flag::play_victory_music,
             // After the lap of this room starts, so the goal that is taken is
             // the goal of this room and not of the last one.
-            castle_end::charges_go_off_on_the_bridge,
+            castle_end::charges_go_off_on_the_bridge.in_set(castle_end::CastleEnding),
             bricks::drop_planks_when_the_goal_is_taken,
-            castle_end::the_lava_takes_the_boss,
-            castle_end::the_gate_opens,
+            castle_end::the_lava_takes_the_boss.in_set(castle_end::CastleEnding),
+            castle_end::the_gate_opens.in_set(castle_end::CastleEnding),
             castle_end::he_looks_at_her,
             tick_level_clock,
             // Reads the clock the tick above just settled, so a timeout leaves by
@@ -1542,7 +1542,7 @@ impl Plugin for MaryORulesPlugin {
             death::voice_her_death,
             death::play_death_music,
             cosmic::the_sky_has_a_top,
-            castle_end::the_robot_thanks_her,
+            castle_end::the_robot_thanks_her.in_set(castle_end::CastleEnding),
             cycle_level_on_flag_tally,
         )
             .chain()

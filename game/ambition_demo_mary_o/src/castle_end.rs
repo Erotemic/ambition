@@ -329,6 +329,19 @@ pub fn install(app: &mut App) {
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::cutscenes(&crate::pack::PACK));
     app.add_message::<FxRequest>();
     app.add_message::<FireworksRequest>();
+    let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
+    app.configure_sets(sim, CastleEnding.run_if(her_room_has_a_switch));
+}
+
+/// The castle ending's rules: each acts only in a room with the switch, so
+/// they run only there. The room's blocks are searched for the switch once a
+/// tick, for all of them, instead of once in each.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CastleEnding;
+
+/// Run condition of [`CastleEnding`]: the controlled body's room has the switch.
+fn her_room_has_a_switch(rooms: Option<LiveRoomSpecs>, subject: Option<Res<ControlledSubject>>) -> bool {
+    switch_of_her_room(rooms.as_ref(), subject.as_deref()).is_some()
 }
 
 /// The switch of the room the controlled body is in, with that body.

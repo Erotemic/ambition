@@ -997,7 +997,7 @@ pub fn build_visible_app_with(
     } else {
         app.register_asset_source("game", game_asset_source_builder());
     }
-    let plugins = DefaultPlugins
+    let plugins = ambition_platformer2d::app::default_plugins()
         .set(ambition_log_plugin())
         .set(ambition_task_pool_plugin())
         .set(bevy::asset::AssetPlugin {
@@ -1254,7 +1254,7 @@ pub fn run_web() {
         bevy::asset::io::AssetSourceBuilder::platform_default("assets", None),
     );
     app.add_plugins(
-        DefaultPlugins
+        ambition_platformer2d::app::default_plugins()
             .set(ambition_log_plugin())
             .set(bevy::asset::AssetPlugin {
                 // NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.

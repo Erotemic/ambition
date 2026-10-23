@@ -1723,11 +1723,22 @@ pub fn finish_stepped_app(app: &mut App) {
     }
 }
 
+/// Bevy's `DefaultPlugins` less what no game here uses. Every windowed,
+/// offscreen and web host starts from this.
+///
+/// Left out: `AnimationPlugin`. Nothing plays Bevy animation clips (the
+/// animators drive sprite frames and rig parts themselves), and its six
+/// systems ran every frame with nothing to animate. A game that plays a clip
+/// adds the plugin back; an `AnimationPlayer` without it finds no clip assets.
+pub fn default_plugins() -> bevy::app::PluginGroupBuilder {
+    DefaultPlugins.build().disable::<bevy::animation::AnimationPlugin>()
+}
+
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
     let window = display.has_window();
-    let plugins = DefaultPlugins
+    let plugins = default_plugins()
         .set(bevy::asset::AssetPlugin {
             // Rule 2: the engine knows where its own content is.
             file_path: crate::asset_manager::actors_desktop_asset_root(),

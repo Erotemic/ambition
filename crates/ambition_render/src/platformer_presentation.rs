@@ -62,8 +62,26 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             (
                 crate::rendering::terrain_skin::lay_room_terrain,
-                crate::rendering::terrain_skin::dress_themed_doors,
-                crate::rendering::terrain_skin::dress_themed_fixtures,
+                // Each while one of its rows is not dressed yet.
+                crate::rendering::terrain_skin::dress_themed_doors.run_if(
+                    |open: Query<
+                        (),
+                        (
+                            With<crate::rendering::terrain_skin::ThemedDoor>,
+                            Without<crate::rendering::terrain_skin::TerrainSkinned>,
+                            Without<crate::rendering::EntityArt>,
+                        ),
+                    >| !open.is_empty(),
+                ),
+                crate::rendering::terrain_skin::dress_themed_fixtures.run_if(
+                    |open: Query<
+                        (),
+                        (
+                            With<crate::rendering::terrain_skin::ThemedFixture>,
+                            Without<crate::rendering::terrain_skin::TerrainSkinned>,
+                        ),
+                    >| !open.is_empty(),
+                ),
             )
                 .after(crate::rendering::apply_entity_art),
         );

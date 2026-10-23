@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 19:56Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 968 systems a frame; hub Ambition route 1,323 → 1,140 since
+**Status, 2026-10-23 19:58Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 965 systems a frame; hub Ambition route 1,323 → 1,138 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -112,6 +112,7 @@ says what they bought in frame time.
 | ⛔ REGRESSION FIXED (F45): `7c6745589` gated `apply_clock_reset_requests` with `on_message` inside `GameplayGated`; Bevy evaluates a system's conditions while its set is off, so the condition took a replay's `ClockResetRequest` during the transition hold and the reset never ran. All 56 `on_message` gates of this run now use `ambition_platformer2d_core::a_message_waits` (a peek), as do `a_replay_is_admitted` and the block-flinch condition | done | `git bisect run` over `0d4b5f656..27f7fee6d`: first bad `7c6745589`; removing that gate alone turns 4 red `canonical_reconstitution` tests green; with the peek, 19/19 pass |
 | Presentation passes that ran for nothing on the Mary-O route: ground shadows (no game asks for them since 10-10) while a game asks or one is drawn, the developer health bars while on or drawn, daylight while a game has a `DaylightStyle`, mote drift while a mote stands, world-label fonts on a font or label change, the quest panel on a quest, setting or new-panel change; Ambition's portal-facing setting sync on a change, its reset bridge while a replay waits | done | census: Mary-O 975 → 968, Ambition 1,147 → 1,140 systems a frame (6 gated rows each; daylight and motes have work on both routes); the peek gates add no run; 12 lib suites and 238 `app_it` checkpoint, restore, replay, death, session, activation and clock tests pass |
 | ⛔ REGRESSION FIXED: `1e7616973` (10-22) put Mary-O's presentation to sleep while another game is on screen; her pipe-sign pass had stamped the hub's room at boot (the router was moving), and after a world reload it slept, so the room drew one stamp fewer (`a_world_reload_draws_its_room_once`). A room with no pipe to a level gets no stamp now | done | full `app_it`: 1,303 pass, this 1 failed and now passes; app 253, Mary-O 204 lib tests pass. Still red and not this run's: `ambition_content` `worlds::tests` (3), from `0d4b5f656` (the seventh world) |
+| The themed door and fixture dressers run while one of their rows is undressed | done | census: Mary-O 968 → 965 (one noise row), Ambition 1,140 → 1,138 systems a frame; render 445 tests pass |
 
 ### F45 — A run condition can eat a message its system never reads (2026-10-23)
 

@@ -386,7 +386,8 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             (
                 sim_identity::ensure_sim_id,
                 sim_identity::mint_spawned_sim_ids,
-                sim_identity::heal_projectile_owners,
+                sim_identity::heal_projectile_owners
+                    .run_if(bevy::prelude::any_with_component::<ambition_projectiles::LiveProjectile>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
@@ -404,7 +405,8 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             (
                 sim_identity::ensure_sim_id,
                 sim_identity::mint_spawned_sim_ids,
-                sim_identity::heal_projectile_owners,
+                sim_identity::heal_projectile_owners
+                    .run_if(bevy::prelude::any_with_component::<ambition_projectiles::LiveProjectile>),
                 // ⇒ AFTER the tail sweep, so a body it reports has been declined
                 // by BOTH passes and by every in-tick spawner.
                 sim_identity::observe_unminted_bodies,

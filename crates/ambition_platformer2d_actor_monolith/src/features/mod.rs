@@ -1639,7 +1639,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 ecs::world_time_schedule::regrow_pickups,
                 // Q154: a collected pickup authored `Never` is gone for good.
                 ecs::pickups::record_consumed_pickups,
-                update_ecs_falling_chests,
+                update_ecs_falling_chests.run_if(any_with_component::<ambition_combat::components::FallingChest>),
             )
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),

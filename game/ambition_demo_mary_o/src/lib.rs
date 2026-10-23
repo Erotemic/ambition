@@ -1538,8 +1538,9 @@ impl Plugin for MaryORulesPlugin {
             // death row, the level reset — is the ENGINE's now (ADR 0033); this
             // crate states the rules in `MaryORulesPlugin::build` and keeps only
             // what is genuinely hers.
-            spend_lives_on_death,
-            death::voice_her_death,
+            // Each on a death (a peek: see `a_message_waits`).
+            spend_lives_on_death.run_if(ambition_platformer2d::engine_core::a_message_waits::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>),
+            death::voice_her_death.run_if(ambition_platformer2d::engine_core::a_message_waits::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>),
             death::play_death_music,
             cosmic::the_sky_has_a_top,
             castle_end::the_robot_thanks_her.in_set(castle_end::CastleEnding),
@@ -1714,7 +1715,13 @@ impl Plugin for MaryORulesPlugin {
         app.add_scoped_systems(
             sim,
             self.scope,
-            (cosmic::toggle_cosmic_form, cosmic::come_back_from_the_form, cosmic::lend_the_jump_in_the_air)
+            (
+                cosmic::toggle_cosmic_form,
+                // Only a body whose form is changing has a beat.
+                cosmic::come_back_from_the_form
+                    .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::actors::features::transform_beat::TransformBeat>),
+                cosmic::lend_the_jump_in_the_air,
+            )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
                 .after(ambition_platformer2d::actors::avatar::WornControlGateSet),

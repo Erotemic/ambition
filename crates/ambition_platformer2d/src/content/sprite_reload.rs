@@ -77,7 +77,15 @@ impl Plugin for SpriteSheetReloadPlugin {
             watch.look_in_the_background();
         }
         app.insert_resource(watch);
-        app.add_systems(Update, (take_what_the_watch_found, publish_the_staged_sheets).chain());
+        app.add_systems(
+            Update,
+            (
+                take_what_the_watch_found,
+                // Exclusive, so only while a table waits.
+                publish_the_staged_sheets.run_if(|watch: Option<Res<SpriteSheetWatch>>| watch.is_some_and(|watch| watch.is_staged())),
+            )
+                .chain(),
+        );
     }
 }
 

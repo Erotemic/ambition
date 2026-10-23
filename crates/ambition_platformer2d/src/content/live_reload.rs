@@ -360,7 +360,13 @@ impl Plugin for EmbeddedPackReloadPlugin {
         if !app.world().contains_resource::<EmbeddedPackWatches>() {
             app.init_resource::<EmbeddedPackWatches>().add_systems(
                 Update,
-                (look_at_the_pack_sources, publish_the_staged_pack_between_sessions).chain(),
+                (
+                    look_at_the_pack_sources,
+                    // Exclusive, so only while a pack waits.
+                    publish_the_staged_pack_between_sessions
+                        .run_if(|watches: Res<EmbeddedPackWatches>| watches.any_staged()),
+                )
+                    .chain(),
             );
         }
         let mut watches = app.world_mut().resource_mut::<EmbeddedPackWatches>();
@@ -404,6 +410,11 @@ fn acknowledge(event: &str, generation: &PreparedContentPack, detail: &str) {
 pub struct EmbeddedPackWatches(pub Vec<EmbeddedPackWatch>);
 
 impl EmbeddedPackWatches {
+    /// Whether a watch holds a pack that waits to be published.
+    pub fn any_staged(&self) -> bool {
+        self.0.iter().any(|watch| watch.staged.is_some())
+    }
+
     /// The watch of `pack`, when the pack is read off disk.
     pub fn of(&self, pack: &'static EmbeddedPack) -> Option<&EmbeddedPackWatch> {
         self.0.iter().find(|watch| std::ptr::eq(watch.pack, pack))

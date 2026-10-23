@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 21:33Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 948 systems a frame; hub Ambition route 1,323 → 1,123 since
+**Status, 2026-10-23 21:39Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 945 systems a frame; hub Ambition route 1,323 → 1,121 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -120,6 +120,7 @@ says what they bought in frame time.
 | The visual-quality sync and the portal capture budget run on a change of their input or output; the placeholder-sprite override while placeholders are on or a sprite keeps its original. The front field's material adds Bevy's two per-material systems on every route | done | census: 3 gated rows each; net Mary-O 955 → 954, Ambition 1,129 → 1,129; render 445 and 9 app quality, tier and hall tests pass |
 | The room-transition machine's idle passes: readiness authorization while a transition awaits it, the two failure passes while one failed (they took the load state mutably each frame, so it read as changed each frame), and the two exclusive finalizers while a crossing or its restore is pending | done | census: 5 systems a frame fewer on both routes (Mary-O 949, Ambition 1,124), two of them exclusive and per tick; runtime 101 and 200 app transition, door, reconstitution, checkpoint, restore, load and cover tests pass |
 | Two exclusive per-tick passes that returned at once: extension admission runs until the world is admitted, authored commands while one waits (peek) | done | census: 2 systems a tick fewer on both routes (Mary-O 948, Ambition 1,123); extension_host 43, shared_tangle 334 and 94 app extension, module, authored, lever, switch, special and reconstitution tests pass |
+| The two exclusive live-reload publishers run while a pack or a sheet table waits to be published | done | census: 2 systems a frame fewer on both routes (Mary-O 945, Ambition 1,121); 76 app reload, pack and sheet tests pass |
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 

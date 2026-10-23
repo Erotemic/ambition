@@ -1171,6 +1171,10 @@ tackon_targets=(
     vault_keeper_v2
     merchant_prototype_v2
     general_hero_v2
+    # The two mites redrawn as SVG rigs (2026-10-23): what `npc_dividing_mite`
+    # and `npc_exploding_mite` show; their robot-toon configs stay renderable.
+    dividing_mite_v2
+    exploding_mite_v2
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as

@@ -116,7 +116,11 @@ mod tests {
         let next = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(&edited, WORLD_MANIFEST_SCHEMA).unwrap();
         assert_eq!(next.worlds.last().map(|world| world.file.as_str()), Some("next.ldtk"));
         let refused = format!("{:?}", with(r#"(id: "world.evil_ldtk", file: "maps/evil.json"),"#).expect_err("not a world file"));
-        assert!(refused.contains("`worlds[5].file` is `maps/evil.json`") && refused.contains("data/worlds.ron"), "{refused}");
+        let index = authored.worlds.len() - 1;
+        assert!(
+            refused.contains(&format!("`worlds[{index}].file` is `maps/evil.json`")) && refused.contains("data/worlds.ron"),
+            "{refused}"
+        );
     }
 
     /// EVERY SHIPPED `EnemySpawn` CAN BE BUILT — the invariant that stands between the
@@ -370,12 +374,19 @@ mod tests {
         // no longer separates migrated characters from the rest; what separates
         // them is `complete`, a character that authors its own locomotion. The
         // only names this Ambition-only fixture cannot resolve are the Hall's
-        // guests from the Mary-O and Sanic providers; any other is a typo. A
+        // guests from the Mary-O, Sanic and Smash providers; any other is a typo. A
         // guest's transform (Mary-O tall, Super Sanic) has no placement of its
         // own: the Hall shows it on the guest's body.
         let guests: std::collections::BTreeSet<String> = [
             "mary_o",
+            "npc_snakes_on_a_cartesian_plane",
+            "npc_snakes_on_a_paper_plane",
             "sanic",
+            "smash_george_booul",
+            "snake_plant",
+            "solid_snake",
+            "void_lizard",
+            "void_star",
         ]
         .into_iter()
         .map(str::to_string)
@@ -481,11 +492,15 @@ mod tests {
     }
 
     #[test]
-    fn manifest_names_the_six_worlds_and_the_hub_entry() {
+    fn manifest_names_the_seven_worlds_and_the_hub_entry() {
         let manifest = world_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 6);
-        for (id, what) in [("world.math_ldtk", "the Math dimension"), ("world.evil_ldtk", "the Evil dimension")] {
+        assert_eq!(manifest.worlds.len(), 7);
+        for (id, what) in [
+            ("world.math_ldtk", "the Math dimension"),
+            ("world.gnu_ton_handle_ldtk", "the GNU-ton gravity handle"),
+            ("world.evil_ldtk", "the Evil dimension"),
+        ] {
             assert!(manifest.worlds.iter().any(|world| world.id.as_str() == id), "{what}'s world is not in the manifest");
         }
         assert!(manifest.primary().required);

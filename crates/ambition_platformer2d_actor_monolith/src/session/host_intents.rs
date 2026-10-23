@@ -187,11 +187,13 @@ pub fn release_every_host_intent(world: &mut World) {
         return;
     };
     let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
-    world.resource_scope(|world, types: Mut<HostIntentTypes>| {
-        for release in &types.release {
-            release(world, now, live);
-        }
-    });
+    // Taken out and put back, not scoped: `resource_scope` moves the
+    // resource's entity between archetypes twice a call.
+    let release = std::mem::take(&mut world.resource_mut::<HostIntentTypes>().release);
+    for step in &release {
+        step(world, now, live);
+    }
+    world.resource_mut::<HostIntentTypes>().release = release;
 }
 
 /// Forget what can never be simulated again. (host)
@@ -205,11 +207,11 @@ pub fn prune_every_host_intent(world: &mut World) {
     let prediction_distance = world.get_resource::<ConfirmedFrameBoundary>().map_or(0, |boundary| {
         u64::try_from(boundary.current.saturating_sub(boundary.confirmed)).unwrap_or(0)
     });
-    world.resource_scope(|world, types: Mut<HostIntentTypes>| {
-        for prune in &types.prune {
-            prune(world, now, prediction_distance, live);
-        }
-    });
+    let prune = std::mem::take(&mut world.resource_mut::<HostIntentTypes>().prune);
+    for step in &prune {
+        step(world, now, prediction_distance, live);
+    }
+    world.resource_mut::<HostIntentTypes>().prune = prune;
 }
 
 /// Registers one host-intent type: its channel, its ledger, and its steps of

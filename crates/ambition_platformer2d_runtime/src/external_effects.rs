@@ -147,12 +147,14 @@ pub fn journal_sim_effects<M: Message>(world: &mut World) {
 
 /// Hand confirmed frames to the ordinary presentation consumers.
 pub fn release_confirmed_effects<M: Message>(world: &mut World) {
-    world.resource_scope(|world, mut journal: Mut<ExternalEffectJournal<M>>| {
-        let released = journal.take_confirmed(world.resource::<ConfirmedFrameBoundary>());
-        if !released.is_empty() {
-            world.resource_mut::<Messages<M>>().write_batch(released);
-        }
-    });
+    // Copied, not scoped: a resource is a component in this Bevy, and
+    // `resource_scope` takes it out and puts it back, an archetype move each
+    // call.
+    let boundary = *world.resource::<ConfirmedFrameBoundary>();
+    let released = world.resource_mut::<ExternalEffectJournal<M>>().take_confirmed(&boundary);
+    if !released.is_empty() {
+        world.resource_mut::<Messages<M>>().write_batch(released);
+    }
 }
 
 /// Drop the abandoned branch's intents when the host restores an earlier frame.
@@ -176,29 +178,32 @@ pub struct ExternalEffectFamilies {
     discard: Vec<fn(&mut World)>,
 }
 
-/// Run one phase's step for every quarantined family.
-fn run_effect_phase(world: &mut World, steps: fn(&ExternalEffectFamilies) -> &[fn(&mut World)]) {
-    world.resource_scope(|world, families: Mut<ExternalEffectFamilies>| {
-        for step in steps(&families) {
-            step(world);
-        }
-    });
+/// Run one phase's step for every quarantined family. The list is taken out
+/// of the resource and put back, not scoped: a resource is a component in this
+/// Bevy, and `resource_scope` would move its entity between archetypes twice a
+/// call.
+fn run_effect_phase(world: &mut World, steps: fn(&mut ExternalEffectFamilies) -> &mut Vec<fn(&mut World)>) {
+    let taken = std::mem::take(steps(&mut world.resource_mut::<ExternalEffectFamilies>()));
+    for step in &taken {
+        step(world);
+    }
+    *steps(&mut world.resource_mut::<ExternalEffectFamilies>()) = taken;
 }
 
 fn open_every_sim_effect_outbox(world: &mut World) {
-    run_effect_phase(world, |families| &families.open);
+    run_effect_phase(world, |families| &mut families.open);
 }
 
 fn journal_every_sim_effect(world: &mut World) {
-    run_effect_phase(world, |families| &families.journal);
+    run_effect_phase(world, |families| &mut families.journal);
 }
 
 fn release_every_confirmed_effect(world: &mut World) {
-    run_effect_phase(world, |families| &families.release);
+    run_effect_phase(world, |families| &mut families.release);
 }
 
 fn discard_every_abandoned_prediction(world: &mut World) {
-    run_effect_phase(world, |families| &families.discard);
+    run_effect_phase(world, |families| &mut families.discard);
 }
 
 /// Quarantines one effect family. Add one per presentation-facing message type.

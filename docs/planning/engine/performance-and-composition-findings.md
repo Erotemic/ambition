@@ -123,7 +123,7 @@ says what they bought in frame time.
 | The two exclusive live-reload publishers run while a pack or a sheet table waits to be published | done | census: 2 systems a frame fewer on both routes (Mary-O 945, Ambition 1,121); 76 app reload, pack and sheet tests pass |
 | Three more exclusive passes that idled: the publication-lease breaker while a reload generation holds a lease, the local GGRS restart on the frame an LDtk reload asks for it, the character capability audit while a sheet demand is outstanding | done | census: 3 systems a frame fewer on both routes (Mary-O 942, Ambition 1,117); monolith 1,229 and 43 app reload, publication, hot-reload and character tests pass |
 | Mary-O's life spend and death voice on a death (peek), her return from the cosmic form while a transform beat stands | done | census: Mary-O 942 → 940 (3 gated rows, one noise); Mary-O 204, Mary-O app 102 and 20 hub Mary-O tests pass |
-| ⛔ F46 cut 1 fix: the state shader's new binding `field` redefined `fn field` and the shader did not compile (veils and overlay undrawn since `4a5ff08cc`); renamed `front_field`. And an exact early-out: the overlay works out no field where no tear can be (plane distance below -230 or above 800) | done | hub capture against the true pre-field baseline: 2 pixels differ, none by more than 8 levels (three runs); the phone run of 21:13 must be repeated |
+| ⛔ F46 cut 1 fix: the state shader's new binding `field` redefined `fn field` and the shader did not compile (veils and overlay undrawn since `4a5ff08cc`); renamed `front_field`. And an exact early-out: the overlay works out no field where no tear can be (plane distance below -230 or above 800) | done | hub capture against the true pre-field baseline: 2 pixels differ, none by more than 8 levels (three runs); the phone run of 21:13 must be repeated; llvmpipe hub A/B with the overlay drawn: frame p50 59.45 → 42.99 ms |
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 
@@ -174,7 +174,10 @@ none by more than 8 levels, field on and field off alike (MEASURED). Jon's
 phone run of 21:13 (`4a5ff08cc`) drew no overlay, so part of what it showed
 was the missing overlay, not the field. Desktop llvmpipe A/B (the CPU rasterizes, so fragment work shows; both arms without the overlay),
 hub route, three interleaved rounds: frame p50 40.91 -> 36.13 ms,
-rasterizer CPU 345 -> 284 ms a frame. The phone A/B:
+rasterizer CPU 345 -> 284 ms a frame (both arms without the overlay, see the
+correction). AGAIN with the shader fixed (`445592083`), both arms drawing the
+overlay: frame p50 59.45 -> 42.99 ms (-28%), rasterizer CPU 460 -> 323 ms a
+frame (MEASURED, 274 and 202 windows). The phone A/B:
 `--launch-env AMBITION_ROOM_FRONT_FIELD=off` makes no field. What the band
 still pays per pixel is noise (`look_field` in the skins' heat and wash, the
 sky's air and fog, the overlay's tears), exact only per pixel; cutting it

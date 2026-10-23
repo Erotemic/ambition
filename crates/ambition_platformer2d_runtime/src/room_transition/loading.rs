@@ -35,6 +35,12 @@ pub enum RoomTransitionLoadPhase {
     Failed,
 }
 
+/// A run condition: the active room transition is in `phase`. The readiness
+/// systems ask no question of a transition in another phase, or of none.
+pub fn a_transition_is_in(phase: RoomTransitionLoadPhase) -> impl FnMut(Res<RoomTransitionLoadState>) -> bool + Clone {
+    move |state: Res<RoomTransitionLoadState>| state.active.as_ref().is_some_and(|active| active.phase == phase)
+}
+
 /// Marker installed only by presentation-capable hosts.
 ///
 /// When absent, a headless transition may commit as soon as readiness is authorized.

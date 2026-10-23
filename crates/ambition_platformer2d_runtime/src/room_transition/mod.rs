@@ -72,15 +72,18 @@ impl Plugin for RoomTransitionComposerPlugin {
             Update,
             (
                 begin_room_transition_load_system,
-                authorize_ready_room_transition_system,
+                authorize_ready_room_transition_system
+                    .run_if(loading::a_transition_is_in(loading::RoomTransitionLoadPhase::AwaitingReadiness)),
                 // ⭐ BEFORE THE TEARDOWN, and before the next frame's
                 // `begin_...` can open a replacement transaction for an intent
                 // it answers. Both hosts run it; only the headless finalizer
                 // below is host-specific. It notes the abandoned operation
                 // host-side — the RETRACTION belongs to the commit executor,
                 // because `PendingLifecycleCommit` rewinds and `Update` does not.
-                loading::abandon_failed_checkpoint_restore_system,
-                finalize_unpresented_room_transition_failure_system,
+                loading::abandon_failed_checkpoint_restore_system
+                    .run_if(loading::a_transition_is_in(loading::RoomTransitionLoadPhase::Failed)),
+                finalize_unpresented_room_transition_failure_system
+                    .run_if(loading::a_transition_is_in(loading::RoomTransitionLoadPhase::Failed)),
             )
                 .chain()
                 .in_set(RoomTransitionReadinessSet),
@@ -99,13 +102,13 @@ impl Plugin for RoomTransitionComposerPlugin {
                 // a sync point between the two systems, so by the time this runs
                 // the publication carries a verdict. A refused room cancels the
                 // crossing here and the player keeps the room they were in.
-                commit::finalize_committed_room_transition,
+                commit::finalize_committed_room_transition.run_if(commit::a_crossing_waits),
                 // ⭐ IMMEDIATELY AFTER, and exclusive: the eager commit is a
                 // system and cannot run the domain-apply schedule itself. The
                 // chain is what makes "a system later" true rather than hoped.
                 // The restore it settles is owed only by a crossing the finalizer
                 // above admitted.
-                commit::apply_committed_room_transition_restore,
+                commit::apply_committed_room_transition_restore.run_if(commit::a_restore_is_owed),
                 // ⭐ THE OTHER TERMINAL ROAD, in the same exclusive position and
                 // for the same reason: a checkpoint operation whose preparation
                 // failed is ENDED here, where writing the rollback-registered

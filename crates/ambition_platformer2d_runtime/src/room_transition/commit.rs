@@ -1368,6 +1368,18 @@ pub fn commit_ready_room_transition_system(
 #[derive(bevy::prelude::Resource, Default)]
 pub struct PendingRoomTransitionFinalize(Option<PendingCrossing>);
 
+/// Run condition of [`finalize_committed_room_transition`]: a crossing waits
+/// for its verdict.
+pub fn a_crossing_waits(pending: bevy::prelude::Res<PendingRoomTransitionFinalize>) -> bool {
+    pending.0.is_some()
+}
+
+/// Run condition of [`apply_committed_room_transition_restore`]: a crossing's
+/// restore is owed.
+pub fn a_restore_is_owed(committed: bevy::prelude::Res<CommittedRoomTransitionRestore>) -> bool {
+    committed.0.is_some()
+}
+
 pub struct PendingCrossing {
     staged: StagedRoomTransition,
     /// The transaction this crossing belongs to, so the finalizer can advance it

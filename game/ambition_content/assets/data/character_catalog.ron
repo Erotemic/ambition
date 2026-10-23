@@ -4550,7 +4550,7 @@
         // into it hurts. Small and weak: two blows end it.
         "chicken": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Game Chicken",
+            display_name: "Game Chicken (Male)",
             manifest: "sprites/chicken_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4579,7 +4579,7 @@
         // His hen: the same game, the same numbers.
         "chicken_hen": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Game Hen",
+            display_name: "Game Chicken (Female)",
             manifest: "sprites/chicken_hen_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4702,7 +4702,7 @@
         // is black with white plumes.
         "ostrich": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Ostrich Algorithm",
+            display_name: "Ostrich Algorithm (Male)",
             manifest: "sprites/ostrich_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -4730,7 +4730,7 @@
         // His hen: grey-brown where he is black. The same bird in every number.
         "ostrich_hen": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Ostrich Algorithm (Hen)",
+            display_name: "Ostrich Algorithm (Female)",
             manifest: "sprites/ostrich_hen_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

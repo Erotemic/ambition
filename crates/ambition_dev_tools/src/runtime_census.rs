@@ -969,6 +969,7 @@ pub fn report_changed_transforms(
     census: Res<RuntimeCensus>,
     changed: Query<(Entity, Option<&Name>), Changed<Transform>>,
     global: Query<(), Changed<GlobalTransform>>,
+    added: Query<Option<&Name>, Added<Transform>>,
     all: Query<(), With<Transform>>,
     world: &World,
 ) {
@@ -1004,11 +1005,30 @@ pub fn report_changed_transforms(
     }
     by_label.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
     let mut row = format!(
-        "[census] changed_transforms t={at:.3} changed={} global_changed={} of={}",
+        "[census] changed_transforms t={at:.3} changed={} global_changed={} added={} of={}",
         changed.iter().count(),
         global.iter().count(),
+        added.iter().count(),
         all.iter().len()
     );
+    // What was spawned this frame: an entity made again each frame shows here
+    // on every report.
+    let mut spawned: Vec<(String, usize)> = Vec::new();
+    for name in &added {
+        let label = name.map_or_else(|| "<unnamed>".to_owned(), |name| name.as_str().replace(' ', "_"));
+        match spawned.iter_mut().find(|(known, _)| *known == label) {
+            Some((_, total)) => *total += 1,
+            None => spawned.push((label, 1)),
+        }
+    }
+    spawned.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    if !spawned.is_empty() {
+        row.push_str(" | added:");
+        for (label, count) in spawned.iter().take(12) {
+            row.push_str(&format!(" {label}={count}"));
+        }
+        row.push_str(" | changed:");
+    }
     for (label, count) in by_label.iter().take(24) {
         row.push_str(&format!(" {}={count}", label.replace(' ', "_")));
     }

@@ -104,7 +104,12 @@ impl Plugin for BasicShellPresentationPlugin {
             .init_resource::<ActiveUiCues>()
             // This presentation owns its surface text, so it also publishes
             // the submit cues ("Continue", "Play", the exit label).
-            .add_systems(Update, publish_shell_ui_cues.in_set(InputSet::PublishCues))
+            .add_systems(
+                Update,
+                publish_shell_ui_cues
+                    .in_set(InputSet::PublishCues)
+                    .run_if(a_shell_surface_is_up_or_changed),
+            )
             // Input consumers: after every producer, in the same frame.
             .add_systems(
                 Update,
@@ -119,9 +124,28 @@ impl Plugin for BasicShellPresentationPlugin {
                     drive_basic_sequence_card,
                 )
                     .chain()
-                    .in_set(InputSet::Consume),
+                    .in_set(InputSet::Consume)
+                    .run_if(a_shell_surface_is_up_or_changed),
             );
     }
+}
+
+/// True while this presentation has a surface to drive or take down: the
+/// launcher is up, a startup sequence runs, one of its roots remains, or the
+/// launcher, the sequence or the router changed (each frame's key and cues
+/// derive from them). In play none holds, so its systems sleep.
+fn a_shell_surface_is_up_or_changed(
+    launcher: Res<ShellLauncherState>,
+    sequence: Res<ActiveShellSequence>,
+    router: Res<ShellRouter>,
+    roots: Query<(), Or<(With<BasicSequenceRoot>, With<BasicShellUiRoot>)>>,
+) -> bool {
+    launcher.active
+        || sequence.runtime.is_some()
+        || !roots.is_empty()
+        || launcher.is_changed()
+        || sequence.is_changed()
+        || router.is_changed()
 }
 
 /// Publish the shell surfaces' submit cues, keyed by their input contexts.

@@ -42,7 +42,8 @@ consolidations and the monolith packets.
 | Portal observation in `CapabilityPresentationSet(Portals)` (`147e09d9f`) | done | not yet re-measured |
 | The animators write a sprite or anchor only when the frame changes it (`FrameWrites`, `abcc6ec7e`) | done | not yet re-measured; every animated sprite was marked changed each frame, so its extraction re-ran |
 | The flat menu's readers and restylers (14 systems) sleep while no menu control or tab exists; one frame after, so a hover edge resets (`AnyMenuControl`, required by every `AmbitionMenuControl<A>`, `f1cdc7ea8`) | done | census with portal observation and boss presentation: 1,253 → 1,229 systems a frame; `ambition_menu` 11 → 5, host 20 → 11 |
-| The load presentation pass (12 systems) and its shell adapter (4) sleep between loads; the idle pass rewrote the empty model each frame | done | REASONED 16 → 0 systems a frame in play; census pending |
+| The load presentation pass (12 systems) and its shell adapter (4) sleep between loads; the idle pass rewrote the empty model each frame (`447fada93`) | done | REASONED 16 → 0 systems a frame in play; census pending |
+| The shell's launcher and startup-card presentation (7 systems) sleeps in play: it runs while the launcher or a sequence is up, a root remains, or the launcher, sequence or router changed; its render built the catalog and two strings each frame | done | REASONED 7 → 0; census pending |
 
 ### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
 

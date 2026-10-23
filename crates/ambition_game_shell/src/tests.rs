@@ -583,6 +583,47 @@ mod composed {
     /// Gated on `basic_presentation`, which is not a default feature. The
     /// per-crate feature job in `scripts/run_tests.py` runs it, because the
     /// feature is not in `DENY_EXACT`.
+    /// The launcher's presentation sleeps in play; a return home wakes it and
+    /// draws the launcher again.
+    #[cfg(feature = "basic_presentation")]
+    #[test]
+    fn the_launcher_is_drawn_again_after_play() {
+        use crate::BasicShellUiRoot;
+        use bevy::prelude::With;
+
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        register_alpha_provider(&mut app);
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("launcher", "launcher"));
+        app.update();
+        app.update();
+        let launcher_roots = |app: &mut App| {
+            let world = app.world_mut();
+            world
+                .query_filtered::<(), With<BasicShellUiRoot>>()
+                .iter(world)
+                .count()
+        };
+        assert_eq!(launcher_roots(&mut app), 1, "premise: the launcher is drawn");
+
+        app.world_mut()
+            .write_message(ShellLauncherCommand::LaunchSelected);
+        for _ in 0..6 {
+            app.update();
+        }
+        assert_eq!(active_route(&app), Some("alpha-route".to_owned()));
+        assert_eq!(launcher_roots(&mut app), 0, "play takes the launcher down");
+
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        for _ in 0..4 {
+            app.update();
+        }
+        assert_eq!(active_route(&app), Some("launcher".to_owned()));
+        assert_eq!(launcher_roots(&mut app), 1, "home draws the launcher again");
+    }
+
     #[cfg(feature = "basic_presentation")]
     #[test]
     fn moving_the_launcher_cursor_does_not_respawn_the_ui_tree() {

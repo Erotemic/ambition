@@ -564,6 +564,25 @@ fn retire_looks_out_of_budget(
 #[derive(Resource)]
 struct RoomLookQuad(Handle<Mesh>);
 
+/// Every system of the looks. They run while a live room asks for a look, and
+/// on the first frame after none does, so the last pass sees the look's room
+/// gone; in another game's rooms (Mary-O's, Sanic's) they sleep.
+#[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct RoomLookSet;
+
+fn a_live_room_has_a_look_or_did() -> impl FnMut(LiveRoomSpecs) -> bool + Clone {
+    let mut had_one = false;
+    move |rooms: LiveRoomSpecs| {
+        let has_one = rooms.live_rooms().any(|(_, definition)| {
+            let spec = rooms.rooms().spec(definition);
+            asks_for::<RoomStateMaterial>(spec) || asks_for::<RoomBlueprintMaterial>(spec)
+        });
+        let run = has_one || had_one;
+        had_one = has_one;
+        run
+    }
+}
+
 /// Install the looks and their per-room spawners. Idempotent.
 pub fn install(app: &mut App) {
     if app.world().contains_resource::<RoomLookInstalled>() {
@@ -604,19 +623,26 @@ pub fn install(app: &mut App) {
         let quad = meshes.add(Rectangle::new(1.0, 1.0));
         app.insert_resource(RoomLookQuad(quad));
     }
+    app.configure_sets(Update, RoomLookSet.run_if(a_live_room_has_a_look_or_did()));
     // In each budget: out of budget it gives each skin its plain mesh back.
     app.add_systems(
         Update,
         show_two_state_skins
+            .in_set(RoomLookSet)
             .run_if(resource_exists::<Assets<ColorMaterial>>)
             .run_if(resource_exists::<Assets<RoomSkinMaterial>>),
     );
-    app.add_systems(Update, show_two_state_backdrop);
+    app.add_systems(Update, show_two_state_backdrop.in_set(RoomLookSet));
     install_look::<RoomStateMaterial>(app);
     install_look::<RoomBlueprintMaterial>(app);
     app.init_resource::<RoomLookDepth>()
         .register_type::<RoomLookDepth>()
-        .add_systems(Update, apply_look_depth.run_if(resource_exists::<Assets<RoomSkyMaterial>>));
+        .add_systems(
+            Update,
+            apply_look_depth
+                .in_set(RoomLookSet)
+                .run_if(resource_exists::<Assets<RoomSkyMaterial>>),
+        );
     app.add_systems(
         Update,
         (
@@ -629,7 +655,8 @@ pub fn install(app: &mut App) {
                 .chain()
                 .run_if(resource_exists::<Assets<RoomStateMaterial>>),
             retire_looks_out_of_budget.run_if(not(looks_are_in_budget)),
-        ),
+        )
+            .in_set(RoomLookSet),
     );
 }
 
@@ -647,6 +674,7 @@ where
         present_room_look::<M>
             // With the room's own visuals, which a look draws over.
             .in_set(SessionScopeSet::Presentation)
+            .in_set(RoomLookSet)
             // Absent collections mean that this app does not draw.
             .run_if(resource_exists::<Assets<Mesh>>)
             .run_if(resource_exists::<Assets<M>>)
@@ -656,6 +684,7 @@ where
     app.add_systems(
         Update,
         dress_doors::<M>
+            .in_set(RoomLookSet)
             // The first door frame must use the room's art. Flush the
             // spawn before selecting it, then flush EntityArt before bind.
             .after(present_live_room_visuals)

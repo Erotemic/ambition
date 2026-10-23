@@ -732,6 +732,15 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
 /// already-built [`MenuPageModel`] comes from the shared `ActiveMenuPages` (filled by
 /// the cube's `republish_kaleidoscope_pages`, which now runs for BOTH backends), so
 /// the Grid and cube draw the SAME model. Despawn + respawn only on a dirty key.
+/// True while the menu overlay is open (whichever backend draws it), or the
+/// grid tree is still up from the last open: the view must come down then.
+fn a_menu_is_open_or_a_grid_tree_was(
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    tab_state: Res<GridMenuTabState>,
+) -> bool {
+    overlay.visible || tab_state.was_open
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
@@ -1155,7 +1164,10 @@ pub fn install_grid_unified_menu(app: &mut App) {
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation),
+        grid_menu_republish_view
+            .after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
+            // Closed and torn down, it has nothing to build or take down.
+            .run_if(a_menu_is_open_or_a_grid_tree_was),
     );
     // ⛔ NOTHING IS REGISTERED HERE ANY MORE, and the ordering edge that used to
     // be went with it. Carrying the active page across a backend switch needed a

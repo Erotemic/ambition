@@ -115,13 +115,22 @@ pub struct MadeThisMemeCardPlugin;
 impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
         // The card exists only inside a shell sequence. Gate all of its systems so
-        // shell-less compositions do not require shell resources or message types.
+        // shell-less compositions do not require shell resources or message types,
+        // and so they sleep in play, when no sequence runs and no card remains.
         app.add_systems(
             Update,
             (spawn_vanity_card, animate_vanity_card, fit_card_to_display)
-                .run_if(resource_exists::<ActiveShellSequence>),
+                .run_if(resource_exists::<ActiveShellSequence>)
+                .run_if(a_sequence_runs_or_a_card_remains),
         );
     }
+}
+
+fn a_sequence_runs_or_a_card_remains(
+    active: Res<ActiveShellSequence>,
+    roots: Query<(), With<VanityCardRoot>>,
+) -> bool {
+    active.runtime.is_some() || !roots.is_empty()
 }
 
 #[derive(Component)]

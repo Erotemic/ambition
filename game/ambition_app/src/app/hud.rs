@@ -357,13 +357,18 @@ pub(super) fn update_hud(
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
-    mut query: Query<&mut Text, With<ambition_platformer2d::render::rendering::QuestPanelText>>,
+    mut query: Query<(&mut Text, Ref<ambition_platformer2d::render::rendering::QuestPanelText>)>,
 ) {
     // The quest panel is the one session-scoped `QuestPanelText` entity; no live
     // session means no such entity and the update simply no-ops.
-    let Ok(mut text) = query.single_mut() else {
+    let Ok((mut text, panel)) = query.single_mut() else {
         return;
     };
+    // Its words change only with the quests, the setting or a new panel; the
+    // log was joined and formatted each frame to find that out.
+    if !quests.is_changed() && !user_settings.is_changed() && !panel.is_added() {
+        return;
+    }
     if !user_settings.gameplay.quest_hud_visible {
         text.set_if_neq(Text(String::new()));
         return;

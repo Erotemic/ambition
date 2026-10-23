@@ -280,9 +280,12 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                     .before(Platformer2dSimulationPhase::CoreSimulation)
                     // A narrative input comes from a conversation: where the
                     // room's game has none, the ledger has nothing to release.
-                    .in_set(DIALOGUE),
+                    .in_set(DIALOGUE)
+                    // And where it has one, a ledger with no record has
+                    // nothing to release either: most frames, in all twelve.
+                    .run_if(ledger_holds_records::<M>),
             )
-            .add_systems(Update, prune_narrative_inputs::<M>.in_set(DIALOGUE))
+            .add_systems(Update, prune_narrative_inputs::<M>.in_set(DIALOGUE).run_if(ledger_holds_records::<M>))
             .add_systems(Update, forget_narrative_inputs_on_activation::<M>.in_set(NarrativeLedgersForget));
         // One condition for every ledger's forget, asked once a frame: each
         // forget has work only on the frame a session activates. A condition
@@ -291,6 +294,12 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
             app.add_plugins(NarrativeLedgersForgetPlugin);
         }
     }
+}
+
+/// Run condition of a ledger's release and prune: it holds a record. Both do
+/// nothing to an empty ledger.
+fn ledger_holds_records<M: Message + Clone>(ledger: Option<Res<NarrativeInputLedger<M>>>) -> bool {
+    ledger.is_some_and(|ledger| ledger.depth() > 0)
 }
 
 /// Gives the forget set its one condition. Added once, by the first ledger:

@@ -703,6 +703,11 @@ pub fn install_settle_presentation_systems(
         finish_zoom::zoom_camera_on_decided_match
             .in_set(GameplayGated)
             .in_set(CombatSet::Settle)
+            // It answers a stocks match's outcome, so it sleeps with the
+            // stocks rules where no live room's game plays a stocks match.
+            .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks,
+            ))
             .after(stocks::MatchOutcomeDecided),
     );
     // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute expiry tick,

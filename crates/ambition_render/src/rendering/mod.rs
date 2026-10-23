@@ -290,6 +290,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
         app.init_resource::<item_visuals::FailedItemArt>()
+            .configure_sets(
+                Update,
+                posed_hand::HeldItemPresentationSet.run_if(posed_hand::items_are_held_or_were),
+            )
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(Startup, submerged::build_trapdoor_sprite)
             .add_systems(Startup, flyline::build_flyline_sprite)
@@ -372,8 +376,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // draws; else the item is one frame behind the hand.
                     item_visuals::sync_held_item_visual
                         .after(actors::sync_visuals)
-                        .after(actors::rigged::drive_rigged_presentations),
-                    posed_hand::ask_holders_for_their_hands,
+                        .after(actors::rigged::drive_rigged_presentations)
+                        .in_set(posed_hand::HeldItemPresentationSet),
+                    posed_hand::ask_holders_for_their_hands.in_set(posed_hand::HeldItemPresentationSet),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes,
@@ -594,7 +599,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::manage_gradient_lane_visual,
                 // Provider-authored over-hand item sprites, from the wielded-item
                 // read model and the app-local visual catalog.
-                wielded_item_visuals::sync_wielded_item_visuals.after(actors::rigged::drive_rigged_presentations),
+                wielded_item_visuals::sync_wielded_item_visuals
+                    .after(actors::rigged::drive_rigged_presentations)
+                    .in_set(posed_hand::HeldItemPresentationSet),
                 // The fallback runs last, after every family: a body the sim
                 // published that no family claimed gets a marked rectangle. It must
                 // be registered only once, here, under the session gate.

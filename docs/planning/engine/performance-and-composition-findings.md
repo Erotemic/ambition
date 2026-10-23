@@ -51,6 +51,7 @@ consolidations and the monolith packets.
 | The player trail is one retained gizmo drawing per room band, rebuilt only when its strips change (`present_player_trails`), instead of four `RoomTrailGizmos` groups of 6 Bevy systems each in every composition | done | census: Mary-O route 1,195 → 1,184 systems a frame, hub Ambition route 1,382 → 1,365; gizmo groups 9 → 5 |
 | The effect quarantine is one pass per phase over its families (`ExternalEffectFamilies`: open, journal, release, discard), not one system per message type per phase; each family's step is the old system as a `&mut World` function | done | census: Mary-O route 1,184 → 1,163 systems a frame (25 quarantine systems → 3, plus the discard on a load) |
 | The host intents' release and prune are one pass each over the registered types (`HostIntentTypes`), reading the live session once | done | 6 → 2 systems (REASONED from the three registered types; app host-intent tests green) |
+| Held and wielded item presentation (in-hand sprite, over-hand sprite, hand requests) in `HeldItemPresentationSet`: runs while an item is held or wielded and one frame after | done | 3 systems a frame where nothing is held (REASONED by count) |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 

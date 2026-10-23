@@ -121,6 +121,26 @@ impl PosedHands<'_, '_> {
     }
 }
 
+/// The presentation of held and wielded items: the in-hand and over-hand
+/// sprites and the hand requests they read. It runs while a body holds or
+/// wields an item, and on the frame after the last one lets go, so the pass
+/// with no holders takes the sprites down and forgets the requests.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct HeldItemPresentationSet;
+
+/// [`HeldItemPresentationSet`]'s condition. Both views are rebuilt each frame,
+/// so their change ticks cannot tell an empty frame from a full one.
+pub fn items_are_held_or_were(
+    held: Option<Res<HeldItemView>>,
+    wielded: Option<Res<HostileWieldedItemsView>>,
+    mut were: Local<bool>,
+) -> bool {
+    let held = held.is_some_and(|view| !view.0.is_empty()) || wielded.is_some_and(|view| !view.0.is_empty());
+    let run = held || *were;
+    *were = held;
+    run
+}
+
 /// Ask the root of each body that holds an item for its hand tracks, and
 /// forget the ask of a root whose body holds none.
 ///
@@ -154,6 +174,36 @@ pub fn ask_holders_for_their_hands(
 mod tests {
     use super::*;
     use crate::rendering::actors::rigged::PlacedPart;
+
+    /// The held-item pass runs while an item is wielded and on the one frame
+    /// after the last is let go (that pass takes its sprite down), then
+    /// sleeps; a frame with no view at all also sleeps.
+    #[test]
+    fn the_held_item_pass_runs_while_an_item_is_held_and_one_frame_after() {
+        use ambition_platformer2d_core as ae;
+        let mut world = World::new();
+        let condition = world.register_system(items_are_held_or_were);
+        let run = |world: &mut World| world.run_system(condition).expect("the condition runs");
+        assert!(!run(&mut world), "no views: asleep");
+        world.insert_resource(HeldItemView::default());
+        world.insert_resource(HostileWieldedItemsView(vec![ambition_sim_view::HostileWieldedItemFact {
+            item_id: "gun_sword".into(),
+            hand_world: ae::Vec2::ZERO,
+            aim_world: ae::Vec2::X,
+            wielder_height: 48.0,
+            room: None,
+            ranged: true,
+            holder: ItemHolder {
+                body: Entity::PLACEHOLDER,
+                feature: None,
+                hand: GestureHand::default(),
+            },
+        }]));
+        assert!(run(&mut world), "an item is wielded");
+        world.resource_mut::<HostileWieldedItemsView>().0.clear();
+        assert!(run(&mut world), "the frame after it is let go");
+        assert!(!run(&mut world), "then asleep");
+    }
 
     fn part(at: Vec2, turn: f32) -> PlacedPart {
         PlacedPart {

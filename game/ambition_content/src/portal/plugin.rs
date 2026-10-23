@@ -199,6 +199,8 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             publish_free_body_carves::<ambition_held_items::GroundItem>
+                // It adds holes only where a portal stands.
+                .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::portal::PlacedPortal>)
                 .in_set(PortalSet::Carves)
                 .after(publish_portal_carves)
                 .before(bridge_portal_carves),

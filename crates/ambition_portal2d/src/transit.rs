@@ -178,6 +178,12 @@ impl PortalCarves {
 /// for the portals of its own room, and each hole names its room. Before, a
 /// blue in one room paired with an orange in another, and a body in one room
 /// opened a portal of the other room that stood at the same coordinates.
+/// Run condition of [`publish_portal_carves`]: a portal stands, or last
+/// tick's holes or glues are still to clear.
+pub fn portals_or_their_carves(portals: Query<(), With<PlacedPortal>>, carves: Res<PortalCarves>) -> bool {
+    !portals.is_empty() || !carves.holes.is_empty() || !carves.glues.is_empty()
+}
+
 pub fn publish_portal_carves(
     portals: Query<(Entity, &PlacedPortal)>,
     // The record of a body's last step has its DOWN: the core has no frame

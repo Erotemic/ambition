@@ -135,7 +135,12 @@ impl Plugin for PortalSimulationPlugin {
 
         // Published at the same point as the gravity-zone snapshot (before
         // `CoreSimulation`); the host declares that placement.
-        app.add_systems(sim, publish_portal_carves.in_set(PortalSet::Carves));
+        app.add_systems(
+            sim,
+            publish_portal_carves
+                .run_if(crate::transit::portals_or_their_carves)
+                .in_set(PortalSet::Carves),
+        );
 
         // The input warp (`warp_portal_input`) is the host runtime's
         // (`PortalSet::InputWarp`). Portal core owns only the marker components

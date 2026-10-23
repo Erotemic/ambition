@@ -182,7 +182,10 @@ impl Plugin for TransformBeatPlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            (begin_requested_transform_beats, run_transform_beats)
+            (
+                begin_requested_transform_beats.run_if(any_with_component::<TransformBeatRequested>),
+                run_transform_beats.run_if(any_with_component::<TransformBeat>),
+            )
                 .chain()
                 .in_set(Platformer2dSimulationPhase::PlayerSimulation),
         );

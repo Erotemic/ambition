@@ -90,7 +90,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 // server was the last thing this module named in the kernel.
                 ambition_combat::banner::apply_gameplay_banner_requests
                     .run_if(bevy::prelude::on_message::<ambition_combat::events::GameplayBannerRequested>),
-                ambition_combat::banner::tick_gameplay_banner,
+                ambition_combat::banner::tick_gameplay_banner.run_if(ambition_combat::banner::the_banner_is_up),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::EncounterSimulation),

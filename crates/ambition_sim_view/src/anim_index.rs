@@ -499,6 +499,12 @@ pub struct BossFrameView {
     pub gravity_dir: ae::Vec2,
 }
 
+impl crate::RowView for BossFrameIndex {
+    fn has_rows(&self) -> bool {
+        !self.frames.is_empty()
+    }
+}
+
 impl BossFrameIndex {
     pub fn get(&self, id: &str) -> Option<&BossFrameView> {
         self.frames.get(id).map(|(frame, _)| frame)

@@ -71,8 +71,9 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(
             Update,
             (
-                crate::rendering::chain_skin::build_chain_earth_meshes,
-                crate::rendering::chain_skin::dress_chain_turf,
+                crate::rendering::chain_skin::build_chain_earth_meshes
+                    .run_if(crate::rendering::chain_skin::an_earth_is_unsettled),
+                crate::rendering::chain_skin::dress_chain_turf.run_if(crate::rendering::chain_skin::a_turf_is_undressed),
             ),
         );
         // The host tells portal presentation what it draws. That crate sees only the

@@ -222,7 +222,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 crate::items::narrative::apply_item_grants.run_if(on_message::<ambition_items::ItemGrantRequested>),
                 crate::items::narrative::apply_shop_transactions
                     .run_if(on_message::<ambition_items::shop::ShopTransactionRequested>),
-                crate::items::narrative::apply_item_uses,
+                crate::items::narrative::apply_item_uses.run_if(on_message::<ambition_items::ItemUseRequested>),
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item
                 // uses (above). A heal written after its apply waits a tick,
@@ -1087,7 +1087,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
                     .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet),
-                advance_hazards.in_set(ambition_combat::hazards::HazardTickSet),
+                advance_hazards
+                    .run_if(any_with_component::<ambition_combat::hazard_runtime::HazardFeature>)
+                    .in_set(ambition_combat::hazards::HazardTickSet),
                 // Actor targeting/decision, movement, read-model projection, and contact
                 // damage are registered below on their owning phase sets.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
@@ -1108,6 +1110,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ecs::death_beat::advance_death_beats
+                .run_if(any_with_component::<ambition_combat::components::DeathBeat>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );
         // "This body starts again", announced to whoever authored it.
@@ -1235,6 +1238,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             crate::features::ecs::errand::settle_errands
+                .run_if(any_with_component::<crate::features::ecs::errand::Errand>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
@@ -1248,6 +1252,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             crate::features::ecs::errand::cross_on_errands
+                .run_if(any_with_component::<crate::features::ecs::errand::Errand>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
                 .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
@@ -1414,6 +1419,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             apply_hazard_contacts
+                .run_if(any_with_component::<ambition_combat::hazard_runtime::HazardFeature>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Contacts)
                 .after(ambition_combat::hazards::HazardTickSet),
         );

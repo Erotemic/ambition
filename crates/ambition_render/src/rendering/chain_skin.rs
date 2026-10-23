@@ -322,6 +322,11 @@ fn earth_mesh(earth: &ChainEarth, skinned: bool) -> Mesh {
     mesh
 }
 
+/// Run condition of [`build_chain_earth_meshes`]: an earth is not settled.
+pub fn an_earth_is_unsettled(open: Query<(), (With<ChainEarth>, Without<ChainEarthSettled>)>) -> bool {
+    !open.is_empty()
+}
+
 /// Mesh each [`ChainEarth`] that is not settled.
 ///
 /// Earth has a mesh from its first frame: plain, until the skin of its theme
@@ -507,6 +512,11 @@ fn trim_piece(
                 .with_rotation(Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2)),
         ),
     }
+}
+
+/// Run condition of [`dress_chain_turf`]: a segment is not dressed.
+pub fn a_turf_is_undressed(open: Query<(), (With<ChainTurf>, Without<ChainTurfDressed>)>) -> bool {
+    !open.is_empty()
 }
 
 /// Give each chain segment of a room that names a theme the trim of the

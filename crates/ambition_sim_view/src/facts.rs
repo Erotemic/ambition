@@ -1268,7 +1268,9 @@ impl Plugin for SimViewPlugin {
                     .run_if(any_with_component::<ambition_combat::extension::status::StatusClocks>)
                     .in_set(BodyClockViewSet::Contribute),
                 rebuild_shrines_view.run_if(sources_or_rows::<ambition_shrine::HealShrine, ShrinesView>),
-                tick_shrine_activation_pulse,
+                tick_shrine_activation_pulse.run_if(
+                    |pulse: Res<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>| pulse.remaining > 0.0,
+                ),
                 rebuild_hostile_wielded_items_view.run_if(sources_or_rows::<HeldItem, HostileWieldedItemsView>),
                 rebuild_projectile_views.run_if(
                     |live: Query<(), With<ambition_projectiles::LiveProjectile>>,

@@ -291,6 +291,7 @@ pub fn declare_ambition_seating(app: &mut App, route: &str) {
     app.add_systems(
         bevy::prelude::Update,
         restate_ambition_seating
+            .run_if(seating_inputs_changed)
             .before(ambition_platformer2d::game_shell::project_route_seating)
             .in_set(ambition_platformer2d::input::SeatingDeclared),
     );
@@ -299,6 +300,19 @@ pub fn declare_ambition_seating(app: &mut App, route: &str) {
 /// The route whose seating [`restate_ambition_seating`] keeps.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 struct AmbitionSeatingRoute(ambition_platformer2d::game_shell::ShellRouteId);
+
+/// Run condition of [`restate_ambition_seating`]: the join setting, the local
+/// claims or the catalog changed (or came to exist). Otherwise the restated
+/// entry already matches.
+fn seating_inputs_changed(
+    settings: Option<bevy::prelude::Res<ambition_persistence::settings::UserSettings>>,
+    claims: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalSeatClaims>>,
+    catalog: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::RouteSeatingCatalog>>,
+) -> bool {
+    settings.is_some_and(|settings| settings.is_changed())
+        || claims.is_some_and(|claims| claims.is_changed())
+        || catalog.is_some_and(|catalog| catalog.is_changed())
+}
 
 fn restate_ambition_seating(
     route: Res<AmbitionSeatingRoute>,

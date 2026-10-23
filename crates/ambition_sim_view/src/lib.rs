@@ -122,8 +122,10 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // they rebuild strictly after it (same-frame read).
                 (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
                 rebuild_actor_render_index,
-                rebuild_boss_render_index,
-                rebuild_boss_frame_index,
+                // Both run while a boss stands or a row is left to retire.
+                rebuild_boss_render_index
+                    .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossRenderIndex>),
+                rebuild_boss_frame_index.run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossFrameIndex>),
                 // Overlay clocks advance right before their one reader
                 // rebuilds the pose snapshot (§A9 ordering, preserved). The
                 // overlay ADVANCE mutates sim components, so it stays defined

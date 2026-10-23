@@ -242,10 +242,16 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
+/// Run condition of [`emit_launch_trails`]: a body flies launched.
+pub fn a_body_is_launched(launched: Res<LaunchedBodiesView>) -> bool {
+    !launched.0.is_empty()
+}
+
 /// Emit the trailing plume behind every hard-launched body.
 ///
 /// Runs on the render clock but samples on the sim clock. A frame with no new
-/// tick emits nothing, so density depends on the flight, not the machine.
+/// tick emits nothing, so density depends on the flight, not the machine. Runs
+/// while a body is launched ([`a_body_is_launched`]).
 pub fn emit_launch_trails(
     tick: Res<SimTick>,
     mut last_sampled: Local<Option<u64>>,

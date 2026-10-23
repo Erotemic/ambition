@@ -338,7 +338,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             .add_systems(
                 Update,
                 (
-                    bubble_shield::spawn_bubble_shield_visual,
+                    bubble_shield::spawn_bubble_shield_visual
+                        .run_if(bevy::prelude::not(bevy::prelude::any_with_component::<bubble_shield::BubbleShieldVisual>)),
                     bubble_shield::sync_bubble_shield_visual.in_set(SpriteVisualSync),
                 )
                     .chain()
@@ -735,7 +736,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_systems(
             Update,
             (
-                launch_trail::emit_launch_trails,
+                launch_trail::emit_launch_trails.run_if(launch_trail::a_body_is_launched),
                 knockout::emit_knockout_beat
                     .run_if(bevy::prelude::on_message::<ambition_vfx::vfx::KnockoutBeatRequested>),
                 body_cues::emit_smash_charge_cues,

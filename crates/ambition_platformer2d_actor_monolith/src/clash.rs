@@ -56,7 +56,8 @@ pub fn clash_arbitration(
 ) -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
     (
         arbitrate_attack_clashes,
-        ambition_combat::clank::rebound_from_clanks,
+        ambition_combat::clank::rebound_from_clanks
+            .run_if(bevy::prelude::on_message::<ambition_combat::clank::AttacksClanked>),
     )
         .chain()
         .into_configs()

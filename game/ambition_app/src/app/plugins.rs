@@ -516,7 +516,8 @@ fn install_fx_and_hud_systems(app: &mut App) {
                 ),
             ),
             // It is now CHAINED after the input in one plugin, which those two never were here.
-            ambition_platformer2d::render::cutscene::sync_cutscene_ui,
+            ambition_platformer2d::render::cutscene::sync_cutscene_ui
+                .run_if(ambition_platformer2d::render::cutscene::a_cutscene_plays_or_is_drawn),
             // Keeps the overlay in the reading rect as the layout moves; the
             // spawn above only gets the first frame right. See
             // `ambition_render::reading_layout`.

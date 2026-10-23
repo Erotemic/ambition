@@ -397,6 +397,7 @@ impl Plugin for CombatSchedulePlugin {
                     // executor; saying so is what lets a consumer order against
                     // the phase.
                     ambition_platformer2d_actor_monolith::features::apply_summon_effects
+                        .run_if(bevy::prelude::on_message::<ambition_vfx::EffectRequest>)
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
                 )

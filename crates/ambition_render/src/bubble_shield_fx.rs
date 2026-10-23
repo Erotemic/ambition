@@ -94,7 +94,7 @@ impl Plugin for BubbleShieldFxPlugin {
         app.insert_resource(BubbleShieldFxQuad(quad));
         app.add_systems(
             Update,
-            (give_each_bubble_its_layer, sync_bubble_shield_fx)
+            (give_each_bubble_its_layer.run_if(a_bubble_lacks_its_layer), sync_bubble_shield_fx)
                 .chain()
                 .after(crate::rendering::bubble_shield::sync_bubble_shield_visual)
                 .run_if(resource_exists::<BubbleShieldSprite>),
@@ -105,6 +105,11 @@ impl Plugin for BubbleShieldFxPlugin {
 /// Whether this device draws the layer: it is a shader.
 fn layer_is_in_budget(quality: Option<&ResolvedVisualQuality>) -> bool {
     quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders())
+}
+
+/// Run condition of [`give_each_bubble_its_layer`]: a bubble has no layer yet.
+fn a_bubble_lacks_its_layer(bubbles: Query<(), (With<BubbleShieldVisual>, Without<HasBubbleShieldFx>)>) -> bool {
+    !bubbles.is_empty()
 }
 
 /// A child of each bubble that has none: the quad of its layer. A child, so

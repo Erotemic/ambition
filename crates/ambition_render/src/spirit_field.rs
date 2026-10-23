@@ -49,6 +49,12 @@ pub struct SpiritAura {
     pub tint: Vec3,
 }
 
+/// Run condition of [`sync_spirit_fields`]: an aura stands, or a camera still
+/// carries a field to take away.
+fn an_aura_or_its_field_stands(auras: Query<(), With<SpiritAura>>, fields: Query<(), With<SpiritFieldSettings>>) -> bool {
+    !auras.is_empty() || !fields.is_empty()
+}
+
 /// Presentation plugin for the field of a spirit. Add it one time, in an app
 /// that renders.
 pub struct SpiritFieldPlugin;
@@ -57,7 +63,10 @@ impl Plugin for SpiritFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/spirit_field.wgsl");
         app.add_plugins(FullscreenMaterialPlugin::<SpiritFieldSettings>::default())
-            .add_systems(PostUpdate, sync_spirit_fields.after(bevy::transform::TransformSystems::Propagate));
+            .add_systems(
+                PostUpdate,
+                sync_spirit_fields.run_if(an_aura_or_its_field_stands).after(bevy::transform::TransformSystems::Propagate),
+            );
     }
 }
 

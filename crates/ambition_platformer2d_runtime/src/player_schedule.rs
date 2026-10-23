@@ -339,8 +339,10 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::avatar::body_integration::publish_kernel_reset_death,
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
-                ambition_platformer2d_actor_monolith::session::death::open_death_interlude,
-                ambition_combat::death_rules::tick_death_interlude,
+                ambition_platformer2d_actor_monolith::session::death::open_death_interlude
+                    .run_if(bevy::prelude::on_message::<ambition_combat::death_rules::ActorDiedMessage>),
+                ambition_combat::death_rules::tick_death_interlude
+                    .run_if(bevy::prelude::any_with_component::<ambition_combat::death_rules::DeathInterlude>),
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Outcome),
@@ -352,6 +354,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::session::death::close_death_interlude
+                .run_if(bevy::prelude::any_with_component::<ambition_combat::death_rules::DeathInterlude>)
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
         );

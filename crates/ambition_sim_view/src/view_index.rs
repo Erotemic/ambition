@@ -924,6 +924,12 @@ pub struct BossRenderIndex {
     generation: u64,
 }
 
+impl crate::RowView for BossRenderIndex {
+    fn has_rows(&self) -> bool {
+        !self.views.is_empty()
+    }
+}
+
 impl BossRenderIndex {
     /// Build an index from explicit rows — see
     /// [`FeatureViewIndex::from_rows`] for why a read-model owes its consumers

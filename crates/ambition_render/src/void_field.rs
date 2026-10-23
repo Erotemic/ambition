@@ -61,6 +61,16 @@ pub struct VoidWard {
 /// the dark is a small part of the look.
 const VOID_DARKEN: f32 = 0.28;
 
+/// Run condition of [`sync_void_fields`]: an aura or a ward stands, or a camera
+/// still carries a field to take away.
+fn a_void_or_its_field_stands(
+    auras: Query<(), With<VoidAura>>,
+    wards: Query<(), With<VoidWard>>,
+    fields: Query<(), With<VoidFieldSettings>>,
+) -> bool {
+    !auras.is_empty() || !wards.is_empty() || !fields.is_empty()
+}
+
 /// Presentation plugin for the field of the void. Add it one time, in an app
 /// that renders.
 pub struct VoidFieldPlugin;
@@ -69,7 +79,10 @@ impl Plugin for VoidFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/void_field.wgsl");
         app.add_plugins(FullscreenMaterialPlugin::<VoidFieldSettings>::default())
-            .add_systems(PostUpdate, sync_void_fields.after(bevy::transform::TransformSystems::Propagate));
+            .add_systems(
+                PostUpdate,
+                sync_void_fields.run_if(a_void_or_its_field_stands).after(bevy::transform::TransformSystems::Propagate),
+            );
     }
 }
 

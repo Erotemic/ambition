@@ -60,6 +60,12 @@ impl DrawnCutscene {
     }
 }
 
+/// Run condition of [`sync_cutscene_ui`]: a cutscene plays, or its overlay is
+/// still drawn and is taken away on this run.
+pub fn a_cutscene_plays_or_is_drawn(active: Res<ActiveCutscene>, overlays: Query<(), With<CutsceneOverlayRoot>>) -> bool {
+    active.is_playing() || !overlays.is_empty()
+}
+
 /// Build or refresh the cutscene UI overlay, like the dialogue presenter:
 /// despawn last frame's overlay and spawn this frame's from `ActiveCutscene`
 /// and `CutsceneSkipHold`.

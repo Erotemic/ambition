@@ -192,7 +192,8 @@ pub fn build_windowed_demo_app_entering(
     app.add_systems(
         Update,
         (
-            ambition_platformer2d::render::cutscene::sync_cutscene_ui,
+            ambition_platformer2d::render::cutscene::sync_cutscene_ui
+                .run_if(ambition_platformer2d::render::cutscene::a_cutscene_plays_or_is_drawn),
             ambition_platformer2d::render::reading_layout::fit_to_reading_rect::<
                 ambition_platformer2d::render::cutscene::CutsceneOverlayRoot,
             >,

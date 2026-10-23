@@ -23,6 +23,7 @@ pub fn install_dismounted_rider_rebuild(
     app.add_systems(
         schedule,
         rebuild_dismounted_rider_brains
+            .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::body::MountDied>)
             .after(ambition_mount::MountRiderLinkEnforced)
             .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
     );

@@ -119,6 +119,16 @@ fn end_cutscene(
     active.presentation = Default::default();
 }
 
+/// Run condition of [`tick_active_cutscene`]: a cutscene plays, or a skip
+/// hold from the last one waits to be cleared. Otherwise the tick would only
+/// write both resources back unchanged.
+pub fn a_cutscene_plays_or_its_hold_remains(
+    active: bevy::prelude::Res<ActiveCutscene>,
+    skip_hold: bevy::prelude::Res<ambition_cutscene::CutsceneSkipHold>,
+) -> bool {
+    active.runtime.is_some() || skip_hold.seconds != 0.0
+}
+
 /// Advance the playing cutscene by one SIMULATION step.
 ///
 /// ⛔⛤ **THE CLOCK IS `WorldTime`, NOT `Res<Time>`, FOR TWO SEPARATE REASONS.**
@@ -245,7 +255,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 drain_cutscene_triggers.run_if(
                     |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),
                 ),
-                tick_active_cutscene,
+                tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene),
@@ -320,6 +330,40 @@ mod tests {
             "a script with no `seen_flag` wrote a durable row anyway"
         );
         assert!(active.runtime.is_none());
+    }
+
+    /// The tick runs while a cutscene plays ([`a_cutscene_plays_or_its_hold_remains`]);
+    /// once it ends, neither the cutscene nor the skip hold is written again.
+    #[test]
+    fn an_ended_cutscene_leaves_its_resources_unwritten() {
+        use bevy::prelude::IntoScheduleConfigs as _;
+        let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
+        app.init_resource::<ambition_characters::control::SlotControls>();
+        app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.insert_resource(ActiveCutscene {
+            runtime: Some(ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
+                id: "probe".to_string(),
+                beats: Vec::new(),
+                seen_flag: None,
+            })),
+            presentation: Default::default(),
+        });
+        app.add_systems(bevy::prelude::Update, tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains));
+        for _ in 0..8 {
+            app.update();
+            if app.world().resource::<ActiveCutscene>().runtime.is_none() {
+                break;
+            }
+        }
+        assert!(app.world().resource::<ActiveCutscene>().runtime.is_none(), "a script with no beats never ended");
+        app.update();
+        let ended = app.world().resource_ref::<ActiveCutscene>().last_changed();
+        let held = app.world().resource_ref::<ambition_cutscene::CutsceneSkipHold>().last_changed();
+        app.update();
+        assert_eq!(app.world().resource_ref::<ActiveCutscene>().last_changed(), ended);
+        assert_eq!(app.world().resource_ref::<ambition_cutscene::CutsceneSkipHold>().last_changed(), held);
     }
 
     #[test]

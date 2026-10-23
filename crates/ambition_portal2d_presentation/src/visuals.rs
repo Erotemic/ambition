@@ -372,8 +372,11 @@ pub fn sync_portal_body_pieces(
 }
 
 /// The colour-name label of each portal, and the gun's shot and pickup
-/// markers. Clear-and-rebuild each frame: portal counts stay small in ordinary
-/// rooms, and rebuilding from sim entities avoids presentation drift.
+/// markers. Rebuilt from the sim entities each frame, and reconciled with what
+/// is drawn: a visual whose source wants the same look in the same room is
+/// kept and moved, any other is despawned, and what is missing is spawned. A
+/// label is a `Text2d`, and a new one is laid out again, so each placed portal
+/// was laid out each frame while they were despawned and spawned every frame.
 ///
 /// The portal's own look is its line of light (`crate::glow`), which is kept
 /// from frame to frame because it has effects that take time.
@@ -381,43 +384,69 @@ pub fn sync_portal_visuals(
     mut commands: Commands,
     frames: PortalFrames,
     art: Option<Res<PortalGunArt>>,
-    visuals: Query<Entity, With<PortalVisual>>,
+    mut visuals: Query<(Entity, &gun_visuals::PortalVisualDrawn, &mut Transform), With<PortalVisual>>,
     portals: Query<(Entity, &PlacedPortal)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
     projectiles: Query<(Entity, &PortalShot)>,
 ) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
-    gun_visuals::spawn_portal_shot_visuals(&mut commands, &frames, &projectiles);
-    gun_visuals::spawn_portal_gun_pickup_visuals(&mut commands, &frames, art.as_deref(), &pickups);
-    // Each live room's portals, in that room's frame. A portal's partner is in
-    // its own room, as the mechanic pairs them.
-    let by_room = frames.portals_by_room(portals.iter());
-    for (room, room_portals) in by_room.rooms() {
-        let Some(placement) = frames.in_room(room) else {
+    use gun_visuals::{PortalVisualDrawn, PortalVisualLook};
+    let mut wanted: Vec<(PortalVisualDrawn, Transform)> = Vec::new();
+    gun_visuals::want_portal_shot_visuals(&frames, &projectiles, &mut wanted);
+    gun_visuals::want_portal_gun_pickup_visuals(&frames, art.is_some(), &pickups, &mut wanted);
+    // Each portal in its own live room's frame.
+    for (source, portal) in portals.iter() {
+        let Some(placement) = frames.of(source) else {
             continue;
         };
-        for portal in room_portals {
-            // A small color-name label just out in front of the face, so portals can
-            // be referred to precisely (each linked pair is a distinct complementary
-            // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
-            let n = portal.normal.normalize_or_zero();
-            let label_pos = portal.pos + n * 24.0;
-            let label_translation = placement.frame.to_render(label_pos, crate::PORTAL_FRAME_Z + 0.05);
-            let (_, core) = portal.channel.display();
-            commands.spawn((
-                PortalVisual,
-                Text2d::new(portal.channel.name()),
-                TextFont {
-                    font_size: FontSize::Px(12.0),
-                    ..default()
-                },
-                TextColor(core),
-                Transform::from_translation(label_translation),
-                placement.stamp(),
-                Name::new("Portal label"),
-            ));
+        // A small color-name label just out in front of the face, so portals can
+        // be referred to precisely (each linked pair is a distinct complementary
+        // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
+        let n = portal.normal.normalize_or_zero();
+        let label_pos = portal.pos + n * 24.0;
+        let label_translation = placement.frame.to_render(label_pos, crate::PORTAL_FRAME_Z + 0.05);
+        wanted.push((
+            PortalVisualDrawn { source, room: placement.room, look: PortalVisualLook::Label(portal.channel) },
+            Transform::from_translation(label_translation),
+        ));
+    }
+    // A replaced art is new content: each pickup is drawn again from it.
+    let art_replaced = art.as_ref().is_some_and(|art| art.is_changed());
+    let mut taken = vec![false; wanted.len()];
+    for (entity, drawn, mut transform) in &mut visuals {
+        let redraw = art_replaced && matches!(drawn.look, PortalVisualLook::Pickup { .. });
+        let kept = (!redraw)
+            .then(|| (0..wanted.len()).find(|&at| !taken[at] && wanted[at].0 == *drawn))
+            .flatten();
+        match kept {
+            Some(at) => {
+                taken[at] = true;
+                transform.set_if_neq(wanted[at].1);
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for ((drawn, transform), taken) in wanted.into_iter().zip(taken) {
+        if taken {
+            continue;
+        }
+        match drawn.look {
+            PortalVisualLook::Label(channel) => {
+                let (_, core) = channel.display();
+                commands.spawn((
+                    PortalVisual,
+                    drawn,
+                    Text2d::new(channel.name()),
+                    TextFont {
+                        font_size: FontSize::Px(12.0),
+                        ..default()
+                    },
+                    TextColor(core),
+                    transform,
+                    ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(drawn.room),
+                    Name::new("Portal label"),
+                ));
+            }
+            _ => gun_visuals::spawn_gun_visual(&mut commands, drawn, transform, art.as_deref()),
         }
     }
 }

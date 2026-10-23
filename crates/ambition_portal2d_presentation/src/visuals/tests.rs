@@ -393,6 +393,32 @@ fn each_portal_is_drawn_in_its_own_live_room() {
     }
 }
 
+/// A portal's label is kept while the portal stays, and not written; a
+/// portal taken away takes it. The labels were despawned and spawned each
+/// frame, and a new `Text2d` is laid out again.
+#[test]
+fn a_portals_label_is_kept_while_the_portal_stays() {
+    let mut app = test_app();
+    app.add_systems(Update, sync_portal_visuals);
+    let (left, _) = thin_wall_pair();
+    let portal = app.world_mut().spawn(left).id();
+    app.update();
+    let labels = |app: &mut App| {
+        app.world_mut()
+            .query_filtered::<(Entity, Ref<Transform>), With<PortalVisual>>()
+            .iter(app.world())
+            .map(|(entity, transform)| (entity, transform.last_changed()))
+            .collect::<Vec<_>>()
+    };
+    let first = labels(&mut app);
+    assert_eq!(first.len(), 1, "one portal, one label");
+    app.update();
+    assert_eq!(labels(&mut app), first, "a portal that stays keeps its label and writes nothing");
+    app.world_mut().despawn(portal);
+    app.update();
+    assert!(labels(&mut app).is_empty(), "a portal taken away takes its label");
+}
+
 /// The corners of each visible piece quad, in engine coordinates, by its z.
 fn piece_corners(app: &mut App) -> Vec<(f32, Vec<Vec2>)> {
     let frame = PortalWorldFrame { size: WORLD };

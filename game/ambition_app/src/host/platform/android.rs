@@ -193,53 +193,46 @@ fn request_the_pause_menu_on_suspend(
 #[cfg(all(target_os = "android", feature = "audio"))]
 mod audio_lifecycle {
     use bevy::prelude::*;
-    use bevy_kira_audio::prelude::{
-        AudioChannel, AudioControl, AudioTween, DynamicAudioChannels, MainTrack,
-    };
+    use bevy_kira_audio::prelude::{AudioInstance, AudioTween, PlaybackState};
     use std::time::Duration;
 
     use super::AndroidSuspendState;
 
-    /// Pause every audio channel on the suspend edge and resume each on the
-    /// resume edge: the main track, the typed music and sound channels, and
-    /// each dynamic channel (the music banks play there). A 40 ms tween keeps
-    /// the cut from clicking.
+    /// Pause each sound that is playing on the suspend edge, on every channel
+    /// (the main track, the music and sound channels, the music banks), and on
+    /// the resume edge resume those and only those.
+    ///
+    /// ⛔ NOT A CHANNEL-WIDE RESUME. A channel's resume also wakes a sound that
+    /// was fading out to a stop, and a fade does not finish while the output
+    /// is suspended: a song switched just before the screen went off came back
+    /// beside its successor. A 40 ms tween keeps the cut from clicking.
     pub(super) fn apply_android_suspend_to_audio(
         state: Res<AndroidSuspendState>,
-        main: Option<Res<AudioChannel<MainTrack>>>,
-        music: Option<Res<AudioChannel<ambition_platformer2d::audio::library::MusicChannel>>>,
-        sfx: Option<Res<AudioChannel<ambition_platformer2d::audio::library::SfxChannel>>>,
-        dynamic: Option<Res<DynamicAudioChannels>>,
+        mut instances: ResMut<Assets<AudioInstance>>,
+        mut paused: Local<Vec<AssetId<AudioInstance>>>,
     ) {
         if !state.just_changed {
             return;
         }
-        let suspended = state.suspended;
-        if let Some(channel) = main.as_deref() {
-            pause_or_resume(channel, suspended);
-        }
-        if let Some(channel) = music.as_deref() {
-            pause_or_resume(channel, suspended);
-        }
-        if let Some(channel) = sfx.as_deref() {
-            pause_or_resume(channel, suspended);
-        }
-        for (_, channel) in dynamic.iter().flat_map(|channels| channels.iter()) {
-            pause_or_resume(channel, suspended);
+        let tween = || AudioTween::linear(Duration::from_millis(40));
+        if state.suspended {
+            for (id, instance) in instances.iter_mut() {
+                if matches!(instance.state(), PlaybackState::Playing { .. }) {
+                    instance.pause(tween());
+                    paused.push(id);
+                }
+            }
+        } else {
+            for id in paused.drain(..) {
+                if let Some(mut instance) = instances.get_mut(id) {
+                    instance.resume(tween());
+                }
+            }
         }
         bevy::log::info!(
             target: "ambition_platformer2d::android_lifecycle",
-            "android {}: every audio channel",
-            if suspended { "suspend: paused" } else { "resume: resumed" }
+            "android {}: the sounds that were playing",
+            if state.suspended { "suspend: paused" } else { "resume: resumed" }
         );
-    }
-
-    fn pause_or_resume(channel: &impl AudioControl, suspended: bool) {
-        let tween = AudioTween::linear(Duration::from_millis(40));
-        if suspended {
-            channel.pause().fade_out(tween);
-        } else {
-            channel.resume().fade_in(tween);
-        }
     }
 }

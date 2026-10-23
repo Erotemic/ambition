@@ -226,7 +226,8 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // uses (above). A heal written after its apply waits a tick,
                 // and a rewind to that tick clears the message, so the
                 // resimulation loses the heal.
-                crate::avatar::apply_player_heal_requests,
+                crate::avatar::apply_player_heal_requests
+                    .run_if(on_message::<crate::avatar::events::PlayerHealRequested>),
                 ecs::effect_bus::apply_flag_effects,
                 ecs::effect_bus::apply_quest_effects,
                 ecs::effect_bus::apply_switch_effects,

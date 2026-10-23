@@ -264,6 +264,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_systems(
                 Update,
                 ambition_platformer2d_shared_tangle::camera_ease::rest_the_camera_on_activation
+                    .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>)
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
             );
         // The finishing zoom's applier, wired for the same reason and in the

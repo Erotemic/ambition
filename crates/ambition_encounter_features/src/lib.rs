@@ -88,7 +88,8 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 // runtime: a plugin that is about to live in
                 // `ambition_encounter` cannot name a kernel system, and the
                 // server was the last thing this module named in the kernel.
-                ambition_combat::banner::apply_gameplay_banner_requests,
+                ambition_combat::banner::apply_gameplay_banner_requests
+                    .run_if(bevy::prelude::on_message::<ambition_combat::events::GameplayBannerRequested>),
                 ambition_combat::banner::tick_gameplay_banner,
             )
                 .chain()

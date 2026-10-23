@@ -494,7 +494,9 @@ impl Plugin for SessionTeardownPlugin {
         app.add_systems(
             Update,
             (
-                reset_session_scoped_resources_on_activation.in_set(SessionScopeSet::Activate),
+                reset_session_scoped_resources_on_activation
+                    .run_if(on_message::<SessionScopeActivated>)
+                    .in_set(SessionScopeSet::Activate),
                 reset_session_scoped_resources_on_retire.in_set(SessionScopeSet::Cleanup),
             ),
         );

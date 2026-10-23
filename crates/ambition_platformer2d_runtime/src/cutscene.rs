@@ -241,7 +241,10 @@ impl Plugin for CutsceneSchedulePlugin {
             sim,
             (
                 auto_trigger_room_cutscenes,
-                drain_cutscene_triggers,
+                // Only with a trigger queued: it took the queue each tick.
+                drain_cutscene_triggers.run_if(
+                    |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),
+                ),
                 tick_active_cutscene,
             )
                 .chain()

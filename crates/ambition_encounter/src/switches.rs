@@ -496,6 +496,17 @@ pub struct SwitchActivationDrained;
 /// double-applies a reset. Four consumers each draining what interests them
 /// would race that order and each would need its own toggle; this drains once,
 /// in queue order, and every consumer reads [`ResolvedSwitchActivations`].
+/// Run condition of [`drain_switch_activations`]: an activation waits in the
+/// queue, or last tick's resolved list is still to clear. With neither, the
+/// drain would leave both as they are; it cleared the list each tick, so the
+/// list read as changed each tick.
+pub fn an_activation_is_queued_or_resolved(
+    queue: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<SwitchActivationQueue>>,
+    resolved: bevy::prelude::Res<ResolvedSwitchActivations>,
+) -> bool {
+    queue.is_some_and(|queue| !queue.0.is_empty()) || !resolved.0.is_empty()
+}
+
 pub fn drain_switch_activations(
     mut queue: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SwitchActivationQueue>,
     mut resolved: bevy::prelude::ResMut<ResolvedSwitchActivations>,
@@ -571,6 +582,33 @@ mod one_drain_one_author {
         app.init_resource::<ResolvedSwitchActivations>();
         app.add_systems(Update, drain_switch_activations);
         app
+    }
+
+    /// The drain runs while an activation waits or the resolved list holds
+    /// one, so last tick's activation is cleared; then, idle, it writes
+    /// nothing.
+    #[test]
+    fn a_resolved_activation_is_cleared_and_then_the_drain_rests() {
+        use bevy::ecs::change_detection::DetectChanges as _;
+        let mut app = App::new();
+        app.insert_resource(AmbitionGameSave::default());
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            SwitchActivationQueue(vec![activation("lever", "toggle_flag").into()]),
+        );
+        app.init_resource::<ResolvedSwitchActivations>();
+        app.add_systems(Update, drain_switch_activations.run_if(an_activation_is_queued_or_resolved));
+        app.update();
+        assert_eq!(app.world().resource::<ResolvedSwitchActivations>().0.len(), 1, "the premise: one resolved");
+        app.update();
+        assert!(app.world().resource::<ResolvedSwitchActivations>().0.is_empty(), "last tick's activation stayed");
+        let before = app.world().resource_ref::<ResolvedSwitchActivations>().last_changed();
+        app.update();
+        assert_eq!(
+            app.world().resource_ref::<ResolvedSwitchActivations>().last_changed(),
+            before,
+            "an idle drain wrote the resolved list"
+        );
     }
 
     fn activation(id: &str, action: &str) -> SwitchActivation {

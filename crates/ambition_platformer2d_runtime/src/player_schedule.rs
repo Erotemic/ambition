@@ -71,10 +71,12 @@ impl Plugin for PlayerSchedulePlugin {
                 crate::sim_clock::time_control::emit_player_time_intent_system
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_scale_requests
+                    .run_if(bevy::prelude::on_message::<ambition_time::time_control::ClockScaleRequest>)
                     .in_set(GameplayGated),
                 crate::sim_clock::time_control::smooth_sim_clock_toward_target_system
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_reset_requests
+                    .run_if(bevy::prelude::on_message::<ambition_time::time_control::ClockResetRequest>)
                     .in_set(GameplayGated),
             )
                 .chain()

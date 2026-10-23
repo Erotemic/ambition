@@ -65,7 +65,13 @@ impl Plugin for ProgressionSchedulePlugin {
             sim,
             (
                 crate::quest::push_room_entered_quest_events,
-                ambition_persistence::quest::apply_quest_advance_events,
+                // Only with an event to apply: it took the registry mutably
+                // each tick, so the registry read as changed each tick.
+                ambition_persistence::quest::apply_quest_advance_events.run_if(
+                    |registry: bevy::prelude::Res<ambition_persistence::quest::QuestRegistry>| {
+                        registry.has_pending_events()
+                    },
+                ),
             )
                 .chain()
                 .in_set(ProgressionSet::Quest),

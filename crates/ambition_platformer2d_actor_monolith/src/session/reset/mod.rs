@@ -214,7 +214,9 @@ pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
     app.add_message::<SessionScopeActivated>();
     app.add_systems(
         Update,
-        forget_attempts_on_activation::<T>.in_set(SessionScopeSet::Activate),
+        forget_attempts_on_activation::<T>
+            .run_if(on_message::<SessionScopeActivated>)
+            .in_set(SessionScopeSet::Activate),
     );
 }
 

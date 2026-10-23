@@ -116,6 +116,7 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
         app.add_systems(
             sim,
             crate::switches::drain_switch_activations
+                .run_if(crate::switches::an_activation_is_queued_or_resolved)
                 .in_set(crate::switches::SwitchActivationDrained),
         );
         app.add_systems(

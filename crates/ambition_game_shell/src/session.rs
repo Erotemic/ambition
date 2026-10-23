@@ -378,6 +378,7 @@ impl Plugin for GameplaySessionBridgePlugin {
             .add_systems(
                 Update,
                 hand_the_save_to_the_activating_experience
+                    .run_if(bevy::prelude::on_message::<GameplaySessionEvent>)
                     .in_set(SessionScopeSet::Activate)
                     .run_if(resource_exists::<ambition_persistence::save::AmbitionGameSave>),
             );

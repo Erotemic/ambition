@@ -178,6 +178,7 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(
             Update,
             crate::forget_portal_frames_on_activation
+                .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>)
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
         );
         app.configure_sets(sim, PortalSet::Pose.before(PortalSet::Carves));

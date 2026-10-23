@@ -197,6 +197,7 @@ pub fn install_actor_spawn_requests(
     app.add_systems(
         schedule,
         apply_spawn_actor_requests
+            .run_if(bevy::prelude::on_message::<SpawnActorRequest>)
             .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Materialize),
     );
 }

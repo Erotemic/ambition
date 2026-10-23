@@ -95,7 +95,9 @@ pub(super) fn clear_session_message_channels(
 pub(super) fn install(app: &mut App) {
     app.init_resource::<SessionMessageChannels>().add_systems(
         Update,
-        clear_session_message_channels.in_set(SessionScopeSet::Activate),
+        clear_session_message_channels
+            .run_if(bevy::prelude::on_message::<SessionScopeActivated>)
+            .in_set(SessionScopeSet::Activate),
     );
 }
 

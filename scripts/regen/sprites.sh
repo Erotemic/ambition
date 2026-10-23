@@ -1096,6 +1096,10 @@ tackon_targets=(
     davy_hylbert
     genghis_can
     genghis_cant
+    # Look C (steppe) of the pair, 2026-10-23: what `npc_genghis_can` and
+    # `npc_genghis_cant` show; the two above are their first design.
+    genghis_can_v2
+    genghis_cant_v2
     georg_canter
     george_booul
     hunny_horror_boss

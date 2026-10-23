@@ -4542,7 +4542,7 @@
         ),
         "npc_genghis_can": (
             display_name: "Genghis Can",
-            manifest: "sprites/genghis_can_spritesheet.ron",
+            manifest: "sprites/genghis_can_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 173 cm.
@@ -4559,7 +4559,7 @@
         ),
         "npc_genghis_cant": (
             display_name: "Genghis Can't",
-            manifest: "sprites/genghis_cant_spritesheet.ron",
+            manifest: "sprites/genghis_cant_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 170 cm.

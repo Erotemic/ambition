@@ -52,8 +52,7 @@ pub use local_view::{
 };
 pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
 pub use pose_view::{
-    rebuild_body_pose_views, rebuild_guard_breaks_view, rebuild_launched_bodies_view,
-    rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
+    rebuild_body_pose_views, rebuild_launched_bodies_view, rebuild_shield_views, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP,
 };
 pub use presented_pose::{
@@ -140,13 +139,13 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // A body in a passage draws what its passage says, over the
                 // pose the rebuild picked.
                 rebuild_passage_views.after(rebuild_body_pose_views).after(rebuild_actor_anim_index),
-                rebuild_shield_rings_view,
+                // The raised guards and the shattered ones, in one pass: a
+                // raised guard and a broken one are two different rows, not
+                // one with a flag.
+                rebuild_shield_views,
                 // Which bodies are in an INVOLUNTARY flight, so a
                 // flight-readability cue never has to infer that from speed.
                 rebuild_launched_bodies_view,
-                // And which have had their guard shattered — a raised guard and
-                // a broken one are two different rows, not one with a flag.
-                rebuild_guard_breaks_view,
                 // Which bodies' characters author their own attack art, so no
                 // render system has to ask the catalog — see the module docs
                 // for why an absent catalog must stay ABSENT here.

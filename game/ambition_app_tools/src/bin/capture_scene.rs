@@ -1185,7 +1185,7 @@ fn install_room_capture(app: &mut App) {
         // In the schedule that rebuilds the view, after the rebuild: an edge
         // from `Update` to a sim system orders nothing, so a frame with no sim
         // tick appended the guards again onto the last tick's list.
-        app.add_systems(sim, draw_guards.after(ambition_platformer2d::sim_view::rebuild_shield_rings_view));
+        app.add_systems(sim, draw_guards.after(ambition_platformer2d::sim_view::rebuild_shield_views));
     }
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(

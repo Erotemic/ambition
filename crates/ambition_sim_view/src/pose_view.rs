@@ -944,8 +944,12 @@ pub struct ShieldRingFact {
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ShieldRingsView(pub Vec<ShieldRingFact>);
 
-pub fn rebuild_shield_rings_view(
-    mut view: ResMut<ShieldRingsView>,
+/// Both shield read-models in one pass over the shielded bodies: the raised
+/// guards ([`ShieldRingsView`]) and the shattered ones ([`GuardBreaksView`]).
+/// One observation cut, one traversal, each view in query order.
+pub fn rebuild_shield_views(
+    mut rings: ResMut<ShieldRingsView>,
+    mut breaks: ResMut<GuardBreaksView>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bodies: Query<(
         Entity,
@@ -962,28 +966,48 @@ pub fn rebuild_shield_rings_view(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
-    view.0.clear();
-    view.0.extend(
-        bodies
-            .iter()
-            .filter(|(_, _, shield, _, _, _)| shield.active)
-            .map(|(entity, kin, shield, presented, model, frame)| {
-                let down = body_down(frame);
-                // From the middle of the body to the middle of the bubble.
-                let lean = down * (shield_half_height(kin.size, down) * shield.shield_tilt);
-                ShieldRingFact {
-                    pos: presented.map_or(kin.pos, |p| p.presented()) + lean,
-                    size: kin.size,
-                    parrying: shield.parrying(),
-                    integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
-                    stun_secs: shield.stun_timer,
-                    blow_phase: shield.blow_phase(),
-                    blow_from: shield.blow_from - lean,
-                    gravity_dir: down,
-                    room: live.of(entity),
-                }
-            }),
-    );
+    rings.0.clear();
+    breaks.0.clear();
+    for (entity, kin, shield, presented, model, frame) in &bodies {
+        if shield.active {
+            rings.0.push(shield_ring_fact(&live, entity, kin, shield, presented, model, frame));
+        }
+        if let Some(phase) = shield.break_phase() {
+            breaks.0.push(GuardBreakFact {
+                pos: presented.map_or(kin.pos, |p| p.presented()),
+                size: kin.size,
+                phase,
+                gravity_dir: body_down(frame),
+                room: live.of(entity),
+            });
+        }
+    }
+}
+
+/// The raised guard of one body.
+fn shield_ring_fact(
+    live: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    entity: Entity,
+    kin: &ambition_platformer2d_core::BodyKinematics,
+    shield: &ambition_platformer2d_core::BodyShieldState,
+    presented: Option<&crate::presented_pose::PresentedPose>,
+    model: Option<&ambition_platformer2d_core::MotionModel>,
+    frame: Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+) -> ShieldRingFact {
+    let down = body_down(frame);
+    // From the middle of the body to the middle of the bubble.
+    let lean = down * (shield_half_height(kin.size, down) * shield.shield_tilt);
+    ShieldRingFact {
+        pos: presented.map_or(kin.pos, |p| p.presented()) + lean,
+        size: kin.size,
+        parrying: shield.parrying(),
+        integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
+        stun_secs: shield.stun_timer,
+        blow_phase: shield.blow_phase(),
+        blow_from: shield.blow_from - lean,
+        gravity_dir: down,
+        room: live.of(entity),
+    }
 }
 
 /// The body's half-extent ALONG its own gravity, which is what
@@ -1042,30 +1066,6 @@ pub struct GuardBreakFact {
 /// Every body currently in a guard break, in query order.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct GuardBreaksView(pub Vec<GuardBreakFact>);
-
-pub fn rebuild_guard_breaks_view(
-    mut view: ResMut<GuardBreaksView>,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    bodies: Query<(
-        Entity,
-        &ambition_platformer2d_core::BodyKinematics,
-        &ambition_platformer2d_core::BodyShieldState,
-        Option<&crate::presented_pose::PresentedPose>,
-        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    )>,
-) {
-    view.0.clear();
-    view.0
-        .extend(bodies.iter().filter_map(|(entity, kin, shield, presented, frame)| {
-            shield.break_phase().map(|phase| GuardBreakFact {
-                pos: presented.map_or(kin.pos, |p| p.presented()),
-                size: kin.size,
-                phase,
-                gravity_dir: body_down(frame),
-                room: live.of(entity),
-            })
-        }));
-}
 
 /// One body in INVOLUNTARY flight, resolved sim-side.
 ///
@@ -1208,6 +1208,7 @@ mod pose_view_tests {
         };
         use bevy::prelude::{App, Update};
         let mut app = App::new();
+        app.init_resource::<ShieldRingsView>();
         app.init_resource::<GuardBreaksView>();
         app.init_resource::<LaunchedBodiesView>();
         let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
@@ -1232,7 +1233,7 @@ mod pose_view_tests {
                 InRoomInstance(instance),
             ));
         }
-        app.add_systems(Update, (rebuild_guard_breaks_view, rebuild_launched_bodies_view));
+        app.add_systems(Update, (rebuild_shield_views, rebuild_launched_bodies_view));
         app.update();
         let sorted = |mut rooms: Vec<Option<LiveRoomInstance>>| {
             rooms.sort_by_key(|room| room.map(|room| room.ordinal()));

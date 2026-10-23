@@ -1046,7 +1046,7 @@ mod host_adapter {
                         .run_if(
                             ambition_platformer2d_shared_tangle::lifecycle::session_world_exists,
                         ),
-                    portal_dev_toggle_system.run_if(bevy::prelude::on_message::<
+                    portal_dev_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<
                         ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
                     >),
                 ),
@@ -1073,7 +1073,7 @@ mod host_adapter {
             app.add_systems(
                 Update,
                 declare_portal_pose_warps
-                    .run_if(bevy::prelude::on_message::<ambition_portal2d::PortalBodyTransited>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::PortalBodyTransited>)
                     .in_set(ambition_sim_view::PresentedPoseSet)
                     .before(ambition_sim_view::PresentedPoseStage::Resample),
             );

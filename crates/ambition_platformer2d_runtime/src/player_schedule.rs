@@ -71,12 +71,12 @@ impl Plugin for PlayerSchedulePlugin {
                 crate::sim_clock::time_control::emit_player_time_intent_system
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_scale_requests
-                    .run_if(bevy::prelude::on_message::<ambition_time::time_control::ClockScaleRequest>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_time::time_control::ClockScaleRequest>)
                     .in_set(GameplayGated),
                 crate::sim_clock::time_control::smooth_sim_clock_toward_target_system
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_reset_requests
-                    .run_if(bevy::prelude::on_message::<ambition_time::time_control::ClockResetRequest>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_time::time_control::ClockResetRequest>)
                     .in_set(GameplayGated),
             )
                 .chain()
@@ -247,7 +247,11 @@ impl Plugin for PlayerSchedulePlugin {
             (
                 ambition_platformer2d_actor_monolith::control::possession::possession_trigger_system
                     .in_set(GameplayGated),
-                ambition_platformer2d_actor_monolith::control::possession::release_possession_if_target_lost,
+                ambition_platformer2d_actor_monolith::control::possession::release_possession_if_target_lost.run_if(
+                    |state: bevy::prelude::Res<ambition_platformer2d_actor_monolith::control::possession::PossessionState>| {
+                        state.possessed.is_some()
+                    },
+                ),
                 // Reproject body custody after possession settles. It remains ungated so room
                 // transitions can read settled residency while gameplay is suspended.
                 ambition_platformer2d_actor_monolith::body_custody::project_body_custody
@@ -340,7 +344,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
                 ambition_platformer2d_actor_monolith::session::death::open_death_interlude
-                    .run_if(bevy::prelude::on_message::<ambition_combat::death_rules::ActorDiedMessage>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::death_rules::ActorDiedMessage>),
                 ambition_combat::death_rules::tick_death_interlude
                     .run_if(bevy::prelude::any_with_component::<ambition_combat::death_rules::DeathInterlude>),
             )

@@ -100,7 +100,7 @@ impl Plugin for FpsOverlayPlugin {
                 sync_fps_overlay_from_settings.run_if(
                     resource_changed::<UserSettings>.or_else(resource_exists_and_changed::<UiFonts>),
                 ),
-                toggle_fps_overlay_from_hotkey.run_if(on_message::<DeveloperAction>),
+                toggle_fps_overlay_from_hotkey.run_if(ambition_platformer2d::engine_core::a_message_waits::<DeveloperAction>),
                 shadow_the_fps_text,
                 place_fps_overlay.run_if(the_overlay_may_have_moved),
             ),

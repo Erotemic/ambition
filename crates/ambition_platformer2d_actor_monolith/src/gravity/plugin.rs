@@ -113,7 +113,7 @@ impl Plugin for GravityPlugin {
             sim,
             (
                 ambition_platformer2d_shared_tangle::gravity::apply_ambient_gravity_requests.run_if(
-                    on_message::<ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest>,
+                    ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::gravity::AmbientGravityRequest>,
                 ),
                 super::resolve::resolve_body_motion_frames,
                 ambition_platformer2d_shared_tangle::gravity::resolve_active_gravity,

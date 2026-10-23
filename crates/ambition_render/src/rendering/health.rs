@@ -166,6 +166,16 @@ pub fn sync_boss_health_bar_overlay(
         });
 }
 
+/// Run condition of [`sync_health_overlays`]: the developer health bars are
+/// on, or a bar is still drawn and is taken away on this run.
+pub fn health_bars_are_on_or_drawn(
+    dev_state: Res<ambition_dev_tools::DeveloperRuntimeState>,
+    developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
+    overlays: Query<(), With<HealthOverlayVisual>>,
+) -> bool {
+    (dev_state.debug_enabled() && developer_tools.show_health_bars) || !overlays.is_empty()
+}
+
 pub fn sync_health_overlays(
     mut commands: Commands,
     // Each bar is drawn in the live room of the body it measures, by that

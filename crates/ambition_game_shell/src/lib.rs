@@ -6,6 +6,16 @@
 //! them. The neutral sequence and launcher modules are reusable shell
 //! experiences, not a universal gameplay state machine.
 
+/// Run condition: a `T` message waits in its channel. It peeks, as
+/// `ambition_platformer2d_core::a_message_waits` does and for the same reason:
+/// Bevy's `on_message` takes the message even while a set the system is in is
+/// off. This crate sits below that one, so it keeps its own copy.
+pub(crate) fn a_message_waits<T: bevy::ecs::message::Message>(
+    messages: Option<bevy::prelude::Res<bevy::ecs::message::Messages<T>>>,
+) -> bool {
+    messages.is_some_and(|messages| !messages.is_empty())
+}
+
 mod experience;
 mod frontend;
 mod id;

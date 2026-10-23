@@ -205,6 +205,17 @@ pub struct AdmittedReplays<'w, 's> {
     committed: Option<Res<'w, CommittedRestoreReplay>>,
 }
 
+/// Run condition of a system that answers [`AdmittedReplays`]: a replay
+/// message waits, or a committed restore's replay is pinned. Otherwise its
+/// reader would yield nothing. It peeks the channel rather than reading it
+/// (see `ambition_platformer2d_core::a_message_waits`).
+pub fn a_replay_is_admitted(
+    messages: Option<Res<bevy::ecs::message::Messages<RoomReplayAdmitted>>>,
+    committed: Option<Res<CommittedRestoreReplay>>,
+) -> bool {
+    committed.is_some() || messages.is_some_and(|messages| !messages.is_empty())
+}
+
 impl AdmittedReplays<'_, '_> {
     /// Each replay to answer now.
     pub fn read(&mut self) -> Box<dyn Iterator<Item = &RoomReplayAdmitted> + '_> {
@@ -738,5 +749,47 @@ mod fresh_attempt_cursor_tests {
              first ask stopped at the first matching message and left the rest of \
              the frame's traffic in the reader"
         );
+    }
+}
+
+#[cfg(test)]
+mod replay_gate_tests {
+    use super::*;
+
+    #[derive(Resource, Default)]
+    struct Answered(usize);
+
+    fn answer(mut replays: AdmittedReplays, mut answered: ResMut<Answered>) {
+        answered.0 += replays.read().count();
+    }
+
+    fn replay() -> RoomReplayAdmitted {
+        RoomReplayAdmitted {
+            reason: RoomResetReason::Manual,
+            subject: None,
+            refight: false,
+            to_checkpoint: false,
+            spared: Vec::new(),
+            spared_participants: Vec::new(),
+        }
+    }
+
+    /// A pass gated on [`a_replay_is_admitted`] answers every replay its
+    /// [`AdmittedReplays`] would yield: an admitted message, and a committed
+    /// restore's pinned replay, which comes with no message.
+    #[test]
+    fn a_gated_replay_answer_sees_both_roads() {
+        let mut app = App::new();
+        app.add_message::<RoomReplayAdmitted>();
+        app.init_resource::<Answered>();
+        app.add_systems(Update, answer.run_if(a_replay_is_admitted));
+        app.update();
+        assert_eq!(app.world().resource::<Answered>().0, 0);
+        app.world_mut().write_message(replay());
+        app.update();
+        assert_eq!(app.world().resource::<Answered>().0, 1);
+        app.insert_resource(CommittedRestoreReplay(replay()));
+        app.update();
+        assert_eq!(app.world().resource::<Answered>().0, 2);
     }
 }

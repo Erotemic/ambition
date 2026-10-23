@@ -28,14 +28,14 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 17:35Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 984 systems a frame; hub Ambition route 1,323 → 1,157 since
+**Status, 2026-10-23 18:53Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 968 systems a frame; hub Ambition route 1,323 → 1,140 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
 module and the debris physics adapter (~4,000 production lines out, by `wc -l`
-at each move). Last green commit for the slices' own tests: `2902cf64e`.
+at each move). Last green commit for the slices' own tests: this one (F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`).
 Waiting on: a phone profile of a build with these slices, the measurement that
 says what they bought in frame time.
 
@@ -108,6 +108,36 @@ says what they bought in frame time.
 | The projectile owners' identity heal (twice a tick, head and tail) runs while a projectile is live; the falling chests while a chest falls | done | census: 3 systems a tick fewer on both routes (Mary-O 1,017, Ambition 1,188 a frame); runtime 114 and 37 app chest, projectile and identity tests pass |
 | Zone snapshots (gravity, force, oscillating zones) run while a zone or a snapshot row stands; item motion while an item moves; projectile perception while a projectile is live or its rows stand. Gated systems' docs no longer promise "every frame" | done | census: 5 systems a tick fewer on both routes (Mary-O 1,017 → 1,012, Ambition 1,188 → 1,184 a frame); poisoned witness `the_snapshot_is_cleared_after_the_last_zone_and_then_rests`; shared_tangle 334, world_items 19, monolith 1,229 tests pass |
 | Twenty-six more passes run only with their work. Sim: hazards (any hazard), death interludes (open on a death, tick and close while one stands), death beats, transform beats, errands, the banner while it is up, clank rebounds, mount-death brain rebuilds, summons, item uses, the cutscene tick while one plays, boss render and frame indices while a boss or a row stands, the shrine pulse while it runs. Render: spirit and void fields while an aura or a field stands, launch trails while a body is launched, chain earth and turf while one is undressed, the bubble-shield pool spawn and its layer attach once, the cutscene overlay while one plays or is drawn. Ambition's seating restatement runs on a change of its inputs, so Mary-O no longer pays for it | done | census: Mary-O 1,012 → 984, Ambition 1,184 → 1,157 systems a frame (26 and 25 gated rows, the rest noise); poisoned witnesses `a_banner_runs_down_and_then_rests_unwritten`, `an_ended_cutscene_leaves_its_resources_unwritten`; combat 791, monolith 1,229, runtime 101, encounter_features 45, sim_view 135, render 445 tests pass |
+| Checkpoint, replay and retire passes run on their message: the commit-time baselines and forgets (four, `CheckpointCommitted`), the replay answers (four, the new `a_replay_is_admitted`: an admitted replay or a pinned committed restore, the two roads `AdmittedReplays` reads), retracted boss mints, the session-retire reset; possession release while a body is possessed | done | census: Mary-O 984 → 975, Ambition 1,157 → 1,147 systems a frame (11 gated rows each); poisoned witness `a_gated_replay_answer_sees_both_roads`; combat 792, monolith 1,229, runtime 101 tests pass |
+| ⛔ REGRESSION FIXED (F45): `7c6745589` gated `apply_clock_reset_requests` with `on_message` inside `GameplayGated`; Bevy evaluates a system's conditions while its set is off, so the condition took a replay's `ClockResetRequest` during the transition hold and the reset never ran. All 56 `on_message` gates of this run now use `ambition_platformer2d_core::a_message_waits` (a peek), as do `a_replay_is_admitted` and the block-flinch condition | done | `git bisect run` over `0d4b5f656..27f7fee6d`: first bad `7c6745589`; removing that gate alone turns 4 red `canonical_reconstitution` tests green; with the peek, 19/19 pass |
+| Presentation passes that ran for nothing on the Mary-O route: ground shadows (no game asks for them since 10-10) while a game asks or one is drawn, the developer health bars while on or drawn, daylight while a game has a `DaylightStyle`, mote drift while a mote stands, world-label fonts on a font or label change, the quest panel on a quest, setting or new-panel change; Ambition's portal-facing setting sync on a change, its reset bridge while a replay waits | done | census: Mary-O 975 → 968, Ambition 1,147 → 1,140 systems a frame (6 gated rows each; daylight and motes have work on both routes); the peek gates add no run; 12 lib suites and 238 `app_it` checkpoint, restore, replay, death, session, activation and clock tests pass |
+
+### F45 — A run condition can eat a message its system never reads (2026-10-23)
+
+MEASURED (source and bisect). Bevy 0.19.1 evaluates a system's own run
+conditions even when a set the system is in has a false condition
+(`schedule/executor/multi_threaded.rs` and `single_threaded.rs`, `should_run`).
+`on_message::<T>` keeps its own cursor and advances it when it is evaluated.
+So on a system in a conditioned set it takes the message while the set is off,
+and when the set comes back on the condition is false and the system never
+reads it. `apply_clock_reset_requests` sits in `GameplayGated`; a room replay
+writes its `ClockResetRequest` during the transition hold, when the set is
+off. `app_it canonical_reconstitution` caught it: four arms rebuilt the room
+one tick younger than a fresh entry (enemy x 420.07 against 420.67). Found by
+`git bisect run` (first bad `7c6745589`), not by the per-slice lib tests or
+the census.
+
+The pattern is `ambition_platformer2d_core::a_message_waits::<T>`: a peek at
+`Messages<T>` that takes nothing. It stays true while the channel holds a
+message read or not, so a system may run one extra frame. REASONED, not
+audited: a condition built on change ticks (`resource_changed`, `is_changed`,
+a `Changed<T>` query) has the same exposure in a conditioned set; this run's
+are in sets with no condition or are covered by an `Added`/`Changed` row on
+the drawn entity.
+
+A sim slice that gates on a message or a change runs
+`cargo test -p ambition_app --test app_it -- canonical_reconstitution` before
+it is pushed.
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 

@@ -380,7 +380,7 @@ impl Plugin for CombatSchedulePlugin {
                 // After the rig poses resolve: a hand muzzle on a rigged body
                 // reads this tick's hand.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
-                    .run_if(bevy::prelude::on_message::<ambition_characters::brain::ActorActionMessage>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_characters::brain::ActorActionMessage>)
                     .after(ambition_combat::body_rig::BodyRigPoseResolved)
                     .in_set(GameplayGated),
                 (
@@ -397,7 +397,7 @@ impl Plugin for CombatSchedulePlugin {
                     // executor; saying so is what lets a consumer order against
                     // the phase.
                     ambition_platformer2d_actor_monolith::features::apply_summon_effects
-                        .run_if(bevy::prelude::on_message::<ambition_vfx::EffectRequest>)
+                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::EffectRequest>)
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
                 )
@@ -783,7 +783,7 @@ impl Plugin for CombatSchedulePlugin {
                     .chain()
                     .in_set(GameplayGated),
                 ambition_combat::on_hit::dispatch_landed_hit_effects
-                    .run_if(bevy::prelude::on_message::<ambition_combat::hitbox::LandedBodyHit>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::LandedBodyHit>)
                     .in_set(GameplayGated),
                 ambition_combat::on_hit::apply_pogo_bounce.in_set(GameplayGated),
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
@@ -921,7 +921,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_damage::stage_player_victim_hit_events
-                .run_if(bevy::prelude::on_message::<ambition_combat::events::HitEvent>)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::HitEvent>)
                 .in_set(GameplayGated)
                 .in_set(CombatSet::Settle)
                 .before(ambition_mount::MountRiderLinkEnforced),

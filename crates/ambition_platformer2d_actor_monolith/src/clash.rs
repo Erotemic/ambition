@@ -57,7 +57,7 @@ pub fn clash_arbitration(
     (
         arbitrate_attack_clashes,
         ambition_combat::clank::rebound_from_clanks
-            .run_if(bevy::prelude::on_message::<ambition_combat::clank::AttacksClanked>),
+            .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::clank::AttacksClanked>),
     )
         .chain()
         .into_configs()

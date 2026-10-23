@@ -39,6 +39,22 @@ pub mod surface_loop;
 pub mod walkable_lines;
 pub mod world;
 
+/// Run condition: a `T` message waits in its channel.
+///
+/// ⛔ IT PEEKS; Bevy's `on_message` READS. Bevy evaluates a system's own
+/// conditions even while a set it is in is off, and `on_message` advances its
+/// cursor when it is evaluated. So on a system inside a conditioned set
+/// (`GameplayGated` during a transition hold) it takes the message while the
+/// set is off, and the system never sees it: a replay's `ClockResetRequest`
+/// was lost this way (2026-10-23, `canonical_reconstitution`). A peek takes
+/// nothing; it stays true while the channel holds a message, read or not, so
+/// the system may run once more than it must.
+pub fn a_message_waits<T: bevy_ecs::message::Message>(
+    messages: Option<bevy_ecs::system::Res<bevy_ecs::message::Messages<T>>>,
+) -> bool {
+    messages.is_some_and(|messages| !messages.is_empty())
+}
+
 // Public mechanics surface.
 /// `#[serde(default)]` for a bool whose absent value is `true`.
 pub(crate) fn default_true() -> bool {

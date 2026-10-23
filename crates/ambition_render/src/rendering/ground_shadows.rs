@@ -123,6 +123,12 @@ pub fn shadow_shape(width: f32, height: f32) -> (Vec2, f32) {
     (Vec2::new(full * scale, THICKNESS * scale), FULL_ALPHA * (1.0 - t).powf(1.3))
 }
 
+/// Run condition of [`sync_ground_shadows`]: a game asked for shadows, or a
+/// shadow is still drawn and is taken away on this run.
+pub fn shadows_are_asked_for_or_drawn(allowed: Option<Res<GroundShadowRooms>>, drawn: Query<(), With<GroundShadow>>) -> bool {
+    allowed.is_some_and(|rooms| !rooms.modes.is_empty()) || !drawn.is_empty()
+}
+
 /// Draw the shadow of each body that has ground under it.
 #[allow(clippy::too_many_arguments)]
 pub fn sync_ground_shadows(

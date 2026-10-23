@@ -7,6 +7,16 @@
 
 use bevy::prelude::*;
 
+/// Run condition of [`sync_portal_reorient_from_settings`]: the settings or
+/// the tuning mirror changed (or came to exist). Otherwise the mirror already
+/// holds the setting.
+pub fn the_setting_or_its_mirror_changed(
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    editable: Option<Res<ambition_platformer2d::portal::EditablePortalTuning>>,
+) -> bool {
+    settings.is_some_and(|settings| settings.is_changed()) || editable.is_some_and(|editable| editable.is_changed())
+}
+
 /// Carry the `portal_reverses_facing` gameplay setting into the editable
 /// portal tuning, and propose it.
 ///

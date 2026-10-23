@@ -96,7 +96,7 @@ pub(super) fn install(app: &mut App) {
     app.init_resource::<SessionMessageChannels>().add_systems(
         Update,
         clear_session_message_channels
-            .run_if(bevy::prelude::on_message::<SessionScopeActivated>)
+            .run_if(ambition_platformer2d_core::a_message_waits::<SessionScopeActivated>)
             .in_set(SessionScopeSet::Activate),
     );
 }

@@ -1986,7 +1986,7 @@ mod tests {
 pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
-    use bevy::prelude::{any_with_component, on_message, IntoScheduleConfigs as _, Update};
+    use bevy::prelude::{any_with_component, IntoScheduleConfigs as _, Update};
 
     // Each stage runs only when it has work: a request stage when its message
     // is unread, an ageing stage while a visual of its kind exists. A room
@@ -1994,9 +1994,9 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     app.add_systems(
         Update,
         (
-            process_fireworks_requests.run_if(on_message::<FireworksRequest>),
+            process_fireworks_requests.run_if(ambition_platformer2d_core::a_message_waits::<FireworksRequest>),
             tick_firework_sequences.run_if(any_with_component::<FireworkSequence>),
-            process_fx_requests.run_if(on_message::<FxRequest>),
+            process_fx_requests.run_if(ambition_platformer2d_core::a_message_waits::<FxRequest>),
         )
             .chain()
             .after(Platformer2dSimulationPhase::CoreSimulation)
@@ -2006,7 +2006,7 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     app.add_systems(
         Update,
         vfx_spawn_messages
-            .run_if(on_message::<VfxInRoom>)
+            .run_if(ambition_platformer2d_core::a_message_waits::<VfxInRoom>)
             .after(process_fx_requests)
             .before(crate::rendering::WorldLabelLayoutSet)
             .run_if(session_world_exists),

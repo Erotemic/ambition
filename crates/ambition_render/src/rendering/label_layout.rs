@@ -507,6 +507,16 @@ fn font_weight_for(family: WorldLabelFamily) -> UiFontWeight {
     }
 }
 
+/// Run condition of [`apply_world_label_fonts`]: the faces changed (or came to
+/// exist), or a label's `TextFont` changed, which a new label's does. Otherwise
+/// every label is already on its face.
+pub fn a_label_font_may_be_off(
+    ui_fonts: Option<Res<UiFonts>>,
+    changed: Query<(), (With<WorldLabel>, Changed<TextFont>)>,
+) -> bool {
+    ui_fonts.is_some_and(|fonts| fonts.is_changed()) || !changed.is_empty()
+}
+
 /// Put every world label on its family's typeface.
 ///
 /// This is the assignment, not a repair. Room signage
@@ -807,7 +817,7 @@ impl Plugin for WorldLabelLayoutPlugin {
         app.init_resource::<WorldLabelLayoutSettings>().add_systems(
             Update,
             (
-                apply_world_label_fonts,
+                apply_world_label_fonts.run_if(a_label_font_may_be_off),
                 mirror_static_world_labels_per_view,
                 // After the mirror's flush, so a new copy gets its text on the
                 // frame it appears; before placement, which measures the text.

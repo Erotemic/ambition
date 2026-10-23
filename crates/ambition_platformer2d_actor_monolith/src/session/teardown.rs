@@ -495,9 +495,11 @@ impl Plugin for SessionTeardownPlugin {
             Update,
             (
                 reset_session_scoped_resources_on_activation
-                    .run_if(on_message::<SessionScopeActivated>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<SessionScopeActivated>)
                     .in_set(SessionScopeSet::Activate),
-                reset_session_scoped_resources_on_retire.in_set(SessionScopeSet::Cleanup),
+                reset_session_scoped_resources_on_retire
+                    .run_if(ambition_platformer2d_core::a_message_waits::<SessionScopeRetired>)
+                    .in_set(SessionScopeSet::Cleanup),
             ),
         );
     }

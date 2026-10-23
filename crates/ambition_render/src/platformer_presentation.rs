@@ -133,11 +133,18 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.init_resource::<crate::rendering::ground_shadows::GroundShadowRooms>();
         app.add_systems(
             Update,
-            crate::rendering::ground_shadows::sync_ground_shadows.after(ambition_sim_view::PresentedPoseSet),
+            crate::rendering::ground_shadows::sync_ground_shadows
+                .run_if(crate::rendering::ground_shadows::shadows_are_asked_for_or_drawn)
+                .after(ambition_sim_view::PresentedPoseSet),
         );
         // The light of the time of day, over the camera's view (a game that
         // inserts no `DaylightStyle` has none).
-        app.add_systems(Update, crate::rendering::daylight::light_the_world.after(crate::rendering::camera_follow));
+        app.add_systems(
+            Update,
+            crate::rendering::daylight::light_the_world
+                .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>)
+                .after(crate::rendering::camera_follow),
+        );
         // The light a boss asks for in its room (`ambition.boss.stage`).
         // Both sleep where no live room's game has named bosses, after the
         // frame that puts the light and the card away.
@@ -163,7 +170,9 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             (
                 crate::rendering::ambient_motes::present_room_motes.in_set(SessionScopeSet::Presentation),
-                crate::rendering::ambient_motes::drift_room_motes.after(crate::rendering::camera_follow),
+                crate::rendering::ambient_motes::drift_room_motes
+                    .run_if(any_with_component::<crate::rendering::ambient_motes::AmbientMote>)
+                    .after(crate::rendering::camera_follow),
             ),
         );
         // Each live room's parallax, after the refresh has taken stale layers

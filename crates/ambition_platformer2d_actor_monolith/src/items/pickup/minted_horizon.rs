@@ -678,7 +678,12 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         )
         .add_systems(
             sim,
-            (capture_minted_item_baseline, capture_owned_items_baseline).in_set(CheckpointCapture),
+            // Each takes its baseline on a commit.
+            (
+                capture_minted_item_baseline.run_if(ambition_platformer2d_core::a_message_waits::<CheckpointCommitted>),
+                capture_owned_items_baseline.run_if(ambition_platformer2d_core::a_message_waits::<CheckpointCommitted>),
+            )
+                .in_set(CheckpointCapture),
         )
         // The mints of a boss defeat a replay retracted, in the replay
         // chain's content slot, after the boss road retracts the defeat. A
@@ -688,6 +693,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         .add_systems(
             sim,
             retract_mints_of_retracted_boss_defeats
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_boss_encounter::BossDefeatRetracted>)
                 .in_set(crate::session::reset::ContentRoomReplayResetSet)
                 .after(ambition_boss_encounter::BossDefeatRetraction),
         )
@@ -699,7 +705,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         )
         .init_resource::<RewardGrantsSinceCheckpoint>()
         .init_resource::<ambition_held_items::BagSpendsSinceCheckpoint>()
-        .add_systems(sim, forget_bag_records_at_checkpoint)
+        .add_systems(sim, forget_bag_records_at_checkpoint.run_if(ambition_platformer2d_core::a_message_waits::<CheckpointCommitted>))
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an
         // unconfirmed request is what the confirmed-frame lifecycle exists to

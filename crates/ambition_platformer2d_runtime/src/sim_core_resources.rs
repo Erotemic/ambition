@@ -250,7 +250,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_systems(
                 Update,
                 ambition_platformer2d_shared_tangle::camera_ease::apply_camera_shake_requests
-                    .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>)
                     .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
             );
         // A composition with a direct session root begins with the bag it
@@ -264,7 +264,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_systems(
                 Update,
                 ambition_platformer2d_shared_tangle::camera_ease::rest_the_camera_on_activation
-                    .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>)
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
             );
         // The finishing zoom's applier, wired for the same reason and in the
@@ -275,7 +275,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_systems(
                 Update,
                 ambition_platformer2d_shared_tangle::camera_ease::apply_finish_zoom_requests
-                    .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>)
                     .before(ambition_platformer2d_shared_tangle::camera_ease::tick_finish_zoom),
             );
 

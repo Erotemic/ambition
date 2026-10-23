@@ -569,6 +569,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
         ambition_platformer2d::render::rendering::sync_health_overlays
+            .run_if(ambition_platformer2d::render::rendering::health_bars_are_on_or_drawn)
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
@@ -630,6 +631,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         update_quest_panel
+            .run_if(super::hud::the_quest_panel_may_be_stale)
             .after(ambition_platformer2d::render::dialog_ui::DialogPresentationSet)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );

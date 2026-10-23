@@ -215,7 +215,7 @@ pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
     app.add_systems(
         Update,
         forget_attempts_on_activation::<T>
-            .run_if(on_message::<SessionScopeActivated>)
+            .run_if(ambition_platformer2d_core::a_message_waits::<SessionScopeActivated>)
             .in_set(SessionScopeSet::Activate),
     );
 }

@@ -1701,10 +1701,11 @@ pub fn flinch_struck_blocks(
 /// Run condition of [`flinch_struck_blocks`]: a block was struck, or one is
 /// still flinching (the flinch plays out over frames with no new strike).
 pub fn a_block_is_struck_or_flinching(
-    mut struck: MessageReader<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>,
+    struck: Option<Res<bevy::ecs::message::Messages<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>>>,
     flinching: Query<(), With<BlockFlinch>>,
 ) -> bool {
-    struck.read().count() > 0 || !flinching.is_empty()
+    // A peek, not a read (`ambition_platformer2d_core::a_message_waits`).
+    struck.is_some_and(|struck| !struck.is_empty()) || !flinching.is_empty()
 }
 
 /// A block visual mid-flinch. Presentation only; never rewound.

@@ -219,22 +219,22 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // The rows of a body that fades between its attacks.
                 ecs::pin_fade_rows,
                 // Each applier of a request runs on its request.
-                crate::items::narrative::apply_item_grants.run_if(on_message::<ambition_items::ItemGrantRequested>),
+                crate::items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
                 crate::items::narrative::apply_shop_transactions
-                    .run_if(on_message::<ambition_items::shop::ShopTransactionRequested>),
-                crate::items::narrative::apply_item_uses.run_if(on_message::<ambition_items::ItemUseRequested>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::shop::ShopTransactionRequested>),
+                crate::items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item
                 // uses (above). A heal written after its apply waits a tick,
                 // and a rewind to that tick clears the message, so the
                 // resimulation loses the heal.
                 crate::avatar::apply_player_heal_requests
-                    .run_if(on_message::<crate::avatar::events::PlayerHealRequested>),
-                ecs::effect_bus::apply_flag_effects.run_if(on_message::<ambition_combat::events::SetFlagRequested>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<crate::avatar::events::PlayerHealRequested>),
+                ecs::effect_bus::apply_flag_effects.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::SetFlagRequested>),
                 ecs::effect_bus::apply_quest_effects
-                    .run_if(on_message::<ambition_persistence::quest::QuestAdvanceRequested>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::quest::QuestAdvanceRequested>),
                 ecs::effect_bus::apply_switch_effects
-                    .run_if(on_message::<ambition_encounter::switches::SwitchActivated>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_encounter::switches::SwitchActivated>),
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
@@ -243,10 +243,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
                 npcs::record_npc_provocations
-                    .run_if(on_message::<npcs::NpcProvocationChanged>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<npcs::NpcProvocationChanged>)
                     .after(crate::features::apply_release_provocations),
                 ecs::effect_bus::apply_gameplay_sfx_effects
-                    .run_if(on_message::<ambition_combat::events::GameplaySfxRequested>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::GameplaySfxRequested>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
@@ -1637,7 +1637,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
             sim,
             npcs::speak_conversation_cut_barks
-                .run_if(on_message::<ambition_conversation::ConversationCutBark>)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_conversation::ConversationCutBark>)
                 .in_set(FeatureInteractionSet::CutBarkCast),
         );
         app.add_systems(
@@ -1666,8 +1666,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
                 sim,
                 (
-                    ecs::world_time_schedule::forget_scheduled_returns_on_replay,
-                    ecs::world_time_schedule::disown_scheduled_returns_on_restore,
+                    ecs::world_time_schedule::forget_scheduled_returns_on_replay
+                        .run_if(ambition_combat::events::a_replay_is_admitted),
+                    ecs::world_time_schedule::disown_scheduled_returns_on_restore
+                        .run_if(ambition_combat::events::a_replay_is_admitted),
                 )
                     .in_set(crate::session::reset::ContentRoomReplayResetSet),
             )
@@ -1690,7 +1692,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // The restore's acceptance pins the owned rows into the ledger it
         // restores, and its admission takes the dying participant out.
         app.init_resource::<ecs::pickups::ConsumedSinceCheckpoint>()
-            .add_systems(sim, ecs::pickups::forget_consumed_pickups_at_checkpoint)
+            .add_systems(
+                sim,
+                ecs::pickups::forget_consumed_pickups_at_checkpoint
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>),
+            )
             // An occurrence lying in a live room that ended there, read after
             // the placement producers wrote this tick's rows and before the
             // custody leg retracts an `InCustody` row.
@@ -1705,6 +1711,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             .add_systems(
                 sim,
                 ecs::pickups::disown_consumed_pickups_on_restore
+                    .run_if(ambition_combat::events::a_replay_is_admitted)
                     .in_set(crate::session::reset::ContentRoomReplayResetSet),
             );
         // ⭐ The encounter switch index registers itself from

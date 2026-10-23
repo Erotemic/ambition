@@ -168,7 +168,7 @@ pub use camera::{camera_follow, CameraViewState};
 pub(crate) use features::draw_unclaimed_feature_views;
 pub use features::UnclaimedBodyPlaceholder;
 pub use features::UnclaimedFeatureViews;
-pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
+pub use health::{health_bars_are_on_or_drawn, sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
     layout_world_labels,
     mirror_static_world_labels_per_view,
@@ -397,7 +397,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // A swing's passes run only while a cue is unread or a
                     // swing is on screen.
                     slash_visuals::spawn_slash_effects
-                        .run_if(bevy::prelude::on_message::<ambition_vfx::vfx::VfxInRoom>),
+                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::vfx::VfxInRoom>),
                     // After the spawn, so a swing born this frame is on its body
                     // when drawn.
                     slash_visuals::follow_slash_owner
@@ -738,7 +738,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             (
                 launch_trail::emit_launch_trails.run_if(launch_trail::a_body_is_launched),
                 knockout::emit_knockout_beat
-                    .run_if(bevy::prelude::on_message::<ambition_vfx::vfx::KnockoutBeatRequested>),
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::vfx::KnockoutBeatRequested>),
                 body_cues::emit_smash_charge_cues,
                 body_cues::emit_parry_cues,
                 // Stars only over a shattered guard.

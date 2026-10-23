@@ -223,7 +223,7 @@ impl Plugin for RollbackObservatoryPlugin {
             .add_systems(
                 Update,
                 request_rollback_proof
-                    .run_if(on_message::<DeveloperAction>)
+                    .run_if(ambition_platformer2d::engine_core::a_message_waits::<DeveloperAction>)
                     .in_set(RollbackProofUpdateSet::Control),
             )
             .add_systems(

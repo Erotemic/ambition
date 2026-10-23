@@ -276,7 +276,7 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_systems(
             Update,
             cut_rope::restart_heavy_object_cycle_on_activation
-                .run_if(on_message::<ambition_platformer2d::platformer::lifecycle::SessionScopeActivated>)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d::platformer::lifecycle::SessionScopeActivated>)
                 .in_set(ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Activate),
         );
         app.init_resource::<PendingCutRopeRoomReplay>();

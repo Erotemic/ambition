@@ -36,6 +36,7 @@ impl Plugin for RoomTransitionSchedulePlugin {
                     .in_set(RoomTransitionSet::Detect)
                     .after(ambition_platformer2d_actor_monolith::rooms::detect_room_transition_system),
                 ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt
+                    .run_if(ambition_combat::events::a_replay_is_admitted)
                     .in_set(RoomTransitionSet::Reset),
             ),
         );

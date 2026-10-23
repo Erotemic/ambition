@@ -527,7 +527,7 @@ impl Plugin for BrainCommandPlugin {
                 // Release runs first so the `BrainCommand` it emits is applied by
                 // `apply_brain_commands` in the same frame.
                 apply_release_provocations
-                    .run_if(on_message::<ReleaseProvocation>)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ReleaseProvocation>)
                     .before(apply_brain_commands),
                 apply_brain_commands,
             )

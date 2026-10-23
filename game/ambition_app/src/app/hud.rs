@@ -354,6 +354,16 @@ pub(super) fn update_hud(
 /// the giant debug stats dump and can be styled / positioned
 /// independently. Writes empty string when there are no active
 /// quests, which collapses the panel visually.
+/// Run condition of [`update_quest_panel`]: the quests or the settings changed,
+/// or a panel was just made. Otherwise its words are already right.
+pub fn the_quest_panel_may_be_stale(
+    quests: Res<ambition_content::quest::QuestRegistry>,
+    user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
+    added: Query<(), Added<ambition_platformer2d::render::rendering::QuestPanelText>>,
+) -> bool {
+    quests.is_changed() || user_settings.is_changed() || !added.is_empty()
+}
+
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,

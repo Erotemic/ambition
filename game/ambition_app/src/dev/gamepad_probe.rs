@@ -287,7 +287,7 @@ impl Plugin for GamepadProbePlugin {
             // A toggle resets the peaks, so sampling while hidden is thrown
             // away: it samples while shown, and the text follows the probes.
             (
-                toggle_gamepad_probe.run_if(on_message::<DeveloperAction>),
+                toggle_gamepad_probe.run_if(ambition_platformer2d::engine_core::a_message_waits::<DeveloperAction>),
                 sample_gamepad_probes.run_if(|probes: Res<GamepadProbes>| probes.visible),
                 refresh_gamepad_probe_text.run_if(resource_changed::<GamepadProbes>),
             )

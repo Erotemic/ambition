@@ -719,7 +719,7 @@ pub fn install_settle_presentation_systems(
     app.add_systems(
         schedule,
         impact_hitstop::request_impact_hitstop_on_resolved_hits
-            .run_if(on_message::<hitbox::ResolvedBodyHit>)
+            .run_if(ambition_platformer2d_core::a_message_waits::<hitbox::ResolvedBodyHit>)
             .in_set(GameplayGated)
             .in_set(CombatSet::Settle),
     );

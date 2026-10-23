@@ -66,10 +66,10 @@ impl Plugin for AmbitionGameShellPlugin {
                 // the rest while their message is unread.
                 (
                     initialize_shell.run_if(|router: bevy::prelude::Res<ShellRouter>| !router.is_initialized()),
-                    quit_active_session_from_developer_action.run_if(bevy::prelude::on_message::<
+                    quit_active_session_from_developer_action.run_if(crate::a_message_waits::<
                         ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
                     >),
-                    process_shell_commands.run_if(bevy::prelude::on_message::<ShellCommand>),
+                    process_shell_commands.run_if(crate::a_message_waits::<ShellCommand>),
                 )
                     .chain()
                     .in_set(AmbitionGameShellSet::Commands),
@@ -93,7 +93,7 @@ impl Plugin for AmbitionGameShellPlugin {
             .add_systems(
                 Update,
                 (
-                    cleanup_scoped_entities.run_if(bevy::prelude::on_message::<ShellEvent>),
+                    cleanup_scoped_entities.run_if(crate::a_message_waits::<ShellEvent>),
                     // The resource form of the rule above: provider state lives
                     // only while the provider's routes are active. In `Cleanup`
                     // because `active` and `pending` are settled by then.
@@ -101,7 +101,7 @@ impl Plugin for AmbitionGameShellPlugin {
                     // that did not write the router has nothing to release.
                     crate::scope::release_departed_experience_state
                         .run_if(bevy::prelude::resource_exists_and_changed::<ShellRouter>),
-                    log_shell_routing_failures.run_if(bevy::prelude::on_message::<ShellEvent>),
+                    log_shell_routing_failures.run_if(crate::a_message_waits::<ShellEvent>),
                 )
                     .chain()
                     .in_set(AmbitionGameShellSet::Cleanup),
@@ -154,7 +154,7 @@ impl Plugin for ShellSequencePlugin {
             .add_systems(
                 Update,
                 process_sequence_commands
-                    .run_if(bevy::prelude::on_message::<ShellSequenceCommand>)
+                    .run_if(crate::a_message_waits::<ShellSequenceCommand>)
                     .in_set(ShellSequenceSet::Commands),
             )
             .add_systems(
@@ -178,7 +178,7 @@ impl Plugin for ShellLauncherPlugin {
                     sync_launcher_activation,
                     // Apply navigation in the same frame as the input.
                     process_launcher_commands
-                        .run_if(bevy::prelude::on_message::<ShellLauncherCommand>)
+                        .run_if(crate::a_message_waits::<ShellLauncherCommand>)
                         .after(InputSet::Consume),
                 )
                     .chain()

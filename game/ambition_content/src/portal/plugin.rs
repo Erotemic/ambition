@@ -107,6 +107,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             bridge_room_reset_to_clear_portals
+                .run_if(ambition_combat::events::a_replay_is_admitted)
                 .in_set(PortalSet::RoomReset)
                 .before(clear_portals_on_reset),
         );
@@ -188,6 +189,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             bevy::app::PreUpdate,
             sync_portal_reorient_from_settings
+                .run_if(super::reorient_setting::the_setting_or_its_mirror_changed)
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
         );
 

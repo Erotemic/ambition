@@ -58,6 +58,15 @@ pub fn claim_dialog_presentation(app: &mut App, owner: &'static str) {
         );
     }
     app.insert_resource(DialogPresentationOwner(owner));
+    // The presenter runs while a dialogue is shown and on the frame its view
+    // changes, so the frame it closes takes the box down.
+    app.configure_sets(Update, DialogPresentationSet.run_if(a_dialogue_is_shown_or_changed));
+}
+
+/// Run condition of [`DialogPresentationSet`]: a dialogue is shown, or its
+/// view changed since the last frame.
+pub fn a_dialogue_is_shown_or_changed(view: Option<Res<DialogView>>) -> bool {
+    view.is_some_and(|view| view.active || view.is_changed())
 }
 
 /// Plain reusable-engine fallback. Games with product-specific framing should

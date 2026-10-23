@@ -81,7 +81,11 @@ impl Plugin for YarnBindingsPlugin {
         app.init_resource::<YarnContentBindings>();
         app.add_systems(
             Update,
-            clear_yarn_presentation_cue.in_set(YarnPresentationCueCleared),
+            // Only on a frame with a cue to clear; it would write, and mark the
+            // cue changed, on every frame of every game.
+            clear_yarn_presentation_cue
+                .run_if(|cue: Res<YarnPresentationCue>| cue.shout || cue.whisper)
+                .in_set(YarnPresentationCueCleared),
         );
     }
 }

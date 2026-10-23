@@ -309,8 +309,13 @@ impl Plugin for HostInputBindingsPlugin {
                     // state is that capability's, and a profile that omits it
                     // has no conversation to point at. Without the condition a
                     // windowed game under such a profile panicked on its first
-                    // frame (`ResMut<DialogState>` does not exist).
-                    dialog_pointer_input.run_if(bevy::prelude::resource_exists::<ambition_platformer2d_runtime::host_input::DialogState>),
+                    // frame (`ResMut<DialogState>` does not exist). And only
+                    // while a dialogue is open: it reads its rows then.
+                    dialog_pointer_input.run_if(
+                        |dialogue: Option<bevy::prelude::Res<ambition_platformer2d_runtime::host_input::DialogState>>| {
+                            dialogue.is_some_and(|dialogue| dialogue.active())
+                        },
+                    ),
                 )
                     .chain()
                     //  LOAD-BEARING ONLY under the `RenderFrame` host, where the

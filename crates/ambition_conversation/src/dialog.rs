@@ -125,7 +125,13 @@ pub struct YarnBridgePlugin;
 impl Plugin for YarnBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ambition_dialog::YarnBridgePlugin);
-        app.add_systems(Update, sync_dialogue_game_mode);
+        // It acts only in the dialogue mode, so it runs only there.
+        app.add_systems(
+            Update,
+            sync_dialogue_game_mode.run_if(bevy::prelude::in_state(
+                ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
+            )),
+        );
     }
 }
 

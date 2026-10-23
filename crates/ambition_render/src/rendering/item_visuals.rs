@@ -603,8 +603,18 @@ struct InHand<'a> {
 #[derive(Component)]
 pub struct HeldItemVisual;
 
+/// What a held item visual draws: this item in this body's hand, in this live
+/// room. A visual is kept while its holder holds the item there, and moved;
+/// another item, holder or room is a new visual.
+#[derive(Component)]
+pub struct HeldItemDrawn {
+    holder: Entity,
+    room: LiveRoomInstance,
+    item_id: String,
+}
+
 /// Draw a small quad in the controlled subject's hand for its held item,
-/// tinted per item (axe, javelin). Rebuilt each frame.
+/// tinted per item (axe, javelin). Kept per holder and item, placed each frame.
 ///
 /// Keyed on [`ControlledSubject`] (the body with
 /// `DrivingParticipant(PRIMARY)`), not `PrimaryPlayer`: while possessing, the
@@ -631,17 +641,24 @@ pub fn sync_held_item_visual(
     wielded_catalog: Option<Res<super::wielded_item_visuals::WieldedItemVisualCatalog>>,
     // The hand of the pose each holder draws (`posed_hand`).
     hands: super::posed_hand::PosedHands,
-    visuals: Query<Entity, With<HeldItemVisual>>,
+    mut visuals: Query<(Entity, &HeldItemDrawn, &mut Transform, &mut Sprite), With<HeldItemVisual>>,
     mut reported: Local<ReportedOnce>,
 ) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
+        for (entity, ..) in &visuals {
+            commands.entity(entity).despawn();
+        }
         return;
     };
+    // A replaced manifest is new content: every visual is drawn again from it.
+    let art_replaced = art.as_ref().is_some_and(|art| art.is_changed());
+    if art_replaced {
+        reported.clear();
+    }
+    // Each item to draw, with where and how it is turned this frame.
+    let mut wanted: Vec<(InHand, LiveRoomInstance, Transform, bool, bool, bool)> = Vec::new();
     // One visual per driven holder. The view is ordered by `SimId`, so the
     // draw order is the same every run.
     let in_hand = held_view.0.iter().map(|held| {
@@ -681,7 +698,6 @@ pub fn sync_held_item_visual(
         let Some((room, world)) = held.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
-        let session_scope = session_scope.in_room(Some(room));
         let mut translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
         // The art's own hand, when the body is drawn from parts that have
         // one: the item is in it, in the frame that is drawn.
@@ -738,8 +754,32 @@ pub fn sync_held_item_visual(
             (Quat::IDENTITY, facing < 0.0, false)
         };
 
-        if art.as_ref().is_some_and(|art| art.is_changed()) {
-            reported.clear();
+        let transform = Transform::from_translation(translation).with_rotation(rotation);
+        wanted.push((held, room, transform, flip_x, flip_y, false));
+    }
+    for (entity, drawn, mut transform, mut sprite) in &mut visuals {
+        let kept = (!art_replaced)
+            .then(|| {
+                wanted.iter_mut().find(|(held, room, .., taken)| {
+                    !*taken && held.holder.body == drawn.holder && *room == drawn.room && held.item_id == drawn.item_id
+                })
+            })
+            .flatten();
+        match kept {
+            Some((_, _, wanted_transform, flip_x, flip_y, taken)) => {
+                *taken = true;
+                transform.set_if_neq(*wanted_transform);
+                if (sprite.flip_x, sprite.flip_y) != (*flip_x, *flip_y) {
+                    sprite.flip_x = *flip_x;
+                    sprite.flip_y = *flip_y;
+                }
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for (held, room, transform, flip_x, flip_y, taken) in wanted {
+        if taken {
+            continue;
         }
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
@@ -767,11 +807,16 @@ pub fn sync_held_item_visual(
                 Sprite::from_color(color, Vec2::new(14.0, 28.0))
             });
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 HeldItemVisual,
+                HeldItemDrawn {
+                    holder: held.holder.body,
+                    room,
+                    item_id: held.item_id.to_owned(),
+                },
                 sprite,
-                Transform::from_translation(translation).with_rotation(rotation),
+                transform,
                 Name::new("Held item visual"),
             ),
         );
@@ -1012,18 +1057,20 @@ mod tests {
         app.insert_resource(GroundItemsView(vec![row(100.0)]));
         app.add_systems(Update, sync_ground_item_visuals);
         app.update();
+        // The tick of the transform's last write: `is_changed` read from
+        // outside a system is false after every `update`.
         let visual = |app: &mut App| {
             app.world_mut()
                 .query_filtered::<(Entity, Ref<Transform>), With<GroundItemVisual>>()
                 .iter(app.world())
-                .map(|(entity, transform)| (entity, transform.translation.x, transform.is_changed()))
+                .map(|(entity, transform)| (entity, transform.translation.x, transform.last_changed()))
                 .collect::<Vec<_>>()
         };
         let first = visual(&mut app);
         assert_eq!(first.len(), 1, "one row, one visual");
         app.update();
         let still = visual(&mut app);
-        assert_eq!((still[0].0, still[0].2), (first[0].0, false), "a still row keeps its visual and writes nothing");
+        assert_eq!((still[0].0, still[0].2), (first[0].0, first[0].2), "a still row keeps its visual and writes nothing");
         app.world_mut().resource_mut::<GroundItemsView>().0 = vec![row(140.0)];
         app.update();
         let moved = visual(&mut app);
@@ -1032,6 +1079,59 @@ mod tests {
         app.world_mut().resource_mut::<GroundItemsView>().0.clear();
         app.update();
         assert!(visual(&mut app).is_empty(), "a row that is gone takes its visual");
+    }
+
+    /// A held item's visual is kept while its holder holds it in the room: its
+    /// entity survives a frame and is not written; a turn flips it in place,
+    /// and an item put away takes it. It was despawned and spawned each frame.
+    #[test]
+    fn a_held_item_visual_is_kept_while_its_holder_holds_it() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let geometry = ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "item room",
+            ambition_platformer2d_core::Vec2::new(800.0, 600.0),
+            ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+            Vec::new(),
+        ));
+        let mut app = App::new();
+        let mut active = ActiveSessionScope::default();
+        active.begin();
+        app.insert_resource(active);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry);
+        let body = app.world_mut().spawn_empty().id();
+        let row = |facing: f32| ambition_sim_view::HeldItemFact {
+            pos: ambition_platformer2d_core::Vec2::new(100.0, 200.0),
+            size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
+            facing,
+            item_id: "axe".to_string(),
+            ranged: false,
+            aim: ambition_platformer2d_core::Vec2::ZERO,
+            swing: None,
+            room: Some(LiveRoomInstance::ACTIVATION),
+            holder: ambition_sim_view::ItemHolder { body, feature: None, hand: Default::default() },
+        };
+        app.insert_resource(HeldItemView(vec![row(1.0)]));
+        app.init_resource::<ambition_sim_view::HostileWieldedItemsView>();
+        app.add_systems(Update, sync_held_item_visual);
+        app.update();
+        let visual = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<(Entity, Ref<Transform>, &Sprite), With<HeldItemVisual>>()
+                .iter(app.world())
+                .map(|(entity, transform, sprite)| (entity, transform.last_changed(), sprite.flip_x))
+                .collect::<Vec<_>>()
+        };
+        let first = visual(&mut app);
+        assert_eq!(first.len(), 1, "one held item, one visual");
+        app.update();
+        assert_eq!(visual(&mut app), first, "a held item keeps its visual and writes nothing");
+        app.world_mut().resource_mut::<HeldItemView>().0 = vec![row(-1.0)];
+        app.update();
+        let turned = visual(&mut app);
+        assert_eq!((turned[0].0, turned[0].2), (first[0].0, true), "a turn flips the same visual");
+        app.world_mut().resource_mut::<HeldItemView>().0.clear();
+        app.update();
+        assert!(visual(&mut app).is_empty(), "an item put away takes its visual");
     }
 
     /// A world item's visual is kept while a row of its room and look stays:

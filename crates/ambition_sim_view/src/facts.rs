@@ -1182,6 +1182,38 @@ fn blink_reticle(
 /// initializes it; presentation only reads.
 pub struct SimViewPlugin;
 
+/// A per-tick view made of rows, each from a source entity.
+pub trait RowView: Resource {
+    fn has_rows(&self) -> bool;
+}
+
+macro_rules! row_views {
+    ($($view:ty),* $(,)?) => {
+        $(impl RowView for $view {
+            fn has_rows(&self) -> bool {
+                !self.0.is_empty()
+            }
+        })*
+    };
+}
+
+row_views!(
+    HeldItemView,
+    GroundItemsView,
+    WorldItemsView,
+    MarkBeaconsView,
+    BodyClocksView,
+    ShrinesView,
+    HostileWieldedItemsView,
+);
+
+/// Run condition of a row view's rebuild: an entity with `C`, a source of
+/// its rows, exists, or the view still holds rows to clear. While neither
+/// holds, a rebuild would leave the view as it is.
+pub fn sources_or_rows<C: Component, V: RowView>(sources: Query<(), With<C>>, view: Res<V>) -> bool {
+    !sources.is_empty() || view.has_rows()
+}
+
 impl Plugin for SimViewPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
@@ -1205,21 +1237,37 @@ impl Plugin for SimViewPlugin {
             rebuild_blink_preview_fact
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
+        // A row view is rebuilt while a source of its rows exists or it still
+        // holds rows, so a room with none of a kind runs nothing for it and
+        // the view is what a rebuild would make: empty.
+        use ambition_platformer2d_actor_monolith::features::HeldItem;
         app.add_systems(
             sim,
             (
                 rebuild_player_hud_facts,
-                rebuild_held_item_view,
+                rebuild_held_item_view.run_if(sources_or_rows::<HeldItem, HeldItemView>),
                 rebuild_controlled_bodies_view,
-                rebuild_ground_items_view,
-                rebuild_world_items_view,
-                rebuild_mark_beacons_view,
-                rebuild_body_clocks_view.in_set(BodyClockViewSet::Reset),
-                publish_status_clocks.in_set(BodyClockViewSet::Contribute),
-                rebuild_shrines_view,
+                rebuild_ground_items_view
+                    .run_if(sources_or_rows::<ambition_held_items::GroundItem, GroundItemsView>),
+                rebuild_world_items_view
+                    .run_if(sources_or_rows::<ambition_world_items::world_item::WorldItem, WorldItemsView>),
+                rebuild_mark_beacons_view
+                    .run_if(sources_or_rows::<ambition_abilities::traversal::mark_recall::PlayerMark, MarkBeaconsView>),
+                rebuild_body_clocks_view
+                    .run_if(|view: Res<BodyClocksView>| view.has_rows())
+                    .in_set(BodyClockViewSet::Reset),
+                publish_status_clocks
+                    .run_if(any_with_component::<ambition_combat::extension::status::StatusClocks>)
+                    .in_set(BodyClockViewSet::Contribute),
+                rebuild_shrines_view.run_if(sources_or_rows::<ambition_shrine::HealShrine, ShrinesView>),
                 tick_shrine_activation_pulse,
-                rebuild_hostile_wielded_items_view,
-                rebuild_projectile_views,
+                rebuild_hostile_wielded_items_view.run_if(sources_or_rows::<HeldItem, HostileWieldedItemsView>),
+                rebuild_projectile_views.run_if(
+                    |live: Query<(), With<ambition_projectiles::LiveProjectile>>,
+                     viewed: Query<(), With<ProjectileView>>| {
+                        !live.is_empty() || !viewed.is_empty()
+                    },
+                ),
                 rebuild_dynamic_feature_views,
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
@@ -1469,6 +1517,30 @@ mod tests {
             facts.mana, None,
             "the possessed body holds no Mana, so the HUD must not show the \
              home avatar's pool as if it were this body's"
+        );
+    }
+
+    /// A row view keeps rebuilding the tick after its last source goes, so
+    /// the row of a source that left is cleared and not drawn on.
+    #[test]
+    fn a_row_view_is_cleared_after_its_last_source_goes() {
+        let mut app = App::new();
+        app.init_resource::<ShrinesView>();
+        app.add_systems(
+            Update,
+            rebuild_shrines_view.run_if(sources_or_rows::<ambition_shrine::HealShrine, ShrinesView>),
+        );
+        let shrine = app
+            .world_mut()
+            .spawn(ambition_shrine::HealShrine { pos: ae::Vec2::ZERO, half_extent: ae::Vec2::ONE })
+            .id();
+        app.update();
+        assert_eq!(app.world().resource::<ShrinesView>().0.len(), 1, "the premise: the shrine has a row");
+        app.world_mut().despawn(shrine);
+        app.update();
+        assert!(
+            app.world().resource::<ShrinesView>().0.is_empty(),
+            "the row of a shrine that is gone was kept"
         );
     }
 

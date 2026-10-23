@@ -332,11 +332,10 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
         ("npc_puppy_slug", 1.4, 1),
         ("npc_ninja_shadow_oni_leader", 1.5, 1),
         ("npc_ninja_shadow_duelist", 1.5, 1),
-        ("npc_architect", 1.10, 2),
         // Retuned 2026-10-10 with the redrawn guide (on the rig of the pirates, and larger).
         ("npc_kernel_guide", 1.9, 1),
-        ("npc_vault_keeper", 1.10, 2),
-        ("npc_merchant_prototype", 1.10, 2),
+        // The Architect, the Vault Keeper and the Merchant Prototype left this list
+        // 2026-10-23: redrawn as SVG rigs (`*_v2`), their rows carry no tuning.
     ];
     for (id, collision_scale, inset) in expected {
         let spec = sheet_for_character_id(id)

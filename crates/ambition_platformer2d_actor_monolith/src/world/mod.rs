@@ -1,6 +1,6 @@
 //! World / level authoring runtime: room graph + spawning, the code-first
-//! room builder, the Avian2D physics adapter, and LDtk-authored moving
-//! platforms.
+//! room builder, the Avian2D debris adapter (re-exported from its own crate),
+//! and LDtk-authored moving platforms.
 //!
 //! Name the owning crate — or, from a game, the facade's `ambition_platformer2d:ldtk_map`.
 //!
@@ -12,6 +12,7 @@
 pub mod authored_room_commands;
 pub mod authored_switch_commands;
 pub mod gated_lock_walls;
-pub mod physics;
+/// The Avian debris adapter, its own crate since 2026-10-23.
+pub use ambition_platformer2d_physics_debris as physics;
 pub mod platforms;
 pub mod rooms;

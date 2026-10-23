@@ -1990,6 +1990,28 @@
       "test_rust_loc_heuristic": 256
     },
     {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
+        "ambition_persistence",
+        "ambition_platformer2d_core",
+        "ambition_platformer2d_shared_tangle",
+        "ambition_vfx"
+      ],
+      "nonblank_rust_loc": 1002,
+      "package": "ambition_platformer2d_physics_debris",
+      "path": "crates/ambition_platformer2d_physics_debris",
+      "public_items_heuristic": 14,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 1045,
+      "responsibility_clue": "Secondary physics for cosmetic debris: the Avian2D install (paused while no debris exists), each live room's static floor, debris bursts, their lifetimes and safe retirement. Carved out of ambition_platformer2d_actor_monolith (world::physics, 2026-10-23); without `physics_debris` only the room marker and a no-op retirement remain.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d_actor_monolith"
+      ],
+      "rust_files": 1,
+      "test_rust_loc_heuristic": 0
+    },
+    {
       "dev_workspace_dependencies": [
         "ambition_sfx"
       ],

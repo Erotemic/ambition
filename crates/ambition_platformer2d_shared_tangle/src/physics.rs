@@ -1,6 +1,6 @@
 //! Shared secondary-physics settings resource.
 //!
-//! The Avian adapter stays in `ambition_platformer2d_actor_monolith::world::physics`; this tiny
+//! The Avian adapter is `ambition_platformer2d_physics_debris`; this tiny
 //! resource lives below render/app so presentation systems can receive the same
 //! settings value without depending on actor machinery.
 

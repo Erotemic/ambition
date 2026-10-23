@@ -1,0 +1,31 @@
+[package]
+name = "ambition_platformer2d_physics_debris"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Secondary physics for cosmetic debris: the Avian2D install (paused while no debris exists), each live room's static floor, debris bursts, their lifetimes and safe retirement. Carved out of ambition_platformer2d_actor_monolith (world::physics, 2026-10-23); without `physics_debris` only the room marker and a no-op retirement remain."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# The Avian adapter. Off: `PhysicsRoomEntity` and a no-op
+# `retire_physics_entity`, which room transitions call unconditionally.
+physics_debris = ["dep:avian2d"]
+
+[dependencies]
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# Session scopes, live rooms and the sandbox settings.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The particle budget of the visual quality setting.
+ambition_persistence = { path = "../ambition_persistence" }
+# The debris burst message and its cues.
+ambition_vfx = { path = "../ambition_vfx" }
+avian2d = { version = "0.7", optional = true }
+# `ui_api` as the monolith's base bevy dep, so feature unification is unchanged.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
+
+[dev-dependencies]
+# System names, which the avian install's witnesses read (stripped without it).
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "debug"] }

@@ -176,12 +176,6 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "presentation/rendering/camera.rs",
             "camera smoothing is wall-clock by design",
         ),
-        // Physics debris is cosmetic; it spawns from sim events
-        // but its falling animation is independent of sim time.
-        (
-            "world/physics.rs",
-            "debris fall is cosmetic / wall-clock by design",
-        ),
         // Player-input timers + the player tick still compute
         // their own scaled dt via `sandbox_dt(hitstop,
         // time_scale, frame_dt)`. Migration target for ADR 0011

@@ -512,6 +512,20 @@ discipline stayed in the monolith (`clock_discipline_tests`), because what
 they scan is the monolith's source; left with the time module, they would
 have scanned the runtime's.
 
+**Done 2026-10-23 — the debris physics adapter leaves the crate.**
+`world::physics` (the Avian install, paused while no debris exists; each live
+room's floor; debris bursts, their lifetimes and safe retirement) named
+nothing else in the monolith. It is `ambition_platformer2d_physics_debris`, a
+leaf below the monolith; its `physics_debris` feature carries avian2d, and
+without it only `PhysicsRoomEntity` and a no-op `retire_physics_entity` remain
+(room transitions call it unconditionally). The monolith re-exports it as
+`world::physics`, so no consumer path changed, and its `physics_debris`
+forwards to the crate's. The clock-discipline scan loses its allowance for the
+file. No system, resource or message changed. Receipt (MEASURED, `wc -l`):
+about 580 production and 460 test lines moved; 11 tests run in the new crate
+with avian and 2 without. `measure_kernel_module_graph.py`: `world` 2,557
+production lines.
+
 **Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
 (1) is match preparation reading the session root's `InitialBodyPolicy`, to
 refuse a local seat in a session that also lowers a home avatar; that is a

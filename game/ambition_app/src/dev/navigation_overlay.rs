@@ -24,6 +24,14 @@ pub struct NavigationOverlay {
     pub shown: bool,
 }
 
+/// Run condition of [`draw_navigation_overlay`]: its own first test.
+pub(crate) fn the_navigation_overlay_is_shown(
+    overlay: Res<NavigationOverlay>,
+    developer: Option<Res<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
+) -> bool {
+    overlay.shown || developer.is_some_and(|developer| developer.show_navigation)
+}
+
 pub(crate) fn draw_navigation_overlay(
     overlay: Res<NavigationOverlay>,
     developer: Option<Res<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,

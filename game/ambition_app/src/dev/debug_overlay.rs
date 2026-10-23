@@ -104,6 +104,23 @@ pub(crate) fn render_debug_overlay_labels(
 #[cfg(not(feature = "input"))]
 pub(crate) fn draw_debug_overlay() {}
 
+/// Run condition of [`draw_debug_overlay`]: its own first test, as a
+/// condition. Off, it draws nothing and queues no label.
+#[cfg(feature = "input")]
+pub(crate) fn the_debug_overlay_is_on(dev_state: Res<DeveloperRuntimeState>, developer_tools: Res<DeveloperTools>) -> bool {
+    dev_state.debug_enabled() && developer_tools.gizmos_enabled
+}
+
+#[cfg(not(feature = "input"))]
+pub(crate) fn the_debug_overlay_is_on() -> bool {
+    false
+}
+
+/// Run condition of [`render_debug_overlay_labels`]: a label is queued.
+pub(crate) fn a_debug_label_is_queued(labels: Res<DebugOverlayLabels>) -> bool {
+    !labels.0.is_empty()
+}
+
 #[cfg(feature = "input")]
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,

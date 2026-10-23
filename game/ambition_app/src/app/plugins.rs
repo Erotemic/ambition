@@ -474,18 +474,18 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     // must land before the overlay reads it.
     #[cfg(feature = "portal_render")]
     let overlay = (
-        debug_overlay::draw_debug_overlay,
+        debug_overlay::draw_debug_overlay.run_if(debug_overlay::the_debug_overlay_is_on),
         // Materialize the labels the overlay just queued (Text2d). Runs
         // right after so the labels track this frame's boxes.
-        debug_overlay::render_debug_overlay_labels,
+        debug_overlay::render_debug_overlay_labels.run_if(debug_overlay::a_debug_label_is_queued),
     )
         .chain()
         .after(camera_follow)
         .after(ambition_platformer2d::host::portal::PortalContinuityCameraTagged);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
-        debug_overlay::draw_debug_overlay,
-        debug_overlay::render_debug_overlay_labels,
+        debug_overlay::draw_debug_overlay.run_if(debug_overlay::the_debug_overlay_is_on),
+        debug_overlay::render_debug_overlay_labels.run_if(debug_overlay::a_debug_label_is_queued),
     )
         .chain()
         .after(camera_follow);
@@ -497,6 +497,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(
         Update,
         crate::dev::navigation_overlay::draw_navigation_overlay
+            .run_if(crate::dev::navigation_overlay::the_navigation_overlay_is_shown)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }

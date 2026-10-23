@@ -38,6 +38,28 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct CutsceneOverlayRoot;
 
+/// What the cutscene overlay shows, as [`sync_cutscene_ui`] draws it: the
+/// banner's text (not its countdown), the dialogue, and the fade and skip
+/// hold to the precision they are drawn at.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DrawnCutscene {
+    banner: Option<String>,
+    dialogue: Option<(String, String)>,
+    fade: u8,
+    skip: u8,
+}
+
+impl DrawnCutscene {
+    fn of(presentation: &ambition_cutscene::CutscenePresentation, skip_progress: f32) -> Self {
+        Self {
+            banner: presentation.banner.as_ref().map(|(text, _seconds)| text.clone()),
+            dialogue: presentation.dialogue.clone(),
+            fade: (presentation.fade_alpha.clamp(0.0, 1.0) * 255.0).round() as u8,
+            skip: (skip_progress.clamp(0.0, 1.0) * 100.0).round() as u8,
+        }
+    }
+}
+
 /// Build or refresh the cutscene UI overlay, like the dialogue presenter:
 /// despawn last frame's overlay and spawn this frame's from `ActiveCutscene`
 /// and `CutsceneSkipHold`.
@@ -60,12 +82,23 @@ pub fn sync_cutscene_ui(
     presentation: Option<
         Res<ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation>,
     >,
+    mut drawn: Local<Option<DrawnCutscene>>,
 ) {
     use bevy::ui::{
         AlignItems, BorderRadius, FlexDirection, JustifyContent, Node, PositionType, UiRect, Val,
         ZIndex,
     };
 
+    // Rebuilt only when what it shows changes: the runtime republishes the
+    // presentation each tick (a banner's countdown, which is not drawn), and a
+    // rebuild lays out and measures the whole overlay again.
+    let showing = active.is_playing().then(|| DrawnCutscene::of(&active.presentation, skip_hold.progress()));
+    let restyled = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
+        || presentation.as_ref().is_some_and(|presentation| presentation.is_changed());
+    if !restyled && *drawn == showing && overlays.is_empty() == showing.is_none() {
+        return;
+    }
+    *drawn = showing;
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
@@ -323,5 +356,45 @@ mod tests {
             None,
             "a completed fade up left a sheet behind"
         );
+    }
+
+    /// The overlay is rebuilt only when what it shows changes: a banner
+    /// counting down keeps its cards, and a new line replaces them.
+    #[test]
+    fn the_overlay_is_kept_while_what_it_shows_is_the_same() {
+        let script = CutsceneScript::new(
+            "banner",
+            vec![CutsceneBeat::Banner {
+                text: "Chapter one".to_string(),
+                seconds: 2.0,
+            }],
+        );
+        let runtime = CutsceneRuntime::new(script);
+        let mut app = App::new();
+        app.insert_resource(ActiveCutscene {
+            presentation: runtime.presentation(),
+            runtime: Some(runtime),
+        })
+        .insert_resource(CutsceneSkipHold::default())
+        .add_systems(Update, sync_cutscene_ui);
+        app.update();
+        let roots = |app: &mut App| {
+            let world = app.world_mut();
+            let mut roots: Vec<Entity> = world.query_filtered::<Entity, With<CutsceneOverlayRoot>>().iter(world).collect();
+            roots.sort();
+            roots
+        };
+        let first = roots(&mut app);
+        assert!(!first.is_empty(), "a banner draws an overlay");
+        // The countdown moves; the drawn text does not.
+        if let Some((_, seconds)) = app.world_mut().resource_mut::<ActiveCutscene>().presentation.banner.as_mut() {
+            *seconds = 1.5;
+        }
+        app.update();
+        assert_eq!(roots(&mut app), first, "a banner counting down rebuilt its overlay");
+        app.world_mut().resource_mut::<ActiveCutscene>().presentation.banner = Some(("Chapter two".to_string(), 2.0));
+        app.update();
+        let second = roots(&mut app);
+        assert!(!second.is_empty() && second != first, "a new banner draws a new overlay");
     }
 }

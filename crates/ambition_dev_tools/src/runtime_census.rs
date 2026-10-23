@@ -1035,14 +1035,17 @@ pub fn report_changed_transforms(
     eprintln!("{row}");
 }
 
-/// `[census] changed_sprites`: entities whose `Sprite` or `Visibility` was
-/// written since the last frame, by name. A sprite written with its own value
+/// `[census] changed_sprites`: entities whose `Sprite`, `Visibility`, UI `Node`
+/// or text was written since the last frame, by name. A written node is laid
+/// out again; a written text is measured again. A sprite written with its own value
 /// is extracted and re-bounded again; a visibility written with its own value
 /// is propagated again.
 pub fn report_changed_sprites(
     census: Res<RuntimeCensus>,
     sprites: Query<Option<&Name>, Changed<Sprite>>,
     visibilities: Query<Option<&Name>, Changed<Visibility>>,
+    nodes: Query<Option<&Name>, Changed<Node>>,
+    texts: Query<Option<&Name>, Or<(Changed<Text>, Changed<Text2d>)>>,
     all: Query<(), With<Sprite>>,
 ) {
     let Some(at) = census.due() else {
@@ -1065,8 +1068,10 @@ pub fn report_changed_sprites(
     }
     let (sprite_total, sprite_list) = tally(sprites.iter());
     let (visibility_total, visibility_list) = tally(visibilities.iter());
+    let (node_total, node_list) = tally(nodes.iter());
+    let (text_total, text_list) = tally(texts.iter());
     eprintln!(
-        "[census] changed_sprites t={at:.3} sprites={sprite_total} of={} visibility={visibility_total} | sprites:{sprite_list} | visibility:{visibility_list}",
+        "[census] changed_sprites t={at:.3} sprites={sprite_total} of={} visibility={visibility_total} nodes={node_total} texts={text_total} | sprites:{sprite_list} | visibility:{visibility_list} | nodes:{node_list} | texts:{text_list}",
         all.iter().len()
     );
 }

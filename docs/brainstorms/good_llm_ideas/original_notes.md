@@ -645,3 +645,8 @@ Broken institutions: governments, media, schools, and businesses become more foc
 So the “biggest thing wrong” is not simply that people are selfish or that one institution is corrupt. It’s that the rules of the game are misaligned: we have built a world that punishes patience, cooperation, and long-term thinking, while rewarding speed, consumption, and dominance.
 
 A better society would not necessarily reject economics, technology, or ambition. It would redirect them: toward human well-being, ecological limits, shared responsibility, and institutions that create trust instead of anxiety.
+
+----
+
+
+

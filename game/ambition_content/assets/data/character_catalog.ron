@@ -4016,7 +4016,9 @@
         ),
         "npc_paul_diracula": (
             display_name: "Paul Diracula",
-            manifest: "sprites/paul_diracula_spritesheet.ron",
+            // The Count, redrawn 2026-10-23 (`paul_diracula_v2`); the old sheet is
+            // still published as `paul_diracula`.
+            manifest: "sprites/paul_diracula_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 183 cm.

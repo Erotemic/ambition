@@ -1118,6 +1118,8 @@ tackon_targets=(
     paradox_barber
     patent_clerk
     paul_diracula
+    # Paul Diracula redrawn as the Count (an SVG rig); the catalog draws this one.
+    paul_diracula_v2
     player_robot_v2
     player_robot_v3
     projectile_polygon

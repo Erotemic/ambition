@@ -380,6 +380,7 @@ impl Plugin for CombatSchedulePlugin {
                 // After the rig poses resolve: a hand muzzle on a rigged body
                 // reads this tick's hand.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
+                    .run_if(bevy::prelude::on_message::<ambition_characters::brain::ActorActionMessage>)
                     .after(ambition_combat::body_rig::BodyRigPoseResolved)
                     .in_set(GameplayGated),
                 (

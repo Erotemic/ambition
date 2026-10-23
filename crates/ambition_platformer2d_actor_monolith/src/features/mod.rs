@@ -218,8 +218,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ecs::pin_rest_rows,
                 // The rows of a body that fades between its attacks.
                 ecs::pin_fade_rows,
-                crate::items::narrative::apply_item_grants,
-                crate::items::narrative::apply_shop_transactions,
+                // Each applier of a request runs on its request.
+                crate::items::narrative::apply_item_grants.run_if(on_message::<ambition_items::ItemGrantRequested>),
+                crate::items::narrative::apply_shop_transactions
+                    .run_if(on_message::<ambition_items::shop::ShopTransactionRequested>),
                 crate::items::narrative::apply_item_uses,
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item
@@ -228,9 +230,11 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // resimulation loses the heal.
                 crate::avatar::apply_player_heal_requests
                     .run_if(on_message::<crate::avatar::events::PlayerHealRequested>),
-                ecs::effect_bus::apply_flag_effects,
-                ecs::effect_bus::apply_quest_effects,
-                ecs::effect_bus::apply_switch_effects,
+                ecs::effect_bus::apply_flag_effects.run_if(on_message::<ambition_combat::events::SetFlagRequested>),
+                ecs::effect_bus::apply_quest_effects
+                    .run_if(on_message::<ambition_persistence::quest::QuestAdvanceRequested>),
+                ecs::effect_bus::apply_switch_effects
+                    .run_if(on_message::<ambition_encounter::switches::SwitchActivated>),
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
@@ -239,8 +243,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
                 npcs::record_npc_provocations
+                    .run_if(on_message::<npcs::NpcProvocationChanged>)
                     .after(crate::features::apply_release_provocations),
-                ecs::effect_bus::apply_gameplay_sfx_effects,
+                ecs::effect_bus::apply_gameplay_sfx_effects
+                    .run_if(on_message::<ambition_combat::events::GameplaySfxRequested>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
@@ -1618,7 +1624,9 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // the temporal twin of the `ConversationCutBark` message port.
         app.add_systems(
             sim,
-            npcs::speak_conversation_cut_barks.in_set(FeatureInteractionSet::CutBarkCast),
+            npcs::speak_conversation_cut_barks
+                .run_if(on_message::<ambition_conversation::ConversationCutBark>)
+                .in_set(FeatureInteractionSet::CutBarkCast),
         );
         app.add_systems(
             sim,

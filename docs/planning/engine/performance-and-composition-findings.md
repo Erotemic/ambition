@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-23 14:27Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 1,032 systems a frame; hub Ambition route 1,323 → 1,203 since
+route 1,320 → 1,022 systems a frame; hub Ambition route 1,323 → 1,194 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -103,6 +103,7 @@ says what they bought in frame time.
 | The debug and navigation overlays (dev, in `android_dev` too) run while switched on: each system's first test is its run condition, and the label pass runs while a label is queued | done | census: 3 systems a frame fewer on both routes (Mary-O 1,046 → 1,044 with one noise row, Ambition 1,213 → 1,210). REASONED: the conditions are the systems' own early returns, so what draws is unchanged; app lib 253 tests pass |
 | The passes that draw a simulation row view (ground and world items, shrines, mark beacons, body clocks) run while the view holds rows or a drawn entity remains to retire (`ambition_sim_view::rows_or_drawn`), the shrine animation while a shrine is drawn; a shrine's sprite size was written every frame | done | census: Mary-O route 1,044 → 1,038 systems a frame, hub Ambition route 1,210 → 1,208 (its hall has ground items and a shrine); witness `a_drawing_pass_runs_until_its_last_drawn_entity_is_retired`; render 444, sim_view 135 and 74 app item, shrine, mark and clock tests pass |
 | Five effect passes run only with work: the knockout beat on its message, the dizzy stars while a guard is shattered, ray strikes while a strike stands, the unauthored attack volumes while a strike stands or a drawn volume remains to retire, the gravity zone visuals while a zone or its visual stands | done | census: 5 systems a frame fewer on both routes (Mary-O 1,038 → 1,032 with one noise row, Ambition 1,208 → 1,203); witness `an_ended_swings_volume_is_taken_away`; render 445 and 59 app strike, ray, knockout, guard and gravity tests pass |
+| The simulation's request appliers run on their request: item grants, shop transactions, flag, quest, switch and gameplay-SFX effects, NPC provocations and their release, conversation-cut barks, and the projectiles of brain actions. Found on the way: `PauseRequested` (the Android pause, 10-22) was unnamed in the rollback message oracle; it is a shell channel no simulation crate can read, named now | done | census: 10 systems a tick fewer on the Mary-O route, 9 on the hub's Ambition route (1,194 a frame); monolith 1,229, 125 app flag, quest, switch, item, shop, provocation, bark and projectile tests and 129 rollback tests pass |
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 

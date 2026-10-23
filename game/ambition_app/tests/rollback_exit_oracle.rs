@@ -1521,6 +1521,10 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
         ),
         (
+            "ambition_game_shell::router::PauseRequested",
+            "the SHELL's request to open its pause menu, written when the app goes to the background (Android, 2026-10-22) and read by the pause menus in Update. ⭐ STRUCTURAL, as `ShellCommand`: no simulation crate depends on `ambition_game_shell`, so no reader of it can exist inside the GGRS schedule",
+        ),
+        (
             "ambition_game_shell::router::ShellEvent",
             "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
         ),

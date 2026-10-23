@@ -7,7 +7,9 @@ provider-owned characters are laid out on derived main floors and basement rows,
 so capacity grows with the roster. Runtime nameplates use character identity;
 the generated area does not author duplicate display labels.
 
-The command writes the Hall area spec deterministically in catalog order. The
+The command writes the Hall area spec deterministically in the order of the
+wings in ``specs/hall_of_characters_order.txt``, then any exhibit no wing names
+in catalog order. The
 Hall itself lives in its secondary LDtk world; the hub-side door remains
 hand-authored in the main world."""
 
@@ -45,6 +47,15 @@ SPEC_PATH = (
 # sandbox.ldtk (`hall_of_characters_door`); this file only carries the hall
 # level + its own entry zone that cross-targets the hub.
 HALL_LDTK_PATH = default_hall_ldtk()
+#: The authored order of the exhibits, wing by wing (Jon, 2026-10-23: "reorder
+#: the hall of characters so it makes more sense").
+ORDER_PATH = (
+    REPO_ROOT
+    / "tools"
+    / "ambition_ldtk_tools"
+    / "specs"
+    / "hall_of_characters_order.txt"
+)
 HALL_LDTK_IDENTIFIER = "ambition-hall-world"
 
 # --- Layout dimensions ---
@@ -701,6 +712,56 @@ def merge_provider_entries(
     return main_ids, basement_ids, hall_dialogue_ids
 
 
+def parse_wings(order_text: str) -> list[tuple[str, list[str]]]:
+    """The wings of an order file: ``[name]`` lines, each followed by its ids,
+    one a line; ``#`` starts a comment. An id named twice is an error."""
+    wings: list[tuple[str, list[str]]] = []
+    seen: set[str] = set()
+    for raw in order_text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            wings.append((line[1:-1].strip(), []))
+            continue
+        if not wings:
+            raise ValueError(f"{line!r} is named before any [wing]")
+        if line in seen:
+            raise ValueError(f"{line!r} is named twice in the Hall order")
+        seen.add(line)
+        wings[-1][1].append(line)
+    return wings
+
+
+def order_by_wings(ids: list[str], wings: list[tuple[str, list[str]]]) -> tuple[list[str], list[str]]:
+    """``ids`` in wing order, then the ids no wing names in their own order.
+    Returns the ordered list and those unnamed ids. A wing may name ids that
+    are not in ``ids`` (another floor's, or a character since removed)."""
+    rank = {cid: index for index, cid in enumerate(cid for _name, members in wings for cid in members)}
+    named = sorted((cid for cid in ids if cid in rank), key=rank.__getitem__)
+    unnamed = [cid for cid in ids if cid not in rank]
+    return named + unnamed, unnamed
+
+
+def assemble_hall(
+    catalog_text: str, provider_texts: list[str], order_text: str
+) -> tuple[list[str], list[str], list[str], dict[str, str], list[str]]:
+    """Every exhibit, seated: ``(main, basement, giants, hall_dialogue_ids,
+    unnamed)``. Each floor's ids are in wing order, then the ``unnamed`` ones
+    (no wing names them) in catalog order."""
+    main_ids, basement_ids, giant_ids, hall_dialogue_ids = parse_catalog(catalog_text)
+    main_ids, basement_ids, hall_dialogue_ids = merge_provider_entries(
+        main_ids, basement_ids, hall_dialogue_ids, provider_hall_entries(catalog_text, provider_texts)
+    )
+    wings = parse_wings(order_text)
+    unnamed: list[str] = []
+    for ids in (main_ids, basement_ids, giant_ids):
+        ordered, missing = order_by_wings(ids, wings)
+        ids[:] = ordered
+        unnamed += missing
+    return main_ids, basement_ids, giant_ids, hall_dialogue_ids, unnamed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH)
@@ -716,17 +777,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Write the area spec only; do not scaffold/apply the .ldtk file.",
     )
+    parser.add_argument("--order", type=Path, default=ORDER_PATH)
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
 
     from .ron_parse import dumps as ron_dumps
 
-    text = args.catalog.read_text()
-    main_ids, basement_ids, giant_ids, hall_dialogue_ids = parse_catalog(text)
-    provider_entries = provider_hall_entries(text, [path.read_text() for path in PROVIDER_CATALOGS])
-    main_ids, basement_ids, hall_dialogue_ids = merge_provider_entries(
-        main_ids, basement_ids, hall_dialogue_ids, provider_entries
+    main_ids, basement_ids, giant_ids, hall_dialogue_ids, unnamed = assemble_hall(
+        args.catalog.read_text(),
+        [path.read_text() for path in PROVIDER_CATALOGS],
+        args.order.read_text(),
     )
+    if unnamed:
+        print(
+            f"hall: {len(unnamed)} exhibit(s) no wing of {args.order.name} names, seated last: "
+            + ", ".join(unnamed),
+            file=sys.stderr,
+        )
     spec = build_spec(main_ids, basement_ids, hall_dialogue_ids, giant_ids)
     out_text = HEADER + ron_dumps(spec)
     args.out.write_text(out_text)

@@ -272,15 +272,34 @@ def test_the_committed_hall_is_the_one_the_catalogs_generate():
     from ambition_ldtk_tools.generate_hall_of_characters import (
         CATALOG_PATH,
         HEADER,
+        ORDER_PATH,
         PROVIDER_CATALOGS,
         SPEC_PATH,
+        assemble_hall,
     )
     from ambition_ldtk_tools.ron_parse import dumps as ron_dumps
 
-    text = CATALOG_PATH.read_text()
-    main, basement, giants, dialogue_ids = parse_catalog(text)
-    main, basement, dialogue_ids = merge_provider_entries(
-        main, basement, dialogue_ids, provider_hall_entries(text, [p.read_text() for p in PROVIDER_CATALOGS])
+    main, basement, giants, dialogue_ids, unnamed = assemble_hall(
+        CATALOG_PATH.read_text(), [p.read_text() for p in PROVIDER_CATALOGS], ORDER_PATH.read_text()
     )
+    assert not unnamed, f"give these exhibits a wing in {ORDER_PATH.name}: {unnamed}"
     expected = HEADER + ron_dumps(build_spec(main, basement, dialogue_ids, giants))
     assert SPEC_PATH.read_text() == expected, "the Hall is stale: regenerate it"
+
+
+def test_the_hall_seats_its_wings_in_order_and_the_unnamed_last():
+    """The order file seats each floor wing by wing; an exhibit no wing names
+    is seated after them in catalog order, and is reported."""
+    from ambition_ldtk_tools.generate_hall_of_characters import order_by_wings, parse_wings
+
+    wings = parse_wings("# a comment\n[Robots]\nrobot_b\nrobot_a  # trailing\n\n[Dogs]\ndog\ngone\n")
+    assert wings == [("Robots", ["robot_b", "robot_a"]), ("Dogs", ["dog", "gone"])]
+    ordered, unnamed = order_by_wings(["new_one", "dog", "robot_a", "robot_b", "newer"], wings)
+    assert ordered == ["robot_b", "robot_a", "dog", "new_one", "newer"]
+    assert unnamed == ["new_one", "newer"]
+
+
+def test_an_exhibit_named_twice_in_the_order_is_refused():
+    from ambition_ldtk_tools.generate_hall_of_characters import parse_wings
+    with pytest.raises(ValueError, match="named twice"):
+        parse_wings("[A]\nrobot\n[B]\nrobot\n")

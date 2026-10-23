@@ -46,6 +46,11 @@ CENSUS = {
     "SlashVisual": "the swing's art, placed in the owner's frame — has the seam",
     "BodyClockVisual": "the body's fuse/clock telegraph bar — has the seam",
     "LimbTrailWisp": "a free limb's trail back to its host body (GNU-ton's fists) — has the seam",
+    "PlayerChargeVisual": "the charge held at the body's hand — has the seam",
+    "SkinQuad": (
+        "NOT a body and not a component: a quad of a room's terrain skin, and "
+        "its `owner` is the block visual it is laid on. Excluded after reading it."
+    ),
     "PortalCaptureParallaxLayerVisual": (
         "NOT a body: its `source` is a portal rig's parallax layer. Excluded "
         "after reading it, not after matching the field name."

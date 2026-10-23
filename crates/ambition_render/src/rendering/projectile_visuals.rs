@@ -584,6 +584,9 @@ pub fn sync_projectile_charge_visuals(
                     ambition_platformer2d_core::config::WORLD_Z_PLAYER + 1.5,
                 )),
                 PlayerChargeVisual { owner: player, tier },
+                // Which body this draws for, in the shared spelling the portal
+                // compositor reads: the charge is cut with its body's hand.
+                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(player),
                 Name::new("Player projectile charge"),
             ),
         );

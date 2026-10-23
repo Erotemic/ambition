@@ -64,4 +64,6 @@ def test_a_function_parameter_is_not_a_field() -> None:
     assert "spawn_one" not in found
     # 6 -> 7 on 2026-09-07: `BodyClockVisual` (the mark's fuse telegraph) joined.
     # 7 -> 8 on 2026-09-26: `LimbTrailWisp` (GNU-ton's fists' trail) joined.
-    assert len(found) == 8, sorted(found)
+    # 8 -> 10 on 2026-10-23: `PlayerChargeVisual` (the held charge, given the
+    # seam) and `SkinQuad` (a terrain-skin quad, not a body) were classified.
+    assert len(found) == 10, sorted(found)

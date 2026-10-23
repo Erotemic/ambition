@@ -847,7 +847,7 @@ pub fn sync_portal_capture_parallax_layers(
     // for the one global host view (`PortalCameraContinuityHostView`), so the
     // root set is its source.
     sources: Query<
-        (Entity, &Sprite, &ParallaxLayerVisual),
+        (Entity, Ref<Sprite>, &ParallaxLayerVisual),
         (
             Without<PortalCaptureParallaxLayerVisual>,
             Without<MirroredParallaxLayer>,
@@ -885,11 +885,20 @@ pub fn sync_portal_capture_parallax_layers(
             continue;
         };
         live.insert((copy.rig, copy.source));
-        *sprite = source_sprite.clone();
-        *render_layers = RenderLayers::none().with(rig.parallax_layer());
+        // Each written only when it changes: a written sprite is extracted
+        // again, a written transform propagated, and these layers (one per
+        // capture, numbered past 64) are a heap allocation to build.
+        if source_sprite.is_changed() {
+            *sprite = (*source_sprite).clone();
+        }
+        if !render_layers.iter().eq([rig.parallax_layer()]) {
+            *render_layers = RenderLayers::none().with(rig.parallax_layer());
+        }
         // Anchor at the mapped host camera viewpoint, not the capture camera's frame
         // center. A tight cone-rect frame would give the wrong viewpoint.
-        sync_parallax_transform_to_camera(&mut transform, source_layer, rig.parallax_anchor());
+        let mut placed = *transform;
+        sync_parallax_transform_to_camera(&mut placed, source_layer, rig.parallax_anchor());
+        transform.set_if_neq(placed);
     }
 
     for (rig_entity, rig) in &rigs {
@@ -902,7 +911,7 @@ pub fn sync_portal_capture_parallax_layers(
             commands.spawn_session_scoped(
                 session_scope,
                 (
-                    source_sprite.clone(),
+                    (*source_sprite).clone(),
                     transform,
                     *source_layer,
                     PortalCaptureParallaxLayerVisual {

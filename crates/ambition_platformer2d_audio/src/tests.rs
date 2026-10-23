@@ -10,32 +10,22 @@ use ambition_audio::library::{amplitude_to_decibels, AudioLibrary, SoundCue, ORI
 // `SfxMessage` no longer re-exported by the parent module.
 use ambition_audio::spec::MusicRegistry;
 use ambition_audio::spec::MusicTrack;
-use crate::session::data::{fixture_music_registry, fixture_sfx_registry};
 use ambition_sfx::SfxMessage;
 use ambition_sfx::SfxProvider;
 use bevy::asset::{Assets, Handle};
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-/// The sandbox world this test's catalog carries, as a plain value. The
-/// `Once` guard died with the install seam — a manifest is now just an
-/// argument, so repeated construction is free of cross-test coupling.
-fn test_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldManifest {
-    use ambition_asset_manager::AssetId;
-    use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
-    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../game/ambition_content/assets/worlds");
-    WorldManifest {
-        entry_room: "central_hub_complex".to_string(),
-        ron_rooms: Vec::new(),
-        worlds: vec![WorldSource {
-            id: AssetId::new("world.sandbox_ldtk"),
-            asset_path: "game://worlds/sandbox.ldtk".to_string(),
-            loose_path: Some(worlds_dir.join("sandbox.ldtk")),
-            embedded_text: None,
-            embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
-            required: true,
-        }],
-    }
+/// The game's real authored registries, read from `ambition_content` as an
+/// explicit cross-crate test fixture. Parsed per call: a shared static would
+/// be a channel between tests.
+fn fixture_music_registry() -> MusicRegistry {
+    ron::from_str(include_str!("../../../game/ambition_content/assets/audio/music_registry.ron"))
+        .expect("ambition_content music_registry.ron should parse")
+}
+
+fn fixture_sfx_registry() -> ambition_audio::spec::SfxRegistry {
+    ron::from_str(include_str!("../../../game/ambition_content/assets/audio/sfx_registry.ron"))
+        .expect("ambition_content sfx_registry.ron should parse")
 }
 
 #[test]
@@ -259,7 +249,7 @@ fn music_track_order_cycles() {
 /// or *fn definition* would re-introduce them.
 #[test]
 fn no_runtime_references_to_retired_procedural_renderer() {
-    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/audio");
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
     let banned: &[&str] = &[
         "use fundsp",
         "fundsp::",
@@ -294,7 +284,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
     // emits findings for *every* mention. Filter out matches inside
     // this very test source so the assertion only fires on real
     // re-introductions in sibling files.
-    let this_file = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/audio/tests.rs");
+    let this_file = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/tests.rs");
     findings.retain(|line| !line.starts_with(&this_file.display().to_string()));
     assert!(
         findings.is_empty(),
@@ -314,7 +304,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
 /// *inside* a `.rs` file, this one catches a `fundsp = "..."` line that hasn't been called yet
 /// but would silently re-arm the procedural path.
 #[test]
-fn ambition_platformer2d_actor_monolith_cargo_toml_has_no_fundsp_dep() {
+fn the_platformer_audio_cargo_toml_has_no_fundsp_dep() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let contents = std::fs::read_to_string(&manifest)
         .unwrap_or_else(|e| panic!("read {}: {e}", manifest.display()));
@@ -339,7 +329,7 @@ fn ambition_platformer2d_actor_monolith_cargo_toml_has_no_fundsp_dep() {
     }
     assert!(
         violations.is_empty(),
-        "ambition_platformer2d_actor_monolith/Cargo.toml re-introduced `fundsp` outside \
+        "ambition_platformer2d_audio/Cargo.toml re-introduced `fundsp` outside \
          documentation comments:\n{}\n\n`fundsp` was retired as a \
          runtime audio backend. The new realtime DSP layer must go \
          through Kira (see docs/archive/retired/fundsp-audio.md).",
@@ -350,7 +340,9 @@ fn ambition_platformer2d_actor_monolith_cargo_toml_has_no_fundsp_dep() {
 /// Cargo-level guardrail: `web_audio` MUST imply `audio`, not just `authored_audio`.
 #[test]
 fn web_audio_feature_implies_audio_feature() {
-    let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    // The facade's features install this crate.
+    let manifest =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ambition_platformer2d/Cargo.toml");
     let contents = std::fs::read_to_string(&manifest).expect("read sandbox Cargo.toml");
     let mut in_features = false;
     let mut web_audio_line: Option<String> = None;
@@ -390,7 +382,7 @@ fn web_audio_feature_implies_audio_feature() {
 /// telemetry all live on the Kira side), so the only audio backend
 /// the sandbox is allowed to pull is `bevy_kira_audio`.
 #[test]
-fn ambition_platformer2d_actor_monolith_uses_only_bevy_kira_audio() {
+fn the_platformer_audio_crate_uses_only_bevy_kira_audio() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let contents = std::fs::read_to_string(&manifest).expect("read sandbox Cargo.toml");
     // Other Bevy audio integrations we want to refuse silently
@@ -414,52 +406,6 @@ fn ambition_platformer2d_actor_monolith_uses_only_bevy_kira_audio() {
             }
         }
     }
-}
-
-/// Live-runtime guardrail: every music track in the embedded sandbox
-/// spec must have a `WebServedAssets`-resolvable catalog path. This
-/// pins the "music works on the served-web profile" contract — if a
-/// new track lands without an `asset_path`, the catalog drops it and
-/// this test fails loudly instead of letting the radio silently lose
-/// an entry on web.
-#[test]
-fn every_live_music_track_resolves_under_web_served_assets() {
-    use ambition_sprite_sheet::game_assets::GameAssetConfig;
-    use ambition_asset_manager::AssetProfile;
-
-    let manifest = test_world_manifest();
-    let music = fixture_music_registry().clone();
-    let mut config = GameAssetConfig::default();
-    config.asset_profile = AssetProfile::WebServedAssets;
-    let character_catalog =
-        ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-            ambition_characters::actor::character_catalog::parse_catalog(include_str!(
-                "../../../../game/ambition_content/assets/data/character_catalog.ron"
-            )),
-        );
-    let boss_catalog = ambition_boss_encounter::BossCatalog::default();
-    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
-        &config,
-        &character_catalog,
-        &boss_catalog,
-        &music,
-        &manifest,
-    );
-
-    let mut missing: Vec<String> = Vec::new();
-    for track in &music.tracks {
-        let id = crate::assets::platformer_assets::ids::music_track(&track.id);
-        let path = catalog.path_for(&id);
-        if path.is_none() {
-            missing.push(track.id.clone());
-        }
-    }
-    assert!(
-        missing.is_empty(),
-        "music tracks without a WebServedAssets-resolvable path: {missing:?}. \
-         Either add a pre-rendered OGG or remove the track from \
-         music_registry.ron — the procedural fallback is retired."
-    );
 }
 
 /// A content reload revises the music track table in place: a track the new

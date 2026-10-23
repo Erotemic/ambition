@@ -113,7 +113,6 @@ web_platform = [
 # and the LDtk crate (`the-sdk-game-links-no-capability-it-omits`).
 visible = [
     "input",
-    "audio",
     "ui",
     "physics_debris",
     "bevy/2d_bevy_render",
@@ -130,9 +129,8 @@ visible = [
 # (yarnspinner/material_ui), physics debris (avian2d), file watcher,
 # mobile touch (virtual_joystick), and dev tools (egui inspector).
 # `static_map` is mandatory because the wasm build has no synchronous
-# filesystem reader for `sandbox.ldtk`. Audio is NOT in this backbone —
-# each web persona opts in via `web_audio` so a silent smoke build is
-# still cheap.
+# filesystem reader for `sandbox.ldtk`. Audio is not this crate's: a web
+# persona opts in through the facade's `web_audio`.
 #
 # `bevy/2d_bevy_render`, `bevy/ui_bevy_render`, `bevy/scene`, `bevy/png`
 # mirror what `visible` adds; without them the wasm build has the UI
@@ -165,20 +163,19 @@ visible_web = ["visible_web_base", "static_core_assets"]
 # `/assets/` tree served alongside `index.html`. The sandbox selects
 # `AssetProfile::WebServedAssets` automatically when the `web_served`
 # feature is enabled (see `crate::game_assets::default_asset_profile`).
-# Includes `web_audio` so authored music + the SFX bank flow through
-# the same asset manager catalog routing on web as on desktop.
-visible_web_served = ["visible_web_base", "web_served", "web_audio"]
+# Authored music and the SFX bank come from the facade's `web_audio`.
+visible_web_served = ["visible_web_base", "web_served"]
 
 # Browser persona — embedded core assets. The composite a `wasm-pack
 # build` / `wasm-bindgen --target web` step builds against by default;
 # see `docs/recipes/web-build.md`. Visual smoke build; audio stays silent unless
-# `static_sfx_bank` or `web_audio` is added on top.
+# the facade's `web_audio` is added on top.
 web = ["visible_web", "web_platform"]
 
 # Browser persona — served assets. Use with `./build_for_web.sh --served`
 # (which symlinks/copies `crates/ambition_platformer2d_actor_monolith/assets/` into
 # `game/ambition_app/web/assets/` so the served pages can reach
-# them under `/assets/...`). Full media: visuals + authored audio.
+# them under `/assets/...`). Visuals; audio is the facade's `web_audio`.
 web_served_assets = ["visible_web_served", "web_platform"]
 
 # Marker feature read by `crate::game_assets::default_asset_profile`
@@ -266,17 +263,8 @@ ldtk_runtime = [
     "dep:ambition_platformer2d_ldtk",
     "ambition_platformer2d_ldtk/ldtk_runtime",
 ]
-# The runtime audio subsystem. Composes `authored_audio`: Kira playback of authored OGG/WAV
-# music + the packed SFX bank loaded through the asset manager catalog.
-audio = ["authored_audio"]
-# Authored-asset audio playback. `bevy_kira_audio` works on
-# wasm32-unknown-unknown via `kira/cpal/wasm-bindgen`, so this composite
-# is the same on desktop, Android, and web.
-authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
-# Browser-side audio composite. Pulls in the full `audio` feature (NOT just `authored_audio`) so
-# the `#[cfg(feature = "audio")]` gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
-# loader, the env writer, etc. actually fire.
-web_audio = ["audio"]
+# Audio is not this crate's: the facade's `audio` installs
+# `ambition_platformer2d_audio` (D33, 2026-10-23).
 # UI selection does not add a production dependency on `ambition_dialog`;
 # consumers that use dialogue enable it directly.
 ui = ["ambition_conversation/ui"]
@@ -439,7 +427,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
 bevy_asset_loader = { version = "0.27", optional = true }
 bevy_ecs_ldtk = { version = "0.15", optional = true }
 bevy-inspector-egui = { version = "0.37", optional = true }
-bevy_kira_audio = { version = "0.26", default-features = false, features = ["wav", "ogg"], optional = true }
 # Frame pacing / limiter — caps the frame rate to the display refresh (Limiter::Auto)
 # so the GPU/CPU idle between frames instead of rendering as fast as possible. Big
 # battery win on mobile; gated by `frame_pacing` (needs the render app, so visible-only).

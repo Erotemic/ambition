@@ -4,7 +4,6 @@
 //! [`MusicIntent`]), authored goblin cue data, and settings ->
 //! [`ambition_audio::MusicMix`] sync.
 
-#![cfg(feature = "audio")]
 
 use bevy::prelude::*;
 

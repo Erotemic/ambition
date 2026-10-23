@@ -8,10 +8,8 @@
 
 use bevy::prelude::*;
 
-#[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::{AudioChannel, AudioControl};
 
-#[cfg(feature = "audio")]
 use ambition_audio::library::{amplitude_to_decibels, MusicChannel, SfxChannel};
 
 /// Coarse classification of the player's acoustic surroundings. The
@@ -115,7 +113,6 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 /// `submersion >= 0.5` is the threshold for "head under" — barely
 /// touching the surface shouldn't flip the mix, but standing mostly
 /// inside the volume should.
-#[cfg(feature = "audio")]
 pub fn detect_audio_environment(
     mut env: ResMut<AudioEnvironment>,
     primary: Query<
@@ -142,7 +139,6 @@ pub fn detect_audio_environment(
 /// wall-clock dt. Audio buses are intentionally on the wall clock
 /// (see `PresentationTime::wall_dt`) so the underwater transition keeps
 /// moving when the sim is paused or slowed by bullet-time.
-#[cfg(feature = "audio")]
 pub fn smooth_audio_environment(
     time: ambition_time::PresentationTime,
     mut env: ResMut<AudioEnvironment>,
@@ -169,7 +165,6 @@ pub fn smooth_audio_environment(
 /// This function is the exact swap point: replace the
 /// `effective_music * music_attenuation` arithmetic with a call into
 /// the filter handle, and leave the user-mixer composition intact.
-#[cfg(feature = "audio")]
 pub fn apply_audio_environment(
     settings: Res<ambition_persistence::settings::UserSettings>,
     env: Res<AudioEnvironment>,
@@ -193,7 +188,6 @@ pub fn apply_audio_environment(
 
 /// 64-step granularity is finer than the ear can resolve over an 8 dB range while still cutting
 /// roughly two orders of magnitude of redundant writes.
-#[cfg_attr(not(feature = "audio"), allow(dead_code))]
 #[inline]
 fn quantize_wetness(wetness: f32) -> f32 {
     (wetness.clamp(0.0, 1.0) * 64.0).round() / 64.0

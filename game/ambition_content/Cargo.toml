@@ -19,7 +19,7 @@ default = []
 portal = ["ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_runtime/portal"]
 portal_render = ["portal", "dep:ambition_portal2d_presentation"]
 ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
-audio = ["ambition_platformer2d_actor_monolith/audio"]
+audio = ["ambition_audio/kira"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
 # the loader's embedded paths light up together.

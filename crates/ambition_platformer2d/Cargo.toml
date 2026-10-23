@@ -124,7 +124,7 @@ web_platform = [
     "ambition_platformer2d_rollback_ggrs?/web_platform",
 ]
 web_served = ["ambition_platformer2d_actor_monolith/web_served"]
-web_audio = ["ambition_platformer2d_actor_monolith/web_audio"]
+web_audio = ["audio"]
 headless = ["ambition_platformer2d_actor_monolith/headless"]
 dev_tools = [
     "ambition_platformer2d_actor_monolith/dev_tools",
@@ -171,7 +171,7 @@ portal_render = [
     "ambition_render/portal_render",
 ]
 audio = [
-    "ambition_platformer2d_actor_monolith/audio",
+    "dep:ambition_platformer2d_audio",
     "ambition_audio/kira",
     "ambition_platformer2d_provider/audio",
 ]
@@ -205,6 +205,8 @@ ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_match = { path = "../ambition_match" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
 ambition_audio = { path = "../ambition_audio" }
+# The platformer's audio runtime and music direction (feature `audio`).
+ambition_platformer2d_audio = { path = "../ambition_platformer2d_audio", optional = true }
 ambition_characters = { path = "../ambition_characters" }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # The ONE list of engine-owned schemas, shared with `ambition_content_cli`,

@@ -726,6 +726,10 @@ pub mod content {
 
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
+/// The platformer's audio runtime and music direction: what a game with
+/// audio installs (`Platformer2dAudioPlugin`).
+#[cfg(feature = "audio")]
+pub use ambition_platformer2d_audio as platformer_audio;
 pub use ambition_boss_encounter as boss_encounter;
 /// Derivations from a character sheet — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.

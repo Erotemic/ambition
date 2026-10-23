@@ -465,6 +465,24 @@ backend can now run it without the monolith. No system, resource or message
 moved. Its unused `CharacterId` namespace marker, left over from AC6, was
 deleted first. The component is seven: `world` is out of it.
 
+**Done 2026-10-23 — audio and music leave the crate.** `audio` (the Kira
+install, the channels, the acoustic environment) and `music` (the intent from
+encounter, boss, room, conversation and radio state) named nothing else in the
+monolith in production; only two tests reached `session::data`'s registry
+fixtures and the asset catalog. They are `ambition_platformer2d_audio`, a
+crate below the facade that depends on `ambition_audio` (with `kira`), the
+world, encounter, boss, conversation and character crates the intent reads,
+and `bevy_kira_audio`. The facade's `audio` feature installs it
+(`ambition_platformer2d::platformer_audio::Platformer2dAudioPlugin`); the
+monolith lost its `audio`, `authored_audio` and `web_audio` features and its
+`bevy_kira_audio` dependency, and its `visible` no longer implies audio, so a
+windowed game that does not select `audio` (Outlander, the minimal game) no
+longer links it. The catalog test (`every_live_music_track_resolves_under_web_served_assets`)
+stayed in the monolith with the catalog it tests. No system, resource or
+message changed; `AudioEnvironment`'s rollback-coverage row follows its new
+path. Receipt (MEASURED, `wc -l`): about 1,200 production and 1,400 test lines moved; the
+monolith's tests 1,338 → 1,289 lib tests, the new crate 49.
+
 **Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
 (1) is match preparation reading the session root's `InitialBodyPolicy`, to
 refuse a local seat in a session that also lowers a home avatar; that is a

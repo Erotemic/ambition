@@ -231,7 +231,7 @@ fn install_mary_o_audio(app: &mut App) {
     // standalone app contributes only its provider catalogs and resident asset
     // library; selection, intent priority, playback state, channels, and the
     // director are installed once by `Platformer2dAudioPlugin`.
-    app.add_plugins(ambition_platformer2d::actors::audio::Platformer2dAudioPlugin)
+    app.add_plugins(ambition_platformer2d::platformer_audio::Platformer2dAudioPlugin)
         .add_systems(
             Startup,
             setup_mary_o_audio_library

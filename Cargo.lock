@@ -984,6 +984,7 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_actor_spawn",
+ "ambition_platformer2d_audio",
  "ambition_platformer2d_core",
  "ambition_platformer2d_host",
  "ambition_platformer2d_ldtk",
@@ -1065,7 +1066,6 @@ dependencies = [
  "bevy_ecs",
  "bevy_ecs_ldtk",
  "bevy_framepace",
- "bevy_kira_audio",
  "console_error_panic_hook",
  "image",
  "leafwing-input-manager",
@@ -1095,6 +1095,26 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_vfx",
  "bevy",
+]
+
+[[package]]
+name = "ambition_platformer2d_audio"
+version = "0.1.0"
+dependencies = [
+ "ambition_audio",
+ "ambition_boss_encounter",
+ "ambition_characters",
+ "ambition_conversation",
+ "ambition_encounter",
+ "ambition_persistence",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_sfx",
+ "ambition_time",
+ "bevy",
+ "bevy_kira_audio",
+ "ron 0.11.0",
 ]
 
 [[package]]

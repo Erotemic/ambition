@@ -1,4 +1,4 @@
-//! Module-local Bevy plugin for the sandbox audio subsystem.
+//! The Bevy plugin for the platformer's audio.
 //!
 //! Owns the Kira backend install, the SFX-bank loader, the web-audio
 //! unlock hook, the channel resources (music + SFX + adaptive layers),
@@ -7,13 +7,9 @@
 //! feature; without it the simulation half's `SfxMessage` queue drains
 //! harmlessly per the ADR 0012 seam.
 //!
-//! Carved out of `app/plugins.rs::add_audio_plugins` per OVERNIGHT-TODO
-//! #6 — every system referenced here lives in `crate::audio` or
-//! `crate::music`, the two domain modules that own audio playback.
-//! The one cross-module ordering hook — `.after(setup_presentation_system)`
-//! on the `load_music_cues` startup chain — pulls
-//! `crate::schedule::setup_presentation_system` through the `pub(crate)`
-//! re-export added in `app.rs`.
+//! Every system it installs lives in this crate; it orders itself against
+//! the shared schedule sets (`AudioInitSet` after `PresentationSetupSet`,
+//! the music intent after the simulation's core phase).
 
 use ambition_audio::AmbitionAudioAppExt as _;
 use bevy::ecs::system::SystemParam;

@@ -11,7 +11,6 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
-pub mod audio;
 /// Local human avatar state and policy, separate from shared actor mechanics.
 pub mod avatar;
 pub mod brain_tick;
@@ -48,7 +47,6 @@ pub mod enemy_projectile;
 pub mod body_conditions;
 pub mod items;
 pub mod gravity;
-pub mod music;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;

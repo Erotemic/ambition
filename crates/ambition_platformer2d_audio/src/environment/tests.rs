@@ -104,7 +104,6 @@ fn quantize_wetness_collapses_jitter() {
 /// target into `AudioEnvironment`. This is the seam the brief
 /// required: gameplay/water owns `water_contact`, the audio
 /// module only observes it — no parallel "is underwater" flag.
-#[cfg(feature = "audio")]
 #[test]
 fn detect_picks_up_player_water_contact_in_app() {
     use ambition_platformer2d_core as ae;

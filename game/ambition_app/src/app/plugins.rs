@@ -688,7 +688,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(ambition_platformer2d::actors::audio::Platformer2dAudioPlugin);
+    app.add_plugins(ambition_platformer2d::platformer_audio::Platformer2dAudioPlugin);
 }
 
 #[cfg(not(feature = "audio"))]

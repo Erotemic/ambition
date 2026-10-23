@@ -1,0 +1,35 @@
+[package]
+name = "ambition_platformer2d_audio"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The platformer's audio runtime: the Kira install and channels, the acoustic environment, and the music direction from encounter, boss, room, conversation and radio state. Carved out of ambition_platformer2d_actor_monolith (D33); a composition with audio installs it, a headless one leaves it out."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# The music core (director, intent, cue catalog), the playback library and the
+# Kira channels.
+ambition_audio = { path = "../ambition_audio", features = ["kira"] }
+# The music intent reads these states: room, encounter, boss and conversation.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_conversation = { path = "../ambition_conversation" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_sfx = { path = "../ambition_sfx" }
+# The user's audio settings (volume, radio).
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_time = { path = "../ambition_time" }
+# The only audio backend (see `the_platformer_audio_crate_uses_only_bevy_kira_audio`).
+bevy_kira_audio = { version = "0.26", default-features = false, features = ["wav", "ogg"] }
+# `ui_api` as the monolith's base bevy dep, so feature unification is unchanged;
+# `x11` only matters for isolated builds of this crate (winit needs a backend).
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "x11"] }
+
+[dev-dependencies]
+ron = { workspace = true }

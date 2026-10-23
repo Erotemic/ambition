@@ -9,7 +9,6 @@
 | [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
 | [`actor_clusters`](src/actor_clusters.rs) | The per-tick view of an actor: [`ActorMut`](crate::actor_clusters::ActorMut), the borrow the integration mutates in place, and the query that assembles it from live components. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
-| [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
 | [`body_conditions`](src/body_conditions.rs) | Authored BODY-CAPABILITY conditions — "can the body do this verb at all?" |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
@@ -31,7 +30,6 @@
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
 | [`items`](src/items/mod.rs) | Item adapters that compose actor simulation with item capabilities. |
-| [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
@@ -44,7 +42,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

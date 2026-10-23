@@ -633,6 +633,17 @@ message type's retention and activation boundary. Do not add type erasure,
 a central registry or a `World` scan to save a few cheap calls. Try this only
 if the new profile shows that this group costs enough to matter.
 
+**Done against this caution, 2026-10-23, and why.** Two fan-outs of the same
+shape were fused with a list of per-type step functions (`fn(&mut World)`)
+and one exclusive pass per phase: the effect quarantine
+(`ExternalEffectFamilies`, 25 systems a frame to 3, MEASURED by census) and
+the host intents (`HostIntentTypes`, 6 to 2). Each step is the old system's
+body over `&mut World`, so the per-type logic and its tests stayed; nothing
+is type-erased beyond a function pointer. The main-world schedules run
+serially (F41), so an exclusive pass costs no parallelism. The narrative
+ledgers here were left as they were: the next phone profile says whether
+any of the three groups mattered.
+
 #### Acceptance and rejection gates
 
 For each candidate, record before/after: registered and **executed** system

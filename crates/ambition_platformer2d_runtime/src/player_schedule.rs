@@ -197,7 +197,9 @@ impl Plugin for PlayerSchedulePlugin {
                 // reading of a capture's inputs, and both are scoped by asking
                 // for `SmashHoldState`.
                 ambition_combat::capture::systems::arm_smash_throw_edge.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
-                ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames,
+                // Held bodies are the ones that carry `ControlHolds`.
+                ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames
+                    .run_if(bevy::prelude::any_with_component::<ambition_characters::control::ControlHolds>),
                 ambition_combat::capture::systems::restrict_captor_control.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.

@@ -1331,6 +1331,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (
                 crate::avatar::rescue_falling_bodies,
                 crate::avatar::advance_moving_platforms
+                    .run_if(
+                        |rooms: Query<
+                            &ambition_platformer2d_world::collision::MovingPlatformSet,
+                            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+                        >| rooms.iter().any(|platforms| !platforms.0.is_empty()),
+                    )
                     .in_set(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
                 // The platforms moved: free the walls composed from where they were.
                 ambition_platformer2d_world::collision::retire_stale_composed_solids,
@@ -1515,7 +1521,8 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 // In the simulation, not in `Update`: `body.mana` is rollback
                 // state, and a render-rate write does not resimulate on a
                 // rewind.
-                crate::avatar::regen_player_mana,
+                crate::avatar::regen_player_mana
+                    .run_if(bevy::prelude::resource_exists::<crate::avatar::systems::PlayerManaRegen>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureCollection),
@@ -1628,6 +1635,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
             sim,
             crate::avatar::drive_commanded_moves
+                .run_if(bevy::prelude::any_with_component::<ambition_characters::control::CommandedMove>)
                 .after(crate::avatar::blank_scripted_control_frames)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );

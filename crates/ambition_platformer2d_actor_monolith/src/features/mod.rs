@@ -1652,7 +1652,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             sim,
             (
                 open_ecs_chests,
-                update_ecs_breakables,
+                update_ecs_breakables.run_if(any_with_component::<ambition_combat::components::BreakableFeature>),
                 // OW5: the respawn's due time, after the timer has ticked.
                 ecs::world_time_schedule::mirror_breakable_respawns,
                 // Q152: a collected pickup comes back when its regrowth is due.

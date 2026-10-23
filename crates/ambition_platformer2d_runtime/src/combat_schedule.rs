@@ -774,8 +774,10 @@ impl Plugin for CombatSchedulePlugin {
                     // `Materialize`, ahead of `step_projectiles` — see the note
                     // there. It is still before this sweep, which is the
                     // property this position was defending.
-                    ambition_platformer2d_actor_monolith::features::apply_hitbox_damage,
-                    ambition_combat::moveset::mark_move_playback_landed_hits,
+                    ambition_platformer2d_actor_monolith::features::apply_hitbox_damage
+                        .run_if(bevy::prelude::any_with_component::<ambition_platformer2d_actor_monolith::features::Hitbox>),
+                    ambition_combat::moveset::mark_move_playback_landed_hits
+                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::LandedBodyHit>),
                     // A strike a guard turned aside: the rebound, the lockout,
                     // the guard's run toward breaking.
                     ambition_combat::guard::resolve_deflects,
@@ -785,12 +787,15 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_combat::on_hit::dispatch_landed_hit_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::LandedBodyHit>)
                     .in_set(GameplayGated),
-                ambition_combat::on_hit::apply_pogo_bounce.in_set(GameplayGated),
+                ambition_combat::on_hit::apply_pogo_bounce
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::on_hit::OnHitEffectMessage>)
+                    .in_set(GameplayGated),
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
                 // separate collision-world contact path. ECS bodies are never projected
                 // into this world-surface representation.
                 ambition_combat::attack_support::pogo_moveset_off_world_orbs.in_set(GameplayGated),
-                ambition_platformer2d_actor_monolith::features::tick_and_despawn_hitboxes,
+                ambition_platformer2d_actor_monolith::features::tick_and_despawn_hitboxes
+                    .run_if(bevy::prelude::any_with_component::<ambition_platformer2d_actor_monolith::features::Hitbox>),
                 // Suppress combat damage during dialog / cutscene / pause: the
                 // victim-side `apply_player_hit_events` is already gated this way, so
                 // gate the attacker-side application too. Otherwise a body pinned
@@ -805,6 +810,10 @@ impl Plugin for CombatSchedulePlugin {
                 // here. The overlap keeps its early slot (and its staling); only
                 // the connect/block verdict waits.
                 ambition_combat::moveset::mark_move_playback_resolved_hits
+                    .run_if(
+                        ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::ResolvedBodyHit>
+                            .or_else(ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::BlockedBodyHit>),
+                    )
                     .after(ambition_platformer2d_actor_monolith::features::apply_feature_hit_events)
                     .in_set(GameplayGated),
                 // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below

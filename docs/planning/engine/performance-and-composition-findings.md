@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 20:09Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 964 systems a frame; hub Ambition route 1,323 → 1,135 since
+**Status, 2026-10-23 20:19Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 955 systems a frame; hub Ambition route 1,323 → 1,129 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -115,6 +115,7 @@ says what they bought in frame time.
 | The themed door and fixture dressers run while one of their rows is undressed | done | census: Mary-O 968 → 965 (one noise row), Ambition 1,140 → 1,138 systems a frame; render 445 tests pass |
 | The room-transition cooldown counts down only while a seat's runs (it wrote the session root's component every tick) | done | census: Mary-O 965 → 964, Ambition 1,138 → 1,137; shared_tangle 334, monolith 1,229 and 76 app reconstitution, door and transition tests pass |
 | Avatar passes: moving platforms advance while a room has one, scripted control frames blank while a body is held (`ControlHolds` is present exactly then), commanded moves drive while one is commanded, mana regenerates while a composition declares `PlayerManaRegen` | done | census: Mary-O 3 gated rows (964 a frame, 3 noise rows), Ambition 1,137 → 1,135; monolith 1,229, runtime 101 and 87 app reconstitution, platform, cutscene, hold, capture and conversation tests pass |
+| Hit passes: hitbox damage and lifetime while a hitbox stands, breakables while one stands, landed and resolved move-hit marks and the pogo bounce while their message waits (peek) | done | census: Mary-O 964 → 955, Ambition 1,135 → 1,129 (6 gated rows each); combat 792, monolith 1,229, runtime 101, Smash 293, Mary-O 204 and 186 app hit, strike, Smash, guard and reconstitution tests pass |
 
 ### F45 — A run condition can eat a message its system never reads (2026-10-23)
 

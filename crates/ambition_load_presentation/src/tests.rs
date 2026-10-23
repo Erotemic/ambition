@@ -400,6 +400,27 @@ fn composed_fast_load_activates_without_visible_foreground() {
         .active
         .is_none());
     assert!(!app.world().resource::<LoadPresentationModel>().visible);
+
+    // In play the pass sleeps: nothing rewrites the empty model each frame.
+    let last_changed = |app: &bevy::prelude::App| {
+        app.world()
+            .get_resource_change_ticks::<LoadPresentationModel>()
+            .expect("the model is a resource")
+            .changed
+    };
+    // The last commands outlive their frame by one, and the pass runs one
+    // frame after them.
+    for _ in 0..3 {
+        app.update();
+    }
+    let settled = last_changed(&app);
+    app.update();
+    app.update();
+    assert_eq!(
+        last_changed(&app),
+        settled,
+        "an idle load presentation writes nothing",
+    );
 }
 
 #[test]

@@ -41,7 +41,8 @@ consolidations and the monolith packets.
 | Every main-world schedule serial: `SerialScheduleSweep` in `Plugin::cleanup` (`42e1843d4`) | done | see F41: `ShelterFontSources` 334 → 8 µs a frame, `ProcessLdtkApi` 469 → 24, `ReadInputs` 96 → 28 |
 | Portal observation in `CapabilityPresentationSet(Portals)` (`147e09d9f`) | done | not yet re-measured |
 | The animators write a sprite or anchor only when the frame changes it (`FrameWrites`, `abcc6ec7e`) | done | not yet re-measured; every animated sprite was marked changed each frame, so its extraction re-ran |
-| The flat menu's readers and restylers (14 systems) sleep while no menu control or tab exists; one frame after, so a hover edge resets (`AnyMenuControl`, required by every `AmbitionMenuControl<A>`) | done | REASONED 14 → 0 systems a frame in play, one condition left; census pending |
+| The flat menu's readers and restylers (14 systems) sleep while no menu control or tab exists; one frame after, so a hover edge resets (`AnyMenuControl`, required by every `AmbitionMenuControl<A>`, `f1cdc7ea8`) | done | census with portal observation and boss presentation: 1,253 → 1,229 systems a frame; `ambition_menu` 11 → 5, host 20 → 11 |
+| The load presentation pass (12 systems) and its shell adapter (4) sleep between loads; the idle pass rewrote the empty model each frame | done | REASONED 16 → 0 systems a frame in play; census pending |
 
 ### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
 

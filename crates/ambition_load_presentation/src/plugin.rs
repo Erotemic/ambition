@@ -3,9 +3,10 @@
 use std::time::Duration;
 
 use ambition_load::{BarrierReadiness, LoadCoordinator};
+use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::{
-    App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, Query, Res, ResMut,
-    Time, Update,
+    App, Commands, IntoScheduleConfigs, MessageReader, MessageWriter, Messages, Plugin, Query, Res,
+    ResMut, Time, Update, With,
 };
 
 use crate::{
@@ -40,8 +41,10 @@ impl Plugin for AmbitionLoadPresentationPlugin {
                     LoadPresentationSet::Cleanup,
                     LoadPresentationSet::Render,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(LoadPresentationPass),
             )
+            .configure_sets(Update, LoadPresentationPass.run_if(a_load_is_presented_or_was()))
             .add_systems(
                 Update,
                 observe_presentation_commands.in_set(LoadPresentationSet::Observe),
@@ -63,6 +66,37 @@ impl Plugin for AmbitionLoadPresentationPlugin {
                 Update,
                 cleanup_activity_entities.in_set(LoadPresentationSet::Cleanup),
             );
+    }
+}
+
+/// Every [`LoadPresentationSet`]: the pass that runs only around a load.
+#[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct LoadPresentationPass;
+
+/// True while a load is presented: a foreground or an activity is active, a
+/// command, action or activity signal is in flight, or an activity's entities
+/// remain. Also true on the first frame after, so each member sees the load
+/// gone once (a presentation takes its screen down then).
+fn a_load_is_presented_or_was() -> impl FnMut(
+    Res<LoadForegroundState>,
+    Res<LoadActivityState>,
+    Res<Messages<LoadPresentationCommand>>,
+    Res<Messages<LoadPresentationAction>>,
+    Res<Messages<LoadActivitySignal>>,
+    Query<(), With<LoadActivityScopedEntity>>,
+) -> bool
+       + Clone {
+    let mut was_presented = false;
+    move |foreground, activity, commands, actions, signals, scoped| {
+        let presented = foreground.active.is_some()
+            || activity.active.is_some()
+            || !commands.is_empty()
+            || !actions.is_empty()
+            || !signals.is_empty()
+            || !scoped.is_empty();
+        let run = presented || was_presented;
+        was_presented = presented;
+        run
     }
 }
 

@@ -6,8 +6,10 @@ use ambition_game_shell::{
     AmbitionGameShellSet, ShellCommand, ShellEvent, ShellHoldId, ShellRouteCatalog,
     ShellRouteHolds, ShellRouteId, ShellRouter,
 };
+use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::{
-    App, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, Res, ResMut, Resource, Update,
+    App, IntoScheduleConfigs, MessageReader, MessageWriter, Messages, Plugin, Res, ResMut,
+    Resource, Update,
 };
 
 use crate::{
@@ -59,11 +61,16 @@ impl Plugin for AmbitionLoadShellPresentationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ShellLoadPresentationCatalog>()
             .init_resource::<ShellLoadPresentationState>()
+            .configure_sets(
+                Update,
+                ShellLoadAdapterSet.run_if(a_shell_load_is_presented_or_signalled),
+            )
             .add_systems(
                 Update,
                 observe_shell_waits
                     .after(AmbitionGameShellSet::Commands)
-                    .before(LoadPresentationSet::Observe),
+                    .before(LoadPresentationSet::Observe)
+                    .in_set(ShellLoadAdapterSet),
             )
             .add_systems(
                 Update,
@@ -71,15 +78,32 @@ impl Plugin for AmbitionLoadShellPresentationPlugin {
                     .chain()
                     .after(LoadPresentationSet::Actions)
                     .before(AmbitionGameShellSet::Pending)
-                    .before(LoadPresentationSet::Finalize),
+                    .before(LoadPresentationSet::Finalize)
+                    .in_set(ShellLoadAdapterSet),
             )
             .add_systems(
                 Update,
                 finalize_activated_route
                     .after(AmbitionGameShellSet::Pending)
-                    .before(LoadPresentationSet::Finalize),
+                    .before(LoadPresentationSet::Finalize)
+                    .in_set(ShellLoadAdapterSet),
             );
     }
+}
+
+/// The adapter's systems: they act on a shell event, on a presentation
+/// event, or for the route whose load is presented.
+#[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct ShellLoadAdapterSet;
+
+/// True while the adapter presents a route's load, or a shell or presentation
+/// event is in flight (one of them begins or ends the presentation).
+fn a_shell_load_is_presented_or_signalled(
+    state: Res<ShellLoadPresentationState>,
+    shell_events: Res<Messages<ShellEvent>>,
+    presentation_events: Res<Messages<LoadPresentationEvent>>,
+) -> bool {
+    state.active.is_some() || !shell_events.is_empty() || !presentation_events.is_empty()
 }
 
 fn shell_owner(

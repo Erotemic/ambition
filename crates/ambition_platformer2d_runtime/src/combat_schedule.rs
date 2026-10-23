@@ -781,7 +781,9 @@ impl Plugin for CombatSchedulePlugin {
                 )
                     .chain()
                     .in_set(GameplayGated),
-                ambition_combat::on_hit::dispatch_landed_hit_effects.in_set(GameplayGated),
+                ambition_combat::on_hit::dispatch_landed_hit_effects
+                    .run_if(bevy::prelude::on_message::<ambition_combat::hitbox::LandedBodyHit>)
+                    .in_set(GameplayGated),
                 ambition_combat::on_hit::apply_pogo_bounce.in_set(GameplayGated),
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
                 // separate collision-world contact path. ECS bodies are never projected
@@ -918,6 +920,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_damage::stage_player_victim_hit_events
+                .run_if(bevy::prelude::on_message::<ambition_combat::events::HitEvent>)
                 .in_set(GameplayGated)
                 .in_set(CombatSet::Settle)
                 .before(ambition_mount::MountRiderLinkEnforced),

@@ -2009,6 +2009,10 @@ pub fn register(app: &mut bevy::prelude::App) {
     .add_systems(
         bevy::prelude::Update,
         break_the_publication_lease_when_the_boundary_closes
+            // Exclusive, so only while a generation holds a lease.
+            .run_if(|pending: Option<bevy::prelude::Res<PendingGeneration>>| {
+                pending.is_some_and(|pending| pending.load_id.is_some())
+            })
             // Before the commit it prevents: the pending generation is already
             // gone when `commit_content_generation` looks for it.
             .before(commit_content_generation)

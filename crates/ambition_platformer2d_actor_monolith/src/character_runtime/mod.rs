@@ -999,7 +999,11 @@ impl Plugin for CharacterRuntimePlugin {
                     demand_worn_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.
-                    audit::report_character_capability_gaps,
+                    // Exclusive, so only while a demand is outstanding (with none
+                    // there is nothing to be unable to do).
+                    audit::report_character_capability_gaps.run_if(
+                        |demand: Option<Res<CharacterLoadDemand>>| demand.is_some_and(|demand| demand.pending().next().is_some()),
+                    ),
                     // G4/H3: the declaration authorities, compared. Gated on any of
                     // the THREE changing rather than run every frame — it walks all
                     // of them, and the answer can only change when one does.

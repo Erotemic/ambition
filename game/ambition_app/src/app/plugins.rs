@@ -438,7 +438,11 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .after(Platformer2dSimulationPhase::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
-        .add_systems(PostUpdate, restart_local_ggrs_after_hot_reload);
+        .add_systems(
+            PostUpdate,
+            // Exclusive, so only on the frame a reload asks for it.
+            restart_local_ggrs_after_hot_reload.run_if(resource_exists::<super::dev_runtime::RestartLocalGgrsAfterLdtkReload>),
+        );
 
     // Unified menu (the one menu): install backend-agnostic menu state first,
     // then install each compiled backend independently. The backend features are

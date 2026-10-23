@@ -383,7 +383,7 @@ fn verification_reasons(world: &World, room: &str) -> Vec<String> {
 }
 
 #[derive(Resource, Clone, Copy, Debug)]
-struct RestartLocalGgrsAfterLdtkReload;
+pub(super) struct RestartLocalGgrsAfterLdtkReload;
 
 /// Rebind the cheap local baseline after the Update-stage content transaction
 /// and its deferred session removal have both committed.

@@ -103,6 +103,10 @@ npc_martin_cutta
 npc_paradox_barber
 npc_yuclid
 
+[Arguments]
+npc_steel_man
+npc_straw_man
+
 [Guests from history and the studio]
 npc_genghis_can
 npc_genghis_cant

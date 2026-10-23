@@ -5517,5 +5517,35 @@
         ),
         hall_dialogue_id: Some("hall_npc_searchlight_crawler"),
         ),
+        // The Steel Man and the Straw Man (Jon, 2026-10-23): the opposing
+        // argument at its strongest, and the misrepresentation that is easy to
+        // knock down (comic relief). Art and rows only: they stand in the Hall
+        // and have no place, dialogue or fight yet.
+        "npc_steel_man": (
+            display_name: "The Steel Man",
+            // The girder: riveted blued plate over red-lead I-beams (`steel_man`).
+            manifest: "sprites/steel_man_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 196 cm.
+            standing_height: Some(75.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["philosophy", "construct", "peaceful"],
+        ),
+        "npc_straw_man": (
+            display_name: "The Straw Man",
+            // The sheaf: wheat bound in jute, shedding straw (`straw_man`).
+            manifest: "sprites/straw_man_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["philosophy", "construct", "peaceful"],
+        ),
     },
 )

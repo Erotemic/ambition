@@ -1175,6 +1175,10 @@ tackon_targets=(
     # and `npc_exploding_mite` show; their robot-toon configs stay renderable.
     dividing_mite_v2
     exploding_mite_v2
+    # The Steel Man and the Straw Man (2026-10-23), SVG rigs of one module
+    # (`targets/characters/steel_and_straw_man.py`): the girder and the sheaf.
+    steel_man
+    straw_man
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as

@@ -180,6 +180,9 @@ links to.
 - [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
   Nothing teleports: props and projectiles straddle and cross as bodies
   do, and a seam lab (a gauge prop, a scenario matrix) measures it.
+- [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
+  A body straddling a portal is hit, hurts and collides on both sides, with
+  no hacks (Jon, 2026-10-16).
 - [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
   A portal is a rigid frame that moves: its host's published motion,
   transit in its own frame, captures that are drawn where they were taken.
@@ -207,6 +210,8 @@ links to.
 - [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md)
 - [`engine/boss-system.md`](engine/boss-system.md) — actor-local boss behavior.
 - [`engine/boss-design.md`](engine/boss-design.md) — boss fight quality.
+- [`engine/procedural-dialogue-mumblespeak.md`](engine/procedural-dialogue-mumblespeak.md)
+  — speech-like dialogue sounds without recorded lines; deferred.
 
 ### Engine: presentation, UI and multiplayer
 
@@ -233,6 +238,8 @@ links to.
 - [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
 - [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md)
 - [`engine/headless-verification.md`](engine/headless-verification.md)
+- [`engine/prevalidated-content-artifacts.md`](engine/prevalidated-content-artifacts.md)
+  — content validated ahead of time for fast admission; deferred.
 - [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
 - [`engine/runtime-frame-history.md`](engine/runtime-frame-history.md)
 - [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)

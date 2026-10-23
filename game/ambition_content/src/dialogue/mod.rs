@@ -5,7 +5,7 @@
 //! (boss + pirate barks). The named cutscene *content* lives in
 //! [`cutscene_defaults`]; the reusable runtime
 //! types live in `ambition_cutscene` and the playback systems in
-//! `ambition_platformer2d_actor_monolith::cutscene`. The banter *content* lives in
+//! `ambition_platformer2d_runtime::cutscene`. The banter *content* lives in
 //! `crate::banter` / `crate::bosses`; this module only owns assembling those
 //! named rosters into sandbox resources.
 //!

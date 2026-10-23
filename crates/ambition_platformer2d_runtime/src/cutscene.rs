@@ -8,9 +8,9 @@
 //! [`ambition_persistence::save::AmbitionGameSave`]). The HUD/overlay presentation
 //! reads `ActiveCutscene` from the render crate.
 //!
-//! These systems are gameplay-coupled (rooms, save, schedule) so they live here
-//! rather than in `ambition_cutscene` — which sits below this crate and must
-//! stay content- and gameplay-free.
+//! These systems are gameplay-coupled (rooms, save, schedule) so they live in
+//! the runtime that installs them rather than in `ambition_cutscene`, which
+//! sits below it and must stay content- and gameplay-free.
 
 use bevy::prelude::*;
 

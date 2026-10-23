@@ -310,7 +310,7 @@ fn a_host_that_omits_cutscenes_still_builds_and_steps() {
         let group = ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick().build();
         if disable_cutscenes {
             app.add_plugins(
-                group.disable::<ambition_platformer2d::actors::cutscene::CutsceneSchedulePlugin>(),
+                group.disable::<ambition_platformer2d::runtime::cutscene::CutsceneSchedulePlugin>(),
             );
         } else {
             app.add_plugins(group);

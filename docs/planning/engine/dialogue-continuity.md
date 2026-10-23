@@ -101,7 +101,7 @@ behaviors must be expressible, and this page sets the default.
 ## Ending rules for cutscenes and dialogue
 
 - **A cutscene has one ending.** Skip and completion both call `end_cutscene`
-  (`crates/ambition_platformer2d_actor_monolith/src/cutscene.rs`), which sets
+  (`crates/ambition_platformer2d_runtime/src/cutscene.rs`), which sets
   the script's `seen_flag` and clears the runtime and presentation. If the flag
   is not set, `should_play` runs the cutscene again on each visit. A script with
   no `seen_flag` writes nothing. Tests guard both cases.

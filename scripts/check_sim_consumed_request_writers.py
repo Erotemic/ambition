@@ -126,11 +126,11 @@ SUBJECTS: dict[str, tuple[str, dict[str, str]]] = {
         "`LastCutsceneRoom` rewind around it — so a writer outside the rewinding "
         "schedule loses its trigger on every rewind",
         {
-            "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs::auto_trigger_room_cutscenes": (
+            "crates/ambition_platformer2d_runtime/src/cutscene.rs::auto_trigger_room_cutscenes": (
                 "PRODUCER, in `Platformer2dSimulationPhase::Cutscene` — in the "
                 "sim schedule, so a replay re-produces it (read 2026-09-17)"
             ),
-            "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs::drain_cutscene_triggers": (
+            "crates/ambition_platformer2d_runtime/src/cutscene.rs::drain_cutscene_triggers": (
                 "CONSUMER — the `std::mem::take`, in the sim schedule (read 2026-09-17)"
             ),
             "crates/ambition_boss_encounter/src/systems.rs::update_boss_encounters": (

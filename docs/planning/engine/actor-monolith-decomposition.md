@@ -500,6 +500,11 @@ The same day, the room-entered quest producer (`quest`,
 note said it lived in the monolith "because `RoomSet` does"; `RoomSet` is the
 world crate's now, and the runtime depends on both that and the quest
 registry's crate, which do not depend on each other.
+The cutscene player (`cutscene`: room-entry triggers, playback, the skip
+hold and the seen-flag save effect, `CutsceneSchedulePlugin`) followed for
+the same reason: it read nothing else of the monolith, `ambition_cutscene`
+must stay gameplay-free, and the runtime installs it and is where a profile
+without the `Cutscenes` capability leaves it out. About 400 lines.
 
 **Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
 (1) is match preparation reading the session root's `InitialBodyPolicy`, to

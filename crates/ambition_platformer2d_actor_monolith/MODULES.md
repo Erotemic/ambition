@@ -23,7 +23,6 @@
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`construction`](src/construction/mod.rs) | Actor construction planner for authored, provider-staged, and runtime-dynamic origins. |
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
-| [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
 | [`game_assets`](src/game_assets/mod.rs) | Compatibility facade for game-asset resources and loaders. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
@@ -40,7 +39,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_33 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

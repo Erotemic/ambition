@@ -255,7 +255,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_menu/src/map/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_persistence/src/save.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
@@ -263,6 +262,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
         "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "crates/ambition_shrine/src/lib.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
@@ -606,8 +606,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "CutsceneTriggerQueue": (
         "crates/ambition_boss_encounter/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
         "game/ambition_demo_mary_o/src/castle_end.rs",
     ),
     "GameplayTraceBuffer": (
@@ -665,8 +665,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "ActiveCutscene": (
-        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
     ),
     "ActiveGameplaySession": (
         "crates/ambition_game_shell/src/session.rs",
@@ -716,8 +716,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "CutsceneSkipHold": (
-        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
     ),
     "DefaultMusicStarted": (
         "crates/ambition_audio/src/library.rs",

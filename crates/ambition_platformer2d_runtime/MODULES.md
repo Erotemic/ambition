@@ -11,6 +11,7 @@
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Host wiring for the reset/checkpoint horizon. |
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
+| [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
 | [`encounter_spawn_service`](src/encounter_spawn_service.rs) | The kernel's spawn server, registered where both sides are nameable. |
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
@@ -41,7 +42,7 @@
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

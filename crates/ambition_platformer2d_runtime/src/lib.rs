@@ -42,6 +42,9 @@ mod portal_seat;
 mod progression_schedule;
 /// The room-entered quest producer: the progression schedule installs it.
 pub mod quest;
+/// The cutscene player: triggers, playback and its save effects (the
+/// `Cutscenes` capability; a profile without it leaves the plugin out).
+pub mod cutscene;
 pub mod posed_limbs;
 pub mod profile;
 pub mod projectile_schedule;
@@ -542,7 +545,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // point — see the plugin's module doc.
             .add(crate::world_gating::WorldGatingSchedulePlugin)
             .add(crate::authored_verdict_timeline::AuthoredVerdictTimelinePlugin)
-            .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)
+            .add(crate::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_platformer2d_actor_monolith::features::GameplayEffectsSchedulePlugin)
             // Reward chests react to the encounter domain's published cleared

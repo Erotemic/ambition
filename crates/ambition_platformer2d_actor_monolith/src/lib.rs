@@ -39,7 +39,6 @@ pub mod character_sprites;
 /// Swings and shots arbitrated in ONE contest, before either damage road runs.
 pub mod clash;
 pub mod config;
-pub mod cutscene;
 #[cfg(test)]
 pub mod enemy_projectile;
 pub mod body_conditions;

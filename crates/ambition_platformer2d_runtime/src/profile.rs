@@ -50,7 +50,7 @@ impl CapabilityComposition for Capability {
     fn omit(self, group: PluginGroupBuilder) -> PluginGroupBuilder {
         match self {
             Capability::Cutscenes => {
-                group.disable::<ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin>()
+                group.disable::<crate::cutscene::CutsceneSchedulePlugin>()
             }
             Capability::Dialogue => group
                 .disable::<ambition_dialog::DialogSimStatePlugin>()
@@ -95,7 +95,7 @@ impl CapabilityComposition for Capability {
         let world: &World = app.world();
         match self {
             Capability::Cutscenes => {
-                app.is_plugin_added::<ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin>()
+                app.is_plugin_added::<crate::cutscene::CutsceneSchedulePlugin>()
                     || world.contains_resource::<ambition_cutscene::ActiveCutscene>()
             }
             Capability::Dialogue => {

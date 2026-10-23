@@ -45,6 +45,7 @@ execution weak, improve the execution, not the idea.
 | Alice | up-B | *"up b opens a portal under him, and a portal at the very top of the stage"*; *"we can even exercise angled portals with directional input on the up b"* | |
 | Goblin | Limit | *"Give the limit ability to the goblin maybe? […] And give whoever gets the limit meter some move they can use when it fills."* | he called the numbers *"just an example, you can tweak things"* |
 | PCA | ranged | *"PCA needs to shoot a glider, but beyond that i don't really care."* | |
+| PCA | charge blast | the PCA's Mewtwo Shadow Ball (Jon, 2026-10-18; quoted in `cellular_automaton_moveset.rs`) | `imperfect_cellular_automaton` wears the same table |
 | Patent Clerk | Witch-Time | *"no take-backs"* | |
 | Oiler | geyser | *"so the column reads as continuous rather than as one puff"* | |
 
@@ -53,9 +54,9 @@ execution weak, improve the execution, not the idea.
 The guard decides this list by scanning each fighter's moveset files (`*_moveset.rs`
 and `data/movesets/*.ron`) for the maintainer's name:
 
-`bob`, `carl_stargan`, `cellular_automaton`, `emmy_noether`, `medic`,
-`ninja_shadow_oni_leader`, `pugnacious_polygon`, and <!-- cite-ok: character ids in the catalog data, not Rust items -->
-`imperfect_cellular_automaton` (which wears `cellular_automaton`'s table).
+`bob`, `carl_stargan`, `emmy_noether`, `medic`,
+`ninja_shadow_oni_leader`, `pugnacious_polygon`, `shock_warden` (Castle Godwin's riot trooper), and <!-- cite-ok: character ids in the catalog data, not Rust items -->
+`imperfect_cellular_automaton` (its own file quotes no ruling; the table it wears, `cellular_automaton`'s, is reviewed above).
 
 These are the demonstration: each design is an agent's decision. A fighter that
 moves off this list means Jon has spoken about it, and the polish rules change.
@@ -83,8 +84,8 @@ This block is the contract; the prose above is for people. The guard compares
 these slugs with the code as sets. Every moveset file must appear in exactly one
 list, so a new fighter must be classified.
 
-<!-- reviewed-fighters: alice, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
-<!-- free-fighters: bob, carl_stargan, cellular_automaton, emmy_noether, gnu_ton, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, pugnacious_polygon, ramen_nujan -->
+<!-- reviewed-fighters: alice, cellular_automaton, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
+<!-- free-fighters: bob, carl_stargan, emmy_noether, gnu_ton, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, pugnacious_polygon, ramen_nujan, shock_warden -->
 
 ## The guard
 

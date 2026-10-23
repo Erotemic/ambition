@@ -164,6 +164,25 @@ impl ExeBundle {
             .as_ref()
     }
 
+    /// Whether the asset tree of the running program holds `path`: its
+    /// bundle when it carries one, else the `assets/` directory Bevy's file
+    /// reader loads from (`BEVY_ASSET_ROOT`, else `CARGO_MANIFEST_DIR`, else
+    /// the executable's directory). An installed build (a Steam Deck install)
+    /// has its tree there. Android and the web read no such directory: false.
+    pub fn running_program_tree_holds(path: &str) -> bool {
+        if let Some(bundle) = Self::of_running_exe() {
+            return bundle.contains(path);
+        }
+        if cfg!(any(target_arch = "wasm32", target_os = "android")) {
+            return false;
+        }
+        let base = std::env::var_os("BEVY_ASSET_ROOT")
+            .or_else(|| std::env::var_os("CARGO_MANIFEST_DIR"))
+            .map(std::path::PathBuf::from)
+            .or_else(|| std::env::current_exe().ok()?.parent().map(Path::to_path_buf));
+        base.is_some_and(|base| base.join("assets").join(normalize(path)).is_file())
+    }
+
     /// The executable that holds the bundle.
     pub fn file(&self) -> &Path {
         &self.file

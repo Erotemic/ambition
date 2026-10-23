@@ -204,31 +204,30 @@ pub fn world_manifest_problems(manifest: &AuthoredWorldManifest) -> Vec<String> 
 /// authored `asset_path` (typically a game-registered asset source on
 /// desktop, e.g. `game://worlds/sandbox.ldtk`).
 ///
-/// A program that carries its asset tree
-/// ([`ambition_asset_manager::exe_bundle`]) loads the world file of that tree
-/// ([`world_bevy_asset_path_in`]).
+/// A program whose own asset tree holds the world file (the tree a packaged
+/// program carries, or the installed `assets/` directory of a Steam Deck
+/// install) loads that file ([`world_bevy_asset_path_in`]).
 pub fn world_bevy_asset_path(source: &WorldSource) -> String {
-    world_bevy_asset_path_in(source, ambition_asset_manager::exe_bundle::ExeBundle::of_running_exe())
+    world_bevy_asset_path_in(source, ambition_asset_manager::exe_bundle::ExeBundle::running_program_tree_holds)
 }
 
-/// [`world_bevy_asset_path`] for a program whose asset tree is `bundle`.
+/// [`world_bevy_asset_path`] for a program whose asset tree holds the paths
+/// `tree_holds` answers for.
 ///
 /// A world file names each tileset image by a path from itself
 /// (`../sprites/tiles.png`). The embedded copy is one file with nothing
 /// beside it, so its images resolve to `embedded://<crate>/sprites/tiles.png`
-/// and do not load. The world file of the bundle has the images beside it,
-/// so a row that the bundle holds loads from there, embedded copy or not.
-pub fn world_bevy_asset_path_in(
-    source: &WorldSource,
-    bundle: Option<&ambition_asset_manager::exe_bundle::ExeBundle>,
-) -> String {
-    // Each asset source of a packaged program reads the one flat tree, so
-    // the path in the tree is the authored path with no source name.
+/// and do not load. The world file of the program's tree has the images
+/// beside it, so a row that the tree holds loads from there, embedded copy or
+/// not.
+pub fn world_bevy_asset_path_in(source: &WorldSource, tree_holds: impl Fn(&str) -> bool) -> String {
+    // Each asset source of a packaged or installed program reads the one flat
+    // tree, so the path in the tree is the authored path with no source name.
     let in_the_tree = source
         .asset_path
         .split_once("://")
         .map_or(source.asset_path.as_str(), |(_, path)| path);
-    if bundle.is_some_and(|bundle| bundle.contains(in_the_tree)) {
+    if tree_holds(in_the_tree) {
         return source.asset_path.clone();
     }
     match (source.embedded_text, source.embedded_bevy_path) {
@@ -337,21 +336,32 @@ mod tests {
             required: true,
         };
         assert_eq!(
-            world_bevy_asset_path_in(&source, None),
+            world_bevy_asset_path_in(&source, |_| false),
             "embedded://worlds/primary.ldtk",
             "the control: with no bundle the embedded copy wins, as before"
         );
         let holds_the_world = bundle("holds", &[("worlds/primary.ldtk", b"{}"), ("sprites/tiles.png", b"png")]);
         assert_eq!(
-            world_bevy_asset_path_in(&source, Some(&holds_the_world)),
+            world_bevy_asset_path_in(&source, |path| holds_the_world.contains(path)),
             "game://worlds/primary.ldtk"
         );
         let holds_another_world = bundle("another", &[("worlds/another.ldtk", b"{}")]);
         assert_eq!(
-            world_bevy_asset_path_in(&source, Some(&holds_another_world)),
+            world_bevy_asset_path_in(&source, |path| holds_another_world.contains(path)),
             "embedded://worlds/primary.ldtk",
             "a bundle that does not hold this world cannot serve it"
         );
+        // An installed tree on the disk (a Steam Deck install) answers the same
+        // question for a program with no bundle.
+        let installed = std::env::temp_dir().join(format!("ambition-world-installed-{}", std::process::id()));
+        std::fs::create_dir_all(installed.join("worlds")).unwrap();
+        std::fs::write(installed.join("worlds/primary.ldtk"), b"{}").unwrap();
+        assert_eq!(
+            world_bevy_asset_path_in(&source, |path| installed.join(path).is_file()),
+            "game://worlds/primary.ldtk",
+            "an installed tree that holds the world serves it, tilesets beside it"
+        );
+        std::fs::remove_dir_all(&installed).unwrap();
     }
 
     fn authored(worlds: &[(&str, &str, bool)]) -> AuthoredWorldManifest {

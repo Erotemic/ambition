@@ -2357,9 +2357,13 @@
         ),
         "npc_news_board": (
             display_name: "News Board",
-            manifest: "sprites/news_board_spritesheet.ron",
+            // The Drain Market board (look A of 2026-10-23): planks on two
+            // drain pipes under a tin roof, a PA horn for its voice.
+            manifest: "sprites/news_board_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
+            // About 2.1 m with its roof: a little higher than a tall man.
+            standing_height: Some(80.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

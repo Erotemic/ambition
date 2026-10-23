@@ -896,6 +896,8 @@ tackon_targets=(
     officer_strike_fx
     medic_strike_fx
     news_board
+    # The News Board redrawn (2026-10-23): the Drain Market board, an SVG rig.
+    news_board_v2
     town_tileset
     # Intro / cut-the-rope content (loaded by ambition_content's intro
     # sprites + cut_rope boss) and catalog-referenced characters that

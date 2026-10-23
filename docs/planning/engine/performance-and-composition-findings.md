@@ -54,6 +54,7 @@ consolidations and the monolith packets.
 | Held and wielded item presentation (in-hand sprite, over-hand sprite, hand requests) in `HeldItemPresentationSet`: runs while an item is held or wielded and one frame after | done | 3 systems a frame where nothing is held (REASONED by count) |
 | Monolith packet: `audio` and `music` leave the actor monolith as `ambition_platformer2d_audio` (`9c23bfefc`); the facade's `audio` installs it, the monolith's `visible` no longer implies audio | done | ~1,200 production and ~1,400 test lines out of the monolith; 0 systems added or removed; Outlander and the minimal game stop linking the audio runtime (REASONED from the feature graph) |
 | New `[census] changed_transforms` (entities whose `Transform` was written this frame, by name). Ground items are kept visuals (they were despawned and spawned each frame); world labels, the shrine and the boss stage write their transform only when it moves | done | census, hub Ambition route: 83 → 53 changed transforms a frame (14 ground-item respawns a frame → 0); Mary-O route was 73-145, mostly moving rig parts and motes |
+| World item visuals (Mary-O's grow caps, wands and beacons) are kept per row of a room and look, not despawned and spawned each frame | done | REASONED: one spawn and one despawn per pickup a frame fewer, with their archetype moves and extraction; witness `a_world_item_visual_is_kept_while_its_row_stays` |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 

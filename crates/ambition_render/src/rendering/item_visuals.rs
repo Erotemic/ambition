@@ -445,22 +445,51 @@ pub fn sync_world_item_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     art: Option<Res<WorldItemArt>>,
     failed_art: Option<Res<FailedItemArt>>,
-    visuals: Query<Entity, With<WorldItemVisual>>,
+    mut visuals: Query<(Entity, &WorldItemDrawn, &mut Transform), With<WorldItemVisual>>,
     items: Res<ambition_sim_view::WorldItemsView>,
     mut reported: Local<ReportedOnce>,
 ) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
+        for (entity, ..) in &visuals {
+            commands.entity(entity).despawn();
+        }
         return;
     };
-    if art.as_ref().is_some_and(|art| art.is_changed()) {
+    // A replaced manifest is new content: earlier reports no longer apply, and
+    // every visual is drawn again from it.
+    let art_replaced = art.as_ref().is_some_and(|art| art.is_changed());
+    if art_replaced {
         reported.clear();
     }
-    for item in &items.0 {
+    // A visual is kept while a row of its room and look remains: rows have no
+    // identity of their own, so two alike rows may trade visuals, which draws
+    // the same picture. Its transform is written only when it moves.
+    let mut kept: Vec<bool> = vec![false; items.0.len()];
+    for (entity, drawn, mut transform) in &mut visuals {
+        let row = (!art_replaced)
+            .then(|| {
+                items.0.iter().enumerate().find(|(index, item)| {
+                    !kept[*index] && item.room == Some(drawn.room) && drawn.looks_like(item)
+                })
+            })
+            .flatten()
+            .and_then(|(index, item)| Some((index, item, rooms.in_room(drawn.room)?)));
+        match row {
+            Some((index, item, world)) => {
+                kept[index] = true;
+                let z = if item.emerging { -1.0 } else { 8.0 };
+                let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, z);
+                transform.set_if_neq(Transform::from_translation(translation));
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for (index, item) in items.0.iter().enumerate() {
+        if kept[index] {
+            continue;
+        }
         // An emerging pickup draws behind the world, so it looks like it comes
         // out of its block. `WORLD_Z_BLOCK` is 0.0, so anything below it is
         // hidden by the geometry; a free item uses 8.0.
@@ -502,11 +531,31 @@ pub fn sync_world_item_visuals(
             session_scope,
             (
                 WorldItemVisual,
+                WorldItemDrawn {
+                    room,
+                    row_id: item.row_id.clone(),
+                    sprite: item.sprite.clone(),
+                },
                 sprite,
                 Transform::from_translation(translation),
                 Name::new("World item visual"),
             ),
         );
+    }
+}
+
+/// What a kept world item visual draws: a row of another room or another look
+/// is drawn by a new visual.
+#[derive(Component)]
+pub struct WorldItemDrawn {
+    room: LiveRoomInstance,
+    row_id: String,
+    sprite: Option<String>,
+}
+
+impl WorldItemDrawn {
+    fn looks_like(&self, item: &ambition_sim_view::WorldItemFact) -> bool {
+        self.row_id == item.row_id && self.sprite == item.sprite
     }
 }
 
@@ -981,6 +1030,51 @@ mod tests {
         assert_eq!(moved[0].0, first[0].0, "a moved row keeps its visual");
         assert_eq!(moved[0].1 - first[0].1, 40.0, "and moves it");
         app.world_mut().resource_mut::<GroundItemsView>().0.clear();
+        app.update();
+        assert!(visual(&mut app).is_empty(), "a row that is gone takes its visual");
+    }
+
+    /// A world item's visual is kept while a row of its room and look stays:
+    /// its entity survives a frame, and a row that is gone takes it.
+    #[test]
+    fn a_world_item_visual_is_kept_while_its_row_stays() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let geometry = ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "item room",
+            ambition_platformer2d_core::Vec2::new(800.0, 600.0),
+            ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+            Vec::new(),
+        ));
+        let mut app = App::new();
+        let mut active = ActiveSessionScope::default();
+        active.begin();
+        app.insert_resource(active);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry);
+        let row = |x: f32| ambition_sim_view::WorldItemFact {
+            pos: ambition_platformer2d_core::Vec2::new(x, 200.0),
+            half_extent: ambition_platformer2d_core::Vec2::new(8.0, 8.0),
+            row_id: "grow_cap".to_string(),
+            sprite: None,
+            emerging: false,
+            room: Some(LiveRoomInstance::ACTIVATION),
+        };
+        app.insert_resource(ambition_sim_view::WorldItemsView(vec![row(100.0)]));
+        app.add_systems(Update, sync_world_item_visuals);
+        app.update();
+        let visual = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<(Entity, &Transform), With<WorldItemVisual>>()
+                .iter(app.world())
+                .map(|(entity, transform)| (entity, transform.translation.x))
+                .collect::<Vec<_>>()
+        };
+        let first = visual(&mut app);
+        assert_eq!(first.len(), 1);
+        app.world_mut().resource_mut::<ambition_sim_view::WorldItemsView>().0 = vec![row(130.0)];
+        app.update();
+        let moved = visual(&mut app);
+        assert_eq!(moved, vec![(first[0].0, first[0].1 + 30.0)], "a moving row keeps its visual and moves it");
+        app.world_mut().resource_mut::<ambition_sim_view::WorldItemsView>().0.clear();
         app.update();
         assert!(visual(&mut app).is_empty(), "a row that is gone takes its visual");
     }

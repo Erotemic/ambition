@@ -44,7 +44,9 @@ pub fn dialog_reveal_tick(
     mut dialogue: ResMut<DialogState>,
     mut sfx: SfxWriter,
 ) {
-    if !dialogue.active() || dialogue.current_line.is_empty() {
+    // A held conversation is not on screen, so its typewriter waits. Without
+    // this, a line would reveal and auto-advance out of sight.
+    if !dialogue.active() || dialogue.held || dialogue.current_line.is_empty() {
         return;
     }
     if !dialogue.line_reveal_complete() {
@@ -335,9 +337,16 @@ fn effective_dialog_tap_mode(
 pub fn dialog_input(
     menu: Res<MenuControlFrame>,
     participants: Query<&ParticipantContexts, With<InputParticipant>>,
-    dialogue: ResMut<DialogState>,
+    mut dialogue: ResMut<DialogState>,
 ) {
-    if dialogue_input_is_captured(participants.iter()) {
+    // The claims that take the conversation's input also hold its reveal and
+    // its presentation (`DialogState::held`): a surface above the conversation
+    // owns the screen until it closes.
+    let held = dialogue_input_is_captured(participants.iter());
+    if dialogue.held != held {
+        dialogue.held = held;
+    }
+    if held {
         return;
     }
     apply_dialog_menu_input(&menu, dialogue);

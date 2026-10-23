@@ -12,7 +12,9 @@ use bevy::prelude::{DetectChanges, Res, ResMut, Resource};
 /// dialogue is running.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct DialogView {
-    /// Whether a dialogue presenter should be visible at all.
+    /// Whether a dialogue presenter should be visible at all: a conversation
+    /// runs and no surface above it holds it (`DialogState::held`). A held
+    /// conversation comes back from the same state when the surface closes.
     pub active: bool,
     /// Stable authored dialogue / Yarn node id. Presentation may use this to
     /// select game-owned framing, portraits, or other visual policy.
@@ -53,7 +55,8 @@ pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<
     // Nothing to mirror while the state is unchanged and the view already
     // agrees it is open or closed. An open dialogue that waits for the player
     // writes nothing, so its box is not rebuilt each tick.
-    if !dialogue.is_changed() && view.active == dialogue.active() {
+    let shown = dialogue.active() && !dialogue.held();
+    if !dialogue.is_changed() && view.active == shown {
         return;
     }
     // ⭐⭐ ONE DESTRUCTURE, NO `..`, COVERING BOTH BRANCHES. Every field of the
@@ -83,7 +86,7 @@ pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<
         selected_option,
     } = &mut *view;
 
-    *active = dialogue.active();
+    *active = shown;
     if !*active {
         dialogue_id.clear();
         speaker_character_id.clear();

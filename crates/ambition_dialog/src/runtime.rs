@@ -129,6 +129,12 @@ pub struct DialogState {
     /// `pending_close`. Without this flag, the auto-advance flow
     /// would race past the final line before the player could read.
     pub(crate) runner_done_pending_close: bool,
+    /// Whether a surface whose input claim outranks the conversation (the
+    /// pause menu, the inventory or map overlay, a debug tool) holds it. A
+    /// held conversation reads no input, reveals no text and is not shown. It
+    /// continues at the same line and reveal point when the surface closes.
+    /// `dialog_input` sets it from the input claims.
+    pub(crate) held: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -257,6 +263,11 @@ impl DialogState {
 
     pub fn active(&self) -> bool {
         self.active
+    }
+
+    /// Whether a surface above the conversation holds it. See the field.
+    pub fn held(&self) -> bool {
+        self.held
     }
 
     /// Whether a start, a selection, an advance or a close waits for the
@@ -654,7 +665,7 @@ mod closed_state_tests {
             last_pointer_position,
             // The close request; the one thing close adds.
             pending_close,
-            // —— the six survivors ——
+            // —— the seven survivors ——
             npc_name,
             dialogue_id,
             row_press,
@@ -662,6 +673,7 @@ mod closed_state_tests {
             pending_select,
             pending_advance,
             runner_done_pending_close,
+            held,
         } = &state;
 
         assert!(!active, "a closed dialogue is not active");
@@ -706,5 +718,8 @@ mod closed_state_tests {
         // The runner-finished latch is the drain's to clear, beside the
         // `runner.stop()` it pairs with.
         assert!(runner_done_pending_close);
+        // Not a fact about the conversation: `dialog_input` derives it from the
+        // input claims on every frame, with or without a conversation.
+        let _ = held;
     }
 }

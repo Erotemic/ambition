@@ -3213,6 +3213,10 @@ faces of one overlay (`menu::model::open_overlay_key`). Witnesses:
 `an_overlay_above_the_conversation_captures_its_input`, the per-backend
 `start_during_a_conversation_opens_the_{menu,cube}_and_closes_back_to_it`, and
 `update_schedule_census::the_conversation_reads_its_input_after_the_inventory_claims_it`.
+2026-10-23: the same claims also hold the reveal and the box
+(`DialogState::held`), so the dialogue no longer draws over the cube (all
+bevy_ui is on the order-9 camera, in front of it). Witness:
+`a_conversation_waits_under_the_pause_menu`.
 Residual, read and not measured: under the Grid backend (the web build),
 `menu.map` also toggles the standalone map panel
 (`handle_map_menu_hotkeys`), which declares no input context.

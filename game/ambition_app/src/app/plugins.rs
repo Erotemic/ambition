@@ -615,7 +615,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_platformer2d::render::rendering::apply_placeholder_sprites_override,
+            ambition_platformer2d::render::rendering::apply_placeholder_sprites_override
+                .run_if(ambition_platformer2d::render::rendering::actors::placeholders_are_on_or_kept),
             ambition_platformer2d::render::rendering::apply_hide_sprites_override,
         )
             .chain()

@@ -47,7 +47,17 @@ impl Plugin for VisualQualityPlugin {
         app.add_systems(PostStartup, seed_visual_quality_from_adapter);
         app.add_systems(
             Update,
-            (sync_resolved_visual_quality, sync_raster_budget).chain(),
+            (
+                // On a change of the settings, or of the resolved tier (a
+                // write that is not the settings' is put back, as before).
+                sync_resolved_visual_quality.run_if(
+                    |settings: Option<Res<UserSettings>>, resolved: Res<ResolvedVisualQuality>| {
+                        settings.is_some_and(|settings| settings.is_changed()) || resolved.is_changed()
+                    },
+                ),
+                sync_raster_budget,
+            )
+                .chain(),
         );
         // The render half of an MSAA change: see the system.
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
@@ -61,9 +71,16 @@ impl Plugin for VisualQualityPlugin {
         #[cfg(feature = "portal_render")]
         app.add_systems(
             Update,
-            sync_portal_quality_budget.run_if(
-                resource_exists::<ambition_portal2d_presentation::PortalCaptureQualityBudget>,
-            ),
+            sync_portal_quality_budget
+                .run_if(resource_exists::<ambition_portal2d_presentation::PortalCaptureQualityBudget>)
+                .run_if(
+                    // `Option`: Bevy evaluates this even where the resource
+                    // condition above is false.
+                    |quality: Res<ResolvedVisualQuality>,
+                     budget: Option<Res<ambition_portal2d_presentation::PortalCaptureQualityBudget>>| {
+                        quality.is_changed() || budget.is_some_and(|budget| budget.is_changed())
+                    },
+                ),
         );
     }
 }

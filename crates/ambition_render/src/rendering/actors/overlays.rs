@@ -199,6 +199,15 @@ pub struct SpriteOriginalState {
 /// The colour comes from a per-entity marker (`FeatureVisual`, `PlayerVisual`,
 /// boss, projectile) so similar entities group visually. Entities with no
 /// known marker keep their sprite colour.
+/// Run condition of [`apply_placeholder_sprites_override`]: placeholders are
+/// on, or a sprite still keeps its original to be given back.
+pub fn placeholders_are_on_or_kept(
+    developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
+    kept: Query<(), With<SpriteOriginalState>>,
+) -> bool {
+    developer_tools.placeholder_sprites || !kept.is_empty()
+}
+
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,

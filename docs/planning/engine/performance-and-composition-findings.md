@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 21:07Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 955 systems a frame; hub Ambition route 1,323 → 1,129 since
+**Status, 2026-10-23 21:17Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 954 systems a frame; hub Ambition route 1,323 → 1,129 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -117,6 +117,7 @@ says what they bought in frame time.
 | Avatar passes: moving platforms advance while a room has one, scripted control frames blank while a body is held (`ControlHolds` is present exactly then), commanded moves drive while one is commanded, mana regenerates while a composition declares `PlayerManaRegen` | done | census: Mary-O 3 gated rows (964 a frame, 3 noise rows), Ambition 1,137 → 1,135; monolith 1,229, runtime 101 and 87 app reconstitution, platform, cutscene, hold, capture and conversation tests pass |
 | Hit passes: hitbox damage and lifetime while a hitbox stands, breakables while one stands, landed and resolved move-hit marks and the pogo bounce while their message waits (peek) | done | census: Mary-O 964 → 955, Ambition 1,135 → 1,129 (6 gated rows each); combat 792, monolith 1,229, runtime 101, Smash 293, Mary-O 204 and 186 app hit, strike, Smash, guard and reconstitution tests pass |
 | F46 cut 1: the hub's two-state look draws its front one texel a 16 px cell into a field each frame, and its skins and overlay read it in place of three to five per-pixel claims | done | hub capture identical (1 pixel by 1 level of 921,600); llvmpipe hub A/B frame p50 40.91 → 36.13 ms; content 519 (3 red, `0d4b5f656`'s) and 17 app look tests pass; phone A/B pending (`AMBITION_ROOM_FRONT_FIELD=off`) |
+| The visual-quality sync and the portal capture budget run on a change of their input or output; the placeholder-sprite override while placeholders are on or a sprite keeps its original. The front field's material adds Bevy's two per-material systems on every route | done | census: 3 gated rows each; net Mary-O 955 → 954, Ambition 1,129 → 1,129; render 445 and 9 app quality, tier and hall tests pass |
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 

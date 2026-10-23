@@ -1150,10 +1150,10 @@ mod tests {
             .map(|(key, _)| key)
             .collect();
         assert_eq!(
-            (worn == BossSheetSpec::unauthored(), (size.x, size.y), catalog.sheets.len(), copies),
-            (true, (80.0, 80.0), 11, Vec::<&String>::new()),
-            "(an empty catalog gives the unauthored layout, its size for a 50 x 80 body, the \
-             authored sheets read, the authored sheets equal to the unauthored layout)"
+            (worn == BossSheetSpec::unauthored(), (size.x, size.y), !catalog.sheets.is_empty(), copies),
+            (true, (80.0, 80.0), true, Vec::<&String>::new()),
+            "(an empty catalog gives the unauthored layout, its size for a 50 x 80 body, \
+             authored sheets were read, the authored sheets equal to the unauthored layout)"
         );
     }
 

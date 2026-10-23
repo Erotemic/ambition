@@ -290,6 +290,20 @@ pub fn shorten_her_hit_stop(
     }
 }
 
+/// Run condition of [`play_cosmic_music`]: a body is in the form, or a cosmic
+/// claim stands that may be owed a release.
+pub fn cosmic_music_is_owed(
+    bodies: Query<&WornCharacter>,
+    music: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::encounter::EncounterMusicRequest,
+        >,
+    >,
+) -> bool {
+    bodies.iter().any(|worn| is_cosmic(worn.id()))
+        || music.is_some_and(|music| music.holds_claims_of_kind(COSMIC_MUSIC_OWNER))
+}
+
 /// The theme of the form, on the priority-music seam the quasar uses: claimed
 /// in the live room of each body in the form, and released when no body in
 /// that room is in it, so the theme of the level comes back with no record

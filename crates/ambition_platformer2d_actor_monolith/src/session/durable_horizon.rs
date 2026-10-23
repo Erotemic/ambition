@@ -32,6 +32,13 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 #[derive(Resource, Default, Clone)]
 pub struct SaveRestored(pub bool);
 
+/// Run condition of the [`DurableRestoreSet`] slots: the loaded save is not yet
+/// applied. A read of rollback state, so a rewind to before the latch rose runs
+/// the slots again.
+fn the_save_waits_to_be_applied(restored: Option<Res<SaveRestored>>) -> bool {
+    restored.is_some_and(|restored| !restored.0)
+}
+
 /// Adopt the lifecycle/occurrence domain from a loaded file.
 ///
 /// This is deliberately one domain adapter rather than one parameter per
@@ -461,6 +468,9 @@ pub fn install_durable_save_horizon(app: &mut App) {
                 DurableRestoreSet::Complete,
             )
                 .chain()
+                // Every member returns at once when the latch is up, so the
+                // slots run only while the save waits to be applied.
+                .run_if(the_save_waits_to_be_applied)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
                 .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
                 .before(

@@ -35,6 +35,20 @@ pub fn death_dwell() -> f32 {
         .interlude
 }
 
+/// Run condition of [`play_death_music`]: a body's death interlude is open, or
+/// a death claim stands that may be owed a release.
+pub fn death_music_is_owed(
+    dying: Query<&ambition_platformer2d::combat::death_rules::DeathInterlude>,
+    music: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::encounter::EncounterMusicRequest,
+        >,
+    >,
+) -> bool {
+    dying.iter().any(|window| window.open())
+        || music.is_some_and(|music| music.holds_claims_of_kind(DEATH_MUSIC_OWNER))
+}
+
 /// Her death has its own music.
 ///
 /// Written into the encounter layer's PRIORITY tier — the same slot a focused

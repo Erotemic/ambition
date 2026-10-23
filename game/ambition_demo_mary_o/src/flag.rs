@@ -688,6 +688,20 @@ pub(crate) fn drive_her(
 /// This sequence's claim on the encounter layer's priority music tier.
 const VICTORY_MUSIC_OWNER: &str = "mary_o_flag";
 
+/// Run condition of [`play_victory_music`]: a flag sequence is won, or a
+/// victory claim stands that may be owed a release.
+pub fn victory_music_is_owed(
+    sequences: Query<&FlagSequence>,
+    music: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::encounter::EncounterMusicRequest,
+        >,
+    >,
+) -> bool {
+    sequences.iter().any(FlagSequence::won)
+        || music.is_some_and(|music| music.holds_claims_of_kind(VICTORY_MUSIC_OWNER))
+}
+
 /// Clearing the course has its own music.
 ///
 /// The same priority-tier claim her death uses, for the same reason: it is the

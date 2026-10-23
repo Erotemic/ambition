@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 22:33Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 937 systems a frame; hub Ambition route 1,323 → 1,117 since
+**Status, 2026-10-23 22:51Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 928 systems a frame; hub Ambition route 1,323 → 1,110 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -125,6 +125,7 @@ says what they bought in frame time.
 | Mary-O's life spend and death voice on a death (peek), her return from the cosmic form while a transform beat stands | done | census: Mary-O 942 → 940 (3 gated rows, one noise); Mary-O 204, Mary-O app 102 and 20 hub Mary-O tests pass |
 | ⛔ F46 cut 1 fix: the state shader's new binding `field` redefined `fn field` and the shader did not compile (veils and overlay undrawn since `4a5ff08cc`); renamed `front_field`. And an exact early-out: the overlay works out no field where no tear can be (plane distance below -230 or above 800) | done | hub capture against the true pre-field baseline: 2 pixels differ, none by more than 8 levels (three runs); the phone run of 21:13 must be repeated; llvmpipe hub A/B with the overlay drawn: frame p50 59.45 → 42.99 ms |
 | Portal carves while a portal stands (or last tick's holes or glues are still to clear); Ambition's ground-item carves while a portal stands, so Mary-O stops paying for them. Not the passages: they rebuild from tuning and body budgets with no portal, and would go stale | done | census: 2 systems a tick fewer on both routes (Mary-O 937, Ambition 1,117 with two noise rows); portal2d 129 and 127 app portal, transit, seam, aperture, gun and window tests pass |
+| The durable-restore slots run only while the save waits to be applied (every member returned at once on the latch); the boss defeat retraction pair on a waiting checkpoint or admitted replay (peeks); Mary-O's four priority-music claims (star, death, victory, cosmic) while a source stands or its claim does (`holds_claims_of_kind`). Tried and reverted: the gate-portal visuals, whose registry is not empty on either route | done | census: Mary-O 937 → 928, Ambition 1,117 → 1,110 systems a tick (both with noise rows); `canonical_reconstitution`, boss replay, save-road and custody tests 84 pass, Mary-O music 37, Sanic restore 3 |
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 

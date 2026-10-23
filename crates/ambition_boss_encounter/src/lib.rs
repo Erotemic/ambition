@@ -154,6 +154,11 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_systems(
             sim,
             forget_boss_defeats_at_checkpoint
+                .run_if(
+                    ambition_platformer2d_core::a_message_waits::<
+                        ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted,
+                    >,
+                )
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCapture),
         );
         app.add_systems(

@@ -115,6 +115,19 @@ pub fn end_star_power_at_victory(
     }
 }
 
+/// Run condition of [`play_star_music`]: a body is empowered, or a star claim
+/// stands that may be owed a release.
+pub fn star_music_is_owed(
+    stars: Query<(), With<Empowered>>,
+    music: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::encounter::EncounterMusicRequest,
+        >,
+    >,
+) -> bool {
+    !stars.is_empty() || music.is_some_and(|music| music.holds_claims_of_kind(STAR_MUSIC_OWNER))
+}
+
 /// The star's theme, on the same priority-music seam the death and victory
 /// beats use — claimed while it burns, released when it ends, so the level theme
 /// returns on its own with no restore bookkeeping here.

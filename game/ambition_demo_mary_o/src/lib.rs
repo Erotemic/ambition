@@ -1520,7 +1520,7 @@ impl Plugin for MaryORulesPlugin {
             flag::run_flag_sequence,
             // A room has a pole or a switch: one of the two drives her.
             castle_end::run_castle_ending.in_set(castle_end::CastleEnding),
-            flag::play_victory_music,
+            flag::play_victory_music.run_if(flag::victory_music_is_owed),
             // After the lap of this room starts, so the goal that is taken is
             // the goal of this room and not of the last one.
             castle_end::charges_go_off_on_the_bridge.in_set(castle_end::CastleEnding),
@@ -1541,7 +1541,7 @@ impl Plugin for MaryORulesPlugin {
             // Each on a death (a peek: see `a_message_waits`).
             spend_lives_on_death.run_if(ambition_platformer2d::engine_core::a_message_waits::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>),
             death::voice_her_death.run_if(ambition_platformer2d::engine_core::a_message_waits::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>),
-            death::play_death_music,
+            death::play_death_music.run_if(death::death_music_is_owed),
             cosmic::the_sky_has_a_top,
             castle_end::the_robot_thanks_her.in_set(castle_end::CastleEnding),
             cycle_level_on_flag_tally,
@@ -1663,7 +1663,7 @@ impl Plugin for MaryORulesPlugin {
             // rather than two racing for one slot. See
             // `star::end_star_power_at_victory`.
             star::end_star_power_at_victory,
-            star::play_star_music,
+            star::play_star_music.run_if(star::star_music_is_owed),
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
@@ -1729,7 +1729,7 @@ impl Plugin for MaryORulesPlugin {
         app.add_scoped_systems(
             sim,
             self.scope,
-            (cosmic::shorten_her_hit_stop, cosmic::play_cosmic_music)
+            (cosmic::shorten_her_hit_stop, cosmic::play_cosmic_music.run_if(cosmic::cosmic_music_is_owed))
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
         app.add_scoped_systems(sim, self.scope, brick_overlay);

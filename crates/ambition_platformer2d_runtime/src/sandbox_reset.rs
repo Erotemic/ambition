@@ -591,6 +591,7 @@ impl Plugin for RoomReplaySchedulePlugin {
             .add_systems(
             sim,
             ambition_boss_encounter::retract_boss_defeats_on_replay
+                .run_if(ambition_combat::events::a_replay_is_admitted)
                 .in_set(ambition_boss_encounter::BossDefeatRetraction)
                 .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
         );

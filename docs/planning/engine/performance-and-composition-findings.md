@@ -61,6 +61,35 @@ consolidations and the monolith packets.
 | `perf_probe` pass (Mary-O route): the effect and host-intent passes used `resource_scope`, which in Bevy 0.19 takes a resource's entity out and puts it back; with the per-family journals that was 13 archetype moves a frame. Steps are taken out of the list and put back now, and a journal's boundary is copied | done | churn: 26 resource inserts and removes a frame of ours → 0. Our systems allocate ~1,300 times a frame (top: input update 262, rollback lifecycle commit 147, body integration 135, room-transition prefetch trio ~220); none is a slice yet |
 | The music intent rebuilds its playback authority (a copy of each of the provider's track and cue ids) only when the audio selection, the catalogs or the provider change | done | `perf_probe`, `basement_enemies`: `compute_music_intent` 139 → 6 allocations a frame |
 
+### F43 — What still changes, spawns and allocates each frame (2026-10-23)
+
+MEASURED (desktop, dev build; the census rows `changed_transforms` and
+`changed_sprites` added in this run, and a `perf_probe` build for
+allocations and churn; `capture_scene --warmup 600-900`, counts not times):
+
+| per frame | Mary-O route | hub (Ambition) | `basement_enemies` |
+| --- | ---: | ---: | ---: |
+| `Transform` written | 68-145 (rig parts, motes, actors) | 53 (was 83) | 98 |
+| entities spawned (`Added<Transform>`) | 0 | 1 (portal-gun pickup, by design) | 0 |
+| `Visibility` written | 4 (dev HUDs; was 14) | 8 (was 28) | 2 |
+| UI `Node` / text written | 0 / 0 | 6 / 3 during the intro cutscene, before the overlay fix | 0 / 0 |
+| allocations in our systems | ~1,300 | | ~1,000 |
+| resource archetype moves of ours | 0 (was 26) | | |
+
+What is left is mostly real per-frame work: animated rig parts and ambient
+motes move, actors move their nameplates and hit-flash mirrors. The largest
+allocators left: the input action update (262, already cut from ~19,000 by
+`press_all_action_update`), the rollback lifecycle commit (147), body
+integration (135), the room-transition prefetch trio (~220, which ranks
+neighbours by where the players stand), the character animator in a room
+of enemies (135) and the nameplates (62-82). None is a slice: the phone
+profile decides whether allocation is a lever at all.
+
+REASONED: on the systems-run axis the hub's Mary-O frame went 1,320 → 1,163
+in this run, and the per-frame churn of what is on screen is now near the
+set of things that move. The next lever needs the phone: a profile after
+the serial schedules (F41) and these slices.
+
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 
 MEASURED (dev build, `capture_scene --route mary_o_gameplay --warmup 600`,

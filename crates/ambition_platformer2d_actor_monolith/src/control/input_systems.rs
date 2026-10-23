@@ -25,6 +25,18 @@ use bevy::prelude::*;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InputTimersAdvanced;
 
+/// Run condition of [`tick_room_transition_cooldown`]: a seat's cooldown still
+/// counts down. A spent cooldown is left unwritten.
+pub fn a_room_cooldown_runs(
+    cooldown: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+        >,
+    >,
+) -> bool {
+    cooldown.is_some_and(|cooldown| cooldown.runs())
+}
+
 /// Decay the cooldown that keeps a body from re-entering the door it just used.
 ///
 /// One countdown per seat, all on the world clock, with one owner. It shares

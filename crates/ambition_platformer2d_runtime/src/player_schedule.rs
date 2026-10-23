@@ -101,7 +101,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // owners. `InputTimersAdvanced` is what the sandbox reset orders
                 // against, so it stays the dependency whatever it contains.
                 (
-                    ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown,
+                    ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown
+                        .run_if(ambition_platformer2d_actor_monolith::control::input_systems::a_room_cooldown_runs),
                     ambition_platformer2d_actor_monolith::control::tick_home_body_reaction_timers,
                     ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures,
                 )

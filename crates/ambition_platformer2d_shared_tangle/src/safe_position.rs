@@ -135,6 +135,11 @@ impl RoomTransitionCooldown {
         self.remaining[seat] = 0.0;
     }
 
+    /// Whether any seat still counts down.
+    pub fn runs(&self) -> bool {
+        self.remaining.iter().any(|remaining| *remaining > 0.0)
+    }
+
     /// Count every seat down by `dt` seconds.
     pub fn tick(&mut self, dt: f32) {
         for remaining in &mut self.remaining {

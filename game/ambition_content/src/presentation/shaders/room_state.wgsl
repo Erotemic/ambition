@@ -10,7 +10,7 @@
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::globals
-#import ambition_content::room_look::{rand_cell, look_field, look_claim, look_is_corrupt, look_is_settled, LookClaim}
+#import ambition_content::room_look::{rand_cell, look_field, look_claim_in, look_is_corrupt_in, look_is_settled, LookClaim}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -18,6 +18,9 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> piece: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> room: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> front: vec4<f32>;
+/// The room's front, one texel a cell (`room_front_field.wgsl`), and its grid.
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> grid: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var field: texture_2d<f32>;
 
 const MAGENTA: vec3<f32> = vec3<f32>(1.00, 0.16, 0.66);
 const CYAN: vec3<f32> = vec3<f32>(0.13, 0.88, 1.00);
@@ -33,7 +36,7 @@ fn field(p: vec2<f32>) -> f32 {
 
 /// Which block of the front claims `p`.
 fn claim(p: vec2<f32>) -> LookClaim {
-    return look_claim(p, front, globals.time);
+    return look_claim_in(field, grid, p, front, globals.time);
 }
 
 // ------------------------------------------------------------------ veil --
@@ -56,7 +59,7 @@ fn veil(p: vec2<f32>) -> vec4<f32> {
     let lattice = smoothstep(1.3, 0.4, min(a, b));
     let rim = min(min(l.x, l.y), min(s.x - l.x, s.y - l.y));
     let frame = smoothstep(2.4, 1.2, rim);
-    if look_is_corrupt(p, front, t) {
+    if look_is_corrupt_in(field, grid, p, front, t) {
         let cell = floor(p / 8.0);
         let beat = floor(t * 2.5 + rand_cell(cell, 750u) * 2.5);
         let flick = rand_cell(cell + vec2<f32>(beat * 3.0, 0.0), 751u);

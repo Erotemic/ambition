@@ -239,3 +239,45 @@ fn look_air_state(p: vec2<f32>, front: vec4<f32>, t: f32) -> f32 {
     let wisp = (value_noise(p + vec2<f32>(t * 13.0, -t * 5.0), 130.0, 13u) - 0.5) * 110.0;
     return smoothstep(-260.0, 110.0, look_field(p, front, t) + wisp);
 }
+
+// ------------------------------------------- the front, read per cell --
+//
+// `look_claim` is constant on the 16 px grid: each level decides by the
+// field at the middle of its own cell, and every level's cell is a union of
+// 16 px cells. So it is drawn one time a frame into a field, one texel a
+// cell (`room_front_field.wgsl`), and a pixel reads its cell's texel. The
+// texel holds the claim's state and level; the seeds are the cell's hashes,
+// drawn here as `look_claim` draws them. A point outside the field asks
+// `look_claim` itself.
+//
+// `grid`: `x, y` = the field's first cell, in world px (the room's
+// corner less a pad); `z, w` = its size in cells.
+
+/// The cell edge of the field: the smallest block.
+const LOOK_FIELD_CELL: f32 = 16.0;
+
+/// `look_claim`, read from `field`.
+fn look_claim_in(field: texture_2d<f32>, grid: vec4<f32>, p: vec2<f32>, front: vec4<f32>, t: f32) -> LookClaim {
+    let texel = floor((p - grid.xy) / LOOK_FIELD_CELL);
+    if any(texel < vec2<f32>(0.0)) || any(texel >= grid.zw) {
+        return look_claim(p, front, t);
+    }
+    let v = textureLoad(field, vec2<i32>(texel), 0);
+    let state = i32(round(v.r * 2.0));
+    if state == 0 {
+        return LookClaim(0, 0.0, vec2<f32>(0.0), 0.0, 0.0);
+    }
+    let k = i32(round(v.g * 3.0));
+    let lv = look_level(k);
+    let cell = floor(p / lv.size);
+    let salt = u32(k);
+    return LookClaim(state, lv.size, cell, rand_cell(cell, 200u + salt), rand_cell(cell, 300u + salt));
+}
+
+/// `look_is_corrupt`, read from `field`.
+fn look_is_corrupt_in(field: texture_2d<f32>, grid: vec4<f32>, p: vec2<f32>, front: vec4<f32>, t: f32) -> bool {
+    let d = look_plane(p, front);
+    if d > LOOK_SURELY_CORRUPT { return true; }
+    if d < LOOK_SURELY_CLEAN { return false; }
+    return look_claim_in(field, grid, p, front, t).state == 1;
+}

@@ -141,6 +141,9 @@ pub trait RoomLook: Material2d {
     /// ([`RoomSkyMaterial`]) and not drawn by this material.
     const SKY_IS_AUTHORED_LAYERS: bool = false;
 
+    /// Whether this look has a moving front, which a [`FrontField`] draws.
+    const HAS_FRONT: bool = false;
+
     /// One window into the look's scene.
     ///
     /// - `piece`: what this quad draws, `min.x, min.y, size.x, size.y`.
@@ -150,7 +153,11 @@ pub trait RoomLook: Material2d {
     ///   box of the door.
     /// - `front`: a point on the room's front (`x, y`) and its normal
     ///   (`z, w`).
-    fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self;
+    ///
+    /// `field`: the room's front drawn one texel a cell ([`FrontField`]),
+    /// which a look with a front reads in place of working it out at each
+    /// pixel. [`FrontField::none`] has no cells, and the shader works it out.
+    fn window(piece: Vec4, room: Vec4, front: Vec4, field: &FrontField) -> Self;
 
     /// The door this look gives to a door at `at` in `world`, while the
     /// front of the room has gone `advance` px into its clean side.
@@ -167,6 +174,11 @@ pub struct RoomStateMaterial {
     /// The normal points into the corrupted side.
     #[uniform(2)]
     pub front: Vec4,
+    /// The grid of `field` ([`FrontField::grid`]).
+    #[uniform(3)]
+    pub grid: Vec4,
+    #[texture(4)]
+    pub field: Handle<Image>,
 }
 
 /// The corrupted sky of the two-state look, over the clean one.
@@ -232,6 +244,11 @@ pub struct RoomSkinMaterial {
     #[texture(2)]
     #[sampler(3)]
     pub skin: Handle<Image>,
+    /// The grid of `field` ([`FrontField::grid`]).
+    #[uniform(4)]
+    pub grid: Vec4,
+    #[texture(5)]
+    pub field: Handle<Image>,
 }
 
 impl Material2d for RoomSkinMaterial {
@@ -278,6 +295,7 @@ fn show_two_state_skins(
     )>,
     plain: Res<Assets<ColorMaterial>>,
     mut skins: ResMut<Assets<RoomSkinMaterial>>,
+    fields: Res<FrontFields>,
 ) {
     let in_budget = draws_looks(quality.as_deref());
     for (entity, mesh, parent, mut visibility, colour, shaded, two) in &mut meshes {
@@ -304,10 +322,13 @@ fn show_two_state_skins(
                     let Some(texture) = plain.get(&colour.0).and_then(|material| material.texture.clone()) else {
                         continue;
                     };
+                    let field = fields.of(stamp.0);
                     let material = skins.add(RoomSkinMaterial {
                         room: Vec4::new(world.size.x, world.size.y, if corrupt { 1.0 } else { 0.0 }, 0.0),
                         front: room_front(world, advance),
                         skin: texture,
+                        grid: field.grid,
+                        field: field.image,
                     });
                     commands
                         .entity(entity)
@@ -323,6 +344,15 @@ fn show_two_state_skins(
                             if let Some(mut material) = skins.get_mut(&shaded.0) {
                                 material.skin = wanted;
                             }
+                        }
+                    }
+                    // A skin shaded before its room's field was made, or
+                    // since the field was made again, reads the field now.
+                    let field = fields.of(stamp.0);
+                    if skins.get(&shaded.0).is_some_and(|material| material.field != field.image) {
+                        if let Some(mut material) = skins.get_mut(&shaded.0) {
+                            material.grid = field.grid;
+                            material.field = field.image;
                         }
                     }
                 }
@@ -454,9 +484,10 @@ impl RoomLook for RoomStateMaterial {
     const PALETTE: &'static str = "clean_corrupted";
     const TERRAIN_IS_SKINS: bool = true;
     const SKY_IS_AUTHORED_LAYERS: bool = true;
+    const HAS_FRONT: bool = true;
 
-    fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
-        Self { piece, room, front }
+    fn window(piece: Vec4, room: Vec4, front: Vec4, field: &FrontField) -> Self {
+        Self { piece, room, front, grid: field.grid, field: field.image.clone() }
     }
 
     fn door_art(world: &ae::World, at: ae::Vec2, advance: f32) -> EntitySprite {
@@ -493,13 +524,185 @@ impl Material2d for RoomBlueprintMaterial {
 impl RoomLook for RoomBlueprintMaterial {
     const PALETTE: &'static str = "debug_beautiful";
 
-    fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
+    fn window(piece: Vec4, room: Vec4, front: Vec4, _field: &FrontField) -> Self {
         Self { piece, room, front }
     }
 
     fn door_art(_world: &ae::World, _at: ae::Vec2, _advance: f32) -> EntitySprite {
         EntitySprite::DoorBlueprint
     }
+}
+
+/// A two-state room's front, drawn one texel a 16 px cell each frame by a
+/// camera of its own (`room_front_field.wgsl`), so the skins and the overlay
+/// read a cell's claim in place of working it out at each pixel: three to
+/// five times a pixel near the front, which made the hub the most expensive
+/// room on a phone (F46). The picture is the same: `look_claim` is constant
+/// on the 16 px grid.
+#[derive(Clone, Debug)]
+pub struct FrontField {
+    pub image: Handle<Image>,
+    /// `x, y` = the field's first cell in the room's world px (the room's
+    /// corner less [`BACKDROP_PAD`]); `z, w` = its size in cells. No cells:
+    /// the shader works the front out itself.
+    pub grid: Vec4,
+}
+
+impl FrontField {
+    /// No field: the shaders work the front out at each pixel.
+    pub fn none() -> Self {
+        Self { image: Handle::default(), grid: Vec4::ZERO }
+    }
+}
+
+/// `AMBITION_ROOM_FRONT_FIELD=off` makes no field: each pixel works its front
+/// out, as before the field. For an A/B of what the field buys on a device
+/// (`scripts/profile_android.sh --launch-env AMBITION_ROOM_FRONT_FIELD=off`).
+fn front_fields_are_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("AMBITION_ROOM_FRONT_FIELD").as_deref() != Ok("off"))
+}
+
+/// The cell of the field, as `LOOK_FIELD_CELL` in `room_look_common.wgsl`.
+const FRONT_FIELD_CELL: f32 = 16.0;
+/// Each field draws before every camera that reads it.
+const FRONT_FIELD_CAMERA_ORDER: isize = -100_100;
+/// Where the fields' quads stand: far from any world, a field apart.
+const FRONT_FIELD_AT: Vec2 = Vec2::new(-400_000.0, -400_000.0);
+const FRONT_FIELD_SPACING: f32 = 20_000.0;
+
+/// Draws one room's front into its field: one quad, one texel a cell.
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+pub struct RoomFrontFieldMaterial {
+    /// `x, y` = the quad's middle in world space; `z, w` = the field's size in
+    /// cells.
+    #[uniform(0)]
+    pub quad: Vec4,
+    /// `x, y` = the field's first cell in the room's world px.
+    #[uniform(1)]
+    pub origin: Vec4,
+    #[uniform(2)]
+    pub front: Vec4,
+}
+
+impl Material2d for RoomFrontFieldMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://ambition_content/presentation/shaders/room_front_field.wgsl".into()
+    }
+}
+
+/// The front field of each live two-state room, and what draws it.
+#[derive(Resource, Default)]
+struct FrontFields(std::collections::HashMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PresentedFrontField>);
+
+struct PresentedFrontField {
+    /// Which place far from the worlds its quad stands in.
+    slot: usize,
+    field: FrontField,
+    material: Handle<RoomFrontFieldMaterial>,
+    camera: Entity,
+    quad: Entity,
+}
+
+impl FrontFields {
+    fn of(&self, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> FrontField {
+        self.0.get(&room).map_or_else(FrontField::none, |presented| presented.field.clone())
+    }
+}
+
+/// Make the front field of `room` (`world`, front `front`): its target, its
+/// camera and its quad. Neither is stamped with the room: the field is no
+/// visual of the room, and the room layers would move it onto a camera that
+/// draws the world. [`retire_front_fields`] takes it away with the room's
+/// look.
+#[allow(clippy::too_many_arguments)]
+fn make_front_field(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    images: &mut Assets<Image>,
+    materials: &mut Assets<RoomFrontFieldMaterial>,
+    quad: &Handle<Mesh>,
+    slot: usize,
+    world: &ae::World,
+    front: Vec4,
+) -> PresentedFrontField {
+    use bevy::camera::visibility::RenderLayers;
+    use bevy::render::render_resource::TextureFormat;
+    let pad = (BACKDROP_PAD / FRONT_FIELD_CELL).ceil() * FRONT_FIELD_CELL;
+    let cells = UVec2::new(
+        ((world.size.x + pad * 2.0) / FRONT_FIELD_CELL).ceil() as u32,
+        ((world.size.y + pad * 2.0) / FRONT_FIELD_CELL).ceil() as u32,
+    );
+    // sRGB, as the impostor atlas: the camera blends in linear light and the
+    // reader rounds what it reads back.
+    let image = images.add(Image::new_target_texture(cells.x, cells.y, TextureFormat::Rgba8UnormSrgb, None));
+    let at = FRONT_FIELD_AT + Vec2::new(slot as f32 * FRONT_FIELD_SPACING, 0.0);
+    let material = materials.add(RoomFrontFieldMaterial {
+        quad: Vec4::new(at.x, at.y, cells.x as f32, cells.y as f32),
+        origin: Vec4::new(-pad, -pad, 0.0, 0.0),
+        front,
+    });
+    let layer = RenderLayers::layer(ambition_platformer2d_shared_tangle::camera_layers::ROOM_FRONT_FIELD_LAYER);
+    let camera = commands
+        .spawn_session_scoped(
+            scope,
+            (
+                Name::new("room front field camera"),
+                ambition_render::rendering::WORLD_COMPOSITING,
+                Camera2d,
+                Camera { order: FRONT_FIELD_CAMERA_ORDER, clear_color: ClearColorConfig::Custom(Color::NONE), ..default() },
+                // One texel a cell.
+                Projection::Orthographic(OrthographicProjection { scale: FRONT_FIELD_CELL, ..OrthographicProjection::default_2d() }),
+                bevy::render::view::Msaa::Off,
+                bevy::camera::RenderTarget::Image(bevy::camera::ImageRenderTarget::from(image.clone())),
+                layer.clone(),
+                Transform::from_translation(at.extend(100.0)),
+                PresentedRoomLook,
+            ),
+        )
+        .id();
+    let quad = commands
+        .spawn_session_scoped(
+            scope,
+            (
+                Name::new("room front field"),
+                Mesh2d(quad.clone()),
+                MeshMaterial2d(material.clone()),
+                Transform::from_translation(at.extend(0.0))
+                    .with_scale(Vec3::new(cells.x as f32 * FRONT_FIELD_CELL, cells.y as f32 * FRONT_FIELD_CELL, 1.0)),
+                layer,
+                PresentedRoomLook,
+            ),
+        )
+        .id();
+    PresentedFrontField {
+        slot,
+        field: FrontField { image, grid: Vec4::new(-pad, -pad, cells.x as f32, cells.y as f32) },
+        material,
+        camera,
+        quad,
+    }
+}
+
+/// Take away the field of each room whose look is gone: the room left, the
+/// look went out of budget, or the session ended.
+fn retire_front_fields(
+    mut commands: Commands,
+    rooms: LiveRoomSpecs,
+    presented: Query<&InRoomInstance, With<PresentedRoomLook>>,
+    mut fields: ResMut<FrontFields>,
+) {
+    if fields.0.is_empty() {
+        return;
+    }
+    fields.0.retain(|room, field| {
+        let kept = rooms.live_rooms().any(|(live, _)| live == *room) && presented.iter().any(|stamp| stamp.0 == *room);
+        if !kept {
+            commands.entity(field.camera).try_despawn();
+            commands.entity(field.quad).try_despawn();
+        }
+        kept
+    });
 }
 
 #[derive(Resource, Default)]
@@ -601,6 +804,7 @@ pub fn install(app: &mut App) {
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_skin.wgsl");
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_sky.wgsl");
     ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_blueprint.wgsl");
+    ambition_platformer2d::content_asset!(app, "src/presentation/shaders/room_front_field.wgsl");
     // `ambition_content::room_look`: what the looks share. A composition with
     // no shader assets draws no look to import it.
     if app.world().contains_resource::<Assets<bevy::shader::Shader>>() {
@@ -614,7 +818,15 @@ pub fn install(app: &mut App) {
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<RoomSkinMaterial>::default());
         app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
+        app.add_plugins(Material2dPlugin::<RoomFrontFieldMaterial>::default());
     }
+    app.init_resource::<FrontFields>();
+    app.add_systems(
+        Update,
+        retire_front_fields
+            .in_set(RoomLookSet)
+            .after(present_room_look::<RoomStateMaterial>),
+    );
     // The unit quad is made now and not with the first room. A mesh that goes
     // to the GPU in a frame whose upload budget is spent arrives late, and
     // Bevy does not try again to draw a quad whose MESH was late (it does for
@@ -629,6 +841,8 @@ pub fn install(app: &mut App) {
         Update,
         show_two_state_skins
             .in_set(RoomLookSet)
+            // The room's front field is made with its look.
+            .after(present_room_look::<RoomStateMaterial>)
             .run_if(resource_exists::<Assets<ColorMaterial>>)
             .run_if(resource_exists::<Assets<RoomSkinMaterial>>),
     );
@@ -832,6 +1046,8 @@ fn spread_room_states(
     mut skin_materials: Option<ResMut<Assets<RoomSkinMaterial>>>,
     sky_quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomSkyMaterial>)>,
     mut sky_materials: Option<ResMut<Assets<RoomSkyMaterial>>>,
+    fields: Res<FrontFields>,
+    mut field_materials: Option<ResMut<Assets<RoomFrontFieldMaterial>>>,
 ) {
     for (stamp, mut spread) in &mut spreads {
         let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
@@ -848,6 +1064,11 @@ fn spread_room_states(
         let step = SPREAD_SPEED * time.delta_secs();
         spread.advance += (wanted - spread.advance).clamp(-step, step);
         let front = room_front(&spec.world, spread.advance);
+        if let (Some(field), Some(field_materials)) = (fields.0.get(&stamp.0), field_materials.as_deref_mut()) {
+            if let Some(mut material) = field_materials.get_mut(&field.material) {
+                material.front = front;
+            }
+        }
         for (quad_stamp, material) in &quads {
             if quad_stamp.0 != stamp.0 {
                 continue;
@@ -892,6 +1113,9 @@ fn present_room_look<M: RoomLook>(
     save: Option<Res<AmbitionGameSave>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut sky: SkyLayers,
+    mut fields: ResMut<FrontFields>,
+    mut images: Option<ResMut<Assets<Image>>>,
+    mut field_materials: Option<ResMut<Assets<RoomFrontFieldMaterial>>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -920,6 +1144,15 @@ fn present_room_look<M: RoomLook>(
         // when the state changes while the room is live.
         let advance = wanted_advance(spec, save.as_deref());
         let front = room_front(world, advance);
+        // A composition that renders draws the front one texel a cell.
+        if M::HAS_FRONT && front_fields_are_on() && !fields.0.contains_key(&room) {
+            if let (Some(images), Some(field_materials)) = (images.as_deref_mut(), field_materials.as_deref_mut()) {
+                let slot = (0..).find(|slot| fields.0.values().all(|field| field.slot != *slot)).unwrap_or(0);
+                let field = make_front_field(&mut commands, session_scope, images, field_materials, &quad, slot, world, front);
+                fields.0.insert(room, field);
+            }
+        }
+        let field = fields.of(room);
         let mut spawn = |name: String,
                          min: Vec2,
                          size: Vec2,
@@ -937,6 +1170,7 @@ fn present_room_look<M: RoomLook>(
                         Vec4::new(min.x, min.y, size.x, size.y),
                         Vec4::new(world.size.x, world.size.y, role, kind),
                         front,
+                        &field,
                     ))),
                     Transform::from_translation(world_to_bevy(world, center, z))
                         .with_scale(Vec3::new(size.x + pad * 2.0, size.y + pad * 2.0, 1.0)),

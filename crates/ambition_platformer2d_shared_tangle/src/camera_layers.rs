@@ -30,6 +30,11 @@ pub const RIGGED_IMPOSTOR_LAYER: usize = 6;
 /// replayed room, which outlive the room by their lifetime).
 pub const RETIRED_ROOM_RENDER_LAYER: usize = 7;
 
+/// Render layer of the private cameras that draw a two-state room's front one
+/// texel a cell (`ambition_content`'s room look, `room_front_field.wgsl`).
+/// Only those cameras draw it; the field's quad stands far from any world.
+pub const ROOM_FRONT_FIELD_LAYER: usize = 8;
+
 /// Base of the render-layer band reserved for isolated local-view projections.
 ///
 /// Lower ranges are reserved for world/HUD/parallax/portal/overlay layers. The

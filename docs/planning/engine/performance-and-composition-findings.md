@@ -28,7 +28,7 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 20:19Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-23 21:07Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 955 systems a frame; hub Ambition route 1,323 → 1,129 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
@@ -116,6 +116,7 @@ says what they bought in frame time.
 | The room-transition cooldown counts down only while a seat's runs (it wrote the session root's component every tick) | done | census: Mary-O 965 → 964, Ambition 1,138 → 1,137; shared_tangle 334, monolith 1,229 and 76 app reconstitution, door and transition tests pass |
 | Avatar passes: moving platforms advance while a room has one, scripted control frames blank while a body is held (`ControlHolds` is present exactly then), commanded moves drive while one is commanded, mana regenerates while a composition declares `PlayerManaRegen` | done | census: Mary-O 3 gated rows (964 a frame, 3 noise rows), Ambition 1,137 → 1,135; monolith 1,229, runtime 101 and 87 app reconstitution, platform, cutscene, hold, capture and conversation tests pass |
 | Hit passes: hitbox damage and lifetime while a hitbox stands, breakables while one stands, landed and resolved move-hit marks and the pogo bounce while their message waits (peek) | done | census: Mary-O 964 → 955, Ambition 1,135 → 1,129 (6 gated rows each); combat 792, monolith 1,229, runtime 101, Smash 293, Mary-O 204 and 186 app hit, strike, Smash, guard and reconstitution tests pass |
+| F46 cut 1: the hub's two-state look draws its front one texel a 16 px cell into a field each frame, and its skins and overlay read it in place of three to five per-pixel claims | done | hub capture identical (1 pixel by 1 level of 921,600); llvmpipe hub A/B frame p50 40.91 → 36.13 ms; content 519 (3 red, `0d4b5f656`'s) and 17 app look tests pass; phone A/B pending (`AMBITION_ROOM_FRONT_FIELD=off`) |
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 
@@ -144,6 +145,25 @@ The cuts, none of which changes the picture:
    claims on block pixels.
 3. The overlay's mesh covers only the not-settled band.
 4. Per-level settle bounds, so more pixels leave `look_claim` early.
+
+MEASURED by Jon on the phone, 10-23: with the lever turned so the hub is all
+corrupted (the front out of the room, every pixel settled), the hub goes
+from about 20 FPS to 30-40 FPS. That is the cost of the band.
+
+**Cut 1 done (2026-10-23):** `RoomFrontFieldMaterial` draws each look
+room's claims into a field, one texel a 16 px cell (`room_front_field.wgsl`,
+a camera of its own on `ROOM_FRONT_FIELD_LAYER`, linear light into an sRGB
+target, as the impostor atlas); the skins and the overlay read it
+(`look_claim_in`, `look_is_corrupt_in`). MEASURED: `capture_scene` of the hub
+at `high`, field on against off, 1 pixel of 921,600 differs, by 1 level; a
+probe that wrote every texel clean changed 132,647, so the field is what is
+read. Desktop llvmpipe A/B (the CPU rasterizes, so fragment work shows),
+hub route, three interleaved rounds: frame p50 40.91 -> 36.13 ms,
+rasterizer CPU 345 -> 284 ms a frame. The phone A/B:
+`--launch-env AMBITION_ROOM_FRONT_FIELD=off` makes no field. What the band
+still pays per pixel is noise (`look_field` in the skins' heat and wash, the
+sky's air and fog, the overlay's tears), exact only per pixel; cutting it
+further is an approximation and Jon's call.
 
 The test that confirms the cause on a device: the hub with screen shaders
 off (`budget.shaders`) against on; the look is built to read the same off

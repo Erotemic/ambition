@@ -52,6 +52,7 @@ consolidations and the monolith packets.
 | The effect quarantine is one pass per phase over its families (`ExternalEffectFamilies`: open, journal, release, discard), not one system per message type per phase; each family's step is the old system as a `&mut World` function | done | census: Mary-O route 1,184 → 1,163 systems a frame (25 quarantine systems → 3, plus the discard on a load) |
 | The host intents' release and prune are one pass each over the registered types (`HostIntentTypes`), reading the live session once | done | 6 → 2 systems (REASONED from the three registered types; app host-intent tests green) |
 | Held and wielded item presentation (in-hand sprite, over-hand sprite, hand requests) in `HeldItemPresentationSet`: runs while an item is held or wielded and one frame after | done | 3 systems a frame where nothing is held (REASONED by count) |
+| Monolith packet: `audio` and `music` leave the actor monolith as `ambition_platformer2d_audio` (`9c23bfefc`); the facade's `audio` installs it, the monolith's `visible` no longer implies audio | done | ~1,200 production and ~1,400 test lines out of the monolith; 0 systems added or removed; Outlander and the minimal game stop linking the audio runtime (REASONED from the feature graph) |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 

@@ -22,6 +22,15 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 /// Schedules the `Platformer2dSimulationPhase::Combat` system chain.
 pub struct CombatSchedulePlugin;
 
+/// Run condition of a technique handler that answers presses alone: an action
+/// message waits. It peeks the channel and takes nothing (see
+/// `ambition_platformer2d_core::a_message_waits`).
+fn a_technique_is_pressed(
+    messages: Option<Res<bevy::ecs::message::Messages<ambition_characters::brain::ActorActionMessage>>>,
+) -> bool {
+    messages.is_some_and(|messages| !messages.is_empty())
+}
+
 /// Install a technique handler AND declare the key it answers, in one statement.
 ///
 /// ⛔⛔ **THE TWO CANNOT BE SEPARATED, AND THAT IS THE WHOLE POINT.** Before
@@ -495,6 +504,7 @@ impl Plugin for CombatSchedulePlugin {
             // A teleport that ran a phase later would move the body after the
             // frame it was authored for.
             ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
+                .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
         );
@@ -514,6 +524,7 @@ impl Plugin for CombatSchedulePlugin {
             // settled afterwards would let her be launched at the percent she
             // had before she bought the tempo.
             ambition_combat::vitality::apply_authored_vitality
+                .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
         );
@@ -529,6 +540,7 @@ impl Plugin for CombatSchedulePlugin {
                 delivery: TechniqueDelivery::Action,
             },
             ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
+                .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
         );
@@ -547,6 +559,7 @@ impl Plugin for CombatSchedulePlugin {
             // the movement kernel integrates it — so unlike its neighbours it has
             // nothing to race the sweep for.
             ambition_platformer2d_actor_monolith::abilities::traversal::flyline::apply_authored_flylines
+                .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
         );

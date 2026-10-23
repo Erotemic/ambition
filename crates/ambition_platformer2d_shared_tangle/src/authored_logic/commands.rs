@@ -409,7 +409,9 @@ impl Plugin for AuthoredCommandPlugin {
             )
             .add_systems(
                 sim,
-                run_requested_authored_commands.in_set(AuthoredCommandSet),
+                run_requested_authored_commands
+                    .run_if(ambition_platformer2d_core::a_message_waits::<RunAuthoredCommand>)
+                    .in_set(AuthoredCommandSet),
             );
     }
 }

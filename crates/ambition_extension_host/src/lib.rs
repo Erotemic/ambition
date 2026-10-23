@@ -183,7 +183,13 @@ impl Plugin for ExtensionHostPlugin {
             .init_resource::<ExtensionInvocations>()
             .init_resource::<ExtensionOutbox>()
             .init_resource::<ExtensionFaults>()
-            .add_systems(self.schedule, admit_world.in_set(ExtensionSet::Admit));
+            // The backstop runs until the world is admitted, not each tick after.
+            .add_systems(
+                self.schedule,
+                admit_world
+                    .run_if(bevy::prelude::not(bevy::prelude::resource_exists::<AdmittedExtensions>))
+                    .in_set(ExtensionSet::Admit),
+            );
     }
 
     /// ⛔ `finish` is the FIRST admission point, not the only one. A runner

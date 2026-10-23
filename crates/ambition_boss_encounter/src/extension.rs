@@ -28,7 +28,8 @@ pub fn install(app: &mut App) {
     app.install_extension_trigger::<BossSpecialCast, _>(
         TECHNIQUE_EXECUTION,
         "ambition_boss_encounter",
-        queue_boss_special_casts,
+        // It casts for each boss; with none, nothing is cast.
+        queue_boss_special_casts.run_if(any_with_component::<crate::BossEncounter>),
     );
 }
 

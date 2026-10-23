@@ -1347,3 +1347,46 @@ fn a_stored_record_of_another_shape_faults_the_invocation() {
         Fault::StaleRecord { schema: COUNTER, stored: shape ^ 1, admitted: shape }
     );
 }
+
+#[derive(Resource, Default)]
+struct AdapterRuns(u32);
+
+fn lower_emits_counted(
+    mut runs: ResMut<AdapterRuns>,
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut lowered: ResMut<Lowered>,
+) {
+    runs.0 += 1;
+    for s in outbox.drain::<Emit>(&PHASE) {
+        lowered.0.push((s.scope, s.occurrence, s.value));
+    }
+}
+
+/// An adapter that acts only on what was submitted sleeps on a tick whose
+/// invocations submitted nothing in its phase, and lowers on the tick that
+/// did.
+#[test]
+fn a_submitted_request_adapter_sleeps_on_a_tick_that_submitted_nothing() {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<AdapterRuns>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_submitted_request::<Emit, _>(PHASE, "test", lower_emits_counted)
+        .add_extension_module(module(vec![entry("a", vec![])]));
+    app.finish();
+
+    step(&mut app);
+    step(&mut app);
+    assert_eq!(app.world().resource::<AdapterRuns>().0, 0, "nothing was submitted");
+
+    let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut app);
+    assert_eq!(app.world().resource::<AdapterRuns>().0, 1);
+    assert_eq!(app.world().resource::<Lowered>().0, vec![(body, Some(101), (1, 1, 2.0))]);
+    assert!(app.world().resource::<ExtensionOutbox>().is_empty());
+}

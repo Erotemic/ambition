@@ -33,7 +33,7 @@ pub fn install_for_hit_reaction(app: &mut App) {
     app.add_message::<ActorActionMessage>();
     app.init_resource::<TickParries>();
     app.install_extension_trigger::<ParriedPort, _>(HIT_REACTION, "ambition_combat", queue_parries);
-    app.install_extension_request::<AnswerParryPort, _>(HIT_REACTION, "ambition_combat", lower_parry_answers);
+    app.install_extension_submitted_request::<AnswerParryPort, _>(HIT_REACTION, "ambition_combat", lower_parry_answers);
     app.install_extension_trigger::<StruckPort, _>(HIT_REACTION, "ambition_combat", queue_strikes);
     super::status::install_for_hit_reaction(app);
 }

@@ -28,7 +28,7 @@ pub fn install(app: &mut App) {
 /// that goes off (a bomb) owns its blast.
 pub fn install_for_module_entity_tick(app: &mut App) {
     app.add_message::<ambition_vfx::EffectRequest>();
-    app.install_extension_request::<BlastPort, _>(
+    app.install_extension_submitted_request::<BlastPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_combat",
         lower_blasts::<InModuleEntityTick>,

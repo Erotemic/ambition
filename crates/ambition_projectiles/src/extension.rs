@@ -17,7 +17,7 @@ use crate::spawn_request::{ProjectileSpawnRequest, ProjectileStart};
 /// Install the request port in `technique_execution`, where a spawn
 /// materializes before this tick's projectile step.
 pub fn install(app: &mut App) {
-    app.install_extension_request::<ProjectileSpawnPort, _>(
+    app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_projectiles",
         lower_projectile_spawns::<InTechniqueExecution>,
@@ -27,7 +27,7 @@ pub fn install(app: &mut App) {
 /// Install the same request port in `wielded_use` (a held item's use), which
 /// runs before this tick's projectile step too.
 pub fn install_for_wielded_use(app: &mut App) {
-    app.install_extension_request::<ProjectileSpawnPort, _>(
+    app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         WIELDED_USE,
         "ambition_projectiles",
         lower_projectile_spawns::<InWieldedUse>,
@@ -37,7 +37,7 @@ pub fn install_for_wielded_use(app: &mut App) {
 /// Install the same request port in `module_entity_tick` (a module-owned
 /// entity fires: the entity owns the projectile).
 pub fn install_for_module_entity_tick(app: &mut App) {
-    app.install_extension_request::<ProjectileSpawnPort, _>(
+    app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_projectiles",
         lower_projectile_spawns::<InModuleEntityTick>,
@@ -46,7 +46,7 @@ pub fn install_for_module_entity_tick(app: &mut App) {
 
 /// Install the same request port in `boss_conduct` (a conducted boss throws).
 pub fn install_for_boss_conduct(app: &mut App) {
-    app.install_extension_request::<ProjectileSpawnPort, _>(
+    app.install_extension_submitted_request::<ProjectileSpawnPort, _>(
         BOSS_CONDUCT,
         "ambition_projectiles",
         lower_projectile_spawns::<InBossConduct>,

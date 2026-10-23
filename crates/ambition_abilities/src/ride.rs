@@ -26,15 +26,15 @@ use bevy::prelude::*;
 pub fn install_for_technique_execution(app: &mut App) {
     app.add_message::<ambition_vfx::EffectRequest>();
     app.add_message::<DismountRequested>();
-    app.install_extension_request::<SummonRidePort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_summon_rides);
+    app.install_extension_submitted_request::<SummonRidePort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_summon_rides);
     app.install_extension_observation::<RidePort>(TECHNIQUE_EXECUTION, "ambition_abilities", ride_of);
     app.install_extension_observation::<SaddlePort>(TECHNIQUE_EXECUTION, "ambition_abilities", saddle_of);
     app.install_extension_observation::<BodyPressesPort>(TECHNIQUE_EXECUTION, "ambition_abilities", presses_of);
     app.install_extension_observation::<TumblingPort>(TECHNIQUE_EXECUTION, "ambition_abilities", tumbling_of);
     app.install_extension_observation::<BodyRoomPort>(TECHNIQUE_EXECUTION, "ambition_abilities", room_of);
-    app.install_extension_request::<DismountPort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_dismounts);
-    app.install_extension_request::<HoldCoursePort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_held_courses);
-    app.install_extension_request::<DismissPort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_dismissals);
+    app.install_extension_submitted_request::<DismountPort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_dismounts);
+    app.install_extension_submitted_request::<HoldCoursePort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_held_courses);
+    app.install_extension_submitted_request::<DismissPort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_dismissals);
     // After the brains publish, so a brain cannot write over the course
     // before movement, and before the control gate, so every restriction
     // sees it.

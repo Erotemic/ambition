@@ -23,20 +23,20 @@ use bevy::prelude::*;
 /// `technique_execution`.
 pub fn install(app: &mut App) {
     app.install_extension_trigger::<StatusTickPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", queue_status_ticks);
-    app.install_extension_request::<HoldStatusPort, _>(
+    app.install_extension_submitted_request::<HoldStatusPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
         lower_held_statuses::<InTechniqueExecution>,
     );
-    app.install_extension_request::<TimeScalePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_time_scales);
-    app.install_extension_request::<StatusClockPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_status_clocks);
+    app.install_extension_submitted_request::<TimeScalePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_time_scales);
+    app.install_extension_submitted_request::<StatusClockPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_status_clocks);
     app.install_extension_observation::<InPlayPort>(TECHNIQUE_EXECUTION, "ambition_combat", in_play);
 }
 
 /// Offer holding a status in `hit_reaction`, where a strike leaves one on the
 /// body it struck.
 pub fn install_for_hit_reaction(app: &mut App) {
-    app.install_extension_request::<HoldStatusPort, _>(HIT_REACTION, "ambition_combat", lower_held_statuses::<InHitReaction>);
+    app.install_extension_submitted_request::<HoldStatusPort, _>(HIT_REACTION, "ambition_combat", lower_held_statuses::<InHitReaction>);
 }
 
 /// The statuses a body holds, by kind, in order. Never empty: a body that

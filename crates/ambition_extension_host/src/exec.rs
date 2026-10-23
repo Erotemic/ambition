@@ -126,6 +126,13 @@ pub struct ExtensionOutbox {
 }
 
 impl ExtensionOutbox {
+    /// Whether an invocation of `phase` submitted a request still waiting
+    /// here. It depends only on this tick's invocations, so a rollback that
+    /// replays the tick answers it the same.
+    pub fn holds_phase(&self, phase: &Phase) -> bool {
+        self.items.iter().any(|item| item.phase == *phase)
+    }
+
     /// Remove and return every request of port `P` that an invocation of
     /// `phase` submitted, in submit order.
     ///

@@ -56,21 +56,21 @@ pub fn install(app: &mut App) {
     app.settle_extension_costs(WIELDED_USE, settle_wielded_costs);
     // First of the phase's request ports: the host lowers them in install
     // order, so a `Place::Body` of a later port is the arrival.
-    app.install_extension_request::<TransitPort, _>(WIELDED_USE, "ambition_abilities", lower_transits);
+    app.install_extension_submitted_request::<TransitPort, _>(WIELDED_USE, "ambition_abilities", lower_transits);
     // The effect adapter writes the room-bound effect message: a composition
     // with the port has it, whether or not a module shows an effect.
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
-    app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects::<InWieldedUse>);
-    app.install_extension_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_bursts::<InWieldedUse>);
-    app.install_extension_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
-    app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
-    app.install_extension_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
-    app.install_extension_request::<BodySoundPort, _>(
+    app.install_extension_submitted_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects::<InWieldedUse>);
+    app.install_extension_submitted_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_bursts::<InWieldedUse>);
+    app.install_extension_submitted_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
+    app.install_extension_submitted_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities::<InWieldedUse>);
+    app.install_extension_submitted_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
+    app.install_extension_submitted_request::<BodySoundPort, _>(
         WIELDED_USE,
         "ambition_abilities",
         lower_body_sounds::<InWieldedUse>,
     );
-    app.install_extension_request::<SpawnModuleEntityPort, _>(
+    app.install_extension_submitted_request::<SpawnModuleEntityPort, _>(
         WIELDED_USE,
         "ambition_abilities",
         crate::module_entity::lower_module_entity_spawns::<InWieldedUse>,
@@ -84,22 +84,22 @@ pub fn install(app: &mut App) {
 /// it stands, show a line (a tether), draw a burst and play a sound, and
 /// summon a ride and end it ([`crate::ride`]).
 pub fn install_for_technique_execution(app: &mut App) {
-    app.install_extension_request::<SetVelocityPort, _>(
+    app.install_extension_submitted_request::<SetVelocityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         lower_velocities::<InTechniqueExecution>,
     );
-    app.install_extension_request::<SpawnModuleEntityPort, _>(
+    app.install_extension_submitted_request::<SpawnModuleEntityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         crate::module_entity::lower_module_entity_spawns::<InTechniqueExecution>,
     );
-    app.install_extension_request::<EffectPort, _>(
+    app.install_extension_submitted_request::<EffectPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         lower_effects::<InTechniqueExecution>,
     );
-    app.install_extension_request::<ambition_combat_port::SpawnModuleItemPort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::SpawnModuleItemPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         crate::module_entity::lower_module_item_spawns,
@@ -109,7 +109,7 @@ pub fn install_for_technique_execution(app: &mut App) {
         "ambition_abilities",
         crate::module_entity::owned_entities_of,
     );
-    app.install_extension_request::<ambition_combat_port::EndOwnedEntityPort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::EndOwnedEntityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         crate::module_entity::lower_owned_entity_ends,
@@ -124,17 +124,17 @@ pub fn install_for_technique_execution(app: &mut App) {
         "ambition_abilities",
         on_ground_of,
     );
-    app.install_extension_request::<ambition_combat_port::BodyLinePort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::BodyLinePort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         lower_body_lines,
     );
-    app.install_extension_request::<BurstPort, _>(
+    app.install_extension_submitted_request::<BurstPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         lower_bursts::<InTechniqueExecution>,
     );
-    app.install_extension_request::<BodySoundPort, _>(
+    app.install_extension_submitted_request::<BodySoundPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         lower_body_sounds::<InTechniqueExecution>,
@@ -169,32 +169,32 @@ pub fn install_module_entities(app: &mut App) {
         "ambition_abilities",
         crate::module_entity::toucher_credits_of,
     );
-    app.install_extension_request::<ambition_combat_port::MoveModuleEntityPort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::MoveModuleEntityPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         crate::module_entity::lower_module_entity_moves,
     );
-    app.install_extension_request::<EffectPort, _>(
+    app.install_extension_submitted_request::<EffectPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         lower_effects::<InModuleEntityTick>,
     );
-    app.install_extension_request::<LaunchToucherPort, _>(
+    app.install_extension_submitted_request::<LaunchToucherPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         lower_toucher_launches,
     );
-    app.install_extension_request::<BodySoundPort, _>(
+    app.install_extension_submitted_request::<BodySoundPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         lower_body_sounds::<InModuleEntityTick>,
     );
-    app.install_extension_request::<PullBodiesPort, _>(
+    app.install_extension_submitted_request::<PullBodiesPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         crate::module_entity::lower_body_pulls,
     );
-    app.install_extension_request::<EndModuleEntityPort, _>(
+    app.install_extension_submitted_request::<EndModuleEntityPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         crate::module_entity::lower_module_entity_ends,
@@ -204,7 +204,7 @@ pub fn install_module_entities(app: &mut App) {
 /// Install the sound request port in `boss_conduct` (a conducted boss is
 /// heard as itself).
 pub fn install_for_boss_conduct(app: &mut App) {
-    app.install_extension_request::<BodySoundPort, _>(
+    app.install_extension_submitted_request::<BodySoundPort, _>(
         BOSS_CONDUCT,
         "ambition_abilities",
         lower_body_sounds::<InBossConduct>,
@@ -214,8 +214,8 @@ pub fn install_for_boss_conduct(app: &mut App) {
 /// Install the burst and the sound requests in `body_contact`: a contact
 /// rule's pop is drawn and heard in the touched body's room.
 pub fn install_for_body_contact(app: &mut App) {
-    app.install_extension_request::<BurstPort, _>(BODY_CONTACT, "ambition_abilities", lower_bursts::<InBodyContact>);
-    app.install_extension_request::<BodySoundPort, _>(
+    app.install_extension_submitted_request::<BurstPort, _>(BODY_CONTACT, "ambition_abilities", lower_bursts::<InBodyContact>);
+    app.install_extension_submitted_request::<BodySoundPort, _>(
         BODY_CONTACT,
         "ambition_abilities",
         lower_body_sounds::<InBodyContact>,
@@ -225,7 +225,7 @@ pub fn install_for_body_contact(app: &mut App) {
 /// Install the velocity request in `actor_think`: a custom brain's hop. The
 /// body integrates it this tick.
 pub fn install_for_actor_think(app: &mut App) {
-    app.install_extension_request::<SetVelocityPort, _>(
+    app.install_extension_submitted_request::<SetVelocityPort, _>(
         ACTOR_THINK,
         "ambition_abilities",
         lower_velocities::<InActorThink>,

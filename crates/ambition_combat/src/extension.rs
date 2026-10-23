@@ -26,14 +26,14 @@ use ambition_characters::actor::ActorFaction;
 /// Install the request port in `technique_execution`, before the effect
 /// executor.
 pub fn install(app: &mut App) {
-    app.install_extension_request::<DamageBoxPort, _>(
+    app.install_extension_submitted_request::<DamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
         lower_damage_boxes::<InTechniqueExecution>,
     );
     // A ray is lowered with the held damage boxes (one record set): its own
     // install only offers the port.
-    app.install_extension_request::<HeldRayPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", || {});
+    app.install_extension_submitted_request::<HeldRayPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", || {});
     app.install_extension_request::<HeldDamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
@@ -44,20 +44,20 @@ pub fn install(app: &mut App) {
 /// Install the held damage box, the riding hitbox and the body hold in
 /// `boss_conduct`.
 pub fn install_for_boss_conduct(app: &mut App) {
-    app.install_extension_request::<HeldRayPort, _>(BOSS_CONDUCT, "ambition_combat", || {});
+    app.install_extension_submitted_request::<HeldRayPort, _>(BOSS_CONDUCT, "ambition_combat", || {});
     app.install_extension_request::<HeldDamageBoxPort, _>(
         BOSS_CONDUCT,
         "ambition_combat",
         lower_held_damage_boxes::<InBossConduct>,
     );
-    app.install_extension_request::<RidingHitboxPort, _>(BOSS_CONDUCT, "ambition_combat", lower_riding_hitboxes);
+    app.install_extension_submitted_request::<RidingHitboxPort, _>(BOSS_CONDUCT, "ambition_combat", lower_riding_hitboxes);
     // The hold adapter writes the capture road's requests: a composition with
     // the port has them, whether or not it ever grabs.
     app.add_message::<crate::capture::CaptureCarryRequested>();
     app.add_message::<crate::capture::CapturePummelRequested>();
     app.add_message::<crate::capture::CaptureThrowRequested>();
-    app.install_extension_request::<BodyHoldPort, _>(BOSS_CONDUCT, "ambition_combat", lower_body_holds);
-    app.install_extension_request::<ambition_combat_port::SlowBodiesPort, _>(
+    app.install_extension_submitted_request::<BodyHoldPort, _>(BOSS_CONDUCT, "ambition_combat", lower_body_holds);
+    app.install_extension_submitted_request::<ambition_combat_port::SlowBodiesPort, _>(
         BOSS_CONDUCT,
         "ambition_combat",
         lower_slows,
@@ -127,7 +127,7 @@ fn body_attachments_of(world: &World, scope: Entity) -> Option<BodyAttachments> 
 /// item's use), before the effect executor and the hit resolution, as in
 /// `technique_execution`.
 pub fn install_for_wielded_use(app: &mut App) {
-    app.install_extension_request::<DamageBoxPort, _>(
+    app.install_extension_submitted_request::<DamageBoxPort, _>(
         WIELDED_USE,
         "ambition_combat",
         lower_damage_boxes::<InWieldedUse>,
@@ -135,7 +135,7 @@ pub fn install_for_wielded_use(app: &mut App) {
     // The strike adapter writes the hit message: a composition with the port
     // has it, whether or not a module strikes.
     app.add_message::<crate::events::HitEvent>();
-    app.install_extension_request::<StrikePort, _>(WIELDED_USE, "ambition_combat", lower_strikes);
+    app.install_extension_submitted_request::<StrikePort, _>(WIELDED_USE, "ambition_combat", lower_strikes);
 }
 
 /// One hit, this tick, by the body, on what is in the volume. The body is the

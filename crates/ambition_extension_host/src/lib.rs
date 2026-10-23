@@ -63,6 +63,12 @@ pub enum ExtensionSet {
     Settle(Phase),
     /// Request adapters give submitted requests to their domains.
     Lower(Phase),
+    /// The request adapters of a phase that act only on what was submitted
+    /// ([`ExtensionAppExt::install_extension_submitted_request`]), inside
+    /// `Lower(phase)`. They sleep on a tick whose invocations submitted no
+    /// request in the phase. A held port's adapter, which releases what was
+    /// not asked again, is not in it.
+    LowerSubmitted(Phase),
     /// One request port's adapter, inside `Lower(phase)`. The host runs the
     /// request ports of a phase in the order they were installed: two
     /// adapters can write to one domain message (a damage box and a summon
@@ -279,6 +285,19 @@ pub trait ExtensionAppExt {
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self;
 
+    /// [`Self::install_extension_request`] for an adapter that does nothing
+    /// when nothing of `P` was submitted: it runs in
+    /// `ExtensionSet::LowerSubmitted(phase)`, which sleeps on a tick whose
+    /// invocations submitted nothing in `phase`. ⛔ Not for a held port (a
+    /// request re-submitted each tick, whose adapter releases what was not
+    /// asked again): its empty tick is the release.
+    fn install_extension_submitted_request<P: Port, M>(
+        &mut self,
+        phase: Phase,
+        owner: &'static str,
+        adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self;
+
     /// Declare a module. Admission runs in `Plugin::finish`.
     fn add_extension_module(&mut self, module: ModuleDescriptor) -> &mut Self {
         self.add_declared_extension_module(module.into())
@@ -344,6 +363,13 @@ fn ensure_phase(app: &mut App, schedule: Interned<dyn ScheduleLabel>, phase: &Ph
             ExtensionSet::Lower(phase.clone()),
         )
             .chain(),
+    );
+    let submitted = phase.clone();
+    app.configure_sets(
+        schedule,
+        ExtensionSet::LowerSubmitted(phase.clone())
+            .in_set(ExtensionSet::Lower(phase.clone()))
+            .run_if(move |outbox: Res<ExtensionOutbox>| outbox.holds_phase(&submitted)),
     );
     app.add_systems(
         schedule,
@@ -456,6 +482,19 @@ impl ExtensionAppExt for App {
             self.configure_sets(schedule, set.clone().after(ExtensionSet::LowerPort(phase, previous)));
         }
         self.add_systems(schedule, adapter.in_set(set))
+    }
+
+    fn install_extension_submitted_request<P: Port, M>(
+        &mut self,
+        phase: Phase,
+        owner: &'static str,
+        adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self {
+        self.install_extension_request::<P, _>(
+            phase.clone(),
+            owner,
+            adapter.in_set(ExtensionSet::LowerSubmitted(phase)),
+        )
     }
 
     /// A game plugin may run before or after the composition adds the host,

@@ -37,19 +37,19 @@ pub fn install(app: &mut App) {
 /// lowers a phase's request ports in install order; the composition installs
 /// this one after the damage box, as the native techniques wrote them.
 pub fn install_summons(app: &mut App) {
-    app.install_extension_request::<BossSummonPort, _>(
+    app.install_extension_submitted_request::<BossSummonPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_boss_encounter",
         lower_boss_summons::<InTechniqueExecution>,
     );
     // A body a module ticks in this phase (a summoned ally, by its status)
     // is drawn in a row of the module's, and speaks.
-    app.install_extension_request::<ambition_boss_special_port::DrawnRowPort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::DrawnRowPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_boss_encounter",
         crate::conduct::drain_drawn_rows::<InTechniqueExecution>.pipe(crate::conduct::draw_rows),
     );
-    app.install_extension_request::<ambition_combat_port::SpeechBubblePort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::SpeechBubblePort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_boss_encounter",
         crate::conduct::drain_speech_bubbles::<InTechniqueExecution>.pipe(crate::conduct::show_speech_bubbles),
@@ -75,12 +75,12 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::mount_of,
     );
-    app.install_extension_request::<ConductedPosePort, _>(
+    app.install_extension_submitted_request::<ConductedPosePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_conducted_poses,
     );
-    app.install_extension_request::<ambition_boss_special_port::LimbPosePort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::LimbPosePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::drain_limb_poses.pipe(crate::conduct::pose_limbs),
@@ -90,12 +90,12 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::drain_limb_bonds.pipe(crate::conduct::bond_limbs),
     );
-    app.install_extension_request::<ambition_boss_special_port::LimbOpeningPort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::LimbOpeningPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::drain_limb_openings.pipe(crate::conduct::open_limbs),
     );
-    app.install_extension_request::<ambition_boss_special_port::LimbBlowPort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::LimbBlowPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::drain_limb_blows.pipe(crate::conduct::pass_limb_blows),
@@ -105,58 +105,58 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::drain_limb_strikes.pipe(crate::conduct::strike_with_limbs),
     );
-    app.install_extension_request::<ambition_boss_special_port::MountLaunchPort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::MountLaunchPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::drain_mount_launches.pipe(crate::conduct::launch_mounts),
     );
-    app.install_extension_request::<ambition_combat_port::SpeechBubblePort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::SpeechBubblePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::drain_speech_bubbles::<InBossConduct>.pipe(crate::conduct::show_speech_bubbles),
     );
-    app.install_extension_request::<DrawnRowPort, _>(
+    app.install_extension_submitted_request::<DrawnRowPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::drain_drawn_rows::<InBossConduct>.pipe(crate::conduct::draw_rows),
     );
-    app.install_extension_request::<ambition_boss_special_port::BossGuardPort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossGuardPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_boss_guards,
     );
-    app.install_extension_request::<ambition_boss_special_port::BossScalePort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossScalePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_boss_scales,
     );
-    app.install_extension_request::<ambition_boss_special_port::BossStagePort, _>(
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossStagePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_boss_stages,
     );
-    app.install_extension_request::<ambition_combat_port::BurstPort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::BurstPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_bursts,
     );
-    app.install_extension_request::<ambition_combat_port::LightningPort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::LightningPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_lightning,
     );
-    app.install_extension_request::<ambition_combat_port::LightningAuraPort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::LightningAuraPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_lightning_auras,
     );
     app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
-    app.install_extension_request::<ambition_combat_port::CameraShakePort, _>(
+    app.install_extension_submitted_request::<ambition_combat_port::CameraShakePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_camera_shakes,
     );
-    app.install_extension_request::<BossSummonPort, _>(
+    app.install_extension_submitted_request::<BossSummonPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         lower_boss_summons::<InBossConduct>,

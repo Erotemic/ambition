@@ -610,6 +610,16 @@ query inside one very large exclusive system. Compare input query work,
 active invocations and snapshot contents under rollback and two live rooms.
 If the profiles show small CPU cost, defer this packet.
 
+**Done in part, 2026-10-23: dormancy, no fusion beyond the shield views.**
+The row views whose sources a room may not have (held, ground and world
+items, mark beacons, body clocks, shrines, hostile wielded items, projectile
+views) rebuild while a source exists or the view still holds rows
+(`sources_or_rows`), so the tick after the last source still clears the row.
+Each cleared and refilled its row, and marked it changed, every tick. The
+phase, the orders above and every snapshot's contents are unchanged. MEASURED
+by the census: 9 systems a tick fewer on the Mary-O route, 7 on the hub's
+Ambition route. Witness: `a_row_view_is_cleared_after_its_last_source_goes`.
+
 #### S7d — Rendering reconciliation (design and profile before fusion)
 
 Source: `crates/ambition_render/src/rendering/actors/` and related feature

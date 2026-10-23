@@ -3728,7 +3728,8 @@
         // Basement-tier bodies.
         "npc_carl_runga": (
             display_name: "Carl Runga",
-            manifest: "sprites/carl_runga_spritesheet.ron",
+            // The redesign (2026-10-23); `carl_runga` is the first design.
+            manifest: "sprites/carl_runga_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 183 cm.
@@ -3746,7 +3747,8 @@
         ),
         "npc_martin_cutta": (
             display_name: "Martin Cutta",
-            manifest: "sprites/martin_cutta_spritesheet.ron",
+            // The redesign (2026-10-23); `martin_cutta` is the first design.
+            manifest: "sprites/martin_cutta_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 173 cm.

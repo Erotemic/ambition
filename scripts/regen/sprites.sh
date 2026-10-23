@@ -1087,6 +1087,10 @@ tackon_targets=(
     admiral_grass_hopper
     anne_druid
     carl_runga
+    # Their redesigns (2026-10-23, look A, the Goettingen pair): the catalog
+    # draws these; `carl_runga` and `martin_cutta` publish as their lineage.
+    carl_runga_v2
+    martin_cutta_v2
     carl_stargan
     data_lovelace
     davy_hylbert

@@ -184,17 +184,25 @@ fn sync_bubble_shield_fx(
                 .entity(has.0)
                 .try_insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room.0));
         }
-        transform.scale = Vec3::new(size.x, size.y, 1.0);
-        let Some(mut material) = materials.get_mut(&material.0) else {
-            continue;
-        };
+        let scale = Vec3::new(size.x, size.y, 1.0);
+        if transform.scale != scale {
+            transform.scale = scale;
+        }
         let colour = sprite.color.to_srgba();
         let tint = Vec4::new(colour.red, colour.green, colour.blue, look.strength);
         let state = Vec4::new(look.integrity, look.pulse, f32::from(u8::from(look.parrying)), size.x / size.y);
         let blow = look
             .blow_phase
             .map_or(Vec4::ZERO, |phase| Vec4::new(look.blow_at.x, look.blow_at.y, phase, 1.0));
-        if material.tint != tint || material.state != state || material.blow != blow {
+        // Compared before it is taken mutably: `get_mut` marks the material
+        // modified, and a modified material is prepared again for the GPU.
+        let unchanged = materials
+            .get(&material.0)
+            .is_some_and(|current| current.tint == tint && current.state == state && current.blow == blow);
+        if unchanged {
+            continue;
+        }
+        if let Some(mut material) = materials.get_mut(&material.0) {
             material.tint = tint;
             material.state = state;
             material.blow = blow;

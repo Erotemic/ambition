@@ -24,7 +24,6 @@ pub mod construction;
 /// player brain. See `control/mod.rs`.
 pub mod control;
 pub mod host;
-pub mod quest;
 pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
@@ -41,7 +40,6 @@ pub mod character_sprites;
 pub mod clash;
 pub mod config;
 pub mod cutscene;
-pub mod dev;
 #[cfg(test)]
 pub mod enemy_projectile;
 pub mod body_conditions;
@@ -65,7 +63,6 @@ pub mod world_facts;
 pub mod actor_clusters;
 pub mod features;
 pub mod game_assets;
-pub use dev::trace;
 pub use world::rooms;
 
 // Keep generic time vocabulary in `ambition_time`; export only the local bridge.

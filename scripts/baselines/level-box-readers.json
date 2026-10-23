@@ -39,7 +39,7 @@
       "class": "a shot"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
+      "file": "crates/ambition_platformer2d_trace/src/detect.rs",
       "code": "scratch.kinematics.aabb(),",
       "class": "a scratch body with no record"
     },

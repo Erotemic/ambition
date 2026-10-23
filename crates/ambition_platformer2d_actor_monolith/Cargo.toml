@@ -327,8 +327,9 @@ ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 # inward edge and exactly what a carved domain is for.
 ambition_mount = { path = "../ambition_mount" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-# Reusable gameplay flight-recorder FORMAT (schema + buffer + dump). The
-# recording systems stay in dev/trace next to the sim state they sample.
+# Reusable gameplay flight-recorder FORMAT (schema + buffer + dump). Gameplay
+# systems record events into its buffers; the recorder that samples each
+# frame is `ambition_platformer2d_trace`.
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Authored-audio stack (Stage 20 / B1). The data schema half is
 # unconditional (Platformer2dGameplayDefaults embeds AudioSpec); the Kira playback

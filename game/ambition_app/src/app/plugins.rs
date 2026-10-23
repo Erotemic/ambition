@@ -425,7 +425,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 handle_ldtk_hot_reload.run_if(
                     resource_exists::<ambition_platformer2d::world::world_manifest::WorldManifest>,
                 ),
-                ambition_platformer2d::actors::trace::handle_trace_hotkey,
+                ambition_platformer2d::trace_recorder::handle_trace_hotkey,
                 // `handle_map_menu_hotkeys` LEFT THIS CHAIN: `MapStatePlugin`
                 // installs it now, ordered against the simulation phase rather
                 // than behind two systems it shares no state with. The chain's

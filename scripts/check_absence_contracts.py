@@ -249,7 +249,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         "paths": [
             "crates/ambition_platformer2d_actor_monolith/src/time/",
             "crates/ambition_platformer2d_actor_monolith/src/control/",
-            "crates/ambition_platformer2d_actor_monolith/src/dev/trace/",
+            "crates/ambition_platformer2d_trace/src/",
             "crates/ambition_dev_tools/src/lib.rs",
         ],
         "patterns": [

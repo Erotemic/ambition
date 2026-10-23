@@ -1,0 +1,32 @@
+[package]
+name = "ambition_platformer2d_trace"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The gameplay trace recorder: the systems that sample the player and every body into the flight-recorder buffer each simulation frame, detect out-of-bounds and teleports, and write a dump on request. Carved out of ambition_platformer2d_actor_monolith (D33); the format is ambition_gameplay_trace."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# Records the portal teleports of a body (`BodyTeleported`) as a fact of its
+# frame. The runtime's `portal` turns it on.
+portal = ["dep:ambition_portal2d"]
+
+[dependencies]
+# The trace format: the buffers, frames, events and the dump road.
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+# What it samples: bodies, the world, the safe position, the clock, control,
+# combat and the moving platforms.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_input = { path = "../ambition_input" }
+ambition_time = { path = "../ambition_time" }
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
+# `ui_api` as the monolith's base bevy dep, so feature unification is unchanged;
+# `x11` only matters for isolated builds of this crate (winit needs a backend).
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "x11"] }

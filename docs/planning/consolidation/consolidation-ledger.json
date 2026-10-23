@@ -2207,6 +2207,34 @@
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [
+        "ambition_characters",
+        "ambition_combat",
+        "ambition_gameplay_trace",
+        "ambition_input",
+        "ambition_platformer2d_core",
+        "ambition_platformer2d_shared_tangle",
+        "ambition_platformer2d_world",
+        "ambition_portal2d",
+        "ambition_time"
+      ],
+      "nonblank_rust_loc": 2134,
+      "package": "ambition_platformer2d_trace",
+      "path": "crates/ambition_platformer2d_trace",
+      "public_items_heuristic": 17,
+      "public_root_reexports_or_modules_heuristic": 5,
+      "raw_rust_loc": 2251,
+      "responsibility_clue": "The gameplay trace recorder: the systems that sample the player and every body into the flight-recorder buffer each simulation frame, detect out-of-bounds and teleports, and write a dump on request. Carved out of ambition_platformer2d_actor_monolith (D33); the format is ambition_gameplay_trace.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d",
+        "ambition_platformer2d_runtime"
+      ],
+      "rust_files": 6,
+      "test_rust_loc_heuristic": 859
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
         "ambition_asset_manager",
         "ambition_entity_catalog",
         "ambition_platformer2d_core",

@@ -389,9 +389,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/quest/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/quest.rs",
         "game/ambition_content/src/quest.rs",
     ),
     "SeatRawFrames": (
@@ -612,7 +612,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "GameplayTraceBuffer": (
         "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/dev/trace/systems.rs",
+        "crates/ambition_platformer2d_trace/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
     ),
     "KaleidoscopeCursor": (
@@ -1878,7 +1878,7 @@ ADJUDICATED: dict[str, str] = {
         "apply_wave_encounter_effects}`, "
         "`actor_monolith/src/features/ecs/effect_bus.rs::{apply_flag_effects, "
         "apply_quest_effects}`, "
-        "`actor_monolith/src/quest/mod.rs::push_room_entered_quest_events`, "
+        "`ambition_platformer2d_runtime/src/quest.rs::push_room_entered_quest_events`, "
         "`actor_monolith/src/features/npcs.rs::record_npc_provocations` — which "
         "writes an NPC's durable provocation flag through `effect_bus::write_flag`, "
         "the same save-plus-`FlagSet` write `apply_flag_effects` makes, added "

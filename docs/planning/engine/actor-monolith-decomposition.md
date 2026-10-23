@@ -483,6 +483,24 @@ message changed; `AudioEnvironment`'s rollback-coverage row follows its new
 path. Receipt (MEASURED, `wc -l`): about 1,200 production and 1,400 test lines moved; the
 monolith's tests 1,338 → 1,289 lib tests, the new crate 49.
 
+**Done 2026-10-23 — the gameplay trace recorder leaves the crate.**
+`dev::trace` (the per-frame player and body recorders, OOB and teleport
+detection, the F8 hotkey, the dump flush and the headless driver's
+`record_simulation_frame`) named nothing else in the monolith in production;
+one test helper wrapped a core constructor. It is `ambition_platformer2d_trace`,
+below the runtime, beside the format crate `ambition_gameplay_trace`. The
+runtime installs its `TraceSchedulePlugin` as before and its `portal` turns on
+the recorder's (`BodyTeleported` as a frame fact); the facade names it
+`trace_recorder`, and the app's hotkey and the headless binary use that path.
+The monolith loses its `dev` module. No system, resource or message changed.
+Receipt (MEASURED, `wc -l`): about 1,340 production and 910 test lines moved;
+36 tests run in the new crate.
+The same day, the room-entered quest producer (`quest`,
+`push_room_entered_quest_events`) moved to the runtime that installs it. Its
+note said it lived in the monolith "because `RoomSet` does"; `RoomSet` is the
+world crate's now, and the runtime depends on both that and the quest
+registry's crate, which do not depend on each other.
+
 **Assessed 2026-10-21, not cut — A6 and A7.** `character_runtime -> avatar`
 (1) is match preparation reading the session root's `InitialBodyPolicy`, to
 refuse a local seat in a session that also lowers a home avatar; that is a

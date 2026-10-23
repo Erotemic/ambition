@@ -264,6 +264,7 @@ ambition_relativity2d = { path = "../ambition_relativity2d", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_platformer2d_trace = { path = "../ambition_platformer2d_trace" }
 ambition_platformer2d_rollback_ggrs = { path = "../ambition_platformer2d_rollback_ggrs", optional = true }
 ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
 ambition_sfx = { path = "../ambition_sfx" }

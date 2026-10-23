@@ -6,6 +6,10 @@
 //!
 //! See `docs/systems/gameplay-trace-recorder.md` for the workflow and bug-reporting
 //! checklist.
+//!
+//! The recording systems sample live body, world, portal and session state;
+//! the format they record into is `ambition_gameplay_trace`. Carved out of the
+//! actor monolith's `dev::trace`, which read nothing else of the monolith.
 
 use ae::AabbExt;
 use ambition_platformer2d_core as ae;

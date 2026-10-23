@@ -624,6 +624,19 @@ Measure entity churn, archetype changes, component writes and renderer CPU
 alongside active system count. A smaller system count with more structural
 writes fails this packet.
 
+**Done in part, 2026-10-23: keyed reconciliation, no fusion.** The passes
+that despawned and spawned their drawables each frame now keep them, keyed
+on what each one draws, and write a component only when it changes: ground,
+world and held item visuals; portal labels, gun pickups, shots and the held
+portal gun; the boss health bar, the boss name card, the cutscene overlay,
+mark beacons and the dialogue box (which three writers rebuilt each frame).
+No pass was merged with another and no system was added. MEASURED by the
+census rows `changed_transforms` (with `added`) and `changed_sprites` (with
+UI nodes and texts): no room surveyed spawns anything a frame now, against
+1-14 before; the dialogue box and the boss bar went from 16 and 6 UI node
+writes a frame to 0. Each change has a witness that fails with its gate
+taken out. See the findings page's run table for each row.
+
 #### S7e — Low-priority generic fan-out
 
 `crates/ambition_conversation/src/ledger.rs` installs release, prune and
@@ -641,8 +654,11 @@ the host intents (`HostIntentTypes`, 6 to 2). Each step is the old system's
 body over `&mut World`, so the per-type logic and its tests stayed; nothing
 is type-erased beyond a function pointer. The main-world schedules run
 serially (F41), so an exclusive pass costs no parallelism. The narrative
-ledgers here were left as they were: the next phone profile says whether
-any of the three groups mattered.
+ledgers were not fused: each ledger's release and prune got the condition
+"this ledger holds a record", which is exact (both do nothing to an empty
+ledger), so the 24 of them that ran each frame in Ambition's rooms run on the
+frames a conversation has stamped something (hub census 1,323 → 1,298 with
+one other slice). No type erasure and no shared registry were needed.
 
 #### Acceptance and rejection gates
 

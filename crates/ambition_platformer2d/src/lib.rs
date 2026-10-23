@@ -737,9 +737,11 @@ pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
 /// The gameplay TRACE: the buffer a headless run records into, its dump road
-/// and the reasons a dump is taken. Named from its owning crate rather than
-/// through the actor monolith's `dev::trace`, which only ever forwarded it.
+/// and the reasons a dump is taken. Named from its owning crate.
 pub use ambition_gameplay_trace as gameplay_trace;
+/// The gameplay trace RECORDER: the systems that sample each frame into that
+/// buffer, the F8 hotkey and the headless driver's `record_simulation_frame`.
+pub use ambition_platformer2d_trace as trace_recorder;
 // The conversation authority — and, under `ui`, the Yarn host glue that used to
 // sit in the monolith as `actors:dialog`.
 /// The body seed every construction path spawns from; a game that builds an

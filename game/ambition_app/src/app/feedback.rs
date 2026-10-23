@@ -32,7 +32,7 @@ pub struct GameplayFeedbackWriters<'w> {
 /// behind a single param both keeps the budget headroom and documents
 /// the intentional read-only contract: HUD systems must not mutate
 /// progression state. Mutators live in the producer side
-/// (the player tick, `ambition_platformer2d::actors::quest`, `ambition_platformer2d::boss_encounter`, etc.).
+/// (the player tick, `ambition_platformer2d::runtime::quest`, `ambition_platformer2d::boss_encounter`, etc.).
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, ambition_content::quest::QuestRegistry>,

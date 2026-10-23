@@ -3,8 +3,9 @@
 //! Quest data, events, registry, and save mirroring live in
 //! `ambition_persistence::quest`, and every consumer names that crate
 //! directly. The only piece here is the room-specific producer that
-//! translates the active `RoomSet` into a generic `RoomEntered` quest event —
-//! it lives in this crate because `RoomSet` does.
+//! translates the live rooms (`ambition_platformer2d_world`) into a generic
+//! `RoomEntered` quest event. It sits in the runtime, which installs it and
+//! depends on both; neither of those crates depends on the other.
 
 use bevy::prelude::*;
 

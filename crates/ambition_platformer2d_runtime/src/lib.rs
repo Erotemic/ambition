@@ -40,6 +40,8 @@ mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
 mod progression_schedule;
+/// The room-entered quest producer: the progression schedule installs it.
+pub mod quest;
 pub mod posed_limbs;
 pub mod profile;
 pub mod projectile_schedule;
@@ -560,7 +562,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Sandbox reset schedule.
             .add(ambition_platformer2d_actor_monolith::session::reset::NewGameResetPlugin)
             // Deterministic sim traces.
-            .add(ambition_platformer2d_actor_monolith::trace::TraceSchedulePlugin)
+            .add(ambition_platformer2d_trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
             .add(ambition_sim_view::affordances::AffordancesPlugin)
             // Each body's effective repertoire, after the persona phase.

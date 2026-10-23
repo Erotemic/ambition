@@ -64,7 +64,7 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::quest::push_room_entered_quest_events,
+                crate::quest::push_room_entered_quest_events,
                 ambition_persistence::quest::apply_quest_advance_events,
             )
                 .chain()

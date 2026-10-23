@@ -28,6 +28,7 @@
 | [`profile`](src/profile.rs) | Named supported engine profiles: capability contracts, not plugin lists. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
+| [`quest`](src/quest.rs) | Gameplay-core adapter for the generic quest runtime. |
 | [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
 | [`room_departure`](src/room_departure.rs) | Leaving a room because the level in it is done: the one road for "go on". |
 | [`room_schedule`](src/room_schedule.rs) | Room-transition schedule anchors. |
@@ -40,7 +41,7 @@
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_33 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

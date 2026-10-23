@@ -9,8 +9,8 @@
 //! without depending on the game.
 //!
 //! Extracted from `ambition_platformer2d_actor_monolith` (`dev/trace/`); the recording systems
-//! (`detect` / `systems` / `plugin`) stay in the game next to the sim state they
-//! sample.
+//! (`detect` / `systems` / `plugin`) are `ambition_platformer2d_trace`, next to
+//! the sim state they sample.
 
 mod actor_trace;
 mod buffer;

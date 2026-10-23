@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use ambition_app::rl_sim::{
     AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::actors::trace::record_simulation_frame;
+use ambition_platformer2d::trace_recorder::record_simulation_frame;
 use ambition_platformer2d::gameplay_trace as trace;
 use ambition_platformer2d::gameplay_trace::{DumpReason, GameplayTraceBuffer};
 use ambition_platformer2d::input::ControlFrame;

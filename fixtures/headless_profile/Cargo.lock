@@ -557,6 +557,7 @@ dependencies = [
  "ambition_platformer2d_publication",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_trace",
  "ambition_platformer2d_world",
  "ambition_projectiles",
  "ambition_resource_spec",
@@ -736,6 +737,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_publication",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_trace",
  "ambition_platformer2d_world",
  "ambition_projectiles",
  "ambition_registry_core",
@@ -761,6 +763,21 @@ dependencies = [
  "ambition_sim_schedule",
  "bevy",
  "tracing",
+]
+
+[[package]]
+name = "ambition_platformer2d_trace"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_gameplay_trace",
+ "ambition_input",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_time",
+ "bevy",
 ]
 
 [[package]]

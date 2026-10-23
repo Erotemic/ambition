@@ -28,14 +28,14 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 18:53Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-23 19:56Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 968 systems a frame; hub Ambition route 1,323 → 1,140 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
-run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
+run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
 module and the debris physics adapter (~4,000 production lines out, by `wc -l`
-at each move). Last green commit for the slices' own tests: this one (F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`).
+at each move). Last green commit: `8aae83270` (full `app_it` 1,304 of 1,304 run, app 253, Mary-O 204; F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`). Red and not this run's: `ambition_content` `worlds::tests` (3), from `0d4b5f656`.
 Waiting on: a phone profile of a build with these slices, the measurement that
 says what they bought in frame time.
 
@@ -177,6 +177,27 @@ Found on the way: the A/B worktree must carry the untracked generated assets
 (FX sheets, parallax tiers, audio) or the base never leaves the launcher; the
 first attempt compared HEAD's gameplay with the base's "load failed" screen
 (751 systems). `cp -rs` of the main tree's asset files into the worktree.
+
+**The run's last A/B (19:55Z, the same method, HEAD `8aae83270`).** The
+machine was slower than at 10:20 (the base's own wall rose 13.45 → 15.27 ms),
+so read each row against its own base:
+
+| per frame (median of windows) | Mary-O start | Mary-O HEAD | Ambition start | Ambition HEAD |
+| --- | ---: | ---: | ---: | ---: |
+| systems run | 1,362 | 972 | 1,540 | 1,141 |
+| main-world wall, summed | 15.27 ms | 7.89 ms | 15.93 ms | 8.47 ms |
+| `Update` wall | 4.99 ms | 2.03 ms | 4.52 ms | 2.25 ms |
+| `PostUpdate` wall | 5.39 ms | 2.72 ms | 6.69 ms | 2.84 ms |
+| `SpawnScene` wall | 0.73 ms | 0.08 ms | 0.64 ms | 0.07 ms |
+| `Update` process CPU | 36.1 ms | 9.1 ms | 28.2 ms | 10.3 ms |
+| frame p50 (llvmpipe-bound) | 30.3 ms | 28.1 ms | 56.5 ms | 55.6 ms |
+
+The afternoon's slices took the systems run from 1,099 to 972 on Mary-O; the
+main-world wall's share of its base stayed about half (46% → 52% removed).
+REASONED: the late slices gate passes that were cheap per run, so on this
+host they count in systems rather than milliseconds; on the phone's executor
+each run's overhead is larger (F3). The phone measurement is still the one
+that says what this buys there.
 
 ### F43 — What still changes, spawns and allocates each frame (2026-10-23)
 

@@ -88,6 +88,19 @@ What is left, by kind (MEASURED counts, REASONED reading):
 Next by leverage: S7c (fuse the sim-view publishers sharing one body
 traversal), the held-port classification that would let the drain-only
 extension lowerings sleep per phase, and the composition items above.
+(Since done: the lowerings, `670a8d4f4`; the shield pair, `e97a14eec`.)
+
+**The Ambition route** (MEASURED, same method, after `1e7616973`): 1,342
+systems a frame, against the Mary-O route's 1,160. Other games' systems left
+on it: Mary-O's 13 (her five materials' Bevy per-type systems and two reset
+ledgers) and two of Smash's fighter-special rules, which Ambition's cast
+uses too. The boss domain runs 24 systems a tick and Ambition's per-boss
+rules 12 in the hub room, where no boss stands: they are scoped to
+Ambition's rules, and a finer scope ("a live room holds this boss") must
+keep the save-ledger systems (defeat retraction, a boss's music release)
+running everywhere and the arena trackers' one tidy-up frame. REASONED: a
+per-room capability use derived from a room's authored placements is the
+general form; it is a design step (P18), not a gate.
 
 ### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
 

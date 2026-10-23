@@ -11,7 +11,10 @@ use ambition_platformer2d_shared_tangle::construction::{
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Update, World};
-use super::*;
+use ambition_platformer2d_construction::*;
+// What the planner's module brought in when these lived inside it.
+use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
+use bevy::prelude::Entity;
 use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 use crate::features::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
@@ -268,7 +271,7 @@ pub fn bare_request(id: &str) -> ActorConstructionRequest {
 
 pub fn test_services() -> ActorConstructionServices {
     ActorConstructionServices {
-        context: crate::construction::placements::ActorPlacementContext::new(
+        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -383,7 +386,7 @@ pub fn staged_giant(id: &str) -> SpawnActorRequest {
 }
 
 pub fn rig_faults(plan: &ActorConstructionPlan, receipt: &ConstructionReceipt, world: &World) -> usize {
-    let faults = crate::construction::verify_rig_composition(plan, receipt, world);
+    let faults = ambition_platformer2d_construction::verify_rig_composition(plan, receipt, world);
     for fault in &faults {
         assert!(
             matches!(fault, RosterViolation::RigComposition { .. }),
@@ -422,8 +425,8 @@ pub fn mounted_pair_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     room
 }
 
-pub fn placement_registry() -> crate::construction::placements::PlacementLoweringRegistry {
-    let mut registry = crate::construction::placements::PlacementLoweringRegistry::default();
+pub fn placement_registry() -> ambition_platformer2d_construction::placements::PlacementLoweringRegistry {
+    let mut registry = ambition_platformer2d_construction::placements::PlacementLoweringRegistry::default();
     registry
         .try_register(
             ambition_entity_catalog::placements::PlacementKind::Pickup,

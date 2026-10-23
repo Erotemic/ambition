@@ -28,14 +28,14 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-23 23:05Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-23 23:35Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,109 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
-module and the debris physics adapter (~4,000 production lines out, by `wc -l`
-at each move). Last green commit: `8aae83270` (full `app_it` 1,304 of 1,304 run, app 253, Mary-O 204; F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`). Red and not this run's: `ambition_content` `worlds::tests` (3), from `0d4b5f656`.
+module, the debris physics adapter and actor construction (K6, its own crate; ~6,600 production lines out, by `wc -l` and the module graph
+at each move). Last green commit: `8aae83270` (full `app_it` 1,304 of 1,304 run, app 253, Mary-O 204; F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`). The `ambition_content` `worlds::tests` red since `0d4b5f656` are green again (`bb99b17fc`).
 Waiting on: a phone profile of a build with these slices, the measurement that
 says what they bought in frame time.
 
@@ -128,6 +128,7 @@ says what they bought in frame time.
 | The durable-restore slots run only while the save waits to be applied (every member returned at once on the latch); the boss defeat retraction pair on a waiting checkpoint or admitted replay (peeks); Mary-O's four priority-music claims (star, death, victory, cosmic) while a source stands or its claim does (`holds_claims_of_kind`). Tried and reverted: the gate-portal visuals, whose registry is not empty on either route | done | census: Mary-O 937 → 928, Ambition 1,117 → 1,110 systems a tick (both with noise rows); `canonical_reconstitution`, boss replay, save-road and custody tests 84 pass, Mary-O music 37, Sanic restore 3 |
 | Press-only technique handlers (teleport, trapdoor, flyline, vitality) and the fighter-special queue run while an action message waits (a peek). Ambition does not gain: the robot's charge-projectile tick fills that channel every tick | done | census: Mary-O 928 → 922 systems a tick, Ambition 1,110 → 1,109 (noise); app technique and reconstitution tests 48 pass, `smash_it` 52 |
 | The boss special-cast queue runs while a boss stands (`any_with_component::<BossEncounter>`): it casts for each boss and none means none. Declined after reading: the trapdoor, flyline, tether and limb-trail visuals, which visit every body and actor each frame; a condition would repeat that walk, and fusing the four is the remedy if they show in a profile | done | census: Mary-O 922 → 921 (one noise row); boss possession, specials and GNU-ton tests 56 pass |
+| K6: actor construction leaves the monolith as `ambition_platformer2d_construction` (a leaf since K3; K4 was its precondition). No system moved; the tests that drive it through the kernel's lowering stay in the monolith | done | monolith production lines 63,879 → 61,303; the cycle is the four of K3; construction 61 tests (55 + 6), publication 82, room-building app tests 105, absence contracts 55/55 |
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 

@@ -206,7 +206,7 @@
    "crates/ambition_characters/src/prepared.rs:1767",
    "crates/ambition_characters/src/prepared.rs:270",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:510",
-   "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:1234",
+   "crates/ambition_platformer2d_construction/src/lib.rs:1230",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1618",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1674",
    "game/ambition_app_tools/src/bin/moveset_export.rs:728"

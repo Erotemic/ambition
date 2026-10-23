@@ -83,7 +83,7 @@
       "crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs: private `character_sprite_tier -> resolve_variant_pair`",
       "crates/ambition_platformer2d_actor_monolith/src/character_sprites/mod.rs: private `character_sprites -> assets`",
       "crates/ambition_platformer2d_actor_monolith/src/character_sprites/mod.rs: private `character_sprites -> assets`",
-      "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs: unresolved `RosterViolation::RigComposition`",
+      "crates/ambition_platformer2d_construction/src/lib.rs: unresolved `RosterViolation::RigComposition`",
       "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs: unresolved `Brain`",
       "crates/ambition_platformer2d_actor_monolith/src/control/components.rs: unresolved `PlayerSlot`",
       "crates/ambition_platformer2d_actor_monolith/src/features/brain_command.rs: unresolved `BrainCommand::RestoreDefault`",

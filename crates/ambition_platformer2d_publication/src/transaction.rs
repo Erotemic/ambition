@@ -86,7 +86,7 @@ pub enum CommitFactsSource {
     /// A value that the caller states. For the first room of a session that is
     /// built from the save of its own experience
     /// (`session::durable_horizon::CandidateSave`).
-    Stated(ambition_platformer2d_actor_monolith::construction::PersistedFates),
+    Stated(ambition_platformer2d_construction::PersistedFates),
     /// The world at the commit, as the consequences of this checkpoint
     /// restore will leave it (`session::checkpoint::prospective_commit_fates`).
     /// Those consequences run only when the room's publication is accepted.

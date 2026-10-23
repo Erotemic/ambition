@@ -71,7 +71,7 @@ box, so draw the box as wide as the body where a ledge is near.
 
 An `NpcSpawn` follows the `Auto` rule and has no field to override it. The rule
 is `RoomSpec::settled_on_ground` and `placed_as_it_starts`
-(`crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs`).
+(`crates/ambition_platformer2d_construction/src/lib.rs`).
 
 ## A rope is as long as its `Prop` box
 

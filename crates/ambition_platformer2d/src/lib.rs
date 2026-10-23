@@ -798,6 +798,9 @@ pub use ambition_platformer2d_actor_monolith as actors;
 /// Room publication: prepare a hidden candidate room, check its receipt, and
 /// publish or refuse it as one operation.
 pub use ambition_platformer2d_publication as publication;
+/// Actor construction planning: a room's placements and staged actors lowered
+/// into one checked plan.
+pub use ambition_platformer2d_construction as construction;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]
@@ -966,7 +969,7 @@ pub mod actor {
     };
 
     /// How a body came to exist — ADR 0030's construction provenance.
-    pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
+    pub use ambition_platformer2d_construction::ActorConstructionRegistry;
 
     pub use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
     /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that

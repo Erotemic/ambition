@@ -162,7 +162,7 @@ pub struct CandidateDurableHorizon {
     /// What the save says about the bodies of the first room (dead, provoked,
     /// cleared). The third value that construction reads from a save. It is
     /// not installed: the first room commit reads it and no resource holds it.
-    fates: crate::construction::PersistedFates,
+    fates: ambition_platformer2d_construction::PersistedFates,
 }
 
 impl CandidateDurableHorizon {
@@ -180,14 +180,14 @@ impl CandidateDurableHorizon {
             occurrences,
             custody,
             minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save),
-            fates: crate::construction::PersistedFates::from_save(save),
+            fates: ambition_platformer2d_construction::PersistedFates::from_save(save),
         }
     }
 
     /// What the commit of the candidate's first room reads for the fates of
     /// its bodies: the candidate's own save. No occurrence is scheduled to
     /// return, because the world-time schedule of a new session is empty.
-    pub fn first_room_fates(&self) -> crate::construction::PersistedFates {
+    pub fn first_room_fates(&self) -> ambition_platformer2d_construction::PersistedFates {
         self.fates.clone()
     }
 

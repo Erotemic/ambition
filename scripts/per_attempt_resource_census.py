@@ -84,6 +84,7 @@ NOT_PER_ATTEMPT = {
     # Presentation caches that re-seed themselves when their subject changes.
     "AmbitionDialogPortraitPlayback": "re-seeds on a key change (`if self.key == Some(&key) { return }`)",
     "CachedSystemMenu": "menu render cache, rebuilt from the model",
+    "FrontFields": "the hub look's per-room front-field images, made with the room's look and retired with it",
     # Catalogs and registries: authored data, must SURVIVE a death.
     "AmbitionDialogPortraitCatalog": "authored catalog",
     "YarnSourceWatch": (
@@ -96,6 +97,7 @@ NOT_PER_ATTEMPT = {
         "whole route"
     ),
     "SmashRoster": "authored roster",
+    "SmashSkins": "authored skins per fighter, resolved once at Startup beside the roster",
     # The ids a provider's pack registered into a shared catalog, so a content
     # reload restates only that provider's rows. Written at composition and
     # at the reload's publication boundary; a death does not change the pack.

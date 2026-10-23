@@ -533,7 +533,7 @@ fn an_unregistered_relation_kind_is_rejected() {
 /// [`ConstructionDomain::dispatch_relation`] derives the kind from it, so the
 /// pairing is a function rather than two independent inputs.
 ///
-/// See `crates/ambition_platformer2d_actor_monolith/src/construction/tests.rs` for the
+/// See `crates/ambition_platformer2d_actor_monolith/src/construction_tests.rs` for the
 /// domain-level version, which is where a genuine multi-variant relation enum lives.
 #[test]
 fn a_relation_cannot_name_a_kind_that_disagrees_with_its_payload() {

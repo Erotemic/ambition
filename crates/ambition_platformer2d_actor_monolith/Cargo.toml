@@ -340,6 +340,7 @@ ambition_audio = { path = "../ambition_audio" }
 # Shared lifecycle and schedule primitives used by the actor systems.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
+ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # The physical life of a touched collectible -- where it is, whether it is
 # moving, and that touching it collects it (D33, 2026-09-02). `items::pickup`
 # still owns the PRESSED pickup and the two are siblings, so this crate is named

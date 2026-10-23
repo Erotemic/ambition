@@ -364,14 +364,14 @@ pub fn restore_custody_to_checkpoint(
             None => match world
                 .as_deref()
                 .and_then(|world| {
-                    crate::construction::authored_occurrence_request(&world.rooms, &occurrence)
+                    ambition_platformer2d_construction::authored_occurrence_request(&world.rooms, &occurrence)
                 })
                 .as_ref()
                 .map(|request| (request, &request.parameters))
             {
                 Some((
                     request,
-                    crate::construction::ActorConstructionParams::GroundItem { spec, held },
+                    ambition_platformer2d_construction::ActorConstructionParams::GroundItem { spec, held },
                 )) => Some((
                     request.origin.clone(),
                     // Where the record puts it. Never read while the object is

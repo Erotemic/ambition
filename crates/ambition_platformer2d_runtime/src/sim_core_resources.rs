@@ -117,7 +117,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // The closed actor construction table, plus a descriptor-only
             // catalog that fingerprints every independently typed construction
             // domain installed by the composition.
-            .init_resource::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>()
+            .init_resource::<ambition_platformer2d_construction::ActorConstructionRegistry>()
             .init_resource::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
@@ -287,8 +287,8 @@ impl Plugin for SimCoreResourcesPlugin {
         let actor_construction_dump = {
             let mut recipes = app
                 .world_mut()
-                .resource_mut::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>();
-            ambition_platformer2d_actor_monolith::construction::install_actor_construction_recipes(
+                .resource_mut::<ambition_platformer2d_construction::ActorConstructionRegistry>();
+            ambition_platformer2d_construction::install_actor_construction_recipes(
                 &mut recipes,
             )
             .expect("the engine's own construction recipes cannot conflict with each other");
@@ -297,7 +297,7 @@ impl Plugin for SimCoreResourcesPlugin {
         app.world_mut()
             .resource_mut::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
             .try_contribute(
-                ambition_platformer2d_actor_monolith::construction::ACTOR_CONSTRUCTION_DOMAIN,
+                ambition_platformer2d_construction::ACTOR_CONSTRUCTION_DOMAIN,
                 actor_construction_dump,
             )
             .expect("the actor construction schema cannot conflict with itself");

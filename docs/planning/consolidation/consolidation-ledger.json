@@ -1877,6 +1877,43 @@
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [
+        "ambition_body_seed",
+        "ambition_boss_encounter",
+        "ambition_characters",
+        "ambition_combat",
+        "ambition_encounter",
+        "ambition_entity_catalog",
+        "ambition_held_items",
+        "ambition_mount",
+        "ambition_persistence",
+        "ambition_platformer2d_actor_spawn",
+        "ambition_platformer2d_core",
+        "ambition_platformer2d_shared_tangle",
+        "ambition_platformer2d_world",
+        "ambition_shrine",
+        "ambition_sprite_sheet"
+      ],
+      "nonblank_rust_loc": 2566,
+      "package": "ambition_platformer2d_construction",
+      "path": "crates/ambition_platformer2d_construction",
+      "public_items_heuristic": 73,
+      "public_root_reexports_or_modules_heuristic": 1,
+      "raw_rust_loc": 2678,
+      "responsibility_clue": "Actor construction planning: a room's placements and staged actors lowered into one checked construction plan, with the recipes and relations that build them. Carved out of ambition_platformer2d_actor_monolith (construction, 2026-10-23); the tests that drive it through the kernel's lowering stay in the monolith.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d",
+        "ambition_platformer2d_actor_monolith",
+        "ambition_platformer2d_provider",
+        "ambition_platformer2d_publication",
+        "ambition_platformer2d_runtime"
+      ],
+      "rust_files": 3,
+      "test_rust_loc_heuristic": 98
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
         "ambition_geometry"
       ],
       "nonblank_rust_loc": 45460,
@@ -4281,14 +4318,14 @@
       "complexity": "ACCIDENTAL_COMPLEXITY",
       "current_truth": "Deaths, cleared bosses and provocations are built at construction from `PersistedFates`; the save mirror is deleted (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs"
+        "crates/ambition_platformer2d_construction/src/lib.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Deaths, cleared bosses and provocations are built at construction from `PersistedFates`; the save mirror is deleted (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs"
+            "crates/ambition_platformer2d_construction/src/lib.rs"
           ]
         }
       ],
@@ -4726,7 +4763,7 @@
       "current_truth": "Typed ConstructionDomain plans and construction recipes create runtime authoritative actor roots with SimId, provenance, transaction identity, and relationships. The executor owns root minting.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs",
+        "crates/ambition_platformer2d_construction/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs"
       ],
       "evidence": [
@@ -4735,7 +4772,7 @@
           "claim": "Typed ConstructionDomain plans and construction recipes create runtime authoritative actor roots with SimId, provenance, transaction identity, and relationships. The executor owns root minting.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs",
+            "crates/ambition_platformer2d_construction/src/lib.rs",
             "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs"
           ]
         }

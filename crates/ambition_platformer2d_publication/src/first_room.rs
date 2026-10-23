@@ -35,7 +35,7 @@ pub struct FirstRoom<'a> {
     /// room's authored placements through THIS registry — the same one
     /// room transition and snapshot restore consume — so there is no
     /// setup-only reconstruction of the six built-in interpreters.
-    pub placement_lowering: &'a ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry,
+    pub placement_lowering: &'a ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
     /// The App-installed room-content staging seam. The first room drains its registered content stagers exactly as transition, reset,
     /// hot-reload, and restore staging do — one construction authority.
     pub content_staging: &'a ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,

@@ -18,8 +18,11 @@ pub mod brain_tick;
 pub mod causal;
 #[cfg(test)]
 mod character_roster;
-/// Build and publish room construction plans.
-pub mod construction;
+/// Construction through the actor kernel's lowering: the tests, and the
+/// fixtures the room coordinator's tests share.
+#[cfg(test)]
+mod construction_tests;
+pub mod construction_fixtures;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;

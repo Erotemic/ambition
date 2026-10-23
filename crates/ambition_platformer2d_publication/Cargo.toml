@@ -7,6 +7,7 @@ authors.workspace = true
 description = "Room publication: prepare a hidden candidate room, check its construction receipt, and publish or refuse it as one operation."
 
 [dependencies]
+ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # The domains the coordinator joins: construction, session, features and world.
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }

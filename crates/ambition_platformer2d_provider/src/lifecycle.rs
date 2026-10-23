@@ -230,7 +230,7 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_characters::actor::character_catalog::CharacterCatalogRegistry>>,
     snapshot_registry: Option<Res<'w, ambition_platformer2d_runtime::rollback::RollbackRegistry>>,
     placement_lowering: Option<
-        Res<'w, ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
+        Res<'w, ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
     >,
     content_staging:
         Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
@@ -980,7 +980,7 @@ pub fn prepare_platformer_content_for_app(
         .cloned();
     let placement_lowering = app
         .world()
-        .get_resource::<ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>()
+        .get_resource::<ambition_platformer2d_construction::placements::PlacementLoweringRegistry>()
         .cloned();
     let content_staging = app
         .world()
@@ -1528,7 +1528,7 @@ pub fn prepare_platformer_content(
         &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
     >,
     placement_lowering: Option<
-        &ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry,
+        &ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Option<
         &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
@@ -2394,11 +2394,11 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// from its sheet, so the builder needs it beside the catalog.
 
     placement_lowering:
-        Res<'w, ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
+        Res<'w, ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
     content_staging:
         Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
     construction_recipes:
-        Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
+        Res<'w, ambition_platformer2d_construction::ActorConstructionRegistry>,
     /// ⛔⛤ **THE ONLY DURABLE INPUT THIS BUILDER HAS, AND THAT IS THE POINT —
     /// REVIEW FINDINGS 1 AND 2, 2026-09-15.** It used to hold `AuthoredOccurrences`
     /// AND `MintedItemBaseline`, both of which are the OUTGOING session's live
@@ -3777,11 +3777,11 @@ mod tests {
 
     fn relation_dump(schema: &str) -> String {
         let mut registry =
-            ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default(
+            ambition_platformer2d_construction::ActorConstructionRegistry::default(
             );
         registry
             .try_register_relation(
-                ambition_platformer2d_actor_monolith::construction::relation_grudge(),
+                ambition_platformer2d_construction::relation_grudge(),
                 "ambition_platformer2d_actor_monolith",
                 "aggression",
                 schema,
@@ -3793,11 +3793,11 @@ mod tests {
     /// A real registry, dumped — the same value the app path contributes.
     fn construction_dump(schema: &str) -> String {
         let mut registry =
-            ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default(
+            ambition_platformer2d_construction::ActorConstructionRegistry::default(
             );
         registry
             .try_register_recipe(
-                ambition_platformer2d_actor_monolith::construction::recipe_staged_actor(),
+                ambition_platformer2d_construction::recipe_staged_actor(),
                 "ambition_platformer2d_actor_monolith",
                 "content-staging",
                 schema,
@@ -3808,11 +3808,11 @@ mod tests {
 
     fn construction_dump_ordered(reverse: bool) -> String {
         let mut registry =
-            ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default(
+            ambition_platformer2d_construction::ActorConstructionRegistry::default(
             );
         let ids = [
-            ambition_platformer2d_actor_monolith::construction::recipe_staged_actor(),
-            ambition_platformer2d_actor_monolith::construction::recipe_summoned_minion(),
+            ambition_platformer2d_construction::recipe_staged_actor(),
+            ambition_platformer2d_construction::recipe_summoned_minion(),
         ];
         let ids: Vec<_> = if reverse {
             ids.into_iter().rev().collect()

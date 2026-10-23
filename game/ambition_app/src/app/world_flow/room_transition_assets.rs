@@ -1397,7 +1397,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     content_epoch: Res<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>,
     placement_lowering: Res<
-        ambition_platformer2d::actors::construction::placements::PlacementLoweringRegistry,
+        ambition_platformer2d::construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Res<RoomContentStagingRegistry>,
     character_catalog: Res<
@@ -1414,7 +1414,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         brain_profiles,
         mut plan_prefetch,
     ): (
-        Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
+        Res<ambition_platformer2d::construction::ActorConstructionRegistry>,
         // ⛔ ON THE SESSION ROOT — see `ActiveContentBinding`.
         Option<
             ambition_platformer2d::platformer::lifecycle::SessionWorldRef<

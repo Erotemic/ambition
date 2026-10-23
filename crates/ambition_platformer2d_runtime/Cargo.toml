@@ -7,6 +7,7 @@ authors.workspace = true
 description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app."
 
 [dependencies]
+ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # Optional LDtk runtime support. The `ldtk_runtime` feature is required for
 # `LdtkRuntimeIndex` / `LdtkRuntimeSpinePlugin`; movement-only games leave this
 # dependency disabled and avoid linking the LDtk backend.

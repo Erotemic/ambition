@@ -8,7 +8,7 @@ use ambition_platformer2d_shared_tangle::construction::{
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Entity, Update, World};
-use ambition_platformer2d_actor_monolith::construction::*;
+use ambition_platformer2d_construction::*;
 use ambition_platformer2d_actor_monolith::features::{
     ActorConstructionContext, RoomFeatureConstructionPlan,
 };
@@ -17,7 +17,7 @@ use ambition_platformer2d_shared_tangle::construction::{
     ConstructionReceipt, RelationCheck,
     RelationRequest, RosterViolation, TransactionBaseline,
 };
-use ambition_platformer2d_actor_monolith::construction::test_fixtures::*;
+use ambition_platformer2d_actor_monolith::construction_fixtures::*;
 
 /// Commit a prepared room plan into a real `App` and hand back the world.
 ///
@@ -301,7 +301,7 @@ fn every_parameter_variant_constructs_its_root() {
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics>();
     let services = ActorConstructionServices {
-        context: ambition_platformer2d_actor_monolith::construction::placements::ActorPlacementContext::new(
+        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -317,7 +317,7 @@ fn every_parameter_variant_constructs_its_root() {
             scope: &scope,
             session: SessionSpawnScope::UNSCOPED,
             services: &services,
-            facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates::unrecorded(),
+            facts: &ambition_platformer2d_construction::PersistedFates::unrecorded(),
         };
         plan.commit(&mut ctx);
     }
@@ -367,7 +367,7 @@ fn a_summoned_minion_takes_its_characters_name() {
 
     let mut world = World::new();
     let services = ActorConstructionServices {
-        context: ambition_platformer2d_actor_monolith::construction::placements::ActorPlacementContext::new(
+        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -382,7 +382,7 @@ fn a_summoned_minion_takes_its_characters_name() {
             scope: &scope,
             session: SessionSpawnScope::UNSCOPED,
             services: &services,
-            facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates::unrecorded(),
+            facts: &ambition_platformer2d_construction::PersistedFates::unrecorded(),
         };
         plan.commit(&mut ctx);
     }
@@ -510,7 +510,7 @@ fn commit_bare(plan: &ActorConstructionPlan) -> (World, ConstructionReceipt, Tra
             scope: &scope,
             session: SessionSpawnScope::UNSCOPED,
             services: &services,
-            facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates::unrecorded(),
+            facts: &ambition_platformer2d_construction::PersistedFates::unrecorded(),
         };
         plan.commit(&mut ctx)
     };
@@ -879,7 +879,7 @@ fn a_mount_link_with_an_incompatible_class_is_detected() {
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
     let requests =
-        ambition_platformer2d_actor_monolith::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -961,7 +961,7 @@ fn committed_giant() -> (
     TransactionBaseline,
 ) {
     let requests =
-        ambition_platformer2d_actor_monolith::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -1114,7 +1114,7 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
 
         let rebuilt = {
             let mut commands = world.commands();
-            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_actor_monolith::construction::PersistedFates::unrecorded(), seed)
+            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), seed)
         };
         assert!(rebuilt, "the closure of `{seed}` rebuilds");
         world.flush();
@@ -1351,7 +1351,7 @@ fn a_boss_respawns_through_the_planner() {
     world.despawn(old);
     let rebuilt = {
         let mut commands = world.commands();
-        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_actor_monolith::construction::PersistedFates::unrecorded(), "warden")
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), "warden")
     };
     assert!(rebuilt, "the planned boss row rebuilds");
     world.flush();
@@ -1417,7 +1417,7 @@ fn a_placement_respawns_through_the_planner() {
     world.despawn(old);
     let rebuilt = {
         let mut commands = world.commands();
-        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_actor_monolith::construction::PersistedFates::unrecorded(), "ring_1")
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), "ring_1")
     };
     assert!(rebuilt, "the planned placement row rebuilds");
     world.flush();

@@ -18,7 +18,7 @@ use bevy::prelude::{Commands, Resource};
 
 use super::transaction;
 use ambition_platformer2d_actor_monolith::features::{self, RoomFeatureConstructionPlan};
-use ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry;
+use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
@@ -139,7 +139,7 @@ pub(crate) fn construct_room_candidate(
             // Read HERE, on the world this commit lands in — not with the
             // plan, which a replay commits again after the save has moved.
             crate::CommitFactsSource::TheWorldAtTheCommit => {
-                ambition_platformer2d_actor_monolith::construction::PersistedFates::of_world(world).with_scheduled_returns(
+                ambition_platformer2d_construction::PersistedFates::of_world(world).with_scheduled_returns(
                     features::ecs::world_time_schedule::remaining_scheduled_returns(world),
                 )
             }
@@ -349,7 +349,7 @@ impl RoomConstructionPlan {
     pub fn respawn_authoritative_entity(
         &self,
         commands: &mut Commands,
-        facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates,
+        facts: &ambition_platformer2d_construction::PersistedFates,
         authored_id: &str,
     ) -> bool {
         self.features
@@ -362,7 +362,7 @@ impl RoomConstructionPlan {
     pub fn respawn_authoritative_sim_id(
         &self,
         commands: &mut Commands,
-        facts: &ambition_platformer2d_actor_monolith::construction::PersistedFates,
+        facts: &ambition_platformer2d_construction::PersistedFates,
         sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> bool {
         self.features
@@ -741,7 +741,7 @@ mod tests {
     }
 
     fn prepare(spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
-        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
@@ -847,7 +847,7 @@ mod tests {
         cast: &ambition_characters::prepared::PreparedCharacterRegistry,
         epoch: ae::ContentEpoch,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
-        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
@@ -1150,7 +1150,7 @@ mod tests {
                 }]
             })
             .expect("stager registers");
-        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let plan = RoomConstructionPlan::prepare_spec(
@@ -1332,7 +1332,7 @@ mod tests {
                 }]
             })
             .expect("stager registers");
-        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
@@ -2667,7 +2667,7 @@ mod tests {
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
         let plan_of = |index: usize, spec: RoomSpec| {
-            let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
+            let recipes = ambition_platformer2d_construction::engine_construction_registry();
             let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
             let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
             RoomConstructionPlan::prepare_spec(
@@ -2986,7 +2986,7 @@ mod tests {
         index: usize,
         remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
-        let recipes = ambition_platformer2d_actor_monolith::construction::engine_construction_registry();
+        let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let mut construction =
@@ -3022,7 +3022,7 @@ mod tests {
             .iter()
             .find(|entity| entity.sim_id() == sim_id)
             .map(|entity| match entity.parameters() {
-                ambition_platformer2d_actor_monolith::construction::ActorConstructionParams::GroundItem { spec, .. } => spec.pos,
+                ambition_platformer2d_construction::ActorConstructionParams::GroundItem { spec, .. } => spec.pos,
                 other => {
                     panic!("the planned row is not the ground item it was authored as: {other:?}")
                 }

@@ -56,7 +56,7 @@ pub fn apply_summon_effects(
     // the App: a reload publishes the App's before the session that runs them
     // is activated. `None`: no session runs, see `SessionMechanics`.
     generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
-    recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
+    recipes: bevy::prelude::Res<ambition_platformer2d_construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
     identities: bevy::prelude::Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     // Read-only: the advance is a queued command, not a direct write.
@@ -146,10 +146,10 @@ pub fn apply_summon_effects(
                 ride,
             ));
         }
-        planned.push(crate::construction::summoned_minion_request(
+        planned.push(ambition_platformer2d_construction::summoned_minion_request(
             summoner,
             taken,
-            crate::construction::SummonedMinionParams {
+            ambition_platformer2d_construction::SummonedMinionParams {
                 health: s.health,
                 keeps_contact_damage: s.keeps_contact_damage,
                 feature_id: s.id.clone(),
@@ -174,9 +174,9 @@ pub fn apply_summon_effects(
         ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
         None,
     );
-    let services = crate::construction::ActorConstructionServices {
+    let services = ambition_platformer2d_construction::ActorConstructionServices {
         context: {
-            let context = crate::construction::placements::ActorPlacementContext::new(
+            let context = ambition_platformer2d_construction::placements::ActorPlacementContext::new(
                 &character_catalog,
                 // The generation's sheets, as every construction road reads
                 // them (`GenerationMechanics::sheets`).
@@ -196,7 +196,7 @@ pub fn apply_summon_effects(
     // belongs here rather than inside the recipe: a rejected batch has spent
     // nothing, where a recipe-time refusal is a panic with rows already built.
     if let Err(error) =
-        crate::construction::preflight_planned_bodies(
+        ambition_platformer2d_construction::preflight_planned_bodies(
             &planned,
             prepared_characters.get(),
             &character_catalog,
@@ -255,7 +255,7 @@ pub fn apply_summon_effects(
                 session: session_scope,
                 services: &services,
                 // A summoned minion is a runtime occurrence the save never names.
-                facts: &crate::construction::PersistedFates::unrecorded(),
+                facts: &ambition_platformer2d_construction::PersistedFates::unrecorded(),
             };
             plan.commit(&mut ctx);
         }

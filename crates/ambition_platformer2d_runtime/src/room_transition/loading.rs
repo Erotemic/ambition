@@ -107,7 +107,7 @@ impl RoomTransitionContentEpoch {
 pub fn advance_room_transition_content_epoch_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     placement_lowering: Res<
-        ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry,
+        ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Res<
         ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
@@ -633,11 +633,11 @@ pub fn begin_room_transition_load_system(
     // of two live rooms opens its own transaction.
     room_set: world_rooms::LiveRoomSpecs,
     construction_services: (
-        Res<ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
+        Res<ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition_boss_encounter::BossCatalog>,
-        Res<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
+        Res<ambition_platformer2d_construction::ActorConstructionRegistry>,
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
         // from their sheets, so a transition needs it beside the catalog.
         Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,

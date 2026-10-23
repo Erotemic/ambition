@@ -21,7 +21,7 @@
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Actor-side contribution to the reset/checkpoint horizon. |
 | [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
-| [`construction`](src/construction/mod.rs) | Actor construction planner for authored, provider-staged, and runtime-dynamic origins. |
+| [`construction_fixtures`](src/construction_fixtures.rs) | The fixtures the construction tests share with the room coordinator's (`ambition_platformer2d_publication`), which commit what they build. |
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
 | [`game_assets`](src/game_assets/mod.rs) | Compatibility facade for game-asset resources and loaders. |
@@ -35,7 +35,7 @@
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
 | [`session`](src/session/mod.rs) | Ambition-game session lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
-| [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
+| [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D debris adapter (re-exported from its own crate), and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
 _31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

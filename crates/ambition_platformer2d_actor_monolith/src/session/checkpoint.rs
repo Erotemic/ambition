@@ -1270,9 +1270,9 @@ impl AcceptedRestore {
 pub fn prospective_commit_fates(
     world: &bevy::prelude::World,
     key: CheckpointOperationKey,
-) -> crate::construction::PersistedFates {
+) -> ambition_platformer2d_construction::PersistedFates {
     use crate::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
-    let facts = crate::construction::PersistedFates::of_world(world);
+    let facts = ambition_platformer2d_construction::PersistedFates::of_world(world);
     let accepted = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
         .and_then(|accepted| accepted.inputs_for_key(key));
     if accepted.is_some_and(|accepted| accepted.fresh) {

@@ -10,14 +10,16 @@ use ambition_platformer2d_shared_tangle::construction::{
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Update, World};
-use super::*;
+use ambition_platformer2d_construction::*;
+// What the planner's module brought in when these lived inside it.
+use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 use crate::features::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::construction::RelationRequest;
-use super::test_fixtures::*;
+use crate::construction_fixtures::*;
 
 /// The authored ground item and the provider-staged actors land in ONE plan, each stating the
 /// origin category it actually has.
@@ -72,7 +74,7 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
             &mut commands,
             &plan,
             SessionSpawnScope::UNSCOPED,
-            &crate::construction::PersistedFates::unrecorded(),
+            &ambition_platformer2d_construction::PersistedFates::unrecorded(),
         );
         *sink.lock().unwrap() = Some(receipt.construction().committed_ids());
     });
@@ -244,7 +246,7 @@ fn rebuilding_one_planned_entity_reproduces_its_identity_and_provenance() {
         let rebuilt = plan.respawn_authoritative_entity(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
-            &crate::construction::PersistedFates::unrecorded(),
+            &ambition_platformer2d_construction::PersistedFates::unrecorded(),
             "pickup_a",
         );
         assert!(rebuilt, "the planned ground item is rebuildable by id");
@@ -281,7 +283,7 @@ fn rebuilding_an_unplanned_id_reports_failure() {
     assert!(!plan.respawn_authoritative_entity(
         &mut commands_queue,
         SessionSpawnScope::UNSCOPED,
-        &crate::construction::PersistedFates::unrecorded(),
+        &ambition_platformer2d_construction::PersistedFates::unrecorded(),
         "never_authored",
     ));
 }
@@ -574,7 +576,7 @@ fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
         *sink.lock().unwrap() = Some(plan.respawn_authoritative_entity(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
-            &crate::construction::PersistedFates::unrecorded(),
+            &ambition_platformer2d_construction::PersistedFates::unrecorded(),
             "duel_red",
         ));
     });
@@ -615,7 +617,7 @@ fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
         *sink.lock().unwrap() = Some(plan.respawn_authoritative_entity(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
-            &crate::construction::PersistedFates::unrecorded(),
+            &ambition_platformer2d_construction::PersistedFates::unrecorded(),
             "pickup_a",
         ));
     });
@@ -1143,7 +1145,7 @@ fn a_character_states_which_character_its_hands_are() {
     let mut classed = ambition_characters::prepared::PreparedCharacterRegistry::default();
     classed.insert_prepared(finalized.prepared.clone());
     assert_eq!(
-        crate::construction::authored_actor_requests(&room, &[], Some(&classed)).len(),
+        ambition_platformer2d_construction::authored_actor_requests(&room, &[], Some(&classed)).len(),
         1,
         "a mount class does not give a body hands"
     );
@@ -1155,7 +1157,7 @@ fn a_character_states_which_character_its_hands_are() {
     let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     cast.insert_prepared(handed);
 
-    let without_cast = crate::construction::authored_actor_requests(&room, &[], None);
+    let without_cast = ambition_platformer2d_construction::authored_actor_requests(&room, &[], None);
     assert_eq!(
         without_cast.len(),
         1,
@@ -1163,7 +1165,7 @@ fn a_character_states_which_character_its_hands_are() {
          enemy — so three rows below cannot come from the roster"
     );
 
-    let requests = crate::construction::authored_actor_requests(&room, &[], Some(&cast));
+    let requests = ambition_platformer2d_construction::authored_actor_requests(&room, &[], Some(&cast));
     assert_eq!(
         requests.len(),
         3,
@@ -1192,7 +1194,7 @@ fn a_character_states_which_character_its_hands_are() {
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
     let requests =
-        crate::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
 
     // One host + two hands.
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -1234,7 +1236,7 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
     let requests =
-        crate::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2058,7 +2060,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     let bosses = ambition_boss_encounter::BossCatalog::default();
     let params = ActorConstructionParams::StagedActor(request.clone());
 
-    let planned = crate::construction::mount_capabilities_of(&params, &bosses, Some(&cast));
+    let planned = ambition_platformer2d_construction::mount_capabilities_of(&params, &bosses, Some(&cast));
     assert_eq!(
         planned.mount_class.as_deref(),
         Some("shark"),
@@ -2069,7 +2071,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     // with no cast the same request falls to the archetype, which states no
     // mount. If this ALSO said `shark`, the roster would be answering and the
     // character would be decorative.
-    let without_cast = crate::construction::mount_capabilities_of(&params, &bosses, None);
+    let without_cast = ambition_platformer2d_construction::mount_capabilities_of(&params, &bosses, None);
     assert_eq!(
         without_cast.mount_class, None,
         "the fixture roster must state no mount for this brain, or this test is \
@@ -2095,7 +2097,7 @@ fn a_practice_room_plans_its_bosses_as_practice_copies() {
                     script_id: "mockingbird".into(),
                 },
             ));
-        super::authored_actor_requests(&room, &[], None)
+        ambition_platformer2d_construction::authored_actor_requests(&room, &[], None)
             .into_iter()
             .find_map(|request| match request.parameters {
                 ActorConstructionParams::AuthoredBoss { authored, practice, .. } if authored.id == "hall_copy" => {
@@ -2155,7 +2157,7 @@ fn a_placement_is_planned_where_its_body_starts() {
         if rides {
             room.mount_links.push(("placed".to_string(), "its_mount".to_string()));
         }
-        let requests = super::authored_actor_requests(&room, &[], cast);
+        let requests = ambition_platformer2d_construction::authored_actor_requests(&room, &[], cast);
         let [request] = requests.as_slice() else {
             panic!("one placement plans one row, not {}", requests.len());
         };

@@ -2,7 +2,7 @@
 //! receipt, and publish it into the live world or refuse it, as one operation.
 //!
 //! The coordinator joins the domains it reads; none of them owns it.
-//! Construction builds the typed plan (`ambition_platformer2d_actor_monolith::construction`), the session
+//! Construction builds the typed plan (`ambition_platformer2d_construction`), the session
 //! owns admitted operations, restore facts and retirement
 //! (`ambition_platformer2d_actor_monolith::session`), and the world owns geometry and live-room identity
 //! (`ambition_platformer2d_actor_monolith::rooms`). See K4 in `docs/planning/engine/actor-monolith-decomposition.md`.

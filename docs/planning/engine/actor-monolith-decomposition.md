@@ -89,7 +89,8 @@ Keep a cycle only when its shared invariant is stated.
   the shared cooldown).
 - Checkpoint restoration lives in `session::checkpoint`; `ambition_shrine`
   owns the shrine interaction only (K3).
-- Placement lowering lives in `construction::placements`.
+- Actor construction planning is its own crate, `ambition_platformer2d_construction`
+  (K6); placement lowering lives in its `placements` module.
 
 ## Deliberately not carved
 
@@ -538,6 +539,36 @@ domain places itself in it, which is A7's stated destination. A7's open
 work is the atomic durable horizon (one writer for occurrences, custody and
 minted items) in [item custody](item-custody-and-accounting.md#open-work),
 a save-semantics change with its own proof, not a module move.
+
+### K6 — Actor construction becomes its own crate — DONE 2026-10-23
+
+K3 left `construction` a leaf of the monolith graph and named K4 as the
+precondition for giving it an owner; K4 landed on 10-22.
+
+**Receipt:** `ambition_platformer2d_construction` is the planner (the
+recipes, the relations, `PersistedFates`, placement lowering's registry and
+context), moved out of the monolith's `construction` module below it. The
+monolith's features, world and session name it directly; the publication
+coordinator, the provider and the runtime name it; the facade exports it as
+`construction` (`actors::construction` is gone, no re-export under the old
+path). It installs no system: zero ECS invocations added or moved.
+
+- **The tests stay with the lowering they drive.** The 55 tests of
+  `construction/tests.rs` build rooms through the monolith's features
+  (the staging registry, the static lowerers, summons, character runtime),
+  so they are the monolith's `construction_tests`; their fixtures are its
+  `construction_fixtures`, which the coordinator's tests still enable through
+  `test-support`. The 6 persisted-fate tests touch only the planner and moved
+  with it. Same population: 55 + 6.
+- **Kept as is:** the registry owner label (`"ambition_platformer2d_actor_monolith"`)
+  that the recipes register under, and the log target, so no dump or receipt
+  changed.
+- **Measured** (`measure_kernel_module_graph.py`): the monolith's production
+  lines 63,879 → 61,303; `features -> construction` (50), `session ->
+  construction` (5) and `world -> construction` (5) left the graph with the
+  module. The cycle is the four of K3 (`abilities`, `features`, `items`,
+  `session`), unchanged. Capability footprint 62 → 63 nodes, a carve
+  (`construction_entered_the_closure_2026_10_23`).
 
 ### Migration acceptance for each packet
 

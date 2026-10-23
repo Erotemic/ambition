@@ -16,13 +16,9 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Entity, World};
 
 use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
-use crate::construction::placements::ActorPlacementContext;
+use crate::placements::ActorPlacementContext;
 use ambition_boss_encounter::BossCatalog;
 
-#[cfg(test)]
-mod tests;
-// Shared with the room coordinator's tests, which commit what these build.
-pub mod test_fixtures;
 
 /// An LDtk-authored ground item (a walk-into pickup).
 pub const RECIPE_AUTHORED_GROUND_ITEM: &str = "ambition.authored-ground-item";
@@ -194,7 +190,7 @@ pub enum ActorConstructionParams {
     Placement {
         record: ambition_platformer2d_world::placements::PlacementRecord,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
-        lower: crate::construction::placements::LoweringFn,
+        lower: crate::placements::LoweringFn,
     },
     /// Now it is a plan row like everything else in the room.
     Shrine {
@@ -966,7 +962,7 @@ fn construct_placement(
     // Every read is bound BEFORE `root_scope`, which borrows the whole context.
     let room_id = ctx.scope.room().unwrap_or("").to_string();
     let facts = ctx.facts;
-    let mut lowering = crate::construction::placements::LoweringCtx {
+    let mut lowering = crate::placements::LoweringCtx {
         scope: ctx.root_scope(),
         room_id: &room_id,
         paths,
@@ -2312,7 +2308,7 @@ fn conducting_rider(
 /// ERROR is deliberate future work; this slice is behavior-preserving.)
 pub fn placement_requests(
     placements: &ambition_platformer2d_world::placements::PlacementLoweringPlan<
-        crate::construction::placements::ActorPlacementContext,
+        crate::placements::ActorPlacementContext,
     >,
     // The room that the records are placed in.
     room: &ambition_platformer2d_world::rooms::RoomSpec,

@@ -52,7 +52,7 @@ pub enum RoomFeatureConstructionError {
     Construction(ambition_platformer2d_shared_tangle::construction::ConstructionError),
     /// Actor-lane parameters could not be resolved from content — for example
     /// an authored ground item naming a held item no registry provides.
-    ActorConstruction(crate::construction::ActorConstructionError),
+    ActorConstruction(ambition_platformer2d_construction::ActorConstructionError),
 }
 
 impl std::fmt::Display for RoomFeatureConstructionError {
@@ -85,7 +85,7 @@ pub struct RoomFeatureConstructionPlan {
     /// The primary actor-domain construction lane. Every actor-owned
     /// authoritative family is planned here; optional capabilities compose
     /// separate typed lanes beside it instead of entering this domain enum.
-    construction: crate::construction::ActorConstructionPlan,
+    construction: ambition_platformer2d_construction::ActorConstructionPlan,
     /// The capability lanes, as ONE composed value. Each is still
     /// independently typed, planned, committed and verified; what this field
     /// removes is the room plan reimplementing all six of those operations once
@@ -96,7 +96,7 @@ pub struct RoomFeatureConstructionPlan {
     /// The frozen catalogs this plan reads — character catalog, hostile roster,
     /// boss profiles. THE copy: actor recipes read it through
     /// `ConstructionExecCtx`, so a cached plan holds one coherent snapshot.
-    construction_services: crate::construction::ActorConstructionServices,
+    construction_services: ambition_platformer2d_construction::ActorConstructionServices,
     expected_authoritative_ids: BTreeSet<String>,
     /// What this room POINTS AT and did not find. Empty for a clean room.
     ///
@@ -149,7 +149,7 @@ pub struct OccurrenceContinuity<'a> {
 /// recipe table, and the content generation the plan is being prepared against.
 #[derive(Clone, Copy)]
 pub struct ActorConstructionContext<'a> {
-    pub recipes: &'a crate::construction::ActorConstructionRegistry,
+    pub recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
     /// WHO EXISTS — the authored character catalog this construction resolves
     /// names against.
     ///
@@ -236,7 +236,7 @@ pub struct ActorConstructionContext<'a> {
 
 impl<'a> ActorConstructionContext<'a> {
     pub fn new(
-        recipes: &'a crate::construction::ActorConstructionRegistry,
+        recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
         sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
         // ⛔ BOTH HALVES OF THE GENERATION, NOT ONLY THE EPOCH. A caller used to
@@ -270,7 +270,7 @@ impl<'a> ActorConstructionContext<'a> {
     /// for both construction provenance and the publication boundary.
     /// A content replacement uses `for_content_replacement` instead.
     pub fn for_live_room_construction(
-        recipes: &'a crate::construction::ActorConstructionRegistry,
+        recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         // WHO EXISTS. Stated here rather than beside the room, because it is one
         // more of the authorities this constructor's doc is about — see
         // [`Self::characters`]. ⚠ NOT yet part of the generation: the catalog is
@@ -334,7 +334,7 @@ impl<'a> ActorConstructionContext<'a> {
     /// that replaces it. ⇒ Only a hot reload gets two independent bindings, and
     /// it has to ask for them by this name.
     pub fn for_content_replacement(
-        recipes: &'a crate::construction::ActorConstructionRegistry,
+        recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
         // ⛔⛤ **WHICH MECHANICS A REPLACEMENT SPENDS IS DECIDED BY WHAT ITS
         // CANDIDATE IDENTITY CLAIMS, NOT BY THE WORD "REPLACEMENT".** This
@@ -379,7 +379,7 @@ impl<'a> ActorConstructionContext<'a> {
     /// [`Self::for_content_replacement`], and this is the only place that knows
     /// the two bindings are separate fields at all.
     fn with_room_authorities(
-        recipes: &'a crate::construction::ActorConstructionRegistry,
+        recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
         mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
         expected_live: ambition_platformer2d_shared_tangle::construction::ContentBinding,
@@ -515,7 +515,7 @@ fn placement_counts_against_the_actor_cap(
 impl RoomFeatureConstructionPlan {
     pub fn prepare(
         room: &ambition_platformer2d_world::rooms::RoomSpec,
-        registry: &crate::construction::placements::PlacementLoweringRegistry,
+        registry: &ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
         content_staging: &RoomContentStagingRegistry,
         boss_catalog: &BossCatalog,
         // ⛔ THE CATALOG AND THE SHEETS ARRIVE ON THIS, not beside it — see
@@ -595,10 +595,10 @@ impl RoomFeatureConstructionPlan {
         // The actor-owned construction lane. Resolution failures (an authored
         // ground item naming a held item nothing provides) and identity/relation
         // failures surface HERE, while the outgoing room is still whole.
-        let mut requests = crate::construction::authored_ground_item_requests(room)
+        let mut requests = ambition_platformer2d_construction::authored_ground_item_requests(room)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         for (provider, request) in &owned_content_requests {
-            requests.extend(crate::construction::staged_actor_requests(
+            requests.extend(ambition_platformer2d_construction::staged_actor_requests(
                 &room.id,
                 provider,
                 std::slice::from_ref(request),
@@ -609,14 +609,14 @@ impl RoomFeatureConstructionPlan {
         // interpreter; the executor allocates each root and the interpreter
         // populates it. Records that spawn nothing (Door interactables, inert
         // Custom payloads) are skipped by the builder, preserving behavior.
-        requests.extend(crate::construction::placement_requests(
+        requests.extend(ambition_platformer2d_construction::placement_requests(
             &placements,
             room,
             &paths,
             construction.prepared,
         ));
-        requests.extend(crate::construction::authored_static_requests(room));
-        requests.extend(crate::construction::authored_actor_requests(
+        requests.extend(ambition_platformer2d_construction::authored_static_requests(room));
+        requests.extend(ambition_platformer2d_construction::authored_actor_requests(
             room,
             &paths,
             construction.prepared,
@@ -640,7 +640,7 @@ impl RoomFeatureConstructionPlan {
                         // rather than being built at the wrong coordinates or
                         // dropped. Only the families a producer can write a `Placed`
                         // row for can be reinstated, and today that is one.
-                        if !crate::construction::relocate_request(request, at) {
+                        if !ambition_platformer2d_construction::relocate_request(request, at) {
                             bevy::log::warn!(
                                 target: "ambition_platformer2d::construction",
                                 "room `{}` remembers `{:?}` at a relocated position, but \
@@ -656,7 +656,7 @@ impl RoomFeatureConstructionPlan {
                     ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Spent => {
                         // The same refusal as a relocation: a family with no
                         // spent state is built as authored and says so.
-                        if !crate::construction::spend_request(request) {
+                        if !ambition_platformer2d_construction::spend_request(request) {
                             bevy::log::warn!(
                                 target: "ambition_platformer2d::construction",
                                 "room `{}` remembers `{:?}` as spent, but its construction \
@@ -700,7 +700,7 @@ impl RoomFeatureConstructionPlan {
                 // back and cannot produce it; that is a preflight failure — raised while the
                 // outgoing room is still whole, like every other one here — and not a silent
                 // deletion.
-                let mut candidates = crate::construction::reinstatable_authored_requests(foreign)
+                let mut candidates = ambition_platformer2d_construction::reinstatable_authored_requests(foreign)
                     .map_err(RoomFeatureConstructionError::ActorConstruction)?;
                 // A persistent character left here (`body_whereabouts`) is a
                 // placement of the foreign room. Only the records this room
@@ -716,7 +716,7 @@ impl RoomFeatureConstructionPlan {
                     let planned = registry
                         .plan_room(&foreign.id, &foreign_paths, &owed_placements)
                         .map_err(RoomFeatureConstructionError::Placement)?;
-                    candidates.extend(crate::construction::placement_requests(
+                    candidates.extend(ambition_platformer2d_construction::placement_requests(
                         &planned,
                         foreign,
                         &foreign_paths,
@@ -727,7 +727,7 @@ impl RoomFeatureConstructionPlan {
                     let Some(at) = owed.remove(&request.sim_id) else {
                         continue;
                     };
-                    if !crate::construction::relocate_request(&mut request, at) {
+                    if !ambition_platformer2d_construction::relocate_request(&mut request, at) {
                         bevy::log::warn!(
                             target: "ambition_platformer2d::construction",
                             "room `{}` owes `{:?}`, whose record in room `{}` has no \
@@ -766,7 +766,7 @@ impl RoomFeatureConstructionPlan {
                     // that id" arm and was lost a second time.
                     match ambition_held_items::held_spec_by_id(&description.held_item) {
                         Some(held) => {
-                            requests.push(crate::construction::ActorConstructionRequest {
+                            requests.push(ambition_platformer2d_construction::ActorConstructionRequest {
                                 sim_id: sim_id.clone(),
                                 // the occurrence's OWN provenance, carried
                                 // verbatim: a rebuilt mint with no
@@ -775,7 +775,7 @@ impl RoomFeatureConstructionPlan {
                                 // and then become unrecoverable.
                                 origin: description.origin.clone(),
                                 parameters:
-                                    crate::construction::ActorConstructionParams::GroundItem {
+                                    ambition_platformer2d_construction::ActorConstructionParams::GroundItem {
                                         spec: ambition_platformer2d_world::rooms::GroundItemSpec {
                                             id: sim_id.as_str().to_string(),
                                             name: format!("Ground item: {}", description.held_item),
@@ -818,26 +818,26 @@ impl RoomFeatureConstructionPlan {
         // Authored mount links are planned `ambition.mount` relations between
         // those rows; a link naming nobody fails HERE instead of being retried
         // forever by the deleted frame-later resolver.
-        crate::construction::attach_authored_mount_links(room, &mut requests)
+        ambition_platformer2d_construction::attach_authored_mount_links(room, &mut requests)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         // Actor-domain relation semantics, checked while the outgoing room is
         // still whole: cardinality (one host per limb, one rider per mount),
         // family legality, and pilot/mount class compatibility. The generic
         // planner below enforces the structural rules; these are the ones only
         // this domain can state.
-        crate::construction::preflight_actor_relations(
+        ambition_platformer2d_construction::preflight_actor_relations(
             &requests,
             boss_catalog,
             construction.prepared,
         )
         .map_err(RoomFeatureConstructionError::ActorConstruction)?;
-        crate::construction::preflight_planned_bodies(
+        ambition_platformer2d_construction::preflight_planned_bodies(
             &requests,
             construction.prepared,
             construction.characters,
         )
         .map_err(RoomFeatureConstructionError::ActorConstruction)?;
-        crate::construction::preflight_encounter_scripts(room, &requests, boss_catalog)
+        ambition_platformer2d_construction::preflight_encounter_scripts(room, &requests, boss_catalog)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_scope =
             ambition_platformer2d_shared_tangle::construction::ConstructionScope::replacing(
@@ -845,7 +845,7 @@ impl RoomFeatureConstructionPlan {
                 construction.incoming,
                 Some(room.id.clone()),
             );
-        let construction_plan = crate::construction::ActorConstructionPlan::prepare_reinstating(
+        let construction_plan = ambition_platformer2d_construction::ActorConstructionPlan::prepare_reinstating(
             construction_scope.clone(),
             ambition_platformer2d_shared_tangle::construction::ConstructionLane::primary(),
             requests,
@@ -887,7 +887,7 @@ impl RoomFeatureConstructionPlan {
         capability_lanes.claim_planned_ids(&room.id, &mut expected_authoritative_ids)?;
 
         let mut placement_context =
-            crate::construction::placements::ActorPlacementContext::new(
+            ambition_platformer2d_construction::placements::ActorPlacementContext::new(
                 construction.characters,
                 construction.sheets,
             );
@@ -902,7 +902,7 @@ impl RoomFeatureConstructionPlan {
         }
         Ok(Self {
             room: room.clone(),
-            construction_services: crate::construction::ActorConstructionServices {
+            construction_services: ambition_platformer2d_construction::ActorConstructionServices {
                 context: placement_context,
                 boss_catalog: boss_catalog.clone(),
             },
@@ -941,7 +941,7 @@ impl RoomFeatureConstructionPlan {
     }
 
     /// The primary actor-owned construction lane for this room.
-    pub fn construction(&self) -> &crate::construction::ActorConstructionPlan {
+    pub fn construction(&self) -> &ambition_platformer2d_construction::ActorConstructionPlan {
         &self.construction
     }
 
@@ -974,7 +974,7 @@ impl RoomFeatureConstructionPlan {
         let _ = writeln!(
             out,
             "domain\t{}\t{}",
-            crate::construction::ACTOR_CONSTRUCTION_DOMAIN,
+            ambition_platformer2d_construction::ACTOR_CONSTRUCTION_DOMAIN,
             actor.len()
         );
         out.push_str(&actor);
@@ -1066,7 +1066,7 @@ impl RoomFeatureConstructionPlan {
         )
         .err()
         .unwrap_or_default();
-        violations.extend(crate::construction::verify_rig_composition(
+        violations.extend(ambition_platformer2d_construction::verify_rig_composition(
             &self.construction,
             &receipt.construction,
             world,
@@ -1135,13 +1135,13 @@ impl RoomFeatureConstructionPlan {
         let mut names: Vec<String> = self.content_requests.iter().filter_map(character_of).collect();
         for entity in self.construction.entities() {
             match entity.parameters() {
-                crate::construction::ActorConstructionParams::StagedActor(request) => {
+                ambition_platformer2d_construction::ActorConstructionParams::StagedActor(request) => {
                     names.extend(character_of(request));
                 }
                 // A giant's hands are planned from the giant, not placed, so no
                 // authored list names their character: until this arm their
                 // sheet was never demanded and they drew as a flat box.
-                crate::construction::ActorConstructionParams::GiantHand { authored, .. } => {
+                ambition_platformer2d_construction::ActorConstructionParams::GiantHand { authored, .. } => {
                     names.push(authored.payload.character_id.to_string());
                 }
                 _ => {}
@@ -1161,7 +1161,7 @@ impl RoomFeatureConstructionPlan {
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        facts: &crate::construction::PersistedFates,
+        facts: &ambition_platformer2d_construction::PersistedFates,
         authored_id: &str,
     ) -> bool {
         let planned_id = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(authored_id);
@@ -1190,7 +1190,7 @@ impl RoomFeatureConstructionPlan {
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        facts: &crate::construction::PersistedFates,
+        facts: &ambition_platformer2d_construction::PersistedFates,
         sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> bool {
         if self.construction.get(sim_id).is_some() {
@@ -1245,7 +1245,7 @@ impl RoomFeatureConstructionPlan {
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        facts: &crate::construction::PersistedFates,
+        facts: &ambition_platformer2d_construction::PersistedFates,
     ) -> RoomFeatureConstructionReceipt {
         // ⛔⛤ **A ROOM NO LONGER RESETS `FactionRelations` — 2026-09-15 AUDIT,
         // FINDING 1's SECOND MANIFESTATION.** This line ran on EVERY room spawn,
@@ -1310,7 +1310,7 @@ pub fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,
-    facts: &crate::construction::PersistedFates,
+    facts: &ambition_platformer2d_construction::PersistedFates,
 ) -> RoomFeatureConstructionReceipt {
     plan.spawn(commands, session_scope, facts)
 }

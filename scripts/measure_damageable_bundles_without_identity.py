@@ -24,7 +24,7 @@ STATED. It is not a population and this output never calls it one.
     (`spawn_*_into(.., root.entity(), ..)`) — identity is already on the entity;
   * the identity arrives in a later `insert` on the same entity.
 Both need reading. The crate column is the first filter: `..._actor_spawn` and
-`..._actor_monolith/src/construction/` host recipes.
+`ambition_platformer2d_construction` host recipes.
 
     python3 scripts/measure_damageable_bundles_without_identity.py
     python3 scripts/measure_damageable_bundles_without_identity.py --all

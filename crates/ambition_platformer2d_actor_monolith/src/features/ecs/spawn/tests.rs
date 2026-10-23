@@ -84,7 +84,7 @@ fn body_driven_by(
 /// then yields the marker, which the deleted default-six helper never could.
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
-    use crate::construction::placements::{LoweringCtx, PlacementLoweringRegistry};
+    use ambition_platformer2d_construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
@@ -142,7 +142,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &Default::default(),
         &boss_catalog,
         crate::features::ActorConstructionContext::new(
-            &crate::construction::engine_construction_registry(),
+            &ambition_platformer2d_construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
             ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
@@ -159,7 +159,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         // marker it counts is found by an ORDINARY query, and this rig never
         // calls `register_inactive_candidate_filter`, so the `InactiveCandidate`
         // stamp is inert here and the query sees its subject.
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded());
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
     });
     app.update();
 
@@ -181,7 +181,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
 /// closed, in the same room.
 #[test]
 fn a_chest_authored_open_is_built_with_the_opened_marker() {
-    use crate::construction::placements::PlacementLoweringRegistry;
+    use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
     use ambition_entity_catalog::placements::{ChestSpec, PlacementKind, PlacementSchema};
     use ambition_entity_catalog::PickupKind;
     use ambition_platformer2d_core::Vec2;
@@ -219,7 +219,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
         &Default::default(),
         &boss_catalog,
         crate::features::ActorConstructionContext::new(
-            &crate::construction::engine_construction_registry(),
+            &ambition_platformer2d_construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
             ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
@@ -232,7 +232,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded());
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
     });
     app.update();
 
@@ -1845,7 +1845,7 @@ mod authored_enemy_reads_its_character {
 /// construction` dropping it: every plan carries all four).
 #[test]
 fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
-    use crate::construction::placements::{LoweringCtx, PlacementLoweringRegistry};
+    use ambition_platformer2d_construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_characters::actor::AuthoredPopulationCap;
     use ambition_entity_catalog::placements::{
         InteractableSpec, InteractionKindSpec, PlacementKind, PlacementSchema,
@@ -1890,7 +1890,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     }
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let boss_catalog = ambition_boss_encounter::test_boss_catalog();
-    let recipes = crate::construction::engine_construction_registry();
+    let recipes = ambition_platformer2d_construction::engine_construction_registry();
 
     // ⛔⛤ **THE CAP IS THE GENERATION'S, NOT A PARAMETER — CHANGED 2026-09-13.**
     // This fixture used to hand the room constructor a loose

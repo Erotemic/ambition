@@ -115,9 +115,9 @@ pub(super) fn handle_ldtk_hot_reload(
     catalogs: (
         Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
         Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition_platformer2d::actors::construction::placements::PlacementLoweringRegistry>,
+        Res<ambition_platformer2d::construction::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
-        Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
+        Res<ambition_platformer2d::construction::ActorConstructionRegistry>,
         Res<world_manifest::WorldManifest>,
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
@@ -496,9 +496,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     watch_path: &std::path::Path,
     catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-    placement_lowering: &ambition_platformer2d::actors::construction::placements::PlacementLoweringRegistry,
+    placement_lowering: &ambition_platformer2d::construction::placements::PlacementLoweringRegistry,
     content_staging: &ambition_platformer2d::actors::features::RoomContentStagingRegistry,
-    construction_recipes: &ambition_platformer2d::actors::construction::ActorConstructionRegistry,
+    construction_recipes: &ambition_platformer2d::construction::ActorConstructionRegistry,
     world_manifest: &world_manifest::WorldManifest,
     // The published controller policies a PLACEMENT may name. NOT part of
     // `SessionMechanics` — no generation freezes them, on any road, which is why

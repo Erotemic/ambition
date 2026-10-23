@@ -1848,6 +1848,35 @@
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [
+        "ambition_audio",
+        "ambition_boss_encounter",
+        "ambition_characters",
+        "ambition_conversation",
+        "ambition_encounter",
+        "ambition_persistence",
+        "ambition_platformer2d_core",
+        "ambition_platformer2d_shared_tangle",
+        "ambition_platformer2d_world",
+        "ambition_sfx",
+        "ambition_time"
+      ],
+      "nonblank_rust_loc": 2448,
+      "package": "ambition_platformer2d_audio",
+      "path": "crates/ambition_platformer2d_audio",
+      "public_items_heuristic": 25,
+      "public_root_reexports_or_modules_heuristic": 5,
+      "raw_rust_loc": 2602,
+      "responsibility_clue": "The platformer's audio runtime: the Kira install and channels, the acoustic environment, and the music direction from encounter, boss, room, conversation and radio state. Carved out of ambition_platformer2d_actor_monolith (D33); a composition with audio installs it, a headless one leaves it out.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d"
+      ],
+      "rust_files": 8,
+      "test_rust_loc_heuristic": 1317
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
         "ambition_geometry"
       ],
       "nonblank_rust_loc": 45460,

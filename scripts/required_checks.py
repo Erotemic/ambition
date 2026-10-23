@@ -171,9 +171,11 @@ MODULE_ARMS = (
     "fsm_fight",
     "gnu_ton_fight",
     "hunny_fight",
+    "inugami_fight",
     "mockingbird_fight",
     "the_behemoth_shoots_from_its_eyes",
     "trex_fight",
+    "wolfenstein_fight",
 )
 
 #: The workspace policies (`tests/ambition_workspace_policy`) read sources

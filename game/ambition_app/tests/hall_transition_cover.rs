@@ -224,7 +224,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     assert!(
         staged - before >= MINIMUM_HALL_CAST,
         "the Hall transition staged only {} new character(s) on its first frame \
-         (from {before} to {staged}). The room authors 158 NpcSpawn placements, \
+         (from {before} to {staged}). The room authors 176 NpcSpawn placements, \
          so the rest are \
          being demanded later — after their actors spawn, in frame, uncovered, \
          which is the defect this file exists to keep closed",
@@ -836,8 +836,8 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let placed = hall_character_ids(&mut app);
-    // The world authors 158 NpcSpawn placements with 158 DISTINCT character_ids
-    // and no duplicates (counted from hall_of_characters.ldtk, 2026-10-16), so a
+    // The world authors 176 NpcSpawn placements with 176 DISTINCT character_ids
+    // and no duplicates (counted from hall_of_characters.ldtk, 2026-10-23), so a
     // shortfall here is a missing character rather than a deduplicated one.
     assert!(
         placed.len() > 50,

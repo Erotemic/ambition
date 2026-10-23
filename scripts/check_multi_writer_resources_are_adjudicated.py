@@ -522,8 +522,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_audio/src/catalog.rs",
         "crates/ambition_audio/src/library.rs",
         "crates/ambition_audio/src/music/director/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
     "CharacterLoadDemand": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
@@ -628,12 +627,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "MusicPlaybackState": (
         "crates/ambition_audio/src/music/director/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
     "NarrativeMusicRequest": (
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/music/intent.rs",
         "game/ambition_content/src/yarn_vocabulary.rs",
     ),
     "PossessionState": (
@@ -723,7 +721,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "DefaultMusicStarted": (
         "crates/ambition_audio/src/library.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
     "EditableMovementTuning": (
         "game/ambition_app/src/app/movement_defaults_watch.rs",
@@ -777,11 +775,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "MusicDirectorState": (
         "crates/ambition_audio/src/music/director/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
     "MusicIntent": (
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/music/intent.rs",
     ),
     "PortalCameraContinuitySelection": (
         "game/ambition_app/src/dev/portal_inspector.rs",
@@ -805,7 +803,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_projectiles/src/materialize.rs",
     ),
     "RadioStationState": (
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "ReservedGameplayScopes": (
@@ -854,7 +852,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SfxPlaybackState": (
         "crates/ambition_audio/src/bank_asset.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
     "ShellActivationGates": (
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
@@ -1009,10 +1007,10 @@ ADJUDICATED: dict[str, str] = {
     ),
     "ShieldRingsView": (
         "CORRECT — ONE REBUILDER AND ONE TOOL THAT APPENDS AFTER IT, IN ONE "
-        "SCHEDULE. `rebuild_shield_rings_view` (pose_view) rebuilds the list "
+        "SCHEDULE. `rebuild_shield_views` (pose_view) rebuilds the list "
         "each sim tick. capture_scene's `--guard` (`draw_guards`) appends "
         "staged guards, and is added to the sim schedule "
-        "`.after(rebuild_shield_rings_view)`. Until 2026-10-21 it was in "
+        "`.after(rebuild_shield_views)`. Until 2026-10-21 it was in "
         "`Update` with an edge to the sim system, which orders nothing across "
         "schedules, so a frame with no sim tick appended the guards again onto "
         "the last tick's list. NOT RUN: no `--guard` capture was taken after "
@@ -1197,8 +1195,9 @@ ADJUDICATED: dict[str, str] = {
         "FIELD-PRIVATE, AND THE ONLY TWO MUTATORS ARE `begin_track` AND "
         "`silence` — which is why `census.shared_targets` is EMPTY across three "
         "writer files. Each writer is a distinct, non-overlapping trigger: the "
-        "adaptive director's tick (`drive_music_director`), an explicit radio "
-        "pick from the System menu's Radio row, a frontend-owner-CHANGE latch "
+        "adaptive director's tick (`drive_music_director`; since 2026-10-23 it "
+        "also plays the radio station, which the menu only records in "
+        "`RadioStationState`), a frontend-owner-CHANGE latch "
         "(`apply_frontend_music_policy`, gated on "
         "`matches!(owner, Some(Frontend(_)))` and latched through a "
         "`Local<Option<AudioContextOwner>>` so it fires only on change), and a "
@@ -1258,7 +1257,8 @@ ADJUDICATED: dict[str, str] = {
         "written is a function of the track's own `asset_path`, and "
         "`AssetServer::load` answers the same handle for the same path, so two "
         "callers racing to fill one slot write the same bytes. ⇒ Four writer "
-        "files, one authority — the RON catalogue that built the track list — "
+        "files (three since the radio menu stopped playing tracks itself, "
+        "2026-10-23), one authority — the RON catalogue that built the track list — "
         "and four readers that warm it. ⚠ The census cannot see this: `&mut` is "
         "all a `SystemParam` signature carries, and the director threads one "
         "through four call layers to reach `switch_to_music_track`, whose only "
@@ -1385,17 +1385,17 @@ ADJUDICATED: dict[str, str] = {
         "followed to its only caller rather than inferred from the file. The "
         "type is one private field with `selected_track()` / "
         "`set_selected_track()`; the ONLY production caller of the setter is "
-        "`set_radio_track` (`ambition_audio/src/library.rs`), whose own only "
+        "`select_radio_station` (`ambition_audio/src/library.rs`), whose own only "
         "call site is the system menu's radio row "
         "(`ambition_app/src/menu/kaleidoscope_app.rs`, through the "
         "`SystemMenuParams` bundle). The second writer file is the context "
         "reset: `reset_audio_request_state_on_context_change` "
-        "(`actor_monolith/src/audio/plugin.rs`) assigns `Default::default()` "
+        "(`ambition_platformer2d_audio/src/plugin.rs`) assigns `Default::default()` "
         "through the `AudioRequestState` bundle when the audio context changes. "
-        "⇒ A human picks a station, a context change forgets it. ⚠ `clear()` is "
-        "a third mutation API and carries `#[allow(dead_code)]` — it has no "
-        "callers today, and a future one would be a second road to the same "
-        "field, not another use of this one."
+        "⇒ A human picks a station, a context change forgets it. `clear()` is "
+        "the same human road from the same menu file: the radio's Off row "
+        "(`SystemOptionId::RadioOff`, 2026-10-23) stops the station and the "
+        "level or situation music plays again."
     ),
     "KaleidoscopeOpenState": (
         "CORRECT — TWO FIELDS, TWO OWNERS, AND THE SPLIT IS THE WHOLE TYPE. "
@@ -1422,7 +1422,7 @@ ADJUDICATED: dict[str, str] = {
         "(`src/music/intent.rs`) folds room, encounter, narrative and radio "
         "requests into the intent every frame, chained before "
         "`drive_music_director` and `.run_if(simulation_authorized)`. ONE "
-        "FRONTEND SILENCE: `apply_frontend_music_policy` (`src/audio/plugin.rs`) "
+        "FRONTEND SILENCE: `apply_frontend_music_policy` (`ambition_platformer2d_audio/src/plugin.rs`) "
         "clears `simple_track_candidates` and `adaptive` on the frame the "
         "simulation DEAUTHORIZES — deliberately ungated *\"so it can observe the "
         "transition\"* and latched to act once per frontend entry. ⇒ The gate is "
@@ -2753,7 +2753,7 @@ ADJUDICATED: dict[str, str] = {
         "`start_default_music_when_ready` "
         "(`crates/ambition_audio/src/library.rs:544`) self-guards "
         "(`if started.0 { return; }`). `apply_frontend_music_policy` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:329`) "
+        "(`crates/ambition_platformer2d_audio/src/plugin.rs:329`) "
         "sets it true behind the same `Local<Option<AudioContextOwner>>` "
         "change-latch already adjudicated CORRECT for the sibling "
         "`MusicPlaybackState`/`RadioStationState`. The sole false-reset is a "
@@ -2766,7 +2766,7 @@ ADJUDICATED: dict[str, str] = {
         "inside `drive_music_director` "
         "(`crates/ambition_audio/src/music/director/mod.rs:45`) and "
         "`apply_frontend_music_policy` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:329`) "
+        "(`crates/ambition_platformer2d_audio/src/plugin.rs:329`) "
         "— the same two functions and the same "
         "`.run_if(simulation_authorized)` / owner-change-latch mutual "
         "exclusion. Measured by CalculexAmbition, 2026-09-18."
@@ -2778,7 +2778,7 @@ ADJUDICATED: dict[str, str] = {
         "`playback.last_played = Some(...)` per drained message. The other "
         "writer is the same context-reset function already established for "
         "the sibling audio types "
-        "(`crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:293`, "
+        "(`crates/ambition_platformer2d_audio/src/plugin.rs:293`, "
         "sets `playback.last_played = None`). Measured by CalculexAmbition, "
         "2026-09-18."
     ),
@@ -3365,10 +3365,10 @@ ADJUDICATED: dict[str, str] = {
         "`<<music>>` Yarn command handler — is the sole production caller of "
         "`request()` (`:365`). "
         "`release_narrative_music_on_room_change` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/music/intent.rs:35`) "
+        "(`crates/ambition_platformer2d_audio/src/music/intent.rs:35`) "
         "calls `clear()` only when `active_room.is_changed()`; "
         "`reset_audio_request_state_on_context_change` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:222`) "
+        "(`crates/ambition_platformer2d_audio/src/plugin.rs:222`) "
         "calls `clear()` at `:263` only on a genuine `AudioContextChanged` "
         "owner edge (`previous != current`). One arm, two decay triggers "
         "that can never disagree because both converge on the same `None`. "
@@ -3763,7 +3763,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/encounter_script.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         # The theme of the cosmic form: a claim of the priority tier, as her

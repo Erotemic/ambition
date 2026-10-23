@@ -935,5 +935,13 @@ main() {
     stop_after_launch_env "$out_dir"
     write_summary "$out_dir"
     package_dir "$out_dir"
+    # One row per run in dev/ambition_dev_measurements/android_play_cost.jsonl
+    # (page: android-play-ledger.md). Not fatal: a run that did not reach
+    # gameplay is refused there, and the bundle is still complete. Its output
+    # goes to stderr, so the last stdout line stays the tarball path.
+    if [[ -f "$out_dir/frame-census.txt" ]]; then
+        python3 "$repo_root/scripts/lib/android_profile_ledger.py" append "$out_dir" >&2 \
+            || log "not added to the play ledger; to add it later: python3 scripts/lib/android_profile_ledger.py append $out_dir"
+    fi
 }
 main

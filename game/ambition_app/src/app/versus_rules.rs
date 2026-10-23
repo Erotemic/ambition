@@ -568,6 +568,21 @@ pub const ROUNDS_HUD_SLOT: &str = "versus_rounds";
 pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 
 /// Publish the scoreboard.
+/// Run condition of [`publish_versus_hud`]: a versus match runs with its
+/// roster, or one of its slots still holds a readout to clear. It cleared
+/// them every frame, which marked the readouts changed every frame.
+pub fn a_versus_hud_is_owed(
+    state: Option<Res<VersusMatch>>,
+    roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
+    readouts: Res<ambition_platformer2d::presentation::HudReadouts>,
+) -> bool {
+    (state.is_some() && roster.is_some())
+        || HEALTH_HUD_SLOTS
+            .iter()
+            .chain([ROUNDS_HUD_SLOT, ANNOUNCE_HUD_SLOT].iter())
+            .any(|slot| readouts.holds(*slot))
+}
+
 pub fn publish_versus_hud(
     state: Option<Res<VersusMatch>>,
     roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
@@ -689,6 +704,25 @@ pub fn announce_line(state: &VersusMatch) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The scoreboard's slots left by a match are cleared once, and then the
+    /// publisher rests: with no match it cleared them every frame, and so
+    /// marked the readouts changed every frame.
+    #[test]
+    fn a_finished_scoreboard_is_cleared_once_and_then_rests() {
+        use bevy::ecs::change_detection::DetectChanges as _;
+        use ambition_platformer2d::presentation::HudReadouts;
+        let mut app = App::new();
+        app.init_resource::<HudReadouts>();
+        app.world_mut().resource_mut::<HudReadouts>().set_labelled(ROUNDS_HUD_SLOT, "ROUND", 3);
+        app.add_systems(Update, publish_versus_hud.run_if(a_versus_hud_is_owed));
+        app.update();
+        assert!(!app.world().resource::<HudReadouts>().holds(ROUNDS_HUD_SLOT), "the finished match's rounds stayed up");
+        let before = app.world().resource_ref::<HudReadouts>().last_changed();
+        app.update();
+        app.update();
+        assert_eq!(app.world().resource_ref::<HudReadouts>().last_changed(), before, "an idle scoreboard wrote the readouts");
+    }
 
     /// The score line and the round calls are the pack's text file's; the
     /// code fills the teams, their wins, the round and the winner.

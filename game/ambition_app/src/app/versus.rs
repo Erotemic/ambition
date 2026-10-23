@@ -389,6 +389,16 @@ fn versus_stage_is_active(
     })
 }
 
+/// Run condition of [`track_versus_roster`]: the versus route is active, or
+/// the roster is the one versus published (left behind to tear down).
+fn on_versus_or_holding_its_roster(
+    router: Res<ambition_platformer2d::game_shell::ShellRouter>,
+    roster: Option<Res<MatchParticipantRoster>>,
+) -> bool {
+    router.active.as_ref().is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE)
+        || roster.is_some_and(|roster| roster.is_published_by(VERSUS_EXPERIENCE))
+}
+
 fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -645,7 +655,10 @@ pub fn compose_versus_experience(app: &mut App) {
 
     // Publishing the scoreboard IS presentation: it reads `VersusMatch` and
     // writes HUD text, and it writes nothing the simulation reads back.
-    app.add_systems(Update, super::versus_rules::publish_versus_hud);
+    app.add_systems(
+        Update,
+        super::versus_rules::publish_versus_hud.run_if(super::versus_rules::a_versus_hud_is_owed),
+    );
 
     // DELIBERATE SILENCE, declared. Preparation refuses an experience whose
     // provider registered no explicit audio fragment — a good refusal, and one
@@ -674,10 +687,12 @@ pub fn compose_versus_experience(app: &mut App) {
     app.add_systems(
         Update,
         (
-            track_versus_roster,
+            // While the versus route is open or its roster stands: the
+            // teardown arm is the second.
+            track_versus_roster.run_if(on_versus_or_holding_its_roster),
             // AFTER, and in the same tick: the roster this built may have been
             // decided before the session froze its seating.
-            reconcile_roster_with_frozen_topology,
+            reconcile_roster_with_frozen_topology.run_if(resource_exists::<MatchParticipantRoster>),
         )
             .chain()
             // BEFORE THE SESSION IS SIZED, and stated rather than hoped.

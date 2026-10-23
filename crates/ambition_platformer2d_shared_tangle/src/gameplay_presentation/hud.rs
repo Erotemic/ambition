@@ -377,6 +377,11 @@ impl HudReadouts {
         self.by_slot.clear();
     }
 
+    /// Whether slot `id` holds a readout.
+    pub fn holds(&self, id: impl Into<HudSlotId>) -> bool {
+        self.by_slot.contains_key(&id.into())
+    }
+
     pub fn is_empty(&self) -> bool {
         self.by_slot.is_empty()
     }

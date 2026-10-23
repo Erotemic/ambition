@@ -19,12 +19,24 @@ use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
 #[derive(Component)]
 pub struct BossHealthBarOverlayVisual;
 
+/// What the boss health overlay shows. It is rebuilt only when this changes.
+#[derive(Debug, PartialEq)]
+pub struct DrawnBossBar {
+    name: String,
+    hp_text: String,
+    fill_percent: f32,
+}
+
 /// Always-on top-center boss health overlay.
 ///
 /// The debug `sync_health_overlays` system draws small bars above every
 /// actor only when developer health bars are enabled. This system is the
 /// player-facing boss UI: if a live boss exists in the active room, show
 /// the boss name and HP fraction in the top-center HUD overlay.
+///
+/// Rebuilt only when what it shows changes (the boss, its health, the
+/// fonts) or the overlay is gone: a rebuilt UI is laid out and its text
+/// measured again, and it was rebuilt each frame of a boss fight.
 pub fn sync_boss_health_bar_overlay(
     mut commands: Commands,
     overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
@@ -32,41 +44,43 @@ pub fn sync_boss_health_bar_overlay(
     feature_views: Res<FeatureViewIndex>,
     ui_fonts: Option<Res<UiFonts>>,
     active_session: Option<Res<ActiveSessionScope>>,
+    mut drawn: Local<Option<DrawnBossBar>>,
 ) {
-    for entity in overlays.iter() {
-        commands.entity(entity).despawn();
-    }
-
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
-        return;
-    };
-
+    let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     // The boss being fought: alive and awake. A successor that sleeps until
     // its predecessor falls stands in the room at full health the whole time.
-    let Some((health, boss_name)) = boss_render.iter().find_map(|(id, ident)| {
-        let view = feature_views.get(id)?;
-        if view.alive && ident.awake {
-            Some((
-                Health {
+    let fought = session_scope.and_then(|_| {
+        boss_render.iter().find_map(|(id, ident)| {
+            let view = feature_views.get(id)?;
+            (view.alive && ident.awake).then(|| {
+                let health = Health {
                     current: view.hp_current,
                     max: view.hp_max,
                     invulnerable: Default::default(),
-                },
-                ident.name.clone(),
-            ))
-        } else {
-            None
-        }
-    }) else {
+                };
+                DrawnBossBar {
+                    name: ident.name.clone(),
+                    hp_text: format!("{} / {}", health.current.max(0), health.max.max(1)),
+                    fill_percent: health.ratio().clamp(0.0, 1.0) * 100.0,
+                }
+            })
+        })
+    });
+    let fonts_changed = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed());
+    let overlay_matches = overlays.is_empty() == drawn.is_none();
+    if !fonts_changed && overlay_matches && *drawn == fought {
+        return;
+    }
+    for entity in overlays.iter() {
+        commands.entity(entity).despawn();
+    }
+    *drawn = fought;
+    let (Some(session_scope), Some(bar)) = (session_scope, drawn.as_ref()) else {
         return;
     };
-
-    let ratio = health.ratio().clamp(0.0, 1.0);
-    let fill_percent = ratio * 100.0;
-    let hp_text = format!("{} / {}", health.current.max(0), health.max.max(1));
-    let boss_name = boss_name.as_str();
+    let fill_percent = bar.fill_percent;
+    let hp_text = bar.hp_text.clone();
+    let boss_name = bar.name.as_str();
 
     let font = |font_size: f32, weight: UiFontWeight| {
         ui_fonts
@@ -393,6 +407,52 @@ mod room_tests {
             sprite_offset: None,
             room: None,
         }
+    }
+
+    /// The boss bar is kept while the boss and its health stay, and rebuilt
+    /// when its health changes: it was despawned and spawned each frame of a
+    /// boss fight, and a new UI is laid out and measured again.
+    #[test]
+    fn the_boss_bar_is_kept_while_the_fight_stands_still() {
+        let mut app = App::new();
+        let mut active = ActiveSessionScope::default();
+        active.begin();
+        app.insert_resource(active);
+        let boss = |hp: i32| {
+            let mut view = crate_at(ae::Vec2::new(100.0, 100.0));
+            view.hp_current = hp;
+            view.hp_max = 10;
+            ambition_sim_view::FeatureViewIndex::from_rows([("boss".to_string(), view)])
+        };
+        app.insert_resource(boss(10));
+        app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([(
+            "boss".to_string(),
+            ambition_sim_view::BossRenderView {
+                name: "Smirking Behemoth".to_string(),
+                behavior_id: "behemoth".to_string(),
+                title: None,
+                stage: Default::default(),
+                awake: true,
+                finish: 0.0,
+            },
+        )]));
+        app.add_systems(Update, sync_boss_health_bar_overlay);
+        app.update();
+        let roots = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<Entity, With<BossHealthBarOverlayVisual>>()
+                .iter(app.world())
+                .collect::<Vec<_>>()
+        };
+        let first = roots(&mut app);
+        assert_eq!(first.len(), 1, "a boss fought, one bar");
+        app.update();
+        assert_eq!(roots(&mut app), first, "a fight standing still keeps its bar");
+        app.insert_resource(boss(7));
+        app.update();
+        let hit = roots(&mut app);
+        assert_eq!(hit.len(), 1, "still one bar");
+        assert_ne!(hit, first, "a blow redraws it");
     }
 
     /// Each health bar is drawn in the live room of the body it measures

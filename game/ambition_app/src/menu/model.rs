@@ -723,9 +723,9 @@ pub fn system_rows_with_quality_prompt(
                     }
                     rows
                 }
-                SystemMenuTarget::Radio(rows) => rows
-                    .iter()
-                    .map(|r| SystemRow::Option(SystemOptionId::Radio(r.index)))
+                // Stop first, then the stations.
+                SystemMenuTarget::Radio(rows) => std::iter::once(SystemRow::Option(SystemOptionId::RadioOff))
+                    .chain(rows.iter().map(|r| SystemRow::Option(SystemOptionId::Radio(r.index))))
                     .collect(),
                 SystemMenuTarget::Language(rows) => rows
                     .iter()
@@ -802,6 +802,17 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
                 format!("{marker}{}", r.label)
             })
             .unwrap_or_else(|| line("menu.system.missing_station")),
+        SystemOptionId::RadioOff => {
+            // Marked while no station is selected.
+            let off = model
+                .entry(SystemMenuEntryId::Radio)
+                .is_none_or(|e| match &e.target {
+                    SystemMenuTarget::Radio(rows) => rows.iter().all(|r| !r.active),
+                    _ => true,
+                });
+            let marker = if off { "▶ " } else { "  " };
+            format!("{marker}{}", line("menu.system.radio_off"))
+        }
         SystemOptionId::Locale(id) => model
             .entry(SystemMenuEntryId::Language)
             .and_then(|e| match &e.target {
@@ -852,6 +863,7 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
 fn system_option_description(opt: SystemOptionId) -> String {
     match opt {
         SystemOptionId::Radio(_) => line("menu.system.radio_detail"),
+        SystemOptionId::RadioOff => line("menu.system.radio_off_detail"),
         SystemOptionId::Locale(id) => {
             if id.is_available() {
                 line("menu.system.locale_detail")

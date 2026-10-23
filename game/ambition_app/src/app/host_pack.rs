@@ -77,6 +77,8 @@ impl TextKeys for HostText {
         TextKey::plain("menu.system.quality_cancel"),
         TextKey::plain("menu.system.quality_cancel_detail"),
         TextKey::plain("menu.system.radio_detail"),
+        TextKey::plain("menu.system.radio_off"),
+        TextKey::plain("menu.system.radio_off_detail"),
         TextKey::plain("menu.system.locale_detail"),
         TextKey::plain("menu.system.locale_unavailable_detail"),
         TextKey::plain("menu.system.rebind_detail"),

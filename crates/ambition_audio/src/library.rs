@@ -176,9 +176,11 @@ pub struct AudioLibrary {
     music_tracks: Vec<MusicTrackRuntime>,
 }
 
-/// Player-selected simple music track: the radio station. Rooms provide a
-/// default when no station is set, and adaptive encounter cues can take over
-/// for a while; the chosen track then resumes.
+/// Player-selected simple music track: the radio station. While a station is
+/// set it is the music, above the room's and every situation's (a fight, a
+/// conversation, an adaptive cue); with none, the room and the situation choose.
+/// The music director is the only player: selecting a station plays nothing
+/// here.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct RadioStationState {
     selected_track: Option<String>,
@@ -193,7 +195,7 @@ impl RadioStationState {
         self.selected_track = Some(track_id.into());
     }
 
-    #[allow(dead_code)]
+    /// Turn the radio off: the room's and the situation's music return.
     pub fn clear(&mut self) {
         self.selected_track = None;
     }
@@ -658,28 +660,20 @@ pub fn switch_to_music_track_over(
     play_music_track(library, asset_server, next_track, music_channel, output, fade_in);
 }
 
-pub fn set_radio_track(
-    library: &mut AudioLibrary,
-    asset_server: &AssetServer,
+/// Select station `next_track`, if the library has it. The music director plays
+/// it from the next frame (`compute_music_intent` puts a station first), so the
+/// radio and an authored cue never sound at once.
+pub fn select_radio_station(
+    library: &AudioLibrary,
     radio: &mut RadioStationState,
-    state: &mut MusicPlaybackState,
-    music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
     next_track: &str,
-) {
+) -> bool {
     if library.track(next_track).is_none() {
         warn!("cannot set radio to missing music track '{next_track}'");
-        return;
+        return false;
     }
     radio.set_selected_track(next_track);
-    switch_to_music_track(
-        library,
-        asset_server,
-        state,
-        music_channel,
-        output,
-        next_track,
-    );
+    true
 }
 
 fn play_music_track(

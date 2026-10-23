@@ -189,9 +189,8 @@ pub fn compute_music_intent(
     let room_spec = rooms.rooms().spec(definition);
     let room = &room_spec.metadata;
     // The room's own adaptive cue is the room's music: a conversation's track
-    // and the radio are above it, as they are above `music_track`.
-    let above_the_room = narrative_music.as_deref().and_then(|music| music.track()).is_some()
-        || radio.as_deref().and_then(|radio| radio.selected_track()).is_some();
+    // is above it, as it is above `music_track`.
+    let above_the_room = narrative_music.as_deref().and_then(|music| music.track()).is_some();
     let adaptive = adaptive.or_else(|| match (active_catalog, director.as_ref()) {
         (Some(catalog), Some(director)) if !above_the_room => resolve_room_directive(
             catalog,
@@ -221,7 +220,13 @@ pub fn compute_music_intent(
     );
 
     intent.provider_id = audio_selection.provider_id().map(str::to_owned);
-    intent.adaptive = adaptive;
+    // ⭐ A STATION IS THE MUSIC. The player chose it, so no authored cue (a
+    // boss's, a fight's, the room's) plays beside or over it; turning the radio
+    // off gives the music back to them. With an adaptive cue here the director
+    // never looked at the simple candidates, and a station played on the base
+    // channel under the boss's layers.
+    let station = radio.as_deref().and_then(|radio| radio.selected_track()).is_some();
+    intent.adaptive = if station { None } else { adaptive };
     intent.simple_track_candidates = candidates;
     // Staying in a room whose track follows the day, a change of track is the
     // day turning: it crossfades. Arriving in a room is the ordinary swap.
@@ -261,11 +266,11 @@ pub(super) fn heard_encounter_states<'a>(
         .collect()
 }
 
-/// Build the simple-track priority list. Priority, while a fight is on: the
-/// room's `fight_music_track`, then the fight's own track (boss beats wave,
-/// resolved inside `EncounterMusicRequest::desired_track`). Then a track a
-/// conversation asked for > radio > the room's `music_track` > the provider's
-/// default. The director plays the first id that exists in its
+/// Build the simple-track priority list. A radio station, if one is selected,
+/// is first. Then, while a fight is on: the room's `fight_music_track`, then the
+/// fight's own track (boss beats wave, resolved inside
+/// `EncounterMusicRequest::desired_track`). Then a track a conversation asked
+/// for > the room's `music_track` > the provider's default. The director plays the first id that exists in its
 /// `AudioLibrary`, so this stays a pure list of candidate ids (no audio backend
 /// access here), and a room fight track that does not exist falls through to
 /// the fight's own.
@@ -279,6 +284,9 @@ pub(super) fn simple_track_candidates(
     encounter_track: Option<&str>,
 ) -> Vec<String> {
     let mut candidates = Vec::new();
+    if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
+        candidates.push(track.to_string());
+    }
     if let Some(track) = encounter_track {
         // A fight is on. The room says what its fights sound like, before the
         // boss or wave does.
@@ -288,9 +296,6 @@ pub(super) fn simple_track_candidates(
         candidates.push(track.to_string());
     }
     if let Some(track) = narrative_music.and_then(|music| music.track()) {
-        candidates.push(track.to_string());
-    }
-    if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
         candidates.push(track.to_string());
     }
     if let Some(track) = room_track {

@@ -210,6 +210,7 @@ fn resolver_iterates_multiple_bindings() {
 use super::intent::simple_track_candidates;
 use ambition_audio::selection::ActiveAudioSelection;
 use ambition_encounter::EncounterMusicRequest;
+use ambition_audio::library::RadioStationState;
 
 fn narrative(track: &str) -> ambition_conversation::NarrativeMusicRequest {
     let mut request = ambition_conversation::NarrativeMusicRequest::default();
@@ -298,6 +299,40 @@ fn a_rooms_fight_track_beats_the_fights_own_only_during_a_fight() {
     assert!(
         !quiet.contains(&"crooked_ascent_boss".to_string()),
         "the fight track is a candidate only during a fight: {quiet:?}"
+    );
+}
+
+/// A station is the music while it is on, above a fight's and a conversation's
+/// track, and turning it off hands the music back to them.
+#[test]
+fn a_radio_station_is_the_music_until_it_is_turned_off() {
+    let mut fight = EncounterMusicRequest::default();
+    fight.claim_priority(None, "test_boss", "you_are_too_slow", 0);
+    let mut radio = RadioStationState::default();
+    radio.set_selected_track("long_lofi_drift");
+    let candidates = simple_track_candidates(
+        room("for_emmy_forever_ago"),
+        None,
+        Some(&narrative("super_smash_siblings_theme")),
+        Some(&radio),
+        &ActiveAudioSelection::default(),
+        fight.desired_track(None),
+    );
+    assert_eq!(candidates.first().map(String::as_str), Some("long_lofi_drift"));
+
+    radio.clear();
+    let candidates = simple_track_candidates(
+        room("for_emmy_forever_ago"),
+        None,
+        Some(&narrative("super_smash_siblings_theme")),
+        Some(&radio),
+        &ActiveAudioSelection::default(),
+        fight.desired_track(None),
+    );
+    assert_eq!(
+        candidates.first().map(String::as_str),
+        Some("you_are_too_slow"),
+        "with the radio off the fight's own track returns"
     );
 }
 

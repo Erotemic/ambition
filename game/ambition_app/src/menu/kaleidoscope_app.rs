@@ -660,26 +660,13 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     // resource simply disables station audition (the rows still render). Gated on
     // `audio` so non-audio builds carry none of the types.
     #[cfg(feature = "audio")]
-    library: Option<ResMut<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
+    library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
-    asset_server: Option<Res<'w, AssetServer>>,
-    #[cfg(feature = "audio")]
-    music_state: Option<ResMut<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
+    music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
     music_director: Option<Res<'w, ambition_platformer2d::audio::music::MusicDirectorState>>,
     #[cfg(feature = "audio")]
     radio: Option<ResMut<'w, ambition_platformer2d::audio::library::RadioStationState>>,
-    #[cfg(feature = "audio")]
-    music_channel: Option<
-        Res<
-            'w,
-            bevy_kira_audio::prelude::AudioChannel<
-                ambition_platformer2d::audio::library::MusicChannel,
-            >,
-        >,
-    >,
-    #[cfg(feature = "audio")]
-    audio_output: Option<Res<'w, ambition_platformer2d::audio::AudioOutputMode>>,
 }
 
 impl SystemMenuParams<'_, '_> {
@@ -703,33 +690,27 @@ impl SystemMenuParams<'_, '_> {
         match opt {
             SystemOptionId::Radio(index) => {
                 #[cfg(feature = "audio")]
-                if let (
-                    Some(library),
-                    Some(asset_server),
-                    Some(music_state),
-                    Some(radio),
-                    Some(music_channel),
-                ) = (
-                    self.library.as_deref_mut(),
-                    self.asset_server.as_deref(),
-                    self.music_state.as_deref_mut(),
-                    self.radio.as_deref_mut(),
-                    self.music_channel.as_deref(),
-                ) {
+                // The director plays the station from the next frame.
+                if let (Some(library), Some(radio)) =
+                    (self.library.as_deref(), self.radio.as_deref_mut())
+                {
                     if let Some(track_id) = library.track_at(index).map(|t| t.id.clone()) {
-                        ambition_platformer2d::audio::library::set_radio_track(
-                            library,
-                            asset_server,
-                            radio,
-                            music_state,
-                            music_channel,
-                            self.audio_output.as_deref().copied().unwrap_or_default(),
-                            &track_id,
-                        );
-                        return ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT;
+                        if ambition_platformer2d::audio::library::select_radio_station(
+                            library, radio, &track_id,
+                        ) {
+                            return ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT;
+                        }
                     }
                 }
                 let _ = index;
+                ambition_platformer2d::sfx::ids::UI_MENU_ERROR
+            }
+            SystemOptionId::RadioOff => {
+                #[cfg(feature = "audio")]
+                if let Some(radio) = self.radio.as_deref_mut() {
+                    radio.clear();
+                    return ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT;
+                }
                 ambition_platformer2d::sfx::ids::UI_MENU_ERROR
             }
             SystemOptionId::Locale(id) => {
@@ -944,11 +925,10 @@ fn radio_snapshot_from(
     radio: Option<&ambition_platformer2d::audio::library::RadioStationState>,
     director: Option<&ambition_platformer2d::audio::music::MusicDirectorState>,
 ) -> RadioSnapshot {
-    let active_id = radio
+    // The selected station only: with the radio off no station is marked.
+    let active = radio
         .and_then(|r| r.selected_track())
-        .unwrap_or(music_state.active_track())
-        .to_string();
-    let active = library.track_index(&active_id);
+        .and_then(|id| library.track_index(id));
     let stations = (0..library.track_count())
         .filter_map(|i| library.display_name_at(i).map(|name| (i, name.to_string())))
         .collect();

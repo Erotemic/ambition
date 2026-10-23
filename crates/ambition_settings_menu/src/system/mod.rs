@@ -302,6 +302,8 @@ impl SystemMenuEntryId {
 pub enum SystemOptionId {
     /// Select a radio station by track index (auditions it, keeps the menu open).
     Radio(usize),
+    /// Turn the radio off: the room's and the situation's music return.
+    RadioOff,
     /// Select a locale (only English is enabled).
     Locale(LocaleId),
     /// Toggle/cycle a developer tool.
@@ -379,7 +381,7 @@ pub struct RebindRow {
 /// One radio station row in the Radio screen.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RadioRow {
-    /// Track index into the audio library (what `set_radio_track` resolves).
+    /// Track index into the audio library (what `select_radio_station` resolves).
     pub index: usize,
     pub label: String,
     /// Whether this is the currently-playing station.
@@ -428,7 +430,7 @@ pub struct SystemMenuModel {
 pub struct RadioSnapshot {
     /// `(track_index, display_name)` in library order.
     pub stations: Vec<(usize, String)>,
-    /// The currently-active track index, if any.
+    /// The selected station's track index; `None` while the radio is off.
     pub active: Option<usize>,
     /// What is heard now, which a boss or encounter cue can make other than
     /// the selected station. `None` is silence.

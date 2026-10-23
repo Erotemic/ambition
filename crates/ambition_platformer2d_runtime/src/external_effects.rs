@@ -126,37 +126,33 @@ impl<M: Message> ExternalEffectJournal<M> {
 ///
 /// Paired with [`journal_sim_effects`], which restores the lifted channel. This
 /// swaps rather than clears because simulation is not the only writer.
-pub fn open_sim_effect_outbox<M: Message>(
-    mut messages: ResMut<Messages<M>>,
-    mut journal: ResMut<ExternalEffectJournal<M>>,
-) {
-    journal.lifted = Some(std::mem::take(&mut *messages));
+pub fn open_sim_effect_outbox<M: Message>(world: &mut World) {
+    let lifted = std::mem::take(&mut *world.resource_mut::<Messages<M>>());
+    world.resource_mut::<ExternalEffectJournal<M>>().lifted = Some(lifted);
 }
 
 /// Stamp everything this pass produced with the frame that produced it, and
 /// restore the channel [`open_sim_effect_outbox`] lifted aside.
-pub fn journal_sim_effects<M: Message>(
-    boundary: Res<ConfirmedFrameBoundary>,
-    mut messages: ResMut<Messages<M>>,
-    mut journal: ResMut<ExternalEffectJournal<M>>,
-) {
-    let intents: Vec<M> = messages.drain().collect();
-    if let Some(lifted) = journal.lifted.take() {
-        *messages = lifted;
+pub fn journal_sim_effects<M: Message>(world: &mut World) {
+    let boundary = world.resource::<ConfirmedFrameBoundary>();
+    let (frame, session) = (boundary.current, boundary.session);
+    let intents: Vec<M> = world.resource_mut::<Messages<M>>().drain().collect();
+    let mut journal = world.resource_mut::<ExternalEffectJournal<M>>();
+    let lifted = journal.lifted.take();
+    journal.record(frame, session, intents);
+    if let Some(lifted) = lifted {
+        *world.resource_mut::<Messages<M>>() = lifted;
     }
-    journal.record(boundary.current, boundary.session, intents);
 }
 
 /// Hand confirmed frames to the ordinary presentation consumers.
-pub fn release_confirmed_effects<M: Message>(
-    boundary: Res<ConfirmedFrameBoundary>,
-    mut messages: ResMut<Messages<M>>,
-    mut journal: ResMut<ExternalEffectJournal<M>>,
-) {
-    let released = journal.take_confirmed(&boundary);
-    if !released.is_empty() {
-        messages.write_batch(released);
-    }
+pub fn release_confirmed_effects<M: Message>(world: &mut World) {
+    world.resource_scope(|world, mut journal: Mut<ExternalEffectJournal<M>>| {
+        let released = journal.take_confirmed(world.resource::<ConfirmedFrameBoundary>());
+        if !released.is_empty() {
+            world.resource_mut::<Messages<M>>().write_batch(released);
+        }
+    });
 }
 
 /// Drop the abandoned branch's intents when the host restores an earlier frame.
@@ -164,17 +160,53 @@ pub fn release_confirmed_effects<M: Message>(
 /// Reads the restored frame from [`ConfirmedFrameBoundary::current`], which the
 /// rollback bridge republishes at `LoadWorld` for exactly this reason — so this
 /// module never needs to name a GGRS type.
-pub fn discard_abandoned_predictions<M: Message>(
-    boundary: Res<ConfirmedFrameBoundary>,
-    mut journal: ResMut<ExternalEffectJournal<M>>,
-) {
-    journal.discard_after(boundary.current);
+pub fn discard_abandoned_predictions<M: Message>(world: &mut World) {
+    let frame = world.resource::<ConfirmedFrameBoundary>().current;
+    world.resource_mut::<ExternalEffectJournal<M>>().discard_after(frame);
+}
+
+/// Each quarantined family's step of each phase, in the order the families
+/// were added. One system per phase runs every family's step: eight families were 25 systems a frame, each paying
+/// the executor for a swap or an empty journal entry.
+#[derive(Resource, Default)]
+pub struct ExternalEffectFamilies {
+    open: Vec<fn(&mut World)>,
+    journal: Vec<fn(&mut World)>,
+    release: Vec<fn(&mut World)>,
+    discard: Vec<fn(&mut World)>,
+}
+
+/// Run one phase's step for every quarantined family.
+fn run_effect_phase(world: &mut World, steps: fn(&ExternalEffectFamilies) -> &[fn(&mut World)]) {
+    world.resource_scope(|world, families: Mut<ExternalEffectFamilies>| {
+        for step in steps(&families) {
+            step(world);
+        }
+    });
+}
+
+fn open_every_sim_effect_outbox(world: &mut World) {
+    run_effect_phase(world, |families| &families.open);
+}
+
+fn journal_every_sim_effect(world: &mut World) {
+    run_effect_phase(world, |families| &families.journal);
+}
+
+fn release_every_confirmed_effect(world: &mut World) {
+    run_effect_phase(world, |families| &families.release);
+}
+
+fn discard_every_abandoned_prediction(world: &mut World) {
+    run_effect_phase(world, |families| &families.discard);
 }
 
 /// Quarantines one effect family. Add one per presentation-facing message type.
 ///
-/// Every system is gated on [`ConfirmedFrameBoundary`] existing, so installing
-/// this on a host that never speculates is inert rather than merely harmless.
+/// Every family's steps run in the quarantine's one pass per phase, installed
+/// with the first family. Each pass is gated on [`ConfirmedFrameBoundary`]
+/// existing, so installing this on a host that never speculates is inert
+/// rather than merely harmless.
 pub struct ExternalEffectQuarantinePlugin<M: Message> {
     marker: PhantomData<fn() -> M>,
 }
@@ -193,37 +225,43 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
             GameplaySimulationRoot, SimScheduleExt as _,
         };
 
-        let sim = app.sim_schedule();
-        let speculating = resource_exists::<ConfirmedFrameBoundary>;
-
         // A host that composes rollback WITHOUT presentation (a headless capability host,
         // `examples/capability_demo`'s GGRS round-trip) failed parameter validation on frame one,
         // naming a message type it had never heard of.
         //
         // `add_message` is guarded by `contains_resource`, so this is idempotent
         // and changes nothing for a composition that already registered it.
-        app.add_message::<M>()
-            .init_resource::<ExternalEffectJournal<M>>()
-            .add_systems(
-                sim,
-                open_sim_effect_outbox::<M>
-                    .in_set(ExternalEffectSet::OpenOutbox)
-                    .before(GameplaySimulationRoot)
-                    .run_if(speculating),
-            )
-            .add_systems(
-                sim,
-                journal_sim_effects::<M>
-                    .in_set(ExternalEffectSet::Journal)
-                    .after(GameplaySimulationRoot)
-                    .run_if(speculating),
-            )
-            .add_systems(
-                PreUpdate,
-                release_confirmed_effects::<M>
-                    .in_set(ExternalEffectSet::Release)
-                    .run_if(speculating),
-            );
+        app.add_message::<M>().init_resource::<ExternalEffectJournal<M>>();
+        let first = !app.world().contains_resource::<ExternalEffectFamilies>();
+        let mut families = app.world_mut().get_resource_or_init::<ExternalEffectFamilies>();
+        families.open.push(open_sim_effect_outbox::<M>);
+        families.journal.push(journal_sim_effects::<M>);
+        families.release.push(release_confirmed_effects::<M>);
+        if !first {
+            return;
+        }
+        let sim = app.sim_schedule();
+        let speculating = resource_exists::<ConfirmedFrameBoundary>;
+        app.add_systems(
+            sim,
+            open_every_sim_effect_outbox
+                .in_set(ExternalEffectSet::OpenOutbox)
+                .before(GameplaySimulationRoot)
+                .run_if(speculating),
+        )
+        .add_systems(
+            sim,
+            journal_every_sim_effect
+                .in_set(ExternalEffectSet::Journal)
+                .after(GameplaySimulationRoot)
+                .run_if(speculating),
+        )
+        .add_systems(
+            PreUpdate,
+            release_every_confirmed_effect
+                .in_set(ExternalEffectSet::Release)
+                .run_if(speculating),
+        );
 
         // `LoadWorld` only exists under a rollback host.
     }
@@ -232,14 +270,21 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
 /// Install the abandoned-branch discard into the host's restore schedule.
 ///
 /// Separate from [`ExternalEffectQuarantinePlugin`] because only a rollback host
-/// has a restore schedule to install it into.
+/// has a restore schedule to install it into. The discard pass is installed
+/// with the first family, into that family's schedule: a host has one restore
+/// schedule.
 pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl ScheduleLabel) {
-    app.add_systems(
-        load_schedule,
-        discard_abandoned_predictions::<M>
-            .in_set(ExternalEffectSet::DiscardAbandoned)
-            .run_if(resource_exists::<ConfirmedFrameBoundary>),
-    );
+    let mut families = app.world_mut().get_resource_or_init::<ExternalEffectFamilies>();
+    let first = families.discard.is_empty();
+    families.discard.push(discard_abandoned_predictions::<M>);
+    if first {
+        app.add_systems(
+            load_schedule,
+            discard_every_abandoned_prediction
+                .in_set(ExternalEffectSet::DiscardAbandoned)
+                .run_if(resource_exists::<ConfirmedFrameBoundary>),
+        );
+    }
 }
 
 /// One use of the list of presentation-facing effect families.

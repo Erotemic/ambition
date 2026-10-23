@@ -49,6 +49,7 @@ consolidations and the monolith packets.
 | S7c: the shield rings and the guard breaks are one pass over the shielded bodies (`rebuild_shield_views`) | done | `ambition_sim_view` 40 → 39 |
 | Ambition's room looks (9) run while a live room asks for a look and one frame after; the vanity card (3) while a startup sequence runs or a card remains; the grid menu's republish while a menu is open or its tree is up | done | census: `ambition_content` 46 → 34; with the two rows above, 1,229 → 1,195 systems a frame (one new system, the desktop cursor, included) |
 | The player trail is one retained gizmo drawing per room band, rebuilt only when its strips change (`present_player_trails`), instead of four `RoomTrailGizmos` groups of 6 Bevy systems each in every composition | done | census: Mary-O route 1,195 → 1,184 systems a frame, hub Ambition route 1,382 → 1,365; gizmo groups 9 → 5 |
+| The effect quarantine is one pass per phase over its families (`ExternalEffectFamilies`: open, journal, release, discard), not one system per message type per phase; each family's step is the old system as a `&mut World` function | done | census: Mary-O route 1,184 → 1,163 systems a frame (25 quarantine systems → 3, plus the discard on a load) |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 

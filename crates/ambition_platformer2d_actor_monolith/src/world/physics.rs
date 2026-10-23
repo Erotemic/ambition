@@ -290,8 +290,9 @@ impl Plugin for AmbitionPhysicsPlugin {
             .add_systems(
                 Update,
                 (
-                    update_physics_debris_lifetimes,
-                    complete_pending_physics_despawns,
+                    // Each while it has a piece to age or to retire.
+                    update_physics_debris_lifetimes.run_if(any_with_component::<PhysicsDebris>),
+                    complete_pending_physics_despawns.run_if(any_with_component::<PendingPhysicsDespawn>),
                     // ⭐⭐ PAUSE AVIAN WHILE THERE IS NO DEBRIS. This plugin is
                     // gated on a feature literally called `physics_debris`, and
                     // it installs `PhysicsPlugins::default()` — the WHOLE of
@@ -717,6 +718,14 @@ mod tests {
             app.update();
         }
         assert!(app.world().resource::<Runs>().0 > 0, "debris did not wake the propagation");
+
+        // The ageing and retiring passes run while there is a piece: a piece
+        // that outlives its lifetime is retired, then despawned.
+        let short = app.world_mut().spawn((PhysicsDebris { lifetime: 0.05 }, Transform::default())).id();
+        for _ in 0..((PHYSICS_DESPAWN_GRACE * 64.0) as usize + 16) {
+            app.update();
+        }
+        assert!(app.world().get_entity(short).is_err(), "an expired piece was never despawned");
     }
 
     /// Avian optimizes its debris trees in place on this thread, not in an

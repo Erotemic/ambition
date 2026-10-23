@@ -242,6 +242,7 @@ fn install_physics_debris(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
         Update,
         physics::physics_spawn_debris_messages
+            .run_if(on_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>)
             .after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );

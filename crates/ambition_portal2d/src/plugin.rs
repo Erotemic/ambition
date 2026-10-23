@@ -73,7 +73,9 @@ impl Plugin for PortalGunPlugin {
         );
         app.add_systems(
             sim,
-            super::despawn_orphaned_portals.in_set(PortalSet::WeaponMaintenance),
+            super::despawn_orphaned_portals
+                .run_if(super::gun_lifecycle::a_portal_or_shot_exists)
+                .in_set(PortalSet::WeaponMaintenance),
         );
     }
 }
@@ -157,7 +159,12 @@ impl Plugin for PortalSimulationPlugin {
             portal_fire_system.in_set(PortalSet::WeaponAndProjectiles),
         );
 
-        app.add_systems(sim, clear_portals_on_reset.in_set(PortalSet::RoomReset));
+        app.add_systems(
+            sim,
+            clear_portals_on_reset
+                .run_if(bevy::prelude::on_message::<crate::ClearPortals>)
+                .in_set(PortalSet::RoomReset),
+        );
 
         // Ledge-grab suppression during transit is a host adapter in
         // `PortalSet::TransitGuards`; it reads the `PortalTransit` latch.

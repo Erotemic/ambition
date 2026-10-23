@@ -76,6 +76,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             bridge_portal_carves
+                .run_if(super::carve_adapter::carves_or_holes_stand)
                 .in_set(PortalSet::Carves)
                 .after(publish_portal_carves),
         );
@@ -83,6 +84,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             sync_portal_host_depths
+                .run_if(super::carve_adapter::portals_or_depths_stand)
                 .in_set(PortalSet::Carves)
                 .before(publish_portal_carves),
         );

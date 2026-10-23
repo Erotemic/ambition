@@ -1847,6 +1847,36 @@ fn each_carve_goes_to_the_live_room_it_was_cut_in() {
     assert_eq!(carves_by_room(&[None]), [0, 0], "a carve in no live room is not written");
 }
 
+/// The bridge runs while a carve stands or a room still holds a hole, so the
+/// hole of a portal that went is cleared and the wall seals again.
+#[test]
+fn a_hole_left_after_the_last_carve_is_sealed() {
+    use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, PortalHolePass};
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    let mut app = App::new();
+    let mut overlay = FeatureEcsWorldOverlay::default();
+    overlay.portal_holes.push(PortalHolePass {
+        face: ae::frame::FaceRect {
+            center: Vec2::new(200.0, 390.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_along: 24.0,
+            half_out: 10.0,
+        },
+        bodies: Vec::new(),
+    });
+    let root = app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION, overlay)).id();
+    app.insert_resource(PortalCarves::default());
+    app.add_systems(
+        Update,
+        crate::portal::bridge_portal_carves.run_if(crate::portal::carve_adapter::carves_or_holes_stand),
+    );
+    app.update();
+    assert!(
+        app.world().get::<FeatureEcsWorldOverlay>(root).unwrap().portal_holes.is_empty(),
+        "the hole of a portal that went stayed open"
+    );
+}
+
 /// The host a portal at `at` (facing up) attaches to on `platform`, and the
 /// depth the adapter measures behind it.
 fn host_and_depth(

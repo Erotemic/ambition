@@ -21,6 +21,29 @@ use ambition_portal2d::{host_material_depth, PlacedPortal, PortalCarves, PortalH
 /// room (`PortalCarves::holes` names the room of each), so two live rooms each
 /// carve the walls of their own pair. A hole in no live room goes to the sole
 /// live room, so while two rooms are live it is not written.
+/// Run condition of [`bridge_portal_carves`]: a carve stands this frame, or
+/// a room still holds a hole or a glue to clear. With neither, the bridge
+/// would leave every overlay as it is.
+pub fn carves_or_holes_stand(
+    carves: Res<PortalCarves>,
+    overlays: Query<&ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+) -> bool {
+    !carves.holes.is_empty()
+        || !carves.glues.is_empty()
+        || overlays
+            .iter()
+            .any(|overlay| !overlay.portal_holes.is_empty() || !overlay.portal_glues.is_empty())
+}
+
+/// Run condition of [`sync_portal_host_depths`]: a portal stands, or depths
+/// of one that went remain to clear.
+pub fn portals_or_depths_stand(
+    portals: Query<(), With<PlacedPortal>>,
+    depths: Res<PortalHostDepthsByRoom>,
+) -> bool {
+    !portals.is_empty() || !depths.0.is_empty()
+}
+
 pub fn bridge_portal_carves(
     carves: Res<PortalCarves>,
     mut overlays: ambition_platformer2d::world::RoomOverlays,

@@ -2113,9 +2113,10 @@
 
         // ===== Hub guides (peaceful, dialogue-only).
         "npc_architect": (
-            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Architect NPC",
-            manifest: "sprites/architect_spritesheet.ron",
+            // The modernist, redrawn 2026-10-23 (`architect_v2`); the old sheet
+            // is still published as `architect`.
+            manifest: "sprites/architect_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 173 cm.
@@ -2172,9 +2173,10 @@
         hall_dialogue_id: Some("hall_npc_kernel_guide"),
         ),
         "npc_vault_keeper": (
-            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Vault Keeper NPC",
-            manifest: "sprites/vault_keeper_spritesheet.ron",
+            // The keeper of the vault, redrawn 2026-10-23 (`vault_keeper_v2`);
+            // the old sheet is still published as `vault_keeper`.
+            manifest: "sprites/vault_keeper_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 178 cm.
@@ -2191,9 +2193,10 @@
         hall_dialogue_id: Some("hall_npc_vault_keeper"),
         ),
         "npc_merchant_prototype": (
-            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Merchant Prototype NPC",
-            manifest: "sprites/merchant_prototype_spritesheet.ron",
+            // The travelling pedlar, redrawn 2026-10-23 (`merchant_prototype_v2`);
+            // the old sheet is still published as `merchant_prototype`.
+            manifest: "sprites/merchant_prototype_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 168 cm.
@@ -2338,7 +2341,9 @@
         ),
         "npc_manifest_clerk": (
             display_name: "Manifest Clerk",
-            manifest: "sprites/architect_spritesheet.ron",
+            // His own art since 2026-10-23: the old registrar with the fanfold
+            // manifest (`manifest_clerk`). He wore the Architect's sheet before.
+            manifest: "sprites/manifest_clerk_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 173 cm.
@@ -2346,7 +2351,7 @@
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            tags: ["intro", "utility", "placeholder_sprite"],
+            tags: ["intro", "utility"],
         barks: (
             on_hit: ["That wasn't cleared!", "Form 7-B! Now!", "Unauthorized contact!"],
             provoked: ["Incident report filed!"],
@@ -2720,7 +2725,9 @@
         ),
         "npc_general_hero": (
             display_name: "General Hero",
-            manifest: "sprites/general_hero_spritesheet.ron",
+            // The knight who came back, redrawn 2026-10-23 (`general_hero_v2`);
+            // the old sheet is still published as `general_hero`.
+            manifest: "sprites/general_hero_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 185 cm.

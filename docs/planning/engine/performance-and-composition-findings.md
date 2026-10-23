@@ -57,6 +57,7 @@ consolidations and the monolith packets.
 | World item visuals (Mary-O's grow caps, wands and beacons) are kept per row of a room and look, not despawned and spawned each frame | done | REASONED: one spawn and one despawn per pickup a frame fewer, with their archetype moves and extraction; witness `a_world_item_visual_is_kept_while_its_row_stays` |
 | New `[census] changed_sprites` (Sprite and Visibility written per frame, by name). The touch controls' roots and the world labels wrote their visibility each frame with no compare | done | census: visibility writes a frame, Mary-O route 14 → 4, hub 28 → 8 (what is left: the dev HUDs, the cutscene overlay, the portal-gun pickup); sprite writes were already near the moving set (motes) |
 | The cutscene overlay is rebuilt only when what it shows changes (banner text, dialogue, fade and skip hold at drawn precision); it was despawned and rebuilt each frame of a cutscene, so its UI was laid out and its text measured each frame. The census row also counts UI `Node` and text writes | done | census, hub route during the intro cutscene: 6 node and 3 text writes a frame from the overlay; Mary-O route 0 and 0 |
+| The dialog view is rewritten only while the dialogue changes: an open dialogue waiting on the player wrote it each tick, and Ambition's dialogue box rebuilds on that change | done | REASONED: no box rebuild (layout, text measure, portrait) on the frames a line is fully shown; witness `a_waiting_dialogue_does_not_rewrite_the_view` |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 

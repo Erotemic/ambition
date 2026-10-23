@@ -50,7 +50,10 @@ pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<
     let Some(dialogue) = dialogue else {
         return;
     };
-    if !dialogue.is_changed() && !view.active && !dialogue.active() {
+    // Nothing to mirror while the state is unchanged and the view already
+    // agrees it is open or closed. An open dialogue that waits for the player
+    // writes nothing, so its box is not rebuilt each tick.
+    if !dialogue.is_changed() && view.active == dialogue.active() {
         return;
     }
     // ⭐⭐ ONE DESTRUCTURE, NO `..`, COVERING BOTH BRANCHES. Every field of the
@@ -156,5 +159,25 @@ mod tests {
         assert!(view.portrait_clip.is_empty());
         assert!(view.speaker_label.is_empty());
         assert!(view.conversation_label.is_empty());
+    }
+
+    /// An open dialogue that writes nothing leaves the view unchanged, so the
+    /// box that draws it is not rebuilt each tick.
+    #[test]
+    fn a_waiting_dialogue_does_not_rewrite_the_view() {
+        let mut app = App::new();
+        app.init_resource::<DialogState>();
+        app.init_resource::<DialogView>();
+        app.add_systems(Update, rebuild_dialog_view);
+        app.world_mut().resource_mut::<DialogState>().start(
+            "intro_greeting",
+            "Robo",
+            ambition_dialog::DialogueContext::between("player", "npc_robo"),
+        );
+        app.update();
+        assert!(app.world().resource::<DialogView>().active);
+        app.update();
+        let view = app.world().resource_ref::<DialogView>();
+        assert!(!view.is_changed(), "an unchanged open dialogue rewrote the view");
     }
 }

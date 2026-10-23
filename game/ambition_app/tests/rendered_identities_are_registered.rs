@@ -78,7 +78,13 @@ fn target_dir() -> PathBuf {
 /// 18 → 17 on 2026-10-14: `imperfect_cellular_automaton` spells its id out
 /// again after its redraw (the renderer pointer of `0b013fc8d`), so the scan
 /// reads it and the assertions above cover it.
-const COMPUTED_ID_TARGETS: usize = 17;
+///
+/// 17 → 18 on 2026-10-23: `hall_npcs_v2` draws five redrawn hall NPCs and
+/// names each one's catalog id through its `CATALOG_IDS` table. The hand
+/// check: `npc_architect`, `npc_manifest_clerk`, `npc_vault_keeper`,
+/// `npc_merchant_prototype` and `npc_general_hero` each have a row in
+/// Ambition's catalog.
+const COMPUTED_ID_TARGETS: usize = 18;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

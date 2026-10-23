@@ -1101,6 +1101,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "a list of functions filled while the App is built and only read after: the restaters a sheet publication runs, in `publish_the_staged_sheets_between_sessions`, which runs in Update and only where no session is live. It holds no game state; rewinding it would change nothing",
     ),
     (
+        "ambition_platformer2d_runtime::external_effects::ExternalEffectFamilies",
+        "a list of functions filled while the App is built: one step per quarantined effect family and phase (open, journal, release, discard). Each pass takes a family's step out of the list, runs it on the world and puts it back in the same system run, so the list is the same before and after every pass. The journals the steps write are their own resources. It holds no game state; rewinding it would change nothing",
+    ),
+    (
+        "ambition_platformer2d_actor_monolith::session::host_intents::HostIntentTypes",
+        "a list of functions filled while the App is built: the release and prune step of each registered host-intent type. Each pass takes a step out, runs it and puts it back in the same system run, so the list is the same before and after every pass. The intents the steps act on are their own resources. It holds no game state; rewinding it would change nothing",
+    ),
+    (
         "ambition_app::app::movement_defaults_watch::MovementDefaultsWatch",
         "developer file watch: the modification time of the movement defaults on disk and a write count, read and written only in Update by `watch_movement_defaults`, which runs no simulation; the tuning it writes goes to `EditableMovementTuning` and reaches the simulation only through the admitted developer-edit proposal. Rewinding it would write a saved file again",
     ),

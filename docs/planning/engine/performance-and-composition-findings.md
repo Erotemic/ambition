@@ -131,6 +131,45 @@ says what they bought in frame time.
 | K6: actor construction leaves the monolith as `ambition_platformer2d_construction` (a leaf since K3; K4 was its precondition). No system moved; the tests that drive it through the kernel's lowering stay in the monolith | done | monolith production lines 63,879 → 61,303; the cycle is the four of K3; construction 61 tests (55 + 6), publication 82, room-building app tests 105, absence contracts 55/55 |
 | The gravity-zone mechanic moves up into the runtime, its only installer. Found while proving it: `ambition_workspace_policy` was red from this run's time, music and trace moves (and K4's and S2b's), a lane those moves never ran; its policies now name the new owners. The level-box readers ratchet was red from five reads across 10-20..23; four classified, the slow-zone overlap converted to the footprint | done | monolith 61,303 → 60,612 production lines; workspace policy 38/38, level-box guard green, runtime gravity 9, app gravity 26, Mary-O clock, Hunny slow 13 |
 
+### F47 — What the per-frame system count waits on now (2026-10-23)
+
+MEASURED (desktop census, hub routes, `--warmup 600`, census on, HEAD
+`bd1d11352`): 921 systems ran in a Mary-O frame, about 1,110 in an Ambition
+frame. Of these, 37 are the census's own phase markers. They are installed only
+when `AMBITION_PROFILE_CENSUS` is set, so they are not phone cost.
+
+What is left, by what it waits on:
+
+- **Developer tooling in the phone build: 38 systems a frame on either route.**
+  These are egui input (16), the developer editors' propose and publish pairs
+  (10), the inspector hooks, and the save, hot-reload and flash passes. MEASURED
+  from the census. `build_for_android.sh` defaults to `--features android_dev`,
+  and `android_dev = ["android", "dev_tools"]`, which brings
+  `bevy-inspector-egui`. REASONED: a play build with `--features android`
+  drops all 38 without touching the game. **Jon's call:** whether the play
+  build keeps developer tooling.
+- **Bevy's per-type systems (79 in the main world).** These are 55
+  `Assets<T>` event passes, one per asset type, and 24 Material2d
+  specialization checks, one per material. F42 and F43 found that they cannot
+  be gated from outside. The render world's per-material systems are not in
+  this count. **Waits on:** a fork item, or materials registered only by a
+  composition whose games use them (a single-game build, P1).
+- **Ambition's own content in the hub (Ambition route).** Ambition declares
+  every capability, so per-boss content systems run in every Ambition room:
+  the cut-rope arena (4), GNU-ton's duel, fist lines and ladder gate,
+  Mockingbird's moon strike, the swallows, and the attunement spawn. Each needs
+  its own exact condition (its arena live, its boss present, its encounter
+  missing), and each saves microseconds. **Candidate**, not done.
+- **Gates tried this evening and reverted or declined.** The gate-portal
+  visuals: the registry is not empty on either route. The trapdoor, flyline,
+  tether and limb-trail visuals: a condition would repeat their walk over
+  every body. The animator's every-frame writes, an F43 row, already compare
+  before writing (`FrameWrites`), so that row is stale.
+
+REASONED: the gating campaign is at its floor on the Mary-O route. The next
+phone-frame wins are the hub look's approximations (F46, Jon's call), the
+`android_dev` question above, and K5-scale decomposition.
+
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 
 Jon, 10-23: on the phone and the Steam Deck the central hub is far more

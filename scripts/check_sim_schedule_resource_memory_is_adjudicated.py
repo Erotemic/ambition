@@ -190,6 +190,16 @@ SIBLING_RESET_ADJUDICATED: dict[str, str] = {
         "else — the type's own doc block at `:347-348` says so and names the "
         "prerequisite it depends on (read 2026-09-18)"
     ),
+    "ShieldRingsView": (
+        "AN EXPLICIT `.after` ON THE RESETTER. `rebuild_shield_views` "
+        "(`ambition_sim_view/src/pose_view.rs`, the fused pass of 2026-10-23 "
+        "that replaced `rebuild_shield_rings_view`) rebuilds the whole list each "
+        "tick; the one contributor, capture_scene's `--guard` tool "
+        "`draw_guards`, is added to the sim schedule "
+        "`.after(ambition_platformer2d::sim_view::rebuild_shield_views)` "
+        "(`game/ambition_app_tools/src/bin/capture_scene.rs`), so it appends "
+        "after the reset of the same tick (read 2026-10-23)"
+    ),
 }
 
 

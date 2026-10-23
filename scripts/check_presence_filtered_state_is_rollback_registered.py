@@ -107,6 +107,11 @@ WAIVERS = {
     # Presentation. Each is filtered only by systems outside the sim schedule,
     # and a rewind that lost one would cost a frame of drawing, not a divergence.
     "MainCamera": "camera identity; 12 filter sites, all in render/camera systems",
+    "VanityCardRoot": (
+        "the startup vanity card's UI root; filtered only by its own `Update` "
+        "presentation (`a_sequence_runs_or_a_card_remains`, the card's systems), "
+        "never in the sim schedule"
+    ),
     "FrontHudCamera": "the HUD camera layer, same population as `MainCamera`",
     "BossAnimator": "sprite-sheet animator state, rebuilt from the sim's pose view",
     "CharacterAnimator": "sprite-sheet animator state, rebuilt from the sim's pose view",

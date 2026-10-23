@@ -247,10 +247,11 @@ def test_the_comment_strip_removes_four_real_names_from_this_corpus():
             without.update(
                 guard._FILTER.findall(strip_test_modules(strip_comments(text)))
             )
+    # `HomingDash` left on 2026-10-20: the homing dash became a module
+    # (`c2996777e`) and its comment about the filter went with the old code.
     assert sorted(with_comments - without) == [
         "Camera2d",
         "FrameTimeGraph",
-        "HomingDash",
     ], sorted(with_comments - without)
     assert not (without - with_comments), "stripping comments cannot ADD a site"
     # ⭐ THE BOUNDARY, ASSERTED RATHER THAN ASSUMED. A name that only prose

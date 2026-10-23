@@ -46,6 +46,12 @@ WAIVERS: dict[str, str] = {
         "own presentation. A headless or sim-only composition legitimately has no "
         "presentation setup to sequence."
     ),
+    "AutoplayPolicy": (
+        "the slot each GAME's autoplay policy joins (Ambition's content, "
+        "Mary-O); the engine owns only the order around it (before the script is "
+        "written, `AutopilotDrive` after it). A composition with no autoplaying "
+        "game has no policy to order around, which is the correct empty case."
+    ),
     "MenuNavConsume": (
         "the members are the two INVENTORY BACKENDS' directional nav, and both "
         "are app-local by design (a demo does not get the app's inventory). A "

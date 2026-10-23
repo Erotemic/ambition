@@ -147,9 +147,12 @@ impl Plugin for ActorNameplatePresentationPlugin {
 }
 
 #[derive(Clone, Debug)]
-struct NameplateCandidate {
-    owner_id: String,
-    label: String,
+/// One plate a view may show. It borrows its id and words from the frame's
+/// sources (the nameplate index and the door snapshot), so ranking a room
+/// full of bodies copies no string; a new plate copies them when spawned.
+struct NameplateCandidate<'a> {
+    owner_id: &'a str,
+    label: &'a str,
     /// Placement family. A door plate names a static fixture and yields
     /// only to authored signage. An actor plate moves and absorbs
     /// displacement.
@@ -244,39 +247,37 @@ pub fn sync_actor_nameplates(
     if !settings.enabled {
         let mut nameplates = nameplate_queries.p1();
         for (_, _, _, mut label) in nameplates.iter_mut() {
-            label.owner_opacity = 0.0;
+            if label.owner_opacity != 0.0 {
+                label.owner_opacity = 0.0;
+            }
         }
         return;
     }
 
     // Every id with a source this frame, across all views. It separates
     // "owner went away" (despawn) from "this view ranked it out" (hide).
-    let mut source_ids = HashSet::new();
-    if let Some(index) = nameplate_index.as_deref() {
-        for (id, _) in index.iter() {
-            source_ids.insert(id.to_string());
-        }
-    }
     // Snapshot doors once: every view needs them, and the `ParamSet` lends
-    // one query at a time.
-    let doors: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource)> = {
+    // one query at a time. A hidden or unlabelled door shows no plate, and is
+    // still a source (its plate is hidden, not taken down).
+    let doors: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource, bool)> = {
         let door_sources = nameplate_queries.p0();
-        let mut doors = Vec::new();
-        for (entity, source, visibility) in door_sources.iter() {
-            source_ids.insert(source.id.clone());
-            if visibility.is_some_and(|visibility| *visibility == Visibility::Hidden) {
-                continue;
-            }
-            if source.label.trim().is_empty() {
-                continue;
-            }
-            doors.push((live.of(entity), source.clone()));
-        }
-        doors
+        door_sources
+            .iter()
+            .map(|(entity, source, visibility)| {
+                let shown = !visibility.is_some_and(|visibility| *visibility == Visibility::Hidden)
+                    && !source.label.trim().is_empty();
+                (live.of(entity), source.clone(), shown)
+            })
+            .collect()
     };
+    let mut source_ids: HashSet<&str> = HashSet::new();
+    if let Some(index) = nameplate_index.as_deref() {
+        source_ids.extend(index.iter().map(|(id, _)| id));
+    }
+    source_ids.extend(doors.iter().map(|(_, source, _)| source.id.as_str()));
 
     // What each view wants on screen, ranked against its own focus.
-    let mut wanted: HashMap<Entity, HashMap<String, NameplateCandidate>> = HashMap::new();
+    let mut wanted: HashMap<Entity, HashMap<&str, NameplateCandidate>> = HashMap::new();
     // The live room each view frames: its resolved frame's room, or the sole
     // live room before a frame is resolved.
     let mut view_rooms: HashMap<Entity, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
@@ -315,7 +316,7 @@ pub fn sync_actor_nameplates(
             candidates
                 .into_iter()
                 .take(rank_policy.fade_out_count)
-                .map(|candidate| (candidate.owner_id.clone(), candidate))
+                .map(|candidate| (candidate.owner_id, candidate))
                 .collect(),
         );
     }
@@ -323,7 +324,7 @@ pub fn sync_actor_nameplates(
     // This system publishes each plate's wanted anchor and opacity. The shared
     // placement pass (`label_layout`) owns transform, visibility, and colour,
     // because plates are ranked against signage and door plates too (AC12).
-    let mut existing_visible: HashSet<(Entity, String)> = HashSet::new();
+    let mut existing_visible: HashSet<(Entity, &str)> = HashSet::new();
     {
         let mut nameplates = nameplate_queries.p1();
         for (entity, plate, key, mut label) in &mut nameplates {
@@ -334,7 +335,7 @@ pub fn sync_actor_nameplates(
                 commands.entity(entity).despawn();
                 continue;
             };
-            if let Some(candidate) = view_wanted.get(&plate.owner_id) {
+            if let Some(candidate) = view_wanted.get(plate.owner_id.as_str()) {
                 if plate.label != candidate.label {
                     // Name changes are rare. Rebuild the small text subtree so
                     // the root and outline children stay identical without
@@ -342,12 +343,22 @@ pub fn sync_actor_nameplates(
                     commands.entity(entity).despawn();
                     continue;
                 }
-                existing_visible.insert((key.0, plate.owner_id.clone()));
-                label.family = candidate.family;
-                label.anchor = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
-                label.owner_opacity = candidate.opacity;
-                label.text_color = settings.text_color;
-                label.outline_color = Some(settings.outline_color);
+                existing_visible.insert((key.0, candidate.owner_id));
+                // Written only on a change: a still plate's label is not
+                // marked changed each frame.
+                let anchor = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
+                if label.family != candidate.family
+                    || label.anchor != anchor
+                    || label.owner_opacity != candidate.opacity
+                    || label.text_color != settings.text_color
+                    || label.outline_color != Some(settings.outline_color)
+                {
+                    label.family = candidate.family;
+                    label.anchor = anchor;
+                    label.owner_opacity = candidate.opacity;
+                    label.text_color = settings.text_color;
+                    label.outline_color = Some(settings.outline_color);
+                }
             } else if source_ids.contains(plate.owner_id.as_str()) {
                 label.owner_opacity = 0.0;
             } else {
@@ -365,7 +376,7 @@ pub fn sync_actor_nameplates(
             continue;
         };
         for candidate in view_wanted.values() {
-            if existing_visible.contains(&(*view_entity, candidate.owner_id.clone())) {
+            if existing_visible.contains(&(*view_entity, candidate.owner_id)) {
                 continue;
             }
             spawn_actor_nameplate(
@@ -381,13 +392,13 @@ pub fn sync_actor_nameplates(
     }
 }
 
-fn collect_actor_candidates(
+fn collect_actor_candidates<'a>(
     settings: &ActorNameplateSettings,
     rank_policy: ResolvedNameplateRankPolicy,
-    index: &NameplateIndex,
+    index: &'a NameplateIndex,
     view_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     focus_world: ae::Vec2,
-    candidates: &mut Vec<NameplateCandidate>,
+    candidates: &mut Vec<NameplateCandidate<'a>>,
 ) {
     for (id, fact) in index.iter() {
         // A body in another live room is not in this view's room.
@@ -404,8 +415,8 @@ fn collect_actor_candidates(
             settings,
             focus_world,
             candidates,
-            id.to_string(),
-            fact.label.clone(),
+            id,
+            &fact.label,
             WorldLabelFamily::Actor,
             fact.center,
             fact.size,
@@ -413,23 +424,23 @@ fn collect_actor_candidates(
     }
 }
 
-fn collect_door_candidates(
+fn collect_door_candidates<'a>(
     settings: &ActorNameplateSettings,
     view_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     focus_world: ae::Vec2,
-    doors: &[(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource)],
-    candidates: &mut Vec<NameplateCandidate>,
+    doors: &'a [(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource, bool)],
+    candidates: &mut Vec<NameplateCandidate<'a>>,
 ) {
-    for (room, source) in doors {
-        if *room != Some(view_room) {
+    for (room, source, shown) in doors {
+        if !*shown || *room != Some(view_room) {
             continue;
         }
         push_candidate_if_in_range(
             settings,
             focus_world,
             candidates,
-            source.id.clone(),
-            source.label.clone(),
+            &source.id,
+            &source.label,
             WorldLabelFamily::Fixture,
             source.center_world,
             source.size_world,
@@ -438,12 +449,12 @@ fn collect_door_candidates(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn push_candidate_if_in_range(
+fn push_candidate_if_in_range<'a>(
     settings: &ActorNameplateSettings,
     focus_world: ae::Vec2,
-    candidates: &mut Vec<NameplateCandidate>,
-    owner_id: String,
-    label: String,
+    candidates: &mut Vec<NameplateCandidate<'a>>,
+    owner_id: &'a str,
+    label: &'a str,
     family: WorldLabelFamily,
     center: ae::Vec2,
     size: ae::Vec2,
@@ -516,7 +527,7 @@ fn spawn_actor_nameplate(
     candidate: &NameplateCandidate,
     view: Entity,
 ) {
-    let text = candidate.label.clone();
+    let text = candidate.label.to_string();
     let outline_offsets = outline_offsets(settings.outline_offset_px);
     let text_color = color_with_opacity(settings.text_color, candidate.opacity);
     let outline_color = color_with_opacity(settings.outline_color, candidate.opacity);
@@ -535,12 +546,12 @@ fn spawn_actor_nameplate(
                     Visibility::Hidden
                 },
                 ActorNameplateVisual {
-                    owner_id: candidate.owner_id.clone(),
+                    owner_id: candidate.owner_id.to_string(),
                     label: text.clone(),
                 },
                 {
                     let mut label =
-                        WorldLabel::new(candidate.owner_id.clone(), candidate.family, anchor)
+                        WorldLabel::new(candidate.owner_id.to_string(), candidate.family, anchor)
                             .with_colors(settings.text_color, Some(settings.outline_color));
                     label.owner_opacity = candidate.opacity;
                     label

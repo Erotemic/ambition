@@ -23,8 +23,17 @@ pub(crate) fn retire_departed_parallax_themes(
     mut assets: ResMut<GameAssets>,
     // The keep-set of the last run.
     mut kept: Local<Vec<ParallaxTheme>>,
+    // The live rooms of the last run: the keep-set is a function of them and
+    // the room set, so it is built only when either changes. Building it each
+    // frame looked up every live room's neighbours and their themes.
+    mut last_live: Local<Vec<usize>>,
 ) {
+    let live_unchanged = rooms.live_rooms().map(|(_, definition)| definition.index()).eq(last_live.iter().copied());
+    if live_unchanged && !rooms.set_is_changed() {
+        return;
+    }
     let live: Vec<usize> = rooms.live_rooms().map(|(_, definition)| definition.index()).collect();
+    last_live.clone_from(&live);
     let keep = parallax_keep_set(rooms.rooms(), &live);
     // ⛔ Only on a change. Running every frame would call `retain` on a map that
     // has not moved, and would fight `ensure_parallax_layers_for_room` on the

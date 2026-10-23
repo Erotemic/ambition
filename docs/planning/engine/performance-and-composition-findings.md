@@ -48,6 +48,7 @@ consolidations and the monolith packets.
 | Mary-O's presentation (16 systems: power blocks, fire, goal, pipe signs, shimmer, quasar, cosmic aura and barrier, void looks, readouts) in `MaryOPresentationSet`, asleep while another game is on screen | done | census, hub Ambition route: 1,400 → 1,382 systems a frame (Mary-O's 29 → 13; the rest are her materials' Bevy per-type systems); Mary-O route unchanged |
 | S7c: the shield rings and the guard breaks are one pass over the shielded bodies (`rebuild_shield_views`) | done | `ambition_sim_view` 40 → 39 |
 | Ambition's room looks (9) run while a live room asks for a look and one frame after; the vanity card (3) while a startup sequence runs or a card remains; the grid menu's republish while a menu is open or its tree is up | done | census: `ambition_content` 46 → 34; with the two rows above, 1,229 → 1,195 systems a frame (one new system, the desktop cursor, included) |
+| The player trail is one retained gizmo drawing per room band, rebuilt only when its strips change (`present_player_trails`), instead of four `RoomTrailGizmos` groups of 6 Bevy systems each in every composition | done | census: Mary-O route 1,195 → 1,184 systems a frame, hub Ambition route 1,382 → 1,365; gizmo groups 9 → 5 |
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 
@@ -65,8 +66,8 @@ What is left, by kind (MEASURED counts, REASONED reading):
   (one per registered asset type: Ambition's room-look, sauce, flame, space
   and dream materials run in Mary-O's frame too); the Material2d
   specialization checks 25 (one per material); gizmo groups 6 systems each
-  (37: start, end, clear, collect, propagate, meshes), of which 16 are the
-  four `RoomTrailGizmos` bands of `Capability::Trails`, which Mary-O's rooms
+  (37: start, end, clear, collect, propagate, meshes), of which 16 were the
+  four `RoomTrailGizmos` bands (now one retained drawing per band) of `Capability::Trails`, which Mary-O's rooms
   do not use. None of these can be gated from outside: Bevy refuses to
   configure a system-type set, and a condition per system costs what it
   saves. They are composition items: a material or gizmo group registered

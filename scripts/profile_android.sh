@@ -29,6 +29,7 @@ profile_name=""
 adb_bin="${ADB:-adb}"
 serial=""
 launch_mode="auto"
+launch_env=()
 warmup_seconds="0"
 device_perf="/data/local/tmp/ambition.simpleperf.data"
 device_heap_trace="/data/misc/perfetto-traces/ambition.heap.${stamp}.perfetto-trace"
@@ -97,6 +98,11 @@ Options:
   --no-launch             Do not launch the app; profile only if already running.
   --auto-launch           Launch only if the app is not already running. Default.
   --warmup SEC            Sleep before capture after launch/check. Default: 0.
+  --launch-env KEY=VALUE  Give THIS launch an environment variable (repeatable), e.g.
+                          AMBITION_AUTOPLAY=mary_o. Written to the app's launch_env
+                          file before launch; the app adopts and deletes it at
+                          startup, so the next launch from the icon is the plain game.
+                          The app is stopped after the capture.
   --device-perf PATH      Device-side perf.data path. Default: /data/local/tmp/ambition.simpleperf.data.
   --device-heap-trace PATH
                            Device-side Perfetto heap trace path.
@@ -194,6 +200,8 @@ while [[ $# -gt 0 ]]; do
         --launch) launch_mode="yes" ;;
         --no-launch) launch_mode="no" ;;
         --auto-launch) launch_mode="auto" ;;
+        --launch-env) shift; [[ "${1:-}" == *=* ]] || fail "--launch-env requires KEY=VALUE"; launch_env+=("$1") ;;
+        --launch-env=*) [[ "${1#--launch-env=}" == *=* ]] || fail "--launch-env requires KEY=VALUE"; launch_env+=("${1#--launch-env=}") ;;
         --warmup) shift; [[ $# -gt 0 ]] || fail "--warmup requires a value"; is_nonnegative_int "$1" || fail "--warmup must be non-negative"; warmup_seconds="$1" ;;
         --warmup=*) warmup_seconds="${1#--warmup=}"; is_nonnegative_int "$warmup_seconds" || fail "--warmup must be non-negative" ;;
         --device-perf) shift; [[ $# -gt 0 ]] || fail "--device-perf requires a path"; device_perf="$1" ;;
@@ -350,6 +358,37 @@ run_profile_build() {
     if [[ "$status" -ne 0 ]]; then log "profile build failed; see $out_dir/profile-build.stderr"; return "$status"; fi
 }
 
+# The one-shot launch order (`--launch-env`): the app reads this file at
+# startup, sets each KEY=VALUE as its environment and deletes it, so only the
+# launch that follows plays itself. Removed here too once the app is up, in
+# case it never read it.
+launch_env_path() { echo "/sdcard/Android/data/$package/files/launch_env"; }
+write_launch_env() {
+    local out_dir="$1"
+    [[ ${#launch_env[@]} -gt 0 ]] || return 0
+    [[ "$launch_mode" != "no" ]] || fail "--launch-env needs a launch (not --no-launch)"
+    log "launch env: ${launch_env[*]}"
+    # A running process would not read it: start fresh.
+    run_logged "$out_dir" launch-env-force-stop "${adb_cmd[@]}" shell am force-stop "$package" || true
+    run_logged "$out_dir" launch-env-mkdir "${adb_cmd[@]}" shell mkdir -p "$(dirname "$(launch_env_path)")"
+    printf '%s\n' "${launch_env[@]}" | "${adb_cmd[@]}" shell "cat > $(launch_env_path)"
+    launch_mode="yes"
+}
+remove_launch_env() {
+    local out_dir="$1"
+    [[ ${#launch_env[@]} -gt 0 ]] || return 0
+    sleep 3
+    run_logged "$out_dir" launch-env-remove "${adb_cmd[@]}" shell rm -f "$(launch_env_path)" || true
+}
+# After the capture: the profiled process plays itself, so it is stopped and
+# the next launch from the icon is the plain game.
+stop_after_launch_env() {
+    local out_dir="$1"
+    [[ ${#launch_env[@]} -gt 0 ]] || return 0
+    log "stopping $package (it was launched to play itself)"
+    run_logged "$out_dir" launch-env-stop "${adb_cmd[@]}" shell am force-stop "$package" || true
+}
+
 prepare_app() {
     local out_dir="$1" before_pid after_pid
     before_pid="$(get_pid)"; echo "$before_pid" > "$out_dir/pid-before-prebuild.txt"
@@ -357,6 +396,7 @@ prepare_app() {
     find_symbol_candidates "$out_dir"
     prepare_auto_symfs "$out_dir"
     before_pid="$(get_pid)"; echo "$before_pid" > "$out_dir/pid-before.txt"
+    write_launch_env "$out_dir"
     case "$launch_mode" in
         yes) log "launching $package"; run_logged_stream "$out_dir" launch-monkey "${adb_cmd[@]}" shell monkey -p "$package" 1 ;;
         auto) if [[ -z "$before_pid" ]]; then log "$package is not running; launching"; run_logged_stream "$out_dir" launch-monkey "${adb_cmd[@]}" shell monkey -p "$package" 1; fi ;;
@@ -364,6 +404,7 @@ prepare_app() {
         *) fail "invalid launch mode '$launch_mode'" ;;
     esac
     after_pid="$(wait_for_pid 20 || true)"; echo "$after_pid" > "$out_dir/pid-capture.txt"
+    remove_launch_env "$out_dir"
     if [[ -z "$after_pid" ]]; then log "warning: no running PID found for $package"; fi
     if [[ "$warmup_seconds" -gt 0 ]]; then log "warming up for ${warmup_seconds}s"; sleep "$warmup_seconds"; fi
 }
@@ -492,7 +533,13 @@ write_metadata() {
         echo "hub_games=${AMBITION_HUB_GAMES:-all}"
         # `AMBITION_BOOT_ROUTE=mary_o_gameplay` boots the hub into that game, so
         # the recording window is in the game. Also read at compile time.
-        echo "boot_route=${AMBITION_BOOT_ROUTE:-launcher}"
+        local boot_route="${AMBITION_BOOT_ROUTE:-launcher}" entry
+        for entry in "${launch_env[@]}"; do
+            [[ "$entry" == AMBITION_BOOT_ROUTE=* ]] && boot_route="${entry#AMBITION_BOOT_ROUTE=}"
+        done
+        echo "boot_route=$boot_route"
+        # One launch's environment (`--launch-env`), not the build's.
+        echo "launch_env=${launch_env[*]:-}"
         echo "git_status_porcelain_begin"
         (cd "$repo_root" && git status --short 2>/dev/null || true)
         echo "git_status_porcelain_end"
@@ -885,6 +932,7 @@ main() {
             ;;
         *) fail "unknown mode '$mode'" ;;
     esac
+    stop_after_launch_env "$out_dir"
     write_summary "$out_dir"
     package_dir "$out_dir"
 }

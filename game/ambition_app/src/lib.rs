@@ -62,7 +62,30 @@ pub use rl_sim::{
 #[cfg(target_os = "android")]
 #[bevy::prelude::bevy_main]
 fn main() {
+    adopt_launch_env();
     app::run_visible();
+}
+
+/// An APK has no environment. `scripts/profile_android.sh --launch-env` gives
+/// ONE launch one: `KEY=VALUE` lines in `launch_env` in the app's external
+/// files directory, set here as this process's environment, before the app
+/// reads any of it, and the file deleted. So a profile launch plays itself
+/// (`AMBITION_AUTOPLAY`, `AMBITION_BOOT_ROUTE`) and the next launch from the
+/// icon is the plain game, with or without the cable.
+#[cfg(target_os = "android")]
+fn adopt_launch_env() {
+    let Some(dir) = bevy::android::ANDROID_APP.get().and_then(|app| app.external_data_path()) else {
+        return;
+    };
+    let path = dir.join("launch_env");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return;
+    };
+    let _ = std::fs::remove_file(&path);
+    for (key, value) in text.lines().filter_map(|line| line.split_once('=')) {
+        // Before the app is built: nothing else reads the environment yet.
+        std::env::set_var(key.trim(), value.trim());
+    }
 }
 
 /// Browser (`wasm32-unknown-unknown`) entry point. The analog of the Android

@@ -142,51 +142,78 @@ pub fn write_host_intent<M: Message + Clone>(world: &mut World, payload: M) {
         .record(scope, from_tick, payload);
 }
 
+/// Hand the simulation the intents of one type for tick `now` of session
+/// `live`. A step of [`release_every_host_intent`].
+fn release_host_intents<M: Message + Clone>(world: &mut World, now: u64, live: SessionScopeId) {
+    let released = world.resource::<HostIntentLedger<M>>().release(now, live);
+    if !released.is_empty() {
+        world.resource_mut::<Messages<M>>().write_batch(released);
+    }
+}
+
+/// Forget what no rewind of one type's ledger can reach. A step of
+/// [`prune_every_host_intent`].
+fn prune_host_intents<M: Message + Clone>(
+    world: &mut World,
+    now: u64,
+    prediction_distance: u64,
+    live: Option<SessionScopeId>,
+) {
+    // An empty ledger has nothing to prune. Read first: `&mut` marks the ledger
+    // changed for every reader, also when nothing is removed.
+    if world.resource::<HostIntentLedger<M>>().depth() == 0 {
+        return;
+    }
+    world
+        .resource_mut::<HostIntentLedger<M>>()
+        .prune(now, prediction_distance, live);
+}
+
+/// Each registered intent type's release and prune, in the order the types
+/// were registered. One pass of each runs every type's step: three types were
+/// six systems, each reading the live session again.
+#[derive(Resource, Default)]
+pub struct HostIntentTypes {
+    release: Vec<fn(&mut World, u64, SessionScopeId)>,
+    prune: Vec<fn(&mut World, u64, u64, Option<SessionScopeId>)>,
+}
+
 /// Hand the simulation the intents for this tick. (sim)
 ///
 /// At the head of the simulation, before the clock names the next tick, so the
 /// tick compared is the one the writer stamped.
-pub fn release_host_intents<M: Message + Clone>(
-    scope: LiveSessionScope,
-    tick: Option<Res<ambition_time::SimTick>>,
-    ledger: Res<HostIntentLedger<M>>,
-    mut messages: ResMut<Messages<M>>,
-) {
-    let Some(live) = scope.get() else {
+pub fn release_every_host_intent(world: &mut World) {
+    let Some(live) = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world) else {
         return;
     };
-    let now = tick.map_or(0, |tick| tick.0);
-    let released = ledger.release(now, live);
-    if !released.is_empty() {
-        messages.write_batch(released);
-    }
+    let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
+    world.resource_scope(|world, types: Mut<HostIntentTypes>| {
+        for release in &types.release {
+            release(world, now, live);
+        }
+    });
 }
 
 /// Forget what can never be simulated again. (host)
 ///
 /// Not in the simulation schedule: a resimulated tick that erased its own
 /// input would reach a different history than the pass it reproduces.
-pub fn prune_host_intents<M: Message + Clone>(
-    scope: LiveSessionScope,
-    tick: Option<Res<ambition_time::SimTick>>,
+pub fn prune_every_host_intent(world: &mut World) {
+    let live = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
+    let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
     // Absent on a host that does not speculate: a passed tick is settled.
-    boundary: Option<Res<ConfirmedFrameBoundary>>,
-    mut ledger: ResMut<HostIntentLedger<M>>,
-) {
-    // An empty ledger has nothing to prune. Read first: `&mut` marks the ledger
-    // changed for every reader, also when nothing is removed.
-    if ledger.depth() == 0 {
-        return;
-    }
-    let now = tick.map_or(0, |tick| tick.0);
-    let prediction_distance = boundary.map_or(0, |boundary| {
+    let prediction_distance = world.get_resource::<ConfirmedFrameBoundary>().map_or(0, |boundary| {
         u64::try_from(boundary.current.saturating_sub(boundary.confirmed)).unwrap_or(0)
     });
-    ledger.prune(now, prediction_distance, scope.get());
+    world.resource_scope(|world, types: Mut<HostIntentTypes>| {
+        for prune in &types.prune {
+            prune(world, now, prediction_distance, live);
+        }
+    });
 }
 
-/// Registers one host-intent type: its channel, its ledger, the release and
-/// the prune.
+/// Registers one host-intent type: its channel, its ledger, and its steps of
+/// the release and the prune, which the first type installs.
 pub struct HostIntentPlugin<M: Message + Clone> {
     marker: std::marker::PhantomData<fn() -> M>,
 }
@@ -205,20 +232,26 @@ impl<M: Message + Clone> Plugin for HostIntentPlugin<M> {
             GameplaySimulationRoot, Platformer2dSimulationPhase, SimClockHead,
             SimScheduleExt as _,
         };
+        app.add_message::<M>().init_resource::<HostIntentLedger<M>>();
+        let first = !app.world().contains_resource::<HostIntentTypes>();
+        let mut types = app.world_mut().get_resource_or_init::<HostIntentTypes>();
+        types.release.push(release_host_intents::<M>);
+        types.prune.push(prune_host_intents::<M>);
+        if !first {
+            return;
+        }
         let sim = app.sim_schedule();
-        app.add_message::<M>()
-            .init_resource::<HostIntentLedger<M>>()
-            .add_systems(
-                sim,
-                // After the clock names this step's tick, so an intent stamped
-                // for tick N+1 is released in the step that IS tick N+1, and
-                // before the phase whose systems read it.
-                release_host_intents::<M>
-                    .in_set(GameplaySimulationRoot)
-                    .after(SimClockHead)
-                    .before(Platformer2dSimulationPhase::CoreSimulation),
-            )
-            .add_systems(Update, prune_host_intents::<M>);
+        app.add_systems(
+            sim,
+            // After the clock names this step's tick, so an intent stamped
+            // for tick N+1 is released in the step that IS tick N+1, and
+            // before the phase whose systems read it.
+            release_every_host_intent
+                .in_set(GameplaySimulationRoot)
+                .after(SimClockHead)
+                .before(Platformer2dSimulationPhase::CoreSimulation),
+        )
+        .add_systems(Update, prune_every_host_intent);
     }
 }
 

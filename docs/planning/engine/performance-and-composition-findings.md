@@ -46,6 +46,46 @@ consolidations and the monolith packets.
 | The shell's launcher and startup-card presentation (7 systems) sleeps in play: it runs while the launcher or a sequence is up, a root remains, or the launcher, sequence or router changed; its render built the catalog and two strings each frame (`c5f6a8f91`) | done | census: `ambition_game_shell` 29 → 22 |
 | Ambition's room looks (9) run while a live room asks for a look and one frame after; the vanity card (3) while a startup sequence runs or a card remains; the grid menu's republish while a menu is open or its tree is up | done | census: `ambition_content` 46 → 34; with the two rows above, 1,229 → 1,195 systems a frame (one new system, the desktop cursor, included) |
 
+### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
+
+MEASURED (dev build, `capture_scene --route mary_o_gameplay --warmup 600`,
+`AMBITION_SYSTEM_LIST`, head `87da084a0`): 1,195 systems ran in one frame
+(1,320 at the start of this run). By schedule: the simulation 432 a tick
+(28 of them the census's own markers), `Update` 387, `PostUpdate` 137,
+`PreUpdate` 164. Not on the phone: the census and probe markers (40), the
+developer tools and the app's `dev` module (76 with the markers), egui
+(16).
+
+What is left, by kind (MEASURED counts, REASONED reading):
+
+- **Bevy's per-type systems, 339 in all.** `Assets<T>::track_assets` 53
+  (one per registered asset type: Ambition's room-look, sauce, flame, space
+  and dream materials run in Mary-O's frame too); the Material2d
+  specialization checks 25 (one per material); gizmo groups 6 systems each
+  (37: start, end, clear, collect, propagate, meshes), of which 16 are the
+  four `RoomTrailGizmos` bands of `Capability::Trails`, which Mary-O's rooms
+  do not use. None of these can be gated from outside: Bevy refuses to
+  configure a system-type set, and a condition per system costs what it
+  saves. They are composition items: a material or gizmo group registered
+  only by a composition whose games use it (P1), the trail drawn as one mesh
+  per band instead of four gizmo groups, or a bevy fork that gates a group's
+  systems on its storage being empty. Run by Jon first.
+- **The simulation, ~404 a tick.** Mary-O's own rules and bodies, combat,
+  the extension host's lowerings (~30 a tick, each draining an outbox; a
+  phase-wide gate is not exact because the held ports, such as a held
+  damage box, a held status or a limb bond, release on an empty tick, and
+  a remembered "last tick" is not rollback-safe), the effect quarantine (16
+  plus 5 in `PreUpdate`, one per effect type) and the sim-view
+  publishers (31, S7c).
+- **Rendering reconciliation**, `ambition_render` 144: mostly real per-frame
+  work (animation, rigged parts, camera, parallax, HUD). The rigged parts
+  already write only on change (`rigged.rs` `write_slots`); its 34 part
+  transforms a frame are real animation.
+
+Next by leverage: S7c (fuse the sim-view publishers sharing one body
+traversal), the held-port classification that would let the drain-only
+extension lowerings sleep per phase, and the composition items above.
+
 ### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
 
 MEASURED (profiling build with `perf_probe`, `capture_scene --route

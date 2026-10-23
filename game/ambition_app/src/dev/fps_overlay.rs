@@ -94,10 +94,15 @@ impl Plugin for FpsOverlayPlugin {
         .add_systems(
             Update,
             (
-                sync_fps_overlay_from_settings,
-                toggle_fps_overlay_from_hotkey,
+                // Each on what it reads changing: the setting or the fonts, the
+                // hotkey, the setting or where the menu row sits (or a new
+                // overlay node).
+                sync_fps_overlay_from_settings.run_if(
+                    resource_changed::<UserSettings>.or_else(resource_exists_and_changed::<UiFonts>),
+                ),
+                toggle_fps_overlay_from_hotkey.run_if(on_message::<DeveloperAction>),
                 shadow_the_fps_text,
-                place_fps_overlay,
+                place_fps_overlay.run_if(the_overlay_may_have_moved),
             ),
         );
     }
@@ -207,6 +212,16 @@ fn shadow_the_fps_text(
 ///
 /// With no row published — a keyboard session publishes no touch footprint —
 /// there is nothing to sit under and the counter keeps its corner.
+/// Run condition of [`place_fps_overlay`]: what it reads changed, the
+/// setting or where the menu row sits, or an overlay node is new.
+fn the_overlay_may_have_moved(
+    settings: Res<UserSettings>,
+    presentation: Option<Res<ResolvedGameplayPresentation>>,
+    added: Query<(), Added<GlobalZIndex>>,
+) -> bool {
+    settings.is_changed() || presentation.is_some_and(|presentation| presentation.is_changed()) || !added.is_empty()
+}
+
 fn place_fps_overlay(
     settings: Res<UserSettings>,
     presentation: Option<Res<ResolvedGameplayPresentation>>,
@@ -262,6 +277,22 @@ fn place_fps_overlay(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The placement runs on a change of what it reads, so turning the
+    /// counter off still hides it.
+    #[test]
+    fn turning_the_counter_off_hides_it() {
+        let mut app = App::new();
+        app.init_resource::<UserSettings>();
+        app.add_systems(Update, place_fps_overlay.run_if(the_overlay_may_have_moved));
+        let overlay = app.world_mut().spawn((Node::default(), GlobalZIndex(FPS_OVERLAY_ZINDEX))).id();
+        app.update();
+        app.update();
+        assert_eq!(app.world().get::<Node>(overlay).unwrap().display, Display::DEFAULT, "the premise: shown");
+        app.world_mut().resource_mut::<UserSettings>().video.show_fps = false;
+        app.update();
+        assert_eq!(app.world().get::<Node>(overlay).unwrap().display, Display::None, "the counter stayed up");
+    }
 
     #[test]
     fn default_video_settings_show_fps_is_true() {

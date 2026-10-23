@@ -114,8 +114,12 @@ pub fn install(app: &mut App) {
         Update,
         (
             attach_quasar_overlays,
-            sync_quasar_overlays,
-            cleanup_quasar_overlays,
+            // Only while she shows the quasar, or a pair is left to tidy: a
+            // level she plays in another form runs neither.
+            sync_quasar_overlays.run_if(any_with_component::<MaryOQuasarSource>),
+            cleanup_quasar_overlays.run_if(
+                any_with_component::<MaryOQuasarSource>.or_else(any_with_component::<MaryOQuasarOverlay>),
+            ),
         )
             .chain()
             .in_set(ActorOverlaySet)

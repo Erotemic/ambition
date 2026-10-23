@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-23 14:27Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 1,097 systems a frame; hub Ambition route 1,323 → 1,260 since
+route 1,320 → 1,091 systems a frame; hub Ambition route 1,323 → 1,257 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44): main-world wall 13.45 → 7.08 ms a frame, frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -91,6 +91,7 @@ says what they bought in frame time.
 | The shell's command processors (shell, launcher, sequence, developer quit) run while their message is unread, its event readers (scoped clean-up, routing failures) likewise, its initializer until it is initialized, the sequence tick while a sequence runs and the segment clean-up while a segment-scoped entity exists; the camera's shake and zoom appliers run on their request, and the zoom's hold-and-release tick while a zoom is held or releasing (at rest it wrote the zoom each frame) | done | census: Mary-O route 1,110 → 1,100 systems a frame, hub Ambition route 1,275 → 1,263 (12 each, by the list diff); witness `a_finishing_zoom_releases_and_then_rests_unwritten` fails without the gate; the 63 shell tests and 89 shell, route, shake and zoom app tests pass. A witness that the idle sequence tick wrote its resource passed without the gate (the tick returns before taking it mutably), so it was dropped and the claim with it |
 | Physics debris: the burst subscriber runs on a burst message, the lifetimes while a piece exists, the retirement while a piece waits on its despawn (the avian pause still runs every frame and writes only on a change) | done | census: 3 systems a frame fewer on both routes (Mary-O 1,100 → 1,095 with two noise rows, Ambition 1,263 → 1,260); the plugin-level avian test now also despawns an expired piece through the gated passes and fails with the retirement gate poisoned |
 | Monolith packet: the debris physics adapter (`world::physics`: the avian install, room floors, bursts, lifetimes, retirement) leaves the actor monolith as `ambition_platformer2d_physics_debris`, a leaf the monolith re-exports as `world::physics` | done | ~580 production and ~460 test lines out of the monolith (11 tests with avian, 2 without, in the new crate); 0 systems added or removed; footprint 61 → 62 (declared); the footprint doc's quote, stale since the trace packet, re-quoted |
+| The FPS counter (on by default, also on the phone's `android_dev` build) syncs its setting and fonts on a change, toggles on the hotkey and is placed when the setting, the menu row or its node changes; Mary-O's quasar overlay syncs and tidies while a quasar source or overlay exists | done | census: Mary-O route 1,095 → 1,091 systems a frame (5 by the list diff, one noise row), hub Ambition route 1,260 → 1,257; witness `turning_the_counter_off_hides_it` fails with the placement condition poisoned |
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 
@@ -111,7 +112,11 @@ HEAD (`2902cf64e`).
 | `Update` process CPU (every thread) | 35.3 ms | 6.8 ms |
 | frame p50 | 23.2 ms | 23.0 ms |
 
-REASONED from the table: the frame did not get shorter here because
+The hub's Ambition route, the same way (about 220 windows a side): systems run
+1,540 → 1,261; main-world wall 14.72 → 7.17 ms; `Update` 3.86 → 1.90 ms;
+`PostUpdate` 6.60 → 2.53 ms; frame p50 50.9 → 48.0 ms.
+
+REASONED from the tables: the frame did not get much shorter here because
 llvmpipe draws it on the CPU and bounds it; the main thread's freed time
 became waiting (the `outside` bucket, 10.4 → 16.3 ms). The census warns that
 render blocking lands in whichever phase brackets it, and both sides draw the

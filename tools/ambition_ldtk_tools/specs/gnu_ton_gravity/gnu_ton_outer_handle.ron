@@ -1,0 +1,521 @@
+// Intro: safe banks, inverted roof, sideways wall, oscillating lift. Maintain a non-combat identity.
+// Regenerate this room with ambition_ldtk_tools area create --replace-existing.
+(
+    id: "gnu_ton_outer_handle",
+    level_id: "gnu_ton_outer_handle",
+    world_x: 0,
+    world_y: 0,
+    px_wid: 2688,
+    px_hei: 896,
+    fill_collision: "empty",
+    bg_color: "#161C2A",
+    biome: "cave",
+    visual_theme: "default",
+    parallax_theme: "eclipse",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                2688,
+                32,
+            ],
+            fields: (
+                name: "upper_crust",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                32,
+            ],
+            size: [
+                32,
+                864,
+            ],
+            fields: (
+                name: "west_boundary",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                2656,
+                32,
+            ],
+            size: [
+                32,
+                864,
+            ],
+            fields: (
+                name: "east_boundary",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                32,
+                800,
+            ],
+            size: [
+                560,
+                96,
+            ],
+            fields: (
+                name: "entry_bank",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                752,
+                800,
+            ],
+            size: [
+                512,
+                96,
+            ],
+            fields: (
+                name: "inversion_bank",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1424,
+                800,
+            ],
+            size: [
+                608,
+                96,
+            ],
+            fields: (
+                name: "vector_bank",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                2192,
+                800,
+            ],
+            size: [
+                464,
+                96,
+            ],
+            fields: (
+                name: "proof_bank",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                592,
+                176,
+            ],
+            size: [
+                560,
+                32,
+            ],
+            fields: (
+                name: "inverted_roof",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1184,
+                400,
+            ],
+            size: [
+                144,
+                32,
+            ],
+            fields: (
+                name: "hanging_counterweight",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1888,
+                256,
+            ],
+            size: [
+                48,
+                544,
+            ],
+            fields: (
+                name: "vector_buttress",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                2096,
+                320,
+            ],
+            size: [
+                224,
+                32,
+            ],
+            fields: (
+                name: "floating_overhang",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                544,
+                624,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "orchard_step",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1104,
+                480,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "inversion_catch",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1376,
+                608,
+            ],
+            size: [
+                144,
+                16,
+            ],
+            fields: (
+                name: "vector_step",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1984,
+                528,
+            ],
+            size: [
+                240,
+                16,
+            ],
+            fields: (
+                name: "counterweight_crossing",
+            ),
+        ),
+        (
+            type: "ReboundPad",
+            px: [
+                528,
+                784,
+            ],
+            size: [
+                64,
+                16,
+            ],
+            fields: (
+                name: "orchard_launch",
+                impulseX: 160.0,
+                impulseY: 700.0,
+            ),
+        ),
+        (
+            type: "GravityZone",
+            px: [
+                640,
+                208,
+            ],
+            size: [
+                496,
+                576,
+            ],
+            fields: (
+                id: "outer_inversion_column",
+                name: "outer inversion column",
+                dir: "up",
+                oscillate_amplitude: 0.0,
+                oscillate_freq: 1.0,
+            ),
+        ),
+        (
+            type: "GravityZone",
+            px: [
+                1456,
+                256,
+            ],
+            size: [
+                416,
+                528,
+            ],
+            fields: (
+                id: "outer_wall_gravity",
+                name: "outer wall gravity",
+                dir: "right",
+                oscillate_amplitude: 0.0,
+                oscillate_freq: 1.0,
+            ),
+        ),
+        (
+            type: "GravityZone",
+            px: [
+                2112,
+                352,
+            ],
+            size: [
+                224,
+                432,
+            ],
+            fields: (
+                id: "outer_swinging_column",
+                name: "outer swinging column",
+                dir: "up",
+                oscillate_amplitude: 96.0,
+                oscillate_freq: 0.55,
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                464,
+                768,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "outer_reset_down",
+                name: "outer reset down",
+                prompt: "Set down gravity",
+                target_encounter: "",
+                action: "SetGravityDown",
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                1200,
+                768,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "outer_test_up",
+                name: "outer test up",
+                prompt: "Set up gravity",
+                target_encounter: "",
+                action: "SetGravityUp",
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                1944,
+                768,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "outer_vector_reset",
+                name: "outer vector reset",
+                prompt: "Set down gravity",
+                target_encounter: "",
+                action: "SetGravityDown",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                32,
+                704,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "outer_return_to_hub",
+                name: "outer return to hub",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "gnu_ton_handle_hub_arrival",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                160,
+                704,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "outer_arrival_from_hub",
+                name: "outer arrival from hub",
+                activation: "Walk",
+                target_room: "",
+                target_zone: "",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                2384,
+                704,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "outer_arrival_from_gallery",
+                name: "outer arrival from gallery",
+                activation: "Walk",
+                target_room: "",
+                target_zone: "",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                2544,
+                704,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "outer_to_gallery",
+                name: "outer to gallery",
+                activation: "Door",
+                target_room: "gnu_ton_inversion_gallery",
+                target_zone: "gallery_arrival_from_outer",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                224,
+                754,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "outer_spawn",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                2688,
+                896,
+            ],
+            fields: (
+                id: "outer_camera",
+                name: "outer_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                224,
+                128,
+            ],
+            size: [
+                448,
+                24,
+            ],
+            fields: (
+                name: "outer_banner",
+                text: "THE OUTER HANDLE: FALLING HAS FOUR DIRECTIONS",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                688,
+                112,
+            ],
+            size: [
+                448,
+                24,
+            ],
+            fields: (
+                name: "outer_inversion_note",
+                text: "P1: REACH THE CEILING ON THE UP FIELD",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1504,
+                144,
+            ],
+            size: [
+                384,
+                24,
+            ],
+            fields: (
+                name: "outer_wall_note",
+                text: "P2: USE THE WALL AS THE FLOOR",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                2080,
+                240,
+            ],
+            size: [
+                456,
+                24,
+            ],
+            fields: (
+                name: "outer_oscillation_note",
+                text: "P3: CROSS THE MOVING UP COLUMN",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

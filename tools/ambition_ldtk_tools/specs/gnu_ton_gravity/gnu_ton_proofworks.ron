@@ -1,0 +1,536 @@
+// Pre-boss lab: vector motion, a linked portal pair, and an empty threshold. No boss is spawned.
+// Regenerate this room with ambition_ldtk_tools area create --replace-existing.
+(
+    id: "gnu_ton_proofworks",
+    level_id: "gnu_ton_proofworks",
+    world_x: 7280,
+    world_y: 448,
+    px_wid: 2816,
+    px_hei: 1024,
+    fill_collision: "empty",
+    bg_color: "#201A24",
+    biome: "lab",
+    visual_theme: "default",
+    parallax_theme: "eclipse",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                2816,
+                32,
+            ],
+            fields: (
+                name: "proofworks_roof",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                32,
+            ],
+            size: [
+                32,
+                992,
+            ],
+            fields: (
+                name: "proofworks_west_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                2784,
+                32,
+            ],
+            size: [
+                32,
+                992,
+            ],
+            fields: (
+                name: "proofworks_east_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                32,
+                896,
+            ],
+            size: [
+                592,
+                128,
+            ],
+            fields: (
+                name: "entrance_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                752,
+                896,
+            ],
+            size: [
+                512,
+                128,
+            ],
+            fields: (
+                name: "first_apparatus_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1456,
+                896,
+            ],
+            size: [
+                528,
+                128,
+            ],
+            fields: (
+                name: "second_apparatus_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                2112,
+                896,
+            ],
+            size: [
+                672,
+                128,
+            ],
+            fields: (
+                name: "terminal_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                640,
+                304,
+            ],
+            size: [
+                48,
+                592,
+            ],
+            fields: (
+                name: "rotor_abutment",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1184,
+                192,
+            ],
+            size: [
+                416,
+                32,
+            ],
+            fields: (
+                name: "suspended_lens",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1984,
+                432,
+            ],
+            size: [
+                48,
+                464,
+            ],
+            fields: (
+                name: "portal_column",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                2272,
+                256,
+            ],
+            size: [
+                384,
+                32,
+            ],
+            fields: (
+                name: "scholar_balcony",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                576,
+                624,
+            ],
+            size: [
+                176,
+                16,
+            ],
+            fields: (
+                name: "inertia_catwalk",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1136,
+                608,
+            ],
+            size: [
+                208,
+                16,
+            ],
+            fields: (
+                name: "reversal_catwalk",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1632,
+                544,
+            ],
+            size: [
+                240,
+                16,
+            ],
+            fields: (
+                name: "vector_catwalk",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                2032,
+                640,
+            ],
+            size: [
+                208,
+                16,
+            ],
+            fields: (
+                name: "portal_catwalk",
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [
+                752,
+                496,
+            ],
+            size: [
+                192,
+                24,
+            ],
+            fields: (
+                id: "proofworks_oscillator",
+                name: "Proofworks oscillator",
+                sweep_dx: 320.0,
+                speed: 88.0,
+            ),
+        ),
+        (
+            type: "GravityZone",
+            px: [
+                656,
+                352,
+            ],
+            size: [
+                336,
+                528,
+            ],
+            fields: (
+                id: "proofworks_sideways_field",
+                name: "proofworks sideways field",
+                dir: "right",
+                oscillate_amplitude: 0.0,
+                oscillate_freq: 1.0,
+            ),
+        ),
+        (
+            type: "GravityZone",
+            px: [
+                1200,
+                240,
+            ],
+            size: [
+                448,
+                624,
+            ],
+            fields: (
+                id: "proofworks_inversion_field",
+                name: "proofworks inversion field",
+                dir: "up",
+                oscillate_amplitude: 0.0,
+                oscillate_freq: 1.0,
+            ),
+        ),
+        (
+            type: "GravityZone",
+            px: [
+                1840,
+                288,
+            ],
+            size: [
+                416,
+                576,
+            ],
+            fields: (
+                id: "proofworks_moving_down_field",
+                name: "proofworks moving down field",
+                dir: "down",
+                oscillate_amplitude: 96.0,
+                oscillate_freq: 0.5,
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                496,
+                864,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "proofworks_right_switch",
+                name: "proofworks right switch",
+                prompt: "Set right gravity",
+                target_encounter: "",
+                action: "SetGravityRight",
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                1184,
+                864,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "proofworks_up_switch",
+                name: "proofworks up switch",
+                prompt: "Set up gravity",
+                target_encounter: "",
+                action: "SetGravityUp",
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                2288,
+                864,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "proofworks_down_switch",
+                name: "proofworks down switch",
+                prompt: "Restore down gravity",
+                target_encounter: "",
+                action: "SetGravityDown",
+            ),
+        ),
+        (
+            type: "Portal",
+            px: [
+                1520,
+                887,
+            ],
+            size: [
+                92,
+                18,
+            ],
+            fields: (
+                id: "proofworks_floor_portal",
+                name: "Proofworks floor portal",
+                color: "purple",
+                normal: "up",
+                link: "proofworks_demo_link",
+            ),
+        ),
+        (
+            type: "Portal",
+            px: [
+                2023,
+                640,
+            ],
+            size: [
+                18,
+                92,
+            ],
+            fields: (
+                id: "proofworks_wall_portal",
+                name: "Proofworks wall portal",
+                color: "yellow",
+                normal: "right",
+                link: "proofworks_demo_link",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                32,
+                800,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "proofworks_back_to_well",
+                name: "proofworks back to well",
+                activation: "Door",
+                target_room: "gnu_ton_vector_well",
+                target_zone: "well_arrival_from_proofworks",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                176,
+                800,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "proofworks_arrival_from_well",
+                name: "proofworks arrival from well",
+                activation: "Walk",
+                target_room: "",
+                target_zone: "",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                240,
+                850,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "proofworks_spawn",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                2816,
+                1024,
+            ],
+            fields: (
+                id: "proofworks_camera",
+                name: "proofworks_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                224,
+                96,
+            ],
+            size: [
+                736,
+                24,
+            ],
+            fields: (
+                name: "proofworks_banner",
+                text: "THE PROOFWORKS: GNU-TON TESTS HIS LAWS HERE",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                672,
+                240,
+            ],
+            size: [
+                416,
+                24,
+            ],
+            fields: (
+                name: "proofworks_momentum_note",
+                text: "P9: SIDEWAYS MOMENTUM AND A MOVING PLATFORM",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1264,
+                112,
+            ],
+            size: [
+                448,
+                24,
+            ],
+            fields: (
+                name: "proofworks_portals_note",
+                text: "P10: INVERT AND REACH THE PORTAL CIRCUIT",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                2232,
+                160,
+            ],
+            size: [
+                496,
+                24,
+            ],
+            fields: (
+                name: "proofworks_future_note",
+                text: "FUTURE: GNU-TON BOSS APPROACH CONNECTS HERE",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                2304,
+                784,
+            ],
+            size: [
+                400,
+                24,
+            ],
+            fields: (
+                name: "proofworks_no_boss_note",
+                text: "NO BOSS TRIGGER IS AUTHORED YET",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

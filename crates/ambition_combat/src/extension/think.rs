@@ -26,7 +26,11 @@ use crate::components::{ActorTarget, FeatureId};
 
 /// Install the trigger port and the fire request in `actor_think`.
 pub fn install_for_actor_think(app: &mut App) {
-    app.install_extension_trigger::<ActorThinkPort, _>(ACTOR_THINK, "ambition_combat", queue_actor_thinks);
+    app.install_extension_trigger::<ActorThinkPort, _>(
+        ACTOR_THINK,
+        "ambition_combat",
+        queue_actor_thinks.run_if(ambition_extension_host::trigger_is_bound::<ActorThinkPort>),
+    );
     app.install_extension_submitted_request::<ActorFirePort, _>(ACTOR_THINK, "ambition_combat", lower_actor_fires);
 }
 

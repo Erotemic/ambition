@@ -22,7 +22,11 @@ use bevy::prelude::*;
 /// Install the status trigger, its requests and the in-play fact in
 /// `technique_execution`.
 pub fn install(app: &mut App) {
-    app.install_extension_trigger::<StatusTickPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", queue_status_ticks);
+    app.install_extension_trigger::<StatusTickPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_combat",
+        queue_status_ticks.run_if(ambition_extension_host::trigger_is_bound::<StatusTickPort>),
+    );
     app.install_extension_submitted_request::<HoldStatusPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",

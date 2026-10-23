@@ -26,7 +26,11 @@ use crate::actor_tuning::ActorConfig;
 /// Install the trigger port, the bounce and the defeat in `body_contact`.
 pub fn install_for_body_contact(app: &mut App) {
     app.init_resource::<ContactTouchers>();
-    app.install_extension_trigger::<BodyContactPort, _>(BODY_CONTACT, "ambition_combat", queue_body_contacts);
+    app.install_extension_trigger::<BodyContactPort, _>(
+        BODY_CONTACT,
+        "ambition_combat",
+        queue_body_contacts.run_if(ambition_extension_host::trigger_is_bound::<BodyContactPort>),
+    );
     app.install_extension_submitted_request::<ContactBouncePort, _>(BODY_CONTACT, "ambition_combat", lower_contact_bounces);
     app.install_extension_submitted_request::<BodyDefeatPort, _>(BODY_CONTACT, "ambition_combat", lower_body_defeats);
 }

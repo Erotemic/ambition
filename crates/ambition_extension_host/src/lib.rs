@@ -81,6 +81,20 @@ pub enum ExtensionSet {
 #[derive(Resource, Clone)]
 pub struct AdmittedExtensions(pub Arc<Admitted>);
 
+/// Run condition of a trigger adapter that queues only for the admitted
+/// entries bound to port `P`: such an entry exists, or the admission changed
+/// this tick. With no entry bound the adapter has nothing to queue; on the
+/// tick a reload changes the admission it runs once more, so an adapter that
+/// keeps a per-tick table clears it.
+///
+/// ⚠ Not for a port that runtime entities bind (`ModuleEntityTickPort`: a
+/// placed module entity names its entry), which no admitted entry declares.
+pub fn trigger_is_bound<P: Port>(admitted: Option<Res<AdmittedExtensions>>) -> bool {
+    admitted.is_some_and(|admitted| {
+        admitted.is_changed() || admitted.0.entries.iter().any(|entry| entry.descriptor.trigger.port == P::KEY)
+    })
+}
+
 /// What the admission was made from, kept so a reload can re-admit the whole
 /// composition (see [`reload`]).
 #[derive(Resource, Clone)]

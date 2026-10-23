@@ -1390,3 +1390,30 @@ fn a_submitted_request_adapter_sleeps_on_a_tick_that_submitted_nothing() {
     assert_eq!(app.world().resource::<Lowered>().0, vec![(body, Some(101), (1, 1, 2.0))]);
     assert!(app.world().resource::<ExtensionOutbox>().is_empty());
 }
+
+/// A trigger adapter gated on its port runs while an admitted entry binds the
+/// port, and once on the tick the admission changes, so a table it keeps is
+/// cleared when its module goes.
+#[test]
+fn a_trigger_adapter_runs_while_its_port_is_bound() {
+    use std::sync::Arc;
+    #[derive(Resource, Default)]
+    struct Runs(u32);
+    let bound = admit(API_VERSION, &offers(), &[DeclaredModule::from(module(vec![entry("a", vec![])]))]).unwrap();
+    let mut app = App::new();
+    app.init_resource::<Runs>();
+    app.insert_resource(AdmittedExtensions(Arc::new(Admitted::default())));
+    app.add_systems(Update, (|mut runs: ResMut<Runs>| runs.0 += 1).run_if(crate::trigger_is_bound::<Poke>));
+    app.update();
+    app.update();
+    // The first tick sees the admission as added.
+    assert_eq!(app.world().resource::<Runs>().0, 1, "an adapter of an unbound port kept running");
+    app.insert_resource(AdmittedExtensions(Arc::new(bound)));
+    app.update();
+    app.update();
+    assert_eq!(app.world().resource::<Runs>().0, 3, "an adapter of a bound port did not run");
+    app.insert_resource(AdmittedExtensions(Arc::new(Admitted::default())));
+    app.update();
+    app.update();
+    assert_eq!(app.world().resource::<Runs>().0, 4, "the tick its module went, the adapter did not run once more");
+}

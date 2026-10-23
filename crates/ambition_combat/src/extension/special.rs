@@ -26,7 +26,11 @@ use bevy::prelude::*;
 
 /// Install the trigger and the special's requests in `technique_execution`.
 pub fn install_for_specials(app: &mut App) {
-    app.install_extension_trigger::<FighterSpecialPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", queue_fighter_specials);
+    app.install_extension_trigger::<FighterSpecialPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_combat",
+        queue_fighter_specials.run_if(ambition_extension_host::trigger_is_bound::<FighterSpecialPort>),
+    );
     app.install_extension_submitted_request::<BodyStrikePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_body_strikes);
     app.install_extension_submitted_request::<SleepAreaPort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_sleep_areas);
     app.install_extension_submitted_request::<RefillResourcePort, _>(TECHNIQUE_EXECUTION, "ambition_combat", lower_refills);

@@ -647,8 +647,10 @@ pub fn sync_touch_ui_visibility(
     } else {
         Visibility::Hidden
     };
+    // Compared first: a write of the same value marks each root changed, and
+    // its whole tree is propagated and laid out again each frame.
     for mut vis in &mut query {
-        *vis = target;
+        vis.set_if_neq(target);
     }
 }
 

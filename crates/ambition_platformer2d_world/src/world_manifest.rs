@@ -205,8 +205,8 @@ pub fn world_manifest_problems(manifest: &AuthoredWorldManifest) -> Vec<String> 
 /// desktop, e.g. `game://worlds/sandbox.ldtk`).
 ///
 /// A program whose own asset tree holds the world file (the tree a packaged
-/// program carries, or the installed `assets/` directory of a Steam Deck
-/// install) loads that file ([`world_bevy_asset_path_in`]).
+/// program carries, the installed `assets/` directory of a Steam Deck
+/// install, an APK) loads that file ([`world_bevy_asset_path_in`]).
 pub fn world_bevy_asset_path(source: &WorldSource) -> String {
     world_bevy_asset_path_in(source, ambition_asset_manager::exe_bundle::ExeBundle::running_program_tree_holds)
 }

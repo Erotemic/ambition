@@ -168,12 +168,20 @@ impl ExeBundle {
     /// bundle when it carries one, else the `assets/` directory Bevy's file
     /// reader loads from (`BEVY_ASSET_ROOT`, else `CARGO_MANIFEST_DIR`, else
     /// the executable's directory). An installed build (a Steam Deck install)
-    /// has its tree there. Android and the web read no such directory: false.
+    /// has its tree there.
+    ///
+    /// Android: true. Its APK is composed from the same two asset roots as
+    /// every package and audited against the finished zip
+    /// (`scripts/package_asset_guard.py`), so it holds each shipped file. The
+    /// web reads no directory: false.
     pub fn running_program_tree_holds(path: &str) -> bool {
         if let Some(bundle) = Self::of_running_exe() {
             return bundle.contains(path);
         }
-        if cfg!(any(target_arch = "wasm32", target_os = "android")) {
+        if cfg!(target_os = "android") {
+            return true;
+        }
+        if cfg!(target_arch = "wasm32") {
             return false;
         }
         let base = std::env::var_os("BEVY_ASSET_ROOT")

@@ -326,7 +326,7 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
         (
             refresh_body_damageable_volumes,
             // Only named bosses have boss volumes.
-            refresh_boss_damageable_volumes.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+            refresh_boss_damageable_volumes.run_if(any_with_component::<ambition_characters::brain::BossAttackState>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         )
             .in_set(ambition_combat::components::DamageFacingVolumesPublished)
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
@@ -1082,7 +1082,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (
                 refresh_body_damageable_volumes,
-                refresh_boss_damageable_volumes.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                refresh_boss_damageable_volumes.run_if(any_with_component::<ambition_characters::brain::BossAttackState>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
                 refresh_breakable_damageable_volumes,
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
@@ -1098,8 +1098,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // integration consumes the gated frame here. Boss bodies exist
                 // only where named bosses do, so the boss steps sleep where the
                 // room's game has none (`Capability::BossEncounters`).
-                integrate_boss_bodies.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
-                update_ecs_bosses.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                // Each visits boss bodies (its query names a boss-only component); with none it is idle.
+                integrate_boss_bodies.run_if(any_with_component::<ambition_boss_encounter::BossConfig>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                update_ecs_bosses.run_if(any_with_component::<ambition_combat::components::BossPhase>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
@@ -1147,6 +1148,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             drive_boss_animators
+                .run_if(any_with_component::<ambition_sprite_sheet::boss::BossAnimFrame>)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                 .after(project_boss_attack_state_from_move)
                 // ⛔ IT WRITES AN INPUT OF THE DAMAGE-FACING PUBLICATION. The
@@ -1485,6 +1487,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             tick_boss_brains_system
+                .run_if(any_with_component::<ambition_boss_encounter::BossConfig>)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                 .after(ActorDecisionSet::Publish)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate)

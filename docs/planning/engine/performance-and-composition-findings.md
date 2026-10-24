@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 00:19Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,086 since
+**Status, 2026-10-24 00:32Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,074 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -133,6 +133,7 @@ says what they bought in frame time.
 | Ambition's hub stops running absent bosses' content: the cut-rope flavor chain while a cut-rope arena is live or held, GNU-ton's duel and Mockingbird's moon strike while a boss stands (F47's candidate row, the exact ones) | done | census: Ambition route 1,109 → 1,103 systems a tick; cut-rope, GNU-ton, Mockingbird and reconstitution app tests 95, content lib 29 |
 | The capture passes run with their work: the request appliers (attempt, pummel, throw, carry, parried rebound) while their message waits (peeks), and the seven that visit holds while a body is held (`a_capture_stands`). The anim-facts mirror keeps running: it clears a released body's flags the tick after | done | census: Ambition route 1,103 → 1,093 systems a tick (Mary-O does not use captures); combat capture 42, `smash_it` 52, Smash lib 293, app capture/grab/throw/reconstitution 44 |
 | The mount crate's sets (link, boarding, leases, dismounts, backs as ground, steering, rider sync) run while a mount, rider, reservation or lease is in the world (`mounts_are_in_play`), beside the capability's own room condition | done | census: Ambition route 1,093 → 1,086 systems a tick; mount lib 13, app mount/ride/GNU-ton/FSM/reconstitution 107, `smash_it` 52 |
+| The boss bodies' passes run while a boss body stands, each on the component its query visits: integration and brains (`BossConfig`), phase (`BossPhase`), animators (`BossAnimFrame`), attack trigger and projection, damageable volumes (`BossAttackIntent` / `BossAttackState`), conducted facing, conduct queue (`BossEncounter`). Not the progression chain: it builds a boss room's encounters on entry | done | census: Ambition route 1,086 → 1,074 systems a tick; boss, GNU-ton, Inugami, Wolfenstein, hall, cut-rope, Mockingbird, FSM and reconstitution app tests 233 (the one red, the Hall's Steel and Straw Man with nothing to say, fixed in the next commit), boss lib 226 |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

@@ -69,7 +69,8 @@ pub fn install_conduct(app: &mut App) {
     app.install_extension_trigger::<BossConductPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",
-        crate::conduct::queue_boss_conducts,
+        // It conducts each boss; with none there is nothing to conduct.
+        crate::conduct::queue_boss_conducts.run_if(any_with_component::<crate::BossEncounter>),
     );
     app.install_extension_observation::<ambition_boss_special_port::MountViewPort>(
         BOSS_CONDUCT,

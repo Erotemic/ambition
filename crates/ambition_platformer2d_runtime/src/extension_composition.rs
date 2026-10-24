@@ -268,6 +268,7 @@ impl Plugin for ExtensionCompositionPlugin {
         app.add_systems(
             sim,
             ambition_boss_encounter::conduct::face_conducted_bosses
+                .run_if(bevy::prelude::any_with_component::<ambition_boss_encounter::conduct::ConductedFacing>)
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot)
                 .in_set(BOSS_ENCOUNTERS),

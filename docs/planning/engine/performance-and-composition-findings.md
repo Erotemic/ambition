@@ -164,6 +164,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The projectile visual pass runs while a projectile view or a drawn projectile exists (`f0b33cb36`) | done | census: Mary-O route 904 (idle here); render `projectile` 2, app_it `projectile` 6, `shoot` 3 green |
 | The moving-platform visual pass runs while a live room has a moving platform or a platform visual exists (`e22ba6b44`) | done | census: Mary-O route 903 (idle here); render `moving_platform` 8, app_it `platform` 10, `cart` 1 green |
 | The shot-charge visual runs while a player charges a shot or a charge visual exists (`beb098c5a`) | done | REASONED: 1 system a frame while nobody charges; render `projectile`/`charge` 8, app_it `charge` 7, `projectile` 6 green |
+| The morph ball's spawn and sync run while a player is morphed or a ball visual exists (`MORPH`) | done | REASONED: 2 systems a frame while nobody is morphed; render `morph` 7, app_it `morph` 3 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

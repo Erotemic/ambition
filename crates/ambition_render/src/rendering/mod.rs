@@ -302,8 +302,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             .add_systems(
                 Update,
                 (
-                    morph_ball::spawn_morph_ball_visual,
-                    morph_ball::sync_morph_ball_visual.in_set(SpriteVisualSync),
+                    morph_ball::spawn_morph_ball_visual.run_if(morph_ball::a_ball_or_its_visual),
+                    morph_ball::sync_morph_ball_visual
+                        .run_if(morph_ball::a_ball_or_its_visual)
+                        .in_set(SpriteVisualSync),
                     // The one writer of the body sprite's own visibility (the
                     // morph ball, the stage, out of the world). Before the rig
                     // pass, which follows the root's own `Visibility`.

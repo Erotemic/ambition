@@ -96,6 +96,18 @@ pub fn build_morph_ball_sprite(mut commands: Commands, mut images: ResMut<Assets
 /// can find what draws a morphed body. Chained before
 /// [`sync_morph_ball_visual`], so a body is never hidden before its ball
 /// exists.
+/// Run condition of the morph ball's spawn and sync: a player body is
+/// morphed, or a ball visual exists to move or retire.
+pub fn a_ball_or_its_visual(
+    bodies: Query<
+        &ambition_sim_view::BodyPoseView,
+        With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
+    >,
+    balls: Query<(), With<MorphBallVisual>>,
+) -> bool {
+    !balls.is_empty() || bodies.iter().any(|pose| pose.morph_ball)
+}
+
 pub fn spawn_morph_ball_visual(
     mut commands: Commands,
     sprite: Option<Res<MorphBallSprite>>,

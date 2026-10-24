@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-24 04:29Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,024 since
+route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,015 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -143,6 +143,7 @@ says what they bought in frame time.
 | The portal observation publishers (viewer, camera-continuity focus, F1 sync, scene/affordance tags, body views, transiting bodies, threaded pictures) run while a portal stands or a body carries a transit latch, and one frame after, which publishes the empty answers; the view-cone debug passes run on their trigger (`2f41700b3`) | done | census: Ambition route 1,045 → 1,035 systems a frame (11 here, 1 noise row); app portal/view/continuity/transiting/far-side 43, host 37 |
 | The conversation passes run while a conversation is live: the dialog projection and end stamp while live or shown and the frame after, the end intake peeks `ConversationEnded`, the separation check on a live one, the hold while live or a body is still held (`2835c098a`) | done | census: Ambition route 1,035 → 1,029; `canonical_reconstitution` green |
 | The boss presentation passes (stage light, name card, finish drain and bars, boss bar) run while the boss read model holds a row, and the frame after: `bosses_are_shown_or_were` (`3f5a9992d`) | done | census: Ambition route 1,029 → 1,024, all five idle in the hub; all five run in GNU-ton's arena |
+| The boss encounter sim passes run on their subject: finish slow motion and the encounter wrap on a `BossConfig`, hazards on a `FallingHazard`, payloads on `ReleaseOnDeath`, peeks on `BossPhaseChanged` and `MountDied`, the boss-life switch on a boss-life press, the registry fill until it is filled (`BOSSGATE`) | done | census: Ambition route 1,024 → 1,015; app_it `boss` 90, `gnu_ton` 44, `canonical_reconstitution` 19 green |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

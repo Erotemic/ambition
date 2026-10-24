@@ -171,21 +171,25 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
             (
                 // Mount-death → `mount_died` external phase trigger, ahead of
                 // the phase driver so the swap is same-frame (Q19).
-                notify_bosses_on_mount_death,
+                notify_bosses_on_mount_death
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::body::MountDied>),
                 // A boss-life switch press (kill / revive) lands before the
                 // driver reads the boss, so it acts on it the same tick.
                 crate::life_switch::apply_boss_life_switches
+                    .run_if(crate::life_switch::a_boss_life_switch_is_pressed)
                     // ⛔ AFTER THE ONE DRAIN: it reads this tick's presses.
                     .after(ambition_encounter::switches::SwitchActivationDrained),
                 update_boss_encounters,
                 // The slow-motion finish asks for its hang from the death
                 // this tick counted (`apply_clock_scale_requests` reduces by
                 // `min`, so no other order matters).
-                crate::finish::request_boss_finish_slow_motion,
+                crate::finish::request_boss_finish_slow_motion.run_if(bevy::prelude::any_with_component::<BossConfig>),
                 // The phase this tick ended must not keep a move it chose.
-                crate::ecs::interrupt_boss_windups_on_phase_change,
-                sync_boss_encounter_entities,
-                update_encounter_progress,
+                crate::ecs::interrupt_boss_windups_on_phase_change
+                    .run_if(ambition_platformer2d_core::a_message_waits::<crate::BossPhaseChanged>),
+                // Wraps the bosses; visits the wraps.
+                sync_boss_encounter_entities.run_if(bevy::prelude::any_with_component::<BossConfig>),
+                update_encounter_progress.run_if(bevy::prelude::any_with_component::<ambition_encounter::Encounter>),
             )
                 .chain()
                 .in_set(ProgressionSet::BossAdvance)
@@ -199,16 +203,17 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_systems(
             sim,
             populate_boss_encounter_registry
+                .run_if(|registry: bevy::prelude::Res<BossEncounterRegistry>| !registry.specs_loaded)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
                 .in_set(boss_capability),
         );
         app.add_systems(
             sim,
             (
-                tick_falling_hazards,
+                tick_falling_hazards.run_if(bevy::prelude::any_with_component::<FallingHazard>),
                 tick_encounter_scripts,
-                release_payloads_on_death,
-                boss_phase_transition_feedback,
+                release_payloads_on_death.run_if(bevy::prelude::any_with_component::<ReleaseOnDeath>),
+                boss_phase_transition_feedback.run_if(ambition_platformer2d_core::a_message_waits::<crate::BossPhaseChanged>),
             )
                 .chain()
                 .in_set(ProgressionSet::BossHazards)

@@ -34,6 +34,15 @@ use bevy::prelude::{Commands, Entity, Query, Res, ResMut, With};
 /// Ordered after the ONE switch drain (it reacts to this tick's presses) and
 /// before `update_boss_encounters` (which then sees the new life the same
 /// tick).
+/// Run condition of [`apply_boss_life_switches`]: this tick's presses hold a
+/// boss-life switch.
+pub fn a_boss_life_switch_is_pressed(switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>) -> bool {
+    switches
+        .0
+        .iter()
+        .any(|activation| matches!(activation.action, ambition_encounter::switches::SwitchAction::BossLife))
+}
+
 pub fn apply_boss_life_switches(
     mut commands: Commands,
     switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>,

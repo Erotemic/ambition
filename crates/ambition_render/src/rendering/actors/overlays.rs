@@ -76,6 +76,15 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 
 /// Spawn/update/despawn a vertical column visual for every boss currently telegraphing or striking
 /// `HazardColumn`.
+/// Run condition of [`manage_gradient_lane_visual`]: a boss frame holds a
+/// hazard lane, or a lane visual is still drawn (its own early return).
+pub fn a_gradient_lane_is_owed(
+    boss_frames: Res<ambition_sim_view::BossFrameIndex>,
+    visuals: Query<(), With<GradientLaneVisual>>,
+) -> bool {
+    !visuals.is_empty() || boss_frames.iter().any(|(_, frame)| frame.hazard_lane.is_some())
+}
+
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     // A lane is drawn in its boss's live room, by that room's geometry: the

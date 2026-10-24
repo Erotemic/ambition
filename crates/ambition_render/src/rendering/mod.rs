@@ -622,7 +622,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // HazardColumn column visual: yellow during telegraph, red during
                 // strike. After `animate_bosses`, so it reads the `BossAttackState`
                 // read model.
-                actors::manage_gradient_lane_visual,
+                actors::manage_gradient_lane_visual.run_if(actors::a_gradient_lane_is_owed),
                 // Provider-authored over-hand item sprites, from the wielded-item
                 // read model and the app-local visual catalog.
                 wielded_item_visuals::sync_wielded_item_visuals

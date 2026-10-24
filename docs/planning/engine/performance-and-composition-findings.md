@@ -159,6 +159,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The quest registry fills until it is filled; the attunement's banner peeks `EncounterEventMsg` (`ba13b3047`) | done | census: Ambition route 980 → 978; app_it `quest` 36, `attunement` 2, `symmetry` 13, `canonical_reconstitution` 19, content `quest`/`encounter` 34 green |
 | GNU-ton's arena ladder (a world-overlay contributor; the overlay is rebuilt each tick) runs while its arena is a live room (`6ec66901a`) | done | REASONED: 1 system a tick on both routes; app_it `gnu_ton` 46, `ladder` 1, `canonical_reconstitution` 19 green |
 | The boss sprite upgrade runs under `bosses_are_shown_or_were`: it acts only on rows of the boss read model (`4c0ba82b4`) | done | REASONED: 1 system a frame where no boss is shown; GNU-ton's arena capture draws both bodies; render `boss` 5, app_it `boss_sheet` 6, `boss_lifecycle` 15, `gnu_ton` 46 green |
+| The gradient sentinel's lane visual runs while a boss frame holds a hazard lane or a lane is drawn, its own early return lifted into a condition (`LANE`) | done | REASONED: 1 system a frame where no lane is in play; render lane test 1 green (no app test drives the lane) |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

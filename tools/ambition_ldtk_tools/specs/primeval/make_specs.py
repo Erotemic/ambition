@@ -61,6 +61,9 @@ if str(TOOLS) not in sys.path:
 
 from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
+sys.path.insert(0, str(HERE.parent / "gate_network"))
+import gates  # noqa: E402
+
 LDTK = default_sandbox_ldtk()
 
 BIOME = "primeval"
@@ -108,7 +111,9 @@ def enemy(room, n, character, x, feet_y):
 
 
 def coconut(room, n, x, floor_y):
-    return (f'( type: "GroundItem", px: [{x}, {floor_y - 15}], size: [18, 15], fields: ( id: "{room}_coconut_{n}", '
+    """A coconut on the floor: its box is the drawn nut (14 x 11), centred
+    where an 18-wide box at `x` would be."""
+    return (f'( type: "GroundItem", px: [{x + 2}, {floor_y - 11}], size: [14, 11], fields: ( id: "{room}_coconut_{n}", '
             f'name: "coconut", held_item: "coconut" ) ),')
 
 
@@ -178,8 +183,12 @@ def trailhead():
     e += [
         f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_to_hub", "to the central hub", WALL, floor, "central_hub_complex", "primeval_hub_door"),
-        palm(rid, 1, 210, floor),
-        coconut(rid, 1, 300, floor),
+        # The trailhead's ring (GENESIS, `data/gate_network.ron`) and its
+        # terminal: the public way in and the way home.
+        *gates.as_ron(gates.ring("Primeval Gate (Trailhead)", "primeval_trailhead_gate", 96, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Primeval Gate (Trailhead)", "primeval_gate_terminal", 300, floor)),
+        palm(rid, 1, 400, floor),
+        coconut(rid, 1, 470, floor),
         ledge("perch_a", 620, floor - 80, 160),
         palm(rid, 2, 1300, floor),
         enemy(rid, 1, "kiwi", 560, floor),
@@ -193,7 +202,7 @@ def trailhead():
         enemy(rid, 2, "compsognathus", 1440, floor),
         enemy(rid, 3, "compsognathus", 1490, floor),
     ]
-    connect = [(f'( target_room: "central_hub_main", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "primeval_hub_door", name: "{HUB_DOOR_NAME}", '
+    connect = [(f'( target_room: "{HUB_LEVEL}", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "primeval_hub_door", name: "{HUB_DOOR_NAME}", '
                 f'target_zone: "{rid}_to_hub", activation: "Door", bidirectional: true ),')]
     return rid, room(rid, e, connect, "The primeval trail. A coconut: Attack picks it up, Attack throws it.")
 
@@ -239,10 +248,13 @@ def rookery():
     e += [
         f'( type: "PlayerStart", px: [90, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_west", "back to the run", WALL, floor, "primeval_run", "primeval_run_east"),
+        # An old survey ring by the door: a hidden address (NEST) that only
+        # receives. The way out is the trail, down to the trailhead's ring.
+        *gates.as_ron(gates.ring("Rookery Survey Gate", "primeval_rookery_gate", 96, floor, "the old survey ring")),
         # Two swallows and one coconut by the door: the first thing the room
         # shows is a bird that picks it up.
-        palm(rid, 1, 260, floor),
-        coconut(rid, 1, 360, floor),
+        palm(rid, 1, 420, floor),
+        coconut(rid, 1, 520, floor),
         enemy(rid, 1, "african_swallow", 430, floor - 210),
         enemy(rid, 2, "african_swallow", 640, floor - 250),
         ledge("shelf_a", 560, floor - 104, 176),
@@ -349,8 +361,11 @@ def tyrant_hall():
     return rid, room(rid, e, connect, "The Tyrant King.")
 
 
-#: Where the door of the level is in the central hub (`door free-spots central_hub_main`).
-HUB_DOOR = (1200, 880)
+#: Where the door of the level is in the central hub: the hub's developer
+#: wing (`specs/gate_network/make_gates.py`); the public way in is the
+#: trailhead's ring.
+HUB_LEVEL = "central_hub_dev_wing"
+HUB_DOOR = (880, 368)
 #: What the player reads at that door.
 HUB_DOOR_NAME = "to the primeval trail"
 
@@ -360,8 +375,8 @@ ROOMS = (trailhead, run, rookery, ridge, canopy, tyrant_hall)
 def hub_door_is_placed():
     """The central hub has the door of this level already."""
     world = json.loads(Path(LDTK).read_text())
-    hub = next(level for level in world["levels"] if level["identifier"] == "central_hub_main")
-    return "primeval_hub_door" in json.dumps(hub)
+    hub = next((level for level in world["levels"] if level["identifier"] == HUB_LEVEL), None)
+    return hub is not None and "primeval_hub_door" in json.dumps(hub)
 
 
 def main(argv):

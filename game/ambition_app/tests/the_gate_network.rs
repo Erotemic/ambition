@@ -97,9 +97,19 @@ fn press_switch(sim: &mut Platformer2dSimHarness, id: &str) {
 }
 
 /// Walk to the terminal `id` and open it: the network names its ring open.
+/// A press that a blow takes (the wildlife at the primeval trailhead bites)
+/// is pressed again, as a player does.
 fn open_terminal(sim: &mut Platformer2dSimHarness, id: &str, ring: &str) {
-    press_switch(sim, id);
-    assert_eq!(network(sim).terminal.as_deref(), Some(ring), "the press at `{id}` opens its ring's terminal");
+    for _ in 0..6 {
+        press_switch(sim, id);
+        if network(sim).terminal.as_deref() == Some(ring) {
+            return;
+        }
+        for _ in 0..20 {
+            sim.step(base());
+        }
+    }
+    panic!("the press at `{id}` never opened its ring's terminal");
 }
 
 /// Send one request to the open terminal of `ring`, as its panel does, and let
@@ -223,6 +233,38 @@ fn a_fresh_save_dials_tangent_reaches_math_town_and_comes_home() {
     assert!(standing_in(&mut reloaded, HUB_RING), "the traveller comes home out of the public gate");
 }
 
+/// Acceptance 2: each public address reaches its arrival from a fresh save
+/// with nothing known, and the arrival's terminal takes the traveller home by
+/// the address written on it. ASCENT starts the gravity trail, not GNU-ton's
+/// arena; CITADEL lands in the forest outside Castle Godwin, not its throne.
+#[test]
+fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_home() {
+    for (address, room_id, ring, terminal) in [
+        ("GENESIS", "primeval_trailhead", "primeval_trailhead_gate", "primeval_gate_terminal"),
+        ("CITADEL", "evil_gate_forest", "evil_gate_return_zone", "evil_gate_terminal"),
+        ("ASCENT", "gnu_ton_orchard", "orchard_gate", "orchard_gate_terminal"),
+        ("GALACTIC", "orbital_station_gate_dock", "orbital_station_gate_arrival", "orbital_station_gate_terminal"),
+        ("SAILING", "pirate_port_gate_plaza", "pirate_port_gate_arrival", "pirate_port_gate_terminal"),
+        ("SILENT", "ninja_village_gate_shrine", "ninja_village_gate_arrival", "ninja_village_gate_terminal"),
+        ("ALDENTE", "noodly_narthex", "noodly_narthex_gate", "noodly_gate_terminal"),
+    ] {
+        let mut sim = room(HUB);
+        assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, address), room_id, "`{address}`");
+        assert!(standing_in(&mut sim, ring), "`{address}` comes out of `{ring}`");
+        assert_eq!(travel(&mut sim, terminal, ring, "LEGAL"), HUB, "home from `{address}`");
+        assert!(standing_in(&mut sim, HUB_RING), "home out of the public gate from `{address}`");
+    }
+}
+
+/// The hidden short address NEST reaches the rookery's old survey ring, part
+/// way up the primeval trail, though it is in no directory.
+#[test]
+fn a_hidden_address_is_dialed_like_any_other() {
+    let mut sim = room(HUB);
+    assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, "nest"), "primeval_rookery");
+    assert!(standing_in(&mut sim, "primeval_rookery_gate"));
+}
+
 /// Acceptance 3: each refusal has its own kind and changes nothing: no link,
 /// no knowledge. Repeated symbols match exactly; case does not matter.
 #[test]
@@ -235,8 +277,7 @@ fn each_failed_dial_says_why_and_opens_nothing() {
         ("TANGENTT", "unknown"),
         ("TANGEN", "unknown"),
         ("SAND", "unknown"),
-        ("SILENT", "offline"),
-        ("GALACTIC", "offline"),
+        ("TESLA", "restricted"),
         ("LEGAL", "same_facility"),
         ("SENTINEL", "restricted"),
     ] {

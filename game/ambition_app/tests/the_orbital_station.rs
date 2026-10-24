@@ -174,9 +174,9 @@ fn the_tram_carries_the_robot_over_the_open_spoke() {
     assert_eq!(o.resets, 0, "the robot did not fall into the gap");
 }
 
-/// The arrival of the gate network's address GALACTIC is on the gate deck,
-/// with a clear floor beside it for the ring and its terminal, and (until the
-/// return terminal exists) it is also the way home to the hub.
+/// The arrival of the gate network's address GALACTIC is on the gate deck:
+/// it is the zone of the dock's ring, whose terminal stands beside it. The
+/// way home through it is dialed (`the_gate_network`).
 #[test]
 fn the_gate_deck_receives_the_arrival_and_goes_home() {
     let mut sim = room(DOCK);
@@ -193,7 +193,10 @@ fn the_gate_deck_receives_the_arrival_and_goes_home() {
         rooms.spec(definition).loading_zones.iter().any(|zone| zone.id == "orbital_station_gate_arrival")
     };
     assert!(arrival, "the gate deck has the arrival `orbital_station_gate_arrival`");
-    assert_eq!(walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
+    let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>();
+    let ring = catalog.ring("orbital_station_gate_arrival").expect("the arrival is a ring of the gate network");
+    assert_eq!(ring.address.as_deref(), Some("GALACTIC"));
+    assert!(ring.terminal.is_some() && ring.posted.iter().any(|address| address == "LEGAL"), "its terminal posts the way home");
 }
 
 

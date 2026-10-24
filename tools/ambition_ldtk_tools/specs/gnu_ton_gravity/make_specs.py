@@ -42,6 +42,9 @@ if str(TOOLS) not in sys.path:
 
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
+sys.path.insert(0, str(HERE.parent / "gate_network"))
+import gates  # noqa: E402
+
 WORLD_LDTK = default_worlds_dir() / "science.ldtk"
 SANDBOX_LDTK = default_worlds_dir() / "sandbox.ldtk"
 
@@ -255,6 +258,10 @@ def orchard():
         # are one geography.
         door("orchard_spoke_door", "the spoke to the station", 272, floor, SPOKE, SPOKE_WORKS_DOOR),
         door("orchard_east_door", "on to the vector well", w - 112, floor, WELL, "well_bottom_door"),
+        # The trail's ring (ASCENT, `data/gate_network.ron`) and its terminal,
+        # on the west bank between the first tree and the first chasm.
+        *gates.as_ron(gates.ring("Gravity Trail Gate", "orchard_gate", 616, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Gravity Trail Gate", "orchard_gate_terminal", 820, floor)),
     ]
     return rid, room(rid, e, "THE ORCHARD: HERE AN APPLE FALLS UP")
 

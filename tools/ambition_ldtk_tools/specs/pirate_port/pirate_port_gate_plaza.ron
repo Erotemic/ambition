@@ -19,7 +19,6 @@
         ( type: "Solid", px: [0, 0], size: [16, 704], fields: ( name: "west_wall" ) ),
         ( type: "Solid", px: [1584, 0], size: [16, 352], fields: ( name: "east_wall_high" ) ),
         ( type: "Solid", px: [1584, 464], size: [16, 144], fields: ( name: "east_wall_mid" ) ),
-        ( type: "LoadingZone", px: [312, 608], size: [48, 96], fields: ( id: "pirate_port_gate_arrival", name: "the gate (for now, home to the hub)", activation: "Door", target_room: "central_hub_complex", target_zone: "pirate_cove_door", bidirectional: false ) ),
         ( type: "PlayerStart", px: [322, 658], size: [28, 46], fields: ( name: "pirate_port_gate_plaza_spawn" ) ),
         ( type: "OneWayPlatform", px: [560, 656], size: [96, 16], fields: ( name: "freight_crate_low" ) ),
         ( type: "OneWayPlatform", px: [584, 608], size: [48, 16], fields: ( name: "freight_crate_high" ) ),

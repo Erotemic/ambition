@@ -272,6 +272,28 @@ def ring7_entities() -> list[tuple]:
     return gates.terminal("Ring 7 (Home)", "ring7_terminal", x, floor)
 
 
+#: The districts' arrival rooms (`specs/pirate_port`, `specs/ninja_village`):
+#: each generator adds its `gate_interface.yaml` after it makes its rooms.
+#: The ring's zone is the arrival; the floor is clear from x 160 to 512.
+DISTRICT_RINGS = [
+    ("pirate_port", "pirate_port_gate_plaza", "Port Gate (Plaza)", "pirate_port_gate_arrival", "pirate_port_gate_terminal"),
+    ("ninja_village", "ninja_village_gate_shrine", "Village Gate (Shrine)", "ninja_village_gate_arrival", "ninja_village_gate_terminal"),
+]
+DISTRICT_FLOOR = 704
+
+
+def district_interfaces() -> dict[Path, str]:
+    """Each district's `gate_interface.yaml`: its ring and its terminal."""
+    out = {}
+    for spec_dir, room, label, zone, terminal in DISTRICT_RINGS:
+        entities = gates.ring(label, zone, 160, DISTRICT_FLOOR, "the gate") + gates.terminal(label, terminal, 364, DISTRICT_FLOOR)
+        out[HERE.parent / spec_dir / "gate_interface.yaml"] = gates.as_yaml(
+            room, entities, "Written by specs/gate_network/make_gates.py. Change that script, not this file.\n"
+            "The district's gate ring (its zone is the arrival) and its terminal; the district's\n"
+            "make_specs.py adds this file after it makes its rooms.")
+    return out
+
+
 def level_of(ldtk: Path, level_id: str) -> dict | None:
     world = json.loads(ldtk.read_text())
     return next((level for level in world["levels"] if level["identifier"] == level_id), None)
@@ -289,6 +311,9 @@ def main(argv) -> int:
     spec = HERE / "central_hub_dev_wing_area.ron"
     spec.write_text(wing_spec())
     print(spec.relative_to(TOOLS))
+    for path, text in district_interfaces().items():
+        path.write_text(text)
+        print(path.relative_to(TOOLS))
     if "--apply" not in argv:
         return 0
     hub = level_of(SANDBOX, HUB)

@@ -41,4 +41,46 @@
         portal_sprite_name: "Evil Gate (Evil) Portal",
         ring_sprite_name: "Evil Gate (Evil) Ring",
     ),
+    // The trailhead of the primeval trail.
+    "primeval_trailhead_gate": (
+        command: Dialed,
+        portal_sprite_name: "Primeval Gate (Trailhead) Portal",
+        ring_sprite_name: "Primeval Gate (Trailhead) Ring",
+    ),
+    // The old survey ring at the rookery (receive only).
+    "primeval_rookery_gate": (
+        command: Dialed,
+        portal_sprite_name: "Rookery Survey Gate Portal",
+        ring_sprite_name: "Rookery Survey Gate Ring",
+    ),
+    // The gravity trail's orchard, in the Science dimension.
+    "orchard_gate": (
+        command: Dialed,
+        portal_sprite_name: "Gravity Trail Gate Portal",
+        ring_sprite_name: "Gravity Trail Gate Ring",
+    ),
+    // The orbital station's gate dock.
+    "orbital_station_gate_arrival": (
+        command: Dialed,
+        portal_sprite_name: "Orbital Gate (Dock) Portal",
+        ring_sprite_name: "Orbital Gate (Dock) Ring",
+    ),
+    // The pirate port's gate plaza.
+    "pirate_port_gate_arrival": (
+        command: Dialed,
+        portal_sprite_name: "Port Gate (Plaza) Portal",
+        ring_sprite_name: "Port Gate (Plaza) Ring",
+    ),
+    // The ninja village's gate shrine.
+    "ninja_village_gate_arrival": (
+        command: Dialed,
+        portal_sprite_name: "Village Gate (Shrine) Portal",
+        ring_sprite_name: "Village Gate (Shrine) Ring",
+    ),
+    // The Noodly Temple's narthex.
+    "noodly_narthex_gate": (
+        command: Dialed,
+        portal_sprite_name: "Noodly Gate (Narthex) Portal",
+        ring_sprite_name: "Noodly Gate (Narthex) Ring",
+    ),
 }

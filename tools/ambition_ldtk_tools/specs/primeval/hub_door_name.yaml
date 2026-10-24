@@ -1,7 +1,7 @@
 # The door of the primeval trail in the central hub: what the player reads at
 # it. `make_specs.py --apply` runs this when the hub has the door already (a
 # first apply puts the door there with this name).
-level_id: central_hub_main
+level_id: central_hub_dev_wing
 edits:
   - target:
       identifier: LoadingZone

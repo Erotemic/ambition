@@ -49,9 +49,8 @@ loop; the freight lane, once customs clears the crate, is a short way from
 the gate dock to the bay. The lift from the GNU-ton approach to the spoke is
 the trail's shortcut.
 
-Until the gate's return terminal exists, the arrival is also a temporary
-one-way door to the central hub (`orbital_station_temp_hub_link` in its
-name), for tests; the gate network's catalog takes the arrival over.
+The arrival is the zone of the dock's ring (GALACTIC, a ring of the gate
+network) and its terminal stands beside it.
 
 The numbers (the robot, measured): a jump rises 83 px, a jump and a double
 jump 139 px, a run is 270 px/s, the body is 30 x 48. Every step up is 64 px
@@ -70,6 +69,9 @@ if str(TOOLS) not in sys.path:
 
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
+sys.path.insert(0, str(HERE.parent / "gate_network"))
+import gates  # noqa: E402
+
 WORLD_LDTK = default_worlds_dir() / "science.ldtk"
 
 DOCK = "orbital_station_gate_dock"
@@ -82,7 +84,6 @@ SPOKE = "orbital_station_spoke"
 
 #: The gate's arrival in the dock (the address catalog names it).
 ARRIVAL = "orbital_station_gate_arrival"
-TEMP_HUB_LINK = "orbital_station_temp_hub_link"
 
 #: The trail's rooms the station joins (`specs/gnu_ton_gravity/make_specs.py`).
 ORCHARD, ORCHARD_SPOKE_DOOR = "gnu_ton_orchard", "orchard_spoke_door"
@@ -261,10 +262,12 @@ def gate_dock():
         # link home (one way, to the hub): the world check refuses a landing
         # that no zone names, and nothing names this one until the gate
         # network's catalog does.
-        door(ARRIVAL, f"home to the hub ({TEMP_HUB_LINK})", 376, floor, "central_hub_complex", "gnu_ton_handle_hub_door",
-             bidirectional=False),
-        start(rid, 440, floor),
-        label("dock_ring_floor", 160, 400, "THE RING STANDS HERE: KEEP THIS DECK CLEAR", 440),
+        # The ring (GALACTIC, `data/gate_network.ron`): its zone is the
+        # arrival. Its terminal stands beside it, and LEGAL is written on it.
+        *gates.as_ron(gates.ring("Orbital Gate (Dock)", ARRIVAL, 160, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Orbital Gate (Dock)", "orbital_station_gate_terminal", 364, floor)),
+        start(rid, 460, floor),
+        label("dock_ring_floor", 160, 400, "THE RING: KEEP THIS DECK CLEAR", 440),
         # Freight: the track from the ring, a stack waiting for the hauler.
         prop("dock_conveyor", "orbital_conveyor", 640, floor, 480, 48),
         prop("dock_freight", "orbital_freight_stack", 1128, floor, 180, 120),

@@ -68,6 +68,9 @@ if str(TOOLS) not in sys.path:
 
 from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
+sys.path.insert(0, str(HERE.parent / "gate_network"))
+import gates  # noqa: E402
+
 LDTK = default_sandbox_ldtk()
 
 BIOME = "noodly"
@@ -242,8 +245,11 @@ def room(rid, entities, label, connect=(), music=MUSIC, title_at=(240, 32)):
 """
 
 
-#: Where the door of the level is in the central hub (`--list-free-spots central_hub_main`).
-HUB_DOOR = (1651, 880)
+#: Where the door of the level is in the central hub: the hub's developer
+#: wing (`specs/gate_network/make_gates.py`). The public way in is the
+#: temple's own ring in the narthex (ALDENTE, `data/gate_network.ron`).
+HUB_LEVEL = "central_hub_dev_wing"
+HUB_DOOR = (948, 368)
 #: What the player reads at that door.
 HUB_DOOR_NAME = "to the Noodly Temple"
 HUB_DOOR_ID = "noodly_hub_door"
@@ -256,6 +262,9 @@ def narthex():
     e += [
         f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_to_hub", "to the central hub", 32, floor, "central_hub_complex", HUB_DOOR_ID),
+        # The temple's ring and its terminal: the way to the Noodle dimension.
+        *gates.as_ron(gates.ring("Noodly Gate (Narthex)", "noodly_narthex_gate", 96, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Noodly Gate (Narthex)", "noodly_gate_terminal", 300, floor)),
         door(f"{rid}_east", "to the nave", w - WALL - 80, floor, "noodly_nave", "noodly_nave_west"),
         # Ramen-nujan says what the temple is (Jon, 2026-10-12: he is the one
         # at the door, not a sexton).
@@ -271,7 +280,7 @@ def narthex():
         ledge("alms_step", 380, 304, 144),
         sign(rid, "alms", "The alms. A seal of pesto shuts them.", 700, 60),
     ]
-    connect = [(f'( target_room: "central_hub_main", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "{HUB_DOOR_ID}", '
+    connect = [(f'( target_room: "{HUB_LEVEL}", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "{HUB_DOOR_ID}", '
                 f'name: "{HUB_DOOR_NAME}", target_zone: "{rid}_to_hub", activation: "Door", bidirectional: true ),')]
     return rid, room(rid, e, "The Noodly Temple. Each seal has a key, and each key is hidden.", connect)
 
@@ -542,8 +551,8 @@ ROOMS = (narthex, nave, scullery, cistern, belfry, reliquary, sanctum)
 def hub_door_is_placed():
     """The central hub has the door of this level already."""
     world = json.loads(Path(LDTK).read_text())
-    hub = next(level for level in world["levels"] if level["identifier"] == "central_hub_main")
-    return HUB_DOOR_ID in json.dumps(hub)
+    hub = next((level for level in world["levels"] if level["identifier"] == HUB_LEVEL), None)
+    return hub is not None and HUB_DOOR_ID in json.dumps(hub)
 
 
 def main(argv):

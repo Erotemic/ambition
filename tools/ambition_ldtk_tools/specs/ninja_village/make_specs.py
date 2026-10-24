@@ -57,7 +57,6 @@ FOREST = "ninja_village_forest"
 ARRIVAL = "ninja_village_gate_arrival"
 #: Until GATE's ring and return terminal stand, the arrival zone is a
 #: one-way door home for testing: GATE makes it the ring's arrival pad.
-TEMP_HUB_ZONE = "ninja_dojo_door"
 
 #: The sandbox's Shadow Dojo, and its new door to the forest.
 CLAN = "ninja_dojo"
@@ -100,8 +99,8 @@ def shrine():
         solid("west_wall", 0, 0, WALL, floor),
         solid("east_wall_high", w - WALL, 0, WALL, terrace - 96),
         solid("east_wall_mid", w - WALL, terrace + 16, WALL, floor - 96 - terrace - 16),
-        # Until the gate is here, its arrival is the way home as well.
-        door(ARRIVAL, "the gate (for now, home to the hub)", 312, floor, HUB_ROOM, TEMP_HUB_ZONE, bidirectional=False),
+        # The arrival is the zone of the gate ring (`gate_interface.yaml`, written
+        # by specs/gate_network/make_gates.py), added after the rooms are made.
         start(rid, 336, floor),
         resident("npc_village_sato", "ninja_village_sato", 640, floor),
         resident("npc_village_kenji", "ninja_village_kenji", 800, floor),

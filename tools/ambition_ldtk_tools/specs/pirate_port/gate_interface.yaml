@@ -1,0 +1,42 @@
+# Written by specs/gate_network/make_gates.py. Change that script, not this file.
+# The district's gate ring (its zone is the arrival) and its terminal; the district's
+# make_specs.py adds this file after it makes its rooms.
+level_id: pirate_port_gate_plaza
+entities:
+  - type: Prop
+    px: [160, 512]
+    size: [192, 192]
+    fields:
+      name: "Port Gate (Plaza) Ring"
+      kind: "gate_ring"
+  - type: Prop
+    px: [160, 512]
+    size: [192, 192]
+    fields:
+      name: "Port Gate (Plaza) Portal"
+      kind: "gate_portal"
+  - type: LoadingZone
+    px: [208, 512]
+    size: [96, 192]
+    fields:
+      id: "pirate_port_gate_arrival"
+      name: "the gate"
+      activation: "Door"
+      target_room: ""
+      target_zone: ""
+      bidirectional: false
+  - type: Prop
+    px: [364, 648]
+    size: [64, 56]
+    fields:
+      name: "Port Gate (Plaza) Dialer"
+      kind: "gate_dialer"
+  - type: Switch
+    px: [384, 660]
+    size: [24, 32]
+    fields:
+      id: "pirate_port_gate_terminal"
+      name: "Port Gate (Plaza) terminal"
+      prompt: "Dial the gate"
+      target_encounter: ""
+      action: "GateTerminal"

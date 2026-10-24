@@ -220,8 +220,8 @@ pub fn install_for_boss_conduct(app: &mut App) {
 
 /// Lower `ambition.world.held_force`: each body of the requester's live room
 /// whose box overlaps the field's box loses the field's `lift` of its own
-/// gravity, and takes its `force` over its mass, for this tick, as a change
-/// of its velocity.
+/// gravity, takes its `force` over its mass, and falls toward its `well`, for
+/// this tick, as a change of its velocity.
 ///
 /// The field has no entity and no state of its own. The change goes into
 /// `BodyKinematics::vel`, which is rollback state, on the tick it is asked
@@ -258,7 +258,9 @@ pub fn lower_held_forces<L: LowersIn>(
             }
             let gravity = frame.map_or(Vec2::ZERO, |f| f.get().gravity_acceleration());
             let mass = mass.map_or(1.0, |m| m.0).max(0.05);
-            kin.vel += (force / mass - gravity * lift) * dt;
+            // A well is gravity: the same acceleration on any mass.
+            let well = field.well.map_or(Vec2::ZERO, |well| Vec2::from(well.acceleration(kin.pos.into())));
+            kin.vel += (force / mass + well - gravity * lift) * dt;
         }
     }
 }

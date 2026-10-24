@@ -150,7 +150,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.boss.mount_launch` v1 | request (`boss_conduct`) | `ambition_boss_special_port::MountLaunch` (launch the ridden mount through its launch gateway; `flinchless` for a hop) |
 | `ambition.boss.mount_walk` v1 | request (`boss_conduct`) | `ambition_boss_special_port::MountWalk` (walk the ridden mount on the floor to `to_x` at `speed`; a speed of 0 stops it) |
 | `ambition.boss.foe_launch` v1 | request (`boss_conduct`) | `ambition_boss_special_port::FoeLaunch` (launch the body the boss targets through its launch gateway: a clash, a recoil) |
-| `ambition.world.held_force` v1 | request (`boss_conduct`) | `ambition_combat_port::HeldForce` (a field over a box of the room, held while asked: take a part of each body's weight, and push it by a force over its mass) |
+| `ambition.world.held_force` v2 | request (`boss_conduct`) | `ambition_combat_port::HeldForce` (a field over a box of the room, held while asked: take a part of each body's weight, push it by a force over its mass, and (v2) pull it toward a gravity well, the same acceleration on any mass) |
 | `ambition.boss.wear` v1 | request (`boss_conduct`) | `ambition_boss_special_port::Wear` (put a `worn_gear` row on the boss, its mount or its target, or take it off; see `docs/systems/worn-gear.md`) |
 | `ambition.feedback.speech_bubble` v1 | request (`boss_conduct`) | `ambition_combat_port::SpeechBubble` (text in a bubble, in the body's live room) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |

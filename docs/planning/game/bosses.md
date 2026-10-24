@@ -1222,11 +1222,22 @@ giant's arms."*
    the ways onto the giant are its back, its shoulders and the pair.
 4. **The clamp and phase 2,** as before: two lines take the arms, and the
    fists are bodies of their own.
-5. **The launch.** At the enrage the encounter holds a beat
-   (`enrage_seconds`, 3.6). He powers up (*"What goes up..."*), the giant
-   crouches and lifts off (`gnu_liftoff`, *"...must go UP!"*), the sky goes
-   to space (authored art, `gnu_ton_space`; `presentation/gnu_ton_sky.rs`),
-   and the scholar and the giant put on space helmets.
+5. **The launch: the well.** At the enrage the encounter holds a beat
+   (`enrage_seconds`, 3.6). He powers up (*"Every body pulls on every
+   body..."*). A huge pair of portals eases open: one in the floor of the
+   hall, wider than the giant, and one high over it. A well of gravity at
+   the floor's portal (`ambition.world.held_force` v2, `well`: the same
+   acceleration on every mass) pulls every body into the floor (*"...and
+   MINE pulls hardest!"*). The giant, the scholar on it and the player fall
+   through the floor and out of the portal over it, still falling, as the
+   sky goes to space (authored art, `gnu_ton_space`;
+   `presentation/gnu_ton_sky.rs`). The pair eases shut and the well lets
+   go; a body keeps the fall it came out with and lands light on the floor
+   of the hall in space. The scholar and the giant put on space helmets.
+   It is one fall through, not a loop: each fall through the pair is faster
+   than the one before (MEASURED: 1000, 2300, then 3000 px/s, and at 3000
+   the giant went through the floor and out of the hall). Test:
+   `gnu_ton_fight::the_well_pulls_the_hall_through_its_portals_into_space`.
 6. **Phase 3, in space.** Each body has two fifths of its weight. Every ten
    seconds a tide comes, told first (*"The tide turns!"*, *"Gravity... is
    optional!"*): a push to the right, then to the left, then up. The pair

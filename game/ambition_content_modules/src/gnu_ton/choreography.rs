@@ -1659,20 +1659,68 @@ pub mod arrival {
 /// * Each blow the player lands on him pushes the player back (the third
 ///   law).
 pub mod space {
-    /// The launch, in seconds from its start: his power, the liftoff, the
-    /// helmets, the end of it. `enrage_seconds` in the encounter is `LEN`.
+    use super::Hall;
+
+    /// The launch, in seconds from its start. His power; the WELL: a huge
+    /// pair of portals opens (one in the floor of the hall, one high over
+    /// it), and from the liftoff a well of gravity at the floor's portal
+    /// pulls every body into it. A body that falls into the floor comes out
+    /// of the portal over it, still falling, and the sky over the hall goes
+    /// to space. Then the pair closes and the well lets go, and space takes
+    /// most of each body's weight: a body keeps the fall it came out with
+    /// (the first law), and lands light on the floor of the hall in space.
+    /// The helmets go on. `enrage_seconds` in the encounter is `LEN`.
+    ///
+    /// One fall through, not a loop: each fall through the pair is faster
+    /// than the one before it (MEASURED 2026-10-24: 1000, 2300, then 3000
+    /// px/s, and at 3000 the giant went through the floor and out of the
+    /// hall).
     pub const POWER: f32 = 0.0;
-    pub const LIFTOFF: f32 = 1.0;
-    pub const HELMETS: f32 = 1.9;
+    pub const OPEN: f32 = 0.3;
+    pub const LIFTOFF: f32 = 0.9;
+    pub const CLOSE: f32 = 1.6;
+    pub const HELMETS: f32 = 2.4;
     pub const LEN: f32 = 3.6;
+    /// The seconds the pair takes to open, and to close (a portal never
+    /// snaps open or shut).
+    pub const OPEN_EASE: f32 = 0.6;
+    pub const CLOSE_EASE: f32 = 0.6;
     /// From the liftoff, the seconds the sky takes to go to space.
-    pub const ASCEND: f32 = 2.4;
-    /// The giant's hop at the liftoff (world units per second, up).
-    pub const HOP: f32 = 620.0;
+    pub const ASCEND: f32 = 1.6;
+    /// Half the length of each portal of the well: wider than the giant.
+    pub const PORTAL_HALF: f32 = 480.0;
+    /// How far over the floor the far portal is: the giant comes out of it
+    /// whole, under the top of the hall.
+    pub const FAR_OVER_FLOOR: f32 = 1000.0;
+    /// The well's pull (an acceleration, the same on every mass), at
+    /// `WELL_NEAR` and nearer, and the seconds it takes to come.
+    pub const WELL_PULL: f32 = 2600.0;
+    pub const WELL_NEAR: f32 = 420.0;
+    pub const WELL_RISE: f32 = 0.5;
     /// The part of each body's weight that space takes away, and the
     /// seconds it takes to come and to go.
     pub const LIFT: f32 = 0.6;
     pub const LIFT_EASE: f32 = 0.6;
+
+    /// The two portals of the well in `hall`: the floor's, its middle in the
+    /// middle of the hall and its room side up, and the one over it, its
+    /// room side down. A body that goes down into the first comes down out
+    /// of the second.
+    pub fn well_portals(hall: Hall) -> [([f32; 2], [f32; 2]); 2] {
+        let x = hall.center_x();
+        [([x, hall.floor], [0.0, -1.0]), ([x, hall.floor - FAR_OVER_FLOOR], [0.0, 1.0])]
+    }
+
+    /// How open the well's portals are at `t` (0 shut, 1 open).
+    pub fn well_open(t: f32) -> f32 {
+        super::ease((t - OPEN) / OPEN_EASE) * (1.0 - super::ease((t - CLOSE) / CLOSE_EASE))
+    }
+
+    /// The well's pull at `t`: it comes at the liftoff, and goes as the pair
+    /// closes.
+    pub fn well_pull(t: f32) -> f32 {
+        WELL_PULL * super::ease((t - LIFTOFF) / WELL_RISE) * (1.0 - super::ease((t - CLOSE) / CLOSE_EASE))
+    }
     /// The tides: each `CYCLE` seconds a calm, a warning, then a tide.
     pub const CYCLE: f32 = 10.0;
     pub const CALM: f32 = 4.5;
@@ -1754,12 +1802,12 @@ pub mod space {
 
     /// The field over the hall at `t` seconds after the launch: the part of
     /// weight taken away, and the push on a body of mass 1. Nothing before
-    /// the liftoff.
+    /// the well closes: in the well, a body falls with all its weight.
     pub fn field(t: f32) -> (f32, [f32; 2]) {
-        if t < LIFTOFF {
+        if t < CLOSE {
             return (0.0, [0.0, 0.0]);
         }
-        let lift = LIFT * super::ease((t - LIFTOFF) / LIFT_EASE);
+        let lift = LIFT * super::ease((t - CLOSE) / LIFT_EASE);
         match sea(t) {
             Sea::Tide(tide, into) => {
                 // It comes up and goes down: no snap at its ends.
@@ -2478,7 +2526,7 @@ mod tests {
     #[test]
     fn in_space_weight_goes_and_the_tides_come_after_a_warning() {
         use super::space::{self as sp, Sea, Tide};
-        assert_eq!(sp::field(sp::LIFTOFF - 0.01), (0.0, [0.0, 0.0]));
+        assert_eq!(sp::field(sp::CLOSE - 0.01), (0.0, [0.0, 0.0]));
         assert_eq!(sp::ascent(sp::LIFTOFF), 0.0);
         assert_eq!(sp::ascent(sp::LIFTOFF + sp::ASCEND), 1.0);
         let (lift, push) = sp::field(sp::LEN + 1.0);
@@ -2507,6 +2555,40 @@ mod tests {
 
     /// The end: he falls in front of it, it holds him, and he is back on its
     /// shoulder at the end; each part follows the one before.
+    /// ⭐ THE WELL (Jon, 2026-10-24: "gnuton opens a huge portal and then a
+    /// gravity well that causes everyone to fall into it and into space").
+    /// The pair opens and closes over time (never snaps), the well pulls only
+    /// while the pair is open, the floor's portal is wider than the giant,
+    /// the far portal is over it with its room side down, and space takes
+    /// weight only once the well has let go.
+    #[test]
+    fn the_well_opens_pulls_and_closes_before_space_takes_the_weight() {
+        use super::space as sp;
+        let hall = super::Hall { floor: 1216.0, left: 64.0, right: 1728.0 };
+        let [(floor, up), (over, down)] = sp::well_portals(hall);
+        assert_eq!((up, down), ([0.0, -1.0], [0.0, 1.0]));
+        assert_eq!(floor[0], over[0]);
+        assert!(floor[1] - over[1] >= 900.0, "the far portal is high over the floor");
+        assert!(sp::PORTAL_HALF * 2.0 > 485.0 * 1.3 + 200.0, "the giant falls in whole");
+        assert!(floor[0] - sp::PORTAL_HALF > hall.left && floor[0] + sp::PORTAL_HALF < hall.right);
+        // It eases open and shut: no step of a 60 Hz tick is a snap.
+        let mut last = 0.0;
+        for k in 0..=(sp::LEN * 60.0) as i32 {
+            let now = sp::well_open(k as f32 / 60.0);
+            assert!((now - last).abs() < 0.05, "the pair snaps at {}: {last} to {now}", k as f32 / 60.0);
+            last = now;
+        }
+        assert_eq!(sp::well_open(sp::OPEN), 0.0);
+        assert_eq!(sp::well_open(sp::CLOSE), 1.0);
+        assert_eq!(sp::well_open(sp::CLOSE + sp::CLOSE_EASE), 0.0);
+        assert_eq!(sp::well_pull(sp::LIFTOFF), 0.0);
+        assert_eq!(sp::well_pull(sp::LIFTOFF + sp::WELL_RISE), sp::WELL_PULL);
+        assert_eq!(sp::well_pull(sp::CLOSE + sp::CLOSE_EASE), 0.0);
+        assert!(sp::well_open(sp::LIFTOFF) > 0.5, "the pair is open when the well pulls");
+        assert!(sp::CLOSE + sp::CLOSE_EASE <= sp::LEN, "the well is shut before the fight in space");
+        assert_eq!(sp::field(sp::CLOSE).0, 0.0, "no weight is taken in the well");
+    }
+
     #[test]
     fn beaten_he_falls_is_held_and_wakes_on_its_shoulder() {
         let (from, floor, cradle, saddle) =

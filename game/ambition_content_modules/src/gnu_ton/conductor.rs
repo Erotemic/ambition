@@ -30,7 +30,7 @@ use ambition_boss_special_port::{
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, Effect, EffectPort, HeldDamageBox, HeldDamageBoxPort,
-    HeldForce, HeldForcePort,
+    GravityWell, HeldForce, HeldForcePort,
     Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
@@ -90,6 +90,8 @@ const WAVE_BOX_SLOT: u32 = 2;
 const WAVES: usize = 4;
 /// The held portal pair's slot: the pair of the punch.
 const PUNCH_PAIR_SLOT: u32 = 0;
+/// The slot of the well's pair of portals (`ch::space::well_portals`).
+const WELL_PAIR_SLOT: u32 = 1;
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
 const WARNING: [f32; 4] = [1.0, 0.42, 0.25, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.84, 0.2, 1.0];
@@ -152,6 +154,8 @@ const HELMET: &str = "space_helmet";
 const HELMET_WEARERS: [Wearer; 2] = [Wearer::Boss, Wearer::Mount];
 /// The slot of the field of space among his fields.
 const SPACE_FIELD: u32 = 1;
+/// The slot of the field of the well's gravity.
+const WELL_FIELD: u32 = 2;
 const APPLE_SCALE: f32 = 7.0;
 const APPLE_HITS: f32 = 14.0 * 0.055 * 0.42;
 const GLINT_SCALE: f32 = 3.0;
@@ -2007,19 +2011,59 @@ fn space(
     if crossed(sp::POWER) {
         effect(inv, FX_POWER, v(scholar.position), POWER_SCALE, Vec2::X)?;
         play(inv, SFX_CHARGE, head)?;
-        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: "What goes up...".to_string() })?;
+        inv.submit::<SpeechBubblePort>(SpeechBubble {
+            at: a(head - Vec2::new(0.0, 30.0)),
+            text: "Every body pulls on every body...".to_string(),
+        })?;
+    }
+    // The well: a pair of portals, the floor's and the one over it, and a
+    // well of gravity at the floor's. A body falls into the floor and out of
+    // the portal over it, and into the floor again: the hall falls through
+    // itself until the pair closes, and then it is in space.
+    let [(floor_at, floor_normal), (over_at, over_normal)] = sp::well_portals(hall);
+    let open = sp::well_open(t);
+    if open > 0.0 {
+        let end = |at: [f32; 2], normal: [f32; 2]| PortalEnd {
+            at,
+            normal,
+            half_length: sp::PORTAL_HALF * open,
+            half_thickness: None,
+        };
+        inv.submit::<HeldPortalPairPort>(HeldPortalPair {
+            slot: WELL_PAIR_SLOT,
+            ends: [end(floor_at, floor_normal), end(over_at, over_normal)],
+            looks: [24, 25],
+            closes_on_use: false,
+        })?;
+    }
+    let pull = sp::well_pull(t);
+    if pull > 0.0 {
+        inv.submit::<HeldForcePort>(HeldForce {
+            slot: WELL_FIELD,
+            min: [hall.left - 200.0, hall.floor - 4000.0],
+            max: [hall.right + 200.0, hall.floor + 64.0],
+            lift: 0.0,
+            force: [0.0, 0.0],
+            well: Some(GravityWell { at: floor_at, pull, near: sp::WELL_NEAR }),
+        })?;
     }
     if crossed(sp::LIFTOFF) {
         let size = FX_SIZE * LIFTOFF_SCALE;
         effect(inv, FX_LIFTOFF, feet - Vec2::new(0.0, size * 0.5), LIFTOFF_SCALE, Vec2::NEG_Y)?;
         inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 30.0 })?;
-        inv.submit::<MountLaunchPort>(MountLaunch { velocity: [0.0, -sp::HOP], flinchless: true })?;
         play(inv, SFX_STOMP, feet)?;
         play(inv, SFX_FLOOR, feet)?;
         for side in [-1.0, 1.0] {
             dust(inv, feet + Vec2::new(side * giant_size.x * 0.4, 0.0), 24, 420.0, [0.75, 0.62, 0.45, 1.0])?;
         }
-        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: "...must go UP!".to_string() })?;
+        inv.submit::<SpeechBubblePort>(SpeechBubble {
+            at: a(head - Vec2::new(0.0, 30.0)),
+            text: "...and MINE pulls hardest!".to_string(),
+        })?;
+    }
+    if crossed(sp::CLOSE) {
+        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 16.0 })?;
+        play(inv, SFX_WHOOSH, Vec2::from(over_at))?;
     }
     if crossed(sp::HELMETS) && !c.helmets {
         c.helmets = true;
@@ -2077,6 +2121,7 @@ fn hold_space_field(inv: &mut Invocation<'_>, hall: Hall, lift: f32, push: [f32;
         max: [hall.right + 200.0, hall.floor + 64.0],
         lift,
         force: push,
+        well: None,
     })
 }
 

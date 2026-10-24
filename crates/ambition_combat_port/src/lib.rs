@@ -34,7 +34,7 @@ pub mod targets;
 pub mod think;
 pub mod wielded;
 pub use blast::{Blast, BlastPort, CreditPort};
-pub use force::{HeldForce, HeldForcePort};
+pub use force::{GravityWell, HeldForce, HeldForcePort};
 pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort, Struck, StruckPort};
 pub use targets::{Foe, Foes, FoesPort};
 pub use status::{

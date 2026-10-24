@@ -285,6 +285,7 @@ mod host_adapter {
             &ambition_portal2d::PortalTransit,
         )>,
         hosts: Query<(&ambition_combat::FeatureId, &BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        hosts_in_transit: Query<(), With<ambition_portal2d::PortalTransit>>,
         portals: Query<(Entity, &ambition_portal2d::PlacedPortal)>,
         visuals: Query<
             (
@@ -319,6 +320,12 @@ mod host_adapter {
         }
         let mut carried: Vec<Carried> = Vec::new();
         for (limb, of, kin, step, transit) in &limbs {
+            // A host that goes through a pair itself (all of it, as a giant
+            // that falls into a portal) is cut as one body: its limbs are not
+            // drawn apart from it.
+            if hosts_in_transit.contains(of.of) {
+                continue;
+            }
             let room = live.of(limb);
             let Some(portal) = ambition_portal2d::find_portal(by_room.in_room(room), transit.straddling) else {
                 continue;

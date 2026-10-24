@@ -1968,3 +1968,55 @@ fn a_blow_that_meets_the_fist_as_it_comes_out_throws_both_back() {
     assert!(scene(&mut sim).scholar_hp < before, "the force went up the arm to him");
     assert!(thrown > 400.0, "the player was thrown back: {thrown}");
 }
+
+/// ⭐ THE WELL (Jon, 2026-10-24: "gnuton opens a huge portal and then a
+/// gravity well that causes everyone to fall into it and into space"). In
+/// the launch the floor of the hall opens into a portal, a well of gravity
+/// pulls every body into it, and a body that falls in comes out of the
+/// portal over it, falling. It is all simulation: the giant, the scholar on
+/// it and the player go through the pair, as bodies, and after it closes they
+/// are in the hall, in space, and none fell out of it.
+#[test]
+fn the_well_pulls_the_hall_through_its_portals_into_space() {
+    let mut sim = arena_with_free_fists();
+    untouchable_player(&mut sim);
+    step_until(&mut sim, 600, "the free fists", |sim| scene(sim).fists.len() == 2);
+    place_player(&mut sim, ae::Vec2::new(700.0, 1200.0));
+    scholar_health_to(&mut sim, 0.2);
+    let floor = scene(&mut sim).floor;
+    let mut trail = Vec::new();
+    for tick in 0..(60.0 * 6.0) as usize {
+        sim.step(AgentAction::default());
+        let s = scene(&mut sim);
+        let (me, _) = player(&mut sim);
+        trail.push((tick, s.giant.clone(), s.scholar.pos, me.clone()));
+    }
+    let shown = || {
+        trail.iter().step_by(6).map(|(t, g, s, p)| format!("{t} giant {:?} {:?} scholar {s:?} player {:?}", g.pos, g.vel, p.pos)).collect::<Vec<_>>().join("\n")
+    };
+    // Each went down into the floor and came out high over it: a jump up of
+    // most of the hall in one tick, with the fall kept.
+    let through = |body: &dyn Fn(&(usize, ae::BodyKinematics, ae::Vec2, ae::BodyKinematics)) -> ae::BodyKinematics| {
+        trail.windows(2).filter(|w| body(&w[0]).pos.y - body(&w[1]).pos.y > 700.0 && body(&w[1]).vel.y > 0.0).count()
+    };
+    assert!(through(&|row| row.1.clone()) >= 1, "the giant did not fall through the well:\n{}", shown());
+    assert!(through(&|row| row.3.clone()) >= 1, "the player did not fall through the well:\n{}", shown());
+    // Nothing fell out of the hall (a body in the floor's portal is partly
+    // under the floor, and never all of it), and the scholar stayed on his
+    // giant.
+    for (k, (tick, giant, scholar, me)) in trail.iter().enumerate() {
+        assert!(giant.pos.y - giant.size.y * 0.5 < floor, "tick {tick}: the giant fell out of the hall:\n{}", shown());
+        assert!(me.pos.y - me.size.y * 0.5 < floor, "tick {tick}: the player fell out of the hall:\n{}", shown());
+        // The rider is put on his mount after the mount moves: on the tick
+        // the giant goes through, he follows it on the next.
+        let giant_went_through = k > 0 && trail[k - 1].1.pos.y - giant.pos.y > 700.0;
+        assert!(
+            giant_went_through || scholar.y < giant.pos.y,
+            "tick {tick}: the scholar fell off his giant:\n{}",
+            shown()
+        );
+    }
+    // In space, after the launch: the giant stands on the floor of the hall.
+    let s = scene(&mut sim);
+    assert!(on_floor(&s.giant, floor), "the giant is not down in space:\n{}", shown());
+}

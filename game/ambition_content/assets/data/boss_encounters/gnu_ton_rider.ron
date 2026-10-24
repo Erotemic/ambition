@@ -19,7 +19,8 @@
     intro_seconds: 2.8,
     transition_seconds: 2.0,
     // The launch into space before phase 3 (`choreography::space::LEN`): he
-    // powers up, the giant lifts off, the sky goes to space.
+    // powers up, a well of gravity pulls the hall into its own portals, and
+    // the sky goes to space.
     enrage_seconds: 3.6,
     // Music: Standing on Shoulders v2 as his adaptive cue,
     // `standing_on_shoulders_v2_adaptive`, bound to his phases in

@@ -61,7 +61,12 @@ pub(super) fn install(app: &mut App) {
             }),
         )
             .chain()
-            .after(ambition_input::InputSet::ResolveContext),
+            .after(ambition_input::InputSet::ResolveContext)
+            // A READER of the menu frame, after every surface that writes or
+            // consumes it: the frame is whole when the terminal reads it, and
+            // no other surface's order depends on the terminal's. Nothing
+            // else acts on the frame while the terminal owns the seat.
+            .after(ambition_platformer2d::actors::schedule::MenuFrameConsume),
     );
 }
 
@@ -87,14 +92,16 @@ const LETTER_KEYS: [(KeyCode, char); 11] = [
 
 /// Read every input road into the terminal's state, and send what a press
 /// asks. One press is one action: a letter key that also navigates a menu
-/// (W, A, S, D, Q, E) types its symbol and does not move the cursor.
+/// (W, A, S, D, Q, E) types its symbol and does not move the cursor. The
+/// menu frame is only read: while the terminal owns the seat no other surface
+/// acts on it, so there is nothing to consume.
 #[allow(clippy::too_many_arguments)]
 fn drive_gate_terminal(
     catalog: Option<Res<GateNetworkCatalog>>,
     state: Option<Res<GateNetworkState>>,
     save: Option<Res<ambition_platformer2d::persistence::save::AmbitionGameSave>>,
     mut ui: ResMut<TerminalUi>,
-    mut menu: Option<ResMut<ambition_input::MenuControlFrame>>,
+    menu: Option<Res<ambition_input::MenuControlFrame>>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     seats: Option<Res<ambition_input::participant::SeatInputContexts>>,
     buttons: Query<(&Interaction, &GateTerminalButton), Changed<Interaction>>,
@@ -151,10 +158,9 @@ fn drive_gate_terminal(
             }
         }
     }
-    if let Some(menu) = menu.as_deref_mut() {
-        if typed {
-            menu.consume_nav_edges();
-        }
+    // A typed letter that is also a menu key (W, A, S, D, Q, E) types and
+    // does not navigate: the frame's edges of a typing frame are not read.
+    if let Some(menu) = menu.as_deref().filter(|_| !typed) {
         let dx = i32::from(menu.right) - i32::from(menu.left);
         let dy = i32::from(menu.down) - i32::from(menu.up);
         if dx != 0 || dy != 0 {
@@ -174,7 +180,6 @@ fn drive_gate_terminal(
         if menu.back {
             effects.push(ui.back());
         }
-        menu.consume_nav_edges();
     }
     for effect in effects {
         if let TerminalEffect::Send(action) = effect {

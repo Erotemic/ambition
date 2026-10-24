@@ -262,6 +262,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/gate_network.rs",
         "crates/ambition_platformer2d_runtime/src/cutscene.rs",
         "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "crates/ambition_shrine/src/lib.rs",
@@ -696,6 +697,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "GatePortalPhases": (
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+    ),
+    "GateNetworkState": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/gate_network.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
     ),
     "CutRopeHeavyObjectCycle": (
@@ -2338,7 +2344,16 @@ ADJUDICATED: dict[str, str] = {
         "ARRIVED. `persist_module_records_to_save` writes the `module_records` "
         "family only, which no other writer touches, from "
         "`DurableHorizonSet::DomainMirror` beside the other simulation mirrors "
-        "(I4 save eligibility)."
+        "(I4 save eligibility).\n"
+        "    2026-10-24: `world/rooms/gate_network.rs` ARRIVED. "
+        "`run_gate_network` sets one flag family, `gate.known.<ADDRESS>`, when a "
+        "dial answers. Its other writer is shipped Yarn "
+        "(`<<command \"world.set_flag\" \"gate.known.TANGENT\" true>>`), through "
+        "the flag command every dialogue uses; both only ever set it true. Its "
+        "readers are the terminal's Known list and nothing else: a dial's "
+        "validity never reads it (`resolve_dial`, rule 4 of "
+        "`docs/planning/game/gate-network.md`), so no ambiguity in it can reach a "
+        "decision of the simulation."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
@@ -2439,6 +2454,26 @@ ADJUDICATED: dict[str, str] = {
         "POISON-VERIFIED: with the reset removed, "
         "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
         "fails on this row on 40 frames, ticks 0 to 39."
+    ),
+    "GateNetworkState": (
+        "CORRECT — ONE OWNER, ONE FIELD HANDED TO THE CROSSING, AND THE SESSION "
+        "BOUNDARY. `run_gate_network` (`world/rooms/gate_network.rs`) owns the "
+        "open terminal, the links, the reports and the recent addresses. "
+        "`detect_room_transition_system` (`world/rooms/systems.rs`) writes only "
+        "through `GateNetworkState::crossed`, which marks the traveller's link "
+        "crossed and cuts its time to the linger; it runs in "
+        "`Platformer2dSimulationPhase::RoomTransition` (inside `CoreSimulation`), "
+        "which the phase chain orders before `Progression`, where the owner "
+        "runs, so the two never share an unordered frame. Its readers: the "
+        "portal tick (`holds_open`) and the transition (`route_from`), both "
+        "simulation, and the terminal panel. POISON-VERIFIED 2026-10-24: with "
+        "both `crossed` calls removed, "
+        "`the_gate_network::an_opening_ring_takes_nobody_and_an_open_one_takes_the_traveller_once` "
+        "fails on `the link closes after its traveller`. The third file is "
+        "`SessionScopedResources::reset` (`session/teardown.rs`), which empties "
+        "the network at the session edge, the shape of `GatePortalPhases`; "
+        "REASONED, not poisoned: no test starts a session after one that held "
+        "a live link."
     ),
     "CutRopeHeavyObjectCycle": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "

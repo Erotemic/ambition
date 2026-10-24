@@ -12,8 +12,7 @@ What it does (`docs/planning/game/gate-network.md`):
 
 - The central hub (`central_hub_main`, `sandbox.ldtk`) gets ONE public gate:
   a dialed ring (`hub_public_gate_zone`, address LEGAL) and its terminal
-  (`hub_public_terminal`), on the main floor beside the door to the gate
-  stack. The hub's old gate on the shelf (to the Evil dimension) goes: the
+  (`hub_public_terminal`), on the main floor east of the start. The hub's old gate on the shelf (to the Evil dimension) goes: the
   public gate dials CITADEL.
 - The doors that went from the hub's main floor to test rooms and to other
   dimensions move into the DEVELOPER WING (`central_hub_dev_wing`), a new
@@ -27,8 +26,8 @@ What it does (`docs/planning/game/gate-network.md`):
 - `overfit_annex_entry` (another room) moves its place in the world file out
   of the wing's way. Its rooms and doors do not change.
 - The intro's gate (`intro_portal_zone`, `gate_stack_lower`) comes out of the
-  hub's door to the gate stack, beside the public gate, so the first walk
-  from the intro leads to the gate.
+  hub's door to the gate stack, on the start's platform, so the first walk
+  from the intro leads east past the start to the public gate.
 - Ring 7 of the gate stack (`math_gate_home_zone`) becomes a dialed ring with
   its own terminal; its old switch is now its power breaker.
 - The military gate annex (`military_gate_annex`, its own room and facility)
@@ -105,13 +104,17 @@ def wing_door_x(index: int) -> int:
 #: The public gate on the main floor.
 PUBLIC_RING_X = 1296
 PUBLIC_DIALER_X = 1500
-#: The door to the gate stack stands on the low platform in the middle of the
-#: hall, east of the hub's start: the intro's gate comes out of it, and the
-#: public gate is a short walk east. It is the nearest door to the start (the
-#: wake room's door is on the balcony above), and it stands clear of the start
-#: (x 936..964): a press of Interact where a body stands at the start, or where
-#: something dropped there lies, is not a press at the door.
-GATE_STACK_DOOR = (1100, 832)
+#: The door to the gate stack stands at the WEST end of the low platform the
+#: hub's start is on (the platform is x 768..1136, the start x 936..964): the
+#: intro's gate comes out of it, and the public gate is east, past the start.
+#: The start faces east, so what a body there throws or drops lands east of
+#: it, and a press of Interact where it lands must not be a press at a door:
+#: at x 1000 and then x 1100 the door caught the checkpoint presses of the
+#: dropped-gauntlet and banked-mint scenarios. This is where the hall of
+#: bosses' door stood before the developer wing, which those scenarios never
+#: reached. It stays the nearest door to the start (the wake room's door is
+#: on the balcony above), on the start's own floor.
+GATE_STACK_DOOR = (786, 832)
 #: The bags for organic travellers, on the wall east of the dialer.
 BAGS_X = 1600
 #: The hub guide moves east of the bags, so a press at the ring or the dialer
@@ -337,8 +340,8 @@ edits:
 
 
 def intro_edit_yaml() -> str:
-    return """# The intro's gate comes out of the hub's door to the gate stack, beside the
-# public gate. Ring 7 is dialed: its zone names no target, and its old switch
+    return """# The intro's gate comes out of the hub's door to the gate stack, on the
+# start's platform west of the public gate. Ring 7 is dialed: its zone names no target, and its old switch
 # is its power breaker.
 level_id: gate_stack_lower
 edits:

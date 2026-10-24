@@ -115,16 +115,23 @@ impl Plugin for HeldItemSimulationPlugin {
                 // see [`return_released_items`]. It reads a hand that has already
                 // settled, so it can never mistake an item the pickup below took
                 // this very tick for one nobody is holding.
+                // Each pass visits items in the world (`GroundItem`, carried or
+                // lying) or a holder's item (`HeldItem`); with none it is idle.
+                // Residency below stays ungated.
                 return_released_items
+                    .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Release),
                 pickup_held_item_system
+                    .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Pickup),
                 fire_held_ranged_system
+                    .run_if(any_with_component::<HeldItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Use),
                 throw_held_item_system
+                    .run_if(any_with_component::<HeldItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Throw),
                 // ⭐ SUPPORT IS RE-VALIDATED BEFORE THE STEP, so an item whose
@@ -132,12 +139,15 @@ impl Plugin for HeldItemSimulationPlugin {
                 // the same reason the kernel's match spawn attaches before this
                 // step — and an item whose platform MOVED goes with it.
                 carry_or_wake_settled_items
+                    .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Settle),
                 ground_item_physics
+                    .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Physics),
                 right_ground_items
+                    .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Physics),
                 // RESIDENCY FOLLOWS CUSTODY. Last in the chain, so it sees the

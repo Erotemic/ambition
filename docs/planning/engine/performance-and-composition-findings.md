@@ -28,7 +28,7 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 02:04Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-24 02:29Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,063 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
@@ -139,6 +139,7 @@ says what they bought in frame time.
 | The boss animator passes (animate, demand part sheets, bind, pose) run while a `BossAnimator` exists: each loops over it alone. The stage veil, name card, finish bars and health bar stay: they fade or retire their UI after a boss leaves | done | census: Ambition route 1,067 → 1,063 systems a tick; render boss tests 5; a capture of GNU-ton's arena draws the giant and GNU-ton |
 | F46 cut 3: the hub look's overlay draws only the front's unsettled band (a mesh cut to the band, hidden when the room is settled). Exact: outside the band the shader returned zero alpha | done | hub capture against the pre-cut binary: 4 px differ by ≤1 level (run-to-run noise ~2,600 px); room_look witnesses 2 new, 5 pass; GPU fragment saving REASONED, needs the phone |
 | Portal simulation runs with a portal: transit, snags, links and apertures while a portal stands or a body carries a transit latch (which transit clears); evictions while a portal stands or the frame history still holds one (the tick a portal closes still evicts); fire, toggles and transit reconcile peek their messages; cooldowns while one runs. Conversation input and reveal while a conversation is open or its hold mark is up. The hub has no placed portal (its LDtk level, MEASURED) | done | census: Ambition route −15 systems a tick (13 portal, 2 dialogue); portal2d 129, app portal/transit/snag/evict/transition/reconstitution/dialog/pause 84, dialog 26 + conversation 28 |
+| The held-item passes run with an item: release, pickup, settle and physics while a `GroundItem` exists (carried or lying); firing and throwing while a body holds a `HeldItem`. Residency stays ungated, as its comment requires | done | census: Ambition route −2 (the hub has ground items, no holder); held items 43 pass. The `a_dog_sent_for_an_item` reds in the shared tree fail with this change reverted too (another session's crossing work) |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

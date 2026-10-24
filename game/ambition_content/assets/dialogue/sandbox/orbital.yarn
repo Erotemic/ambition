@@ -1,0 +1,121 @@
+title: orbital_context
+---
+// The orbital station of the Science dimension (`specs/orbital_station/`):
+// one node per resident. The errand of consignment 0447 (quest
+// `orbital_consignment`) runs through Okafor at customs, Georg Canter in
+// the Math town's Surveyor's Office (`math.yarn`), and back.
+//
+// Flags: `orbital_consignment_query` (Okafor asks for a signed count),
+// `orbital_manifest_signed` (Canter signs it), `orbital_consignment_cleared`
+// (Okafor clears the crate: the freight lane's gates open) and
+// `orbital_spur_pass` (the hatch of the damaged spur opens).
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: station_okafor
+---
+<<if condition("world.flag_set", "orbital_consignment_cleared")>>
+    Officer Okafor: Lane's open. Crate 0447 went on the Remainder at shift change.
+    -> Anything else held?
+        Officer Okafor: Always. Not today's problem. Hamid wanted someone in the spur; your pass is on the hatch.
+    -> ⟨step away⟩
+<<elseif condition("world.flag_set", "orbital_manifest_signed")>>
+    Officer Okafor: A signature from the Math town. "Twelve lenses. Finite." He underlined finite.
+    -> Clear the crate.
+        <<command "world.set_flag" "orbital_consignment_cleared" true>>
+        <<command "world.set_flag" "orbital_spur_pass" true>>
+        Officer Okafor: Stamped. The pen opens and the lane to the bay with it. One more thing: Hamid needs someone in the damaged spur who does not breathe. I put a pass on the hatch.
+    -> Not yet.
+<<elseif condition("world.flag_set", "orbital_consignment_query")>>
+    Officer Okafor: Still need a count I can stamp. Surveyor's Office, Math town. Ask for Canter.
+    -> Where is the Math town?
+        Officer Okafor: Through the ring and up the stairs from its gate hall. The office is on the second terrace.
+    -> ⟨step away⟩
+<<else>>
+    Officer Okafor: Customs. Crate 0447 in my pen is survey lenses from the Math town, for the Remainder. The manifest gives the count as "aleph-null". I cannot clear an infinite crate.
+    -> I can ask the sender.
+        <<command "world.set_flag" "orbital_consignment_query" true>>
+        Officer Okafor: Surveyor's Office, Math town. Bring me a number I can stamp.
+    -> Why so careful?
+        Officer Okafor: Seed stock, spores, mail with ideas in it. The ring moves anything. Somebody has to look first.
+    -> ⟨step away⟩
+<<endif>>
+===
+
+title: station_reyes
+---
+<<if condition("world.flag_set", "orbital_consignment_cleared")>>
+    Captain Reyes: 0447 is aboard. We burn for the survey moon at shift change. Thanks for fetching a number.
+    -> Why does the moon need lenses?
+        Captain Reyes: To map it. Then someone will want a ring there, and I will be out of work. Good.
+    -> ⟨step away⟩
+<<else>>
+    Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
+    -> What do you haul?
+        Captain Reyes: Whatever the ring brings that has to go where no ring is. Moons, mines, the slow places.
+    -> Why not put a ring on the moon?
+        Captain Reyes: A ring eats a reactor and a crew. A hauler eats patience. Patience is cheaper.
+    -> ⟨step away⟩
+<<endif>>
+===
+
+title: station_lindqvist
+---
+Bo Lindqvist: Ring throughput is down a third since they doubled the passenger slots. Freight waits. I wait.
+-> Why passengers first?
+    Bo Lindqvist: They complain louder than crates. Also they get sick in the ring, so they want it over fast.
+-> Need a hand?
+    Bo Lindqvist: Not unless you can lift a container. ...You can? Huh. Union says no.
+-> ⟨step away⟩
+===
+
+title: station_rahimi
+---
+<<if condition("world.flag_set", "switch_orbital_spur_breaker_used")>>
+    Hamid Rahimi: Power is back in the spur. The crawlers went quiet when the breaker closed. I owe you.
+    -> What broke them?
+        Hamid Rahimi: Their orders. "Repair anything damaged." The storm damaged everything. They kept cutting.
+    -> ⟨step away⟩
+<<elseif condition("world.flag_set", "orbital_spur_pass")>>
+    Hamid Rahimi: Okafor logged your pass. The spur took a storm last cycle. Breaker's tripped at the far end.
+    -> What is in there?
+        Hamid Rahimi: No air, live cable under the deck, and maintenance crawlers that do not stop. Reset the breaker if you can.
+    -> ⟨step away⟩
+<<else>>
+    Hamid Rahimi: Service deck. Don't touch anything that hums.
+    -> What is behind the hatch?
+        Hamid Rahimi: The old spur. Damaged. Shut until customs signs off on someone with a pass and no lungs.
+    -> How much power does the ring take?
+        Hamid Rahimi: Opening it, all of it. Holding it, half. That is why we schedule.
+    -> ⟨step away⟩
+<<endif>>
+===
+
+title: station_pell
+---
+Gus Pell: First time through the ring? People come up those stairs green. Crackers by the door.
+-> I don't get sick.
+    Gus Pell: A robot. Lucky. Some folks lose a day to it. Some just lose breakfast.
+-> What's cooking?
+    Gus Pell: Greens from the racks, and whatever came through the gate this morning. Today, beans.
+-> ⟨step away⟩
+===
+
+title: station_wen
+---
+Wen Liang: I tuned this station's first stable ring. The first link held three seconds. Now people commute.
+-> What changed?
+    Wen Liang: Power got cheap. Everybody wants a gate now. Not everybody wants to pay for one.
+-> Do you miss the work?
+    Wen Liang: I miss the quiet. Look down instead. That never gets old.
+-> ⟨step away⟩
+===
+
+title: station_neil
+---
+Neil onGras Turfson: Well, actually, that blue line on the edge is all the air they have. Thinner than paint on a ball.
+-> It looks fragile.
+    Neil onGras Turfson: It is. Look at it long enough and you will want to go down and touch some grass.
+-> ⟨step away⟩
+===

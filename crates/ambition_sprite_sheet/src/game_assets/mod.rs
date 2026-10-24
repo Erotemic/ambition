@@ -207,6 +207,14 @@ pub enum ParallaxTheme {
     /// a wainscot of hexagonal tiles, timber under the ceiling, a floor of
     /// terracotta tiles. Each room's furniture is its own props.
     MathInterior,
+    /// Inside a deck of the orbital station of the Science dimension: steel
+    /// plates between hull ribs, long viewports with the stars and the curve
+    /// of the planet in them, lockers and cable trays in front.
+    Orbital,
+    /// Out in the open trusses of the orbital station and its gravity works:
+    /// the planet below, the station's far spar with its solar wings, a
+    /// hauler going out, and the near lattice of the truss.
+    OrbitalTruss,
     /// The dark forest of the Evil dimension: black thorned trees under a
     /// blood-red sky, and far off Castle Godwin on its crag, its searchlights
     /// in the ash cloud. The rooms of `evil.ldtk` outside the castle name it.
@@ -289,6 +297,8 @@ impl ParallaxTheme {
         Self::MathTown,
         Self::MathUndercroft,
         Self::MathInterior,
+        Self::Orbital,
+        Self::OrbitalTruss,
         Self::EvilForest,
         Self::CastleGodwin,
         Self::CastleGodwinLab,
@@ -323,6 +333,8 @@ impl ParallaxTheme {
             Self::MathTown => "math_town",
             Self::MathUndercroft => "math_undercroft",
             Self::MathInterior => "math_interior",
+            Self::Orbital => "orbital",
+            Self::OrbitalTruss => "orbital_truss",
             Self::EvilForest => "evil_forest",
             Self::CastleGodwin => "castle_godwin",
             Self::CastleGodwinLab => "castle_godwin_lab",
@@ -425,6 +437,8 @@ impl ParallaxTheme {
             "math_town" | "math" | "math_dimension" => Some(Self::MathTown),
             "math_undercroft" | "math_gate_hall" => Some(Self::MathUndercroft),
             "math_interior" => Some(Self::MathInterior),
+            "orbital" | "orbital_station" | "space_station" => Some(Self::Orbital),
+            "orbital_truss" | "space" => Some(Self::OrbitalTruss),
             "evil_forest" | "evil" => Some(Self::EvilForest),
             "castle_godwin" => Some(Self::CastleGodwin),
             "castle_godwin_lab" => Some(Self::CastleGodwinLab),

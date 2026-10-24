@@ -3,6 +3,7 @@
 
     python specs/gnu_ton_gravity/make_specs.py          # writes the specs
     python specs/gnu_ton_gravity/make_specs.py --apply  # and makes the rooms
+    python specs/gnu_ton_gravity/make_specs.py --apply --hub  # and the hub's door
 
 Run it from `tools/ambition_ldtk_tools`.
 
@@ -49,7 +50,14 @@ ORCHARD = "gnu_ton_orchard"
 WELL = "gnu_ton_vector_well"
 HALL = "gnu_ton_conservation_hall"
 GALLERY = "gnu_ton_inversion_gallery"
+APPROACH = "gnu_ton_works_approach"
 ARENA = "gnu_ton_shoulders"
+
+#: The station's rooms the works join (`specs/orbital_station/make_specs.py`):
+#: the spoke's door at the orchard, and the lower end of the approach's lift.
+SPOKE = "orbital_station_spoke"
+SPOKE_WORKS_DOOR = "spoke_works_door"
+SPOKE_LIFT_DOOR = "spoke_lift_door"
 
 #: Rooms of the first draft (2026-10-23) that this level replaces.
 RETIRED = ("gnu_ton_outer_handle", "gnu_ton_proofworks")
@@ -63,9 +71,11 @@ HUB_ARRIVAL = "gnu_ton_handle_hub_arrival"
 #: the hall's copy is `hall.gnu_ton`.
 GNU_TON_PLACEMENT = "gnu_ton_handle.gnu_ton"
 
-PUZZLE_BIOME = "cave"
-PUZZLE_PARALLAX = "eclipse"
-PUZZLE_BG = "#161C2A"
+#: The gravity works are open trusses of the orbital station, under glass,
+#: with the planet below (Jon, 2026-10-24: a space station space biome).
+PUZZLE_BIOME = "orbital_truss"
+PUZZLE_PARALLAX = "orbital_truss"
+PUZZLE_BG = "#0E1424"
 PUZZLE_MUSIC = "standing_on_shoulders"
 WALL = 16
 
@@ -75,6 +85,7 @@ ROOMS_AT = {
     WELL: (3072, -640, 1280, 1600),
     HALL: (4608, -704, 2560, 1024),
     GALLERY: (7424, -704, 2560, 960),
+    APPROACH: (10240, -2560, 1280, 1408),
     ARENA: (10240, -1024, 1920, 1280),
 }
 
@@ -240,6 +251,9 @@ def orchard():
         # Doors.
         door("orchard_hub_door", "back to the hub", 64, floor, HUB_ROOM, HUB_DOOR),
         start(rid, 176, floor),
+        # The spoke to the station, by the way in: the works and the station
+        # are one geography.
+        door("orchard_spoke_door", "the spoke to the station", 272, floor, SPOKE, SPOKE_WORKS_DOOR),
         door("orchard_east_door", "on to the vector well", w - 112, floor, WELL, "well_bottom_door"),
     ]
     return rid, room(rid, e, "THE ORCHARD: HERE AN APPLE FALLS UP")
@@ -400,9 +414,45 @@ def inversion_gallery():
         entity("ShrineSpawn", down_x + 48, floor - 80, 44, 80, id="gallery_shrine", name="the shrine before GNU-ton"),
         door("gallery_west_door", "back to the conservation hall", 48, floor, HALL, "hall_gallery_exit"),
         start(rid, 176, floor),
-        door("gallery_arena_door", "to GNU-ton", w - 112, floor, ARENA, "shoulders_entry"),
+        door("gallery_arena_door", "on to the approach", w - 112, floor, APPROACH, "approach_gallery_door"),
     ]
     return rid, room(rid, e, "THE INVERSION GALLERY: THE WHOLE ROOM TURNS OVER", title_y=step_low + 48)
+
+
+def approach():
+    """5. THE APPROACH — the climb to GNU-ton, and the way back.
+
+    The gallery solved, the works open up: a tall hall under glass, the
+    giant's shoulders above. A column of up field by the door lifts the
+    robot to the vault (the orchard's idea, one last time, with nothing to
+    lose) along the face of a tower too tall to jump; walk the vault out of
+    it and drop onto the tower, where GNU-ton's door is. By the way in, the works' lift goes down to the spoke, by the
+    orchard: the shortcut back, once the gallery is behind you. Its gate in
+    the spoke is let go from the lift's side.
+    """
+    rid = APPROACH
+    _, _, w, h = ROOMS_AT[rid]
+    floor, vault = h - 64, 48
+    column_x, column_w = 512, 192
+    landing_y = 352
+    e = [
+        solid("floor", 0, floor, w, h - floor),
+        solid("vault", 0, 0, w, vault),
+        solid("west_wall", 0, vault, WALL, floor - vault),
+        solid("east_wall", w - WALL, vault, WALL, floor - vault),
+        door("approach_gallery_door", "back to the inversion gallery", 48, floor, GALLERY, "gallery_arena_door"),
+        start(rid, 176, floor),
+        door("approach_lift_door", "the lift down to the spoke", 304, floor, SPOKE, SPOKE_LIFT_DOOR),
+        label("approach_lift_sign", 240, floor - 160, "LIFT: DOWN TO THE SPOKE AND THE ORCHARD", 420),
+        # The climb: the column stands against the face of a tower too tall
+        # to jump. A body that walks into it falls up along the face to the
+        # vault; past the column's east edge it falls onto the tower's top.
+        field("approach_column", column_x, vault, column_w, floor - 32 - vault, "up"),
+        solid("landing", column_x + column_w, landing_y, w - WALL - column_x - column_w, floor - landing_y),
+        coin("approach_landing_coin", 900, landing_y - 32),
+        door("approach_arena_door", "to GNU-ton", w - 144, landing_y, ARENA, "shoulders_entry"),
+    ]
+    return rid, room(rid, e, "THE APPROACH: HE STANDS ON THE SHOULDERS OF A GIANT", title_y=landing_y + 64)
 
 
 def shoulders():
@@ -435,7 +485,7 @@ def shoulders():
         entity("BreakablePlatform", 304, 208, 160, 16, name="spawn_descent_pad", max_hp=3, collision="Solid",
                trigger="OnStand", respawn="Never"),
         entity("PlayerStart", 368, 162, 28, 46, name=f"{rid}_spawn"),
-        door("shoulders_entry", "back to the inversion gallery", 64, 208, GALLERY, "gallery_arena_door"),
+        door("shoulders_entry", "back to the approach", 64, 208, APPROACH, "approach_arena_door"),
         # The perches of the hall's arena.
         ledge("perch_top_center", 752, 432, 288),
         ledge("perch_left_high", 240, 560, 192),
@@ -468,7 +518,8 @@ def shoulders():
     px_wid: {w},
     px_hei: {h},
     fill_collision: "empty",
-    biome: "boss",
+    biome: "{PUZZLE_BIOME}",
+    parallax_theme: "{PUZZLE_PARALLAX}",
     music_track: "standing_on_shoulders_v2",
     ambient_profile: "hum",
     visual_theme: "default",
@@ -480,7 +531,7 @@ def shoulders():
 """
 
 
-ROOMS = (orchard, vector_well, conservation_hall, inversion_gallery, shoulders)
+ROOMS = (orchard, vector_well, conservation_hall, inversion_gallery, approach, shoulders)
 
 HUB_DOOR_YAML = f"""# The hub's door to the GNU-ton gravity handle: one door, both ways, with the
 # orchard's door. Written by specs/gnu_ton_gravity/make_specs.py.
@@ -540,8 +591,13 @@ def main(argv):
         code, out = run("area", "create", str(path), "--ldtk", str(WORLD_LDTK), "--replace-existing")
         if code != 0 and "wrote new level" not in out and "replaced level" not in out:
             return code
-    # The hub's door first: until it names the orchard, the hub's check
-    # finds a door to a room that is gone.
+    # The hub's door (only with `--hub`: the hub is the gate network's, and
+    # these edits are the first draft's; they change nothing on a hub that
+    # has them). Until it names the orchard, the hub's check finds a door to
+    # a room that is gone.
+    if "--hub" not in argv:
+        code, _ = run("validate", str(WORLD_LDTK))
+        return code
     hub = HERE / "hub_door.yaml"
     hub.write_text(HUB_DOOR_YAML)
     code, _ = run("entity", "set-field", str(hub), "--ldtk", str(SANDBOX_LDTK), "--in-place")

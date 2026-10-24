@@ -121,6 +121,14 @@ npc_village_daichi
 npc_village_hayashi
 npc_village_ren
 
+[The orbital station]
+npc_station_okafor
+npc_station_reyes
+npc_station_lindqvist
+npc_station_rahimi
+npc_station_pell
+npc_station_wen
+
 [Guests from history and the studio]
 npc_genghis_can
 npc_genghis_cant

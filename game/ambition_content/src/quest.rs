@@ -316,6 +316,8 @@ mod tests {
             "intro_cartography_route",
             "intro_p1_stabilizer",
             "intro_first_system_boss",
+            // The orbital station's errand: its HUD entry is the reason to travel.
+            "orbital_consignment",
             // The gate districts' problems: the clerk's page, the rank exam.
             "pirate_port_lost_manifest",
             "ninja_village_rank_exam",

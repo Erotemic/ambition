@@ -99,6 +99,43 @@
             ],
         )),
     ),
+    // The orbital station of the Science dimension (gate address GALACTIC):
+    // consignment 0447. Customs holds a crate from the Math town whose count
+    // is "aleph-null"; Georg Canter signs a finite one; customs clears it
+    // (the freight lane's gates open, and the hatch of the damaged spur);
+    // then home to the hub. The flags are set in `orbital.yarn` and
+    // `math.yarn`.
+    (
+        id: "orbital_consignment",
+        title: "Consignment 0447",
+        summary: "Station customs holds a crate of survey lenses whose manifest counts them as infinite.",
+        steps: [
+            (
+                description: "Ask Officer Okafor at the station's customs desk about crate 0447.",
+                condition: FlagSet("orbital_consignment_query"),
+            ),
+            (
+                description: "Get a finite count signed at the Surveyor's Office in the Math town.",
+                condition: FlagSet("orbital_manifest_signed"),
+            ),
+            (
+                description: "Bring the signed count back to Officer Okafor.",
+                condition: FlagSet("orbital_consignment_cleared"),
+            ),
+            (
+                description: "Go home to the hub.",
+                condition: RoomEntered("central_hub_complex"),
+            ),
+        ],
+        auto_start: true,
+        reward: Some((
+            banner: "CONSIGNMENT 0447 CLEARED — the Remainder pays its freight fee",
+            items: [
+                (item: "sparebattery", count: 1),
+                (item: "goldpouch", count: 1),
+            ],
+        )),
+    ),
     // Intro v1: Alice's sealed note, then Bob's field survey, then the first system
     // boss and P5 Route Memory. Each step is a flag that a PickupSpawn in
     // alice_relay, bob_relay or first_system_boss sets.

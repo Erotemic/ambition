@@ -7,9 +7,9 @@
     px_wid: 1280,
     px_hei: 1600,
     fill_collision: "empty",
-    bg_color: "#161C2A",
-    biome: "cave",
-    parallax_theme: "eclipse",
+    bg_color: "#0E1424",
+    biome: "orbital_truss",
+    parallax_theme: "orbital_truss",
     music_track: "standing_on_shoulders",
     entities: [
         ( type: "Solid", px: [0, 1536], size: [1280, 64], fields: ( name: "floor" ) ),

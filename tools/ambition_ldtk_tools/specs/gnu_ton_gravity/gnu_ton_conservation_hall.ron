@@ -7,9 +7,9 @@
     px_wid: 2560,
     px_hei: 1024,
     fill_collision: "empty",
-    bg_color: "#161C2A",
-    biome: "cave",
-    parallax_theme: "eclipse",
+    bg_color: "#0E1424",
+    biome: "orbital_truss",
+    parallax_theme: "orbital_truss",
     music_track: "standing_on_shoulders",
     entities: [
         ( type: "Solid", px: [0, 0], size: [2560, 48], fields: ( name: "vault" ) ),

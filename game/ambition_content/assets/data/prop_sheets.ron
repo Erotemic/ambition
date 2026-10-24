@@ -77,6 +77,23 @@
     "math_obs_platform": (),
     "math_obs_chart": (),
     "math_obs_desk": (),
+    // The orbital station of the Science dimension: its ships, its freight
+    // and the fittings of its decks. The quarantine gate and the spur hatch
+    // are the looks of two lock walls, and fill their walls' boxes.
+    "orbital_hauler": (),
+    "orbital_shuttle": (),
+    "orbital_freight_stack": (),
+    "orbital_consignment": (),
+    "orbital_conveyor": (),
+    "orbital_customs_desk": (),
+    "orbital_manifest_board": (),
+    "orbital_quarantine_gate": (),
+    "orbital_spur_hatch": (),
+    "orbital_bunks": (),
+    "orbital_galley": (),
+    "orbital_hydroponics": (),
+    "orbital_machinery": (),
+    "orbital_bench": (),
     // Castle Godwin of the Evil dimension (`targets/props/castle_godwin.py`):
     // the front of the castle (the room's door is put over its doorway), the
     // sign at the road, and the thorns at its foot. All are decoration.

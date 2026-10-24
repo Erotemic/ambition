@@ -105,11 +105,23 @@ Emmy Ethereal: The cafe keeps its hours because time keeps its laws. Sit anywher
 
 title: georg_canter
 ---
-Georg Canter: The surveyor's office counts the finite things. I count the rest.
--> How big is "the rest"?
-    Georg Canter: Pick a list of reals. I change the nth digit of the nth entry. The new number is on no list you own.
--> Do people believe you?
-    Georg Canter: I showed the line holds more than the counting numbers, and was told this was indecent. Count again. Slower.
+<<if condition("world.flag_set", "orbital_manifest_signed")>>
+    Georg Canter: Tell your customs officer that twelve was the least interesting answer available.
+    -> I will.
+<<elseif condition("world.flag_set", "orbital_consignment_query")>>
+    Georg Canter: The orbital station's customs wants a finite count for crate 0447. How provincial.
+    -> Please count the lenses.
+        <<command "world.set_flag" "orbital_manifest_signed" true>>
+        Georg Canter: Twelve. A dull, finite twelve. Signed, under protest. The aleph-null was a joke about the packing foam.
+    -> Why did you write aleph-null?
+        Georg Canter: The foam has as many bubbles as the counting numbers. Customs counted the foam.
+<<else>>
+    Georg Canter: The surveyor's office counts the finite things. I count the rest.
+    -> How big is "the rest"?
+        Georg Canter: Pick a list of reals. I change the nth digit of the nth entry. The new number is on no list you own.
+    -> Do people believe you?
+        Georg Canter: I showed the line holds more than the counting numbers, and was told this was indecent. Count again. Slower.
+<<endif>>
 ===
 
 title: davy_hylbert

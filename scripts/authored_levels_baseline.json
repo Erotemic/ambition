@@ -155,6 +155,21 @@
   "sanic_speedway.ldtk": [
     "sanic_speedway"
   ],
+  "science.ldtk": [
+    "gnu_ton_conservation_hall",
+    "gnu_ton_inversion_gallery",
+    "gnu_ton_orchard",
+    "gnu_ton_shoulders",
+    "gnu_ton_vector_well",
+    "gnu_ton_works_approach",
+    "orbital_station_damaged_spur",
+    "orbital_station_docking_bay",
+    "orbital_station_gate_dock",
+    "orbital_station_habitation",
+    "orbital_station_observation_deck",
+    "orbital_station_service_deck",
+    "orbital_station_spoke"
+  ],
   "you_have_to_cut_the_rope.ldtk": [
     "you_have_to_cut_the_rope"
   ]

@@ -839,6 +839,22 @@ tackon_targets=(
     math_obs_platform
     math_obs_chart
     math_obs_desk
+    # The orbital station of the Science dimension: its ships, its freight
+    # and the fittings of its decks (`targets/props/orbital_station.py`).
+    orbital_hauler
+    orbital_shuttle
+    orbital_freight_stack
+    orbital_consignment
+    orbital_conveyor
+    orbital_customs_desk
+    orbital_manifest_board
+    orbital_quarantine_gate
+    orbital_spur_hatch
+    orbital_bunks
+    orbital_galley
+    orbital_hydroponics
+    orbital_machinery
+    orbital_bench
     # The keys and the doors of the Noodly Temple (`PickupSpawn.sprite`,
     # `LockWall.look`).
     temple_key_marinara
@@ -1179,6 +1195,15 @@ tackon_targets=(
     # (`targets/characters/steel_and_straw_man.py`): the girder and the sheaf.
     steel_man
     straw_man
+    # Residents of the orbital station of the Science dimension, made by the
+    # character generator (`targets/characters/townsfolk.py`, one spec file
+    # each in `data/townsfolk/`).
+    station_okafor
+    station_reyes
+    station_lindqvist
+    station_rahimi
+    station_pell
+    station_wen
     # Residents of the gate network's districts, made by the character
     # generator (`targets/characters/townsfolk.py`, one spec file each in
     # `data/townsfolk/`).

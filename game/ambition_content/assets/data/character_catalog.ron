@@ -5770,5 +5770,104 @@
                 hall: ["Every week I choose a new rival. It keeps me sharp, and it keeps them humble.", "I have filled in the rival form in advance. It only needs your name."],
             ),
         ),
+        // The residents of the orbital station of the Science dimension, made by
+        // the character generator (`targets/characters/townsfolk.py`). They
+        // live and work on the station (`specs/orbital_station/`).
+        "npc_station_okafor": (
+            display_name: "Officer Okafor",
+            manifest: "sprites/station_okafor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["station", "customs", "peaceful"],
+            barks: (
+                idle: ["Declare it or leave it.", "The ring moves anything. That is the problem."],
+                hall: ["Everything that comes through the ring stops at my desk first.", "I clear freight, not feelings.", "Seed stock, spores, mail with ideas in it. Somebody looks first. That is me."],
+            ),
+        ),
+        "npc_station_reyes": (
+            display_name: "Captain Reyes",
+            manifest: "sprites/station_reyes_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["station", "pilot", "peaceful"],
+            barks: (
+                idle: ["Shift change. Then we burn.", "The Remainder is slow. So is the moon."],
+                hall: ["A ring takes you anywhere a ring is. I take you everywhere else.", "Freight comes through the gate and leaves on my ship.", "No gate on the survey moon. That is what haulers are for."],
+            ),
+        ),
+        "npc_station_lindqvist": (
+            display_name: "Bo Lindqvist",
+            manifest: "sprites/station_lindqvist_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 186 cm.
+            standing_height: Some(72.0),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["station", "dockhand", "peaceful"],
+            barks: (
+                idle: ["Lift with the legs.", "Backlog's backlogged."],
+                hall: ["They doubled the passenger slots. Freight waits. I wait.", "Every crate through the ring is a crate I carry.", "Ring throughput is down a third this cycle."],
+            ),
+        ),
+        "npc_station_rahimi": (
+            display_name: "Hamid Rahimi",
+            manifest: "sprites/station_rahimi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.4),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["station", "engineer", "peaceful"],
+            barks: (
+                idle: ["Don't touch anything that hums.", "The plant is fine. The plant is always fine."],
+                hall: ["A ring eats a reactor's worth of power. I keep the reactor fed.", "The spur took a storm. I keep it shut.", "Maintenance crawlers are supposed to fix things. Supposed to."],
+            ),
+        ),
+        "npc_station_pell": (
+            display_name: "Gus Pell",
+            manifest: "sprites/station_pell_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["station", "cook", "peaceful"],
+            barks: (
+                idle: ["Soup's on.", "Crackers by the door, if the ring got you."],
+                hall: ["First-time travellers come out of the ring green. I keep a bucket.", "Everything here is grown upstairs or comes through the gate.", "A robot? More soup for the rest of us."],
+            ),
+        ),
+        "npc_station_wen": (
+            display_name: "Wen Liang",
+            manifest: "sprites/station_wen_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.4),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "peaceful",
+            tags: ["station", "retired", "peaceful"],
+            barks: (
+                idle: ["Forty years, and it still looks new.", "The first link held three seconds."],
+                hall: ["I tuned this station's first stable ring. Now people commute through it.", "Cheap power made gates common. It did not make them cheap.", "Look down. That is why anyone comes up here."],
+            ),
+        ),
     },
 )

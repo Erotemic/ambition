@@ -3,7 +3,12 @@
 The gravity works of the Science dimension (Jon, 2026-10-24: GNU-ton lives
 in the Science dimension, with its orbital station): four rooms of gravity
 and portal puzzles, and GNU-ton at the end. The world file is
-`science.ldtk`, which holds the station's rooms too. The central hub's door `gnu_ton_handle_hub_door`
+`science.ldtk`, which holds the station's rooms too
+(`specs/orbital_station/`). The orchard's spoke door leads along the spoke
+to the station's service deck: the works and the station are one
+geography, with a gate each (`ASCENT` at the orchard, `GALACTIC` at the
+station). The rooms use the station's `orbital_truss` theme: open trusses
+under glass, the planet below. The central hub's door `gnu_ton_handle_hub_door`
 (main floor, between the Hall of Biomes and the gate stack) leads in, both
 ways. The arena's door goes home to it.
 
@@ -61,7 +66,15 @@ way along the face).
      other end is on a wall that hangs from the ceiling past the hole. Past
      that, a column of DOWN field (room 1, turned) is the one place in the
      room that falls down: onto the ledge of a shrine and GNU-ton's door.
-5. **`gnu_ton_shoulders` — GNU-ton.** This is the hall's arena
+5. **`gnu_ton_works_approach` — the climb to GNU-ton, and the way back.**
+   The gallery solved, a tall hall under glass: a column of up field by
+   the door lifts the robot to the vault (room 1, one last time, with
+   nothing to lose); out of it, the robot drops onto the landing of
+   GNU-ton's door. By the way in, the works' lift goes down to the end of
+   the station's spoke, by the orchard. Its gate in the spoke is let go from
+   the lift's side (`spoke_lift_release`): the shortcut back, once the
+   gallery is behind you.
+6. **`gnu_ton_shoulders` — GNU-ton.** This is the hall's arena
    (`gnu_ton_arena`, `sandbox.ldtk`) as it is: the same floor, walls,
    perches, giant and rider, so the fight is the hall's fight. You come in at
    the top and the pad under you breaks. His placement is
@@ -80,8 +93,9 @@ hall's shelf and gallery are closed by solid wall.
 `game/ambition_app/tests/the_gnu_ton_handle.rs` drives the robot through
 each room with a player's inputs: the trees of the orchard, the swinging
 tree, the four falls of the well, the hall's two portal pairs, the gallery's
-levers and its crossing, and the door chain from the hub to the arena and
-home. It also checks that GNU-ton is alive at his placement, that his punch
+levers and its crossing, the approach's climb, the lift and its gate in
+the spoke, the spoke to the station, and the door chain from the hub to the
+arena and home. It also checks that GNU-ton is alive at his placement, that his punch
 opens his portals in this room, and that his recorded defeat opens the way
 home.
 

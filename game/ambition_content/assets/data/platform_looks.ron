@@ -9,6 +9,10 @@
 // outside the frame. An edit here is drawn after a content reload, with no
 // Rust build.
 {
+    // The orbital station's spoke tram: its floor IS the platform. The
+    // numbers are the art module's (`targets/props/orbital_station.py`:
+    // `TRAM_FLOOR_SPAN`, `TRAM_FLOOR_Y`, `MARGIN` 6, `PX` 2).
+    "orbital_tram": (row: "idle", frame_px: (472.0, 248.0), span_px: (44.0, 428.0), top_px: 188.0),
     // The Mockingbird's burning shark: the platform is its back, behind the
     // saddle (`burning_flying_shark_spritesheet.ron`: body box 9..194, back
     // at row 60), from the tail fin to the head.

@@ -855,6 +855,7 @@ tackon_targets=(
     orbital_hydroponics
     orbital_machinery
     orbital_bench
+    orbital_tram
     # The keys and the doors of the Noodly Temple (`PickupSpawn.sprite`,
     # `LockWall.look`).
     temple_key_marinara

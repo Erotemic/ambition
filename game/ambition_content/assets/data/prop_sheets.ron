@@ -94,6 +94,8 @@
     "orbital_hydroponics": (),
     "orbital_machinery": (),
     "orbital_bench": (),
+    // The spoke's tram car: the sheet of a moving platform (`platform_looks.ron`).
+    "orbital_tram": (),
     // Castle Godwin of the Evil dimension (`targets/props/castle_godwin.py`):
     // the front of the castle (the room's door is put over its doorway), the
     // sign at the road, and the thorns at its foot. All are decoration.

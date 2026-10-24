@@ -444,7 +444,7 @@ def spoke():
         start(rid, 160, floor),
         # The tram: a car that runs to and fro over the gap, at the deck's height.
         entity("MovingPlatform", gap_x0, floor, tram_w, 16, id="spoke_tram", name="the spoke tram",
-               speed=110.0, sweep_dx=float(gap_x1 - gap_x0 - tram_w)),
+               speed=110.0, sweep_dx=float(gap_x1 - gap_x0 - tram_w), visual="orbital_tram"),
         label("spoke_tram_sign", gap_x0 - 220, floor - 160, "TRAM: STAND ON THE CAR", 260),
         door("spoke_works_door", "on to the gravity works", 2560, floor, ORCHARD, ORCHARD_SPOKE_DOOR),
         # The lift's lower end, at the end of the spoke: an alcove shut in by

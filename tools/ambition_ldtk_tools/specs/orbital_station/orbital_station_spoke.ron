@@ -21,7 +21,7 @@
         ( type: "HazardBlock", px: [1200, 608], size: [640, 16], fields: ( name: "gap_vacuum" ) ),
         ( type: "LoadingZone", px: [48, 480], size: [48, 96], fields: ( id: "spoke_station_door", name: "back to the service deck", activation: "Door", target_room: "orbital_station_service_deck", target_zone: "service_spoke_door", bidirectional: true ) ),
         ( type: "PlayerStart", px: [160, 530], size: [28, 46], fields: ( name: "orbital_station_spoke_spawn" ) ),
-        ( type: "MovingPlatform", px: [1200, 576], size: [192, 16], fields: ( id: "spoke_tram", name: "the spoke tram", speed: 110.0, sweep_dx: 448.0 ) ),
+        ( type: "MovingPlatform", px: [1200, 576], size: [192, 16], fields: ( id: "spoke_tram", name: "the spoke tram", speed: 110.0, sweep_dx: 448.0, visual: "orbital_tram" ) ),
         ( type: "DebugLabel", px: [980, 416], size: [260, 24], fields: ( name: "spoke_tram_sign", text: "TRAM: STAND ON THE CAR", category: "Custom" ) ),
         ( type: "LoadingZone", px: [2560, 480], size: [48, 96], fields: ( id: "spoke_works_door", name: "on to the gravity works", activation: "Door", target_room: "gnu_ton_orchard", target_zone: "orchard_spoke_door", bidirectional: true ) ),
         ( type: "Solid", px: [2848, 416], size: [336, 16], fields: ( name: "alcove_roof" ) ),

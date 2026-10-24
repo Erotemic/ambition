@@ -292,7 +292,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         .add_systems(
             Update,
             (
-                super::first_room_art::prepare_first_room_art_system,
+                super::first_room_art::prepare_first_room_art_system.run_if(super::first_room_art::first_room_art_is_owed),
                 contribute_room_transition_assets_system
                     .run_if(super::room_transition_assets::a_transition_is_active_or_contributed),
                 poll_room_transition_asset_readiness_system.run_if(super::room_transition_assets::a_transition_is_active),

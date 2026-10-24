@@ -62,6 +62,17 @@ pub(crate) struct FirstRoomArtJobs {
     answered: std::collections::BTreeSet<LoadId>,
 }
 
+/// Run condition of [`prepare_first_room_art_system`]: a session is
+/// published, or a job of one that left the store is still to be dropped.
+pub(crate) fn first_room_art_is_owed(
+    sessions: Option<Res<PreparedPlatformerSessions>>,
+    jobs: Res<FirstRoomArtJobs>,
+) -> bool {
+    sessions.is_some_and(|sessions| sessions.published().next().is_some())
+        || !jobs.by_load.is_empty()
+        || !jobs.answered.is_empty()
+}
+
 /// Drive `prepare-first-room-art` for every published, not yet activated
 /// platformer session.
 pub(crate) fn prepare_first_room_art_system(

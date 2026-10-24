@@ -28,16 +28,16 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 04:29Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-24 05:59Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 919 systems a frame; hub Ambition route 1,323 → 993 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
-module, the debris physics adapter, actor construction (K6, its own crate) the gravity-zone mechanic and the body causal recorders (to the runtime; ~9,100 production lines out, 58,758 left, by `wc -l` and the module graph
+module, the debris physics adapter, actor construction (K6, its own crate), the gravity-zone mechanic and the body causal recorders (to the runtime), body whereabouts (to construction), the live cluster view (to `ambition_body_seed`), the body-capability conditions (to `ambition_abilities`) and the game-asset decode (to the umbrella) (~9,100 production lines out, 58,758 left, by `wc -l` and the module graph
 at each move). Last green commit: `8aae83270` (full `app_it` 1,304 of 1,304 run, app 253, Mary-O 204; F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`). The `ambition_content` `worlds::tests` red since `0d4b5f656` are green again (`bb99b17fc`).
 Waiting on: a phone profile of a build with these slices, the measurement that
-says what they bought in frame time.
+says what they bought in frame time; and Jon's three calls in F48 (developer tooling in the play build, Bevy's 3D gizmo groups, Ambition's material types on every route).
 
 | slice | status | measured effect |
 | --- | --- | --- |

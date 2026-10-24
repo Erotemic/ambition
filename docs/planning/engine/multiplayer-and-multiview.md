@@ -120,6 +120,10 @@ Acceptance should cover:
 - correct per-view camera continuity and layout during regrouping;
 - no participant/control reassignment caused by layout changes.
 
+Ambition's integration of it — the input → body → picture and view → camera
+chains, the defects found on 2026-10-24 and the acceptance matrix — is
+[`local-coop-integration.md`](local-coop-integration.md).
+
 ### M4 — several resident rooms
 
 Built for the simulation and the view (OW1, V1-V5 in

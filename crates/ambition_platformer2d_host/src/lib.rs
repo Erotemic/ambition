@@ -500,6 +500,11 @@ impl Plugin for HostCameraPlugin {
         // which orders its whole cluster before the sim's observation resolve. `camera_follow`
         // only APPLIES the resulting snapshot (E4-17).
         app.add_plugins(crate::gameplay_presentation::HostGameplayPresentationPlugin);
+        // Split views are observation facts. The shared render capability
+        // builds their cameras for every platformer host, including Ambition.
+        if !app.is_plugin_added::<ambition_render::platformer_presentation::SplitViewRigsPlugin>() {
+            app.add_plugins(ambition_render::platformer_presentation::SplitViewRigsPlugin);
+        }
         // Render owns the painting; the host owns the fact that it is owed.
         app.add_plugins(ambition_render::gameplay_surround::GameplaySurroundPlugin);
         // The declared-HUD surface. A game gets a HUD by declaring slots on

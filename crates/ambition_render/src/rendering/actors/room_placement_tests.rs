@@ -57,3 +57,64 @@ fn each_feature_visual_is_placed_in_its_own_live_room() {
         "a feature visual was not placed by its own live room's geometry"
     );
 }
+
+/// Every player body's picture uses its own presented pose and live room.
+/// A joined body has no `PrimaryPlayer` marker, but it is still a player.
+#[test]
+fn each_player_visual_follows_its_own_body_in_its_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+
+    let mut app = App::new();
+    let big = ae::Vec2::new(800.0, 600.0);
+    let small = ae::Vec2::new(400.0, 300.0);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room(big));
+    let second = LiveRoomInstance::ACTIVATION.next();
+    ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), second, room(small));
+    app.insert_resource(FeatureViewIndex::from_rows([("unused".to_string(), view())]));
+    app.init_resource::<ambition_sim_view::PresentedFeaturePoses>();
+    app.add_systems(Update, sync_visuals);
+
+    let spawn = |app: &mut App, room: LiveRoomInstance| {
+        app.world_mut()
+            .spawn((
+                PlayerVisual,
+                InRoomInstance(room),
+                ambition_sim_view::BodyPoseView {
+                    pos: AT,
+                    size: ae::Vec2::new(48.0, 64.0),
+                    base_size: ae::Vec2::new(48.0, 64.0),
+                    ..default()
+                },
+                Transform::default(),
+                Sprite::default(),
+            ))
+            .id()
+    };
+    let first = spawn(&mut app, LiveRoomInstance::ACTIVATION);
+    let other = spawn(&mut app, second);
+    app.update();
+
+    let placed = |app: &App, e: Entity| {
+        app.world().get::<Transform>(e).expect("a player picture").translation.truncate()
+    };
+    assert_eq!(
+        [placed(&app, first), placed(&app, other)],
+        [
+            BVec2::new(AT.x - big.x * 0.5, big.y * 0.5 - AT.y),
+            BVec2::new(AT.x - small.x * 0.5, small.y * 0.5 - AT.y),
+        ],
+        "each player must be drawn using its own room's geometry",
+    );
+
+    app.world_mut()
+        .get_mut::<ambition_sim_view::BodyPoseView>(other)
+        .expect("player two has a pose")
+        .pos += ae::Vec2::new(100.0, 0.0);
+    app.update();
+    assert_eq!(placed(&app, first), BVec2::new(AT.x - big.x * 0.5, big.y * 0.5 - AT.y));
+    assert_eq!(
+        placed(&app, other),
+        BVec2::new(AT.x + 100.0 - small.x * 0.5, small.y * 0.5 - AT.y),
+        "moving player two's pose did not move player two's picture",
+    );
+}

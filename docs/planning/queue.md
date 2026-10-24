@@ -236,7 +236,21 @@ its channel when the setting goes off. Witnesses: `local_play_modes.rs`,
 keyboard plus one pad, and a pad connected late; control: setting off),
 `provider::tests::ambition_is_single_player_until_the_setting_accepts_a_join`.
 
+**Built 2026-10-24 (first integration correction,
+[local-coop integration](engine/local-coop-integration.md)):** the shipped
+host builds a camera for each view the adaptive split opens
+(`SplitViewRigsPlugin`, one capability for every host), and every player body's
+picture follows its own pose and live room (`sync_visuals`). Witnesses:
+`local_play_modes.rs` (left stick through the raw axis event; the split
+camera's view, layers, screen effects and its own half of the display),
+`room_placement_tests::each_player_visual_follows_its_own_body_in_its_live_room`.
+Not yet seen on a GPU with two physical pads.
+
 **Next action, in slices:**
+
+- **Join placement (needed before slice 3):** the joining body is built on the primary's exact
+  position. Place it by a deterministic, collision-safe rule in the intended
+  live room (no frame-order randomness, no unbounded scan).
 
 3. **Leave:** pause-menu actions "remove Player 2" (Player 1) and "leave"
    (Player 2). Leaving releases the claim, retires the body by an explicit

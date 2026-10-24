@@ -206,9 +206,10 @@ fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
     }
 }
 
-/// HOST-resident presentation scaffolding: the main + front-HUD cameras. Spawned
-/// once at startup and never owned by a gameplay session — the launcher/title
-/// route renders through the same cameras a session does.
+/// HOST-resident presentation scaffolding: the primary + front-HUD cameras.
+/// Spawned once at startup and never owned by a gameplay session — the
+/// launcher/title route renders through the same cameras a session does.
+/// Additional view cameras are built by the shared SplitViewRigsPlugin.
 pub fn host_presentation_scaffold(commands: &mut Commands) {
     // The MAIN camera (order 0) renders the gameplay world (sprites on layer 0), portal-window
     // meshes, and the main-camera-only parallax layer. It NO LONGER carries `IsDefaultUiCamera`:
@@ -216,13 +217,8 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     // IN FRONT of the order-8 cube-menu `Camera3d`. The cube's dim-scrim is the one exception — it
     // must draw BEHIND the cube — and it owns a display-scoped UI camera of its own for that (see
     // `menu::kaleidoscope_app::scrim`).
-    let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
-        .with(ambition_platformer2d::platformer::camera_layers::PARALLAX_BACKGROUND_LAYER);
-    #[cfg(feature = "portal_render")]
-    {
-        main_camera_layers = main_camera_layers
-            .with(ambition_platformer2d::portal_presentation::PORTAL_WINDOW_RENDER_LAYER);
-    }
+    let main_camera_layers =
+        ambition_platformer2d::render::platformer_presentation::gameplay_camera_layers();
     let main_camera = commands
         .spawn((
             Camera2d,

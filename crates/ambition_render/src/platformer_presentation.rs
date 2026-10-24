@@ -232,14 +232,47 @@ impl Plugin for PlatformerPresentationPlugin {
             spawn_main_camera.in_set(PlatformerPresentationSetupSet),
         );
         app.add_plugins(SessionRoomVisualsPlugin);
-        // A camera for each view the live-room split opens (V5).
-        app.add_systems(Update, present_split_view_rigs);
+        // A hosted game may have installed the same camera capability already.
+        if !app.is_plugin_added::<SplitViewRigsPlugin>() {
+            app.add_plugins(SplitViewRigsPlugin);
+        }
         // Room-transition requests rebuild parallax through the presentation animation plugin.
         app.add_plugins((
             PresentationVisualAnimationPlugin,
             PlayerVisualSchedulePlugin,
         ));
     }
+}
+
+/// Keep one gameplay camera for every view created by an adaptive split.
+///
+/// The host owns its primary camera. This capability owns only the extra rigs
+/// and works in both the generic presentation and a game with a custom host.
+pub struct SplitViewRigsPlugin;
+
+impl Plugin for SplitViewRigsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            present_split_view_rigs
+                .after(ambition_sim_view::camera_snapshot::CameraObservationSet)
+                .before(crate::rendering::camera_follow),
+        );
+    }
+}
+
+/// Layers that every gameplay camera draws before room and view isolation.
+///
+/// The main camera and each adaptive-split camera must use the same base.
+/// Room and view bands are added by the isolation passes, not here.
+pub fn gameplay_camera_layers() -> bevy::camera::visibility::RenderLayers {
+    let layers = bevy::camera::visibility::RenderLayers::layer(0)
+        .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
+    #[cfg(feature = "portal_render")]
+    let layers = layers.with(
+        ambition_platformer2d_shared_tangle::camera_layers::PORTAL_WINDOW_RENDER_LAYER,
+    );
+    layers
 }
 
 /// The camera the live-room split gave one of its views (V5).
@@ -274,8 +307,8 @@ pub fn present_split_view_rigs(
                 ..default()
             },
             MainCamera,
-            bevy::camera::visibility::RenderLayers::layer(0)
-                .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER),
+            gameplay_camera_layers(),
+            crate::screen_effects::ScreenEffectCamera,
             ambition_sim_view::PresentsView(view),
             SplitViewCamera,
             Name::new(format!("Split view camera {}", id.0)),
@@ -292,8 +325,7 @@ fn spawn_main_camera(
     // Bind camera→view at spawn so view ownership is composition state, not a per-frame guess.
     views: Query<Entity, With<ambition_sim_view::LocalView>>,
 ) {
-    let layers = bevy::camera::visibility::RenderLayers::layer(0)
-        .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
+    let layers = gameplay_camera_layers();
     // This plugin owns exactly one gameplay rig. Spawn it only when `ViewsOnHand` can identify one
     // view; multi-view callers use `ambition_sim_view::compose_local_views` and must not receive an
     // extra unbound full-screen gameplay camera.
@@ -305,6 +337,7 @@ fn spawn_main_camera(
                     Camera2d,
                     MainCamera,
                     layers,
+                    crate::screen_effects::ScreenEffectCamera,
                     ambition_sim_view::PresentsView(view),
                     Name::new("Main Camera"),
                 ))

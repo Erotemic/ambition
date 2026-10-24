@@ -314,6 +314,7 @@ pub fn sync_visuals(
     presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
     mut player_query: Query<
         (
+            Entity,
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
@@ -340,188 +341,190 @@ pub fn sync_visuals(
     camera_view: ambition_sim_view::PresentedViewState,
     mut last_player_draw_scale: Local<Option<(BVec2, f32)>>,
 ) {
-    let player = (primary_player.iter().count() == 1)
-        .then(|| primary_player.iter().next())
-        .flatten();
-    if let Some((player, world)) = player.and_then(|player| rooms.of(player).map(|world| (player, world))) {
-        if let Ok((mut transform, mut sprite, baseline, animator, pose, presented, anchor)) =
-            player_query.get_mut(player)
-        {
-            let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-            transform.translation = world_to_bevy(&world.0, draw_pos, WORLD_Z_PLAYER);
-            // Aerial roll (portal somersault / future gravity-room orientation).
-            transform.rotation = Quat::from_rotation_z(pose.roll_angle);
-            if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
-                // Colored-rectangle fallback only — stretch to the collision-box
-                // size and tint by flash. Textured sprites (atlas OR plain image)
-                // keep their authored size and are tinted in the animation system.
-                sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
-                let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
-                sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
-            } else if let Some(authored) = pose.authored_render {
-                // The sheet authored this body's geometry: the quad is the frame
-                // at the authored scale. The baseline branch below reconciles two
-                // independent sizes by a ratio. Here box and quad come from one
-                // number, so there is no ratio.
-                sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
-                // Placement comes from the same publisher.
-                // `place_sprite_posed_bodies` computes the offset that puts the art
-                // on the box, and the actor path reads it too. With the offset the
-                // anchor is CENTER. Bevy y runs up and sheet y runs down, so y is
-                // negated.
-                //
-                // Two mechanisms own this placement. The offset is computed for
-                // the logical frame. For a body with an animator, `animate_player`
-                // runs later in this stage and replaces `custom_size` and `Anchor`
-                // from the animator's basis, but keeps this translation. They agree
-                // only if that basis comes from the same authored quad with CENTER,
-                // which `character_render_basis` provides. Do not suppress the
-                // offset for animated bodies: that routes them to the baseline
-                // branch, which has its own anchor rule. The error shows most where
-                // a sheet's body sits far from its frame centre (Mary-O; see
-                // `scripts/measure_sheet_body_offsets.py`).
-                if let Some(offset) = pose.authored_offset {
-                    transform.translation.x += offset.x;
-                    transform.translation.y -= offset.y;
-                    if let Some(mut anchor) = anchor {
-                        if *anchor != Anchor::CENTER {
-                            *anchor = Anchor::CENTER;
-                        }
-                    }
-                } else if let (Some(animator), Some(mut anchor)) = (animator, anchor) {
-                    // No published offset (a sheet that authors no body): the
-                    // scale-invariant feet anchor is still the right answer.
-                    let next = feet_anchor_for_render_size(
-                        &animator.spec,
-                        BVec2::new(pose.size.x, pose.size.y),
-                        BVec2::new(authored.x, authored.y),
-                    );
-                    if *anchor != next {
-                        *anchor = next;
+    for (entity, mut transform, mut sprite, baseline, animator, pose, presented, anchor) in &mut player_query {
+        let Some(world) = rooms.of(entity) else {
+            continue;
+        };
+        let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
+        transform.translation = world_to_bevy(&world.0, draw_pos, WORLD_Z_PLAYER);
+        // Aerial roll (portal somersault / future gravity-room orientation).
+        transform.rotation = Quat::from_rotation_z(pose.roll_angle);
+        if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
+            // Colored-rectangle fallback only — stretch to the collision-box
+            // size and tint by flash. Textured sprites (atlas OR plain image)
+            // keep their authored size and are tinted in the animation system.
+            sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
+            let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
+            sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
+        } else if let Some(authored) = pose.authored_render {
+            // The sheet authored this body's geometry: the quad is the frame
+            // at the authored scale. The baseline branch below reconciles two
+            // independent sizes by a ratio. Here box and quad come from one
+            // number, so there is no ratio.
+            sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
+            // Placement comes from the same publisher.
+            // `place_sprite_posed_bodies` computes the offset that puts the art
+            // on the box, and the actor path reads it too. With the offset the
+            // anchor is CENTER. Bevy y runs up and sheet y runs down, so y is
+            // negated.
+            //
+            // Two mechanisms own this placement. The offset is computed for
+            // the logical frame. For a body with an animator, `animate_player`
+            // runs later in this stage and replaces `custom_size` and `Anchor`
+            // from the animator's basis, but keeps this translation. They agree
+            // only if that basis comes from the same authored quad with CENTER,
+            // which `character_render_basis` provides. Do not suppress the
+            // offset for animated bodies: that routes them to the baseline
+            // branch, which has its own anchor rule. The error shows most where
+            // a sheet's body sits far from its frame centre (Mary-O; see
+            // `scripts/measure_sheet_body_offsets.py`).
+            if let Some(offset) = pose.authored_offset {
+                transform.translation.x += offset.x;
+                transform.translation.y -= offset.y;
+                if let Some(mut anchor) = anchor {
+                    if *anchor != Anchor::CENTER {
+                        *anchor = Anchor::CENTER;
                     }
                 }
-            } else if let Some(baseline) = baseline {
-                // Body-profile experiment scale (live standing-profile swaps in
-                // the development menu): render against the recorded startup
-                // collision.
-                let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
-                let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
-                if animator.is_some_and(|a| a.spec.maps(pose.anim)) {
-                    // The sim lowered `pos` to the compact AABB's center to keep the feet
-                    // planted — reverse exactly that shift so the standing-frame render puts
-                    // its feet back on the same ground line.
-                    sprite.custom_size = Some(BVec2::new(
-                        baseline.standing_render.x * scale_x,
-                        baseline.standing_render.y * scale_y,
-                    ));
-                    let dy = (pose.base_size.y - pose.size.y) * 0.5;
-                    if dy > f32::EPSILON {
-                        // Feet sit on the +gravity face (world +y is down under
-                        // normal gravity); the standing center is `dy` opposite
-                        // gravity from the compact center.
-                        let render_pos = native_compact_render_pos(draw_pos, pose.gravity_dir, dy);
-                        transform.translation = world_to_bevy(&world.0, render_pos, WORLD_Z_PLAYER);
-                    }
-                } else {
-                    // HACK(crouch-sprite-row): when the player crouches (or
-                    // morphs / crawls / slides) on a sheet WITHOUT a row for the
-                    // pose, the fallback shows standing art while the engine
-                    // shrinks the AABB and slides `pos.y` down to keep feet
-                    // planted. Re-scale the sprite's vertical extent by the same
-                    // ratio the collision shrunk; the normalized sprite anchor
-                    // preserves foot alignment automatically. Retires per-row as
-                    // generators emit real compact rows (the branch above) — see
-                    // PlayerSpriteBaseline doc.
-                    let base_y = pose.base_size.y.max(1.0);
-                    let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
-                    sprite.custom_size = Some(BVec2::new(
-                        baseline.standing_render.x * scale_x,
-                        baseline.standing_render.y * scale_y * stance_ratio_y,
-                    ));
+            } else if let (Some(animator), Some(mut anchor)) = (animator, anchor) {
+                // No published offset (a sheet that authors no body): the
+                // scale-invariant feet anchor is still the right answer.
+                let next = feet_anchor_for_render_size(
+                    &animator.spec,
+                    BVec2::new(pose.size.x, pose.size.y),
+                    BVec2::new(authored.x, authored.y),
+                );
+                if *anchor != next {
+                    *anchor = next;
                 }
-            } else if !*warned_unsized_player {
-                // Every bind site inserts sprite and baseline together, so this
-                // should not happen. Warn once instead of drawing the wrong size
-                // silently.
-                *warned_unsized_player = true;
-                bevy::log::warn!(
-                    target: "ambition_platformer2d::sprites",
-                    "player sprite is textured but has no PlayerSpriteBaseline; \
-                     custom_size is unset, so it renders at the atlas frame's native \
-                     pixel size until a baseline arrives",
+            }
+        } else if let Some(baseline) = baseline {
+            // Body-profile experiment scale (live standing-profile swaps in
+            // the development menu): render against the recorded startup
+            // collision.
+            let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
+            let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
+            if animator.is_some_and(|a| a.spec.maps(pose.anim)) {
+                // The sim lowered `pos` to the compact AABB's center to keep the feet
+                // planted — reverse exactly that shift so the standing-frame render puts
+                // its feet back on the same ground line.
+                sprite.custom_size = Some(BVec2::new(
+                    baseline.standing_render.x * scale_x,
+                    baseline.standing_render.y * scale_y,
+                ));
+                let dy = (pose.base_size.y - pose.size.y) * 0.5;
+                if dy > f32::EPSILON {
+                    // Feet sit on the +gravity face (world +y is down under
+                    // normal gravity); the standing center is `dy` opposite
+                    // gravity from the compact center.
+                    let render_pos = native_compact_render_pos(draw_pos, pose.gravity_dir, dy);
+                    transform.translation = world_to_bevy(&world.0, render_pos, WORLD_Z_PLAYER);
+                }
+            } else {
+                // HACK(crouch-sprite-row): when the player crouches (or
+                // morphs / crawls / slides) on a sheet WITHOUT a row for the
+                // pose, the fallback shows standing art while the engine
+                // shrinks the AABB and slides `pos.y` down to keep feet
+                // planted. Re-scale the sprite's vertical extent by the same
+                // ratio the collision shrunk; the normalized sprite anchor
+                // preserves foot alignment automatically. Retires per-row as
+                // generators emit real compact rows (the branch above) — see
+                // PlayerSpriteBaseline doc.
+                let base_y = pose.base_size.y.max(1.0);
+                let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
+                sprite.custom_size = Some(BVec2::new(
+                    baseline.standing_render.x * scale_x,
+                    baseline.standing_render.y * scale_y * stance_ratio_y,
+                ));
+            }
+        } else if !*warned_unsized_player {
+            // Every bind site inserts sprite and baseline together, so this
+            // should not happen. Warn once instead of drawing the wrong size
+            // silently.
+            *warned_unsized_player = true;
+            bevy::log::warn!(
+                target: "ambition_platformer2d::sprites",
+                "player sprite is textured but has no PlayerSpriteBaseline; \
+                 custom_size is unset, so it renders at the atlas frame's native \
+                 pixel size until a baseline arrives",
+            );
+        }
+
+        // The primary sprite's size diagnostics use one stable subject.
+        // Position and pose above are resolved for every player body.
+        if !primary_player.contains(entity) {
+            continue;
+        }
+
+        // The bind sites log what they seeded; this logs what is drawn. A
+        // size can change without a rebind, and a rebind can keep the size.
+        // `None` means nothing set a size, so the quad draws at the atlas
+        // frame's native pixel size.
+        let describe = |size: Option<BVec2>| match size {
+            Some(size) => format!("{:.0}x{:.0}", size.x, size.y),
+            None => "NONE (draws at native frame size)".to_string(),
+        };
+        match *last_player_render_size {
+            // First sighting: report the state, not a transition.
+            None => {
+                *last_player_render_size = Some(sprite.custom_size);
+                eprintln!(
+                    "[sprite-size] player first observed at {}",
+                    describe(sprite.custom_size)
                 );
             }
-
-            // The bind sites log what they seeded; this logs what is drawn. A
-            // size can change without a rebind, and a rebind can keep the size.
-            // `None` means nothing set a size, so the quad draws at the atlas
-            // frame's native pixel size.
-            let describe = |size: Option<BVec2>| match size {
-                Some(size) => format!("{:.0}x{:.0}", size.x, size.y),
-                None => "NONE (draws at native frame size)".to_string(),
-            };
-            match *last_player_render_size {
-                // First sighting: report the state, not a transition.
-                None => {
+            Some(previous) => {
+                // Sub-pixel drift is stance scaling doing its job, not a
+                // resize worth a line; crouching would otherwise emit one
+                // per frame.
+                let changed = match (previous, sprite.custom_size) {
+                    (Some(before), Some(after)) => before.distance(after) > 0.5,
+                    (before, after) => before.is_some() != after.is_some(),
+                };
+                if changed {
                     *last_player_render_size = Some(sprite.custom_size);
                     eprintln!(
-                        "[sprite-size] player first observed at {}",
-                        describe(sprite.custom_size)
+                        "[sprite-size] player render size {} -> {}",
+                        describe(previous),
+                        describe(sprite.custom_size),
                     );
                 }
-                Some(previous) => {
-                    // Sub-pixel drift is stance scaling doing its job, not a
-                    // resize worth a line; crouching would otherwise emit one
-                    // per frame.
-                    let changed = match (previous, sprite.custom_size) {
-                        (Some(before), Some(after)) => before.distance(after) > 0.5,
-                        (before, after) => before.is_some() != after.is_some(),
-                    };
-                    if changed {
-                        *last_player_render_size = Some(sprite.custom_size);
-                        eprintln!(
-                            "[sprite-size] player render size {} -> {}",
-                            describe(previous),
-                            describe(sprite.custom_size),
-                        );
-                    }
-                }
             }
+        }
 
-            // The two factors `custom_size` does not capture. A smaller
-            // orthographic scale draws every quad bigger, so a camera that eases
-            // out looks like a sprite that shrinks.
-            let entity_scale = BVec2::new(transform.scale.x, transform.scale.y);
-            let camera_scale = camera_view
-                .get()
-                .map(|view| view.orthographic_scale)
-                .unwrap_or(1.0);
-            let moved = match *last_player_draw_scale {
-                None => {
-                    eprintln!(
-                        "[sprite-size] player draw scale first observed: \
-                         entity={:.3}x{:.3} camera_ortho={camera_scale:.4}",
-                        entity_scale.x, entity_scale.y,
-                    );
-                    false
-                }
-                Some((previous_entity, previous_camera)) => {
-                    previous_entity.distance(entity_scale) > 1.0e-3
-                        || (previous_camera - camera_scale).abs() > 1.0e-4
-                }
-            };
-            if moved {
-                if let Some((previous_entity, previous_camera)) = *last_player_draw_scale {
-                    eprintln!(
-                        "[sprite-size] player draw scale {:.3}x{:.3} @ortho \
-                         {previous_camera:.4} -> {:.3}x{:.3} @ortho {camera_scale:.4}",
-                        previous_entity.x, previous_entity.y, entity_scale.x, entity_scale.y,
-                    );
-                }
+        // The two factors `custom_size` does not capture. A smaller
+        // orthographic scale draws every quad bigger, so a camera that eases
+        // out looks like a sprite that shrinks.
+        let entity_scale = BVec2::new(transform.scale.x, transform.scale.y);
+        let camera_scale = camera_view
+            .get()
+            .map(|view| view.orthographic_scale)
+            .unwrap_or(1.0);
+        let moved = match *last_player_draw_scale {
+            None => {
+                eprintln!(
+                    "[sprite-size] player draw scale first observed: \
+                     entity={:.3}x{:.3} camera_ortho={camera_scale:.4}",
+                    entity_scale.x, entity_scale.y,
+                );
+                false
             }
-            if moved || last_player_draw_scale.is_none() {
-                *last_player_draw_scale = Some((entity_scale, camera_scale));
+            Some((previous_entity, previous_camera)) => {
+                previous_entity.distance(entity_scale) > 1.0e-3
+                    || (previous_camera - camera_scale).abs() > 1.0e-4
             }
+        };
+        if moved {
+            if let Some((previous_entity, previous_camera)) = *last_player_draw_scale {
+                eprintln!(
+                    "[sprite-size] player draw scale {:.3}x{:.3} @ortho \
+                     {previous_camera:.4} -> {:.3}x{:.3} @ortho {camera_scale:.4}",
+                    previous_entity.x, previous_entity.y, entity_scale.x, entity_scale.y,
+                );
+            }
+        }
+        if moved || last_player_draw_scale.is_none() {
+            *last_player_draw_scale = Some((entity_scale, camera_scale));
         }
     }
 

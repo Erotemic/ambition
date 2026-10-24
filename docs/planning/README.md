@@ -231,6 +231,8 @@ links to.
 - [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md) —
   title launcher fade-in (VC5).
 - [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
+- [`engine/local-coop-integration.md`](engine/local-coop-integration.md) —
+  adaptive two-player input/body/view integration, diagnostics and acceptance.
 
 ### Engine: authoring, tools, build and performance
 

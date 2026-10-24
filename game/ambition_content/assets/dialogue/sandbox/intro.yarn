@@ -178,6 +178,8 @@ Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Gate Six work
 title: gate_janitor_ripple__2
 ---
 Gate Janitor: Six goes to a beach. Seven goes to some meeting room. Eight still says Tuesday. I stopped asking.
+Gate Janitor: Seven's on the Math line now. Its breaker's on the wall; throw it and Seven dials TANGENT, and nothing else.
+<<command "world.set_flag" "gate.known.TANGENT" true>>
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
@@ -186,6 +188,7 @@ Gate Janitor: Six goes to a beach. Seven goes to some meeting room. Eight still 
 title: gate_janitor_ripple__3
 ---
 Gate Janitor: Six jammed twice this morning. Seven leaks blue light. I'm here until both stop doing that.
+Gate Janitor: And I mop. People walk out of a ring and lose breakfast. Robots never do. I like robots.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
 -> ⟨move on⟩

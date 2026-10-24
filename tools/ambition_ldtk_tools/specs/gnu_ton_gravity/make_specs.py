@@ -456,8 +456,13 @@ def approach():
         # vault; past the column's east edge it falls onto the tower's top.
         field("approach_column", column_x, vault, column_w, floor - 32 - vault, "up"),
         solid("landing", column_x + column_w, landing_y, w - WALL - column_x - column_w, floor - landing_y),
-        coin("approach_landing_coin", 900, landing_y - 32),
+        coin("approach_landing_coin", 1040, landing_y - 32),
         door("approach_arena_door", "to GNU-ton", w - 144, landing_y, ARENA, "shoulders_entry"),
+        # The military survey ring (hidden address TESLA) on the tower's top:
+        # receive only, and only from the military band
+        # (`docs/planning/game/gate-network.md`).
+        *gates.as_ron(gates.ring("Trail Survey Gate", "trail_survey_gate", column_x + column_w + 16, landing_y, "the survey ring")),
+        label("approach_survey_sign", column_x + column_w + 16, landing_y - 232, "SURVEY RING (MILITARY): receive only", 300),
     ]
     return rid, room(rid, e, "THE APPROACH: HE STANDS ON THE SHOULDERS OF A GIANT", title_y=landing_y + 64)
 

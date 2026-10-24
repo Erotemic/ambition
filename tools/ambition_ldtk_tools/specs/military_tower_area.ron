@@ -309,6 +309,43 @@
                 bidirectional: true,
             ),
         ),
+        // The door to the gate annex (`specs/gate_network/make_gates.py` adds
+        // it to the world and makes the annex).
+        (
+            type: "LoadingZone",
+            px: [
+                300,
+                1152,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "military_tower_annex_door",
+                name: "to the gate annex",
+                activation: "Door",
+                target_room: "military_gate_annex",
+                target_zone: "military_gate_annex_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                270,
+                1124,
+            ],
+            size: [
+                140,
+                24,
+            ],
+            fields: (
+                name: "military_tower_annex_sign",
+                text: "GATE ANNEX",
+                category: "Custom",
+            ),
+        ),
         (
             type: "NpcSpawn",
             px: [

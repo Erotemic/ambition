@@ -400,3 +400,106 @@ fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
         assert!(names.iter().any(|name| name.contains(wanted)), "the visible app has no `{wanted}`");
     }
 }
+
+const TOWER: &str = "military_tower";
+const ANNEX: &str = "military_gate_annex";
+const ANNEX_RING: &str = "military_gate_zone";
+const ANNEX_TERMINAL: &str = "military_gate_terminal";
+const CLEARANCE: &str = "gate.clearance.military";
+/// The checkpoint wall of the annex, `x` from its west face to its east face
+/// (`specs/gate_network/make_gates.py`).
+const CHECKPOINT: (f32, f32) = (448.0, 512.0);
+
+/// The annex, entered from the General's tower by its door.
+fn into_the_annex(save: ambition_platformer2d::session::AmbitionGameSaveData) -> Platformer2dSimHarness {
+    let mut sim = room_with(TOWER, save);
+    assert_eq!(go_through(&mut sim, "military_tower_annex_door"), ANNEX, "the tower's door leads to the annex");
+    sim
+}
+
+/// Hold `action` up to `frames` frames, until `done` holds.
+fn hold_until(
+    sim: &mut Platformer2dSimHarness,
+    action: AgentAction,
+    frames: usize,
+    done: impl Fn(&ambition_app::AgentObservation) -> bool,
+) -> bool {
+    for _ in 0..frames {
+        if done(&sim.observation()) {
+            return true;
+        }
+        sim.step(action.clone());
+    }
+    done(&sim.observation())
+}
+
+/// Item 7, the early way: without clearance the annex's checkpoint stops a
+/// standing traveller, and the maintenance crawlway under it takes a
+/// crouching one. The military ring dials the military survey ring (TESLA),
+/// which no civil ring may. Reaching the military ring sets no permit: the
+/// public gate still refuses both military addresses afterwards.
+#[test]
+fn the_military_gate_is_reached_early_by_the_crawlway_and_grants_no_free_passage() {
+    let mut sim = into_the_annex(a_save_that_has_seen_the_hub_intro());
+    let walk = AgentAction { move_x: 1.0, ..base() };
+    let past = |o: &ambition_app::AgentObservation| o.player_pos.0 > CHECKPOINT.1 + 20.0;
+    assert!(!hold_until(&mut sim, walk.clone(), 240, past), "a standing traveller walked through the checkpoint");
+    assert!(sim.observation().player_pos.0 < CHECKPOINT.0, "the checkpoint stops a standing traveller at its face");
+    // Back off the face, then crouch and walk the crawlway.
+    hold_until(&mut sim, AgentAction { move_x: -1.0, ..base() }, 30, |o| o.player_pos.0 < CHECKPOINT.0 - 80.0);
+    let crawl = AgentAction { move_x: 1.0, move_y: 1.0, ..base() };
+    assert!(
+        hold_until(&mut sim, crawl, 600, past),
+        "a crouching traveller goes under the checkpoint by the crawlway (at {:?}, {})",
+        sim.observation().player_pos,
+        sim.observation().body_mode,
+    );
+    assert!(!save(&mut sim).flag(CLEARANCE), "the crawlway grants no clearance");
+    // Stand up past the checkpoint before the walk to the terminal.
+    for _ in 0..20 {
+        sim.step(base());
+    }
+
+    // The military ring sends in the military band: TESLA answers it.
+    assert_eq!(travel(&mut sim, ANNEX_TERMINAL, ANNEX_RING, "TESLA"), "gnu_ton_works_approach");
+    assert!(standing_in(&mut sim, "trail_survey_gate"), "the traveller comes out of the survey ring");
+
+    // The public gate is civil, and the save holds no permit.
+    let mut hub = room_with(HUB, save(&mut sim));
+    open_terminal(&mut hub, HUB_TERMINAL, HUB_RING);
+    assert_eq!(dial(&mut hub, HUB_RING, "SENTINEL"), "restricted", "the military ring still refuses the public gate");
+    assert_eq!(dial(&mut hub, HUB_RING, "TESLA"), "restricted", "the survey ring still refuses the public gate");
+}
+
+/// Item 7, the later way: the clearance (the General gives it once Castle
+/// Godwin's dog is down) lets the public gate dial the military ring, and the
+/// checkpoint stands open for a standing traveller.
+#[test]
+fn the_military_clearance_admits_the_public_gate_and_opens_the_checkpoint() {
+    let mut cleared = a_save_that_has_seen_the_hub_intro();
+    cleared.set_flag(CLEARANCE, true);
+    let mut sim = room_with(HUB, cleared);
+    assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, "SENTINEL"), ANNEX);
+    assert!(standing_in(&mut sim, ANNEX_RING));
+    let walk_west = AgentAction { move_x: -1.0, ..base() };
+    assert!(
+        hold_until(&mut sim, walk_west, 600, |o| o.player_pos.0 < CHECKPOINT.0 - 40.0),
+        "the checkpoint is open with the clearance (at {:?})",
+        sim.observation().player_pos,
+    );
+}
+
+/// The crossing under a rollback session: the sync test replays each tick,
+/// and the dial, the link and the crossing come out the same.
+#[test]
+fn a_dial_and_a_crossing_hold_under_rollback() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()).with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the hub builds under a sync-test rollback session");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, "TANGENT"), MATH);
+    assert!(standing_in(&mut sim, MATH_RING));
+}

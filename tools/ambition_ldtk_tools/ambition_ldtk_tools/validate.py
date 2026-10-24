@@ -1323,7 +1323,10 @@ def gate_network_ring_zones(path: Path) -> set[tuple[str, str]]:
 
     candidates = [path.parent.parent / "data" / "gate_network.ron"]
     try:
-        if path.resolve().parent == default_worlds_dir().resolve():
+        # The content pack's worlds are links into the map assets: a world
+        # named by either path is the pack's.
+        linked = (default_worlds_dir() / path.name).resolve()
+        if path.resolve().parent == default_worlds_dir().resolve() or linked == path.resolve():
             candidates.append(default_worlds_dir().parent / "data" / "gate_network.ron")
     except OSError:
         pass

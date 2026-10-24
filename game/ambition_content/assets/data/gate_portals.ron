@@ -83,4 +83,17 @@
         portal_sprite_name: "Noodly Gate (Narthex) Portal",
         ring_sprite_name: "Noodly Gate (Narthex) Ring",
     ),
+    // The military gate annex, off the General's tower (SENTINEL).
+    "military_gate_zone": (
+        command: Dialed,
+        portal_sprite_name: "Military Gate (Annex) Portal",
+        ring_sprite_name: "Military Gate (Annex) Ring",
+    ),
+    // The military survey ring on the gravity trail's last tower (TESLA,
+    // receive only).
+    "trail_survey_gate": (
+        command: Dialed,
+        portal_sprite_name: "Trail Survey Gate Portal",
+        ring_sprite_name: "Trail Survey Gate Ring",
+    ),
 }

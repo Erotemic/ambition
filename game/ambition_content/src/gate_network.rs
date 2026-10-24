@@ -54,6 +54,38 @@ mod tests {
         assert!(short.len() >= 2, "a few short hidden addresses: {short:?}");
     }
 
+    /// The people and signs that teach an address teach one the network has:
+    /// each `gate.known.<ADDRESS>` flag a shipped dialogue sets names an
+    /// address of the catalog, spelled as a dial matches it.
+    #[test]
+    fn each_address_a_dialogue_teaches_is_an_address_of_the_network() {
+        let catalog = lowered_gate_network(crate::pack::shipped());
+        let prefix = ambition_platformer2d::world::rooms::gate_address_known_flag("");
+        let mut taught = Vec::new();
+        let mut dirs = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/dialogue")];
+        while let Some(dir) = dirs.pop() {
+            for entry in std::fs::read_dir(&dir).expect("the dialogue folder reads") {
+                let path = entry.expect("an entry").path();
+                if path.is_dir() {
+                    dirs.push(path);
+                } else if path.extension().is_some_and(|ext| ext == "yarn") {
+                    let text = std::fs::read_to_string(&path).expect("a dialogue reads");
+                    for piece in text.split(&format!("\"{prefix}")).skip(1) {
+                        let address = piece.split('"').next().unwrap_or_default().to_string();
+                        taught.push((path.file_name().unwrap().to_string_lossy().to_string(), address));
+                    }
+                }
+            }
+        }
+        assert!(taught.len() >= 3, "the shipped dialogue teaches a few addresses: {taught:?}");
+        for (file, address) in &taught {
+            assert!(
+                catalog.ring_at(address).is_some() && normalize_address(address) == *address,
+                "`{file}` teaches `{address}`, which no ring answers"
+            );
+        }
+    }
+
     /// Every terminal lists a way home: each ring with a terminal outside the
     /// home dimension posts an address of a home ring.
     #[test]

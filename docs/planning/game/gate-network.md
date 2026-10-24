@@ -1,6 +1,7 @@
 # The gate network
 
-**State:** OPEN. The first slice is built and tested (see "Current slice").
+**State:** OPEN. The network, every destination's ring, the military gate and
+the first knowledge sources are built and tested (see "Current slice").
 Rules for the engine: `ambition_platformer2d_world::rooms::gate_network`.
 Ambition's catalog: `game/ambition_content/assets/data/gate_network.ron`.
 
@@ -101,9 +102,9 @@ from the start.
 | `SAILING` | `pirate_port_gate_arrival` | `pirate_port_gate_plaza` | the port's docks and the cove | yes |
 | `SILENT` | `ninja_village_gate_arrival` | `ninja_village_gate_shrine` | the village, the forest, the dojo | yes |
 | `ALDENTE` | `noodly_narthex_gate` | `noodly_narthex` | the Noodly Temple | yes |
-| `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the military tower | restricted (military band) |
+| `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | restricted until the clearance; on foot by the annex's crawlway |
 | `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes, receive only |
-| `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_inversion_gallery` | the trail's end, GNU-ton's door | military band only |
+| `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | military band only (the annex ring, or the clearance) |
 | (none) | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | sends `TANGENT` only, when its breaker is on |
 
 ## The hub
@@ -117,6 +118,31 @@ level of the same room east of the main floor, through the old east exit:
 each door keeps its id and target, so tests and far doors still find it.
 `specs/gate_network/make_gates.py` makes all of this.
 
+## The military gate
+
+The annex (`military_gate_annex`, its own facility) opens off the ground floor
+of the General's tower (`military_tower`). Its ring answers `SENTINEL` and
+sends in the `military` band, so it dials `TESLA`, which a civil ring may not.
+
+- **Later, by permission.** The save flag `gate.clearance.military` is the
+  permit of both military rings: the public gate dials them, and the annex's
+  checkpoint (a `LockWall`, `gated_by: world.flag_set gate.clearance.military`)
+  stands open. The General gives it once Castle Godwin's dog is down
+  (`boss_cleared("castle_godwin.wolfenstein")`, `factions.yarn`).
+- **Early, by one fair trick.** The checkpoint stops 32 px above the floor:
+  the maintenance crawlway. A standing robot (48) does not fit; a crouching
+  one (24) walks under. The wall is 64 thick and reaches the ceiling, so no
+  blink or flight crosses it. The General's line names the crawlway.
+- **No free passage.** Using the annex ring sets no permit. The public gate
+  still refuses both military addresses until the clearance.
+
+## Knowledge sources
+
+The Kernel Guide (`hub_guide`, the public gate's question) teaches TANGENT,
+GENESIS and CITADEL; the gate janitor of the gate stack teaches TANGENT; the
+General teaches SENTINEL with the clearance. A content test holds every
+address a dialogue teaches to the catalog.
+
 ## Current slice
 
 Built and tested (`game/ambition_app/tests/the_gate_network.rs`, the
@@ -129,13 +155,26 @@ world crate's and the content crate's unit tests):
 - knowledge through save flags, its save/load round trip, the
   `start_known` switch;
 - the terminal panel (Known, Recent, Manual; keyboard, gamepad, touch);
-- the public hub gate, the developer wing, Ring 7 and its breaker, the
-  Math town and Castle Godwin forest rings.
+- the public hub gate, the developer wing, Ring 7 and its breaker;
+- every destination's ring and terminal (Math town, the primeval
+  trailhead and rookery, Castle Godwin's forest, the gravity trail, the
+  orbital station, the pirate port, the ninja village, the Noodly Temple),
+  each with a way home that needs no known address;
+- the military annex: its checkpoint, the crawlway, the clearance, the
+  survey ring TESLA;
+- a dial and a crossing under a sync-test rollback session;
+- the first dialogue that teaches addresses, and the upkeep in view (ring
+  power, the traffic board, transit sickness bags; the janitor's and the
+  guide's lines on organic travellers).
 
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).
 - Chevron art in the panel from the ring's sheet; the panel draws the Greek
   glyphs as text now.
+- More knowledge sources: signs and documents that set `gate.known.*` (the
+  addresses on the away terminals are posted already), and the news board.
+- A guard at the checkpoint (no fitting NPC character yet; the sign and the
+  General carry it now).
 - More bands (freight), tolls, schedules of outages from authored time.
 - Rings in the other 8 of the 17 dimensions.

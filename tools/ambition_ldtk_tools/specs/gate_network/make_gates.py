@@ -31,6 +31,12 @@ What it does (`docs/planning/game/gate-network.md`):
   from the intro leads to the gate.
 - Ring 7 of the gate stack (`math_gate_home_zone`) becomes a dialed ring with
   its own terminal; its old switch is now its power breaker.
+- The military gate annex (`military_gate_annex`, its own room and facility)
+  opens off the ground floor of the General's tower. A checkpoint wall stands
+  between its door and its ring (SENTINEL) until the save holds the military
+  clearance. The fair early way past is the maintenance crawlway under the
+  checkpoint: the wall stops short of the floor, and the gap is low enough
+  that only a crouching body goes through.
 """
 from __future__ import annotations
 
@@ -110,6 +116,88 @@ GUIDE_X = 1150
 
 #: Ring 7 of the gate stack: its dialer east of the ring, by the breaker.
 RING7_DIALER = (1400, 736)
+
+
+#: The military gate annex: its own room, off the General's tower.
+ANNEX = "military_gate_annex"
+ANNEX_W, ANNEX_H = 1024, 448
+#: Out of every other level's way (the tower's neighbours are packed tight).
+ANNEX_AT = (83200, 3168)
+ANNEX_FLOOR = 384
+#: The checkpoint: a wall from the ceiling, open with the clearance. It stops
+#: `CRAWLWAY` above the floor: the maintenance crawlway, above a crouching
+#: robot (24) and below a standing one (48). The wall is 64 thick, so a blink
+#: does not cross it, and it reaches the ceiling, so nothing flies over.
+CHECKPOINT = (448, 64)
+CRAWLWAY = 32
+CLEARANCE = "gate.clearance.military"
+ANNEX_RING_X = 640
+ANNEX_DIALER_X = 848
+#: The tower's door to the annex, on the tower's ground floor (y 1248), between
+#: its start and its door to the hub.
+TOWER = "military_tower"
+TOWER_FLOOR = 1248
+TOWER_ANNEX_DOOR = (300, TOWER_FLOOR - 96)
+
+
+def annex_entities() -> list[tuple]:
+    floor = ANNEX_FLOOR
+    wall_x, wall_w = CHECKPOINT
+    return [
+        ("Solid", 0, 0, ANNEX_W, 16, dict(name="annex_ceiling")),
+        ("Solid", 0, 16, 16, floor - 16, dict(name="annex_west_wall")),
+        ("Solid", ANNEX_W - 16, 16, 16, floor - 16, dict(name="annex_east_wall")),
+        ("Solid", 0, floor, ANNEX_W, ANNEX_H - floor, dict(name="annex_floor")),
+        ("LockWall", wall_x, 16, wall_w, floor - CRAWLWAY - 16,
+         dict(id="annex_checkpoint", name="the military checkpoint", gated_by=f"world.flag_set {CLEARANCE}", look="temple_gate_iron")),
+        ("LoadingZone", 48, floor - 96, 48, 96,
+         dict(id="military_gate_annex_door", name="back to the tower", activation="Door", target_room=TOWER,
+              target_zone="military_tower_annex_door", bidirectional=True)),
+        ("PlayerStart", 130, floor - 46, 28, 46, dict(name=f"{ANNEX}_spawn")),
+        ("DebugLabel", 160, floor - 200, 300, 24,
+         dict(name="annex_checkpoint_sign", category="Room", text="CHECKPOINT: military clearance only")),
+        ("DebugLabel", wall_x - 88, floor - CRAWLWAY - 28, 240, 24,
+         dict(name="annex_crawlway_sign", category="Custom", text="maintenance crawlway")),
+        *gates.ring("Military Gate (Annex)", "military_gate_zone", ANNEX_RING_X, floor, "the military gate"),
+        *gates.terminal("Military Gate (Annex)", "military_gate_terminal", ANNEX_DIALER_X, floor),
+        ("Prop", wall_x + wall_w + 48, floor - 96, 64, 96, dict(name="annex_gate_power_cabinet", kind="gate_power_cabinet")),
+        ("DebugLabel", ANNEX_RING_X - 24, floor - 260, 360, 24,
+         dict(name="annex_gate_sign", category="Room", text="MILITARY GATE: priority band, use is logged")),
+        ("CameraZone", 0, 0, ANNEX_W, ANNEX_H, dict(id=f"{ANNEX}_camera", name=f"{ANNEX}_camera", mode="Default")),
+    ]
+
+
+def annex_spec() -> str:
+    """The annex's `area create` spec."""
+    body = "\n        ".join(gates.as_ron(annex_entities()))
+    return f"""// Written by specs/gate_network/make_gates.py. Change the script, not this file.
+(
+    id: "{ANNEX}",
+    level_id: "{ANNEX}",
+    world_x: {ANNEX_AT[0]},
+    world_y: {ANNEX_AT[1]},
+    px_wid: {ANNEX_W},
+    px_hei: {ANNEX_H},
+    fill_collision: "empty",
+    biome: "tower",
+    music_track: "fighters_guild_oath_of_steel",
+    ambient_profile: "barracks",
+    visual_theme: "red",
+    entities: [
+        {body}
+    ],
+    connect_to: [],
+)
+"""
+
+
+def tower_door_entities() -> list[tuple]:
+    x, y = TOWER_ANNEX_DOOR
+    return [
+        ("LoadingZone", x, y, 48, 96, dict(id="military_tower_annex_door", name="to the gate annex", activation="Door",
+                                           target_room=ANNEX, target_zone="military_gate_annex_door", bidirectional=True)),
+        ("DebugLabel", x - 30, y - 28, 140, 24, dict(name="military_tower_annex_sign", category="Custom", text="GATE ANNEX")),
+    ]
 
 
 def run(*args) -> tuple[int, str]:
@@ -314,6 +402,9 @@ def main(argv) -> int:
     for path, text in district_interfaces().items():
         path.write_text(text)
         print(path.relative_to(TOOLS))
+    annex = HERE / f"{ANNEX}_area.ron"
+    annex.write_text(annex_spec())
+    print(annex.relative_to(TOOLS))
     if "--apply" not in argv:
         return 0
     hub = level_of(SANDBOX, HUB)
@@ -359,6 +450,13 @@ def main(argv) -> int:
     if "ring7_terminal" not in json.dumps(level_of(INTRO, "gate_stack_lower")):
         if apply_yaml(gates.as_yaml("gate_stack_lower", ring7_entities(), "Ring 7's terminal."),
                       "ring7_terminal.yaml", ["entity", "add"], INTRO):
+            return 1
+    code, out = run("area", "create", str(annex), "--ldtk", str(SANDBOX), "--replace-existing")
+    if code and "wrote new level" not in out and "replaced level" not in out:
+        return code
+    if "military_tower_annex_door" not in json.dumps(level_of(SANDBOX, TOWER)):
+        if apply_yaml(gates.as_yaml(TOWER, tower_door_entities(), "The tower's door to its gate annex."),
+                      "tower_annex_door.yaml", ["entity", "add"], SANDBOX):
             return 1
     for checked in (SANDBOX, INTRO):
         code, _ = run("validate", str(checked))

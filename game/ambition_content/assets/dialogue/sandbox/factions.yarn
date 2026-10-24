@@ -31,6 +31,25 @@ General: AT EASE, RECRUIT. You are in the Iron Bastion. Parade deck below, offic
     <<jump military_general__1>>
 -> Why so many medals?
     <<jump military_general__2>>
+-> Ask about the gate annex.
+    <<jump military_general__gate>>
+-> Salute and withdraw.
+===
+
+title: military_general__gate
+---
+<<if condition("world.flag_set", "gate.clearance.military")>>
+    General: Your clearance stands. SENTINEL is the annex, and the annex dials what the public ring may not. The log reads every dial. So do I.
+<<elseif boss_cleared("castle_godwin.wolfenstein")>>
+    General: You put down the dog of Castle Godwin. That is a military result, and a military result earns military clearance. The checkpoint downstairs will open for you, and the annex ring answers SENTINEL from any public ring.
+    <<command "world.set_flag" "gate.clearance.military" true>>
+    <<command "world.set_flag" "gate.known.SENTINEL" true>>
+<<else>>
+    General: The annex off the parade deck holds our ring. Priority band, logged use, clearance only. Earn a military result and we will talk about clearance.
+    General: And keep out of the maintenance crawlway. It is for maintenance, and for nobody who crouches.
+<<endif>>
+-> Ask another question.
+    <<jump military_general>>
 -> Salute and withdraw.
 ===
 

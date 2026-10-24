@@ -37,6 +37,8 @@ Kernel Guide: Back in the Kernel. Doors use Interact. Double-tap Up is the fallb
     <<jump hub_guide__1>>
 -> What should I test next?
     <<jump hub_guide__2>>
+-> How does the public gate work?
+    <<jump hub_guide__gate>>
 -> I would like to test dialog.
     <<jump hub_guide__test>>
 -> Back to the hub.
@@ -45,6 +47,19 @@ Kernel Guide: Back in the Kernel. Doors use Interact. Double-tap Up is the fallb
 title: hub_guide__1
 ---
 Kernel Guide: Up already aims, climbs, and flies. A single Up press should not open a door by accident. Use Interact for doors, shops, and conversations.
+-> Ask another hub question.
+    <<jump hub_guide>>
+-> Return to movement.
+===
+
+title: hub_guide__gate
+---
+Kernel Guide: Press the dialer, enter an address on the chevrons, and walk into the ring once it opens. A ring takes one traveller and shuts behind them.
+Kernel Guide: TANGENT is Math Town. GENESIS is the primeval trail. CITADEL is the forest under Castle Godwin. Every ring out there lists LEGAL, the way home.
+<<command "world.set_flag" "gate.known.TANGENT" true>>
+<<command "world.set_flag" "gate.known.GENESIS" true>>
+<<command "world.set_flag" "gate.known.CITADEL" true>>
+Kernel Guide: Organic travellers come out green. The bags by the ring are for them. You are a robot: you will feel nothing, and you will be asked to hold a bag.
 -> Ask another hub question.
     <<jump hub_guide>>
 -> Return to movement.

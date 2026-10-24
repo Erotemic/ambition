@@ -154,7 +154,7 @@
             zone: "trail_survey_gate",
             name: "Trail survey ring",
             facility: "gravity_trail_survey_ring",
-            room: "gnu_ton_inversion_gallery",
+            room: "gnu_ton_works_approach",
             address: Some("TESLA"),
             hidden: true,
             admits: Some((
@@ -162,8 +162,7 @@
                 permit: Some("gate.clearance.military"),
                 reason: "A military survey ring. Civil traffic is refused.",
             )),
-            status: Offline("The survey ring at the trail's end is being re-aligned."),
-            note: "Receive only.",
+            note: "Receive only. It stands on the tower by GNU-ton's door.",
         ),
         (
             zone: "orbital_station_gate_arrival",

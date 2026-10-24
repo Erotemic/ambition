@@ -28,11 +28,10 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 05:59Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-24 08:00Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 909 systems a frame; hub Ambition route 1,323 → 983 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
-run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
-time unchanged there because llvmpipe bounds it. Monolith packets this run:
+run's start against HEAD (F49, 08:00Z): main-world wall 12.98 → 6.74 ms a frame (Mary-O), 13.91 → 5.12 ms (Ambition); frame p50 24.0 → 20.8 ms (Mary-O), 51.1 → 27.2 ms (Ambition hub, mostly the F46 look cuts). Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
 module, the debris physics adapter, actor construction (K6, its own crate), the gravity-zone mechanic and the body causal recorders (to the runtime), body whereabouts (to construction), the live cluster view (to `ambition_body_seed`), the body-capability conditions (to `ambition_abilities`) and the game-asset decode (to the umbrella) (~9,100 production lines out, 58,758 left, by `wc -l` and the module graph
 at each move). Last full lane: `fc4897c12` (2026-10-24 06:00Z): app lib 253, `ambition_content` 532, Mary-O 204, monolith 1,185 green; `app_it` 1,337 of 1,342. The 5 reds are not this run's code: three gauntlet saves follow the hub's new map data (MEASURED: a bisect of the code from `8aae83270` finds only a docs commit), and the boot budget decodes the new districts' character sheets at boot (REASONED from its `[image]` lines); both sent to the gate lane, and `rendered_identities_are_registered` reads two untracked files in the renderer checkout (`bad_apple`, `gravity_apple`). Earlier green: `8aae83270` (full `app_it` 1,304 of 1,304). Waiting on: a phone profile of a build with these slices, the measurement that
@@ -155,6 +154,32 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The title backdrop's removal runs while a backdrop stands; the shell's exit and Ambition's session dressing peek their messages (`9b0076bb0`) | done | census: Mary-O route 919 → 916, Ambition 993 → 988 (3 here, the rest other lanes' gates); app_it `title` 13, `launcher` 10, `shell` 64 (one `shell_host_lifecycle` flake, 21/21 on two reruns), app lib 6 green |
 | The room-transition asset passes run with a transition: the contributor while one is active or its record still holds something to clear, the readiness poll while one is active, the presentation-event handler on a waiting event (`e73837dcb`) | done | census: Mary-O route 916 → 914 (3 idle here; 1 noise row); app_it `room_transition` 17, `walking_into_a_loading_zone` 5, `first_room` 3, `door` 34, `cover` 36, app lib `room_transition` 18 green |
 | SFX playback runs while a cue waits or the last run's records are uncleared; round despawn on a `RoundScopedEntity`; late match art with an `ActiveMatch`; dev gravity on its key (`6522d93c3`) | done | census: Mary-O route 914 → 909, Ambition 988 → 983 (4 here, the rest other lanes'); audio/round libs 16, app_it `sfx`, `sound`, `round` 30, `audio` green |
+
+### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
+
+MEASURED by F44's method: desktop VM, `profiling` build of `capture_scene`,
+xvfb with llvmpipe, `--warmup 1500`, census on, three interleaved rounds per
+binary (`scratchpad/ab/ab_interleave.py`). Base is the run's start
+(`315d36bf0`), head is `27b3e3e74`; both started 07:2x-08:00Z.
+
+| per frame (median of windows) | Mary-O start | Mary-O head | Ambition start | Ambition head |
+| --- | ---: | ---: | ---: | ---: |
+| systems run (census, markers included) | 1,362 | 956 | 1,540 | 983 |
+| main-world wall, summed | 12.98 ms | 6.74 ms | 13.91 ms | 5.12 ms |
+| `Update` wall | 3.92 ms | 1.56 ms | 3.45 ms | 1.61 ms |
+| `PostUpdate` wall | 5.13 ms | 2.70 ms | 6.56 ms | 1.30 ms |
+| `PostUpdate` process CPU | 55.1 ms | 22.7 ms | 72.6 ms | 6.0 ms |
+| `SpawnScene` wall | 0.67 ms | 0.06 ms | 0.54 ms | 0.04 ms |
+| frame p50 | 24.0 ms | 20.8 ms | 51.1 ms | 27.2 ms |
+
+The Ambition hub's frame p50 halved: 51.1 to 27.2 ms. F44's run-end A/B had it
+at 50.9 to 48.0. REASONED: what changed since F44 is the hub look (F46 cuts 1
+and 3: the overlay drawn only over the front's band), the keyed
+reconciliation (no room spawns an entity a frame) and this run's gates. On
+llvmpipe the frame is drawn on the CPU, so fewer fragments and less
+`PostUpdate` work show up as frame time here. The Mary-O frame moved less
+(24.0 to 20.8 ms) because its room has no two-state look. The phone, which
+F40 found CPU-bound, still has to confirm what this buys there.
 
 ### F48 — After the content gates: what is left is Bevy's and Jon's (2026-10-24)
 

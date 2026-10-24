@@ -32,7 +32,14 @@ KERNEL = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "src"
 PATH_REF = re.compile(r"\bcrate::([a-z_][a-z0-9_]*)")
 
 
-INLINE_TEST_MOD = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\(crate\))?\s+)?mod\s+\w+\s*\{")
+#: `#[cfg(test)]`, then any doc comments, comments or other attributes, then an
+#: inline `mod name {`. ⛔ The interleaved lines are the case the first spelling
+#: missed: `items/pickup/mod.rs` documents its `held_item_steps` fixture BETWEEN
+#: the attribute and the `mod`, and that fixture's one `crate::session` line was
+#: counted as a production edge of the `items` module.
+INLINE_TEST_MOD = re.compile(
+    r"#\[cfg\(test\)\]\s*(?:(?://[^\n]*|#\[[^\n]*\])\s*)*(?:pub(?:\(crate\))?\s+)?mod\s+\w+\s*\{"
+)
 
 
 def strip_inline_test_modules(text: str) -> str:

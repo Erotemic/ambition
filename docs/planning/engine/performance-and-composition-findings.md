@@ -223,6 +223,14 @@ What the Mary-O frame still pays, by owner:
   longer install there (`0c8aaec1f`). REASONED: not measurable on this VM,
   which has no NDK.
 
+Found on the way (REASONED, not yet witnessed):
+`moving_platforms::sync_moving_platform_visuals` reads the room through
+`Single<…, With<RoomInstanceRoot>>`. With two live rooms, `Single` fails
+validation and Bevy skips the pass, so platform visuals stop moving while
+two rooms are live (a door's neighbour, a gate link). Every other drawable
+places itself by `LiveRoomOf`. Witness first: a two-room capture with a
+moving platform in either room.
+
 REASONED: excluding the census markers, the gating campaign is at its floor
 on both routes. Every further cut is one of the three decisions above or K5
 decomposition.

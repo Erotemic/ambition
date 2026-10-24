@@ -154,6 +154,7 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     app.add_systems(
         Update,
         exit_on_shell_request
+            .run_if(ambition_platformer2d::engine_core::a_message_waits::<ShellEvent>)
             .after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands),
     );
     // The pause-suppression bridge only exists when the universal pause menu it
@@ -309,7 +310,9 @@ pub fn install_ambition_shell_visuals(app: &mut App) {
     );
     app.add_systems(
         Update,
-        ambition_activate_session_visuals.in_set(SessionScopeSet::Presentation),
+        ambition_activate_session_visuals
+            .run_if(ambition_platformer2d::engine_core::a_message_waits::<GameplaySessionEvent>)
+            .in_set(SessionScopeSet::Presentation),
     );
 }
 

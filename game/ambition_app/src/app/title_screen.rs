@@ -226,7 +226,9 @@ impl Plugin for TitleScreenPlugin {
             Update,
             (
                 (show_the_scene_of_the_cursor, fade_and_drift_the_scenes).chain().run_if(the_launcher_is_up),
-                take_the_backdrop_away.run_if(not(the_launcher_is_up)),
+                take_the_backdrop_away
+                    .run_if(not(the_launcher_is_up))
+                    .run_if(any_with_component::<TitleBackdrop>),
             )
                 // An app that does not draw has no backdrop.
                 .run_if(resource_exists::<AssetServer>)

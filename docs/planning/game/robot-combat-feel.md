@@ -208,6 +208,12 @@ Open (Jon):
    shot on the release) is the Mega Man way.
 4. A shot aimed up or on a diagonal (the right stick) leaves the forward
    push's hand: there is one `shoot` row.
-5. Under GGRS resimulation (sync test, check distance 1 or more) only the
-   first strike of a window damages the winded Mockingbird, blade or shot;
-   with check distance 0 all of them do (`probe_…`, ignored). Not fixed here.
+
+Closed: "under GGRS resimulation only the first strike of a window damages
+the winded Mockingbird" was the probe's fixture, not the game. The probe held
+the player with a `world_mut` write on each tick. A rewind erases such a
+write, so under resimulation the player drifted out of reach. Put through the
+harness (a rollback rebase), with only input in the window, every hit lands
+at check distance 1 and 4, on the boss and on a plain enemy. Guards:
+`every_hit_in_the_winded_window_lands_under_rollback`,
+`every_hit_on_a_sandbag_lands_under_rollback`.

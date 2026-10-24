@@ -100,7 +100,7 @@ fn until_it_hangs_winded(sim: &mut Platformer2dSimHarness) {
                 .expect("the Mockingbird")
         };
         let room = conductor_of(sim.world_mut(), entity).and_then(|view| view.room).expect("its room");
-        hold_player(sim, ae::Vec2::new(room.x * 0.78, room.y * 0.45), -1.0);
+        place_player(sim, ae::Vec2::new(room.x * 0.78, room.y * 0.45), -1.0);
         sim.step(AgentAction::default());
     }
     panic!("it never hung winded");
@@ -228,21 +228,28 @@ fn measure_each_way_of_fighting_the_winded_mockingbird() {
     report("fireball held 0.90 s", fight(60.0, charge(54)));
 }
 
-/// A probe: every hit sent at it in its winded window, and what it did.
-/// `PROBE_FIREBALL=1` taps the fireball instead of swinging the blade, and
-/// `PROBE_CHECK_DISTANCE=N` runs it under a GGRS sync test with that check
-/// distance (none: no rollback). With a distance of 1 or more, only the first
-/// strike of the window damaged it (2026-10-24).
-#[test]
-#[ignore = "a probe; run with --ignored"]
-fn probe_the_hits_on_the_winded_mockingbird() {
-    use ambition_platformer2d::combat::events::HitEvent;
-    let mut opts = Platformer2dSimHarnessOptions::default()
+/// Stand the player at `at`, still, facing `facing`, and make that world the
+/// rollback baseline.
+///
+/// ⛔ A write through `world_mut` under a sync test with a check distance of
+/// 1 or more is erased by the next rewind: the resimulation does not repeat
+/// it. Without the rebase the player is not where the fixture put it.
+fn place_player(sim: &mut Platformer2dSimHarness, at: ae::Vec2, facing: f32) {
+    hold_player(sim, at, facing);
+    sim.rebase_rollback_history().expect("the placed player becomes the rollback baseline");
+}
+
+/// The Mockingbird's hit points through one winded window, tick by tick, for
+/// one way of fighting, under a GGRS sync test with `check_distance`.
+///
+/// The player flies, so it hovers where it is put and needs no hold. It is
+/// put beside the bird once, before the window. In the window, only the input
+/// moves it, so a resimulated tick does what the first run of that tick did.
+fn hp_through_the_window(check_distance: usize, standoff: f32, mut input: impl FnMut(u32) -> AgentAction) -> Vec<i32> {
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
+        .with_sync_test_rollback_settings(check_distance, 12)
         .with_required_start_room(SKY);
-    if let Ok(distance) = std::env::var("PROBE_CHECK_DISTANCE") {
-        opts = opts.with_sync_test_rollback_settings(distance.parse().unwrap(), 12);
-    }
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the sky builds headlessly");
     for _ in 0..30 {
         sim.step(AgentAction::default());
@@ -254,59 +261,55 @@ fn probe_the_hits_on_the_winded_mockingbird() {
             health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
         }
     }
+    sim.grant_flight();
     until_it_hangs_winded(&mut sim);
-    let start = bird(&mut sim);
-    let hurt = start.hurt.expect("hurt");
-    let fireball = std::env::var("PROBE_FIREBALL").is_ok();
-    let (at, facing) = beside_it(&mut sim, hurt, if fireball { 60.0 } else { 10.0 });
-    let mut cursor = bevy::ecs::message::MessageCursor::<HitEvent>::default();
-    for tick in 0..130u32 {
-        hold_player(&mut sim, at, facing);
-        let action = if fireball {
-            tap_every(20)(tick)
-        } else {
-            AgentAction { attack: tick % 15 == 0, ..Default::default() }
-        };
-        sim.step(action);
-        if fireball && tick < 40 {
-            let w = sim.world_mut();
-            let shots: Vec<_> = w
-                .query_filtered::<&ae::BodyKinematics, With<ambition_platformer2d::projectiles::ProjectileGameplay>>()
-                .iter(w)
-                .map(|k| (k.pos, k.vel, k.size))
-                .collect();
-            let me = w.query_filtered::<&ae::BodyKinematics, PrimaryPlayerOnly>().iter(w).next().map(|k| (k.pos, k.facing));
-            eprintln!("tick {tick}: me {me:?} shots {shots:?}");
-        }
+    let hurt = bird(&mut sim).hurt.expect("winded, it has a damageable part");
+    let (at, facing) = beside_it(&mut sim, hurt, standoff);
+    place_player(&mut sim, at, facing);
+    let loads_before = sim.rollback_execution_stats().map_or(0, |stats| stats.lifetime_load_runs);
+    let mut hp = Vec::new();
+    for tick in 0..75u32 {
         let b = bird(&mut sim);
-        let parts: Vec<_> = {
-            let w = sim.world_mut();
-            w.query::<(&BossConfig, &DamageableVolumes)>()
-                .iter(w)
-                .filter(|(c, _)| c.behavior.id == MOCKINGBIRD_ID)
-                .flat_map(|(_, v)| v.volumes.iter().map(|p| p.bounds()).collect::<Vec<_>>())
-                .collect()
-        };
-        let messages = sim.world().resource::<Messages<HitEvent>>();
-        for hit in cursor.read(messages) {
-            eprintln!(
-                "tick {tick}: hit {:?} dmg {} target {:?} vol {:?}",
-                hit.source, hit.damage, hit.target, hit.volume.bounds()
+        assert!(b.stunned && !b.guarded, "premise: it hangs winded through the window (tick {tick})");
+        hp.push(b.hp);
+        sim.step(input(tick));
+    }
+    hp.push(bird(&mut sim).hp);
+    sim.rollback_health().expect("the resimulated ticks agree with the first run");
+    let loads = sim.rollback_execution_stats().map_or(0, |stats| stats.lifetime_load_runs) - loads_before;
+    if check_distance > 0 {
+        assert!(loads > 60, "premise: the window was resimulated ({loads} rewinds at distance {check_distance})");
+    }
+    hp
+}
+
+/// Under rollback, every hit in the winded window lands, not only the first.
+///
+/// A GGRS sync test rewinds `check_distance` ticks each tick and plays them
+/// again. Correct rollback state makes the replay equal to the first run, so
+/// the bird loses the same hit points at each tick with and without the
+/// rewinds.
+#[test]
+fn every_hit_in_the_winded_window_lands_under_rollback() {
+    for (name, standoff, input) in [
+        ("blade, a press each 0.25 s", 10.0, Box::new(swing_every(15)) as Box<dyn FnMut(u32) -> AgentAction>),
+        ("fireball tap each 0.33 s", 60.0, Box::new(tap_every(20))),
+    ] {
+        let mut input = input;
+        let mut tape = Vec::new();
+        let unrewound = hp_through_the_window(0, standoff, |tick| {
+            let action = input(tick);
+            tape.push(action);
+            action
+        });
+        let landed = unrewound.windows(2).filter(|pair| pair[1] < pair[0]).count();
+        assert!(landed >= 3, "{name}: premise: three or more hits land without rollback; hp {unrewound:?}");
+        for distance in [1usize, 4] {
+            let rewound = hp_through_the_window(distance, standoff, |tick| tape[tick as usize]);
+            assert_eq!(
+                rewound, unrewound,
+                "{name}: at check distance {distance} the bird's hit points differ from the run without rollback"
             );
-        }
-        if tick < 40 {
-            let w = sim.world_mut();
-            let playing = w
-                .query_filtered::<Option<&ambition_platformer2d::actor::MovePlayback>, PrimaryPlayerOnly>()
-                .iter(w)
-                .next()
-                .flatten()
-                .map(|p| p.spec.id.clone());
-            let dt = w.resource::<ambition_platformer2d::time::WorldTime>().sim_dt();
-            eprintln!("tick {tick}: playing {playing:?} sim_dt {dt}");
-        }
-        if tick % 10 == 0 || tick < 3 {
-            eprintln!("tick {tick}: hp {} guarded {} stunned {} parts {parts:?}", b.hp, b.guarded, b.stunned);
         }
     }
 }

@@ -10,7 +10,12 @@
 //   3. The platform breaks under their weight, forcing a descent into
 //      the fight (they fall through a column of perches that catches
 //      them safely before the floor).
-//   4. The fight: GNU-ton rides the giant gnu in the middle of the hall and
+//   4. Round 3 (2026-10-24, Jon: "avoid too many platforms in the room ...
+//      the mechanism to get onto the boss should be the shoulders, back and
+//      portals"): the perches are gone but for two low steps at the walls.
+//      The giant walks the hall; the way onto it is the slope of its back
+//      from the rump, and the portal pair of its hammer.
+//   4b. Before round 3: GNU-ton rode the giant gnu in the middle of the hall and
 //      conducts its two fists (slams, a pendulum, curves he draws in the air
 //      and then traces, Newton's cradle, orbits). A fist stuck in the floor
 //      can be struck and the blow lands on him; or climb the low perches onto
@@ -25,13 +30,13 @@
 //   +------------------------------------------------------------+ y=0
 //   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
 //   | [door]   [ledge───][BreakablePad]                          | ← top entry
-//   |  ▓ladder▓               ░░░░top perch░░░░                  |
-//   |  ▓ladder▓   ░░perch left high           perch right high░░ |
-//   |  ▓ladder▓        ░░mid-high        mid-high░░              |
-//   |  ▓ladder▓   ░░perch left mid              perch right mid░░|
-//   |  ▓ladder▓            ┌── giant gnu + GNU-ton ──┐            |
-//   |  ▓ladder▓            │   (440x416, on floor)   │            |
-//   |  ▓ladder▓░░low░  ░gnu-left░          ░gnu-right░  ░low░░   |
+//   |  ▓ladder▓                                                   |
+//   |  ▓ladder▓                                                   |
+//   |  ▓ladder▓                                                   |
+//   |  ▓ladder▓                                                   |
+//   |  ▓ladder▓        ┌── giant gnu + GNU-ton (it walks) ──┐     |
+//   |  ▓ladder▓        │        (630x464, on floor)          │     |
+//   |  ▓ladder▓░░low░                                  ░low░░    |
 //   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒| y=1248
 //   +------------------------------------------------------------+
 //
@@ -177,104 +182,6 @@
         (
             type: "OneWayPlatform",
             px: [
-                752,
-                432,
-            ],
-            size: [
-                288,
-                16,
-            ],
-            fields: (
-                name: "perch_top_center",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                240,
-                560,
-            ],
-            size: [
-                192,
-                16,
-            ],
-            fields: (
-                name: "perch_left_high",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                1360,
-                560,
-            ],
-            size: [
-                192,
-                16,
-            ],
-            fields: (
-                name: "perch_right_high",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                528,
-                720,
-            ],
-            size: [
-                160,
-                16,
-            ],
-            fields: (
-                name: "perch_left_mid_high",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                1104,
-                720,
-            ],
-            size: [
-                160,
-                16,
-            ],
-            fields: (
-                name: "perch_right_mid_high",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                336,
-                944,
-            ],
-            size: [
-                192,
-                16,
-            ],
-            fields: (
-                name: "perch_left_mid",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                1264,
-                944,
-            ],
-            size: [
-                192,
-                16,
-            ],
-            fields: (
-                name: "perch_right_mid",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
                 176,
                 1120,
             ],
@@ -304,34 +211,6 @@
         // puts you on the giant's shoulders (a one-way ledge the runtime lays
         // on the gnu's back), which is the only way to reach the scholar
         // while he is in the saddle.
-        (
-            type: "OneWayPlatform",
-            px: [
-                480,
-                1128,
-            ],
-            size: [
-                128,
-                16,
-            ],
-            fields: (
-                name: "perch_gnu_left",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
-                1184,
-                1128,
-            ],
-            size: [
-                128,
-                16,
-            ],
-            fields: (
-                name: "perch_gnu_right",
-            ),
-        ),
         (
             type: "PlayerStart",
             px: [

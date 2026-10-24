@@ -1263,6 +1263,37 @@ pub mod blows {
         }
     }
 
+    /// The time of the strike the end of the limb crosses its near line: it
+    /// comes out of the far line then (the inverse of `wrist_depth`'s
+    /// strike).
+    pub fn through_time(limb: &Limb) -> f32 {
+        let u = (limb.back / (limb.deep + limb.back).max(1e-3)).cbrt();
+        u * limb.strike * STRIKE_FULL
+    }
+
+    /// How far into its strike the blow is in `part` (its hold goes on from
+    /// the strike); `None` on its way back.
+    pub fn strike_time(limb: &Limb, part: Part) -> Option<f32> {
+        match part {
+            Part::Strike(t) => Some(t),
+            Part::Hold(t) => Some(limb.strike + t),
+            Part::Recover(_) => None,
+        }
+    }
+
+    /// The limb is out of its far line and can be met (`clash`): from when it
+    /// comes through, for the clash's window. It hurts after that.
+    pub fn meetable(limb: &Limb, part: Part) -> bool {
+        let through = through_time(limb);
+        strike_time(limb, part).is_some_and(|t| (through..through + super::clash::WINDOW).contains(&t))
+    }
+
+    /// The limb hurts: from the middle of its blow through its hold, and not
+    /// while it can still be met.
+    pub fn hurts(limb: &Limb, part: Part) -> bool {
+        harmful(limb, part) && strike_time(limb, part).is_some_and(|t| t >= through_time(limb) + super::clash::WINDOW)
+    }
+
     /// The blow is full between these two times of the strike: it lands, or
     /// it misses.
     pub fn lands(limb: &Limb, before: f32, now: f32) -> bool {
@@ -1416,6 +1447,468 @@ pub mod blows {
     /// Does the far line still follow the player?
     pub fn tracking(cue: &Cue) -> bool {
         matches!(cue.mv, Move::PortalPunch | Move::PortalKick) && !cue.striking && cue.t < cue.dur - LOCK
+    }
+}
+
+/// The giant is a character of its own (round 3, Jon 2026-10-24: "the
+/// mount should be able to move around the room ... should feel like a
+/// character in its own right"). Between his blows it walks to where it
+/// fights from; with the player on its back it looks round at him.
+pub mod stride {
+    /// World units a second it walks: its hooves stand still on the floor at
+    /// this speed (`giant_art.STRIDE_SPEED`, its `walk` row).
+    pub const SPEED: f32 = 135.4;
+    /// The player this near its middle is under it: it backs off.
+    pub const UNDER: f32 = 300.0;
+    /// The player this far from its middle is out of reach: it comes on.
+    pub const FAR: f32 = 640.0;
+    /// How far one walk goes.
+    pub const STEP: f32 = 260.0;
+    /// How near a wall its flank stops.
+    pub const MARGIN: f32 = 40.0;
+    /// A walk shorter than this is not begun.
+    pub const SHORTEST: f32 = 30.0;
+    /// How near its mark a walk ends.
+    pub const ARRIVED: f32 = 10.0;
+    /// The seconds it stands after a walk before the next.
+    pub const PAUSE: f32 = 1.2;
+
+    /// Where it walks to (world x), from `giant_x` with half its width
+    /// `half_w`, for a player at `player_x`, in a hall from `left` to
+    /// `right`. `None`: it stands where it is.
+    pub fn mark(giant_x: f32, half_w: f32, player_x: f32, left: f32, right: f32) -> Option<f32> {
+        let d = player_x - giant_x;
+        let toward = if d.abs() < 1.0 { 1.0 } else { d.signum() };
+        let to = if d.abs() < UNDER {
+            giant_x - toward * STEP
+        } else if d.abs() > FAR {
+            giant_x + toward * STEP
+        } else {
+            return None;
+        };
+        let (lo, hi) = (left + half_w + MARGIN, right - half_w - MARGIN);
+        let to = if lo <= hi { to.clamp(lo, hi) } else { giant_x };
+        ((to - giant_x).abs() >= SHORTEST).then_some(to)
+    }
+
+    /// The rows of its walk: forward (the way its art faces, +X) or back,
+    /// with its arms on it or in their lines.
+    pub fn rows(forward: bool, arms_on: bool) -> &'static [&'static str] {
+        match (forward, arms_on) {
+            (true, true) => &["armed_walk", "armed_rest"],
+            (true, false) => &["walk", "rest"],
+            (false, true) => &["armed_walk_back", "armed_rest"],
+            (false, false) => &["walk_back", "rest"],
+        }
+    }
+
+    /// The rows of its look round at what is on its back.
+    pub fn look_back(arms_on: bool) -> &'static [&'static str] {
+        if arms_on {
+            &["armed_look_back", "armed_rest"]
+        } else {
+            &["look_back", "rest"]
+        }
+    }
+}
+
+/// Two blows that meet (Newton's third law: every action has an equal and
+/// opposite reaction). A blow of the player's on the giant's limb just as it
+/// comes out of the far line, before it hurts, stops the limb and throws both
+/// back: the limb goes back into its line, the player is thrown the way the
+/// limb came, and the giant rocks back. The force of the blow goes up the arm
+/// to its rider: the blow passes to him. Each is thrown as hard as the blow
+/// pushed (the same force on both) over its mass (the second law): the player
+/// far, the giant a little.
+pub mod clash {
+    use super::blows::Blow;
+
+    /// The seconds after the limb comes out of the far line that it can be
+    /// met: it hurts after them.
+    pub const WINDOW: f32 = 0.09;
+    /// The masses of the two bodies (the giant's catalog `mass`; the player
+    /// is the reference body).
+    pub const PLAYER_MASS: f32 = 1.0;
+    pub const GIANT_MASS: f32 = 8.0;
+    /// The giant is held still this long after a clash, and the camera shakes
+    /// this hard.
+    pub const FREEZE: f32 = 0.14;
+    pub const SHAKE: f32 = 24.0;
+
+    /// The impulse each body takes (world units a second, at mass 1): the
+    /// heavier blow pushes harder.
+    pub fn impulse(blow: Blow) -> f32 {
+        match blow {
+            Blow::Hammer | Blow::LeftHammer => 1100.0,
+            Blow::Upper | Blow::LeftUpper => 950.0,
+            Blow::Kick => 900.0,
+            Blow::Jab | Blow::LeftHook => 760.0,
+        }
+    }
+
+    /// How fast a body of `mass` is thrown by the impulse of `blow`.
+    pub fn speed(blow: Blow, mass: f32) -> f32 {
+        impulse(blow) / mass.max(0.1)
+    }
+
+    /// The player's launch: along the way the limb came (`way`, from the far
+    /// line), and up. A limb that came down throws him off it along the floor
+    /// (the floor takes the rest): away from the fist, `from_fist` the way
+    /// from it to him.
+    pub fn foe_launch(blow: Blow, way: bevy_math::Vec2, from_fist: bevy_math::Vec2) -> [f32; 2] {
+        let way = way.normalize_or_zero();
+        let dir = if way.y > 0.5 {
+            let side = if from_fist.x.abs() < 1.0 { 1.0 } else { from_fist.x.signum() };
+            bevy_math::Vec2::new(side, -0.45).normalize()
+        } else {
+            (way + bevy_math::Vec2::new(0.0, -0.35)).normalize_or_zero()
+        };
+        let v = dir * speed(blow, PLAYER_MASS);
+        [v.x, v.y]
+    }
+
+    /// The giant's: away from the player, on the floor.
+    pub fn giant_recoil(blow: Blow, away_x: f32) -> [f32; 2] {
+        [away_x.signum() * speed(blow, GIANT_MASS), -40.0]
+    }
+}
+
+/// His arrival: when his hall wakes, he comes in by the door at the top of
+/// it (he ran there from the duel in the room before, `prelude` in
+/// `ambition_content`), leaps down onto his giant's shoulders, and calls
+/// his power; the giant roars. It plays in the encounter's intro.
+pub mod arrival {
+    use bevy_math::Vec2;
+
+    /// The seconds of each part: he stands on the ledge, he leaps, he calls
+    /// his power. Within the encounter's intro (`intro_seconds`, 2.8).
+    pub const STAND: f32 = 0.45;
+    pub const LEAP: f32 = 1.05;
+    pub const POWER: f32 = 1.1;
+    pub const LEN: f32 = STAND + LEAP + POWER;
+    /// The ledge by the hall's top door: this far over the floor, and this
+    /// far from the left wall (`gnu_ton_arena_area.ron`, `shoulders()` in the
+    /// Science world's `make_specs.py`).
+    pub const LEDGE_OVER_FLOOR: f32 = 1040.0;
+    pub const LEDGE_IN: f32 = 120.0;
+    /// How high over the higher end the leap goes.
+    pub const RISE: f32 = 140.0;
+
+    /// Where he is at `t`: on the ledge, in the air on a curve that falls as a
+    /// thrown body does, then in the saddle. `None` once he is in it.
+    pub fn place(t: f32, ledge: Vec2, saddle: Vec2) -> Option<Vec2> {
+        if t < STAND {
+            return Some(ledge);
+        }
+        let u = (t - STAND) / LEAP;
+        if u >= 1.0 {
+            return None;
+        }
+        let top = ledge.y.min(saddle.y) - RISE;
+        // A parabola through the ledge, the top and the saddle, with its top
+        // where the time to fall from it is in proportion to the height.
+        let up = (ledge.y - top).sqrt();
+        let down = (saddle.y - top).sqrt();
+        let apex = up / (up + down);
+        let y = if u < apex {
+            let k = 1.0 - u / apex;
+            top + (ledge.y - top) * k * k
+        } else {
+            let k = (u - apex) / (1.0 - apex);
+            top + (saddle.y - top) * k * k
+        };
+        Some(Vec2::new(ledge.x + (saddle.x - ledge.x) * u, y))
+    }
+
+    pub fn scholar_rows(t: f32) -> (&'static [&'static str], f32, bool) {
+        if t < STAND {
+            (&["brace", "idle"], t, false)
+        } else if t < STAND + LEAP {
+            (&["special_up", "launch", "fall"], t - STAND, false)
+        } else {
+            (&["invoke", "brace"], t - STAND - LEAP, false)
+        }
+    }
+
+    pub fn gnu_rows(t: f32, arms_on: bool) -> (&'static [&'static str], f32, bool) {
+        if t < STAND + LEAP {
+            (if arms_on { &["armed_look_back", "look_back", "rest"] } else { &["look_back", "rest"] }, t, false)
+        } else if arms_on {
+            (&["armed_roar", "roar", "rest"], t - STAND - LEAP, false)
+        } else {
+            (&["roar", "rest"], t - STAND - LEAP, false)
+        }
+    }
+}
+
+/// Phase 3, "The System of the World": the giant blasts off with him into
+/// space, and the fight goes on there under Newton's laws.
+///
+/// * The launch is the beat before the enrage (`enrage_seconds` of the
+///   encounter): he powers up, the giant crouches and lifts off, the sky
+///   goes to space, and both put on their helmets.
+/// * In space each body keeps the most part of its speed: a `held_force`
+///   over the hall takes `LIFT` of every body's weight (the first law: a
+///   launched body drifts far).
+/// * Tides of force push across the hall in turn: one force on every body,
+///   so the player (mass 1) goes eight times as fast as the giant (mass 8)
+///   (the second law).
+/// * Each blow the player lands on him pushes the player back (the third
+///   law).
+pub mod space {
+    /// The launch, in seconds from its start: his power, the liftoff, the
+    /// helmets, the end of it. `enrage_seconds` in the encounter is `LEN`.
+    pub const POWER: f32 = 0.0;
+    pub const LIFTOFF: f32 = 1.0;
+    pub const HELMETS: f32 = 1.9;
+    pub const LEN: f32 = 3.6;
+    /// From the liftoff, the seconds the sky takes to go to space.
+    pub const ASCEND: f32 = 2.4;
+    /// The giant's hop at the liftoff (world units per second, up).
+    pub const HOP: f32 = 620.0;
+    /// The part of each body's weight that space takes away, and the
+    /// seconds it takes to come and to go.
+    pub const LIFT: f32 = 0.6;
+    pub const LIFT_EASE: f32 = 0.6;
+    /// The tides: each `CYCLE` seconds a calm, a warning, then a tide.
+    pub const CYCLE: f32 = 10.0;
+    pub const CALM: f32 = 4.5;
+    pub const WARN: f32 = 1.0;
+    /// The push of a side tide on a body of mass 1.
+    pub const SIDE_FORCE: f32 = 1200.0;
+    /// An up tide takes nearly all weight away and lifts a light body: the
+    /// giant (mass 8) stays down, the player floats up.
+    pub const UP_LIFT: f32 = 0.95;
+    pub const UP_FORCE: f32 = 260.0;
+    /// The push back on the player when a blow of theirs lands on him, and
+    /// the least seconds between two.
+    pub const RECOIL: f32 = 380.0;
+    pub const RECOIL_RISE: f32 = 0.35;
+    pub const RECOIL_WAIT: f32 = 0.45;
+
+    /// Which way a tide pushes.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Tide {
+        Right,
+        Left,
+        Up,
+    }
+
+    impl Tide {
+        /// The tide of cycle `k`: right, left, up, again.
+        pub fn of_cycle(k: u32) -> Self {
+            match k % 3 {
+                0 => Tide::Right,
+                1 => Tide::Left,
+                _ => Tide::Up,
+            }
+        }
+
+        /// The way it pushes (+Y down).
+        pub fn way(self) -> [f32; 2] {
+            match self {
+                Tide::Right => [1.0, 0.0],
+                Tide::Left => [-1.0, 0.0],
+                Tide::Up => [0.0, -1.0],
+            }
+        }
+
+        /// What he says as it comes.
+        pub fn bark(self) -> &'static str {
+            match self {
+                Tide::Right | Tide::Left => "The tide turns!",
+                Tide::Up => "Gravity... is optional!",
+            }
+        }
+    }
+
+    /// The sea of space at `t` seconds after the launch: the tide that
+    /// pushes now (with how far into it, 0..1), or the tide that is coming
+    /// (a warning).
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub enum Sea {
+        Calm,
+        Warning(Tide),
+        Tide(Tide, f32),
+    }
+
+    pub fn sea(t: f32) -> Sea {
+        if t < LEN {
+            return Sea::Calm;
+        }
+        let into = t - LEN;
+        let k = (into / CYCLE).floor() as u32;
+        let at = into - k as f32 * CYCLE;
+        let tide = Tide::of_cycle(k);
+        if at < CALM {
+            Sea::Calm
+        } else if at < CALM + WARN {
+            Sea::Warning(tide)
+        } else {
+            Sea::Tide(tide, (at - CALM - WARN) / (CYCLE - CALM - WARN))
+        }
+    }
+
+    /// The field over the hall at `t` seconds after the launch: the part of
+    /// weight taken away, and the push on a body of mass 1. Nothing before
+    /// the liftoff.
+    pub fn field(t: f32) -> (f32, [f32; 2]) {
+        if t < LIFTOFF {
+            return (0.0, [0.0, 0.0]);
+        }
+        let lift = LIFT * super::ease((t - LIFTOFF) / LIFT_EASE);
+        match sea(t) {
+            Sea::Tide(tide, into) => {
+                // It comes up and goes down: no snap at its ends.
+                let swell = (into * std::f32::consts::PI).sin().clamp(0.0, 1.0).sqrt();
+                match tide {
+                    Tide::Up => (lift + (UP_LIFT - lift) * swell, [0.0, -UP_FORCE * swell]),
+                    side => {
+                        let way = side.way();
+                        (lift, [way[0] * SIDE_FORCE * swell, 0.0])
+                    }
+                }
+            }
+            _ => (lift, [0.0, 0.0]),
+        }
+    }
+
+    /// How far the sky is in space (0 on the ground, 1 in space) at `t`
+    /// seconds after the launch.
+    pub fn ascent(t: f32) -> f32 {
+        super::ease((t - LIFTOFF) / ASCEND)
+    }
+
+    /// The push back on a player who lands a blow on him: away from `from`
+    /// (his place), and a little up.
+    pub fn recoil(player_x: f32, from_x: f32) -> [f32; 2] {
+        let away = if player_x < from_x { -1.0 } else { 1.0 };
+        [away * RECOIL, -RECOIL * RECOIL_RISE]
+    }
+
+    /// What he is drawn as in the launch: he calls his power, then he rides.
+    pub fn scholar_rows(t: f32) -> (&'static [&'static str], f32, bool) {
+        if t < LIFTOFF {
+            (&["invoke", "brace"], t, false)
+        } else {
+            (&["brace", "idle"], t - LIFTOFF, true)
+        }
+    }
+
+    /// What the giant is drawn as in the launch: it roars as he powers it,
+    /// then it floats with its legs tucked.
+    pub fn gnu_rows(t: f32) -> (&'static [&'static str], f32, bool) {
+        if t < LIFTOFF {
+            (&["roar", "hit"], t, false)
+        } else {
+            (&["float", "idle"], t - LIFTOFF, true)
+        }
+    }
+}
+
+/// The end of the fight (round 3, Jon 2026-10-24: "if you defeat the
+/// scholar, it needs to have an appropriate reaction. The fight sort of ends
+/// anticlimactically."). Beaten, the scholar falls from its shoulder. The
+/// giant gathers him up and holds him, its head low; then it rears and roars.
+/// An apple falls on his head (as one fell on Newton's), and he wakes; the
+/// giant puts him back on its shoulder, and the two of them are at rest:
+/// every body stays in its state of rest.
+pub mod finale {
+    use bevy_math::Vec2;
+
+    /// The seconds of each part.
+    pub const FALL: f32 = 0.8;
+    pub const GATHER: f32 = 1.1;
+    pub const GRIEVE: f32 = 2.6;
+    pub const ROAR: f32 = 1.7;
+    pub const APPLE: f32 = 1.0;
+    pub const WAKE: f32 = 1.6;
+    /// The whole of it.
+    pub const LEN: f32 = FALL + GATHER + GRIEVE + ROAR + APPLE + WAKE;
+    /// Where the giant holds him, from its middle (on the side its art
+    /// faces): in front of its chest, where its arms meet (`giant_art`'s
+    /// cradle).
+    pub const CRADLE: Vec2 = Vec2::new(190.0, -46.0);
+    /// How far in front of it he falls.
+    pub const FALLS: f32 = 300.0;
+
+    /// A part of the end, and the seconds into it.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub enum Part {
+        Fall(f32),
+        Gather(f32),
+        Grieve(f32),
+        Roar(f32),
+        Apple(f32),
+        Wake(f32),
+        Rest(f32),
+    }
+
+    pub fn part(t: f32) -> Part {
+        let mut at = t;
+        for (len, make) in [
+            (FALL, Part::Fall as fn(f32) -> Part),
+            (GATHER, Part::Gather),
+            (GRIEVE, Part::Grieve),
+            (ROAR, Part::Roar),
+            (APPLE, Part::Apple),
+            (WAKE, Part::Wake),
+        ] {
+            if at < len {
+                return make(at);
+            }
+            at -= len;
+        }
+        Part::Rest(at)
+    }
+
+    fn ease(u: f32) -> f32 {
+        let u = u.clamp(0.0, 1.0);
+        u * u * (3.0 - 2.0 * u)
+    }
+
+    /// Where he is: from where he was beaten he falls in front of it; it
+    /// lifts him to its chest; and back to its shoulder (`saddle`) when he
+    /// wakes. `None`: on its shoulder, the giant carries him.
+    pub fn scholar(t: f32, from: Vec2, floor: Vec2, cradle: Vec2, saddle: Vec2) -> Option<Vec2> {
+        match part(t) {
+            Part::Fall(u) => {
+                let u = u / FALL;
+                // An arc: up a little, and down onto the floor.
+                let line = from.lerp(floor, u);
+                Some(line - Vec2::new(0.0, 80.0 * 4.0 * u * (1.0 - u)))
+            }
+            Part::Gather(u) => Some(floor.lerp(cradle, ease(u / GATHER))),
+            Part::Grieve(_) | Part::Roar(_) | Part::Apple(_) => Some(cradle),
+            Part::Wake(u) => {
+                let u = ease(u / WAKE);
+                Some(cradle.lerp(saddle, u) - Vec2::new(0.0, 60.0 * 4.0 * u * (1.0 - u)))
+            }
+            Part::Rest(_) => None,
+        }
+    }
+
+    /// His rows: thrown, lying (in its arms too), dazed by the apple, up.
+    pub fn scholar_rows(t: f32) -> super::rows::Pin {
+        match part(t) {
+            Part::Fall(u) => (&["tumble", "hit_heavy", "death"], u, false),
+            Part::Gather(_) | Part::Grieve(_) | Part::Roar(_) => (&["death"], 10.0, false),
+            Part::Apple(u) => (&["dazed", "death"], u, true),
+            Part::Wake(u) => (&["climb", "dazed"], u, false),
+            Part::Rest(u) => (&["rest", "idle"], u, true),
+        }
+    }
+
+    /// The giant's rows: it flinches, holds him, roars, and is at rest.
+    pub fn gnu_rows(t: f32) -> super::rows::Pin {
+        match part(t) {
+            Part::Fall(u) => (&["armed_hit", "hit"], u, false),
+            Part::Gather(u) => (&["grieve", "armed_rest"], u, false),
+            Part::Grieve(u) => (&["grieve", "armed_rest"], GATHER + u, false),
+            Part::Roar(u) => (&["armed_roar", "roar"], u, false),
+            Part::Apple(u) => (&["grieve", "armed_rest"], GATHER + GRIEVE + u, false),
+            Part::Wake(u) | Part::Rest(u) => (&["armed_rest"], u, true),
+        }
     }
 }
 
@@ -1905,6 +2398,135 @@ mod tests {
             let through: Vec<f32> = ticks.windows(2).filter(|w| blows::comes_through(&l, w[0], w[1])).map(|w| w[1]).collect();
             assert_eq!(through.len(), 1, "{blow:?}: {through:?}");
             assert!(through[0] <= l.strike * blows::STRIKE_FULL + dt, "{blow:?}: through at {}, full at {}", through[0], l.strike * blows::STRIKE_FULL);
+        }
+    }
+
+    /// A limb that comes out of its far line can be met for the clash's
+    /// window, at the time its line is crossed, and hurts only after it.
+    #[test]
+    fn a_limb_out_of_its_line_can_be_met_before_it_hurts() {
+        for blow in [blows::Blow::Hammer, blows::Blow::Jab, blows::Blow::LeftUpper, blows::Blow::Kick] {
+            let l = blows::limb(blow);
+            let through = blows::through_time(&l);
+            let dt = 1.0 / 60.0;
+            let crossed = (1..200).map(|k| k as f32 * dt).find(|t| blows::comes_through(&l, t - dt, *t)).unwrap();
+            assert!((crossed - through).abs() <= dt, "{blow:?}: crossed at {crossed}, through at {through}");
+            let at = |t: f32| if t < l.strike { blows::Part::Strike(t) } else { blows::Part::Hold(t - l.strike) };
+            assert!(!blows::meetable(&l, at(through - dt)), "{blow:?}: met before it is through");
+            assert!(blows::meetable(&l, at(through + 0.01)), "{blow:?}: not met as it comes through");
+            assert!(!blows::hurts(&l, at(through + 0.01)), "{blow:?}: it hurts while it can be met");
+            assert!(blows::hurts(&l, at(through + clash::WINDOW + 0.01)), "{blow:?}: it does not hurt after");
+            assert!(!blows::meetable(&l, at(through + clash::WINDOW + 0.01)));
+        }
+    }
+
+    /// The same impulse throws the light player far and the heavy giant a
+    /// little; the hammer pushes hardest.
+    #[test]
+    fn a_clash_throws_each_body_by_its_mass() {
+        // A hammer down throws him off along the floor (and up); a jab
+        // across throws him the way it came.
+        let hammer = clash::foe_launch(blows::Blow::Hammer, Vec2::new(0.0, 1.0), Vec2::new(-30.0, 0.0));
+        let jab = clash::foe_launch(blows::Blow::Jab, Vec2::new(-1.0, 0.0), Vec2::new(-30.0, 0.0));
+        assert!(hammer[0] < -500.0 && hammer[1] < 0.0 && jab[0] < -500.0, "{hammer:?} {jab:?}");
+        let giant = clash::giant_recoil(blows::Blow::Hammer, 1.0);
+        assert!(giant[0] > 0.0 && giant[0] * clash::GIANT_MASS <= clash::impulse(blows::Blow::Hammer) + 1.0);
+        assert!(clash::speed(blows::Blow::Hammer, 1.0) > clash::speed(blows::Blow::Jab, 1.0));
+    }
+
+    /// Between blows the giant comes on at a player far from it and backs off
+    /// one under it, and stays in its hall.
+    #[test]
+    fn the_giant_walks_to_where_it_fights_from() {
+        let (left, right, half) = (0.0, 1800.0, 315.0);
+        assert_eq!(stride::mark(900.0, half, 1000.0, left, right), Some(900.0 - stride::STEP));
+        assert_eq!(stride::mark(900.0, half, 1700.0, left, right), Some(900.0 + stride::STEP));
+        assert_eq!(stride::mark(900.0, half, 1350.0, left, right), None);
+        // Against a wall it goes no farther.
+        let to = stride::mark(400.0, half, 450.0, left, right);
+        assert!(to.is_none_or(|x| x >= left + half + stride::MARGIN), "{to:?}");
+    }
+
+    /// He stands on the ledge, leaps over the ends of his way and lands on
+    /// the saddle, and is in it when the leap is over.
+    #[test]
+    fn he_leaps_from_the_ledge_onto_the_shoulders() {
+        use super::arrival as ar;
+        let (ledge, saddle) = (Vec2::new(130.0, 160.0), Vec2::new(900.0, 640.0));
+        assert_eq!(ar::place(0.1, ledge, saddle), Some(ledge));
+        let mut highest = f32::MAX;
+        let mut last = ledge;
+        for k in 0..=100 {
+            let t = ar::STAND + ar::LEAP * k as f32 / 100.0 - 1e-4;
+            let Some(at) = ar::place(t, ledge, saddle) else { break };
+            assert!((at - last).length() < 40.0, "a jump in the leap at {t}: {last} to {at}");
+            highest = highest.min(at.y);
+            last = at;
+        }
+        assert!(highest < ledge.y - ar::RISE * 0.9, "the leap goes up first: {highest}");
+        assert!((last - saddle).length() < 30.0, "it lands on the saddle: {last}");
+        assert_eq!(ar::place(ar::STAND + ar::LEAP + 0.01, ledge, saddle), None);
+        assert!(ar::LEN < 2.8, "the arrival is in the intro");
+    }
+
+    /// In space: no field before the liftoff; then most of the weight goes
+    /// and stays gone; a tide comes after a warning, swells from nothing and
+    /// goes back to nothing, and the tides go right, left, then up.
+    #[test]
+    fn in_space_weight_goes_and_the_tides_come_after_a_warning() {
+        use super::space::{self as sp, Sea, Tide};
+        assert_eq!(sp::field(sp::LIFTOFF - 0.01), (0.0, [0.0, 0.0]));
+        assert_eq!(sp::ascent(sp::LIFTOFF), 0.0);
+        assert_eq!(sp::ascent(sp::LIFTOFF + sp::ASCEND), 1.0);
+        let (lift, push) = sp::field(sp::LEN + 1.0);
+        assert!((lift - sp::LIFT).abs() < 1e-5 && push == [0.0, 0.0], "{lift} {push:?}");
+        let first = sp::LEN + sp::CALM;
+        assert_eq!(sp::sea(first - 0.01), Sea::Calm);
+        assert_eq!(sp::sea(first + 0.01), Sea::Warning(Tide::Right));
+        let tide_len = sp::CYCLE - sp::CALM - sp::WARN;
+        let start = first + sp::WARN;
+        let near = |t: f32| sp::field(t).1[0].abs();
+        assert!(near(start + 0.01) < sp::SIDE_FORCE * 0.2, "a tide snaps on: {}", near(start + 0.01));
+        assert!(near(start + tide_len * 0.5) > sp::SIDE_FORCE * 0.99);
+        assert!(near(start + tide_len - 0.01) < sp::SIDE_FORCE * 0.2, "a tide snaps off");
+        assert!(sp::field(start + tide_len * 0.5).1[0] > 0.0, "the first tide goes right");
+        assert!(sp::field(start + sp::CYCLE + tide_len * 0.5).1[0] < 0.0, "the second goes left");
+        let (up_lift, up) = sp::field(start + 2.0 * sp::CYCLE + tide_len * 0.5);
+        assert!(up[1] < 0.0 && up_lift > sp::LIFT, "the third goes up: {up_lift} {up:?}");
+        // The up tide lifts the player (mass 1) and not the giant (mass 8).
+        let g = 2250.0;
+        assert!(-up[1] > (1.0 - up_lift) * g, "the player stays down in an up tide");
+        assert!(-up[1] / 8.0 < (1.0 - up_lift) * g, "the giant floats up in an up tide");
+        // A blow that lands pushes the player away from him, and up.
+        assert!(sp::recoil(100.0, 400.0)[0] < 0.0 && sp::recoil(700.0, 400.0)[0] > 0.0);
+        assert!(sp::recoil(100.0, 400.0)[1] < 0.0);
+    }
+
+    /// The end: he falls in front of it, it holds him, and he is back on its
+    /// shoulder at the end; each part follows the one before.
+    #[test]
+    fn beaten_he_falls_is_held_and_wakes_on_its_shoulder() {
+        let (from, floor, cradle, saddle) =
+            (Vec2::new(0.0, -300.0), Vec2::new(300.0, 0.0), Vec2::new(190.0, -46.0), Vec2::new(256.0, -260.0));
+        assert_eq!(finale::scholar(0.0, from, floor, cradle, saddle), Some(from));
+        let landed = finale::scholar(finale::FALL - 1e-3, from, floor, cradle, saddle).unwrap();
+        assert!(landed.distance(floor) < 4.0, "{landed:?}");
+        assert_eq!(finale::scholar(finale::FALL + finale::GATHER + 0.5, from, floor, cradle, saddle), Some(cradle));
+        assert_eq!(finale::scholar(finale::LEN + 0.1, from, floor, cradle, saddle), None);
+        let mut last = finale::part(0.0);
+        for k in 1..200 {
+            let now = finale::part(k as f32 * finale::LEN / 150.0);
+            let order = |p: finale::Part| match p {
+                finale::Part::Fall(_) => 0,
+                finale::Part::Gather(_) => 1,
+                finale::Part::Grieve(_) => 2,
+                finale::Part::Roar(_) => 3,
+                finale::Part::Apple(_) => 4,
+                finale::Part::Wake(_) => 5,
+                finale::Part::Rest(_) => 6,
+            };
+            assert!(order(now) >= order(last));
+            last = now;
         }
     }
 

@@ -29,10 +29,11 @@ use ambition_platformer2d_core::RoomGeometry;
 
 pub mod conductor;
 pub mod duel;
+pub mod prelude;
 #[cfg(feature = "portal_render")]
 pub mod fist_lines;
 
-pub use conductor::{birth, conductor_of, Arm, Blow, Exit, GnuTonView, Move, GNU_TON_ID};
+pub use conductor::{ascent_of, birth, conductor_of, Arm, Blow, Exit, GnuTonView, Move, GNU_TON_ID};
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching

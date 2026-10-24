@@ -26,7 +26,10 @@ fn arena() -> Platformer2dSimHarness {
         // no GNU-ton, and every assertion below would be vacuous.
         .with_required_start_room(ARENA);
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the gnu-ton arena builds headlessly");
-    for _ in 0..30 {
+    // The hall wakes with the room, and he arrives: from the ledge by its top
+    // door he leaps onto the giant's shoulders (`ch::arrival`, 2.6 s, in the
+    // intro). The fight starts with him in the saddle.
+    for _ in 0..ARRIVED {
         sim.step(AgentAction::default());
     }
     sim
@@ -39,6 +42,9 @@ fn is_near_line(look: &ambition_platformer2d::portal::PortalLook) -> bool {
     use ambition_platformer2d::portal::{PortalChannel, PortalChannelColor};
     look.0 == PortalChannel::Authored(PortalChannelColor::Indexed(24))
 }
+
+/// The frames from the build of the hall until he is in his saddle.
+const ARRIVED: usize = 30 + 160; // `choreography::arrival::LEN` (2.6 s) at 60 Hz, and a little more.
 
 /// A fist of the giant: its two hands, not its hoof (a limb that is always
 /// on its leg).
@@ -998,7 +1004,13 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
         for frame in 0..40 {
             sim.step(AgentAction::default());
             let s = scene(&mut sim);
-            assert_eq!(drawn(&s), before, "frame {frame} with the player at {x}: a turn moved the gnu");
+            // (Within a hundredth: the giant may walk between its blows, and
+            // its back goes with it.)
+            let now = drawn(&s);
+            assert!(
+                now.0 == before.0 && (now.1 - before.1).abs() < 0.01 && (now.2 - before.2).abs() < 0.01,
+                "frame {frame} with the player at {x}: a turn moved the gnu: {now:?} {before:?}"
+            );
             // The sheet draws the right hand (wrist left, knuckles right): the
             // left is its mirror, wherever a move carries it and whichever way
             // he faces.
@@ -1205,10 +1217,12 @@ fn a_phase_that_ends_during_a_windup_takes_the_windup_with_it() {
     step_until(&mut sim, 900, "a Phase 2 windup", |sim| scholar_state(sim).1.is_some());
     let windup = scholar_state(&mut sim).1.unwrap();
 
-    // A blow lands on the next tick and crosses Enrage's trigger (below 0.28,
-    // no tell beat), so Phase 2 ends in that tick's progression phase.
+    // A blow lands on the next tick and crosses Enrage's trigger (below 0.28),
+    // so Phase 2 ends: through the launch beat (`enrage_seconds`, round 3),
+    // in which no move runs, and then the enrage.
     set_scholar_hp_fraction(&mut sim, 0.2);
     sim.step(AgentAction::default());
+    step_until(&mut sim, 300, "the enrage", |sim| scholar_state(sim).0 == "Enrage");
     let (now, still) = scholar_state(&mut sim);
     assert_eq!(now, "Enrage", "the fixture did not end Phase 2");
     assert_ne!(
@@ -1333,34 +1347,35 @@ fn the_fists_are_built_as_the_scholars() {
 }
 
 
-/// Defeated, he lets go: each fist leaves his hold, falls straight down where
-/// it is, and comes to rest on what is under it.
+/// Beaten, he lets go and falls (round 3: "if you defeat the scholar, it
+/// needs to have an appropriate reaction"): his fists fall from his hold, he
+/// falls in front of the giant, the giant gathers him into its arms, and at
+/// the end (an apple wakes him) he is back on its shoulder.
 ///
 /// ⛔ A conducted hand is held from construction (`PoseOwnedExternally`), and a
 /// held body gets no gravity pull. The release wrote `gravity_scale = 1.0` and
 /// left the hold on, so the scale did nothing: after his defeat the fists hung
 /// in the air and drifted up at 1 to 4 units per second, and never landed.
 #[test]
-fn defeated_he_lets_go_and_his_fists_fall() {
+fn beaten_he_falls_the_giant_holds_him_and_he_wakes_on_its_shoulder() {
     let mut sim = arena();
     for _ in 0..60 {
         sim.step(AgentAction::default());
     }
-    // Left fist first: position, still held, on the ground.
-    let fists = |sim: &mut Platformer2dSimHarness| -> Vec<(ae::Vec2, bool, bool)> {
+    let fists = |sim: &mut Platformer2dSimHarness| -> Vec<(ae::Vec2, bool)> {
         let world = sim.world_mut();
         let mut fists: Vec<_> = world
-            .query::<(&ae::BodyKinematics, Has<ae::PoseOwnedExternally>, &ae::BodyGroundState, &Limb)>()
+            .query::<(&ae::BodyKinematics, Has<ae::PoseOwnedExternally>, &Limb)>()
             .iter(world)
             .filter(|(.., limb)| is_fist(limb))
-            .map(|(kin, held, ground, _)| (kin.pos, held, ground.on_ground))
+            .map(|(kin, held, _)| (kin.pos, held))
             .collect();
         fists.sort_by(|a, b| a.0.x.total_cmp(&b.0.x));
         fists
     };
     let before = fists(&mut sim);
     assert_eq!(before.len(), 2, "the premise: two fists");
-    assert!(before.iter().all(|(_, held, _)| *held), "the premise: he holds both fists: {before:?}");
+    assert!(before.iter().all(|(_, held)| *held), "the premise: he holds both fists: {before:?}");
     {
         let world = sim.world_mut();
         let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
@@ -1370,20 +1385,38 @@ fn defeated_he_lets_go_and_his_fists_fall() {
             }
         }
     }
-    for _ in 0..120 {
+    let finale = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let scholar = world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .expect("he is still there, beaten");
+        conductor_of(world, scholar).and_then(|view| view.finale)
+    };
+    // He lets go: as he falls, his fists fall from his hold.
+    let mut let_go = false;
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        let_go |= fists(&mut sim).iter().all(|(_, held)| !held);
+    }
+    assert!(let_go, "beaten, he lets his fists go");
+    assert!(finale(&mut sim).is_some(), "the end of the fight plays");
+    // Then the giant holds him to its chest.
+    for _ in 0..150 {
         sim.step(AgentAction::default());
     }
-    let settled = fists(&mut sim);
-    sim.step(AgentAction::default());
-    let next = fists(&mut sim);
-    for (index, (((from, ..), (to, still_held, grounded)), (then, ..))) in
-        before.iter().zip(&settled).zip(&next).enumerate()
-    {
-        assert!(!still_held, "fist {index}: defeated, he lets it go");
-        assert!((to.x - from.x).abs() < 1.0, "fist {index} falls straight down: {from:?} -> {to:?}");
-        assert!(*grounded, "fist {index} has landed on what is under it: {from:?} -> {to:?}");
-        assert!((then.y - to.y).abs() < 0.01, "fist {index} stays where it landed: {to:?} -> {then:?}");
+    let s = scene(&mut sim);
+    let cradle = s.giant.pos + ae::Vec2::new(190.0, -46.0);
+    assert!(s.scholar.pos.distance(cradle) < 60.0, "the giant holds him: he is at {:?}, its arms at {cradle:?}", s.scholar.pos);
+    // And at the end he is on its shoulder again, at rest.
+    for _ in 0..360 {
+        sim.step(AgentAction::default());
     }
+    let s = scene(&mut sim);
+    let saddle = s.giant.pos + ae::Vec2::new(256.0, -232.05 - s.scholar.size.y * 0.5);
+    assert!(s.scholar.pos.distance(saddle) < 40.0, "he is back on its shoulder: {:?}, its saddle {saddle:?}", s.scholar.pos);
 }
 
 /// A defeat that is undone gives him his fists back. A replay can return him to
@@ -1660,7 +1693,7 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
         // at the far line.
         let across = (fist - near).dot(normal.perp());
         assert!(across.abs() < 1.0, "the fist is posed off the near line's axis, not on it: {fist:?} near {near:?}");
-        threaded |= in_pair && fist.y > near.y;
+        threaded |= in_pair && (fist - near).dot(-normal) > 0.0;
     }
     assert!(threaded, "the fist went into the near line and was in the pair");
     assert!(player(&mut sim).1 < before, "the player under the far line was not struck");
@@ -1711,6 +1744,8 @@ fn his_blows_are_aimed_at_the_player_and_none_is_the_one_before() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     let floor_spot = ae::Vec2::new(300.0, 1200.0);
+    // The hall has no perches (round 3): off the floor is in the air, held
+    // there.
     let perch_spot = ae::Vec2::new(1456.0, 520.0);
     place_player(&mut sim, floor_spot);
     let mut exits: Vec<Exit> = Vec::new();
@@ -1719,7 +1754,7 @@ fn his_blows_are_aimed_at_the_player_and_none_is_the_one_before() {
     for frame in 0..2400 {
         // The first three blows from the floor, the rest from a perch.
         let spot = if exits.len() < 3 { floor_spot } else { perch_spot };
-        if frame % 30 == 0 {
+        if frame % 30 == 0 || exits.len() >= 3 {
             place_player(&mut sim, spot);
         }
         sim.step(AgentAction::default());
@@ -1741,7 +1776,7 @@ fn his_blows_are_aimed_at_the_player_and_none_is_the_one_before() {
         assert_ne!(pair[0], pair[1], "a blow is the one before it: {exits:?}");
     }
     assert!(exits.iter().any(|e| matches!(e, Exit::Sweep | Exit::Stomp)), "the giant kicks: {exits:?}");
-    assert!(exits[3..].iter().any(|e| matches!(e, Exit::Across | Exit::Up | Exit::Diagonal | Exit::Stomp)), "on a perch the blows come at the perch: {exits:?}");
+    assert!(exits[3..].iter().any(|e| matches!(e, Exit::Across | Exit::Up | Exit::Diagonal | Exit::Stomp)), "in the air the blows come at the player there: {exits:?}");
     if exits.contains(&Exit::Diagonal) {
         assert!(slanted, "a blow at a slant came out of a line that is not at a slant");
     }
@@ -1852,4 +1887,84 @@ fn a_hammer_in_the_floor_is_an_opening_and_its_first_blow_passes_to_him() {
         !blow_limb(&mut sim).is_some_and(|(_, open)| open),
         "after its blow passed, the fist is no longer an opening"
     );
+}
+
+/// The giant walks (round 3: "the mount should be able to move around the
+/// room"): between its blows it comes on at a player far from it, and its
+/// rider goes with it.
+#[test]
+fn the_giant_walks_to_a_player_far_from_it_between_blows() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let start = scene(&mut sim);
+    let far = ae::Vec2::new(start.giant.pos.x - 760.0, 1200.0);
+    let mut walked = false;
+    let mut moved = 0.0_f32;
+    for frame in 0..600 {
+        if frame % 20 == 0 {
+            place_player(&mut sim, far);
+        }
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let scholar = world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .unwrap();
+        walked |= conductor_of(world, scholar).is_some_and(|view| view.walk_to.is_some());
+        let s = scene(&mut sim);
+        moved = moved.max(start.giant.pos.x - s.giant.pos.x);
+        if walked && moved > 120.0 {
+            // Its rider goes with it: he is on its shoulder.
+            let saddle = s.giant.pos + ae::Vec2::new(256.0, -232.05 - s.scholar.size.y * 0.5);
+            assert!(s.scholar.pos.distance(saddle) < 40.0, "he rides it: {:?} {saddle:?} (the giant at {:?}, frame {frame})", s.scholar.pos, s.giant.pos);
+            return;
+        }
+    }
+    panic!("the giant did not walk to the player far from it: walked {walked}, moved {moved}");
+}
+
+/// Two blows that meet (round 3, Newton's third law): a blow on the fist as
+/// it comes out of the far line, before it hurts, sends it back into its
+/// line, throws the player the way it came, and passes to the scholar.
+#[test]
+fn a_blow_that_meets_the_fist_as_it_comes_out_throws_both_back() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(300.0, 1200.0));
+    step_until(&mut sim, 900, "the strike of the first blow", |sim| scene(sim).performing == Some(("portal_punch", true)));
+    let before = scene(&mut sim).scholar_hp;
+    let slot = match blow_limb(&mut sim).and_then(|(blow, _)| blow.arm()) {
+        Some(ambition_content::bosses::gnu_ton::Arm::Left) => LimbSlot::HAND_LEFT,
+        _ => LimbSlot::HAND_RIGHT,
+    };
+    // The player's blow on the fist, each tick of the strike: only the tick it
+    // can be met counts (on the others it is turned aside).
+    let mut met = false;
+    let mut thrown = 0.0_f32;
+    for _ in 0..40 {
+        {
+            let world = sim.world_mut();
+            let mut q = world.query::<(&Limb, &mut BodyHealth)>();
+            for (limb, mut health) in q.iter_mut(world) {
+                if limb.slot == slot && health.current() == health.health.max {
+                    health.health.current -= 1;
+                }
+            }
+        }
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let scholar = world
+            .query::<(Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+            .map(|(entity, _)| entity)
+            .unwrap();
+        met |= conductor_of(world, scholar).is_some_and(|view| view.clashed);
+        thrown = thrown.max(player(&mut sim).0.vel.length());
+    }
+    assert!(met, "the blow met the fist as it came out");
+    assert!(scene(&mut sim).scholar_hp < before, "the force went up the arm to him");
+    assert!(thrown > 400.0, "the player was thrown back: {thrown}");
 }

@@ -19,6 +19,9 @@
 //
 // The two doors are reciprocal with the hall's `hall_gnu_ton_portal` and the
 // arena's `gnu_ton_arena_exit`, which were retargeted here.
+//
+// GNU-ton waits on the middle terrace for the prelude duel; he runs out by
+// the arena door.
 (
     id: "gnu_ton_approach",
     level_id: "gnu_ton_approach",
@@ -40,6 +43,23 @@
         ( type: "Solid", px: [560, 384], size: [480, 128], fields: ( name: "terrace_2" ) ),
         ( type: "Solid", px: [1040, 448], size: [544, 64], fields: ( name: "terrace_3" ) ),
         ( type: "PlayerStart", px: [96, 274], size: [28, 46], fields: ( name: "gnu_ton_approach_spawn" ) ),
+        // The prelude (round 3, 2026-10-24): GNU-ton on his own feet duels
+        // the player on the middle terrace. Nearly beaten, he runs out by the
+        // arena door, and the player chases him to his giant
+        // (`bosses/gnu_ton/prelude.rs`). His id names him to that system.
+        (
+            type: "EnemySpawn",
+            ref: "gnu_ton_prelude",
+            px: [800, 320],
+            size: [40, 64],
+            fields: (
+                name: "GNU-ton",
+                brain: "combatant",
+                character_id: "npc_gnu_ton",
+                respawn: "DeadStaysDead",
+                disposition: "Hostile",
+            ),
+        ),
         (
             type: "LoadingZone",
             px: [24, 224],

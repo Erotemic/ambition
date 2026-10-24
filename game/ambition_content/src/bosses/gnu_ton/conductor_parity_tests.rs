@@ -25,6 +25,12 @@
 //! - what the shocks do after his death: the native conductor left them
 //!   where they stood until their lifetime ran out, the module stops holding
 //!   them. The trace ends before then.
+//! - the giant's row while it walks between beats or looks round at its
+//!   back (round 3): the native conductor stood it still. On those ticks its
+//!   row is not compared.
+//! - all of it after his death (round 3): the module plays the end of the
+//!   fight (`ch::finale`); the native conductor let go and stood. The ticks
+//!   from his death on are not compared.
 
 use ambition_boss_encounter::{BossClusterScratch, BossEncounter, BossEncounterPhase};
 use ambition_characters::actor::{BodyHealth, Health, Invulnerability, Limb, LimbRig, LimbSlot, MountBack};
@@ -388,7 +394,12 @@ fn the_gnu_ton_module_conducts_the_fight_as_its_native_conductor_did() {
         assert!(count(&native, &what) > 0, "the reference never showed {what}");
     }
     let module = run(Road::Module);
-    for (tick, (m, n)) in module.iter().zip(&native).enumerate() {
+    for (tick, (m, n)) in module.iter().zip(&native).enumerate().take(DIES_AT) {
+        // The trace names no rows of the giant's (its sheet is not loaded):
+        // its walk is the one row of it that loops.
+        let walks = m.iter().any(|l| l.starts_with("gnu row") && l.ends_with("true))"));
+        let compared = |l: &&String| !(walks && l.starts_with("gnu row"));
+        let (m, n): (Vec<&String>, Vec<&String>) = (m.iter().filter(compared).collect(), n.iter().filter(compared).collect());
         assert_eq!(m, n, "tick {tick}: the linked module");
     }
 }

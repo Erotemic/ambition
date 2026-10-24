@@ -1861,9 +1861,11 @@
             // The art has no left/right variant: when the scholar on it turns
             // to face you, the gnu stays drawn as it is, its back where it was.
             unmirrored: true,
-            // A heavy walk, not used while it stands still, but the correct gait if
-            // something ever steers it.
-            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            // A heavy walk. GNU-ton's conductor walks it between his blows
+            // (`ambition.boss.mount_walk`) at the speed its walk row is drawn
+            // for: its hooves stand still on the floor at 135.4 a second
+            // (`giant_art.STRIDE_SPEED`).
+            locomotion: Some((run_speed: 135.4, move_style: WalkHeavy)),
             mount: Some((
                 class: Some("giant"),
                 // The seat: where a rider's soles rest. The scholar stands on the
@@ -4451,7 +4453,10 @@
                 patrol_effort: 0.45,
                 chase_effort: 1.0,
             )),
-            max_health: Some(4),
+            // The prelude to his boss fight is a duel with him on his own
+            // feet (`bosses/gnu_ton/prelude.rs`): ten hearts, and he runs to
+            // his giant at three.
+            max_health: Some(10),
             tags: ["special_character", "humanoid", "gnu_ton", "fencer", "playable_candidate", "svg_rigged"],
             authoring_description: "GNU-ton the scholar as a fighter: the small man in the coat and the wig who rides the giant gnu in his boss fight, on his own feet. A parody of Isaac Newton: the quill, the book, the apple, the laws. He does not think he is in a fight; he thinks he is giving a lecture that you keep interrupting.",
             gameplay_description: "A light, fast fencer with two tools. The quill is long and thin and wins by reach and speed; it does little and it does not end a stock. The book is short and slow and is what ends one. His specials are his laws: a flash that launches the same at each percent, a line he draws through you, a moment with no gravity, and a counter (to each action an equal and opposite reaction).",

@@ -1004,6 +1004,12 @@ tackon_targets=(
     # GNU-ton's giant in his fight: the glint, streak, quake and impact of
     # its blows.
     gnu_ton_blow_fx
+    # The first worn gear: a space helmet any body can wear at its head
+    # (`docs/systems/worn-gear.md`). Two pictures, no sheet.
+    space_helmet
+    # GNU-ton's third phase in space: the dark and its stars, the Earth, the
+    # Moon (`presentation/gnu_ton_sky.rs`). Three pictures, no sheet.
+    gnu_ton_space
     # these two were AUTHORED IN THE SUBMODULE AND NEVER LISTED HERE
     # . `george_booul_vfx` ships a published sheet only because
     # someone ran it with a focused `--target`, so a fresh clone's regen would

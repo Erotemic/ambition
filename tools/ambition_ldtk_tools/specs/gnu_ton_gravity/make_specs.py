@@ -458,6 +458,12 @@ def approach():
         solid("landing", column_x + column_w, landing_y, w - WALL - column_x - column_w, floor - landing_y),
         coin("approach_landing_coin", 1040, landing_y - 32),
         door("approach_arena_door", "to GNU-ton", w - 144, landing_y, ARENA, "shoulders_entry"),
+        # The prelude (round 3, 2026-10-24): GNU-ton on his own feet waits on
+        # the tower by his door and duels the player there. Nearly beaten, he
+        # runs out by it, and the player chases him to his giant
+        # (`bosses/gnu_ton/prelude.rs` in `ambition_content`).
+        entity("EnemySpawn", 920, landing_y - 64, 40, 64, ref="gnu_ton_prelude", name="GNU-ton", brain="combatant",
+               character_id="npc_gnu_ton", respawn="DeadStaysDead", disposition="Hostile"),
         # The military survey ring (hidden address TESLA) on the tower's top:
         # receive only, and only from the military band
         # (`docs/planning/game/gate-network.md`).
@@ -471,8 +477,8 @@ def shoulders():
     """5. THE SHOULDERS OF GIANTS — GNU-ton's arena.
 
     The hall's arena (`gnu_ton_arena`, `sandbox.ldtk`), as it is: the same
-    floor, walls, perches, giant and rider, so his fight is the fight of the
-    hall. You come in at the top and the pad under you breaks. His placement
+    floor, walls, two low steps, giant and rider, so his fight is the fight of
+    the hall. You come in at the top and the pad under you breaks. His placement
     is `gnu_ton_handle.gnu_ton`. The way out is a door home in an alcove
     past the east wall, behind a grille that his defeat opens.
     """
@@ -498,18 +504,13 @@ def shoulders():
                trigger="OnStand", respawn="Never"),
         entity("PlayerStart", 368, 162, 28, 46, name=f"{rid}_spawn"),
         door("shoulders_entry", "back to the approach", 64, 208, APPROACH, "approach_arena_door"),
-        # The perches of the hall's arena.
-        ledge("perch_top_center", 752, 432, 288),
-        ledge("perch_left_high", 240, 560, 192),
-        ledge("perch_right_high", 1360, 560, 192),
-        ledge("perch_left_mid_high", 528, 720, 160),
-        ledge("perch_right_mid_high", 1312, 720, 160),
-        ledge("perch_left_mid", 336, 944, 192),
-        ledge("perch_right_mid", 1264, 944, 192),
+        # Two low steps at the walls, and no more (Jon, 2026-10-24: "avoid too
+        # many platforms in the room, because the mechanism to get onto the
+        # boss should be the shoulders, back and portals"). The giant walks
+        # the hall; its back is reached up the slope from its rump, or
+        # through the pair of its hammer.
         ledge("perch_left_low", 176, 1120, 160),
         ledge("perch_right_low", 1456, 1120, 160),
-        entity("OneWayPlatform", 432, 1120, 128, 32, name="perch_gnu_left"),
-        entity("OneWayPlatform", 1232, 1120, 128, 32, name="perch_gnu_right"),
         # The giant and its rider, as in the hall.
         entity("EnemySpawn", 581, 784, 630, 464, ref="giant_gnu_mount", name="Giant GNU", brain="giant_gnu",
                character_id="npc_giant_gnu", disposition="Peaceful", respawn="OnRoomReenter", depth_plane="Behind"),

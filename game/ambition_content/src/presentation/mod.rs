@@ -16,6 +16,7 @@
 pub mod deep_dream;
 pub mod fsm_sauce;
 pub mod gate_terminal;
+pub mod gnu_ton_sky;
 pub mod inugami_field;
 pub mod mockingbird_sky;
 pub mod room_look;
@@ -50,6 +51,7 @@ impl Plugin for AmbitionPresentationPlugin {
         app.add_plugins(vanity_card_made_this_meme::MadeThisMemeCardPlugin);
         deep_dream::install(app);
         gate_terminal::install(app);
+        gnu_ton_sky::install(app);
         fsm_sauce::install(app);
         inugami_field::install(app);
         mockingbird_sky::install(app);

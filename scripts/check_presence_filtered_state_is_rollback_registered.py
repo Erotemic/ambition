@@ -181,6 +181,12 @@ WAIVERS = {
         "`SessionScopeSet::Presentation`, which poses its parts from the "
         "conductor's record each frame and keeps no state in it"
     ),
+    "GnuTonSky": (
+        "the root of GNU-ton's space parts, one for each live room "
+        "(`presentation/gnu_ton_sky.rs`); filtered by `present_gnu_ton_space` "
+        "only, `Update` in `SessionScopeSet::Presentation`, which poses its "
+        "parts from the conductor's record each frame and keeps no state in it"
+    ),
     "PresentedRoomLook": (
         "two sites in `presentation/room_look.rs`, both `Update`: "
         "`present_room_look` (`SessionScopeSet::Presentation`) reads it as the "

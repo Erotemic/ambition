@@ -31,6 +31,19 @@ pub struct GnuTonView {
     /// The limb of that blow (which arm, or the leg), and whether its fist
     /// is in the floor and an opening (a hammer's punish window).
     pub blow_limb: Option<(Blow, bool)>,
+    /// Where the giant walks to between its blows (none: it stands).
+    pub walk_to: Option<f32>,
+    /// A blow of the player's met its limb as it came out of its far line.
+    pub clashed: bool,
+    /// Seconds into the end of the fight, once he is beaten.
+    pub finale: Option<f32>,
+}
+
+/// How far GNU-ton's sky is in space (0 on the ground, 1 in space), read
+/// from his conductor's record. `None` before the module stored anything.
+pub fn ascent_of(records: &ambition_extension_host::BodyRecords) -> Option<f32> {
+    use ambition_content_modules::gnu_ton::conductor::Conductor;
+    Conductor::from_record(records.get(&Conductor::KEY)?).ok().map(|c| c.ascent())
 }
 
 /// The conductor's record on `scholar`, as a view. `None` before the module
@@ -45,5 +58,8 @@ pub fn conductor_of(world: &World, scholar: Entity) -> Option<GnuTonView> {
         look_lines: c.look_lines().map(|line| line.map(|(at, _)| ae::Vec2::new(at.x, at.y))),
         blow: c.blow(),
         blow_limb: c.blow_limb(),
+        walk_to: c.walk_to(),
+        clashed: c.clashed(),
+        finale: c.finale(),
     })
 }

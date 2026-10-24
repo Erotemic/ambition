@@ -777,6 +777,7 @@ Open:
 - Tuning lives in `mockingbird.rs` (speeds, stun lengths) and
   `boss_profiles.ron` (tells, rests, the pattern per phase).
 
+
 **Asked (Jon, 2026-10-24), built the same day: space as part-based art.**
 "I think currently in the mockingbird battle, the background and things like
 the moon and earth is done via shaders a lot, and that is likely expensive,
@@ -1186,6 +1187,82 @@ with his placement `gnu_ton_handle.gnu_ton`. A `LockWall` gated on
 `game/ambition_app/tests/the_gnu_ton_handle.rs`. Open: the hall's arena is
 not yet `practice` (the rule above for a hall boss that has a main-game
 placement; T-rex and the FSM are not either).
+
+### Round 3: the whole encounter (built 2026-10-24)
+
+Jon (2026-10-24): *"the mount should be able to move around the room. We
+should avoid too many platforms in the room, because the mechanism to get
+onto the boss should be the shoulders, back and portals. The mount should
+feel like a character in its own right, and if you defeat the scholar, it
+needs to have an appropriate reaction. The fight sort of ends
+anticlimactically ... a phase 3 where everyone blasts off into space ...
+I want the fight to feel like it goes through newtons laws."* And later the
+same day: *"I really don't like the bendy arm. We can place the entrance
+portals wherever we need to to make the fight work, and such that a punch
+moves through the portal cleanly without clipping in the upper part of the
+giant's arms."*
+
+**The script of the beats.**
+
+1. **Prelude, the duel.** In the room before the hall (`gnu_ton_approach`
+   in the sandbox, `gnu_ton_works_approach` in the Science world) GNU-ton
+   waits on his own feet: the fighter `npc_gnu_ton` (ten hearts), with his
+   own moves and his laws. Beaten down to three hearts he cannot be hurt,
+   says *"Enough! A body in motion... stays in MOTION!"*, and runs out by
+   the door to his hall (`bosses/gnu_ton/prelude.rs`).
+2. **The chase and the arrival.** The player follows him in by the hall's
+   top door. As the hall wakes he is on the ledge by that door (*"You'll not
+   catch me! GNU, ARISE!"*); he leaps down onto his giant's shoulders, calls
+   his power (`gnu_power_up`), and the giant roars (`choreography::arrival`,
+   in the encounter's intro).
+3. **Phase 1.** The giant's arms are on it. It walks the hall between its
+   blows (a mark a stride from the player, never from under a player on
+   its back) and looks round at a player on its back. Its blows go through
+   a real portal pair. The hall has only its two low steps by the walls:
+   the ways onto the giant are its back, its shoulders and the pair.
+4. **The clamp and phase 2,** as before: two lines take the arms, and the
+   fists are bodies of their own.
+5. **The launch.** At the enrage the encounter holds a beat
+   (`enrage_seconds`, 3.6). He powers up (*"What goes up..."*), the giant
+   crouches and lifts off (`gnu_liftoff`, *"...must go UP!"*), the sky goes
+   to space (authored art, `gnu_ton_space`; `presentation/gnu_ton_sky.rs`),
+   and the scholar and the giant put on space helmets.
+6. **Phase 3, in space.** Each body has two fifths of its weight. Every ten
+   seconds a tide comes, told first (*"The tide turns!"*, *"Gravity... is
+   optional!"*): a push to the right, then to the left, then up. The pair
+   and the fists go on as in phase 2.
+7. **The end.** Beaten, he falls; the sky and the weight come back as he
+   falls, and the giant gathers him in its arms. It grieves, then roars in
+   rage and the hall shakes. A golden apple falls on his head
+   (*"...Eureka?"*), the helmets come off, and he wakes on its shoulder:
+   *"I yield. A body at rest stays at rest."*
+
+**Newton's laws, as mechanics.**
+
+- *First law.* In space a body keeps the most part of its speed: a launch
+  goes far. The field is `ambition.world.held_force` (`lift` 0.6).
+- *Second law.* A tide is a FORCE: a body of mass `m` takes `force / m`. The
+  player (mass 1) is pushed eight times as hard as the giant (mass 8). A
+  heavier blow (the hammer) throws the player farther in a clash.
+- *Third law.* A blow of the player's that meets the giant's fist as it
+  comes out of its far line is a clash (*"Equal! And opposite!"*): each
+  body is thrown back by its mass. In space every blow that lands on him
+  pushes the player back.
+
+**The arms are rigid, and the near lines come from them.** Each arm is an
+upper arm and a forearm, joined at the shoulder, the elbow and the wrist,
+with their lengths fixed. Only the forearm and the fist go through a near
+line, square to it; the upper arm and the hair at the elbow stay on the
+giant's side of its plane. Each near line is derived from the arm of its
+blow (`giant_art._derive_lines`), and the game types the same places
+(`choreography::blows::limb`). The pair opens in the tell only once the
+arm is out of the place of its opening (`open_from`), and is closed before
+the arm goes home through it (`close_at`). `tests/test_gnu_ton_giant_blows.py`
+in the renderer checks this on the posed parts of every frame of every
+blow. A limb in a pair takes only its own parts through
+(`rigged::LimbTwin`), so the back slope does not show at the far line.
+
+**Gear.** The helmets are the first worn gear (`docs/systems/worn-gear.md`).
 
 ## The Smirking Behemoth — its eye beam (2026-10-13, Jon)
 

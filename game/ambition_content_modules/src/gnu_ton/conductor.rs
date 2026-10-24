@@ -25,11 +25,12 @@
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
     LimbBlowPort, LimbBond, LimbBondPort, LimbHold, LimbOpening, LimbOpeningPort, LimbPose, LimbPosePort, LimbStrike,
-    LimbStrikePort, MountLaunch, MountLaunchPort,
-    MountView, MountViewPort, Pose as BodyPose,
+    LimbStrikePort, MountLaunch, MountLaunchPort, MountWalk, MountWalkPort, FoeLaunch, FoeLaunchPort,
+    MountView, MountViewPort, Pose as BodyPose, Wear, WearPort, Wearer,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, Effect, EffectPort, HeldDamageBox, HeldDamageBoxPort,
+    HeldForce, HeldForcePort,
     Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
@@ -132,6 +133,27 @@ const FX_GLINT: &str = "gnu_blow_glint";
 const FX_STREAK: &str = "gnu_blow_streak";
 const FX_QUAKE: &str = "gnu_hammer_quake";
 const FX_IMPACT: &str = "gnu_blow_impact";
+/// Two blows that meet (`ch::clash`).
+const FX_CLASH: &str = "gnu_blow_clash";
+const CLASH_SCALE: f32 = 3.4;
+/// The golden apple of the end, and when (seconds into its row) it hits.
+const FX_APPLE: &str = "gnu_apple_bonk";
+/// Phase 3: his power, the giant's liftoff, and a push of the tide.
+const FX_POWER: &str = "gnu_power_up";
+const POWER_SCALE: f32 = 3.2;
+const FX_LIFTOFF: &str = "gnu_liftoff";
+const LIFTOFF_SCALE: f32 = 6.0;
+const FX_PUFF: &str = "gnu_thrust_puff";
+const PUFF_SCALE: f32 = 2.6;
+/// The gear he and his giant wear in space (`worn_gear.ron`). Not the
+/// player: a fight that ends with no finale (the player falls, or leaves)
+/// would leave the player's helmet on.
+const HELMET: &str = "space_helmet";
+const HELMET_WEARERS: [Wearer; 2] = [Wearer::Boss, Wearer::Mount];
+/// The slot of the field of space among his fields.
+const SPACE_FIELD: u32 = 1;
+const APPLE_SCALE: f32 = 7.0;
+const APPLE_HITS: f32 = 14.0 * 0.055 * 0.42;
 const GLINT_SCALE: f32 = 3.0;
 const STREAK_SCALE: f32 = 5.5;
 // Seen in the arena at 6 and 4: the dust stood higher than the giant's fist
@@ -294,6 +316,33 @@ record! {
     75 blow_spent: bool,
     /// The star of its tell was shown.
     76 glinted: bool,
+    /// The giant walks to a mark between its blows (`ch::stride`): where (none:
+    /// it stands), seconds into its walk row, and the seconds before it may
+    /// walk again.
+    77 walk_to: Option<f32>,
+    78 walk_t: f32,
+    79 walk_wait: f32,
+    /// Seconds the player has stood on its back: it looks round at him.
+    80 look_t: f32,
+    /// When (in the strike's own time) a blow of the player's met the limb as
+    /// it came out of its far line (`ch::clash`): it goes back from there.
+    81 clashed_at: Option<f32>,
+    /// Seconds into the end of the fight (`ch::finale`), and where he was
+    /// when he was beaten.
+    82 finale_t: Option<f32>,
+    83 finale_from: [f32; 2],
+    /// Phase 3 (`ch::space`): seconds since the launch began (none: on the
+    /// ground), how far the sky is in space (0..1), the seconds before a
+    /// blow of the player's may push them back again, and whether the
+    /// helmets are on.
+    84 space_t: Option<f32>,
+    85 ascent: f32,
+    86 recoil_wait: f32,
+    87 helmets: bool,
+    /// His arrival (`ch::arrival`): seconds into it (none: before the hall
+    /// woke, or after it), and whether it has played.
+    88 arrive_t: Option<f32>,
+    89 arrived: bool,
 }
 
 /// What he does on the giant's back when he is not in his saddle.
@@ -339,6 +388,8 @@ enum Bark {
     Kick,
     /// The first blow of a combination: the other arm follows.
     Combo,
+    /// The first blow of the player's that meets a limb (`ch::clash`).
+    Clash,
 }
 
 impl Bark {
@@ -350,6 +401,7 @@ impl Bark {
             Bark::Clamped => "Now we shall be rigorous.",
             Bark::Kick => "Every action, an equal kick!",
             Bark::Combo => "And for every action... another!",
+            Bark::Clash => "Equal! And opposite!",
         }
     }
 }
@@ -445,6 +497,26 @@ impl Conductor {
     /// kick), and whether its fist is in the floor and still an opening.
     pub fn blow_limb(&self) -> Option<(Blow, bool)> {
         self.blow_kind().filter(|_| self.punch_open).map(|blow| (blow, self.floored && !self.blow_spent))
+    }
+
+    /// Where the giant walks to between its blows (none: it stands).
+    pub fn walk_to(&self) -> Option<f32> {
+        self.walk_to
+    }
+
+    /// A blow of the player's met the limb of this blow (`ch::clash`).
+    pub fn clashed(&self) -> bool {
+        self.clashed_at.is_some()
+    }
+
+    /// Seconds into the end of the fight (`ch::finale`), once he is beaten.
+    /// How far the sky is in space: 0 on the ground, 1 in space.
+    pub fn ascent(&self) -> f32 {
+        self.ascent
+    }
+
+    pub fn finale(&self) -> Option<f32> {
+        self.finale_t
     }
 
     /// The blow of the record: its exit thrown by its arm.
@@ -564,6 +636,10 @@ pub fn module() -> ModuleDescriptor {
                 LimbBondPort::KEY,
                 LimbStrikePort::KEY,
                 MountLaunchPort::KEY,
+                MountWalkPort::KEY,
+                FoeLaunchPort::KEY,
+                HeldForcePort::KEY,
+                WearPort::KEY,
                 CameraShakePort::KEY,
                 HeldDamageBoxPort::KEY,
                 HeldPortalPairPort::KEY,
@@ -761,11 +837,28 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     c.hall_right = hall.right;
     let limb = |fist: Fist| giant.limbs.iter().find(|l| l.slot == FIST_SLOTS[fist.index()]);
     if !scholar.alive {
-        defeated(inv, &mut c, &giant)?;
+        finale(inv, &mut c, &scholar, &giant, hall, dt)?;
         return c.store(inv);
     }
     c.clock += dt;
     c.ticks = c.ticks.wrapping_add(1);
+    // His arrival plays once, when the hall wakes. A fight that wakes in its
+    // enrage (a test, a debug start) has none.
+    if scholar.awake && !c.arrived {
+        c.arrived = true;
+        c.arrive_t = (!scholar.enraged).then_some(0.0);
+    }
+    let arriving = match c.arrive_t {
+        Some(t) if t + dt < ch::arrival::LEN => {
+            c.arrive_t = Some(t + dt);
+            Some(t + dt)
+        }
+        Some(_) => {
+            c.arrive_t = None;
+            None
+        }
+        None => None,
+    };
     let clock = c.clock;
     let ticks = c.ticks;
     let scholar_pos = v(scholar.position);
@@ -796,7 +889,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let head = scholar_pos - Vec2::new(0.0, scholar_size.y * 0.5);
 
     // ── Which part of which beat, and did it just begin? ──
-    let live = live_part(&scholar);
+    // In the launch (the beat before the enrage, `ch::space`) he performs no
+    // move: the pattern's move of the phase before is not his now.
+    let in_launch = c.space_t.is_some_and(|t| t < ch::space::LEN)
+        || (c.space_t.is_none() && scholar.between_phases && scholar.health * 2 < c.full_health && c.loosed);
+    let live = live_part(&scholar).filter(|_| !in_launch);
     let previous = c.part();
     let in_eureka = previous.is_some_and(|p| p.mv == Move::Eureka);
     let rain_ended = previous.is_some_and(|p| p.mv == Move::AppleRain && p.striking)
@@ -880,6 +977,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             c.blow_struck = 0;
                             c.freeze = 0.0;
                             c.lag = 0.0;
+                            c.clashed_at = None;
                             // Not a punch the pattern starts after the clamp began.
                             if kick {
                                 say(inv, &mut c, Bark::Kick, head)?;
@@ -1011,11 +1109,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.lag += dt;
     }
     // The part of the strike the blow is in, and the part it was in last tick.
+    // A limb that a blow met goes back into its line from there.
+    let clashed_at = c.clashed_at;
     let blow_part = |t: f32| {
-        cue.as_ref()
-            .filter(|cue| cue.striking)
-            .zip(blow_limb.as_ref())
-            .map(|(cue, blow_limb)| blows::part(blow_limb, t - c.lag, cue.dur - t))
+        cue.as_ref().filter(|cue| cue.striking).zip(blow_limb.as_ref()).map(|(cue, blow_limb)| {
+            let now = t - c.lag;
+            match clashed_at {
+                Some(at) if now >= at => blows::Part::Recover((now - at).min(blow_limb.recover)),
+                _ => blows::part(blow_limb, now, cue.dur - t),
+            }
+        })
     };
     let part_now = cue.as_ref().and_then(|cue| blow_part(cue.t));
 
@@ -1294,9 +1397,53 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
+    // ── Phase 3: the launch, and the fight in space ──
+    let landed = hurt && c.reflex.is_none();
+    let launch_t = space(inv, &mut c, &scholar, &giant, hall, dt, landed)?;
+
+    // ── The giant walks between its blows, and looks round at its back ──
+    // Anywhere on it (its back, the slope, a horn): it does not walk from
+    // under him.
+    let foe_on_giant = scholar.target_body.is_some_and(|body| {
+        let feet = body.position[1] + body.size[1] * 0.5;
+        (body.position[0] - giant_pos.x).abs() < giant_size.x * 0.5 + 20.0 && feet < hall.floor - 40.0
+    });
+    let free = cue.is_none()
+        && c.reflex.is_none()
+        && c.clamp.is_none()
+        && !c.dueling
+        && c.pull.is_none()
+        && !foe_on_giant
+        && launch_t.is_none()
+        && arriving.is_none();
+    c.walk_wait = (c.walk_wait - dt).max(0.0);
+    if free && c.walk_to.is_none() && c.walk_wait <= 0.0 {
+        c.walk_to = ch::stride::mark(giant_pos.x, giant_size.x * 0.5, aim_now.x, hall.left, hall.right);
+        c.walk_t = 0.0;
+    }
+    if let Some(to) = c.walk_to {
+        // It stops at its mark, when a beat begins, or when it cannot get there.
+        if !free || (giant_pos.x - to).abs() <= ch::stride::ARRIVED || c.walk_t > ch::stride::STEP / ch::stride::SPEED * 2.0 {
+            c.walk_to = None;
+            c.walk_wait = ch::stride::PAUSE;
+        }
+    }
+    match c.walk_to {
+        Some(to) => {
+            c.walk_t += dt;
+            inv.submit::<MountWalkPort>(MountWalk { to_x: to, speed: ch::stride::SPEED })?;
+        }
+        None => inv.submit::<MountWalkPort>(MountWalk { to_x: giant_pos.x, speed: 0.0 })?,
+    }
+    c.look_t = if foe_on_back { c.look_t + dt } else { 0.0 };
+
     // ── What he and the gnu are drawn as ──
     let t = c.footing_t;
     match (c.clamp, c.footing()) {
+        // He comes in and leaps onto the shoulders.
+        _ if arriving.is_some() => draw(inv, DrawnPart::Body, Some(ch::arrival::scholar_rows(arriving.unwrap_or(0.0))))?,
+        // He calls his power for the launch.
+        _ if launch_t.is_some() => draw(inv, DrawnPart::Body, Some(ch::space::scholar_rows(launch_t.unwrap_or(0.0))))?,
         // A blow launched him: he is thrown, then he tumbles.
         (_, Footing::Launched) if t < ch::arms::LAUNCH_ROW => draw(inv, DrawnPart::Body, Some((&["launch", "hit_heavy", "hit"], t, false)))?,
         (_, Footing::Launched) => draw(inv, DrawnPart::Body, Some((&["fall", "tumble"], t - ch::arms::LAUNCH_ROW, true)))?,
@@ -1318,6 +1465,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     let blow_row = blow.zip(cue.as_ref()).map(|(blow, cue)| blows::gnu(blow, arms_on, cue, part_now));
     match (c.reflex, c.clamp) {
+        // He comes in: it looks round at him, and roars when he is up.
+        _ if arriving.is_some() => draw(inv, DrawnPart::Mount, Some(ch::arrival::gnu_rows(arriving.unwrap_or(0.0), arms_on)))?,
+        // The launch: it roars, then it floats.
+        _ if launch_t.is_some() => draw(inv, DrawnPart::Mount, Some(ch::space::gnu_rows(launch_t.unwrap_or(0.0))))?,
         // The reflex rears and bucks, whatever his fists are doing.
         (Some(t), _) if arms_on => draw(inv, DrawnPart::Mount, Some((&["armed_buck", "buck"], t, false)))?,
         (Some(t), _) => draw(inv, DrawnPart::Mount, Some((&["buck"], t, false)))?,
@@ -1326,6 +1477,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (None, Some(t)) => draw(inv, DrawnPart::Mount, Some((&["hit"], t - ch::arms::SNAP, false)))?,
         // A blow through the pair: its tell, its strike, its hold, its way back.
         (None, None) if blow_row.is_some() => draw(inv, DrawnPart::Mount, blow_row)?,
+        // It walks: forward the way its art faces, or back.
+        (None, None) if c.walk_to.is_some() => {
+            let forward = c.walk_to.is_some_and(|to| (to - giant_pos.x) * turn > 0.0);
+            draw(inv, DrawnPart::Mount, Some((ch::stride::rows(forward, arms_on), c.walk_t, true)))?
+        }
+        // The player on its back: it looks round at him.
+        (None, None) if c.look_t > 0.0 && cue.is_none() => {
+            draw(inv, DrawnPart::Mount, Some((ch::stride::look_back(arms_on), c.look_t, false)))?
+        }
         (None, None) if arms_on => match c.pull.filter(|_| cue.is_none()) {
             Some(t) => {
                 let blow = c.blow_kind().unwrap_or(Blow::Hammer);
@@ -1397,10 +1557,34 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let stuck = driven.is_some_and(|(_, part)| matches!(part, blows::Part::Hold(_)))
             && c.floored
             && blow.is_some_and(Blow::is_hammer);
-        let open = stuck && !c.blow_spent;
+        // Just out of its far line, before it hurts, a blow of the player's
+        // meets it (`ch::clash`).
+        let meetable = c.clashed_at.is_none() && driven.is_some_and(|(l, part)| blows::meetable(l, part));
+        let open = (stuck && !c.blow_spent) || meetable;
         // Where it is at the far end of the pair.
         let far_fist = v(c.punch_far) + way * depth.unwrap_or(0.0);
-        if body.lost_health > 0 {
+        if body.lost_health > 0 && meetable {
+            // Equal and opposite: the limb goes back into its line, the
+            // player is thrown the way it came, the giant rocks back, and the
+            // force goes up the arm to its rider.
+            let pass = !scholar.invulnerable;
+            inv.submit::<LimbBlowPort>(LimbBlow { slot: slot.into(), pass })?;
+            if let Some((l, part)) = driven {
+                c.clashed_at = blows::strike_time(l, part);
+                c.freeze = ch::clash::FREEZE;
+                let kind = blow.unwrap_or(Blow::Hammer);
+                let from_fist = scholar.target_body.map_or(Vec2::ZERO, |b| v(b.position) - far_fist);
+                inv.submit::<FoeLaunchPort>(FoeLaunch { velocity: ch::clash::foe_launch(kind, way, from_fist), flinchless: true })?;
+                let away = giant_pos.x - aim_now.x;
+                inv.submit::<MountLaunchPort>(MountLaunch { velocity: ch::clash::giant_recoil(kind, away), flinchless: true })?;
+                inv.submit::<CameraShakePort>(CameraShake { amplitude_px: ch::clash::SHAKE })?;
+                effect(inv, FX_CLASH, far_fist, CLASH_SCALE, -way)?;
+                spark(inv, far_fist, FLASH, 30, 640.0)?;
+                burst(inv, far_fist, "shard", 12, 520.0, [1.0, 0.9, 0.6, 1.0])?;
+                play(inv, SFX_LAND, far_fist)?;
+                say(inv, &mut c, Bark::Clash, head)?;
+            }
+        } else if body.lost_health > 0 {
             let pass = open && !scholar.invulnerable;
             inv.submit::<LimbBlowPort>(LimbBlow { slot: slot.into(), pass })?;
             if pass {
@@ -1413,7 +1597,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // It glints while it is an opening.
             spark(inv, far_fist - Vec2::new(0.0, body.size[1] * 0.5), GOLD, 2, 60.0)?;
         }
-        match driven.filter(|(l, part)| blows::harmful(l, *part)) {
+        match driven.filter(|(l, part)| blows::hurts(l, *part)) {
             Some((l, _)) => {
                 if !c.armed[i] {
                     c.armed[i] = true;
@@ -1569,8 +1753,47 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
+    // ── His arrival: from the ledge by the top door to the saddle ──
+    if let Some(t) = arriving {
+        let half_h = scholar_size.y * 0.5;
+        let ledge = Vec2::new(hall.left + ch::arrival::LEDGE_IN, hall.floor - ch::arrival::LEDGE_OVER_FLOOR - half_h);
+        let saddle = scholar_pos;
+        let before = t - dt;
+        if before < ch::arrival::STAND && t >= ch::arrival::STAND * 0.2 && before < ch::arrival::STAND * 0.2 {
+            inv.submit::<SpeechBubblePort>(SpeechBubble {
+                at: a(ledge - Vec2::new(0.0, half_h + 30.0)),
+                text: "You'll not catch me! GNU, ARISE!".to_string(),
+            })?;
+        }
+        let landed_at = ch::arrival::STAND + ch::arrival::LEAP;
+        if before < landed_at && t >= landed_at {
+            effect(inv, FX_POWER, saddle, POWER_SCALE, Vec2::X)?;
+            inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 22.0 })?;
+            play(inv, SFX_CHARGE, saddle)?;
+            play(inv, SFX_SNORT, giant_pos)?;
+            dust(inv, saddle + Vec2::new(0.0, half_h), 16, 220.0, [0.62, 0.52, 0.42, 1.0])?;
+            inv.submit::<SpeechBubblePort>(SpeechBubble {
+                at: a(saddle - Vec2::new(0.0, half_h + 30.0)),
+                text: "Behold: the shoulders of a GIANT!".to_string(),
+            })?;
+        }
+        match ch::arrival::place(t, ledge, saddle) {
+            Some(at) => {
+                inv.submit::<ConductedPosePort>(ConductedPose {
+                    pose: Some(BodyPose { position: a(at), velocity: [0.0, 0.0] }),
+                    side: None,
+                })?;
+                c.posed = true;
+            }
+            None if c.posed => {
+                inv.submit::<ConductedPosePort>(ConductedPose { pose: None, side: None })?;
+                c.posed = false;
+            }
+            None => {}
+        }
+    }
     // ── Eureka: the scholar himself leaves the saddle ──
-    match cue.filter(|cue| cue.mv == Move::Eureka && cue.striking) {
+    match cue.filter(|cue| cue.mv == Move::Eureka && cue.striking && arriving.is_none()) {
         Some(cue) => {
             let saddle = scholar_pos;
             let head = saddle - Vec2::new(0.0, scholar_size.y * 0.5);
@@ -1607,6 +1830,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.posed = true;
         }
         None => match shoulder_pose {
+            // His arrival poses him.
+            _ if arriving.is_some() => {}
             // He is on the giant's other shoulder, or on his way to one.
             Some(at) => {
                 inv.submit::<ConductedPosePort>(ConductedPose {
@@ -1735,20 +1960,202 @@ fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault>
     })
 }
 
-/// Defeated: he draws his own death, the gnu stands, and the fists fall where
-/// they are and stay there. No volume is held, so every one ends.
-fn defeated(inv: &mut Invocation<'_>, c: &mut Conductor, giant: &MountView) -> Result<(), Fault> {
-    draw(inv, DrawnPart::Body, None)?;
-    draw(inv, DrawnPart::Mount, None)?;
+/// Phase 3 (`ch::space`): the launch in the beat before the enrage, and the
+/// fight in space after it. Returns the seconds into the launch while it
+/// plays.
+///
+/// The beat before the enrage is the encounter's `between_phases` with his
+/// health under half (the beat before phase 2 is at two thirds of it).
+fn space(
+    inv: &mut Invocation<'_>,
+    c: &mut Conductor,
+    scholar: &BossConduct,
+    giant: &MountView,
+    hall: Hall,
+    dt: f32,
+    landed: bool,
+) -> Result<Option<f32>, Fault> {
+    use ch::space::{self as sp, Sea};
+    let low = scholar.health * 2 < c.full_health;
+    let launching = scholar.between_phases && low && c.loosed;
+    // Out of the enrage (a fight that was put back) is out of space.
+    if c.space_t.is_some() && !scholar.enraged && !launching {
+        c.space_t = None;
+        c.ascent = 0.0;
+        return Ok(None);
+    }
+    let prev = match c.space_t {
+        Some(t) => t,
+        // A fight that is in its enrage with no launch before it goes
+        // straight to space.
+        None if scholar.enraged => sp::LEN,
+        None if launching => -dt,
+        None => return Ok(None),
+    };
+    let t = prev + dt;
+    c.space_t = Some(t);
+    let crossed = |at: f32| prev < at && t >= at;
+    let giant_pos = v(giant.position);
+    let giant_size = v(giant.size);
+    let head = v(scholar.position) - Vec2::new(0.0, scholar.size[1] * 0.5);
+    let feet = Vec2::new(giant_pos.x, hall.floor);
+    c.ascent = sp::ascent(t);
+    if crossed(sp::POWER) {
+        effect(inv, FX_POWER, v(scholar.position), POWER_SCALE, Vec2::X)?;
+        play(inv, SFX_CHARGE, head)?;
+        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: "What goes up...".to_string() })?;
+    }
+    if crossed(sp::LIFTOFF) {
+        let size = FX_SIZE * LIFTOFF_SCALE;
+        effect(inv, FX_LIFTOFF, feet - Vec2::new(0.0, size * 0.5), LIFTOFF_SCALE, Vec2::NEG_Y)?;
+        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 30.0 })?;
+        inv.submit::<MountLaunchPort>(MountLaunch { velocity: [0.0, -sp::HOP], flinchless: true })?;
+        play(inv, SFX_STOMP, feet)?;
+        play(inv, SFX_FLOOR, feet)?;
+        for side in [-1.0, 1.0] {
+            dust(inv, feet + Vec2::new(side * giant_size.x * 0.4, 0.0), 24, 420.0, [0.75, 0.62, 0.45, 1.0])?;
+        }
+        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: "...must go UP!".to_string() })?;
+    }
+    if crossed(sp::HELMETS) && !c.helmets {
+        c.helmets = true;
+        for who in HELMET_WEARERS {
+            inv.submit::<WearPort>(Wear { who, gear: HELMET.into(), on: true })?;
+        }
+        spark(inv, head, [0.75, 0.9, 1.0, 1.0], 14, 200.0)?;
+    }
+    if crossed(sp::LEN) {
+        inv.submit::<SpeechBubblePort>(SpeechBubble {
+            at: a(head - Vec2::new(0.0, 30.0)),
+            text: "In space, nothing stops you!".to_string(),
+        })?;
+    }
+    // The field over the hall: the weight space takes, and the tide.
+    let (lift, push) = sp::field(t);
+    if lift > 0.0 || push != [0.0, 0.0] {
+        hold_space_field(inv, hall, lift, push)?;
+    }
+    // A tide is told before it comes, and is seen as it pushes.
+    match sp::sea(t) {
+        Sea::Warning(tide) if matches!(sp::sea(prev), Sea::Calm) => {
+            inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: tide.bark().to_string() })?;
+            play(inv, SFX_WHOOSH, head)?;
+        }
+        Sea::Tide(tide, _) if c.ticks % 6 == 0 => {
+            // Puffs in the hall that go the way the tide pushes.
+            let way = Vec2::from(tide.way());
+            let k = (c.ticks / 6) % 5;
+            let across = hall.left + (hall.right - hall.left) * (0.1 + 0.2 * k as f32);
+            let at = Vec2::new(across, hall.floor - 160.0 - 180.0 * ((c.ticks / 30) % 4) as f32);
+            effect(inv, FX_PUFF, at, PUFF_SCALE, way)?;
+        }
+        _ => {}
+    }
+    // Every blow that lands on him pushes the player back: the third law.
+    c.recoil_wait = (c.recoil_wait - dt).max(0.0);
+    if landed && t >= sp::LEN && c.recoil_wait <= 0.0 {
+        if let Some(body) = scholar.target_body {
+            let from = v(scholar.position).x;
+            inv.submit::<FoeLaunchPort>(FoeLaunch { velocity: sp::recoil(body.position[0], from), flinchless: true })?;
+            effect(inv, FX_PUFF, v(body.position), PUFF_SCALE, Vec2::new(if body.position[0] < from { -1.0 } else { 1.0 }, 0.0))?;
+            c.recoil_wait = sp::RECOIL_WAIT;
+        }
+    }
+    Ok((t < sp::LEN).then_some(t.max(0.0)))
+}
+
+/// The field of space over the hall, from wall to wall and from the floor
+/// up past the top of the room.
+fn hold_space_field(inv: &mut Invocation<'_>, hall: Hall, lift: f32, push: [f32; 2]) -> Result<(), Fault> {
+    inv.submit::<HeldForcePort>(HeldForce {
+        slot: SPACE_FIELD,
+        min: [hall.left - 200.0, hall.floor - 4000.0],
+        max: [hall.right + 200.0, hall.floor + 64.0],
+        lift,
+        force: push,
+    })
+}
+
+/// Beaten (`ch::finale`): he falls from its shoulder, and lets his fists go.
+/// The giant gathers him to its chest and holds him, its head low; it roars;
+/// an apple falls on his head, he wakes, and it sets him back on its
+/// shoulder, where the two of them are at rest.
+fn finale(
+    inv: &mut Invocation<'_>,
+    c: &mut Conductor,
+    scholar: &BossConduct,
+    giant: &MountView,
+    hall: Hall,
+    dt: f32,
+) -> Result<(), Fault> {
+    use ch::finale::{self as fin, Part as FinalePart};
+    let giant_pos = v(giant.position);
+    let giant_size = v(giant.size);
+    let turn = if giant.unmirrored { 1.0 } else { -1.0 };
+    let half_h = scholar.size[1] * 0.5;
+    let prev = c.finale_t;
+    let t = match prev {
+        Some(t) => t + dt,
+        None => {
+            c.finale_from = scholar.position;
+            0.0
+        }
+    };
+    c.finale_t = Some(t);
+    // The moment `at` of the end passes in this tick.
+    let crossed = |at: f32| match prev {
+        Some(p) => p < at && t >= at,
+        None => at <= 0.0,
+    };
+    let floor_x = (giant_pos.x + turn * fin::FALLS).clamp(hall.left + 40.0, hall.right - 40.0);
+    let floor = Vec2::new(floor_x, hall.floor - half_h);
+    let cradle = giant_pos + Vec2::new(fin::CRADLE.x * turn, fin::CRADLE.y);
+    // His soles on the saddle (its catalog `saddle`, from its middle).
+    let saddle = giant_pos + Vec2::new(256.0 * turn, -232.05 - half_h);
+    match fin::scholar(t, v(c.finale_from), floor, cradle, saddle) {
+        Some(at) => {
+            inv.submit::<ConductedPosePort>(ConductedPose {
+                pose: Some(BodyPose { position: a(at), velocity: [0.0, 0.0] }),
+                side: None,
+            })?;
+            c.posed = true;
+        }
+        None if c.posed => {
+            inv.submit::<ConductedPosePort>(ConductedPose { pose: None, side: None })?;
+            c.posed = false;
+        }
+        None => {}
+    }
+    draw(inv, DrawnPart::Body, Some(fin::scholar_rows(t)))?;
+    draw(inv, DrawnPart::Mount, Some(fin::gnu_rows(t)))?;
+    // Beaten in space, they come back down to the ground as he falls: the
+    // sky and the weight come back by the time the giant holds him.
+    if c.space_t.is_some() {
+        let back = ch::ease(t / (fin::FALL + fin::GATHER));
+        c.ascent = c.ascent.min(1.0 - back);
+        let lift = ch::space::LIFT * (1.0 - back);
+        if lift > 0.0 {
+            hold_space_field(inv, hall, lift, [0.0, 0.0])?;
+        }
+    }
+    inv.submit::<MountWalkPort>(MountWalk { to_x: giant_pos.x, speed: 0.0 })?;
+    // His fists: he lets them go as he falls; then the giant draws them back
+    // into its arms, which hold him.
+    let falling = matches!(fin::part(t), FinalePart::Fall(_));
     for fist in Fist::BOTH {
         let i = fist.index();
         c.armed[i] = false;
         if !giant.limbs.iter().any(|l| l.slot == FIST_SLOTS[i]) {
             continue;
         }
-        draw(inv, fist_part(fist), Some((&["hit", "rest"], 0.0, false)))?;
-        // He lets go: the fist falls under its own gravity.
-        inv.submit::<LimbPosePort>(LimbPose { slot: FIST_SLOTS[i].into(), hold: None })?;
+        if falling {
+            draw(inv, fist_part(fist), Some((&["hit", "rest"], 0.0, false)))?;
+            inv.submit::<LimbPosePort>(LimbPose { slot: FIST_SLOTS[i].into(), hold: None })?;
+        } else {
+            let hold = LimbHold { position: giant.position, velocity: [0.0, 0.0], facing: fist.side() };
+            inv.submit::<LimbPosePort>(LimbPose { slot: FIST_SLOTS[i].into(), hold: Some(hold) })?;
+            draw(inv, fist_part(fist), Some(ch::arms::NO_FIST))?;
+        }
     }
     // The hoof is on its leg: it stays in the giant, and is not drawn.
     if giant.limbs.iter().any(|l| l.slot == blows::HOOF) {
@@ -1756,9 +2163,51 @@ fn defeated(inv: &mut Invocation<'_>, c: &mut Conductor, giant: &MountView) -> R
         inv.submit::<LimbPosePort>(LimbPose { slot: blows::HOOF.into(), hold: Some(hold) })?;
         draw(inv, DrawnPart::Limb(blows::HOOF.into()), Some(ch::arms::NO_FIST))?;
     }
-    if c.posed {
-        inv.submit::<ConductedPosePort>(ConductedPose { pose: None, side: None })?;
-        c.posed = false;
+    // The moments of it.
+    let head_of = |at: Vec2| at - Vec2::new(0.0, half_h);
+    let giant_head = giant_pos + Vec2::new(150.0 * turn, -giant_size.y * 0.5 - 180.0);
+    if crossed(fin::FALL) {
+        dust(inv, Vec2::new(floor.x, hall.floor), 14, 260.0, [0.62, 0.52, 0.42, 1.0])?;
+        play(inv, SFX_FLOOR, floor)?;
+    }
+    let roar_at = fin::FALL + fin::GATHER + fin::GRIEVE;
+    if crossed(fin::FALL + fin::GATHER + 0.4) {
+        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(giant_head), text: "Mmrrh...".to_string() })?;
+    }
+    if crossed(roar_at + 0.3) {
+        // Grief, and then rage: it roars, and the hall shakes with it.
+        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: 34.0 })?;
+        play(inv, SFX_SNORT, giant_head)?;
+        play(inv, SFX_STOMP, giant_pos)?;
+        for side in [-1.0, 1.0] {
+            let at = Vec2::new(giant_pos.x + side * giant_size.x * 0.55, hall.floor);
+            let size = FX_SIZE * QUAKE_SCALE;
+            effect(inv, FX_QUAKE, at - Vec2::new(0.0, size * QUAKE_FLOOR), QUAKE_SCALE, Vec2::X)?;
+        }
+        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(giant_head), text: "RRRAAAWWRRR!".to_string() })?;
+    }
+    let apple_at = roar_at + fin::ROAR;
+    if crossed(apple_at) {
+        // The apple falls on his head: the effect's head is its middle.
+        effect(inv, FX_APPLE, head_of(cradle), APPLE_SCALE, Vec2::X)?;
+    }
+    if crossed(apple_at + APPLE_HITS) {
+        spark(inv, head_of(cradle), GOLD, 24, 240.0)?;
+        play(inv, SFX_SNORT, head_of(cradle))?;
+        inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head_of(cradle) - Vec2::new(0.0, 30.0)), text: "...Eureka?".to_string() })?;
+    }
+    if crossed(apple_at + fin::APPLE) && c.helmets {
+        // Back on the ground, the helmets come off.
+        c.helmets = false;
+        for who in HELMET_WEARERS {
+            inv.submit::<WearPort>(Wear { who, gear: HELMET.into(), on: false })?;
+        }
+    }
+    if crossed(apple_at + fin::APPLE + fin::WAKE * 0.6) {
+        inv.submit::<SpeechBubblePort>(SpeechBubble {
+            at: a(head_of(saddle) - Vec2::new(0.0, 30.0)),
+            text: "I yield. A body at rest stays at rest.".to_string(),
+        })?;
     }
     Ok(())
 }

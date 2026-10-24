@@ -246,6 +246,26 @@ keeps per-item identity; no double acquisition across resimulation; capture
 after settlement; death, reset and room retirement with foreign controlled
 bodies; item absence does not suppress session restoration.
 
+**Measured 2026-10-24: the cut that takes `items` out of the knot.** The
+knot is `abilities`, `features`, `items`, `session`
+(`measure_kernel_module_graph.py --scc`). `items` closes two cycles:
+- `items -> session`, 4 production references, all of them vocabulary: the
+  durable horizon's sets (`DurableHorizonSet`, `DurableRestoreSet`), its latch
+  `SaveRestored`, and the replay slot `ContentRoomReplayResetSet`. A fifth,
+  `SessionCheckpointHorizonPlugin`, is used only in a test.
+- `items -> abilities`, 1 reference: an ordering edge against
+  `abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system`. It then
+  runs back through `abilities -> features -> items`.
+
+The cut moves the four vocabulary items to the crate that owns the save
+(`ambition_persistence`) or to the replay vocabulary's owner
+(`ambition_combat::events`, beside `RestoreConsequenceSet`). The ordering
+edge becomes a set that abilities joins. ⛔ `SaveRestored` is rollback
+state: moving it changes its type path, so it is a rollback schema bump with
+three baselines (the dump `.txt`, the baselines JSON and
+`rollback_codec_shape.txt`). Plan the bump with the move; do not discover it
+afterwards.
+
 ## A8. Prove live world-instance isolation before generalizing residency
 
 **State:** several live rooms are landed (see

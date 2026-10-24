@@ -185,7 +185,14 @@ impl Plugin for PortalPresentationPlugin {
             app.add_systems(
                 Update,
                 (
-                    view_cones::handle_portal_view_cone_dump_hotkey,
+                    // The three debug passes run only on their trigger: a
+                    // developer action waits, the F1 overlay is on, a dump is
+                    // pending. Each returned at once otherwise.
+                    view_cones::handle_portal_view_cone_dump_hotkey.run_if(
+                        ambition_platformer2d_core::a_message_waits::<
+                            ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+                        >,
+                    ),
                     // Guard all three asset params: Bevy 0.19 panics on a missing
                     // system param, and headless compositions have no render stack.
                     // Per `engine/headless-verification.md`, guard with `run_if`
@@ -196,10 +203,11 @@ impl Plugin for PortalPresentationPlugin {
                         .run_if(resource_exists::<Assets<Mesh>>)
                         .run_if(resource_exists::<Assets<ColorMaterial>>),
                     // Same guard: `Gizmos` requires `GizmoConfigStore`.
-                    view_cones::debug_portal_view_zones.run_if(
-                        resource_exists::<bevy::gizmos::config::GizmoConfigStore>,
-                    ),
-                    view_cones::flush_portal_view_cone_debug_dump,
+                    view_cones::debug_portal_view_zones
+                        .run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>)
+                        .run_if(|debug: Res<view_cones::PortalDebugOverlay>| debug.enabled),
+                    view_cones::flush_portal_view_cone_debug_dump
+                        .run_if(|request: Res<view_cones::PortalViewConeDebugDumpRequest>| request.pending),
                 )
                     .chain()
                     .in_set(PortalPresentationSet),

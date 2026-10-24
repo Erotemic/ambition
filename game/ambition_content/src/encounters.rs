@@ -127,6 +127,7 @@ impl Plugin for AmbitionEncounterContentPlugin {
             sim,
             crate::AMBITION_RULES,
             celebrate_symmetry_attunement
+                .run_if(ambition_platformer2d_core::a_message_waits::<EncounterEventMsg>)
                 .in_set(Platformer2dSimulationPhase::Progression)
                 .after(ambition_encounter::EncounterLifecycleSet),
         );

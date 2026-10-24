@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-24 08:00Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 909 systems a frame; hub Ambition route 1,323 → 980 since
+route 1,320 → 909 systems a frame; hub Ambition route 1,323 → 978 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F49, 08:00Z): main-world wall 12.98 → 6.74 ms a frame (Mary-O), 13.91 → 5.12 ms (Ambition); frame p50 24.0 → 20.8 ms (Mary-O), 51.1 → 27.2 ms (Ambition hub; REASONED: mostly the F46 look cuts). Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
@@ -156,6 +156,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | SFX playback runs while a cue waits or the last run's records are uncleared; round despawn on a `RoundScopedEntity`; late match art with an `ActiveMatch`; dev gravity on its key (`6522d93c3`) | done | census: Mary-O route 914 → 909, Ambition 988 → 983 (4 here, the rest other lanes'); audio/round libs 16, app_it `sfx`, `sound`, `round` 30, `audio` green |
 | The room-transition cover's driver runs while a transition is active or the last one left a cover or state for its idle branch to clear (`54c9566b6`) | done | REASONED: 1 system a frame on both routes (its idle branch did nothing once cleared; its frame count is compared only within a transition); app_it `room_transition` 17, `cover` 36, `door` 34, `walking_into_a_loading_zone` 5, `first_room` 3, app lib 18 green |
 | The first room's art preparation runs while a session is published or a job of one is still held; its empty `retain` also stopped marking the job store changed each frame (`25b7ae764`) | done | census: Ambition route 983 → 980 (with the cover driver above); a hub capture draws the room; app_it `first_room` 3, `boot` 10, `cover` 36, `launcher` 10 green |
+| The quest registry fills until it is filled; the attunement's banner peeks `EncounterEventMsg` (`QUESTFILL`) | done | census: Ambition route 980 → 978; app_it `quest` 36, `attunement` 2, `symmetry` 13, `canonical_reconstitution` 19, content `quest`/`encounter` 34 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

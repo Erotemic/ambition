@@ -45,6 +45,8 @@ impl Plugin for AmbitionQuestContentPlugin {
             sim,
             crate::AMBITION_RULES,
             crate::quest::populate_quest_registry
+                // It fills the registry once (the reset flow clears `initialized`).
+                .run_if(|registry: bevy::prelude::Res<ambition_persistence::quest::QuestRegistry>| !registry.initialized)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );
     }

@@ -580,7 +580,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 ),
                 // The boss systems draw named bosses only: they sleep where no
                 // live room's game has any (`Capability::BossEncounters`).
-                actors::upgrade_boss_sprites.in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                actors::upgrade_boss_sprites.run_if(boss_stage::bosses_are_shown_or_were).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
                 // Before the character animators and the rigged driver: a boss
                 // drawn from parts (`BossSheetSpec::parts`) is posed from the
                 // cell this draws, and the driver then replaces this baked frame

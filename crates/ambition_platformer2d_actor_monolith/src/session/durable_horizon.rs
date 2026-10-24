@@ -436,6 +436,10 @@ pub fn install_durable_save_horizon(app: &mut App) {
         (
             persist_occurrence_horizon_to_save,
             count_the_dialogue_visit_when_a_conversation_opens
+                // It counts the tick a conversation opens: none is live, nothing to count.
+                .run_if(|conversation: Option<Res<ambition_conversation::ActiveConversation>>| {
+                    conversation.is_some_and(|conversation| conversation.is_live())
+                })
                 .after(crate::features::interact_ecs_actors_and_switches),
         )
             .chain()

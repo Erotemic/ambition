@@ -148,6 +148,42 @@ says what they bought in frame time.
 | Social, match and item passes run on their subject: challenge, pet and wear requests and actor stimuli peek their messages, pet beats and pending challenges on their components; the stocks verdict zoom peeks `StocksMatchDecided`, respawn on `PendingRespawn`, match items with an `ActiveMatch`, held courses on `HeldCourse`, thrown impacts on `ItemStruckBody` (`00de8d98c`) | done | census: Ambition route 1,005 → 993 (11 gated, 1 noise row); Mary-O route 919; app_it pet, wear, conversation, stocks, smash 115, match 43, ride, thrown and `canonical_reconstitution` green; the `persisted_fate_is_built` challenge red is not this slice's (red with it reverted; sent to the gate lane) |
 | The causal recorders of the bodies (movement intent, control frame, movement operations, hit resolutions and reactions) leave the monolith for the runtime's causal adapter, registered beside its frame stamp; the monolith keeps `BodyMovementOps`, the message its kernel writes (`e9d1161a5`) | done | monolith `causal.rs` 750 → 14 lines; no system added; runtime `causal` lib 8 + `causal_it` 6, app_it `causal` 3 (features `causal,rl_sim`) green |
 | Android schedules no hit flash: its four passes were empty stubs there and still ran each frame, and its `Material2dPlugin` paid per-type systems in both worlds for a material no Android frame draws (`0c8aaec1f`) | done | REASONED: 4 main-world systems a frame plus the material's per-type main and render-world systems, on both phone routes; desktop unchanged; render `hit_flash`/`portal_compositing` 18 green; the Android build is NOT checked here (no NDK on this VM) |
+| The dialogue-visit counter runs while a conversation is live: it counts the tick one opens (`VISIT`) | done | census: 1 system a tick on both routes (REASONED from its body); app_it `visit`/`canonical_reconstitution` 26 green; F48 records what is left |
+
+### F48 — After the content gates: what is left is Bevy's and Jon's (2026-10-24)
+
+MEASURED (desktop census, hub routes, `--warmup 600`, census on, HEAD
+`0c8aaec1f`): 919 systems ran in a Mary-O frame (F47: 921) and 993 in an
+Ambition frame (F47: about 1,110). The Ambition drop is F47's third bullet,
+done: the boss, cut-rope, portal-adapter, conversation, social, match and item
+passes now run on their subject (run table, 10-23 and 10-24 rows).
+
+What the Mary-O frame still pays, by owner:
+
+- **Bevy's gizmo groups: 24 systems a frame, MEASURED.** Five groups
+  (default, AABB, frustum, skinned-mesh bounds, light) cost four fixed-loop
+  passes each, plus one draw pass each for the four 3D groups. The game draws
+  gizmos only in developer overlays and uses only the default group.
+  `GizmoPlugin` and `bevy_light` add the four 3D groups unconditionally
+  (bevy_gizmos 0.19.1 `lib.rs`), so no condition reaches them. **Waits on:** a
+  patched `bevy_gizmos`, or dropping `GizmoPlugin` from a play build with the
+  debug overlays behind `dev_tools`. Jon's call.
+- **Ambition's materials on the Mary-O route: 9 material types, MEASURED.**
+  These are the room look's five (blueprint, state, skin, sky, front field),
+  deep dream, sauce, flame and space. Each costs an `Assets<T>` pass and a
+  specialization check in the main world, plus per-type passes in the render
+  world, in every room of every game. **Waits on:** a single-game build (P1),
+  or folding the room look's five materials into one. That is a shader change
+  to the hub's look, so it goes to Jon first.
+- **Developer tooling: 38 systems a frame** (F47, unchanged). **Waits on:**
+  Jon's `android` versus `android_dev` answer.
+- **Android-only:** the hit flash's four empty stubs and its material no
+  longer install there (`0c8aaec1f`). REASONED: not measurable on this VM,
+  which has no NDK.
+
+REASONED: excluding the census markers, the gating campaign is at its floor
+on both routes. Every further cut is one of the three decisions above or K5
+decomposition.
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

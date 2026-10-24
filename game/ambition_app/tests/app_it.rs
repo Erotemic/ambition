@@ -227,6 +227,7 @@ mod a_conducted_boss_reads_its_mount_after_the_rider_is_synced;
 mod a_world_reload_draws_its_room_once;
 mod a_challenged_body_is_provoked_whole;
 mod a_still_brain_keeps_its_body_still;
+mod a_dead_flyer_falls;
 mod rollback_room_transition;
 mod rollback_schema_baseline;
 mod the_developer_hud_flash_still_winds_down;

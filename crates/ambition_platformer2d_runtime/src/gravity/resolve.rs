@@ -35,6 +35,9 @@ use ambition_combat::actor_tuning::ActorConfig;
 ///   gravity has nothing to move, and its authored scale is not written to say
 ///   so — which is why no hold keeps a copy to restore.
 ///
+/// - A DEAD body falls by all of its gravity, whatever its authored scale:
+///   see [`gravity_scale_of`].
+///
 /// [`PoseOwnedExternally`]: ambition_platformer2d_core::PoseOwnedExternally
 /// [`CapturedBy`]: ambition_combat::capture::CapturedBy
 pub fn resolve_body_motion_frames(
@@ -57,6 +60,8 @@ pub fn resolve_body_motion_frames(
             &ActorConfig,
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
             &ActorSurfaceState,
+            // `None`: a body that cannot die, so it is always alive.
+            Option<&ambition_characters::actor::BodyHealth>,
             Has<ambition_platformer2d_core::PoseOwnedExternally>,
             Has<ambition_combat::capture::CapturedBy>,
             &mut ResolvedMotionFrame,
@@ -88,7 +93,7 @@ pub fn resolve_body_motion_frames(
     for (entity, kin, mut resolved) in &mut players {
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response));
     }
-    for (entity, kin, config, authored, surface, posed, captive, mut resolved) in &mut actors {
+    for (entity, kin, config, authored, surface, health, posed, captive, mut resolved) in &mut actors {
         let response = if posed || captive {
             0.0
         } else {
@@ -97,9 +102,32 @@ pub fn resolve_body_motion_frames(
             // integrator makes for every other number of the feel
             // (`movement_law_of`). Reading only the config here gave every
             // match seat the actor config's gravity whatever its body said.
-            authored.map_or(config.tuning.movement.gravity, |a| a.0.gravity) * surface.gravity_scale
+            authored.map_or(config.tuning.movement.gravity, |a| a.0.gravity)
+                * gravity_scale_of(surface, health.is_none_or(|health| health.alive()))
         };
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response));
+    }
+}
+
+/// The part of its gravity that a body falls by: its authored
+/// `ActorSurfaceState::gravity_scale` while it is alive (an aerial body: 0),
+/// and all of it after it dies.
+///
+/// ⭐ THE SIMPLE CORPSE FALL (Jon, 2026-10-23: "when flying things die they
+/// fall up. They should fall down. at normal gravity"). A dead body has no
+/// will: the actor integrator moves it with a neutral control frame and turns
+/// its flight off. This gives it its weight again, so a flyer, a hoverer or
+/// any other body falls under the normal gravity of its room, and a death blow
+/// that sends it up only delays the fall. The rule is the same for every body
+/// kind. A revive gives the authored scale back, because this function reads
+/// the scale and never writes it.
+///
+/// A ragdoll can replace this rule later. A device with low power can keep it.
+pub fn gravity_scale_of(surface: &ActorSurfaceState, alive: bool) -> f32 {
+    if alive {
+        surface.gravity_scale
+    } else {
+        1.0
     }
 }
 

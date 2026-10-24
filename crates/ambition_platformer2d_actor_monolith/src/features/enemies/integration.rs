@@ -167,10 +167,12 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             }
             // A DEAD BODY IS STILL A BODY (Jon, 2026-10-18: "dead things are
             // still subject to physics"). Only its will stops: it is moved
-            // by the same kernel with no intent. It cannot fly, so a flyer
-            // falls; a crawler lets go of its surface. A revive restores its
-            // flight (`reset_body_clusters`), and a crawler takes hold again
-            // by its own contact rule.
+            // by the same kernel with no intent. It cannot fly, and a crawler
+            // lets go of its surface. Its weight comes back in the frame
+            // resolution (`gravity_scale_of`), so a flyer falls under the
+            // normal gravity of its room. A revive restores its flight
+            // (`reset_body_clusters`), and a crawler takes hold again by its
+            // own contact rule.
             self.flight.fly_enabled = false;
             if let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) = motion_model {
                 crawler.detach();

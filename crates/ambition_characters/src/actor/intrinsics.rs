@@ -147,6 +147,20 @@ pub struct CharacterHands {
     /// the hands reads it back from there.
     #[serde(default)]
     pub rest: Option<(f32, f32)>,
+    /// The limbs it has besides its two hands, each built from
+    /// [`Self::character`] in a slot of its own (a giant's leg that kicks).
+    #[serde(default)]
+    pub more: Vec<CharacterLimb>,
+}
+
+/// A limb of a body besides its two hands: its slot (a `LimbSlot` name) and
+/// where it rests, as an offset `(x, y)` from the host's centre in world
+/// units (+y down).
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CharacterLimb {
+    pub slot: String,
+    pub rest: (f32, f32),
 }
 
 /// Touching this body hurts.

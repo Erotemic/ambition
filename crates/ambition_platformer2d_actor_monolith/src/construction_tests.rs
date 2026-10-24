@@ -1153,6 +1153,7 @@ fn a_character_states_which_character_its_hands_are() {
     handed.hands = Some(ambition_characters::actor::CharacterHands {
         character: "fixture_walker".to_string(),
         rest: None,
+        more: Vec::new(),
     });
     let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     cast.insert_prepared(handed);

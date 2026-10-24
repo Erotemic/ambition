@@ -884,6 +884,7 @@ mod tests {
             definition.hands = Some(ambition_characters::actor::CharacterHands {
                 character: "npc_giant_gnu_hands".to_string(),
                 rest: None,
+                more: Vec::new(),
             });
         }
         let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(

@@ -1842,11 +1842,21 @@ pub fn giant_hand_plans(
         .map(|(x, y)| ae::Vec2::new(x, y))
         .unwrap_or(ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15));
     let home_l = ae::Vec2::new(-home_r.x, home_r.y);
+    // The limbs besides the hands rest where they say. A slot name that is
+    // not a limb slot builds no limb: it is a load error of the content.
+    let more = hands.more.iter().filter_map(|limb| match LimbSlot::from_str(&limb.slot) {
+        Ok(slot) => Some((slot, ae::Vec2::new(limb.rest.0, limb.rest.1), limb.slot.as_str())),
+        Err(error) => {
+            bevy::log::error!("the limb slot {:?} of a body with hands is refused: {error}", limb.slot);
+            None
+        }
+    });
     [
         (LimbSlot::HAND_LEFT, home_l, "left"),
         (LimbSlot::HAND_RIGHT, home_r, "right"),
     ]
     .into_iter()
+    .chain(more)
     .enumerate()
     .map(|(ordinal, (slot, home, tag))| GiantHandPlan {
         character: hands.character.clone(),
@@ -2361,6 +2371,7 @@ mod runtime_giant_refusal_tests {
         definition.hands = Some(ambition_characters::actor::CharacterHands {
             character: "npc_giant_gnu_hands".to_string(),
             rest: None,
+            more: Vec::new(),
         });
         let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,

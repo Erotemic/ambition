@@ -98,6 +98,7 @@ pub fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharact
                     definition.hands = Some(ambition_characters::actor::CharacterHands {
                         character: "npc_giant_gnu_hands".to_string(),
                         rest: None,
+                        more: Vec::new(),
                     });
                 }
             }

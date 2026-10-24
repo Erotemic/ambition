@@ -232,6 +232,10 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
                             .get::<ae::PoseOwnedExternally>(limb)
                             .is_some_and(|holds| holds.holds(ae::PoseHold::Conductor)),
                         contact: limb_contact(world, limb, limb_kin).map(|p| [p.x, p.y]),
+                        struck: world
+                            .get::<LimbStrikeBox>(limb)
+                            .and_then(|carried| world.get::<ambition_combat::strike::HitboxHits>(carried.hitbox))
+                            .map_or(0, |hits| hits.hit.len() as u32),
                     })
                 })
                 .collect()
@@ -927,6 +931,7 @@ mod mount_view_tests {
                         lost_health: 3,
                         held: true,
                         contact: None,
+                        struck: 0,
                     },
                     ambition_boss_special_port::MountLimb {
                         slot: "hand_right".into(),
@@ -936,6 +941,7 @@ mod mount_view_tests {
                         lost_health: 0,
                         held: false,
                         contact: None,
+                        struck: 0,
                     },
                 ],
             }

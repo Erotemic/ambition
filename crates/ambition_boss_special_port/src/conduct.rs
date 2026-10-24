@@ -541,8 +541,9 @@ fn hall_of(r: &mut WireReader<'_>) -> Result<Option<RoomHall>, WireError> {
 ///   (`ambition_mount::BackLedge`), as a world box; the floor and walls
 ///   under it in its own live room; and its limbs (its `LimbRig`), each with
 ///   where it is, its size, where it rests about the mount
-///   (`Limb::home_offset`), the health it lost since it was last full, and
-///   whether the rider holds its pose (`PoseOwnedExternally`).
+///   (`Limb::home_offset`), the health it lost since it was last full,
+///   whether the rider holds its pose (`PoseOwnedExternally`), and how many
+///   bodies the strike it carries (`ambition.boss.limb_strike`) has hit.
 /// * **Owner** — `ambition_boss_encounter::conduct`.
 /// * **Scope** — the boss the invocation ran for.
 /// * **Time** — `boss_conduct`, at the read cut: after the riders are
@@ -573,6 +574,10 @@ pub struct MountLimb {
     /// reaches into, and this is where (in the world, at the far end when it
     /// is through). `None`: it touches nothing.
     pub contact: Option<[f32; 2]>,
+    /// How many bodies the strike it carries now has hit: 0 when it carries
+    /// none. A new strike (a new generation) starts again at 0, so a count
+    /// that grows is a blow that landed.
+    pub struck: u32,
 }
 
 /// The mount a boss rides, at the read cut.
@@ -590,7 +595,7 @@ pub struct MountView {
 }
 
 impl Port for MountViewPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.mount", 2);
+    const KEY: PortKey = PortKey::new("ambition.boss.mount", 3);
     const ROLE: PortRole = PortRole::Observation;
     type Value = MountView;
 
@@ -615,6 +620,7 @@ impl Port for MountViewPort {
             wire::put_i32(out, limb.lost_health);
             wire::put_bool(out, limb.held);
             wire::put_opt(out, limb.contact, wire::put_vec2);
+            wire::put_u32(out, limb.struck);
         }
     }
 
@@ -637,6 +643,7 @@ impl Port for MountViewPort {
                 lost_health: r.i32()?,
                 held: r.bool()?,
                 contact: r.opt(|r| r.vec2())?,
+                struck: r.u32()?,
             });
         }
         Ok(MountView { position, velocity, size, facing, unmirrored, back, hall, limbs })
@@ -979,6 +986,7 @@ mod tests {
             lost_health: 3,
             held: true,
             contact: Some([700.0, 1050.0]),
+            struck: 1,
         };
         let view = MountView {
             position: [900.0, 1040.0],
@@ -988,7 +996,7 @@ mod tests {
             unmirrored: true,
             back: Some([692.0, 1030.25, 1069.0, 1044.25]),
             hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
-            limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, contact: None, ..fist }],
+            limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, contact: None, struck: 0, ..fist }],
         };
         assert_eq!(round::<MountViewPort>(&view), view);
         let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };

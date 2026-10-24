@@ -129,6 +129,9 @@ npc_station_rahimi
 npc_station_pell
 npc_station_wen
 
+[Made by the character generator]
+npc_armsmith_odile
+
 [Guests from history and the studio]
 npc_genghis_can
 npc_genghis_cant

@@ -5869,5 +5869,26 @@
                 hall: ["I tuned this station's first stable ring. Now people commute through it.", "Cheap power made gates common. It did not make them cheap.", "Look down. That is why anyone comes up here."],
             ),
         ),
+        // A generated armsmith (renderer `data/townsfolk/armsmith_odile.chargen.yaml`):
+        // the first character from the character generator published with the
+        // whole clip union, so every held item sits in her fist on every row.
+        "npc_armsmith_odile": (
+            display_name: "Odile",
+            manifest: "sprites/armsmith_odile_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            // A swing of her own, so a hand she is played with can take up and
+            // use what lies on the ground; her brain never starts a fight.
+            default_action_set: "striker_swipe",
+            tags: ["townsfolk", "smith"],
+            barks: (
+                idle: ["Grip it like you mean it.", "*tests an edge on her thumbnail*"],
+                hall: ["A blade, a noodle, a gun: the hand does not care. The wrist does.", "Bring it back with both ends attached."],
+            ),
+        ),
     },
 )

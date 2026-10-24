@@ -139,6 +139,14 @@ def field_value(fields, name, default=None):
 def editor_value_for(value, human_type):
     if value is None:
         return []
+    # ⛔ AN ENTITY REFERENCE'S EDITOR VALUE IS THE TARGET'S IID, NOT THE REF.
+    # `__value` is the `{entityIid, layerIid, levelIid, worldIid}` object; the
+    # editor stores only `V_String(entityIid)` and derives the rest. Writing
+    # `str()` of the object (a Python dict repr) made every reference
+    # unresolvable to the editor, so each editor save NULLED it (2026-10-24:
+    # five mount links lost in one save of sandbox.ldtk).
+    if human_type == "EntityRef" and isinstance(value, dict):
+        return [{"id": "V_String", "params": [str(value.get("entityIid"))]}]
     if human_type in {"String", "Text", "Color", "Path", "EntityRef", "Tile"}:
         return [{"id": "V_String", "params": [str(value)]}]
     if human_type == "Bool":

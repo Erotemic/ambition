@@ -19,6 +19,13 @@ Spec format (YAML or JSON):
         px: [376, 880]   # new top-left in level-local pixels
         # `size` is optional — if present it also rewrites width/height.
         # size: [48, 96]
+        # `to_level` is optional: move the entity INTO another level of this
+        # file; `px` is then in that level's local pixels.
+        # to_level: central_hub_dev_wing
+
+A move to another level keeps the entity's iid and fields; every EntityRef in
+the project that points at it is re-addressed to its new level and layer. The
+LDtk editor cannot cut and paste an entity between levels; this is that move.
 
 The `__grid` array is recomputed from `px` using the level's grid
 size so LDtk's editor view stays consistent. The repair + validate
@@ -82,6 +89,29 @@ def apply_move(
         entity["height"] = int(size[1])
 
 
+def move_to_level(project: dict, source_layer: dict, entity: dict, level: dict) -> None:
+    """Take `entity` out of `source_layer` and into `level`'s Ambition layer.
+
+    The entity keeps its iid, so each EntityRef that names it is re-addressed:
+    its `levelIid` and `layerIid` describe where the target lives, and a ref
+    left naming the old level resolves to nothing.
+    """
+    destination = find_ambition_layer(level)
+    source_layer["entityInstances"] = [
+        e for e in source_layer["entityInstances"] if e is not entity
+    ]
+    destination.setdefault("entityInstances", []).append(entity)
+    for lvl in project.get("levels", []):
+        for li in lvl.get("layerInstances") or []:
+            for other in li.get("entityInstances", []):
+                for field in other.get("fieldInstances", []):
+                    refs = field.get("__value")
+                    for ref in refs if isinstance(refs, list) else [refs]:
+                        if isinstance(ref, dict) and ref.get("entityIid") == entity.get("iid"):
+                            ref["levelIid"] = level.get("iid")
+                            ref["layerIid"] = destination.get("iid")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("spec", type=Path)
@@ -131,19 +161,24 @@ def main(argv=None) -> int:
         if px is None:
             return _fail("each move must include `px: [x, y]`")
         matched = select_entities(layer, target)
+        to_level = move.get("to_level")
+        destination = find_level(project, to_level) if to_level else level
         for entity in matched:
             old_px = list(entity.get("px") or [])
             apply_move(
                 entity,
                 px,
                 size,
-                grid_size,
-                int(level.get("worldX", 0)),
-                int(level.get("worldY", 0)),
+                _grid_size(project, destination),
+                int(destination.get("worldX", 0)),
+                int(destination.get("worldY", 0)),
             )
+            if to_level:
+                move_to_level(project, layer, entity, destination)
             moves.append(
                 f"{entity.get('__identifier')} ({entity.get('iid')}): "
                 f"px {old_px} -> {entity['px']}"
+                + (f" in {to_level}" if to_level else "")
                 + (f", size -> {entity['width']}x{entity['height']}" if size else "")
             )
 

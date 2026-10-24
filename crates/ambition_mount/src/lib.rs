@@ -2000,7 +2000,8 @@ pub fn install_mount_simulation_systems(
         apply_dismount_requests.in_set(DismountRequestsApplied),
     );
     app.add_systems(schedule.clone(), mount_backs_are_ground.in_set(MountBacksContributed));
-    // Where the room's game has no mounts, none of this has a body to act on.
+    // Where the room's game has no mounts, none of this has a body to act on;
+    // where it has them but none is in the world, neither.
     app.configure_sets(
         schedule,
         (
@@ -2010,8 +2011,27 @@ pub fn install_mount_simulation_systems(
             DismountRequestsApplied,
             MountBacksContributed,
         )
-            .in_set(MOUNTS),
+            .in_set(MOUNTS)
+            .run_if(mounts_are_in_play),
     );
+}
+
+/// Run condition of the mount crate's sets: a mount, a rider, a reservation or
+/// a lease is in the world. Every pass visits one of these, so with none of
+/// them it has nothing to do. A query read, so a rewind that brings one back
+/// runs the sets again.
+pub fn mounts_are_in_play(
+    bodies: Query<
+        (),
+        bevy::prelude::Or<(
+            bevy::prelude::With<MountSlot>,
+            bevy::prelude::With<RidingOn>,
+            bevy::prelude::With<MountReservedFor>,
+            bevy::prelude::With<RideLease>,
+        )>,
+    >,
+) -> bool {
+    !bodies.is_empty()
 }
 
 /// The mounts capability's set (`Capability::Mounts`): its condition asks
@@ -2059,7 +2079,12 @@ pub fn install_mount_pose_systems(
         steer_mount_from_rider.in_set(MountsSteeredByRiders),
     );
     app.add_systems(schedule.clone(), sync_riders_to_mounts.in_set(RidersSyncedToMounts));
-    app.configure_sets(schedule, (MountsSteeredByRiders, RidersSyncedToMounts).in_set(MOUNTS));
+    app.configure_sets(
+        schedule,
+        (MountsSteeredByRiders, RidersSyncedToMounts)
+            .in_set(MOUNTS)
+            .run_if(mounts_are_in_play),
+    );
 }
 
 #[cfg(test)]

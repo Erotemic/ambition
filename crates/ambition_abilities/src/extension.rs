@@ -211,6 +211,56 @@ pub fn install_for_boss_conduct(app: &mut App) {
     );
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.install_extension_submitted_request::<EffectPort, _>(BOSS_CONDUCT, "ambition_abilities", lower_effects::<InBossConduct>);
+    app.install_extension_submitted_request::<ambition_combat_port::HeldForcePort, _>(
+        BOSS_CONDUCT,
+        "ambition_abilities",
+        lower_held_forces::<InBossConduct>,
+    );
+}
+
+/// Lower `ambition.world.held_force`: each body of the requester's live room
+/// whose box overlaps the field's box loses the field's `lift` of its own
+/// gravity, and takes its `force` over its mass, for this tick, as a change
+/// of its velocity.
+///
+/// The field has no entity and no state of its own. The change goes into
+/// `BodyKinematics::vel`, which is rollback state, on the tick it is asked
+/// for. So a rewind gives the same velocities back, and a replay that asks
+/// again gives the same change. (A `ForceZone` entity would stand for the
+/// first tick after a rewind before its requester could take it away.) A
+/// body whose pose another authority owns is not moved.
+pub fn lower_held_forces<L: LowersIn>(
+    mut outbox: ResMut<ExtensionOutbox>,
+    time: Res<ambition_time::WorldTime>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut bodies: Query<
+        (
+            Entity,
+            &mut BodyKinematics,
+            Option<&ResolvedMotionFrame>,
+            Option<&ambition_platformer2d_shared_tangle::body::Mass>,
+        ),
+        Without<ambition_platformer2d_core::PoseOwnedExternally>,
+    >,
+) {
+    use ambition_platformer2d_core::Vec2;
+    let dt = time.sim_dt();
+    for submitted in outbox.drain::<ambition_combat_port::HeldForcePort>(&L::PHASE) {
+        let field = submitted.value;
+        let room = live.of(submitted.scope);
+        let (min, max) = (Vec2::from(field.min), Vec2::from(field.max));
+        let area = ambition_platformer2d_core::Aabb::new((min + max) * 0.5, ((max - min) * 0.5).abs());
+        let lift = field.lift.clamp(0.0, 1.0);
+        let force = Vec2::from(field.force);
+        for (body, mut kin, frame, mass) in &mut bodies {
+            if live.of(body) != room || !ambition_platformer2d_core::AabbExt::strict_intersects(kin.aabb(), area) {
+                continue;
+            }
+            let gravity = frame.map_or(Vec2::ZERO, |f| f.get().gravity_acceleration());
+            let mass = mass.map_or(1.0, |m| m.0).max(0.05);
+            kin.vel += (force / mass - gravity * lift) * dt;
+        }
+    }
 }
 
 /// Install the burst and the sound requests in `body_contact`: a contact

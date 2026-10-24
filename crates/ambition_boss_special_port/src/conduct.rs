@@ -912,6 +912,145 @@ impl Port for MountLaunchPort {
     }
 }
 
+/// The request port marker for a walk of the mount a boss rides.
+///
+/// Port card:
+///
+/// * **Operation** — the mount walks along the room's floor to `to_x` (world
+///   x) at `speed` (world units per second), and stops there; `speed` 0 stops
+///   it where it is. A script's walk to a mark (`CommandedMove`): while it
+///   walks, its rider does not steer it.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for; the mount is the body it
+///   rides. A boss that rides nothing is refused with a warning.
+/// * **Time** — `boss_conduct`; the walk stands until the next request, and
+///   the next body step moves the mount.
+pub struct MountWalkPort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MountWalk {
+    pub to_x: f32,
+    pub speed: f32,
+}
+
+impl Port for MountWalkPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.mount_walk", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = MountWalk;
+
+    fn encode(v: &MountWalk, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.to_x);
+        wire::put_f32(out, v.speed);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<MountWalk, WireError> {
+        Ok(MountWalk { to_x: r.f32()?, speed: r.f32()? })
+    }
+}
+
+/// The request port marker for a launch of the body a boss fights.
+///
+/// Port card:
+///
+/// * **Operation** — launch the boss's target at `velocity` (world units per
+///   second, +Y down), through the body's launch gateway (`BodyFlightState`):
+///   the body step spends it. It is the reaction of a blow on the body that
+///   struck (two blows that meet throw both back): `flinchless` says it does
+///   not tumble.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for; the body is its target. A
+///   boss with no target is refused with a warning.
+/// * **Time** — `boss_conduct`; the next body step moves the body.
+pub struct FoeLaunchPort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FoeLaunch {
+    pub velocity: [f32; 2],
+    pub flinchless: bool,
+}
+
+impl Port for FoeLaunchPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.foe_launch", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = FoeLaunch;
+
+    fn encode(v: &FoeLaunch, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.velocity);
+        wire::put_bool(out, v.flinchless);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<FoeLaunch, WireError> {
+        Ok(FoeLaunch { velocity: r.vec2()?, flinchless: r.bool()? })
+    }
+}
+
+/// The request port marker for a worn gear that a body puts on or takes off.
+///
+/// Port card:
+///
+/// * **Operation** — with `on`, the body wears the gear `gear` (a
+///   `worn_gear` row: a space helmet): its equipment row (the gear id, in the
+///   gear's exclusive slot) goes into the body's `WornEquipment`, and replaces
+///   the gear in that slot. Without `on`, the body takes the gear off. A body
+///   that already wears it (or does not) changes nothing. The render draws
+///   the gear on the body's anchor part (`docs/systems/worn-gear.md`).
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for, the mount it rides, or the
+///   body it targets ([`Wearer`]). A body that is not there, or a gear id that
+///   no content declares, is refused with a warning.
+/// * **Time** — `boss_conduct`; the gear stays on until a request takes it
+///   off. The equipment row is rollback state.
+pub struct WearPort;
+
+/// The body a [`Wear`] puts a gear on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Wearer {
+    /// The boss the invocation ran for.
+    Boss,
+    /// The mount that boss rides.
+    Mount,
+    /// The body that boss targets.
+    Target,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Wear {
+    pub who: Wearer,
+    /// The gear id (a `worn_gear` row).
+    pub gear: String,
+    /// Put it on (`true`) or take it off.
+    pub on: bool,
+}
+
+impl Port for WearPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.wear", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = Wear;
+
+    fn encode(v: &Wear, out: &mut Vec<u8>) {
+        wire::put_u8(
+            out,
+            match v.who {
+                Wearer::Boss => 0,
+                Wearer::Mount => 1,
+                Wearer::Target => 2,
+            },
+        );
+        wire::put_str(out, &v.gear);
+        wire::put_bool(out, v.on);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Wear, WireError> {
+        let who = match r.u8()? {
+            0 => Wearer::Boss,
+            1 => Wearer::Mount,
+            2 => Wearer::Target,
+            other => return Err(WireError::BadTag(other)),
+        };
+        Ok(Wear { who, gear: r.str()?.to_owned(), on: r.bool()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1004,6 +1143,14 @@ mod tests {
         for flinchless in [false, true] {
             let launch = MountLaunch { velocity: [0.0, -520.0], flinchless };
             assert_eq!(round::<MountLaunchPort>(&launch), launch);
+            let walk = MountWalk { to_x: if flinchless { -40.5 } else { 900.0 }, speed: 135.0 };
+            assert_eq!(round::<MountWalkPort>(&walk), walk);
+            let foe = FoeLaunch { velocity: [12.0, -340.0], flinchless };
+            assert_eq!(round::<FoeLaunchPort>(&foe), foe);
+            for who in [Wearer::Boss, Wearer::Mount, Wearer::Target] {
+                let wear = Wear { who, gear: "space_helmet".into(), on: flinchless };
+                assert_eq!(round::<WearPort>(&wear), wear);
+            }
         }
         for flag in [false, true] {
             let opening = LimbOpening { slot: "hand_left".into(), open: flag };

@@ -32,6 +32,13 @@ pub struct BossEncounterSpec {
     pub phase2_to_enrage_hp: f32,
     pub intro_seconds: f32,
     pub transition_seconds: f32,
+    /// A beat before the enrage, as `transition_seconds` is before phase 2:
+    /// for this many seconds after its health crosses
+    /// `phase2_to_enrage_hp`, the boss is invulnerable and runs no move (the
+    /// encounter is `between_phases`), then the enrage begins. GNU-ton's
+    /// giant blasts off into space in it. 0 (the default) goes straight in.
+    #[serde(default)]
+    pub enrage_seconds: f32,
     /// Music track ids per phase. Empty disables the swap.
     pub music_intro: String,
     pub music_phase1: String,
@@ -178,7 +185,7 @@ impl PhaseTrigger {
             spec.phase2_to_enrage_hp,
             Phase2,
             Enrage,
-            0.0,
+            spec.enrage_seconds.max(0.0),
         ));
         // Authored External / bespoke triggers (ADR 0020 mount_died flip, etc.)
         // ride on top of the intrinsic HP graph.

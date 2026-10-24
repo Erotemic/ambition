@@ -44,8 +44,9 @@
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
+| [`worn_gear`](src/worn_gear.rs) | Provider-contributed declarations of worn gear: an item a body wears on an anchor of its art (a space helmet on its head). |
 
-_38 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_39 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

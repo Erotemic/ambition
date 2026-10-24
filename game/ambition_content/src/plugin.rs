@@ -28,6 +28,11 @@ impl Plugin for AmbitionContentPlugin {
         // What a thrown item does to the body it strikes (the coconut).
         super::items::thrown_impact::register(app);
 
+        // The gear a body can wear (`data/worn_gear.ron`). The simulation
+        // reads it (a conductor puts gear on a body), so it is here and not
+        // with the item art of the presentation.
+        super::items::worn_gear::register(app);
+
         // Named motion techniques used by the player kit.
         super::input_techniques::register(app);
 

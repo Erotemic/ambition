@@ -37,6 +37,7 @@ audits; Git history keeps them.
 | Room looks | [`room-looks.md`](room-looks.md) |
 | NPC navigation (surface graph, `Roam` brain) | [`npc-navigation.md`](npc-navigation.md) |
 | Boss profiles/encounters | [`boss-behavior-profiles.md`](boss-behavior-profiles.md), [`boss-encounter-architecture.md`](boss-encounter-architecture.md) |
+| Worn gear (a helmet on any wearer's head) | [`worn-gear.md`](worn-gear.md) |
 | Factions | [`factions.md`](factions.md) |
 | Developer tools | [`developer-tools.md`](developer-tools.md) |
 | Underwater audio | [`audio-underwater.md`](audio-underwater.md) |

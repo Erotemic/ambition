@@ -453,11 +453,15 @@ pub fn steer_mount_from_rider(
         (&RidingOn, &ambition_characters::control::ActorControl, Option<&ae::BodyKinematics>),
         (With<Mounted>, Without<MountSlot>),
     >,
+    // ⛔ A SCRIPT THAT WALKS A MOUNT WALKS IT (`CommandedMove`): its rider
+    // does not steer its walk then, only the way it faces. A conductor walks
+    // a giant under its rider.
     mut mounts: Query<
         (
             &Mountable,
             &mut ambition_characters::control::ActorControl,
             Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+            bevy::prelude::Has<ambition_characters::control::CommandedMove>,
         ),
         With<MountSlot>,
     >,
@@ -470,10 +474,14 @@ pub fn steer_mount_from_rider(
 ) {
     let room = rooms.single().ok();
     for (riding, rider_control, rider_kin) in &riders {
-        let Ok((mountable, mut mount_control, mount_motion)) = mounts.get_mut(riding.mount) else {
+        let Ok((mountable, mut mount_control, mount_motion, walked)) = mounts.get_mut(riding.mount) else {
             continue;
         };
         if mountable.control_grant != ControlGrant::Total {
+            continue;
+        }
+        if walked {
+            mount_control.0.facing = rider_control.0.facing;
             continue;
         }
         // Total grant → the mount executes the rider's locomotion intent.

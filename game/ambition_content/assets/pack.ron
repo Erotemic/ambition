@@ -125,6 +125,8 @@
         (path: "data/held_item_art.ron", schema: "held_item_art", version: 1),
         // How an item is drawn over the hand of the body that wields it.
         (path: "data/wielded_item_art.ron", schema: "wielded_item_art", version: 1),
+        // Gear a body wears on an anchor of its art (a space helmet).
+        (path: "data/worn_gear.ron", schema: "worn_gear", version: 1),
         // Ambition's own tuning: the idle bark cadence, the GNU-ton duel.
         (path: "data/ambition_rules.ron", schema: "ambition_rules", version: 1),
         // The lines it shows: its launcher row and the cover at start.

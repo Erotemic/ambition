@@ -811,6 +811,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_items::content_schema::wielded_item_art::WIELDED_ITEM_ART_SCHEMA,
         publish: publish_wielded_item_art,
     },
+    PackDerivedFamily {
+        domain: ambition_items::content_schema::worn_gear::WORN_GEAR_SCHEMA,
+        publish: publish_worn_gear,
+    },
 ];
 
 /// A family no system of the running game reads: the new pack is selected,
@@ -1047,6 +1051,25 @@ fn publish_wielded_item_art(
         Ok(ids) => world.insert_resource(crate::items::wielded_visuals::AmbitionWieldedItemArt(ids)),
         Err(problem) => bevy::log::error!("the reload keeps Ambition's wielded item art: {problem}"),
     }
+}
+
+/// The worn gear restates Ambition's rows of the gear manifest, which the
+/// simulation, the observation boundary and the render read each tick. A
+/// composition with no record has none of Ambition's gear, so nothing is
+/// published there.
+fn publish_worn_gear(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_platformer2d_shared_tangle::worn_gear::WornGearManifest;
+    let Some(previous) = world.get_resource::<crate::items::worn_gear::AmbitionWornGear>().cloned() else {
+        return;
+    };
+    let entries = crate::items::worn_gear::entries(pack);
+    let ids = world
+        .get_resource_or_insert_with(WornGearManifest::default)
+        .restate(previous.0.iter().map(String::as_str), entries);
+    world.insert_resource(crate::items::worn_gear::AmbitionWornGear(ids));
 }
 
 /// Ambition's own tuning is required: its readers have no engine answer to

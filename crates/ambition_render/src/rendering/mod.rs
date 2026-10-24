@@ -138,6 +138,7 @@ pub(crate) mod slash_visuals;
 mod unauthored_volumes;
 pub mod view_isolation;
 mod wielded_item_visuals;
+pub mod worn_gear_visuals;
 mod world;
 
 pub use actors::{
@@ -363,6 +364,17 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // Not session-gated: an art file that failed to load is a fact about
             // the build, and should be reported without waiting for a session.
             .add_systems(Update, item_visuals::report_unloadable_item_art)
+            // Worn gear on the anchor part of each wearer. After the driver,
+            // which writes the part of the frame it draws; else the gear is
+            // one frame behind the head.
+            .add_systems(
+                Update,
+                worn_gear_visuals::sync_worn_gear_visuals
+                    .after(actors::sync_visuals)
+                    .after(actors::rigged::drive_rigged_presentations)
+                    .run_if(worn_gear_visuals::gear_is_worn_or_was)
+                    .run_if(session_presentation_is_ready),
+            )
             .add_systems(
                 Update,
                 (

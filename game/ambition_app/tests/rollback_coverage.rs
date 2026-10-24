@@ -2135,6 +2135,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "which SPRITE a held item id binds to. Written by app-builder          REGISTRATION (`&mut Self` on `App`, at composition time), never by a          system — so there is no tick on which it can differ between two          timelines. Authored art binding, not world state",
     ),
     (
+        "ambition_platformer2d_shared_tangle::worn_gear::WornGearManifest",
+        "which gear ids exist, and their slot, pictures and fits. Written by          app-builder REGISTRATION at composition time, and by the content reload at          its publication boundary, never by a tick. Authored content, as the held          item art. What a body WEARS is its `WornEquipment`, which is registered",
+    ),
+    (
         "ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest",
         "the same, for world items: an id → sprite table filled at composition          time by the provider. A pickup's POSITION and payload are rollback state          and are registered; what it LOOKS like is not",
     ),
@@ -2256,6 +2260,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_content::items::wielded_visuals::AmbitionWieldedItemArt",
         "the wielded item art ids Ambition's pack registered, so a reload restates          only its own rows of the over-hand catalog. Presentation bookkeeping, written          at composition time and at the reload's publication boundary only",
+    ),
+    (
+        "ambition_content::items::worn_gear::AmbitionWornGear",
+        "the gear ids Ambition's pack registered, so a reload restates only its own          rows of `WornGearManifest` (waived above). Bookkeeping, written at          composition time and at the reload's publication boundary only",
     ),
     // HOW FAST A DRIVEN BODY'S MANA REFILLS, as the composition's statement.
     //

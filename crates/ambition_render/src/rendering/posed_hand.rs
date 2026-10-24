@@ -88,26 +88,38 @@ pub fn posed_hand(draws: &PartSetDraws, hand: GestureHand) -> Option<PosedHand> 
     })
 }
 
-/// The hands of the bodies that are drawn. See the module docs.
+/// The rigged roots that draw the bodies.
 #[derive(SystemParam)]
-pub struct PosedHands<'w, 's> {
-    draws: Query<'w, 's, (&'static PartSetDraws, Option<&'static ambition_sprite_sheet::character::CharacterAnimator>)>,
+pub struct VisualRoots<'w, 's> {
     // A feature's stand-in (`UnclaimedBodyPlaceholder`) can carry the feature's
     // id for a frame of a transition, and it draws no parts.
     visuals: Query<'w, 's, (Entity, &'static FeatureVisual), Without<super::features::UnclaimedBodyPlaceholder>>,
 }
 
-impl PosedHands<'_, '_> {
-    /// The rigged root that draws `holder`: the visual of its feature when it
-    /// is an actor (a separate entity that carries the feature's id), else
-    /// the holder itself (a player's root is its simulation body). Never the
-    /// feature's stand-in, which carries the same id in a transition.
-    pub fn root(&self, holder: &ItemHolder) -> Entity {
-        holder
-            .feature
-            .as_deref()
+impl VisualRoots<'_, '_> {
+    /// The rigged root that draws `body`: the visual of its feature when it
+    /// is an actor (a separate entity that carries the feature's id; a boss
+    /// also), else the body itself (a player's root is its simulation body).
+    /// Never the feature's stand-in, which carries the same id in a
+    /// transition.
+    pub fn of(&self, body: Entity, feature: Option<&str>) -> Entity {
+        feature
             .and_then(|feature| self.visuals.iter().find(|(_, visual)| visual.id == feature))
-            .map_or(holder.body, |(root, _)| root)
+            .map_or(body, |(root, _)| root)
+    }
+}
+
+/// The hands of the bodies that are drawn. See the module docs.
+#[derive(SystemParam)]
+pub struct PosedHands<'w, 's> {
+    draws: Query<'w, 's, (&'static PartSetDraws, Option<&'static ambition_sprite_sheet::character::CharacterAnimator>)>,
+    roots: VisualRoots<'w, 's>,
+}
+
+impl PosedHands<'_, '_> {
+    /// The rigged root that draws `holder` ([`VisualRoots::of`]).
+    pub fn root(&self, holder: &ItemHolder) -> Entity {
+        self.roots.of(holder.body, holder.feature.as_deref())
     }
 
     /// The hand `holder` holds an item in, in the frame it draws now.

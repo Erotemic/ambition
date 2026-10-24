@@ -41,33 +41,40 @@ impl PartSetRequest {
     pub fn tracks_of(&self, reader: &str) -> Option<&[String]> {
         self.asks.get(reader).map(Vec::as_slice)
     }
+
+    /// The names of the readers that ask.
+    pub fn readers(&self) -> impl Iterator<Item = &str> {
+        self.asks.keys().map(String::as_str)
+    }
 }
 
 /// Ask for the draws of `tracks` on `root`, as `reader`. The asks of other
 /// readers stay. Idempotent.
-pub fn ask_for_parts(commands: &mut Commands, root: Entity, reader: &'static str, tracks: &[&str]) {
+pub fn ask_for_parts(commands: &mut Commands, root: Entity, reader: impl Into<String>, tracks: &[&str]) {
+    let reader = reader.into();
     let tracks: Vec<String> = tracks.iter().map(|track| (*track).to_owned()).collect();
     commands.entity(root).queue_silenced(move |mut root: EntityWorldMut| {
         let mut request = root.take::<PartSetRequest>().unwrap_or_default();
-        request.asks.insert(reader.to_owned(), tracks);
+        request.asks.insert(reader, tracks);
         root.insert(request);
     });
 }
 
 /// Forget the ask of `reader` on `root`, and only its ask. The components
 /// go with the last ask.
-pub fn forget_parts(commands: &mut Commands, root: Entity, reader: &'static str) {
+pub fn forget_parts(commands: &mut Commands, root: Entity, reader: impl Into<String>) {
+    let reader = reader.into();
     commands.entity(root).queue_silenced(move |mut root: EntityWorldMut| {
         let Some(mut request) = root.get_mut::<PartSetRequest>() else {
             return;
         };
-        if request.asks.remove(reader).is_none() {
+        if request.asks.remove(&reader).is_none() {
             return;
         }
         if request.asks.is_empty() {
             root.remove::<(PartSetRequest, PartSetDraws)>();
         } else if let Some(mut draws) = root.get_mut::<PartSetDraws>() {
-            draws.answers.remove(reader);
+            draws.answers.remove(&reader);
         }
     });
 }

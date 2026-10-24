@@ -379,6 +379,64 @@ pub fn rebuild_held_item_view(
     view.0.extend(rows.into_iter().map(|(_, fact)| fact));
 }
 
+/// EVERY body's worn gear, resolved sim-side: each row of a body's
+/// `WornEquipment` whose id is a gear of the `WornGearManifest`. The render
+/// draws each one on the body's anchor part (`docs/systems/worn-gear.md`).
+#[derive(Resource, Default, Clone, Debug)]
+pub struct WornGearView(pub Vec<WornGearFact>);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct WornGearFact {
+    /// The body that wears it.
+    pub body: Entity,
+    /// The feature id of the body, when it is an actor: its visual is a
+    /// separate entity that carries this id (as [`ItemHolder::feature`]).
+    pub feature: Option<String>,
+    /// The gear id.
+    pub gear: String,
+    /// The live room of the body (`LiveRooms::of`).
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+/// Rebuild [`WornGearView`]. A body whose rows name no gear adds nothing, and
+/// allocates nothing. Rows are in the order of the bodies' `SimId`, then of
+/// the worn set.
+pub fn rebuild_worn_gear_view(
+    mut view: ResMut<WornGearView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    manifest: Option<Res<ambition_platformer2d_shared_tangle::worn_gear::WornGearManifest>>,
+    bodies: Query<(
+        Entity,
+        &ambition_characters::equipment::WornEquipment,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&ambition_combat::components::FeatureId>,
+    )>,
+) {
+    let gear = manifest.as_deref().filter(|manifest| !manifest.0.is_empty());
+    let mut rows: Vec<(Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>, WornGearFact)> = Vec::new();
+    if let Some(gear) = gear {
+        for (body, worn, id, feature) in &bodies {
+            for row in worn.rows.iter().filter(|row| gear.get(&row.id).is_some()) {
+                rows.push((
+                    id,
+                    WornGearFact {
+                        body,
+                        feature: feature.map(|feature| feature.as_str().to_owned()),
+                        gear: row.id.clone(),
+                        room: live.of(body),
+                    },
+                ));
+            }
+        }
+    }
+    // A stable sort: the rows of one body keep the order of its worn set.
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    if view.0.len() != rows.len() || view.0.iter().zip(&rows).any(|(old, (_, new))| old != new) {
+        view.0.clear();
+        view.0.extend(rows.into_iter().map(|(_, fact)| fact));
+    }
+}
+
 /// The box of every body a participant is DRIVING this tick.
 ///
 /// Presentation needs this to know what it must not obscure — the world-label
@@ -1205,6 +1263,7 @@ row_views!(
     BodyClocksView,
     ShrinesView,
     HostileWieldedItemsView,
+    WornGearView,
 );
 
 /// Run condition of a row view's rebuild: an entity with `C`, a source of
@@ -1234,6 +1293,7 @@ impl Plugin for SimViewPlugin {
             .init_resource::<BodyClocksView>()
             .init_resource::<ShrinesView>()
             .init_resource::<HostileWieldedItemsView>()
+            .init_resource::<WornGearView>()
             .init_resource::<DynamicFeatureViews>()
             .init_resource::<BlinkPreviewFact>();
         // The blink-preview resolve reads device actions, so it exists only
@@ -1272,6 +1332,8 @@ impl Plugin for SimViewPlugin {
                     |pulse: Res<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>| pulse.remaining > 0.0,
                 ),
                 rebuild_hostile_wielded_items_view.run_if(sources_or_rows::<HeldItem, HostileWieldedItemsView>),
+                rebuild_worn_gear_view
+                    .run_if(sources_or_rows::<ambition_characters::equipment::WornEquipment, WornGearView>),
                 rebuild_projectile_views.run_if(
                     |live: Query<(), With<ambition_projectiles::LiveProjectile>>,
                      viewed: Query<(), With<ProjectileView>>| {
@@ -1955,5 +2017,63 @@ mod wielded_aim_tests {
         );
         control.fire = Some(ActorFireRequest::world_space(ae::Vec2::X));
         assert_direction(held_item_world_aim(Some(&control), -1.0, frame), ae::Vec2::X);
+    }
+}
+
+#[cfg(test)]
+mod worn_gear_tests {
+    use super::*;
+    use ambition_characters::equipment::{EquipmentRow, WornEquipment};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use ambition_platformer2d_shared_tangle::worn_gear::{GearAnchor, WornGearAppExt, WornGearEntry};
+
+    fn row(id: &str, slot: &str) -> EquipmentRow {
+        EquipmentRow { id: id.into(), exclusive_slot: Some(slot.into()), ..Default::default() }
+    }
+
+    /// ⭐ Only a row that names a gear is a fact: a mushroom (armor, no
+    /// picture) is not. Facts are in `SimId` order, and the set is written
+    /// again only when it changes; with no gear worn the view empties.
+    #[test]
+    fn a_worn_row_that_names_a_gear_is_a_fact_in_sim_id_order() {
+        let mut app = App::new();
+        app.init_resource::<WornGearView>().add_systems(Update, rebuild_worn_gear_view);
+        app.register_worn_gear([WornGearEntry {
+            id: "space_helmet".into(),
+            anchor: GearAnchor::Head,
+            slot: "head".into(),
+            back: None,
+            front: Some("sprites/space_helmet_front.png".into()),
+            size: ae::Vec2::splat(64.0),
+            socket: ae::Vec2::new(0.5, 0.58),
+            fits: Default::default(),
+        }]);
+        // Spawned in the reverse of the expected order.
+        let gnu = app
+            .world_mut()
+            .spawn((
+                WornEquipment::new(vec![row("mushroom", "power"), row("space_helmet", "head")]),
+                SimId::placement("gnu"),
+                ambition_combat::components::FeatureId("giant_gnu".into()),
+            ))
+            .id();
+        let robot = app.world_mut().spawn((WornEquipment::new(vec![row("space_helmet", "head")]), SimId::placement("a_robot"))).id();
+        app.world_mut().spawn((WornEquipment::new(vec![row("mushroom", "power")]), SimId::placement("b_plumber")));
+        app.update();
+        let facts: Vec<_> = app.world().resource::<WornGearView>().0.iter().map(|fact| (fact.body, fact.feature.clone(), fact.gear.clone())).collect();
+        assert_eq!(
+            facts,
+            vec![(robot, None, "space_helmet".to_owned()), (gnu, Some("giant_gnu".to_owned()), "space_helmet".to_owned())]
+        );
+
+        let written = app.world().resource_ref::<WornGearView>().last_changed();
+        app.update();
+        assert_eq!(app.world().resource_ref::<WornGearView>().last_changed(), written, "an unchanged view is not written");
+
+        for body in [gnu, robot] {
+            app.world_mut().get_mut::<WornEquipment>(body).unwrap().unequip("space_helmet");
+        }
+        app.update();
+        assert!(app.world().resource::<WornGearView>().0.is_empty());
     }
 }

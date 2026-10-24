@@ -26,6 +26,7 @@
 pub mod held_item_art;
 pub mod wielded_item_art;
 pub mod world_item_art;
+pub mod worn_gear;
 
 use std::sync::Arc;
 

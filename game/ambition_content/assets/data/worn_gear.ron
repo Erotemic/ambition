@@ -1,0 +1,38 @@
+// Gear a body wears on an anchor of its art (schema `worn_gear`, owned by the
+// items capability), by gear id. The gear is an item with its own pictures,
+// not a part of one character's art, so one row fits many wearers. See
+// `docs/systems/worn-gear.md`.
+//
+// `slot` is the gear's exclusive equipment slot: a body wears one gear in a
+// slot. `back` is drawn under the body and `front` just over the anchor part.
+// `size` is in world units at a fit scale of 1. `socket` is the point of the
+// pictures that is on the anchor's pivot (0 to 1, from the top left).
+//
+// `fits` is by the wearer's sheet target. A fit names the track that is the
+// anchor part (`head` when it names none), the `scale` of the pictures, their
+// `offset` from the pivot (world units, +x the way the body faces, +y up) and
+// their `turn` (degrees). A wearer with no fit does not show the gear. A boss
+// drawn from a baked sheet (no part flipbook) wears it at the middle of its
+// picture, moved by the fit's `offset`; another body drawn baked does not
+// show it.
+{
+    // The space helmet: a glass bubble with a collar. GNU-ton, the giant gnu
+    // and the robot can each wear it. These fits are a first guess (made
+    // 2026-10-24, before the art was published): look at each wearer and
+    // tune them.
+    "space_helmet": (
+        anchor: Head,
+        slot: "head",
+        back: Some("sprites/space_helmet_back.png"),
+        front: Some("sprites/space_helmet_front.png"),
+        size: (64.0, 64.0),
+        socket: (0.5, 0.58),
+        fits: {
+            "giant_gnu": (track: "head", scale: 3.4),
+            // He is drawn from a baked sheet: the helmet is at the middle
+            // of his picture, moved up to his head (`offset`).
+            "gnu_ton_scholar_boss": (scale: 1.2, offset: (2.0, 30.0)),
+            "player_robot_v3": (track: "head", scale: 1.0),
+        },
+    ),
+}

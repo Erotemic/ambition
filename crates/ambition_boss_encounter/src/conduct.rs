@@ -25,6 +25,10 @@ use bevy::prelude::*;
 
 use crate::{BossConfig, BossEncounter, BossEncounterPhase};
 
+/// The adapter of `ambition.boss.wear`.
+mod wear;
+pub use wear::{drain_wears, gear_row, wear_gear};
+
 /// The side a conducted boss faces while its module holds its pose: written
 /// by `ambition.boss.conducted_pose`, read by the next tick's trigger and by
 /// [`face_conducted_bosses`]. A body fact, not module state: the boss's birth
@@ -572,6 +576,84 @@ pub fn launch_mounts(
         let Some(Ok(mut flight)) = riders.get(submitted.scope).ok().map(|riding| flights.get_mut(riding.mount)) else {
             warn!(
                 "extension entry {} asked to launch the mount of {:?}, which rides no body that can fly; refused",
+                submitted.entry, submitted.scope
+            );
+            continue;
+        };
+        flight.stage_launch(ae::Vec2::from(launch.velocity), launch.flinchless);
+    }
+}
+
+/// The `ambition.boss.mount_walk` requests of this tick, for [`walk_mounts`].
+pub fn drain_mount_walks(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::MountWalk>> {
+    outbox.drain::<ambition_boss_special_port::MountWalkPort>(&BOSS_CONDUCT)
+}
+
+/// How near its mark a walked mount stops (world units).
+const MOUNT_WALK_ARRIVED: f32 = 6.0;
+
+/// Lower `ambition.boss.mount_walk`: walk the mount the boss rides to its mark
+/// (`CommandedMove`), or stop it. Its rider does not steer it while it walks
+/// (`ambition_mount::steer_mount_from_rider`).
+pub fn walk_mounts(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::MountWalk>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    mounts: Query<(&ae::BodyKinematics, Option<&ambition_characters::control::CommandedMove>)>,
+    mut commands: Commands,
+) {
+    for submitted in requests {
+        let walk = submitted.value;
+        let Some((mount, (kin, walking))) =
+            riders.get(submitted.scope).ok().and_then(|riding| mounts.get(riding.mount).ok().map(|m| (riding.mount, m)))
+        else {
+            warn!(
+                "extension entry {} asked to walk the mount of {:?}, which rides no body; refused",
+                submitted.entry, submitted.scope
+            );
+            continue;
+        };
+        if walk.speed <= 0.0 {
+            if walking.is_some() {
+                commands.entity(mount).remove::<ambition_characters::control::CommandedMove>();
+            }
+            continue;
+        }
+        let wanted = ambition_characters::control::CommandedMove {
+            target: ae::Vec2::new(walk.to_x, kin.pos.y),
+            speed: walk.speed,
+            arrive_tolerance: MOUNT_WALK_ARRIVED,
+        };
+        // The mark is on the floor under it: a walk to the same x is the same
+        // walk, and is not written again.
+        if walking.is_none_or(|w| w.target.x != wanted.target.x || w.speed != wanted.speed) {
+            commands.entity(mount).insert(wanted);
+        }
+    }
+}
+
+/// The `ambition.boss.foe_launch` requests of this tick, for [`launch_foes`].
+pub fn drain_foe_launches(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::FoeLaunch>> {
+    outbox.drain::<ambition_boss_special_port::FoeLaunchPort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.foe_launch`: stage a launch of the body the boss
+/// targets; the body step spends it.
+pub fn launch_foes(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::FoeLaunch>>>,
+    targets: Query<&ambition_combat::components::ActorTarget>,
+    mut flights: Query<&mut ae::BodyFlightState>,
+) {
+    for submitted in requests {
+        let launch = submitted.value;
+        let Some(Ok(mut flight)) =
+            targets.get(submitted.scope).ok().and_then(|target| target.entity).map(|body| flights.get_mut(body))
+        else {
+            warn!(
+                "extension entry {} asked to launch the target of {:?}, which has no target that can be launched; refused",
                 submitted.entry, submitted.scope
             );
             continue;

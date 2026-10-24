@@ -41,6 +41,7 @@ pub mod feature_overlay;
 pub mod host_intents;
 pub mod held_item_art;
 pub mod world_item_art;
+pub mod worn_gear;
 
 pub mod physics;
 pub mod portal_passages;

@@ -112,6 +112,21 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::drain_mount_launches.pipe(crate::conduct::launch_mounts),
     );
+    app.install_extension_submitted_request::<ambition_boss_special_port::MountWalkPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::drain_mount_walks.pipe(crate::conduct::walk_mounts),
+    );
+    app.install_extension_submitted_request::<ambition_boss_special_port::FoeLaunchPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::drain_foe_launches.pipe(crate::conduct::launch_foes),
+    );
+    app.install_extension_submitted_request::<ambition_boss_special_port::WearPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::drain_wears.pipe(crate::conduct::wear_gear),
+    );
     app.install_extension_submitted_request::<ambition_combat_port::SpeechBubblePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

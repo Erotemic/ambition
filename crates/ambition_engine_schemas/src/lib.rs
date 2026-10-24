@@ -46,6 +46,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         ambition_items::content_schema::held_item_art::held_item_art_schema(),
         ambition_items::content_schema::wielded_item_art::wielded_item_art_schema(),
         ambition_items::content_schema::world_item_art::world_item_art_schema(),
+        ambition_items::content_schema::worn_gear::worn_gear_schema(),
         ambition_encounter::content_schema::encounter_waves_schema(),
         // Boss schemas stay with the boss capability.
         ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema(),

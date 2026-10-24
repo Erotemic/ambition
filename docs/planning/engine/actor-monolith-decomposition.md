@@ -42,6 +42,18 @@ rule declarations (see K5), which took `avatar -> session` to zero and
 `avatar`, `character_runtime` and `projectile` out of the cycle. No single
 edge splits the four; the instrument reports a knot that needs a
 coordinated cut (`items <-> session` is A7's).
+**Leaf moves, 2026-10-23/24 (24h run):** modules with no out-edge in the
+monolith moved to the crate that owns their subject, each with its callers
+repathed and no alias: gravity zones and the body causal recorders to the
+runtime, `body_whereabouts` to construction (`whereabouts`), `actor_clusters`
+to `ambition_body_seed` (`clusters`), `body_conditions` to
+`ambition_abilities`, and `game_assets` to the umbrella's `game_assets`. The
+knot is unchanged (four modules). The monolith has 58,758 production lines.
+Leaves that stay, and why: `world_facts` (the destination owning both
+persistence and combat's flag message would need a new crate edge),
+`character_sprites` and `assets` (woven into `character_runtime`; moving
+down meets a `sprite_sheet` / `characters` cycle), `clash` (deliberately
+kept), `control` (A4: do not split accepted control).
 The
 monolith has about 73,600 production source lines; `features` accounts for
 about 26,700 of them. Size alone is not a carve reason.

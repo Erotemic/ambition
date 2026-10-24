@@ -701,6 +701,7 @@ pub fn install_settle_presentation_systems(
     app.add_systems(
         schedule.clone(),
         finish_zoom::zoom_camera_on_decided_match
+            .run_if(ambition_platformer2d_core::a_message_waits::<crate::stocks::StocksMatchDecided>)
             .in_set(GameplayGated)
             .in_set(CombatSet::Settle)
             // It answers a stocks match's outcome, so it sleeps with the

@@ -42,6 +42,7 @@ pub fn install_for_technique_execution(app: &mut App) {
     app.add_systems(
         sim,
         steer_held_courses
+            .run_if(any_with_component::<HeldCourse>)
             .after(ActorDecisionSet::Publish)
             .before(PlayerInputSet::ControlGate)
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep)

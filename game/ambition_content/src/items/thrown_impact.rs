@@ -94,6 +94,7 @@ pub(crate) fn register(app: &mut App) {
         sim,
         crate::AMBITION_RULES,
         thrown_items_strike
+            .run_if(bevy::prelude::any_with_component::<ambition_held_items::ItemStruckBody>)
             .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
     );

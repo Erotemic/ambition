@@ -123,6 +123,7 @@ impl Plugin for ItemPickupSimulationPlugin {
             // so an item spawned this tick falls this tick rather than
             // hanging at its point for one frame.
             crate::items::match_spawn::spawn_match_items
+                .run_if(bevy::prelude::resource_exists::<ambition_match::ActiveMatch>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .in_set(ItemPickupSet::CoreHeldItems)
                 .after(HeldItemStep::Throw)

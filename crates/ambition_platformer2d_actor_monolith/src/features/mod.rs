@@ -196,23 +196,31 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // A challenge, a pet, a look to wear and the talkers' spacing
                 // are asked for only by a conversation (the Yarn vocabulary),
                 // so they sleep with dialogue where a game uses none.
-                ecs::arm_requested_challenges.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                ecs::arm_requested_challenges
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ecs::ChallengeRequested>)
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // Before the pet: a pet asked for in the conversation puts its
                 // own walk on the initiator after this has moved its step,
                 // so the pet's walk is the one that stays.
                 ecs::space_the_talkers.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
-                ecs::apply_pet_requests.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                ecs::apply_pet_requests
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ecs::PetRequested>)
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The pet's script: the walk's arrival, the gesture's end, and
                 // its interruption. After the request, so a petter already on
                 // the mark starts the gesture on the tick it asked.
-                ecs::advance_pet_beats.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                ecs::advance_pet_beats
+                    .run_if(bevy::prelude::any_with_component::<ecs::PetBeat>)
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The holds and the two poses, from the beats as this tick
                 // leaves them: the next control gate reads the pet's state
                 // and not the state one tick before it.
                 ecs::project_pet_holds.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // A look a conversation asked a body to wear. The template is
                 // applied by the wear system on the tick after.
-                ecs::apply_wear_requests.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                ecs::apply_wear_requests
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ecs::WearRequested>)
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The row a character rests in, when its catalog row states
                 // one (the giant gnu whole, with its arms on it).
                 ecs::pin_rest_rows,
@@ -238,8 +246,11 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
-                ecs::tick_pending_challenges.in_set(GameplayGated).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
-                ecs::apply_actor_stimuli,
+                ecs::tick_pending_challenges
+                    .run_if(bevy::prelude::any_with_component::<ecs::PendingChallenge>)
+                    .in_set(GameplayGated)
+                    .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                ecs::apply_actor_stimuli.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::ActorStimulus>),
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
                 npcs::record_npc_provocations
@@ -1004,6 +1015,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // CONSEQUENCE, and it still has to sit between the spend that
                 // opens the window and the ruleset that places the body.
                 ambition_combat::stocks::respawn_when_the_interlude_closes
+                    .run_if(bevy::prelude::any_with_component::<ambition_combat::stocks::PendingRespawn>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                     .in_set(ambition_combat::stocks::FighterRespawnsDue)
                     .after(ambition_combat::stocks::FighterStocksSpent),

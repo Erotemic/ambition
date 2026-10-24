@@ -333,6 +333,14 @@ fn effective_dialog_tap_mode(
     configured
 }
 
+/// Run condition of the conversation's input and reveal: a conversation is
+/// open, or the hold mark is still up (the one frame that clears it after a
+/// conversation ends). Neither does anything else: the input applies to an
+/// open conversation and the reveal ticks its line.
+pub fn a_conversation_is_open_or_held(dialogue: Option<Res<DialogState>>) -> bool {
+    dialogue.is_some_and(|dialogue| dialogue.active() || dialogue.held)
+}
+
 #[cfg(feature = "input")]
 pub fn dialog_input(
     menu: Res<MenuControlFrame>,

@@ -42,7 +42,7 @@ pub mod view;
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{
     evict_free_straddlers_on_portal_change, evict_straddlers_on_portal_change,
-    forget_portal_frames_on_activation, PortalFrameHistory,
+    forget_portal_frames_on_activation, portals_or_their_frames, PortalFrameHistory,
 };
 pub use gun::{portal_guns_active_toggle_system, portal_toggle_system, OwnedPortalGunPair, PortalGun};
 pub use gun_construction::{
@@ -73,7 +73,7 @@ pub use placement::{
 };
 pub use passages::{linked_pairs, publish_portal_passages};
 pub use transit::{
-    portal_transit, portal_transit_free_bodies, publish_free_body_carves, publish_portal_carves,
+    portal_transit, portal_transit_free_bodies, portals_or_transits, publish_free_body_carves, publish_portal_carves,
     reconcile_transited_bodies,
     tick_portal_cooldowns, BodyTeleported, FreePortalBody, PortalBodyTransited, PortalCarves, PortalHole,
     PortalBackside, PortalEmission, PortalInputWarp, PortalTransit,

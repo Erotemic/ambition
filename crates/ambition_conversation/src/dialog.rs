@@ -54,6 +54,7 @@ impl Plugin for YarnBindingsPlugin {
             // over the conversation captures its input from the next frame on.
             .after(ambition_input::InputSet::ResolveContext)
             .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
+            .run_if(ambition_dialog::a_conversation_is_open_or_held)
             .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
                 ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
             ));

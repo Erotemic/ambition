@@ -28,7 +28,7 @@ pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
 pub use continuity::DialogueBreak;
 pub use runtime::DialogState;
-pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
+pub use systems::{a_conversation_is_open_or_held, dialog_input, dialog_pointer_input, dialog_reveal_tick};
 
 /// The dialogue DOMAIN's sim-state plugin (track 6, decision #9): this crate
 /// owns its local resources; the sim assembly only adds the plugin. `ui`-free

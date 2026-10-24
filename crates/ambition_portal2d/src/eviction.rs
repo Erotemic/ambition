@@ -32,6 +32,16 @@ use crate::PortalRoom;
 #[derive(Resource, Default, Clone)]
 pub struct PortalFrameHistory(HashMap<(PortalRoom, PortalChannel), PortalAperture>);
 
+/// Run condition of the eviction passes: a portal stands, or the last frame
+/// had one. The tick a portal closes, the history still holds it, so the
+/// bodies it straddled are pushed clear, and the history empties.
+pub fn portals_or_their_frames(
+    portals: bevy::prelude::Query<(), bevy::prelude::With<crate::PlacedPortal>>,
+    history: bevy::prelude::Res<PortalFrameHistory>,
+) -> bool {
+    !portals.is_empty() || !history.is_empty()
+}
+
 impl PortalFrameHistory {
     /// How many placed portals the last frame had. A diagnostic: the map
     /// iterates in no fixed order, so a count is what two hosts can compare.

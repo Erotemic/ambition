@@ -28,7 +28,7 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 01:32Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-24 02:04Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,063 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
@@ -138,6 +138,7 @@ says what they bought in frame time.
 | The wave encounter's effect and cleanup adapters run on a lifecycle event (a peek); the lock walls contribute while a lock wall exists. Checked first: the overlay rebuild clears every contribution each tick (`clear_engine_contributions`), so a sleeping contributor leaves nothing stale. That also clears the mount backs gated above | done | census: Ambition route 1,070 → 1,067 systems a tick (noise rows aside); encounter features 45, app encounter/wave/lock/arena/reconstitution 60 |
 | The boss animator passes (animate, demand part sheets, bind, pose) run while a `BossAnimator` exists: each loops over it alone. The stage veil, name card, finish bars and health bar stay: they fade or retire their UI after a boss leaves | done | census: Ambition route 1,067 → 1,063 systems a tick; render boss tests 5; a capture of GNU-ton's arena draws the giant and GNU-ton |
 | F46 cut 3: the hub look's overlay draws only the front's unsettled band (a mesh cut to the band, hidden when the room is settled). Exact: outside the band the shader returned zero alpha | done | hub capture against the pre-cut binary: 4 px differ by ≤1 level (run-to-run noise ~2,600 px); room_look witnesses 2 new, 5 pass; GPU fragment saving REASONED, needs the phone |
+| Portal simulation runs with a portal: transit, snags, links and apertures while a portal stands or a body carries a transit latch (which transit clears); evictions while a portal stands or the frame history still holds one (the tick a portal closes still evicts); fire, toggles and transit reconcile peek their messages; cooldowns while one runs. Conversation input and reveal while a conversation is open or its hold mark is up. The hub has no placed portal (its LDtk level, MEASURED) | done | census: Ambition route −15 systems a tick (13 portal, 2 dialogue); portal2d 129, app portal/transit/snag/evict/transition/reconstitution/dialog/pause 84, dialog 26 + conversation 28 |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

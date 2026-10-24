@@ -180,6 +180,13 @@ impl PortalCarves {
 /// opened a portal of the other room that stood at the same coordinates.
 /// Run condition of [`publish_portal_carves`]: a portal stands, or last
 /// tick's holes or glues are still to clear.
+/// Run condition of the passes over placed portals and the bodies crossing
+/// them: a portal stands, or a body still carries a transit latch, which the
+/// next run that finds no portal in its room takes off.
+pub fn portals_or_transits(portals: Query<(), With<PlacedPortal>>, transits: Query<(), With<PortalTransit>>) -> bool {
+    !portals.is_empty() || !transits.is_empty()
+}
+
 pub fn portals_or_their_carves(portals: Query<(), With<PlacedPortal>>, carves: Res<PortalCarves>) -> bool {
     !portals.is_empty() || !carves.holes.is_empty() || !carves.glues.is_empty()
 }

@@ -66,7 +66,10 @@ impl Plugin for PortalGunPlugin {
         // edge keeps the order without portal core knowing about the gun.
         app.add_systems(
             sim,
-            (super::portal_guns_active_toggle_system, super::portal_toggle_system)
+            (
+                super::portal_guns_active_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<crate::TogglePortalGunsActive>),
+                super::portal_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<crate::TogglePortalGun>),
+            )
                 .chain()
                 .before(super::portal_fire_system)
                 .in_set(PortalSet::WeaponAndProjectiles),
@@ -161,7 +164,9 @@ impl Plugin for PortalSimulationPlugin {
         // using the pure `step_portal_shot`.
         app.add_systems(
             sim,
-            portal_fire_system.in_set(PortalSet::WeaponAndProjectiles),
+            portal_fire_system
+                .run_if(ambition_platformer2d_core::a_message_waits::<crate::PortalFireIntent>)
+                .in_set(PortalSet::WeaponAndProjectiles),
         );
 
         app.add_systems(
@@ -207,6 +212,8 @@ impl Plugin for PortalSimulationPlugin {
                 crate::equalize_pair_apertures,
             )
                 .chain()
+                // Both visit placed portals only.
+                .run_if(any_with_component::<crate::PlacedPortal>)
                 .in_set(PortalSet::Pose),
         );
         // A portal that moved or closed under a straddling body pushes it
@@ -214,6 +221,7 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(
             sim,
             crate::evict_straddlers_on_portal_change
+                .run_if(crate::portals_or_their_frames)
                 .in_set(crate::PortalHistoryAdvance)
                 .in_set(PortalSet::Frame),
         );
@@ -222,15 +230,16 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(
             sim,
             crate::snag_straddlers
+                .run_if(any_with_component::<crate::PlacedPortal>)
                 .after(crate::PortalHistoryAdvance)
                 .in_set(PortalSet::Frame),
         );
         app.add_systems(
             sim,
             (
-                tick_portal_cooldowns,
-                portal_transit,
-                crate::reconcile_transited_bodies,
+                tick_portal_cooldowns.run_if(any_with_component::<crate::PortalTransitCooldown>),
+                portal_transit.run_if(crate::transit::portals_or_transits),
+                crate::reconcile_transited_bodies.run_if(ambition_platformer2d_core::a_message_waits::<crate::PortalBodyTransited>),
             )
                 .chain()
                 .in_set(PortalSet::Transit),

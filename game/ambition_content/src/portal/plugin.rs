@@ -210,6 +210,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             ambition_portal2d::evict_free_straddlers_on_portal_change::<ambition_held_items::GroundItem>
+                .run_if(ambition_portal2d::portals_or_their_frames)
                 .in_set(PortalSet::Frame)
                 .before(ambition_portal2d::PortalHistoryAdvance),
         );
@@ -217,12 +218,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             ambition_portal2d::snag_free_straddlers::<ambition_held_items::GroundItem>
+                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
                 .in_set(PortalSet::Frame)
                 .after(ambition_portal2d::PortalHistoryAdvance),
         );
         app.add_systems(
             sim,
             portal_transit_free_bodies::<ambition_held_items::GroundItem>
+                .run_if(ambition_portal2d::portals_or_transits)
                 .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
                 .after(ambition_portal2d::reconcile_transited_bodies),

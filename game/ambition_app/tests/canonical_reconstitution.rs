@@ -1978,15 +1978,16 @@ fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
     );
 }
 
-/// ⭐⭐ THE MOCKINGBIRD'S SHIPPED GATE, END TO END — the acceptance decision 57
-/// was missing, and the one that would have caught the defect at any point.
+/// ⭐⭐ EVERY SHIPPED BOSS GATE, END TO END — the acceptance decision 57 was
+/// missing, and the one that would have caught the defect at any point.
 ///
 /// Jon's ruling (2026-09-05) keyed boss progress to a stable AUTHORED encounter
 /// id. This walks the whole road with nothing hand-seeded except the defeat
-/// itself: boot the real `mockingbird_sky`, read the placement id the ROOM
-/// gives its boss, record a clearance under exactly that id the way production
-/// does, and ask the condition catalog the question the shipped `cove.yarn` and
-/// `kernel.yarn` lines ask, spelled as an author spelled them.
+/// itself, once for each id a shipped `boss_cleared(...)` asks about: find the
+/// shipped room that places a boss under that id, boot it, read the placement
+/// ids the ROOM gives its bosses, record a clearance under that id the way
+/// production does, and ask the condition catalog the question the shipped
+/// dialogue asks, spelled as an author spelled it.
 ///
 /// ⛔⛔ EVERY EARLIER TEST OF THIS SPELLED THE ID ITSELF, which is why the bug
 /// survived. `yarn_condition_aliases.rs` seeded `set_boss("mockingbird")` and
@@ -1996,7 +1997,7 @@ fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
 /// and the question comes from the SHIPPED DIALOGUE, and nothing in this file
 /// gets to pick either.
 #[test]
-fn the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared() {
+fn every_shipped_boss_gate_opens_when_its_authored_placement_is_cleared() {
     use ambition_platformer2d::boss_encounter::BossConfig;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::platformer::authored_logic::{
@@ -2015,56 +2016,74 @@ fn the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared() {
             Some(inner[..close].to_string())
         })
         .collect();
-    let asked = authored
-        .first()
-        .expect("the shipped corpus gates on at least one boss")
-        .clone();
-    assert!(
-        authored.iter().all(|id| *id == asked),
-        "this arm boots ONE room and so covers one id; the corpus now gates on \
-         several ({authored:?}) and the extras are uncovered"
-    );
+    let mut asked_ids = authored.clone();
+    asked_ids.sort();
+    asked_ids.dedup();
+    assert!(!asked_ids.is_empty(), "the shipped corpus gates on at least one boss");
 
-    let mut sim = fixed_60hz_room_sim("mockingbird_sky");
-    let _ = settle_after_construction(&mut sim, &BTreeSet::new());
-
-    let placements: Vec<String> = {
-        let mut q = sim.world_mut().query::<&BossConfig>();
-        let world = sim.world();
-        q.iter(world).map(|config| config.id.clone()).collect()
-    };
-    assert_eq!(
-        placements,
-        vec![asked.clone()],
-        "the booted room's boss placement id must BE the id the shipped dialogue \
-         asks about — that identity is the whole of Jon's ruling on 57, and when \
-         they differed the gate could never open"
-    );
-
+    // The ROOM side: the shipped worlds, lowered, name the room that places
+    // each boss. Nothing here spells a room or a placement.
+    let world_manifest = ambition_content::worlds::world_manifest();
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&world_manifest)
+        .expect("the shipped worlds load");
+    let rooms = project
+        .to_room_set(&world_manifest, &ambition_app::composed_ldtk_vocabulary())
+        .expect("the shipped worlds lower");
     let id = ConditionId::parse("boss.cleared").expect("well-formed id");
-    let ask = |sim: &mut Platformer2dSimHarness| {
-        let world = sim.world_mut();
-        world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-            catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
-        })
-    };
 
-    assert!(
-        matches!(ask(&mut sim), ConditionOutcome::NotSatisfied(_)),
-        "an undefeated boss must leave the authored branch SHUT; if this is \
-         already satisfied the arm below proves nothing"
-    );
+    for asked in &asked_ids {
+        let room = rooms
+            .rooms
+            .iter()
+            .find(|room| room.boss_spawns.iter().any(|boss| boss.id == *asked))
+            .unwrap_or_else(|| {
+                panic!(
+                    "the shipped dialogue asks `boss_cleared(\"{asked}\")`, and no shipped room \
+                     places a boss under that id: the gate can never open"
+                )
+            })
+            .id
+            .clone();
 
-    {
-        let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
-        save.data_mut().set_boss(
-            asked.clone(),
-            ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+        let mut sim = fixed_60hz_room_sim(&room);
+        let _ = settle_after_construction(&mut sim, &BTreeSet::new());
+
+        let placements: Vec<String> = {
+            let mut q = sim.world_mut().query::<&BossConfig>();
+            let world = sim.world();
+            q.iter(world).map(|config| config.id.clone()).collect()
+        };
+        assert!(
+            placements.contains(asked),
+            "`{room}`'s booted boss placement ids ({placements:?}) must include the id the \
+             shipped dialogue asks about (`{asked}`) — that identity is the whole of Jon's \
+             ruling on 57, and when they differed the gate could never open"
+        );
+
+        let ask = |sim: &mut Platformer2dSimHarness| {
+            let world = sim.world_mut();
+            world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+                catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
+            })
+        };
+
+        assert!(
+            matches!(ask(&mut sim), ConditionOutcome::NotSatisfied(_)),
+            "`{asked}`: an undefeated boss must leave the authored branch SHUT; if this is \
+             already satisfied the arm below proves nothing"
+        );
+
+        {
+            let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+            save.data_mut().set_boss(
+                asked.clone(),
+                ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+            );
+        }
+        assert!(
+            matches!(ask(&mut sim), ConditionOutcome::Satisfied),
+            "`{asked}`: recording a clearance under the placement id the ROOM published must \
+             open the branch the shipped dialogue gates on"
         );
     }
-    assert!(
-        matches!(ask(&mut sim), ConditionOutcome::Satisfied),
-        "recording a clearance under the placement id the ROOM published must \
-         open the branch the shipped dialogue gates on"
-    );
 }

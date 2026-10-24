@@ -977,6 +977,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::stocks::tick_respawn_grace
+                .run_if(any_with_component::<ambition_combat::stocks::RespawnGrace>)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                 .in_set(ambition_combat::stocks::RespawnGraceTicked)
                 .after(ambition_combat::stocks::FighterRespawnsDue)
@@ -990,6 +991,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // (`Capability::MatchStocks`). The causal observers below
                 // record every hit, and stay awake.
                 ambition_combat::stocks::spend_fighter_stocks
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::stocks::BodyKnockedOut>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
                     .in_set(ambition_combat::stocks::FighterStocksSpent),
                 // D192: the return is decided AFTER the spend and BEFORE any
@@ -1010,7 +1012,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                     .in_set(ambition_combat::stocks::MatchOutcomeDecided),
                 // Reading the latch on the frame BEFORE the one that sets it would let the
                 // winner play on for one tick, which is the window a final KO happens in.
-                crate::features::stocks_match::state_the_matchs_pace.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks)),
+                crate::features::stocks_match::state_the_matchs_pace.run_if(resource_exists::<ambition_match::ActiveMatch>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks)),
                 // The causal OBSERVER, last in the chain so it reads this tick's
                 // decision rather than the previous one. It holds no authority
                 // over any of the above — it reads their messages — which is why

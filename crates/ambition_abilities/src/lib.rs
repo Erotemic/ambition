@@ -80,10 +80,13 @@ impl Plugin for AbilitySimulationPlugin {
             sim,
             (
                 ranged::bomb::arm_thrown_bombs.in_set(GameplayGated),
-                ranged::bomb::tick_bomb_fuses.in_set(GameplayGated),
+                // The fuse passes visit lit fuses; the arming passes visit every
+                // ground item, so they stay awake.
+                ranged::bomb::tick_bomb_fuses.run_if(any_with_component::<ranged::bomb::BombFuse>).in_set(GameplayGated),
                 thrown::gravity_grenade::arm_thrown_gravity_grenades.in_set(GameplayGated),
-                thrown::gravity_grenade::tick_gravity_grenade_fuses.in_set(GameplayGated),
+                thrown::gravity_grenade::tick_gravity_grenade_fuses.run_if(any_with_component::<thrown::gravity_grenade::GravityGrenadeFuse>).in_set(GameplayGated),
                 ambition_platformer2d_shared_tangle::gravity::tick_temporary_zones
+                    .run_if(any_with_component::<ambition_platformer2d_shared_tangle::gravity::TemporaryZone>)
                     .in_set(GameplayGated),
             )
                 .chain()

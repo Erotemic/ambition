@@ -206,6 +206,81 @@ impl ProjectileKind {
     }
 }
 
+/// How a game's fireball flies: a rule each game states for its own rooms
+/// (`room_rules`, `fireball`). A game that states none flies the fireball of
+/// [`ProjectileKind::spec`].
+///
+/// The flight of a Mario fireball: it leaves the hand angled down, falls to
+/// the floor and hops along it, each hop to one low height at one forward
+/// speed, and dies on a wall, at its last bounce or at the end of its time.
+/// A hop's height is `hop_speed² / (2 · gravity)`.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FireballFlight {
+    /// Forward speed, px/s.
+    pub speed: f32,
+    /// Speed toward the feet the shot leaves the hand with, px/s: the throw
+    /// angles down. Not added to a shot aimed up or down.
+    pub launch_drop: f32,
+    /// Acceleration toward the feet, px/s².
+    pub gravity: f32,
+    /// The speed each hop leaves the floor at, px/s.
+    pub hop_speed: f32,
+    /// Hops before the next floor it meets puts it out.
+    pub bounces: u8,
+    /// Seconds it flies: its range is this times `speed`.
+    pub lifetime_s: f32,
+}
+
+impl FireballFlight {
+    /// Each value the runtime cannot use, named by its field.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        for (field, value) in [
+            ("speed", self.speed),
+            ("launch_drop", self.launch_drop),
+            ("gravity", self.gravity),
+            ("hop_speed", self.hop_speed),
+            ("lifetime_s", self.lifetime_s),
+        ] {
+            if !(value.is_finite() && value >= 0.0) {
+                problems.push(format!("`fireball.{field}` is {value}; it is finite and not negative"));
+            }
+        }
+        problems
+    }
+
+    /// `spec`, a fireball's, flown this way. `local_dir` is the aim in the
+    /// firer's frame (+y toward its feet) and `to_world` takes a direction of
+    /// that frame to the world. A shot aimed level leaves angled down by
+    /// `launch_drop`; a shot aimed up or down leaves along its aim.
+    pub fn fly(
+        &self,
+        mut spec: ProjectileSpec,
+        local_dir: Vec2,
+        to_world: impl Fn(Vec2) -> Vec2,
+    ) -> ProjectileSpec {
+        let level = local_dir.y.abs() < 0.1;
+        let local_velocity = if level {
+            Vec2::new(local_dir.x.signum() * self.speed, self.launch_drop)
+        } else {
+            local_dir.normalize_or(Vec2::X) * self.speed
+        };
+        let velocity = to_world(local_velocity);
+        spec.direction = velocity.normalize_or(spec.direction);
+        spec.speed = velocity.length();
+        spec.gravity = self.gravity;
+        spec.bounces = self.bounces;
+        spec.max_lifetime = self.lifetime_s;
+        spec
+    }
+
+    /// How each hop leaves the floor.
+    pub fn rebound(&self) -> ambition_platformer2d_shared_tangle::projectile::Rebound {
+        ambition_platformer2d_shared_tangle::projectile::Rebound::hop(self.hop_speed)
+    }
+}
+
 /// Fireball charge mechanic tuning. The sandbox samples hold time on
 /// the fire button and quantizes into one of three tiers via
 /// [`FireballChargeTuning::tier_for_hold`].

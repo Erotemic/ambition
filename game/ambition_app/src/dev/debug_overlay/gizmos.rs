@@ -123,6 +123,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
+            Entity,
             &'static ambition_platformer2d::engine_core::BodyKinematics,
             Option<&'static ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
             &'static ambition_platformer2d::platformer::projectile::ProjectileGameplay,
@@ -136,7 +137,34 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// the box it is drawn at. `Option` because a host without held items
     /// does not insert it.
     pub ground_items: Option<Res<'w, ambition_platformer2d::sim_view::GroundItemsView>>,
+    /// What decides a blow on each combat body, for its label: its side, its
+    /// health and invulnerability, and a boss's guard.
+    pub body_props: Query<
+        'w,
+        's,
+        (
+            Option<&'static ambition_platformer2d::characters::actor::ActorFaction>,
+            Option<&'static ambition_platformer2d::characters::actor::BodyHealth>,
+            Option<&'static ambition_platformer2d::boss_encounter::BossEncounter>,
+            Option<&'static ambition_platformer2d::boss_encounter::BossConfig>,
+        ),
+    >,
+    /// Where the shots in flight bounced lately (presentation only).
+    pub bounce_trail: Local<'s, ProjectileBounceTrail>,
+    pub time: Res<'w, Time>,
 }
+
+/// Where the shots in flight bounced lately: a mark at each bounce, kept
+/// [`BOUNCE_MARK_SECS`]. A bounce is read off the shot's own bounce budget
+/// going down, so it is the engine's bounce and not a guess from the velocity.
+#[derive(Default)]
+pub struct ProjectileBounceTrail {
+    budgets: std::collections::HashMap<Entity, u8>,
+    marks: Vec<(ae::Vec2, f32)>,
+}
+
+/// How long a bounce mark stays drawn, seconds.
+const BOUNCE_MARK_SECS: f32 = 1.5;
 
 /// Draw each item's collision box in the shown room, at the pose its sprite
 /// is drawn at (`GroundItemsView`), so a coconut's box can be eyeballed
@@ -542,11 +570,11 @@ pub(crate) fn draw_feature_debug(
     // - orange (`boss_color`, `boss.aabb()`): the combat-collision
     //   envelope. The boss uses this for kinematic step / world-bounds
     //   clamp. Does NOT, by itself, deal damage.
-    // - cyan (`hurtbox_color`, `damageable_volumes`): where the
-    //   *player's* attacks register hits on the boss. With the
-    //   sprite-metadata-driven derivation, this can be one rect
-    //   (single-piece boss) or many (multi-part body — head + body
-    //   + arms).
+    // - cyan (the shared combat-geometry layer, the PUBLISHED
+    //   `DamageableVolumes`): where blows register on the boss — the parts
+    //   the damage road reads. One rect (a single-piece boss) or many (a
+    //   multi-part body). Steel blue around the boss and its label: its
+    //   guard is up, and every blow on those parts is turned.
     // - magenta (`body_contact_color`, `body_damage_aabb`): the
     //   boss's body-contact damage zone. Touching this when
     //   `BossBehaviorProfile::body_damage > 0` hurts the player
@@ -559,7 +587,6 @@ pub(crate) fn draw_feature_debug(
     // Special attack profiles (PitTrap, RotatingCross, HazardColumn,
     // MemorizedVolley, MinionCascade) route damage through World-anchored
     // `Hitbox` entities, drawn by the shared `CombatGeometryView` layer.
-    let hurtbox_color = cyan();
     let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
     for (bf, health, attack_state, animation_frame) in feature_q.bosses.iter() {
         let boss = bf.as_boss_ref();
@@ -605,18 +632,20 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::BottomRight,
             );
         }
-        for hurtbox in ambition_platformer2d::combat::body_geometry::damageable_volumes(&ctx) {
-            // The published silhouette's REAL shape — a boss part may be an
-            // authored hull, and drawing its bounding box here is how an
-            // overlay tells you a lie that looks like a measurement.
-            draw_hitbox_volume(gizmos, world, &hurtbox, hurtbox_color, developer_tools);
-            label_box(
-                labels,
-                hurtbox.bounds(),
-                "hurtbox",
-                hurtbox_color,
-                LabelSpot::TopLeft,
-            );
+        // Its hurtboxes are the PUBLISHED parts, drawn by the shared
+        // combat-geometry layer: the ones the damage road reads. Here, the
+        // guard that decides whether a blow on them lands.
+        let turns_blows = boss.status.guarded || boss.config.behavior.environmental_kill_only;
+        let (guard_text, guard_color) = if turns_blows {
+            ("GUARD UP: blows and shots turn", Color::srgba(0.55, 0.80, 1.00, 0.95))
+        } else {
+            ("guard down: blows land", cyan())
+        };
+        label_box(labels, boss.aabb(), guard_text, guard_color, LabelSpot::TopRight);
+        if turns_blows {
+            let guard = boss.aabb();
+            let ring = ae::Aabb::new(guard.center(), guard.half_size() + ae::Vec2::splat(3.0));
+            draw_aabb_styled(gizmos, world, ring, guard_color, developer_tools);
         }
         for vol in
             ambition_platformer2d::boss_encounter::attack_geometry::active_attack_volumes(&ctx)
@@ -675,19 +704,16 @@ pub(crate) fn draw_feature_debug(
 }
 
 /// Draw every in-flight projectile AABB so shots remain visible when
-/// `hide_sprites` strips textured art. Color comes from frozen combat allegiance,
-/// never from whether the shot used named or open-visual presentation.
-pub(crate) fn draw_projectile_debug<'a>(
+/// `hide_sprites` strips textured art, with a label of its damage, the bounces
+/// it has left and its time, and a mark where each shot bounced lately. Color
+/// comes from frozen combat allegiance, never from whether the shot used named
+/// or open-visual presentation.
+pub(crate) fn draw_projectile_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    projectiles: impl IntoIterator<
-        Item = (
-            &'a ambition_platformer2d::engine_core::BodyKinematics,
-            Option<&'a ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
-            &'a ambition_platformer2d::platformer::projectile::ProjectileGameplay,
-        ),
-    >,
+    feature_q: &mut FeatureDebugQueries,
     developer_tools: &DeveloperTools,
+    labels: &mut DebugOverlayLabels,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
     let hostile_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
@@ -696,7 +722,12 @@ pub(crate) fn draw_projectile_debug<'a>(
     // the bolt. The "fireball hits before it touches the visible box" report
     // was this box not being drawn.
     let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45);
-    for (kin, allegiance, game) in projectiles {
+    let bounce_color = Color::srgba(0.45, 1.00, 0.55, 0.95);
+    let dt = feature_q.time.delta_secs();
+    let trail = &mut *feature_q.bounce_trail;
+    let mut live = std::collections::HashSet::new();
+    for (entity, kin, allegiance, game) in feature_q.live_projectiles.iter() {
+        live.insert(entity);
         let color = if allegiance.is_some_and(|side| {
             side.faction == ambition_platformer2d::characters::actor::ActorFaction::Player
         }) {
@@ -714,5 +745,66 @@ pub(crate) fn draw_projectile_debug<'a>(
             );
         }
         draw_aabb_styled(gizmos, world, kin.aabb(), color, developer_tools);
+        label_box(
+            labels,
+            kin.aabb(),
+            format!(
+                "dmg {} hops {} {:.1}/{:.1}s",
+                game.damage, game.bounces_remaining, game.age, game.max_lifetime
+            ),
+            color,
+            LabelSpot::TopLeft,
+        );
+        // A bounce spends one of its budget: mark it where the shot is now.
+        if let Some(before) = trail.budgets.insert(entity, game.bounces_remaining) {
+            if game.bounces_remaining < before {
+                trail.marks.push((kin.pos, BOUNCE_MARK_SECS));
+            }
+        }
+    }
+    trail.budgets.retain(|entity, _| live.contains(entity));
+    trail.marks.retain_mut(|(_, left)| {
+        *left -= dt;
+        *left > 0.0
+    });
+    for (pos, left) in &trail.marks {
+        let fade = (*left / BOUNCE_MARK_SECS).clamp(0.0, 1.0);
+        let c = with_alpha(bounce_color, fade);
+        let arm = 5.0;
+        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, -arm)), w2(world, *pos + ae::Vec2::new(arm, arm)), c);
+        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, arm)), w2(world, *pos + ae::Vec2::new(arm, -arm)), c);
+    }
+}
+
+/// Label each combat body with what decides a blow on it, above its box: its
+/// side, its health, whether it is invulnerable, a boss's guard. And each live hitbox with the damage it deals.
+pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut DebugOverlayLabels) {
+    for body in &feature_q.combat_geometry.bodies {
+        let Ok((faction, health, boss, boss_config)) = feature_q.body_props.get(body.body) else {
+            continue;
+        };
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(faction) = faction {
+            parts.push(format!("{faction:?}"));
+        }
+        if let Some(health) = health {
+            parts.push(format!("hp {}/{}", health.current(), health.max()));
+            if health.health.invulnerable.any() {
+                parts.push("INVULNERABLE".to_owned());
+            }
+        }
+        if let (Some(boss), Some(config)) = (boss, boss_config) {
+            if boss.guarded || config.behavior.environmental_kill_only {
+                parts.push("GUARD UP".to_owned());
+            }
+        }
+        if parts.is_empty() {
+            continue;
+        }
+        let top = body.collision.center() - ae::Vec2::new(0.0, body.collision.half_size().y + 6.0);
+        labels.0.push(DebugLabel { world_pos: top, text: parts.join(" "), color: Color::srgba(0.95, 0.95, 0.95, 1.0) });
+    }
+    for strike in &feature_q.combat_geometry.strikes {
+        label_box(labels, strike.volume.bounds(), format!("dmg {}", strike.damage), red(), LabelSpot::Center);
     }
 }

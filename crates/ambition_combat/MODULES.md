@@ -50,6 +50,7 @@
 | [`room_rules`](src/room_rules.rs) | The `room_rules` authored-content schema: the per-game rules of a game's own rooms, as data in its pack. |
 | [`rules`](src/rules.rs) | The combat rules a match plays under — resolved, not borrowed. |
 | [`scoped_rules`](src/scoped_rules.rs) | Rules that one game states for the rooms it governs (ADR 0033). |
+| [`shot_birth`](src/shot_birth.rs) | Where a shot is born, and so where its charge is drawn. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire-format implementations for combat-owned types. |
 | [`stale`](src/stale.rs) | Move staling — the history that makes a repeated answer worth less. |
 | [`stocks`](src/stocks.rs) | Ruleset-owned lives/stocks accounting. |
@@ -62,7 +63,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_55 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_56 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

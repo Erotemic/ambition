@@ -85,75 +85,6 @@ fn reflect_parried_shot(
     );
     vfx.write_in(room, VfxMessage::Impact { pos: kin.pos });
 }
-/// The gap between a body's box and a shot born off its edge, for a body
-/// that publishes no hand ([`player_projectile_muzzle_local_offset`]).
-const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
-
-/// The sheet rows a firing body is drawn from, in preference order: the
-/// `Shoot` row, then what `CharacterAnim::base_pose` falls back to. The shot
-/// is born at the hand of the same rows, so it leaves the hand on screen.
-pub(super) const SHOOT_CLIPS: &[&str] = &["shoot", "idle"];
-
-/// The part of the shoot row the shot leaves the hand in: its first frame.
-/// The shot is fired on the tick the row starts, so the hand that releases
-/// it is the hand of the row's first frame. A row whose hand reaches out
-/// later draws the shot ahead of the hand that threw it.
-const SHOOT_RELEASE_PHASE: f32 = 0.0;
-
-fn player_projectile_local_fire_dir(aim_local: ae::Vec2, facing: f32) -> ae::Vec2 {
-    if aim_local.length() > 0.1 {
-        aim_local.normalize_or_zero()
-    } else {
-        ae::Vec2::new(facing, 0.0)
-    }
-}
-
-/// Where a shot aimed along `local_dir` is born for a body that publishes a
-/// hand, as an offset from the body's centre in its own frame (+y toward its
-/// feet). `hand` is the hand in the body's rig space (feet origin, +x the way
-/// it faces). The shot's rear edge is at the hand: its centre is the hand
-/// plus the shot's half extent along the aim. Ruling Q41: a launch point is a
-/// landmark plus a move's own offset, never a sprite bound.
-pub(super) fn player_projectile_hand_local_offset(
-    hand: ae::Vec2,
-    local_dir: ae::Vec2,
-    facing: f32,
-    size: ae::Vec2,
-    half_extent: ae::Vec2,
-) -> ae::Vec2 {
-    let feet = ae::Vec2::new(0.0, size.y * 0.5);
-    let reach = local_dir.x.abs() * half_extent.x + local_dir.y.abs() * half_extent.y;
-    feet + ae::Vec2::new(facing.signum() * hand.x, hand.y) + local_dir * reach
-}
-
-/// Where a shot is born for a body that publishes no hand: off the edge of
-/// its box in the aim direction. The named fallback of
-/// [`player_projectile_hand_local_offset`].
-pub(super) fn player_projectile_muzzle_local_offset(
-    local_dir: ae::Vec2,
-    facing: f32,
-    size: ae::Vec2,
-) -> ae::Vec2 {
-    let half = size * 0.5;
-    if local_dir.x.abs() >= local_dir.y.abs() {
-        let side = if local_dir.x.abs() > 0.001 {
-            local_dir.x.signum()
-        } else {
-            facing.signum()
-        };
-        ae::Vec2::new(
-            side * (half.x + PLAYER_PROJECTILE_MUZZLE_CLEARANCE),
-            -size.y * 0.20,
-        )
-    } else {
-        let feet_axis = local_dir.y.signum();
-        ae::Vec2::new(
-            facing.signum() * half.x * 0.4,
-            feet_axis * (half.y + PLAYER_PROJECTILE_MUZZLE_CLEARANCE),
-        )
-    }
-}
-
 /// Per-body charge/motion-recognition/fire input for charge-capable bodies.
 /// Emits [`ProjectileSpawnRequest`]; [`step_projectiles`] owns flight.
 #[allow(clippy::too_many_arguments)]
@@ -179,13 +110,15 @@ pub fn charge_projectile_input(
     // policy below asks the catalog whether each fired.
     technique_catalog: Res<ambition_projectiles::MotionTechniqueCatalog>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    // Where the firing hand is: see `player_projectile_hand_local_offset`.
+    // Where the firing hand is: see `ambition_combat::shot_birth`.
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     // Firing emits a next-tick `ProjectileSpawnRequest`; its materializer runs after this
     // system so newly-fired projectiles first tick next frame.
     mut spawn_projectiles: MessageWriter<ProjectileSpawnRequest>,
     // A refused press says why (`Q33`), as the action road's refusal does.
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
+    // How the fireball flies in the firer's room: each game states its own.
+    fireball_flight: ambition_combat::governing_rules::RulesOf<ambition_projectiles::FireballFlight>,
 ) {
     // Sim clock: spawner pacing freezes in bullet-time alongside the world.
     let dt = world_time.sim_dt();
@@ -244,38 +177,33 @@ pub fn charge_projectile_input(
         };
         // The firing body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
-        let local_dir = player_projectile_local_fire_dir(tick_info.aim, facing);
+        let local_dir = ambition_combat::shot_birth::local_fire_dir(tick_info.aim, facing);
         let direction = frame.to_world(local_dir).normalize_or_zero();
         // The shot is born at the hand that fires, in the row the body fires
         // in. Asked only on a tick that fires. The shot's size is of its kind
         // and charge, so the place is too.
         let origin_of = |kind: ambition_projectiles::ProjectileKind, charge_tier: u8| {
-            let shoot_row = ambition_combat::body_landmarks::LandmarkPose::Clip {
-                chain: SHOOT_CLIPS,
-                phase: SHOOT_RELEASE_PHASE,
-            };
-            let Some(hand) = landmarks.gesture_hand(body_entity, shoot_row) else {
-                let local_muzzle = player_projectile_muzzle_local_offset(local_dir, facing, kin.size);
-                return kin.pos + frame.to_world(local_muzzle);
-            };
             let half_extent = kind
                 .charged_spec(kind.spec(ae::Vec2::ZERO, direction, 1.0), charge_tier)
                 .half_extent;
-            let local = player_projectile_hand_local_offset(hand, local_dir, facing, kin.size, half_extent);
-            // A hand can be at knee height, and a shot born touching the
-            // floor dies on its first tick.
-            super::clear_of_the_feet(
-                kin.pos + frame.to_world(local),
-                kin.pos,
-                kin.size.y,
+            ambition_combat::shot_birth::charge_shot_birth(
+                &landmarks,
+                body_entity,
+                kin,
+                |local| frame.to_world(local),
                 resolved_frame.down(),
+                local_dir,
                 half_extent,
             )
         };
 
+        let to_world = |local: ae::Vec2| frame.to_world(local);
         let mut firing = Firing {
             owner: body_entity,
             origin_of: &origin_of,
+            flight: fireball_flight.of(body_entity),
+            local_dir,
+            to_world: &to_world,
             direction,
             damage_mult,
             spawn: &mut spawn_projectiles,
@@ -397,6 +325,11 @@ pub fn charge_projectile_input(
 struct Firing<'a, 's, 'r> {
     owner: Entity,
     origin_of: &'a dyn Fn(ambition_projectiles::ProjectileKind, u8) -> ae::Vec2,
+    /// How the fireball flies in the firer's room; `None` flies the kind's own.
+    flight: Option<ambition_projectiles::FireballFlight>,
+    /// The aim in the firer's frame, and that frame's way to the world.
+    local_dir: ae::Vec2,
+    to_world: &'a dyn Fn(ae::Vec2) -> ae::Vec2,
     direction: ae::Vec2,
     damage_mult: f32,
     spawn: &'a mut MessageWriter<'s, ProjectileSpawnRequest>,
@@ -418,13 +351,20 @@ impl Firing<'_, '_, '_> {
         let origin = (self.origin_of)(kind, charge_tier);
         match state.spawner.try_spawn(kind, origin, self.direction, self.damage_mult) {
             Ok(spec) => {
+                let flight = self.flight.filter(|_| kind == ambition_projectiles::ProjectileKind::Fireball);
+                let spec = match flight {
+                    Some(flight) => flight.fly(spec, self.local_dir, self.to_world),
+                    None => spec,
+                };
                 let spec = kind.charged_spec(spec, charge_tier);
+                let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+                if let Some(flight) = flight {
+                    body.game.rebound = flight.rebound();
+                }
                 self.spawn.write(
                     ProjectileSpawnRequest::named(
                         self.owner,
-                        ambition_projectiles::InFlightProjectile {
-                            body: ambition_projectiles::ProjectileBody::from_spec(spec),
-                        },
+                        ambition_projectiles::InFlightProjectile { body },
                         kind,
                         ProjectileStart::StepNextTick,
                     )
@@ -483,6 +423,17 @@ impl Firing<'_, '_, '_> {
             actor: self.owner,
             readiness: ambition_combat::WeaponReadiness::of_spawner(&state.spawner, kind),
         });
+    }
+}
+
+/// `request`, said from the shot's own presentation source when it has one.
+fn said_by(
+    request: ambition_vfx::vfx::FxRequest,
+    source: Option<&ambition_sfx::PresentationSourceId>,
+) -> ambition_vfx::vfx::FxRequest {
+    match source {
+        Some(source) => request.from_source(source.clone()),
+        None => request,
     }
 }
 
@@ -803,13 +754,18 @@ pub fn step_projectiles(
     // one reason — rebuilding a boss's hurt geometry to answer "does this shot
     // reach it" — and the answer comes from the published volumes now. The
     // projectile stepper no longer needs to know what a boss IS.
-    (owner_combat, visual_catalog): (
+    (owner_combat, visual_catalog, mut outcome_fx, boss_guards): (
         Query<(
             &ActorFaction,
             Option<&ActorAggression>,
             Option<&ambition_combat::targeting::MatchTeam>,
         )>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
+        // The effect a shot's look shows where it lands, is turned, or goes out.
+        MessageWriter<ambition_vfx::vfx::FxRequest>,
+        // Whether a boss turns blows. `apply_boss_hit` reads the same two
+        // fields and decides the damage; the shot reads them for its look.
+        Query<(&BossConfig, &ambition_boss_encounter::BossEncounter)>,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -860,10 +816,10 @@ pub fn step_projectiles(
         // Open visual id (every spawned shot carries one; empty reads as the
         // generic look). Drives the detonation FX pick via the content-owned
         // catalog; ownership and allegiance are separate facts.
-        let expiry_burst = visual_id
-            .map(|v| v.0.as_str())
-            .and_then(|id| visual_catalog.get(id))
-            .and_then(|art| art.expiry_vfx);
+        let look = visual_id.map(|v| v.0.as_str()).and_then(|id| visual_catalog.get(id));
+        let expiry_burst = look.and_then(|art| art.expiry_vfx);
+        let hit_burst = look.and_then(|art| art.hit_vfx);
+        let deflect_burst = look.and_then(|art| art.deflect_vfx);
         let owner_entity = owner.map(|o| o.0);
         // The shot flies in one live room, collides with that room's walls
         // and reaches only that room's bodies (OW1 cut 4). A shot whose room
@@ -939,12 +895,8 @@ pub fn step_projectiles(
         // something in the way", disagreeing on shape and on policy.
         let shot_world_hit = game.world_hit;
         if !game.tick(&mut kin, dt, gravity_dir) {
-            if let Some(boom) = expiry_burst.map(|b| b.to_message(kin.pos)) {
-                vfx.write_in(shot_room, boom);
-                sfx.write(SfxMessage::Play {
-                    id: ambition_sfx::ids::WORLD_EXPLOSION,
-                    pos: kin.pos,
-                });
+            if let Some(burst) = expiry_burst {
+                outcome_fx.write(said_by(burst.request(shot_room, kin.pos), bolt_source.as_ref()));
             } else {
                 trace.push_event(ProjectileTraceEvent::Expired { kind }.into_trace_event(tick));
             }
@@ -1536,6 +1488,11 @@ pub fn step_projectiles(
                 // the ONE victim-side reaction now — a player victim through
                 // `apply_player_hit_events`, an actor through `apply_actor_hit`.
                 // Emitting here too would double the cue.
+                //
+                // The shot's own look of landing is the shot's: its hit burst.
+                if let Some(burst) = hit_burst {
+                    outcome_fx.write(said_by(burst.request(shot_room, impact_pos), bolt_source.as_ref()));
+                }
                 already_hit.hit.insert(victim.entity);
                 struck_at = Some(leg_start + travel_leg * *contact_time);
                 break;
@@ -1635,6 +1592,15 @@ pub fn step_projectiles(
                 // asks for it as its own patch for that reason. One splash per
                 // landing and the recipient's inclusion in it are unchanged.
                 feature_damage.write(direct);
+                // A boss whose hull turns blows turns the shot: the look of a
+                // deflection, not of a hit.
+                let turned = boss_guards.get(contact.target).is_ok_and(|(config, status)| {
+                    config.behavior.environmental_kill_only || status.guarded
+                });
+                if let Some(burst) = if turned { deflect_burst } else { hit_burst } {
+                    let at = feature_contact_box.center();
+                    outcome_fx.write(said_by(burst.request(shot_room, at), bolt_source.as_ref()));
+                }
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
                         // ⛔ THE SELECTED CONTACT, NOT THE TICK ENDPOINT — same
@@ -1730,16 +1696,9 @@ pub fn step_projectiles(
                         &mut vfx,
                     );
                 }
-                match expiry_burst.map(|b| b.to_message(pos)) {
-                    Some(boom) => {
-                        vfx.write_in(shot_room, boom);
-                        sfx.write_for_body(
-                            bolt_source.as_ref(),
-                            SfxMessage::Play {
-                                id: ambition_sfx::ids::WORLD_EXPLOSION,
-                                pos,
-                            },
-                        );
+                match expiry_burst {
+                    Some(burst) => {
+                        outcome_fx.write(said_by(burst.request(shot_room, pos), bolt_source.as_ref()));
                     }
                     None => {
                         trace.push_event(

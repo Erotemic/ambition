@@ -469,9 +469,6 @@ pub fn sync_projectile_visuals(
 
 /// The look of a body's charge at each tier (`projectile_visuals.ron`).
 const CHARGE_LOOKS: [&str; 3] = ["robot_charge_0", "robot_charge_1", "robot_charge_2"];
-/// How far past the hand each tier's charge hangs: a larger orb hangs out
-/// farther, so it does not cover the face.
-const CHARGE_REACH: [f32; 3] = [6.0, 10.0, 17.0];
 
 /// One body's charge, drawn while its fire button is held: the row of its
 /// tier, animated, at its hand. Kept from frame to frame (it animates), and
@@ -528,18 +525,14 @@ pub fn sync_projectile_charge_visuals(
     // Who charges now, at which tier, and where its charge hangs.
     let mut charging: Vec<(Entity, u8, ambition_platformer2d_core::Vec2, bool)> = Vec::new();
     for (player, pose, presented) in &player_q {
-        let Some(tier) = pose.charge_tier else {
+        let (Some(tier), Some(offset)) = (pose.charge_tier, pose.charge_offset) else {
             continue;
         };
-        // The charge hangs off the hand, so it tracks the presented body.
+        // The charge hangs where its shot will be born (`charge_offset`), on
+        // the presented body.
         let body_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
         let facing = if pose.facing.abs() < f32::EPSILON { 1.0 } else { pose.facing.signum() };
-        let tier = tier.min(2);
-        let at = ambition_platformer2d_core::Vec2::new(
-            body_pos.x + facing * (pose.size.x * 0.5 + CHARGE_REACH[tier as usize]),
-            body_pos.y - pose.size.y * 0.20,
-        );
-        charging.push((player, tier, at, facing < 0.0));
+        charging.push((player, tier.min(2), body_pos + offset, facing < 0.0));
     }
     // Keep, move and animate a charge that goes on; drop one that ended or
     // changed tier.

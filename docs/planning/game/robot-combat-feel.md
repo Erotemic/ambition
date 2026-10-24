@@ -217,3 +217,47 @@ harness (a rollback rebase), with only input in the window, every hit lands
 at check distance 1 and 4, on the boss and on a plain enemy. Guards:
 `every_hit_in_the_winded_window_lands_under_rollback`,
 `every_hit_on_a_sandbag_lands_under_rollback`.
+
+## The fireball, second pass (2026-10-24)
+
+Jon: "they bounce immediately and often go over what I was aiming for", "The
+fireball should feel like a mario fireball in terms of how it bounces", "there
+isn't a clear fizzle / block / hit visual", no gizmos to debug collision, and
+the little circle on the hand is not where the charge or the shot is.
+
+- **Mario flight, Ambition's rule.** `room_rules.ron` `fireball`
+  (`FireballFlight`): Super Mario Bros.' numbers at 1.5 scale. The shot
+  leaves the hand angled down (270 px/s), hops at one height
+  (`Rebound::hop`, 270 px/s, gravity 1688), forward 360 px/s, for 1.2 s or
+  eight hops. A game that states no `fireball` (Smash, the versus stage)
+  flies the old fireball. Mary-O's fireball is her own move and is not this.
+  Measured on flat floor (`switch_lab`, rollback on,
+  `the_robots_fireball_hops`):
+
+  | | Before | After |
+  |---|---|---|
+  | First floor contact | 104 px out | 26 px out |
+  | Hop height (shot bottom) | 79 px (its top 97 px up) | 20 px each hop (its top 38 px up) |
+  | Range | 441 px, 1 bounce | 433 px, 4 even hops |
+  | Hits on a body standing 60 to 360 px away | 4 of 6 (over it at 300, 360) | 6 of 6 |
+
+- **What became of a shot.** `projectile_outcomes`: `fireball_hit`,
+  `fireball_deflect` (a hull that turns blows), `fireball_fizzle` (its range,
+  a wall, its last hop), the fireball looks' `hit_vfx` / `deflect_vfx` /
+  `expiry_vfx`. A burst sounds its own row's cue; the three outcome cues are
+  candidates only (`untracked/sfx-candidates/projectile_outcomes/`).
+- **The guard's tell.** While a boss's guard is up its hull glints each
+  0.75 s (`boss_guard_tell`, `boss_guard_glint`).
+- **Collision debug.** `Shift+F1`: the overlay in its combat view, with
+  labels (`docs/systems/developer-hotkeys.md`).
+- **The hand.** `aim` and the first frame of `shoot` are one hold, palms out
+  at the chest. The charge is drawn where the shot is born
+  (`ambition_combat::shot_birth`, `BodyPoseView::charge_offset`); the rows
+  paint no orb.
+
+Open (Jon):
+
+1. In the Mockingbird's sky a Mario fireball falls: shot in the air at the
+   bird's height it drops onto the sharks under it. The bird is reached from
+   a shark at its height, or when it dives.
+2. The fully charged orb (62 units) covers part of the face while held.

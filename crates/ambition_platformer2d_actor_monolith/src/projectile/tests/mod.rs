@@ -120,6 +120,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     register_test_motion_techniques(&mut app);
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
+    app.add_message::<ambition_vfx::vfx::FxRequest>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();

@@ -89,10 +89,10 @@ pub enum ProjectileRotation {
     GravityUpright,
 }
 
-/// Position-free description of the VFX a projectile emits when it expires on a
-/// solid / times out (e.g. the pirate lasersword detonation). The sim stepper
-/// stamps the live position at expiry time via [`Self::to_message`]. `None` on a
-/// kind's art means the stepper's generic impact fallback is used.
+/// Position-free description of an authored effect a projectile shows where an
+/// outcome of its flight happens: it expires, it lands, a guard turns it. The
+/// sim stepper stamps the live position via [`Self::request`]; the effect
+/// sounds its own cue (`vfx.<family>.<row>`).
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectileExpiryBurst {
@@ -110,13 +110,15 @@ fn fx_by_name<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<ambit
 }
 
 impl ProjectileExpiryBurst {
-    pub fn to_message(self, pos: ambition_platformer2d_core::Vec2) -> ambition_vfx::vfx::VfxMessage {
-        ambition_vfx::vfx::VfxMessage::Effect {
-            pos,
-            fx: self.fx,
-            scale: self.scale,
-            pose: ambition_vfx::FxPose::UPRIGHT,
-        }
+    /// The effect at `pos`, in the live room `room`.
+    pub fn request(
+        self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        pos: ambition_platformer2d_core::Vec2,
+    ) -> ambition_vfx::vfx::FxRequest {
+        let mut request = ambition_vfx::vfx::FxRequest::new(room, pos, self.fx);
+        request.scale = self.scale;
+        request
     }
 }
 
@@ -137,9 +139,18 @@ pub struct ProjectileArt {
     pub debug_tint: [f32; 4],
     /// Short stable identifier for traces / debug entity names.
     pub label: String,
-    /// Custom VFX emitted when this projectile expires. `None` uses the sim
-    /// stepper's generic impact fallback.
+    /// Custom VFX emitted when this projectile expires: its time ends, a wall
+    /// or a floor puts it out. `None` uses the sim stepper's generic impact
+    /// fallback.
     pub expiry_vfx: Option<ProjectileExpiryBurst>,
+    /// The effect where it lands on a body or a boss that takes the hit.
+    /// `None`: the struck body's own reaction alone.
+    #[serde(default)]
+    pub hit_vfx: Option<ProjectileExpiryBurst>,
+    /// The effect where a guard turns it: a boss whose hull turns blows.
+    /// `None`: the boss's own clang alone.
+    #[serde(default)]
+    pub deflect_vfx: Option<ProjectileExpiryBurst>,
 }
 
 impl ProjectileArt {
@@ -168,6 +179,8 @@ impl ProjectileArt {
             debug_tint: Self::GENERIC_DEBUG_TINT,
             label: "projectile".to_string(),
             expiry_vfx: None,
+            hit_vfx: None,
+            deflect_vfx: None,
         }
     }
 }
@@ -310,6 +323,8 @@ mod tests {
             debug_tint: [0.1, 0.2, 0.3, 1.0],
             label: label.to_string(),
             expiry_vfx: None,
+            hit_vfx: None,
+            deflect_vfx: None,
         }
     }
 

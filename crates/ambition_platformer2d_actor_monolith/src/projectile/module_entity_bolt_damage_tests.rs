@@ -98,6 +98,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
+    app.add_message::<ambition_vfx::vfx::FxRequest>();
     app.add_message::<ProjectileSpawnRequest>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();

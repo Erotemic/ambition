@@ -17,6 +17,7 @@ same key.
 | Chord | Action |
 |---|---|
 | `F1` | toggle the global debug overlay |
+| `Shift+F1` | show (or hide) the debug overlay in its combat view: see below |
 | `F2` | toggle developer slow motion |
 | `F3` | toggle the resource inspector |
 | `F4` | toggle the world inspector |
@@ -49,6 +50,26 @@ The bindings are a Bevy resource, so a future developer-settings loader can
 replace the default deck before `DeveloperHotkeyPlugin` builds without changing
 consumer systems.
 
+
+## The combat debug view (`Shift+F1`)
+
+What decides a blow, drawn over the game: the debug overlay in its `combat`
+view with every body's and every boss's volumes on. Press `Shift+F1` again to
+hide it. It works in every room, the Mockingbird's sky too.
+
+- **Hurtboxes** (cyan): the parts a blow lands on, as the damage road reads
+  them (a boss's published parts).
+- **Hitboxes** (red): each live strike, labelled with its damage.
+- **Collision** (orange): each body's box.
+- **A boss's guard**: a steel-blue box and the label `GUARD UP: blows and
+  shots turn` while its hull turns blows (a hit then clangs and does no
+  damage); `guard down: blows land` while it is open.
+- **Shots**: each shot's box, labelled with its damage, the bounces it has
+  left and its time; a green cross where a shot bounced in the last 1.5 s.
+- **A label over each body**: its faction, its health, `INVULNERABLE` while
+  any invulnerability holds, and `GUARD UP` for a boss whose guard is up.
+
+The overlay is drawn in `game/ambition_app/src/dev/debug_overlay/gizmos.rs`.
 
 ## The gamepad-axis probe (`Shift+F6`)
 

@@ -97,7 +97,7 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
 /// the body's rig space, plus the shot's half extent along the aim.
 #[test]
 fn a_shot_is_born_with_its_rear_edge_at_the_firing_hand() {
-    use super::super::systems::player_projectile_hand_local_offset as born;
+    use ambition_combat::shot_birth::hand_local_offset as born;
     use ambition_platformer2d_core as ae;
     let size = ae::Vec2::new(30.0, 48.0);
     let half = ae::Vec2::new(12.0, 9.0);
@@ -123,7 +123,7 @@ fn a_shot_is_born_with_its_rear_edge_at_the_firing_hand() {
 /// This holds the row chain to the sprite picker's fallback rule.
 #[test]
 fn the_firing_rows_are_the_shoot_row_and_what_it_falls_back_to() {
-    use super::super::systems::SHOOT_CLIPS;
+    use ambition_combat::shot_birth::SHOOT_CLIPS;
     use ambition_sprite_sheet::character::anim::CharacterAnim;
     let mut anim = CharacterAnim::Shoot;
     for (index, row) in SHOOT_CLIPS.iter().enumerate() {

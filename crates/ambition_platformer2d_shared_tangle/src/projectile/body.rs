@@ -73,6 +73,39 @@ pub struct ProjectileGameplay {
     /// Half-extent of the burst dealt where this shot lands; `0.0` for none.
     /// Rollback state: a rewound shot must land the same burst.
     pub splash_half_extent: f32,
+    /// How the shot leaves a floor it bounces on ([`Rebound`]).
+    pub rebound: Rebound,
+}
+
+/// How a bouncing shot leaves the floor: it keeps `restitution` of the speed it
+/// landed with, and leaves at `min_speed` at the least. With no restitution
+/// each hop leaves at `min_speed` and so rises to one height, whatever height
+/// it fell from: the hop of a Mario fireball ([`Rebound::hop`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Rebound {
+    pub restitution: f32,
+    pub min_speed: f32,
+}
+
+impl Rebound {
+    /// The bounce of a shot that states no rebound: it keeps part of its
+    /// fall. ⛔ The floor is a HOP even so: a shot that came down slowly
+    /// (born low, at a hand by the knee) rebounded at 0.65 of almost nothing,
+    /// landed again the next tick, and spent its whole bounce budget skidding
+    /// (2026-10-21, Jon: "the robot's projectile doesn't seem to do damage
+    /// anymore"), so it leaves at 240 px/s at the least.
+    pub const SPRINGY: Self = Self { restitution: 0.65, min_speed: 240.0 };
+
+    /// Each hop leaves the floor at `speed`: hops of one height.
+    pub const fn hop(speed: f32) -> Self {
+        Self { restitution: 0.0, min_speed: speed }
+    }
+}
+
+impl Default for Rebound {
+    fn default() -> Self {
+        Self::SPRINGY
+    }
 }
 
 /// EVERY VICTIM THIS SHOT HAS ALREADY HIT ON THE LEG IT IS FLYING.
@@ -153,6 +186,7 @@ impl ProjectileGameplay {
             }),
             hits_cleared_on_leg: 0,
             splash_half_extent: spec.splash_half_extent,
+            rebound: Rebound::default(),
         }
     }
 
@@ -232,21 +266,13 @@ impl ProjectileGameplay {
     ) {
         // The 1px lift prevents an immediate re-hit on the next tick when gravity
         // has not yet reaccelerated toward the support.
-        const RESTITUTION: f32 = 0.65;
         const SETTLE_LIFT: f32 = 1.0;
-        // ⛔ A BOUNCE IS A HOP. A shot that came down slowly (born low, at a
-        // hand by the knee) rebounded at 0.65 of almost nothing, landed again
-        // the next tick, and spent its whole bounce budget skidding: the
-        // robot's charged shot died 120 px out (2026-10-21, Jon: "the robot's
-        // projectile doesn't seem to do damage anymore"). It leaves the floor
-        // at least this fast, px/s.
-        const MIN_REBOUND: f32 = 240.0;
         let down = projectile_down(gravity_dir);
         let body_aabb = body.aabb();
         body.pos += down * (block_aabb.head_coord(down) - SETTLE_LIFT - body_aabb.feet_coord(down));
         let toward_feet = body.vel.dot(down).max(0.0);
         let side = body.vel - down * body.vel.dot(down);
-        body.vel = side - down * (toward_feet * RESTITUTION).max(MIN_REBOUND);
+        body.vel = side - down * (toward_feet * self.rebound.restitution).max(self.rebound.min_speed);
         self.bounces_remaining -= 1;
     }
 
@@ -434,6 +460,7 @@ mod tests {
                 accel: Vec2::ZERO,
                 hits_cleared_on_leg: 0,
                 splash_half_extent: 0.0,
+                rebound: Rebound::default(),
             },
         }
     }

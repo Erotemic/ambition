@@ -338,8 +338,9 @@ mod tests {
             // of GNU-ton's blows in his fight (the glint, the streak, the
             // quake of the hammer, the impact), plus five more of his fight
             // (two blows that meet, his power, the launch, a push in space,
-            // the golden apple of its end).
-            211,
+            // the golden apple of its end), plus the four of what becomes of a
+            // shot (hit, turned, went out) and the glint of a guard.
+            215,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
 

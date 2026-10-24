@@ -29,7 +29,7 @@ pub use entity::{
     FiredByMoveInstance, LiveProjectile, ProjectileLaunch, ProjectileOwner, ProjectileSeq,
     ProjectileSeqCounter, WeaponShot,
 };
-pub use kind::{FireballChargeTuning, ProjectileKind};
+pub use kind::{FireballChargeTuning, FireballFlight, ProjectileKind};
 pub use materialize::{
     materialize_projectiles_for_next_tick, materialize_projectiles_for_this_tick,
 };
@@ -46,7 +46,7 @@ pub use visual::{
 // Keep all producers on the shared projectile-physics primitive through this facade.
 pub use ambition_platformer2d_shared_tangle::projectile::{
     block_obstructs_shot, resolve_world_collision, InFlightProjectile, ProjectileBody,
-    ProjectileGameplay, ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
+    ProjectileGameplay, ProjectileSolidHit, ProjectileSpec, Rebound, WorldHitOutcome, WorldHitPolicy,
 };
 pub use ambition_projectile_spec::ProjectileSpawn;
 

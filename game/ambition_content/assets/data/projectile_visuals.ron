@@ -95,7 +95,12 @@
         rotation: VelocityAligned,
         debug_tint: (1.0, 0.74, 0.3, 1.0),
         label: "fireball",
-        expiry_vfx: None,
+        // What became of the shot, at a glance (`projectile_outcomes`): it
+        // went out (its range, a wall, its last bounce), it landed, or a
+        // guard turned it.
+        expiry_vfx: Some((fx: "fireball_fizzle", scale: 0.8)),
+        hit_vfx: Some((fx: "fireball_hit", scale: 1.0)),
+        deflect_vfx: Some((fx: "fireball_deflect", scale: 1.0)),
     ),
     // The robot's fireball charged (Jon, 2026-10-21: "I want to make
     // everything about it look nicer"): a bigger comet in a halo of flame, and
@@ -112,10 +117,12 @@
         rotation: VelocityAligned,
         debug_tint: (1.0, 0.8, 0.35, 1.0),
         label: "fireball_charged",
-        expiry_vfx: Some((
-            fx: "classic_burst",
-            scale: 0.55,
-        )),
+        // What became of the shot, at a glance (`projectile_outcomes`): it
+        // went out (its range, a wall, its last bounce), it landed, or a
+        // guard turned it.
+        expiry_vfx: Some((fx: "fireball_fizzle", scale: 1.1)),
+        hit_vfx: Some((fx: "fireball_hit", scale: 1.4)),
+        deflect_vfx: Some((fx: "fireball_deflect", scale: 1.3)),
     ),
     // Fully charged: a white-hot comet wrapped in crackling arcs, a long tail.
     "fireball_overcharged": (
@@ -130,10 +137,12 @@
         rotation: VelocityAligned,
         debug_tint: (1.0, 0.95, 0.6, 1.0),
         label: "fireball_overcharged",
-        expiry_vfx: Some((
-            fx: "classic_burst",
-            scale: 0.9,
-        )),
+        // What became of the shot, at a glance (`projectile_outcomes`): it
+        // went out (its range, a wall, its last bounce), it landed, or a
+        // guard turned it.
+        expiry_vfx: Some((fx: "fireball_fizzle", scale: 1.4)),
+        hit_vfx: Some((fx: "fireball_hit", scale: 1.9)),
+        deflect_vfx: Some((fx: "fireball_deflect", scale: 1.6)),
     ),
     // The robot's charge at its hand while the button is held, by tier: an
     // ember that draws sparks in, an orb in a ring of sparks, a white-hot

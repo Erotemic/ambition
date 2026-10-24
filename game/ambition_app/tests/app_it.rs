@@ -41,6 +41,7 @@ mod a_home_body_is_built_for_a_seat;
 mod a_joined_seat_has_a_view_and_a_hud;
 mod a_fireball_leaves_the_hand;
 mod the_robots_fireball_against_the_mockingbird;
+mod the_robots_fireball_hops;
 mod every_hit_on_a_sandbag_lands_under_rollback;
 mod a_hand_muzzle_fires_from_the_drawn_hand;
 mod a_pet_hand_meets_the_contact_point;

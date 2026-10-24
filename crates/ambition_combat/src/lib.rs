@@ -67,6 +67,7 @@ pub mod room_rules;
 pub mod rules;
 mod snapshot_impls;
 pub mod scoped_rules;
+pub mod shot_birth;
 pub mod governing_rules;
 pub mod stale;
 pub mod stocks;

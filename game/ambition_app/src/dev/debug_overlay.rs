@@ -175,7 +175,7 @@ pub(crate) fn draw_debug_overlay(
             Without<ambition_platformer2d::actor::FeatureSimEntity>,
         ),
     >,
-    feature_q: FeatureDebugQueries,
+    mut feature_q: FeatureDebugQueries,
     #[cfg(feature = "portal")] portals: Query<&ambition_platformer2d::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
@@ -304,14 +304,15 @@ pub(crate) fn draw_debug_overlay(
             &developer_tools,
             &mut overlay_labels,
         );
-        draw_projectile_debug(
-            &mut gizmos,
-            world,
-            feature_q.live_projectiles.iter(),
-            &developer_tools,
-        );
         #[cfg(feature = "portal")]
         draw_portals(&mut gizmos, world, portals.iter());
+    }
+    // What decides a blow, with the combat geometry it labels: the shots in
+    // flight and where they bounced, and each body's side, health,
+    // invulnerability and guard.
+    if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox || developer_tools.show_combat_preview {
+        draw_projectile_debug(&mut gizmos, world, &mut feature_q, &developer_tools, &mut overlay_labels);
+        label_combat_properties(&feature_q, &mut overlay_labels);
     }
     // An item's box is a body's collision box, so either body layer draws it.
     if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox {

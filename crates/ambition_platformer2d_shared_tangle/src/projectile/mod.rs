@@ -7,7 +7,7 @@ pub mod collision;
 pub mod spec;
 
 pub use body::{
-    InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileHits, ProjectileSolidHit,
+    InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileHits, ProjectileSolidHit, Rebound,
 };
 pub use collision::{
     block_obstructs_shot, resolve_world_collision, shot_policy_admits, WorldHitOutcome, WorldHitPolicy,

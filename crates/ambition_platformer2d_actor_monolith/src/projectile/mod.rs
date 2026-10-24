@@ -18,8 +18,7 @@
 mod allegiance;
 pub(crate) mod feature_contact;
 pub mod intercept;
-mod shot_birth;
-pub use shot_birth::clear_of_the_feet;
+pub use ambition_combat::shot_birth::clear_of_the_feet;
 pub use allegiance::{stamp_new_projectile_allegiance, ProjectileAllegiance};
 
 pub mod systems;

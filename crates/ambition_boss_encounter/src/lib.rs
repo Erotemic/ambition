@@ -29,6 +29,7 @@ pub mod ecs;
 pub mod conduct;
 pub mod extension;
 pub mod finish;
+pub mod guard_tell;
 pub mod hall;
 mod encounter_entity;
 mod encounter_script;
@@ -214,6 +215,7 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 tick_encounter_scripts,
                 release_payloads_on_death.run_if(bevy::prelude::any_with_component::<ReleaseOnDeath>),
                 boss_phase_transition_feedback.run_if(ambition_platformer2d_core::a_message_waits::<crate::BossPhaseChanged>),
+                crate::guard_tell::boss_guard_tell.run_if(bevy::prelude::any_with_component::<BossConfig>),
             )
                 .chain()
                 .in_set(ProgressionSet::BossHazards)

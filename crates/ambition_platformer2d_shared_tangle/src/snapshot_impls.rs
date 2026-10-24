@@ -184,6 +184,10 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
         // The burst a landing deals. A peer that decoded a fireball without it
         // would land a bolt.
         put_f32(out, self.splash_half_extent);
+        // How it leaves a floor. A peer that decoded a hopping fireball
+        // without it would bounce it as a ball.
+        put_f32(out, self.rebound.restitution);
+        put_f32(out, self.rebound.min_speed);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
@@ -196,6 +200,10 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
             accel: r.vec2()?,
             hits_cleared_on_leg: r.u8()?,
             splash_half_extent: r.f32()?,
+            rebound: crate::projectile::Rebound {
+                restitution: r.f32()?,
+                min_speed: r.f32()?,
+            },
         })
     }
 }

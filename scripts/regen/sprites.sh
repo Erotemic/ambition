@@ -1013,6 +1013,9 @@ tackon_targets=(
     george_booul_vfx
     oiler_vfx
     generic_explosions
+    # What became of a shot (hit, turned, went out) and the glint of a guard
+    # that turns shots.
+    projectile_outcomes
     smirking_behemoth_boss
     solid_snake
     snakes_on_a_paper_plane

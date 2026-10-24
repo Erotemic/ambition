@@ -146,7 +146,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 381 -> 382: `player.projectile_state` (`PlayerProjectileState`) encodes the
 /// shot that waits for the cooldown (`buffered`: its kind, charge tier and the
 /// time it still waits).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 382;
+/// 382 -> 383: `ProjectileGameplay` encodes how a shot leaves a floor it
+/// bounces on (`rebound`: its restitution and its least speed), so a peer
+/// flies the hops of a Mario fireball as the firer does.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 383;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

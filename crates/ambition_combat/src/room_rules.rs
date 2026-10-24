@@ -2,7 +2,7 @@
 //! rooms, as data in its pack.
 //!
 //! [`DeathRules`], [`StrikeWeightRules`], [`LandingLagRules`],
-//! [`CombatRules`], [`DormancyRule`] and [`Corpse`] are rules that each game states for its own rooms (ADR
+//! [`CombatRules`], [`DormancyRule`], [`Corpse`] and [`FireballFlight`] are rules that each game states for its own rooms (ADR
 //! 0033). They were Rust
 //! constants in each game's plugin, so a change to one number (a feel call
 //! such as Ambition's landing-lag share) was a relink of the host and a
@@ -34,6 +34,7 @@ use crate::landing_lag::LandingLagRules;
 use crate::rules::CombatRules;
 use crate::scoped_rules::{DeclareRulesExt as _, DeclaredRules, RulesScope};
 use crate::strike_weight::StrikeWeightRules;
+use ambition_projectiles::FireballFlight;
 
 /// The capability that owns this schema.
 pub const ROOM_RULES_CAPABILITY: &str = "combat";
@@ -78,6 +79,10 @@ struct AuthoredRoomRules {
     /// kill beat.
     #[serde(default)]
     kill_beat: Option<KillBeat>,
+    /// How the game's fireball flies. Absent: the fireball of
+    /// `ProjectileKind::spec`.
+    #[serde(default)]
+    fireball: Option<FireballFlight>,
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
@@ -90,6 +95,7 @@ pub struct RoomRules {
     pub dormancy: Option<DormancyRule>,
     pub corpses: Option<Corpse>,
     pub kill_beat: Option<KillBeat>,
+    pub fireball: Option<FireballFlight>,
 }
 
 impl AuthoredRoomRules {
@@ -135,6 +141,9 @@ impl AuthoredRoomRules {
                 ));
             }
         }
+        if let Some(fireball) = &self.fireball {
+            problems.extend(fireball.problems());
+        }
         problems
     }
 
@@ -147,6 +156,7 @@ impl AuthoredRoomRules {
             dormancy: self.hostile_wake_radius.map(|hostile_wake_radius| DormancyRule { hostile_wake_radius }),
             corpses: self.corpses,
             kill_beat: self.kill_beat,
+            fireball: self.fireball,
         }
     }
 }
@@ -246,8 +256,8 @@ pub fn room_rules_schema() -> SchemaRegistration {
         capability: CapabilityId::new(ROOM_RULES_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
         doc: "One game's rules for its own rooms: the death replay, the heavy-hit line, \
-              the landing-lag share, the combat rules and the hostile wake radius. An absent \
-              field declares nothing.",
+              the landing-lag share, the combat rules, the hostile wake radius and how the \
+              fireball flies. An absent field declares nothing.",
         handler: Arc::new(RoomRulesSchema),
     }
 }
@@ -274,6 +284,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     }
     if let Some(kill_beat) = rules.kill_beat {
         app.declare_rules(scope, kill_beat);
+    }
+    if let Some(fireball) = rules.fireball {
+        app.declare_rules(scope, fireball);
     }
 }
 
@@ -303,6 +316,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<KillBeat>::default)
         .restate(scope, rules.kill_beat);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<FireballFlight>::default)
+        .restate(scope, rules.fireball);
 }
 
 #[cfg(test)]

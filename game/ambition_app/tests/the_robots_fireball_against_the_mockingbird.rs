@@ -352,3 +352,52 @@ fn a_fireball_takes_its_damage_from_the_winded_mockingbird() {
         assert_eq!(taken, expected, "a fireball held {hold} ticks (tier {tier}) took {taken}, not its {expected}");
     }
 }
+
+/// The authored effects asked for over `ticks` ticks while the player stands
+/// `standoff` off the bird's hurt box and taps the fireball once.
+fn effects_of_a_tap(sim: &mut Platformer2dSimHarness, standoff: f32, ticks: u32) -> Vec<ambition_platformer2d::vfx::FxId> {
+    use ambition_platformer2d::vfx::FxRequest;
+    let hurt = bird(sim).hurt.expect("a damageable part");
+    let (at, facing) = beside_it(sim, hurt, standoff);
+    let mut cursor = bevy::ecs::message::MessageCursor::<FxRequest>::default();
+    let mut seen = Vec::new();
+    let mut tap = tap_every(1000);
+    for tick in 0..ticks {
+        hold_player(sim, at, facing);
+        sim.step(tap(tick));
+        let messages = sim.world().resource::<Messages<FxRequest>>();
+        seen.extend(cursor.read(messages).map(|request| request.fx));
+    }
+    seen
+}
+
+/// What became of a shot is said by its look: a fireball on the guarded hull
+/// shows the deflect spark, and on the winded bird the hit burst. And while
+/// the guard is up, its glint plays over the hull; while it hangs winded it
+/// does not.
+#[test]
+fn a_fireball_shows_whether_the_hull_turned_it_and_the_guard_glints_while_up() {
+    use ambition_platformer2d::vfx::FxId;
+    let (hit, deflect, glint) = (FxId::new("fireball_hit"), FxId::new("fireball_deflect"), FxId::new("boss_guard_glint"));
+    let mut sim = sky();
+    let mut guarded = false;
+    for _ in 0..60 * 6 {
+        let b = bird(&mut sim);
+        if b.guarded && !b.stunned {
+            guarded = true;
+            break;
+        }
+        sim.step(AgentAction::default());
+    }
+    assert!(guarded, "precondition: it held its side with its guard up");
+    let up = effects_of_a_tap(&mut sim, 60.0, 50);
+    assert!(up.contains(&deflect), "a shot on the guarded hull showed no deflect spark");
+    assert!(!up.contains(&hit), "a shot on the guarded hull showed the hit burst");
+    assert!(up.contains(&glint), "the guard was up and did not glint");
+
+    until_it_hangs_winded(&mut sim);
+    let open = effects_of_a_tap(&mut sim, 60.0, 50);
+    assert!(open.contains(&hit), "a shot on the winded bird showed no hit burst");
+    assert!(!open.contains(&deflect), "a shot on the winded bird showed the deflect spark");
+    assert!(!open.contains(&glint), "the guard was down and it glinted");
+}

@@ -24,4 +24,21 @@
     // blow, and the screen shakes a little (Jon, 2026-10-18: playing through
     // a level was not satisfying).
     kill_beat: Some((freeze_s: 0.083, shake_px: 4.0)),
+    // The robot's fireball flies as Mario's does (Jon, 2026-10-24: "The
+    // fireball should feel like a mario fireball in terms of how it
+    // bounces"). Super Mario Bros.' numbers, at 60 frames a second, scaled by
+    // 1.5 (big Mario is 32 px tall, the robot 48): forward 4 px a frame, down
+    // 3 px a frame from the hand, gravity 0.3125 px a frame squared, and each
+    // hop off the floor at 3 px a frame. So it falls to the floor 30 to 40 px
+    // out and hops 22 px high (its top 40 px up), under the head of a body the
+    // robot's height, for 1.2 s: about 430 px. A wall, the ninth floor or the
+    // end of its time puts it out.
+    fireball: Some((
+        speed: 360.0,
+        launch_drop: 270.0,
+        gravity: 1688.0,
+        hop_speed: 270.0,
+        bounces: 8,
+        lifetime_s: 1.2,
+    )),
 )

@@ -27,6 +27,7 @@ fn straight_projectile() -> ProjectileGameplay {
         accel: ambition_platformer2d_core::Vec2::ZERO,
         hits_cleared_on_leg: 0,
         splash_half_extent: 0.0,
+        rebound: Default::default(),
     }
 }
 

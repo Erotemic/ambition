@@ -24,6 +24,21 @@ pub(super) fn handle_debug_hotkeys(
     for action in actions.read() {
         match action {
             DeveloperAction::ToggleDebugOverlay => dev_state.debug = !dev_state.debug,
+            DeveloperAction::ToggleCombatDebug => {
+                let showing = dev_state.debug
+                    && tools.gizmos_enabled
+                    && tools.show_feature_hitboxes
+                    && tools.debug_view_mode == ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat;
+                if showing {
+                    dev_state.debug = false;
+                } else {
+                    dev_state.debug = true;
+                    tools.gizmos_enabled = true;
+                    tools.apply_debug_view_mode(ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat, false);
+                    // Every body's and every boss's volumes, with their labels.
+                    tools.show_feature_hitboxes = true;
+                }
+            }
             DeveloperAction::ToggleSlowMotion => dev_state.slowmo = !dev_state.slowmo,
             // F3/F4 are owned by the pre-Egui developer surface in `dev/mod.rs`.
             // Handling them here as well toggles the same boolean twice in one frame,

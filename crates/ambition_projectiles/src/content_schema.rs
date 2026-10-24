@@ -48,7 +48,13 @@ fn problems(looks: &ProjectileLooks) -> Vec<String> {
             ProjectileRenderSize::FixedWidth(width) => vec![("size", width, false)],
             ProjectileRenderSize::BodyWidth { scale } => vec![("size.scale", scale, false)],
         };
-        let burst = art.expiry_vfx.map(|burst| ("expiry_vfx.scale", burst.scale, false));
+        let burst = [
+            art.expiry_vfx.map(|burst| ("expiry_vfx.scale", burst.scale, false)),
+            art.hit_vfx.map(|burst| ("hit_vfx.scale", burst.scale, false)),
+            art.deflect_vfx.map(|burst| ("deflect_vfx.scale", burst.scale, false)),
+        ]
+        .into_iter()
+        .flatten();
         problems.extend(
             sizes
                 .into_iter()

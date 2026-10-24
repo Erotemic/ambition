@@ -29,6 +29,12 @@ pub enum DeveloperAction {
     /// peak-hold. Toggling also RESETS the peaks — see the app-side
     /// `gamepad_probe` overlay for why the peak is the measurement.
     ToggleGamepadProbe,
+    /// Show what takes part in a blow: the debug overlay in its combat view,
+    /// with every body's hurtboxes, the live hitboxes, each boss's guard, the
+    /// shots in flight and where they bounced, and a label of each one's
+    /// faction, guard, invulnerability and damage. Pressed again, it hides
+    /// the overlay.
+    ToggleCombatDebug,
 }
 
 /// One exact keyboard chord. Extra modifiers suppress a match so `F8` and
@@ -106,6 +112,12 @@ impl Default for DeveloperHotkeyBindings {
             DeveloperHotkeyBinding {
                 action: A::ToggleDebugOverlay,
                 chord: C::key(KeyCode::F1),
+            },
+            // Beside the overlay it is a view of: F1 shows the overlay as set,
+            // Shift+F1 shows it in its combat view.
+            DeveloperHotkeyBinding {
+                action: A::ToggleCombatDebug,
+                chord: C::shift(KeyCode::F1),
             },
             DeveloperHotkeyBinding {
                 action: A::ToggleSlowMotion,

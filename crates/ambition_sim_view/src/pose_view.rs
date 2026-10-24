@@ -261,6 +261,10 @@ pub struct BodyPoseView {
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
+    /// Where the charge hangs while it is held, from the body's centre (world
+    /// units, world axes): the centre of the shot it will fire, so the charge
+    /// is drawn where the shot appears (`ambition_combat::shot_birth`).
+    pub charge_offset: Option<ambition_platformer2d_core::Vec2>,
     /// This body's SMASH CHARGE, `None` when it is not charging.
     ///
     /// Normalized `0..=1`: it appears when the hold latches, rises to `1.0` at
@@ -389,6 +393,7 @@ impl Default for BodyPoseView {
             grab_reach: None,
             line_anchor: None,
             charge_tier: None,
+            charge_offset: None,
             move_charge: None,
             authored_render: None,
             authored_offset: None,
@@ -414,6 +419,8 @@ pub fn rebuild_body_pose_views(
     registry: ambition_characters::prepared::SessionCast,
     // The clock of the turn (`BodyPoseView::turn_secs`).
     time: Option<Res<bevy::prelude::Time>>,
+    // Where a charging body's shot is born, so its charge is drawn there.
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     mut bodies: Query<
         (
             (
@@ -727,6 +734,31 @@ pub fn rebuild_body_pose_views(
                 before
             }
         };
+        let charge_tier = projectile_state
+            .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold)));
+        // The charge hangs where its shot will be born: the fireball of this
+        // tier, aimed as the stick aims now.
+        let charge_offset = charge_tier.map(|tier| {
+            use ambition_projectiles::ProjectileKind::Fireball;
+            let half_extent = Fireball
+                .charged_spec(Fireball.spec(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::X, 1.0), tier)
+                .half_extent;
+            let facing = if kinematics.facing.abs() < f32::EPSILON { 1.0 } else { kinematics.facing.signum() };
+            let aim = control.map_or(ambition_platformer2d_core::Vec2::ZERO, |control| control.0.aim.vec());
+            let basis = body_frame.map_or_else(
+                || ambition_platformer2d_core::AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR),
+                |f| f.basis(),
+            );
+            ambition_combat::shot_birth::charge_shot_birth(
+                &landmarks,
+                entity,
+                kinematics,
+                |local| basis.to_world(local),
+                gravity_dir,
+                ambition_combat::shot_birth::local_fire_dir(aim, facing),
+                half_extent,
+            ) - kinematics.pos
+        });
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
@@ -877,8 +909,8 @@ pub fn rebuild_body_pose_views(
                         )
                 })
             }),
-            charge_tier: projectile_state
-                .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
+            charge_tier,
+            charge_offset,
             move_charge: charge,
             authored_render: sheet_authored_body
                 .then(|| authored_render.map(|r| r.0))

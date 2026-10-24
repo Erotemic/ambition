@@ -110,6 +110,16 @@ const ROLE_OVERLAY: f32 = 2.0;
 const ROLE_UNDERSIDE: f32 = 3.0;
 const ROLE_PORTAL: f32 = 4.0;
 
+/// The plane distances between which the front is unsettled: past them the
+/// overlay draws nothing (`look_is_settled`). The same numbers as
+/// `LOOK_SURELY_CLEAN` and `LOOK_SURELY_CORRUPT` in `room_look_common.wgsl`;
+/// `the_band_bounds_are_the_shaders` reads both.
+const LOOK_SURELY_CLEAN: f32 = -560.0;
+const LOOK_SURELY_CORRUPT: f32 = 740.0;
+/// How far past the band the overlay's mesh reaches, so a pixel whose centre
+/// is in the band is never left out by the rasterizer.
+const BAND_MARGIN: f32 = 2.0;
+
 /// The block kinds a look draws, as the shader reads them.
 const KIND_SOLID: f32 = 0.0;
 const KIND_ONE_WAY: f32 = 1.0;
@@ -763,6 +773,72 @@ fn retire_looks_out_of_budget(
     }
 }
 
+/// The overlay's quad of a look with a front, cut to the front's unsettled
+/// band: the room and its pad (`BACKDROP_PAD`) where the plane distance is in
+/// `LOOK_SURELY_CLEAN..=LOOK_SURELY_CORRUPT`, with `BAND_MARGIN`. The overlay
+/// shader returns nothing outside the band, so the cut draws the same picture
+/// with fewer fragments, and none in a room whose front is out of it, where
+/// the full quad blended a transparent room-sized layer each frame (F46 cut
+/// 3). `None` when the band misses the quad. Vertices are local to the room's
+/// centre, in Bevy's axes (y up), as a fan of the convex polygon.
+fn overlay_band(world: &ae::World, front: Vec4) -> Option<Vec<[f32; 3]>> {
+    let (w, h) = (world.size.x, world.size.y);
+    let pad = BACKDROP_PAD;
+    let mut polygon = vec![
+        Vec2::new(-pad, -pad),
+        Vec2::new(w + pad, -pad),
+        Vec2::new(w + pad, h + pad),
+        Vec2::new(-pad, h + pad),
+    ];
+    let at = Vec2::new(front.x, front.y);
+    let normal = Vec2::new(front.z, front.w);
+    let plane = |p: Vec2| (p - at).dot(normal);
+    // Keep `plane >= lo`, then `plane <= hi` (Sutherland-Hodgman, one edge each).
+    for (sign, bound) in [(1.0, LOOK_SURELY_CLEAN - BAND_MARGIN), (-1.0, -(LOOK_SURELY_CORRUPT + BAND_MARGIN))] {
+        let inside = |p: Vec2| sign * plane(p) >= bound;
+        let mut kept = Vec::with_capacity(polygon.len() + 2);
+        for (i, &a) in polygon.iter().enumerate() {
+            let b = polygon[(i + 1) % polygon.len()];
+            if inside(a) {
+                kept.push(a);
+            }
+            if inside(a) != inside(b) {
+                let (da, db) = (sign * plane(a) - bound, sign * plane(b) - bound);
+                kept.push(a + (b - a) * (da / (da - db)));
+            }
+        }
+        polygon = kept;
+        if polygon.len() < 3 {
+            return None;
+        }
+    }
+    let local = |p: Vec2| [p.x - w * 0.5, h * 0.5 - p.y, 0.0];
+    let mut fan = Vec::with_capacity((polygon.len() - 2) * 3);
+    for i in 1..polygon.len() - 1 {
+        fan.extend([local(polygon[0]), local(polygon[i]), local(polygon[i + 1])]);
+    }
+    Some(fan)
+}
+
+/// The mesh of an overlay band: its triangles, with the normal and the UVs a
+/// 2D mesh pipeline expects (the overlay shader reads the world position only).
+fn overlay_band_mesh(vertices: Vec<[f32; 3]>) -> Mesh {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::mesh::{Indices, PrimitiveTopology};
+    let count = vertices.len();
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; count]);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; count]);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    mesh.insert_indices(Indices::U32((0..count as u32).collect()));
+    mesh
+}
+
+/// The overlay quad of a look with a front: its mesh is [`overlay_band`],
+/// remade when the front moves.
+#[derive(Component)]
+struct RoomLookOverlay;
+
 /// The unit quad every piece of a look scales.
 #[derive(Resource)]
 struct RoomLookQuad(Handle<Mesh>);
@@ -1048,6 +1124,8 @@ fn spread_room_states(
     mut sky_materials: Option<ResMut<Assets<RoomSkyMaterial>>>,
     fields: Res<FrontFields>,
     mut field_materials: Option<ResMut<Assets<RoomFrontFieldMaterial>>>,
+    mut overlays: Query<(&InRoomInstance, &Mesh2d, &mut Visibility), With<RoomLookOverlay>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
 ) {
     for (stamp, mut spread) in &mut spreads {
         let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
@@ -1064,6 +1142,21 @@ fn spread_room_states(
         let step = SPREAD_SPEED * time.delta_secs();
         spread.advance += (wanted - spread.advance).clamp(-step, step);
         let front = room_front(&spec.world, spread.advance);
+        if let Some(meshes) = meshes.as_deref_mut() {
+            let band = overlay_band(&spec.world, front);
+            for (overlay_stamp, mesh, mut visibility) in &mut overlays {
+                if overlay_stamp.0 != stamp.0 {
+                    continue;
+                }
+                let wanted = if band.is_some() { Visibility::Inherited } else { Visibility::Hidden };
+                if *visibility != wanted {
+                    *visibility = wanted;
+                }
+                if let (Some(vertices), Some(mut mesh)) = (band.clone(), meshes.get_mut(&mesh.0)) {
+                    *mesh = overlay_band_mesh(vertices);
+                }
+            }
+        }
         if let (Some(field), Some(field_materials)) = (fields.0.get(&stamp.0), field_materials.as_deref_mut()) {
             if let Some(mut material) = field_materials.get_mut(&field.material) {
                 material.front = front;
@@ -1256,16 +1349,45 @@ fn present_room_look<M: RoomLook>(
                 None,
             );
         }
-        spawn(
-            "room look overlay".to_string(),
-            Vec2::ZERO,
-            room_size,
-            BACKDROP_PAD,
-            ROLE_OVERLAY,
-            KIND_SOLID,
-            OVERLAY_Z,
-            None,
-        );
+        if M::HAS_FRONT {
+            // Cut to the front's band (`overlay_band`), not scaled from the unit quad.
+            let band = overlay_band(world, front);
+            let visibility = if band.is_some() { Visibility::Inherited } else { Visibility::Hidden };
+            let mesh = meshes.add(overlay_band_mesh(band.unwrap_or_default()));
+            commands.spawn_session_scoped(
+                scope,
+                (
+                    Mesh2d(mesh),
+                    MeshMaterial2d(materials.add(M::window(
+                        Vec4::new(0.0, 0.0, room_size.x, room_size.y),
+                        Vec4::new(world.size.x, world.size.y, ROLE_OVERLAY, KIND_SOLID),
+                        front,
+                        &field,
+                    ))),
+                    Transform::from_translation(world_to_bevy(
+                        world,
+                        ae::Vec2::new(room_size.x * 0.5, room_size.y * 0.5),
+                        OVERLAY_Z,
+                    )),
+                    visibility,
+                    Name::new("room look overlay"),
+                    RoomLookOverlay,
+                    RoomVisual,
+                    PresentedRoomLook,
+                ),
+            );
+        } else {
+            spawn(
+                "room look overlay".to_string(),
+                Vec2::ZERO,
+                room_size,
+                BACKDROP_PAD,
+                ROLE_OVERLAY,
+                KIND_SOLID,
+                OVERLAY_Z,
+                None,
+            );
+        }
         if M::SKY_IS_AUTHORED_LAYERS {
             if let Some(material) = sky.corrupted_over_clean(room_size, front) {
                 let size = room_size + Vec2::splat(BACKDROP_PAD * 2.0);
@@ -1470,5 +1592,68 @@ mod tests {
         *app.world_mut().resource_mut::<RoomLookDepth>() = RoomLookDepth { fog: 7.0, fog_patches: -1.0 };
         app.update();
         assert_eq!(depth_of(&app), Vec4::new(1.0, 0.0, 0.0, 0.0));
+    }
+
+    /// The band's bounds are the shader's: a cut narrower than the shader's
+    /// band would leave out pixels the overlay draws.
+    #[test]
+    fn the_band_bounds_are_the_shaders() {
+        let common = include_str!("shaders/room_look_common.wgsl");
+        for (name, value) in [("LOOK_SURELY_CLEAN", LOOK_SURELY_CLEAN), ("LOOK_SURELY_CORRUPT", LOOK_SURELY_CORRUPT)] {
+            let line = common
+                .lines()
+                .find(|line| line.trim_start().starts_with(&format!("const {name}:")))
+                .unwrap_or_else(|| panic!("{name} is not in room_look_common.wgsl"));
+            let stated: f32 = line.split('=').nth(1).unwrap().trim().trim_end_matches(';').parse().unwrap();
+            assert_eq!(stated, value, "{name}");
+        }
+    }
+
+    /// The overlay's band holds every point of its quad that the front leaves
+    /// unsettled, at each advance the hub's front takes, and is gone where
+    /// the front settles the whole quad. A pixel outside the band is one the
+    /// shader draws nothing at, so the cut changes no pixel.
+    #[test]
+    fn the_overlay_band_holds_every_unsettled_point_and_only_those() {
+        let world = ae::World::new("hub", ae::Vec2::new(1900.0, 1100.0), ae::Vec2::ZERO, Vec::new());
+        let inside = |fan: &[[f32; 3]], q: Vec2| {
+            fan.chunks(3).any(|t| {
+                let (a, b, c) = (Vec2::new(t[0][0], t[0][1]), Vec2::new(t[1][0], t[1][1]), Vec2::new(t[2][0], t[2][1]));
+                let side = |u: Vec2, v: Vec2| (v - u).perp_dot(q - u);
+                let (d1, d2, d3) = (side(a, b), side(b, c), side(c, a));
+                !((d1 < 0.0 || d2 < 0.0 || d3 < 0.0) && (d1 > 0.0 || d2 > 0.0 || d3 > 0.0))
+            })
+        };
+        let full = full_advance(&world);
+        let mut checked = 0;
+        for advance in [-full, -full * 0.5, -300.0, 0.0, 300.0, full * 0.5, full] {
+            let front = room_front(&world, advance);
+            let band = overlay_band(&world, front);
+            let (at, normal) = (Vec2::new(front.x, front.y), Vec2::new(front.z, front.w));
+            let pad = BACKDROP_PAD;
+            let mut x = -pad;
+            while x <= world.size.x + pad {
+                let mut y = -pad;
+                while y <= world.size.y + pad {
+                    let p = Vec2::new(x, y);
+                    let plane = (p - at).dot(normal);
+                    let local = Vec2::new(p.x - world.size.x * 0.5, world.size.y * 0.5 - p.y);
+                    let unsettled = (LOOK_SURELY_CLEAN..=LOOK_SURELY_CORRUPT).contains(&plane);
+                    if unsettled {
+                        let fan = band.as_ref().unwrap_or_else(|| panic!("advance {advance}: no band, but {p} is unsettled"));
+                        assert!(inside(fan, local), "advance {advance}: {p} (plane {plane}) is unsettled and outside the band");
+                        checked += 1;
+                    } else if let Some(fan) = &band {
+                        let far = plane < LOOK_SURELY_CLEAN - BAND_MARGIN - 1.0 || plane > LOOK_SURELY_CORRUPT + BAND_MARGIN + 1.0;
+                        assert!(!(far && inside(fan, local)), "advance {advance}: {p} (plane {plane}) is settled and inside the band");
+                    }
+                    y += 37.0;
+                }
+                x += 37.0;
+            }
+        }
+        assert!(checked > 1000, "premise: the sweep met unsettled points ({checked})");
+        // The clean extreme settles the whole quad.
+        assert!(overlay_band(&world, room_front(&world, -full - 2.0 * BACKDROP_PAD)).is_none());
     }
 }

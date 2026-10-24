@@ -28,7 +28,7 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 00:50Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-24 01:32Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,063 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
@@ -137,6 +137,7 @@ says what they bought in frame time.
 | Lit fuses (bomb, gravity grenade), temporary gravity zones and respawn grace tick while one exists; stock spending peeks its knockout; the match's pace runs with an active match. The arming passes stay: they visit every ground item | done | census: Ambition route 1,074 → 1,070 systems a tick (two noise rows); Mary-O 922 unchanged; abilities 32, `smash_it` 52, app stock/bomb/grenade/versus/respawn/reconstitution 111 |
 | The wave encounter's effect and cleanup adapters run on a lifecycle event (a peek); the lock walls contribute while a lock wall exists. Checked first: the overlay rebuild clears every contribution each tick (`clear_engine_contributions`), so a sleeping contributor leaves nothing stale. That also clears the mount backs gated above | done | census: Ambition route 1,070 → 1,067 systems a tick (noise rows aside); encounter features 45, app encounter/wave/lock/arena/reconstitution 60 |
 | The boss animator passes (animate, demand part sheets, bind, pose) run while a `BossAnimator` exists: each loops over it alone. The stage veil, name card, finish bars and health bar stay: they fade or retire their UI after a boss leaves | done | census: Ambition route 1,067 → 1,063 systems a tick; render boss tests 5; a capture of GNU-ton's arena draws the giant and GNU-ton |
+| F46 cut 3: the hub look's overlay draws only the front's unsettled band (a mesh cut to the band, hidden when the room is settled). Exact: outside the band the shader returned zero alpha | done | hub capture against the pre-cut binary: 4 px differ by ≤1 level (run-to-run noise ~2,600 px); room_look witnesses 2 new, 5 pass; GPU fragment saving REASONED, needs the phone |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 
@@ -234,6 +235,19 @@ frame (MEASURED, 274 and 202 windows). The phone A/B:
 still pays per pixel is noise (`look_field` in the skins' heat and wash, the
 sky's air and fog, the overlay's tears), exact only per pixel; cutting it
 further is an approximation and Jon's call.
+
+**Cut 3 done (2026-10-24):** the overlay of a look with a front draws only
+its unsettled band: its mesh is the room and its pad cut to
+`LOOK_SURELY_CLEAN..=LOOK_SURELY_CORRUPT` (plus 2 px), remade when the front
+moves, and hidden when the band misses the quad (a room the lever settled).
+Outside the band the shader returned zero alpha, so the picture is the same.
+MEASURED: hub captures at `high`, the pre-cut binary against the cut: 4 pixels of
+921,600 differ, by at most 1 level, while two runs of either binary differ by
+about 2,600 (the tears and bobbing blocks animate). Witnesses: the band holds
+every unsettled point of the quad at seven advances and no far-settled one, and the
+band bounds equal the shader's. REASONED, not measured on a device: the
+fragments saved are the settled share of the quad; in the all-corrupted hub, the case Jon
+measured at 30-40 FPS, the overlay's room-sized alpha-blended layer is gone.
 
 The test that confirms the cause on a device: the hub with screen shaders
 off (`budget.shaders`) against on; the look is built to read the same off

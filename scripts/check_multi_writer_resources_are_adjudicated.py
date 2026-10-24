@@ -308,10 +308,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "CausalRecording": (
         "crates/ambition_combat/src/causal.rs",
         "crates/ambition_combat/src/moveset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/causal.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs",
         "crates/ambition_platformer2d_runtime/src/causal.rs",
+        "crates/ambition_platformer2d_runtime/src/causal/recorders.rs",
         "game/ambition_app_tools/src/bin/moveset_takes.rs",
         "game/ambition_app_tools/src/bin/rl_random_walker.rs",
         "game/ambition_demo_smash_app/src/tools/ladder_probe.rs",

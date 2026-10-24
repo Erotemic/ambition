@@ -172,6 +172,30 @@ impl Plugin for PlayerSchedulePlugin {
                 .chain()
                 .in_set(PlayerInputSet::Brain),
         );
+        // The body recorders, each where it reads what it explains.
+        #[cfg(feature = "causal")]
+        {
+            use ambition_platformer2d_shared_tangle::schedule::{CombatSet, WorldPrepSet};
+            app.add_systems(
+                sim,
+                (
+                    // After publication and before the control gate: it reads
+                    // this tick's published `ActorControl`, not the previous
+                    // tick's frame and not the gated one.
+                    crate::causal::record_body_control_frame
+                        .after(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Publish)
+                        .before(PlayerInputSet::ControlGate),
+                    // Movement operations are published during integration; no
+                    // ordering against post-integration projection.
+                    crate::causal::record_movement_operations.in_set(WorldPrepSet::AfterIntegrate),
+                    // `Settle` reads this tick's damage outcome rather than
+                    // producing it, which is what an explanation of it is.
+                    (crate::causal::record_hit_resolutions, crate::causal::record_hit_reactions)
+                        .chain()
+                        .in_set(CombatSet::Settle),
+                ),
+            );
+        }
         app.add_systems(
             sim,
             (

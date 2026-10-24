@@ -138,9 +138,14 @@ pub fn record_execution_identity(log: Option<ResMut<CausalRecording>>) {
     );
 }
 
-/// The movement-intent observer, re-exported so a host installs the plugin and
-/// the publishers through ONE path and cannot get half of them.
-pub use ambition_platformer2d_actor_monolith::causal::{record_body_control_frame, record_player_movement_intent};
+/// The recorders of the simulation's bodies, installed beside the plugin
+/// (`player_schedule`) so a host gets the plugin and the publishers through ONE
+/// path and cannot get half of them.
+mod recorders;
+pub use recorders::{
+    record_body_control_frame, record_hit_reactions, record_hit_resolutions, record_movement_operations,
+    record_player_movement_intent,
+};
 
 /// Turn the off-thread loss counter into a failure.
 ///

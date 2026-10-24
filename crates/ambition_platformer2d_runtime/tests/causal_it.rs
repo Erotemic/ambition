@@ -179,9 +179,9 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
             // The host's own fact, and the three domains', in the set the
             // sim schedule puts them in — after the stamp.
             record_execution_identity,
-            ambition_platformer2d_actor_monolith::causal::record_hit_resolutions,
+            ambition_platformer2d_runtime::causal::record_hit_resolutions,
             ambition_combat::causal::record_stock_lifecycle,
-            ambition_platformer2d_actor_monolith::causal::record_player_movement_intent,
+            ambition_platformer2d_runtime::causal::record_player_movement_intent,
         )
             .in_set(RecordingSet::Publish),
     );
@@ -299,7 +299,7 @@ fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses
     record_domains(&mut app, RecordingPolicy::All);
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::causal::record_body_control_frame
+        ambition_platformer2d_runtime::causal::record_body_control_frame
             .in_set(RecordingSet::Publish),
     );
 

@@ -15,7 +15,7 @@
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
 | [`body_whereabouts`](src/body_whereabouts.rs) | Where an authored body is when it is not in the room that authored it (Q38, OW3): a persistent character's durable whereabouts, and the population occurrences that live away from home. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
-| [`causal`](src/causal.rs) | This crate's causal facts. |
+| [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
 | [`character_runtime`](src/character_runtime/mod.rs) | Engine-owned character loading and materialization. |
 | [`character_sprites`](src/character_sprites/mod.rs) | Character sprite asset loading and actor/content joins. |
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Actor-side contribution to the reset/checkpoint horizon. |

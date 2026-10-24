@@ -34,7 +34,7 @@ the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
-module, the debris physics adapter, actor construction (K6, its own crate) and the gravity-zone mechanic (to the runtime; ~7,100 production lines out, by `wc -l` and the module graph
+module, the debris physics adapter, actor construction (K6, its own crate) the gravity-zone mechanic and the body causal recorders (to the runtime; ~7,800 production lines out, 60,025 left, by `wc -l` and the module graph
 at each move). Last green commit: `8aae83270` (full `app_it` 1,304 of 1,304 run, app 253, Mary-O 204; F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`). The `ambition_content` `worlds::tests` red since `0d4b5f656` are green again (`bb99b17fc`).
 Waiting on: a phone profile of a build with these slices, the measurement that
 says what they bought in frame time.
@@ -146,6 +146,7 @@ says what they bought in frame time.
 | The boss encounter sim passes run on their subject: finish slow motion and the encounter wrap on a `BossConfig`, hazards on a `FallingHazard`, payloads on `ReleaseOnDeath`, peeks on `BossPhaseChanged` and `MountDied`, the boss-life switch on a boss-life press, the registry fill until it is filled (`ad07994fb`) | done | census: Ambition route 1,024 → 1,015; app_it `boss` 90, `gnu_ton` 44, `canonical_reconstitution` 19 green |
 | The content portal adapters and the cut-rope room passes run on their subject: fire, pickup, drop and the sfx peek their messages, host attachment on a placed portal, the shot step on a shot; the cut-rope resets on an admitted replay, its "try again" while chosen or pending, its victory NPC while a release waits or an arena is live (`a274c338e`) | done | census: Ambition route 1,015 → 1,005; app_it `portal` 24, content `portal` 62 and `cut_rope` 7 green |
 | Social, match and item passes run on their subject: challenge, pet and wear requests and actor stimuli peek their messages, pet beats and pending challenges on their components; the stocks verdict zoom peeks `StocksMatchDecided`, respawn on `PendingRespawn`, match items with an `ActiveMatch`, held courses on `HeldCourse`, thrown impacts on `ItemStruckBody` (`00de8d98c`) | done | census: Ambition route 1,005 → 993 (11 gated, 1 noise row); Mary-O route 919; app_it pet, wear, conversation, stocks, smash 115, match 43, ride, thrown and `canonical_reconstitution` green; the `persisted_fate_is_built` challenge red is not this slice's (red with it reverted; sent to the gate lane) |
+| The causal recorders of the bodies (movement intent, control frame, movement operations, hit resolutions and reactions) leave the monolith for the runtime's causal adapter, registered beside its frame stamp; the monolith keeps `BodyMovementOps`, the message its kernel writes (`CAUSAL`) | done | monolith `causal.rs` 750 → 14 lines; no system added; runtime `causal` lib 8 + `causal_it` 6, app_it `causal` 3 (features `causal,rl_sim`) green |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

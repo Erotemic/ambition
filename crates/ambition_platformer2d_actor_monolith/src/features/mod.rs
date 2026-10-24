@@ -1031,13 +1031,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // it can sit inside the ruleset's own chain safely.
                 #[cfg(feature = "causal")]
                 ambition_combat::causal::record_stock_lifecycle,
-                // The damage observer, in the same phase: `Settle` is "reads
-                // this tick's damage outcome rather than producing it", which
-                // is exactly what an explanation of that outcome is.
-                #[cfg(feature = "causal")]
-                crate::causal::record_hit_resolutions,
-                #[cfg(feature = "causal")]
-                crate::causal::record_hit_reactions,
+                // The damage observers are the runtime's (`causal::record_hit_*`),
+                // installed in `CombatSet::Settle` after this chain.
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
@@ -1278,10 +1273,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (
                 publish_actor_decision_frames,
-                // IMMEDIATELY after publication: this instrument must read this
-                // tick's `ActorControl`, not the previous tick's frame.
-                #[cfg(feature = "causal")]
-                crate::causal::record_body_control_frame,
+                // The runtime's control-frame recorder runs IMMEDIATELY after
+                // this (`causal::record_body_control_frame`).
             )
                 .chain()
                 .in_set(ActorDecisionSet::Publish),
@@ -1414,15 +1407,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
-        );
-        #[cfg(feature = "causal")]
-        app.add_systems(
-            sim,
-            // Movement operations are published during integration. This observer
-            // has no ordering dependency on post-integration projection.
-            crate::causal::record_movement_operations.in_set(
-                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
-            ),
         );
         app.add_systems(
             sim,

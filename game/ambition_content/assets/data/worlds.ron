@@ -16,10 +16,10 @@
         (id: "world.hall_ldtk", file: "hall_of_characters.ldtk"),
         // The Math dimension: a gate in `gate_stack_lower` is the way in.
         (id: "world.math_ldtk", file: "math.ldtk"),
-        // The GNU-ton gravity handle: a remote part of the Math manifold, a
-        // level of gravity and portal puzzles with GNU-ton at its end. A door
-        // in the central hub is the way in.
-        (id: "world.gnu_ton_handle_ldtk", file: "gnu_ton_handle.ldtk"),
+        // The Science dimension: an orbital station and, at the far end of
+        // its spoke, the gravity works where GNU-ton waits. The station's
+        // gate dock and the works' orchard are its two gate arrivals.
+        (id: "world.science_ldtk", file: "science.ldtk"),
         // The Evil dimension: a gate in the central hub is the way in. Its
         // first place is Castle Godwin.
         (id: "world.evil_ldtk", file: "evil.ldtk"),

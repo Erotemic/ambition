@@ -6,8 +6,10 @@
 
 Run it from `tools/ambition_ldtk_tools`.
 
-The handle is a remote part of the Math manifold, its own world file
-(`gnu_ton_handle.ldtk`). It is a level of gravity and portal puzzles, and
+The handle is the gravity works of the Science dimension (Jon, 2026-10-24:
+GNU-ton lives in the Science dimension, with its orbital station). Its rooms
+are in that dimension's world file (`science.ldtk`), beside the station's
+(`specs/orbital_station/`). It is a level of gravity and portal puzzles, and
 GNU-ton waits at its end. Each puzzle room teaches ONE idea where a mistake
 costs nothing, tests it where a mistake costs a short walk, and then turns it
 with an idea of an earlier room. The design, room by room, is in `README.md`
@@ -39,7 +41,7 @@ if str(TOOLS) not in sys.path:
 
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
-WORLD_LDTK = default_worlds_dir() / "gnu_ton_handle.ldtk"
+WORLD_LDTK = default_worlds_dir() / "science.ldtk"
 SANDBOX_LDTK = default_worlds_dir() / "sandbox.ldtk"
 
 #: The rooms, in the order the player meets them.

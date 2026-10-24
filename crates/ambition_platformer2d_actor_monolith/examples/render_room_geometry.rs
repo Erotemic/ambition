@@ -587,6 +587,7 @@ fn sandbox_world_manifest() -> ambition_platformer2d_world::world_manifest::Worl
             ),
             source("world.hall_ldtk", "hall_of_characters.ldtk", false),
             source("world.math_ldtk", "math.ldtk", false),
+            source("world.science_ldtk", "science.ldtk", false),
             source("world.evil_ldtk", "evil.ldtk", false),
         ],
     }

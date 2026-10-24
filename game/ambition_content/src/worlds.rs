@@ -498,7 +498,7 @@ mod tests {
         assert_eq!(manifest.worlds.len(), 7);
         for (id, what) in [
             ("world.math_ldtk", "the Math dimension"),
-            ("world.gnu_ton_handle_ldtk", "the GNU-ton gravity handle"),
+            ("world.science_ldtk", "the Science dimension"),
             ("world.evil_ldtk", "the Evil dimension"),
         ] {
             assert!(manifest.worlds.iter().any(|world| world.id.as_str() == id), "{what}'s world is not in the manifest");

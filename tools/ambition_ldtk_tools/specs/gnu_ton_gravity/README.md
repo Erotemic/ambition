@@ -1,8 +1,9 @@
 # The GNU-ton gravity handle
 
-A remote part of the Math manifold, separate from Math Town: four rooms of
-gravity and portal puzzles, and GNU-ton at the end. The world file is
-`gnu_ton_handle.ldtk`. The central hub's door `gnu_ton_handle_hub_door`
+The gravity works of the Science dimension (Jon, 2026-10-24: GNU-ton lives
+in the Science dimension, with its orbital station): four rooms of gravity
+and portal puzzles, and GNU-ton at the end. The world file is
+`science.ldtk`, which holds the station's rooms too. The central hub's door `gnu_ton_handle_hub_door`
 (main floor, between the Hall of Biomes and the gate stack) leads in, both
 ways. The arena's door goes home to it.
 

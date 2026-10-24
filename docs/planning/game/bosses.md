@@ -1049,7 +1049,8 @@ bright trail, and 6 (it needs rows with one arm on and one in its line).
 
 **Placed in the main game (2026-10-23).** Jon asked for a gravity and
 portal puzzle level with GNU-ton at its end. The level is the GNU-ton
-gravity handle (`gnu_ton_handle.ldtk`, a remote part of the Math manifold):
+gravity handle, the gravity works of the Science dimension (`science.ldtk`;
+Jon, 2026-10-24: GNU-ton lives in the Science dimension, with its orbital station):
 four puzzle rooms (up fields; side fields; portals; a room that turns over)
 and his arena `gnu_ton_shoulders`. The arena is the hall's arena as it is,
 with his placement `gnu_ton_handle.gnu_ton`. A `LockWall` gated on

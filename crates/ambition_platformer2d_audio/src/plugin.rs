@@ -88,6 +88,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 audio_play_sfx_messages
+                    .run_if(ambition_audio::a_cue_waits_or_was_played)
                     .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Observe the player's WaterContact and request the matching

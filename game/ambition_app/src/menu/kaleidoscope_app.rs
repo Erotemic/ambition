@@ -386,7 +386,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
-                cycle_dev_gravity,
+                cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(KeyCode::Backslash)),
                 // The readability dim-scrim is cube-only; the Startup node stays
                 // transparent when the cube backend is inactive.
                 retarget_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),

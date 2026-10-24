@@ -150,7 +150,8 @@ impl Plugin for RoundScopePlugin {
             // decision, and the entities it culls are already gone from the sim's
             // point of view the moment the rules said so. Matching
             // `despawn_retired_session_entities`, which is the same shape.
-            .add_systems(Update, despawn_departed_round_entities);
+            // It despawns round-scoped entities whose round is over: with none, nothing to do.
+            .add_systems(Update, despawn_departed_round_entities.run_if(any_with_component::<RoundScopedEntity>));
     }
 }
 

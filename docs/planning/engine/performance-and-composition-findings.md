@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-24 05:59Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 914 systems a frame; hub Ambition route 1,323 → 988 since
+route 1,320 → 909 systems a frame; hub Ambition route 1,323 → 983 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -154,6 +154,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The prop sheets and the decode of `GameAssets` (`load_game_assets`, boss-sheet residency, sheet reloads) leave the monolith for the umbrella's `game_assets`, their only composer; callers name `ambition_platformer2d::game_assets` (`66c859a31`) | done | monolith -459 production lines (58,758 left), no system added; umbrella lib 17 + `sprite_sheet_reload`, app_it `boss_sheet` 6, `rollback_coverage` 21, workspace policy 38, multi-writer and level-box guards green; content `reload` 88/89: the axe-art red is the item-art change's, not this move's |
 | The title backdrop's removal runs while a backdrop stands; the shell's exit and Ambition's session dressing peek their messages (`9b0076bb0`) | done | census: Mary-O route 919 → 916, Ambition 993 → 988 (3 here, the rest other lanes' gates); app_it `title` 13, `launcher` 10, `shell` 64 (one `shell_host_lifecycle` flake, 21/21 on two reruns), app lib 6 green |
 | The room-transition asset passes run with a transition: the contributor while one is active or its record still holds something to clear, the readiness poll while one is active, the presentation-event handler on a waiting event (`e73837dcb`) | done | census: Mary-O route 916 → 914 (3 idle here; 1 noise row); app_it `room_transition` 17, `walking_into_a_loading_zone` 5, `first_room` 3, `door` 34, `cover` 36, app lib `room_transition` 18 green |
+| SFX playback runs while a cue waits or the last run's records are uncleared; round despawn on a `RoundScopedEntity`; late match art with an `ActiveMatch`; dev gravity on its key (`FOURGATES`) | done | census: Mary-O route 914 → 909, Ambition 988 → 983 (4 here, the rest other lanes'); audio/round libs 16, app_it `sfx`, `sound`, `round` 30, `audio` green |
 
 ### F48 — After the content gates: what is left is Bevy's and Jon's (2026-10-24)
 

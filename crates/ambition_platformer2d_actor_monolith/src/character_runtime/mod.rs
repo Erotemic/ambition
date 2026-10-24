@@ -1054,7 +1054,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // a different reason: this reads the OUTCOMES the materializer
                     // just wrote. Ahead of it, a character would be reported late
                     // on the very frame its load completed.
-                    audit::report_late_match_critical_art,
+                    audit::report_late_match_critical_art.run_if(resource_exists::<ambition_match::ActiveMatch>),
                 )
                     .chain(),
             );

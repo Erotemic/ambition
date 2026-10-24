@@ -472,6 +472,15 @@ fn describe_sfx_id(id: SfxId, procedural: Option<&SfxRegistry>, banks: &SfxBankR
     }
 }
 
+/// Run condition of [`audio_play_sfx_messages`]: a cue waits, or the last
+/// run's records are still to be cleared. Peeks; the reader takes the cues.
+pub fn a_cue_waits_or_was_played(
+    messages: Res<bevy::ecs::message::Messages<OwnedSfxMessage>>,
+    playback: Res<SfxPlaybackState>,
+) -> bool {
+    !messages.is_empty() || !playback.played_this_pass.is_empty()
+}
+
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<OwnedSfxMessage>,
     selection: Res<ActiveAudioSelection>,

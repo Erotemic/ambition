@@ -28,13 +28,13 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 08:00Z (MEASURED, desktop census and A/B):** hub Mary-O
+**Status, 2026-10-24 09:15Z (MEASURED, desktop census and A/B):** hub Mary-O
 route 1,320 → 909 systems a frame; hub Ambition route 1,323 → 978 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F49, 08:00Z): main-world wall 12.98 → 6.74 ms a frame (Mary-O), 13.91 → 5.12 ms (Ambition); frame p50 24.0 → 20.8 ms (Mary-O), 51.1 → 27.2 ms (Ambition hub; REASONED: mostly the F46 look cuts). Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
 module, the debris physics adapter, actor construction (K6, its own crate), the gravity-zone mechanic and the body causal recorders (to the runtime), body whereabouts (to construction), the live cluster view (to `ambition_body_seed`), the body-capability conditions (to `ambition_abilities`) and the game-asset decode (to the umbrella) (~9,100 production lines out, 58,758 left, by `wc -l` and the module graph
-at each move). Last full lane: `fc4897c12` (2026-10-24 06:00Z): app lib 253, `ambition_content` 532, Mary-O 204, monolith 1,185 green; `app_it` 1,337 of 1,342. The 5 reds are not this run's code: three gauntlet saves follow the hub's new map data (MEASURED: a bisect of the code from `8aae83270` finds only a docs commit), and the boot budget decodes the new districts' character sheets at boot (REASONED from its `[image]` lines); both sent to the gate lane, and `rendered_identities_are_registered` reads two untracked files in the renderer checkout (`bad_apple`, `gravity_apple`). Earlier green: `8aae83270` (full `app_it` 1,304 of 1,304). Waiting on: a phone profile of a build with these slices, the measurement that
+at each move). Libs at `f9db437b5` (09:15Z): app 253, `ambition_content` 532, Mary-O 204, monolith 1,185 green. Last full lane: `fc4897c12` (2026-10-24 06:00Z): app lib 253, `ambition_content` 532, Mary-O 204, monolith 1,185 green; `app_it` 1,337 of 1,342. The 5 reds are not this run's code: three gauntlet saves follow the hub's new map data (MEASURED: a bisect of the code from `8aae83270` finds only a docs commit), and the boot budget decodes the new districts' character sheets at boot (REASONED from its `[image]` lines); both sent to the gate lane, and `rendered_identities_are_registered` reads two untracked files in the renderer checkout (`bad_apple`, `gravity_apple`). Earlier green: `8aae83270` (full `app_it` 1,304 of 1,304). Waiting on: a phone profile of a build with these slices, the measurement that
 says what they bought in frame time; and Jon's three calls in F48 (developer tooling in the play build, Bevy's 3D gizmo groups, Ambition's material types on every route).
 
 | slice | status | measured effect |

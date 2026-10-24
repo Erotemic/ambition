@@ -21,6 +21,25 @@ pub struct ConversationEnded {
     pub instance: ConversationInstanceId,
 }
 
+/// Run condition of the dialog projection and the end stamp: a conversation
+/// is live or the dialog UI is shown, or one was last frame, the run that
+/// forgets the conversation the projection had attached.
+pub fn a_conversation_is_live_or_shown(
+    conversation: Res<ActiveConversation>,
+    dialog: Res<ambition_dialog::DialogState>,
+    mut was: Local<bool>,
+) -> bool {
+    let now = conversation.is_live() || dialog.active();
+    let run = now || *was;
+    *was = now;
+    run
+}
+
+/// Run condition of the sim passes over a live conversation.
+pub fn a_conversation_is_live(conversation: Res<ActiveConversation>) -> bool {
+    conversation.is_live()
+}
+
 /// Stamp narrative completion into simulation input once per conversation.
 ///
 /// The runner remains finished until simulation closes the authority, so

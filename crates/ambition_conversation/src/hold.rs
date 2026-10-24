@@ -13,6 +13,12 @@ use super::authority::ActiveConversation;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct HeldByConversation;
 
+/// Run condition of [`project_conversation_hold`]: a live conversation has a
+/// talker to hold, or a body is still marked held and is owed its release.
+pub fn a_hold_is_owed(conversation: Res<ActiveConversation>, held: Query<(), With<HeldByConversation>>) -> bool {
+    conversation.is_live() || !held.is_empty()
+}
+
 /// Reconcile conversation-owned control holds from [`ActiveConversation`].
 ///
 /// The projection is idempotent and rollback-reconstructible. Removal releases

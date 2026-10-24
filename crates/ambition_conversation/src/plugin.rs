@@ -12,8 +12,8 @@ use super::hold::project_conversation_hold;
 use super::ledger::NarrativeInputPlugin;
 use super::rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
 use super::ui_bridge::{
-    close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,
-    publish_the_narrative_end, ConversationEnded,
+    a_conversation_is_live, a_conversation_is_live_or_shown, close_conversation_on_narrative_end,
+    project_the_dialog_ui_from_the_conversation, publish_the_narrative_end, ConversationEnded,
 };
 
 /// Installs conversation-owned state, messages, and systems.
@@ -55,6 +55,7 @@ impl Plugin for ConversationPlugin {
                 publish_the_narrative_end,
             )
                 .chain()
+                .run_if(a_conversation_is_live_or_shown)
                 .in_set(DIALOGUE),
         );
 
@@ -62,18 +63,21 @@ impl Plugin for ConversationPlugin {
         app.add_systems(
             sim,
             close_conversation_on_narrative_end
+                .run_if(ambition_platformer2d_core::a_message_waits::<ConversationEnded>)
                 .in_set(FeatureInteractionSet::NarrativeIntake)
                 .in_set(DIALOGUE),
         );
         app.add_systems(
             sim,
             break_dialogue_on_hit_or_separation
+                .run_if(a_conversation_is_live)
                 .in_set(FeatureInteractionSet::Continuity)
                 .in_set(DIALOGUE),
         );
         app.add_systems(
             sim,
             project_conversation_hold
+                .run_if(super::hold::a_hold_is_owed)
                 .in_set(FeatureInteractionSet::HoldProjection)
                 .in_set(DIALOGUE),
         );

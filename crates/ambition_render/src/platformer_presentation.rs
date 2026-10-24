@@ -169,6 +169,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(
             Update,
             crate::rendering::boss_stage::light_the_boss_stage
+                .run_if(crate::rendering::boss_stage::bosses_are_shown_or_were)
                 .after(crate::rendering::camera_follow)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         );
@@ -177,6 +178,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             crate::rendering::boss_stage::show_boss_name_card
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
+                .run_if(crate::rendering::boss_stage::bosses_are_shown_or_were)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         );
         // A boss's slow-motion finish: the picture drained but the boss, and

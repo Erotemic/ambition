@@ -95,6 +95,16 @@ fn stage_here(
         })
 }
 
+/// Run condition of the passes that draw a boss's stage, card, finish and
+/// bar: the boss read model holds a row, or held one last frame, the run
+/// that puts each away. With no row each draws a lit, empty stage.
+pub fn bosses_are_shown_or_were(index: Option<Res<BossRenderIndex>>, mut was: Local<bool>) -> bool {
+    let now = index.is_some_and(|index| ambition_sim_view::RowView::has_rows(&*index));
+    let run = now || *was;
+    *was = now;
+    run
+}
+
 /// Put the veils over the camera's view at the light the boss asks for.
 pub fn light_the_boss_stage(
     mut commands: Commands,

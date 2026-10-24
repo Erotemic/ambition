@@ -41,7 +41,9 @@ pub fn install(app: &mut App) {
     // after the frame that takes the drain and the bars away.
     app.add_systems(
         Update,
-        (drain_around_finishing_bosses, show_finish_bars).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+        (drain_around_finishing_bosses, show_finish_bars)
+            .run_if(super::boss_stage::bosses_are_shown_or_were)
+            .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
     );
 }
 

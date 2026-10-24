@@ -514,7 +514,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
         (
             update_hud,
             // A named boss's bar: asleep where no live room's game has one.
-            ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay.in_set(
+            ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay
+                .run_if(ambition_platformer2d::render::rendering::boss_stage::bosses_are_shown_or_were)
+                .in_set(
                 ambition_platformer2d::platformer::capability::CapabilityPresentationSet(
                     ambition_platformer2d::platformer::capability::Capability::BossEncounters,
                 ),

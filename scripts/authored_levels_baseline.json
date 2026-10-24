@@ -36,7 +36,10 @@
     "mary_o_warp"
   ],
   "math.ldtk": [
+    "math_cafe",
     "math_gate_hall",
+    "math_observatory",
+    "math_surveyors_office",
     "math_town_street"
   ],
   "ninja_village.ldtk": [
@@ -76,6 +79,7 @@
     "blink_run",
     "ceiling_cross",
     "central_hub_basement",
+    "central_hub_dev_wing",
     "central_hub_main",
     "crawl_lab",
     "cutscene_lab",
@@ -84,6 +88,7 @@
     "falling_sand_room",
     "flying_spaghetti_monster_arena",
     "gap_run",
+    "gnu_ton_approach",
     "gnu_ton_arena",
     "goblin_cantina_lair",
     "goblin_encounter",
@@ -98,6 +103,7 @@
     "hunny_horror_arena",
     "ladder_lab",
     "live_floor",
+    "military_gate_annex",
     "military_tower",
     "mockingbird_arena",
     "mockingbird_sky",

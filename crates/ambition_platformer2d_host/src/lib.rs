@@ -426,6 +426,7 @@ impl Plugin for HostProjectileVisualsPlugin {
                     .in_set(ambition_render::rendering::SpriteVisualSync)
                     .after(ambition_platformer2d_runtime::projectile_schedule::ProjectileStepSet),
                 ambition_render::rendering::projectile_visuals::sync_projectile_charge_visuals
+                    .run_if(ambition_render::rendering::projectile_visuals::a_charge_or_its_visual)
                     .after(ambition_platformer2d_runtime::projectile_schedule::ProjectileStepSet),
             )
                 // Both passes hang art off the PRESENTED body pose (the charge

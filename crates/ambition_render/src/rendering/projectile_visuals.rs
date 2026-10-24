@@ -487,6 +487,15 @@ pub struct PlayerChargeVisual {
 /// you charge it up it is still a boring looking square"). Player-only: it is
 /// not projectile art, though its looks live in the projectile catalog.
 #[allow(clippy::too_many_arguments)]
+/// Run condition of [`sync_projectile_charge_visuals`]: a player is charging
+/// a shot, or a charge visual exists to move or retire.
+pub fn a_charge_or_its_visual(
+    players: Query<&ambition_sim_view::BodyPoseView, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
+    visuals: Query<(), With<PlayerChargeVisual>>,
+) -> bool {
+    !visuals.is_empty() || players.iter().any(|pose| pose.charge_tier.is_some())
+}
+
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.

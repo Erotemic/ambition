@@ -163,6 +163,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The bubble shield's pooled visual runs while a shield is raised or a bubble is still shown (`acfe82c5a`) | done | MEASURED: idle on the Mary-O route (census row); the route total moves within the census's ±3 noise; render `bubble`/`shield` 10, app_it `shield` 6, `bubble` 1 green |
 | The projectile visual pass runs while a projectile view or a drawn projectile exists (`f0b33cb36`) | done | census: Mary-O route 904 (idle here); render `projectile` 2, app_it `projectile` 6, `shoot` 3 green |
 | The moving-platform visual pass runs while a live room has a moving platform or a platform visual exists (`e22ba6b44`) | done | census: Mary-O route 903 (idle here); render `moving_platform` 8, app_it `platform` 10, `cart` 1 green |
+| The shot-charge visual runs while a player charges a shot or a charge visual exists (`CHARGEVIS`) | done | REASONED: 1 system a frame while nobody charges; render `projectile`/`charge` 8, app_it `charge` 7, `projectile` 6 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

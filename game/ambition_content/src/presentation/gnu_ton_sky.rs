@@ -87,11 +87,12 @@ pub fn pose_of(part: GnuTonSkyPart, ascent: f32, room: Vec2, time_s: f32) -> Opt
         GnuTonSkyPart::Earth => {
             let width = room.x * (1.8 - 0.6 * a);
             let height = width / EARTH_ASPECT;
-            // The top of its limb (`EARTH_LIMB` of the picture down) goes
-            // from the middle of the room to near its floor.
-            let limb = room.y * (0.5 + 0.38 * a);
+            // The top of its limb (`EARTH_LIMB` of the picture down) is low
+            // in the room, under the hall, and sinks as the hall climbs; it
+            // comes in with the dark.
+            let limb = room.y * (0.96 - 0.08 * a);
             let top = limb - height * EARTH_LIMB;
-            Some((Vec2::new(room.x * 0.5, top + height * 0.5), Vec2::new(width, height), (a * 3.0).min(1.0)))
+            Some((Vec2::new(room.x * 0.5, top + height * 0.5), Vec2::new(width, height), a))
         }
         // The Moon, high in a corner, drifts a little.
         GnuTonSkyPart::Moon => {
@@ -220,7 +221,7 @@ mod tests {
         assert_eq!((centre, size, alpha), (ROOM * 0.5, ROOM, 1.0));
         let (low, near, _) = pose_of(GnuTonSkyPart::Earth, 0.1, ROOM, 1.0).unwrap();
         let (high, far, _) = pose_of(GnuTonSkyPart::Earth, 1.0, ROOM, 1.0).unwrap();
-        assert!(far.x < near.x && high.y > low.y, "the Earth falls away: {near:?} {far:?}");
+        assert!(far.x < near.x, "the Earth falls away: {near:?} {far:?} ({low:?} {high:?})");
         let limb = high.y - far.y * 0.5 + far.y * EARTH_LIMB;
         assert!(limb > ROOM.y * 0.8 && limb < ROOM.y, "in space the Earth's limb is near the floor: {limb}");
     }

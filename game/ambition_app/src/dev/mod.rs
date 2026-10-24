@@ -37,6 +37,13 @@ impl Plugin for DevToolsPlugin {
         app.add_plugins(gamepad_probe::GamepadProbePlugin);
         #[cfg(feature = "dev_tools")]
         app.add_plugins(rollback_observatory::RollbackObservatoryPlugin);
+        // TEMPORARY playtest aid (Jon, 2026-10-24): a player's shot takes a
+        // boss to its next phase, so each phase can be reached quickly.
+        // Developer builds only; retire it with the planned playtest mechanism.
+        #[cfg(feature = "dev_tools")]
+        app.insert_resource(
+            ambition_platformer2d::boss_encounter::playtest::PlayerShotsReachNextPhase(true),
+        );
         install_egui_inspectors(app);
         install_debug_input_context(app);
     }

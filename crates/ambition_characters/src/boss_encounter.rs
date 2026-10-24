@@ -268,6 +268,21 @@ impl ActorPhaseState {
         Self::new(PhaseTrigger::intrinsic_from_spec(spec))
     }
 
+    /// The health fraction at which the boss next leaves its current phase:
+    /// the highest `HpBelow` trigger eligible from it, which is the first one
+    /// falling health reaches. `None` when no HP trigger leaves this phase, so
+    /// the next HP boundary is death.
+    pub fn next_hp_boundary(&self) -> Option<f32> {
+        self.triggers
+            .iter()
+            .filter(|trigger| trigger.matches_from(self.phase))
+            .filter_map(|trigger| match trigger.when {
+                PhaseTriggerCondition::HpBelow(frac) => Some(frac),
+                _ => None,
+            })
+            .reduce(f32::max)
+    }
+
     /// Whether the boss currently rejects player damage. True during the
     /// `transition_lock` tell beat, plus the phases the vocabulary marks
     /// invulnerable (`Dormant` / `Intro` / `Transition` / `Death`) — so the

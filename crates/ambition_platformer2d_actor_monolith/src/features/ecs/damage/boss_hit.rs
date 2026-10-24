@@ -101,6 +101,9 @@ pub(crate) fn apply_entity_boss_damage(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_boss_hit(
     event: &HitEvent,
+    // The playtest aid (`ambition_boss_encounter::playtest`): this hit deals at
+    // least what takes the boss to its next phase boundary.
+    reaches_next_phase: bool,
     boss_entity: bevy::prelude::Entity,
     boss: ambition_boss_encounter::BossMut<'_>,
     // The boss's shared body components (§A1): `BodyHealth` is the HP
@@ -207,7 +210,16 @@ pub(crate) fn apply_boss_hit(
     combat.note_struck();
     // The strikes it had taken before this one: the bark's line is chosen by it.
     let strikes = health.max() - health.current();
-    let amount = event.damage.max(1);
+    let mut amount = event.damage.max(1);
+    if reaches_next_phase {
+        if let Some(phase) = boss.status.encounter.as_ref() {
+            amount = amount.max(ambition_boss_encounter::playtest::damage_to_next_phase(
+                phase,
+                health.current(),
+                health.max(),
+            ));
+        }
+    }
     // The boss ENTITY is the source of truth: mutate its HP + phase in place.
     // `applied` is false during invulnerable phases (Intro / Transition / the
     // transition_lock tell) so we suppress the hit VFX; `killed` flags the lethal

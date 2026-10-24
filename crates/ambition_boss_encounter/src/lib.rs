@@ -35,6 +35,7 @@ mod encounter_entity;
 mod encounter_script;
 mod events;
 pub mod pattern;
+pub mod playtest;
 /// What a conductor stages around its boss (`ambition.boss.stage`).
 pub use ambition_boss_special_port::BossStage;
 pub use events::BossPhaseChanged;

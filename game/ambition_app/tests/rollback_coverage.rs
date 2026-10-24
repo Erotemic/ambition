@@ -2277,6 +2277,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen",
         "the composition's mana refill rate: a policy no system writes during play; the meter it fills (the Mana level in a body's ActorResources) is registered component-canonical",
     ),
+    (
+        "ambition_boss_encounter::playtest::PlayerShotsReachNextPhase",
+        "the temporary playtest aid (2026-10-24): a developer build inserts it once at startup and no system writes it, so every frame of every timeline reads the same value",
+    ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),
     (

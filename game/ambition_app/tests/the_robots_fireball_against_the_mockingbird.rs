@@ -353,6 +353,58 @@ fn a_fireball_takes_its_damage_from_the_winded_mockingbird() {
     }
 }
 
+/// The temporary playtest aid (`boss_encounter::playtest`): with it on, ONE
+/// tapped fireball takes the boss to its next phase boundary, and the boss
+/// changes phase there. Without it the same tap takes its own damage (the test
+/// above).
+#[test]
+fn with_the_playtest_aid_one_fireball_reaches_the_next_phase() {
+    use ambition_platformer2d::boss_encounter::playtest::PlayerShotsReachNextPhase;
+    let mut sim = sky();
+    sim.world_mut().insert_resource(PlayerShotsReachNextPhase(true));
+    until_it_hangs_winded(&mut sim);
+    let start = bird(&mut sim);
+    let (at, facing) = beside_it(&mut sim, start.hurt.expect("a damageable part"), 60.0);
+    let phase_of = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&BossConfig, &BossEncounter, &BodyHealth)>()
+            .iter(world)
+            .find(|(config, ..)| config.behavior.id == MOCKINGBIRD_ID)
+            .map(|(_, status, health)| {
+                let phase = status.encounter.as_ref().expect("a phase mechanism");
+                (phase.phase, phase.next_hp_boundary(), health.max())
+            })
+            .expect("the Mockingbird")
+    };
+    let (before, boundary, max) = phase_of(&mut sim);
+    let target = (boundary.unwrap_or(0.0) * max as f32).floor() as i32;
+    assert!(start.hp > target, "premise: the bird is above its next boundary ({} > {target})", start.hp);
+    let mut input = tap_every(1000);
+    let mut landed = None;
+    for tick in 0..60 {
+        let hp = bird(&mut sim).hp;
+        if hp < start.hp {
+            landed = Some(hp);
+            break;
+        }
+        hold_player(&mut sim, at, facing);
+        sim.step(if tick <= 1 { input(tick) } else { AgentAction::default() });
+    }
+    assert_eq!(landed, Some(target), "one tap should take the bird from {} to its boundary {target}", start.hp);
+    // The trigger fires at once; the new phase arrives after its authored
+    // tell beat (`transition_seconds`, 1.4 s for the Mockingbird).
+    let mut after = before;
+    for _ in 0..150 {
+        sim.step(AgentAction::default());
+        after = phase_of(&mut sim).0;
+        if after != before {
+            break;
+        }
+    }
+    assert_ne!(after, before, "the bird reached its boundary but stayed in {before:?}");
+}
+
 /// The authored effects asked for over `ticks` ticks while the player stands
 /// `standoff` off the bird's hurt box and taps the fireball once.
 fn effects_of_a_tap(sim: &mut Platformer2dSimHarness, standoff: f32, ticks: u32) -> Vec<ambition_platformer2d::vfx::FxId> {

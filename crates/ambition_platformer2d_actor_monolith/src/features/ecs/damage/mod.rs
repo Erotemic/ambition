@@ -363,6 +363,9 @@ pub struct FeatureHitCatalogs<'w> {
     pub generation: Option<Res<'w, ambition_platformer2d_construction::mechanics::SessionMechanics>>,
     /// The item catalog, for the ability a defeated boss drops.
     pub items: ambition_items::ItemCatalogRead<'w>,
+    /// The temporary playtest aid: a player's shot takes a boss to its next
+    /// phase. `None` or off in a build that did not ask for it.
+    pub phase_shots: Option<Res<'w, ambition_boss_encounter::playtest::PlayerShotsReachNextPhase>>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -926,8 +929,16 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let hurt = boss_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
+            // A shot from a seat-driven body, while the playtest aid is on.
+            let reaches_next_phase = catalogs.phase_shots.as_deref().is_some_and(|aid| aid.0)
+                && matches!(event.source, HitSource::Projectile)
+                && event
+                    .attacker
+                    .and_then(|attacker| combat_sides.get(attacker).ok())
+                    .is_some_and(|(_, driver, _)| driver.is_some());
             if apply_boss_hit(
                 &event,
+                reaches_next_phase,
                 boss_entity,
                 feature.as_boss_mut(),
                 &mut health,

@@ -48,6 +48,10 @@ const FAR_TRACKS: [&str; 3] = ["far_hand", "back_hand", "left_hand"];
 pub struct PosedHand {
     /// Where the hand is, in the space sprites are drawn in.
     pub at: Vec2,
+    /// The depth the hand part is drawn at, in that space. An item drawn
+    /// just under it is in front of the parts drawn before the hand (the
+    /// body, for the near hand) and behind the fist's fingers.
+    pub z: f32,
     /// The way an item in the hand points, in that space (+y up). Unit.
     pub along: Vec2,
     /// The body is drawn as its mirror image.
@@ -75,8 +79,10 @@ pub fn posed_hand(draws: &PartSetDraws, hand: GestureHand) -> Option<PosedHand> 
     let along = world.transform_vector3(Vec3::new(rest.cos(), rest.sin(), 0.0)).truncate().try_normalize()?;
     let x = world.transform_vector3(Vec3::X).truncate();
     let y = world.transform_vector3(Vec3::Y).truncate();
+    let pivot = world.transform_point3(Vec3::ZERO);
     Some(PosedHand {
-        at: world.transform_point3(Vec3::ZERO).truncate(),
+        at: pivot.truncate(),
+        z: pivot.z,
         along,
         mirrored: x.perp_dot(y) < 0.0,
     })

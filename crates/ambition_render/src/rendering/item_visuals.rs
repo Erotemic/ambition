@@ -599,6 +599,11 @@ struct InHand<'a> {
     holder: &'a ambition_sim_view::ItemHolder,
 }
 
+/// How far under its hand part an item in a hand of the art is drawn: half
+/// the depth between two of the body's draws (`SLOT_DEPTH_STEP`), so it is
+/// between the hand and the draw before it.
+const HELD_ITEM_UNDER_HAND: f32 = 0.5e-4;
+
 /// Marks the sprite shown in the player's hand for the currently held item.
 #[derive(Component)]
 pub struct HeldItemVisual;
@@ -705,10 +710,17 @@ pub fn sync_held_item_visual(
         if let Some(posed) = posed {
             translation.x = posed.at.x;
             translation.y = posed.at.y;
+            // Just under the hand part: over what the body draws before the
+            // hand (the near hand is over the body, the far one under it),
+            // under the fingers that close round the item.
+            translation.z = posed.z - HELD_ITEM_UNDER_HAND;
         }
-        let grip = manifest.as_deref().and_then(|manifest| {
-            manifest.effective().into_iter().find(|entry| entry.item_id == held.item_id).and_then(|entry| Some((entry.grip?, entry.size.x)))
-        });
+        let entry = manifest.as_deref().and_then(|manifest| manifest.effective().into_iter().find(|entry| entry.item_id == held.item_id));
+        let grip = entry.as_ref().and_then(|entry| Some((entry.grip?, entry.size.x)));
+        // A hand of the art holds an item with no `grip` by its middle, as
+        // the manifest says (`held_item_art.ron`: "absent: by its middle"),
+        // and turns it as the hand turns, like any other item it holds.
+        let posed_grip = grip.or_else(|| entry.as_ref().map(|entry| (0.5, entry.size.x)));
 
         // A ranged held item (the gun-sword) points where the subject aims,
         // the direction it fires. Melee and thrown items only flip with
@@ -730,7 +742,7 @@ pub fn sync_held_item_visual(
                 translation += rotation * Vec3::new((0.5 - grip) * length, 0.0, 0.0);
             }
             (rotation, false, aim.x < 0.0)
-        } else if let (Some(posed), Some((grip, length))) = (posed, grip) {
+        } else if let (Some(posed), Some((grip, length))) = (posed, posed_grip) {
             // An item with a grip is held rigidly: it turns as the hand part
             // of the pose turns, so a swing is the character's own row. The
             // picture has its far end to the right; a mirrored body holds its

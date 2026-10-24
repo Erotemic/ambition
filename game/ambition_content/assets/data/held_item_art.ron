@@ -8,7 +8,10 @@
 // spawn ("unknown held item art `polygon_bomb`") and draws nothing.
 {
     // Character props: drawn at their native aspect ratio.
-    "axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)),
+    // The axe: the hand holds the end of the haft (measured on
+    // `props/axe.png`, 2026-10-24: the haft runs from 7 to 120 of 173 pixels,
+    // the head after it), so the head is out of the hand when it is swung.
+    "axe": (path: "sprites/props/axe.png", size: (40.0, 18.0), grip: Some(0.15)),
     "javelin": (path: "sprites/props/javelin.png", size: (58.0, 7.0)),
     // The coconut (renderer target `coconut`): a thing to throw, and what the
     // African swallow carries.

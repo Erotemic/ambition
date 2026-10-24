@@ -316,6 +316,9 @@ mod tests {
             "intro_cartography_route",
             "intro_p1_stabilizer",
             "intro_first_system_boss",
+            // The gate districts' problems: the clerk's page, the rank exam.
+            "pirate_port_lost_manifest",
+            "ninja_village_rank_exam",
         ];
         expected.sort_unstable();
         assert_eq!(marked, expected);

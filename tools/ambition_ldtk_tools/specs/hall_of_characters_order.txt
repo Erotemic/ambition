@@ -107,6 +107,20 @@ npc_yuclid
 npc_steel_man
 npc_straw_man
 
+[The gate districts: the Pirate Port and the Ninja Village]
+npc_port_ines
+npc_port_tomas
+npc_port_agnes
+npc_port_jory
+npc_port_bram
+npc_port_wren
+npc_village_sato
+npc_village_kenji
+npc_village_ume
+npc_village_daichi
+npc_village_hayashi
+npc_village_ren
+
 [Guests from history and the studio]
 npc_genghis_can
 npc_genghis_cant

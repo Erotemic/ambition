@@ -12,6 +12,7 @@
     parallax_theme: "pirate_port",
     music_track: "pirates_guild_black_flag_jig",
     entities: [
+        ( type: "Prop", px: [16, 32], size: [992, 352], fields: ( name: "port_tavern_room_0", kind: "port_tavern_room" ) ),
         ( type: "Solid", px: [0, 384], size: [1024, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1024, 32], fields: ( name: "ceiling" ) ),
         ( type: "Solid", px: [0, 32], size: [16, 352], fields: ( name: "west_wall" ) ),

@@ -12,6 +12,11 @@
     parallax_theme: "pirate_port",
     music_track: "ten_fathoms_and_a_grudge",
     entities: [
+        ( type: "Prop", px: [4, 232], size: [879, 696], fields: ( name: "port_gantry_0", kind: "port_gantry" ) ),
+        ( type: "Prop", px: [836, 448], size: [668, 480], fields: ( name: "port_warehouse_1", kind: "port_warehouse" ) ),
+        ( type: "Prop", px: [1500, 200], size: [1132, 568], fields: ( name: "port_brig_2", kind: "port_brig" ) ),
+        ( type: "Prop", px: [254, 728], size: [106, 40], fields: ( name: "port_dock_clutter_3", kind: "port_dock_clutter" ) ),
+        ( type: "Prop", px: [2589, 668], size: [18, 100], fields: ( name: "port_lamp_post_4", kind: "port_lamp_post" ) ),
         ( type: "Solid", px: [0, 928], size: [2816, 32], fields: ( name: "sea_floor" ) ),
         ( type: "WaterVolume", px: [0, 784], size: [2816, 144], fields: ( id: "harbour", name: "harbour" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 288], fields: ( name: "west_wall_high" ) ),

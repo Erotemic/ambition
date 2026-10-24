@@ -109,6 +109,10 @@ impl Default for AmbientMoteStyles {
                 (T::CastleGodwinLab, MoteStyle::new(14, 4.0, 6.0, 10.0, 0.2, 1.4, 3.0, 0.8, 0.6, 2.4, 0.5)),
                 // Ash in the throne room, slow, going up.
                 (T::CastleGodwinThrone, MoteStyle::new(18, 1.5, 8.0, 5.0, 0.15, 1.6, 3.4, 0.6, 0.5, 1.0, 0.3)),
+                // Spray off the sea on the wind at the port: few, and they drift.
+                (T::PiratePort, MoteStyle::new(16, -9.0, 2.0, 6.0, 0.2, 1.4, 2.8, 0.42, 0.4, 0.9, 0.3)),
+                // Maple leaves that fall slowly in the village, and turn as they fall.
+                (T::NinjaVillage, MoteStyle::new(14, 5.0, -9.0, 14.0, 0.15, 3.0, 5.0, 0.85, 0.2, 0.6, 0.4)),
                 // Embers of a dark light that go up and flicker.
                 (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
                 // Sparks that go up fast from the fire under the floor.

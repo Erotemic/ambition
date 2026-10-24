@@ -2084,6 +2084,12 @@
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // A body that can fight where it is placed as an enemy: the
+            // examiner of the Ninja Village's rank exam.
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(5),
             tags: ["ninja", "enemy"],
         barks: (
             on_hit: ["Look me in the eye when you do that.", "A clean cut. Not yours.", "Again, from the guard."],
@@ -5553,6 +5559,215 @@
             barks: (
                 idle: ["*rustle*", "*a straw drifts loose*"],
                 hall: ["So what you are saying is that I am right.", "Nobody has ever beaten me in an argument. I have checked. Mostly with myself.", "Go on, knock me down. That is what I am for.", "I awarded myself this ribbon. The judges agreed. I was the judges."],
+            ),
+        ),
+
+        // ===== Residents of the gate network's districts (2026-10-24): ordinary
+        // people made by the character generator (`targets/characters/townsfolk.py`
+        // in the sprite tools). The Pirate Port (SAILING) and the Ninja Village
+        // (SILENT) place them; their talk is `pirate_port.yarn` and `ninja_village.yarn`.
+        "npc_port_ines": (
+            display_name: "Ines",
+            // The dock clerk who logs the ring's freight.
+            manifest: "sprites/port_ines_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Lot forty-one: one goat. Calm. Origin unknown.", "Sign here, here, and where the salt ate the paper."],
+                hall: ["Everything that comes through the ring gets a line in my book. Everything.", "The ring does not care what it carries. I do. That is the job."],
+            ),
+        ),
+        "npc_port_tomas": (
+            display_name: "Tomas",
+            // A traveller still sick from the gate crossing.
+            manifest: "sprites/port_tomas_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["*a long, careful breath*", "The ground is still. The ground is still."],
+                hall: ["Three seconds through the ring, and my lunch is still in the other dimension.", "Nobody said the gate rocks more than the boats do."],
+            ),
+        ),
+        "npc_port_agnes": (
+            display_name: "Agnes",
+            // The chandler of the waterfront.
+            manifest: "sprites/port_agnes_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Rope! Tar! Ginger for the gate-sick!", "Biscuits that outlive the voyage, guaranteed."],
+                hall: ["Forty years I have sold rope on this street. The ring changed the customers, not the rope.", "Ginger for the gate-sick. Cheaper than a bucket."],
+            ),
+        ),
+        "npc_port_jory": (
+            display_name: "Jory",
+            // A fisherman who mends nets on the pier.
+            manifest: "sprites/port_jory_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["*knots a net with no hurry*", "Fish don't come through a ring. They come through patience."],
+                hall: ["Now they sell fish from three seas on the waterfront, and mine still taste of this one.", "Every mend is a knot. Every knot is a promise."],
+            ),
+        ),
+        "npc_port_bram": (
+            display_name: "Bram",
+            // The harbour master.
+            manifest: "sprites/port_bram_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Moorings by the hour, and the hour is long.", "Mind the gap. The harbour will."],
+                hall: ["I keep the docks. The cove keeps its own counsel. The sky keeps the rest.", "A ship takes a week to bring what the ring brings in a breath. I still trust the ship."],
+            ),
+        ),
+        "npc_port_wren": (
+            display_name: "Wren",
+            // The keeper of the waterfront tavern.
+            manifest: "sprites/port_wren_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["What will it be?", "*wipes the same mug again*"],
+                hall: ["The Drowned Compass: we never tell you where you are, and that is why you come back.", "No gate talk before noon. It upsets the regulars."],
+            ),
+        ),
+        "npc_village_sato": (
+            display_name: "Sato",
+            // The keeper of the gate shrine.
+            manifest: "sprites/village_sato_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["*the slow sound of a broom*", "Leaves do not stop falling because a gate opened."],
+                hall: ["I sweep round the ring each morning. It has never thanked me. Neither has the moon.", "Travellers bow to the gate. Some of them because they are dizzy."],
+            ),
+        ),
+        "npc_village_kenji": (
+            display_name: "Kenji",
+            // A courier sick from the gate crossing.
+            manifest: "sprites/village_kenji_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 171 cm.
+            standing_height: Some(66.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["*sits very still on the bench*", "The scrolls arrive fine. I arrive green."],
+                hall: ["I carry letters through the ring twice a day. My stomach has filed a complaint.", "Faster than the mountain road. The mountain road never turned me inside out."],
+            ),
+        ),
+        "npc_village_ume": (
+            display_name: "Ume",
+            // The keeper of the tea house.
+            manifest: "sprites/village_ume_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Tea for the tired, tea for the gate-sick.", "Sit. The roofs will still be there."],
+                hall: ["Half the village runs on the roofs. The other half runs on my tea.", "A good cup settles a stomach the gate unsettled."],
+            ),
+        ),
+        "npc_village_daichi": (
+            display_name: "Daichi",
+            // A young villager who wants to pass the dojo's rank exam.
+            manifest: "sprites/village_daichi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 169 cm.
+            standing_height: Some(65.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Push-up four hundred and one!", "One day I will pass the rank exam. Probably on a Tuesday."],
+                hall: ["I have practised my entrance for three years. The exam is the part after the entrance.", "I shout the name of every move. That is how you know it is a move."],
+            ),
+        ),
+        "npc_village_hayashi": (
+            display_name: "Sensei Hayashi",
+            // The teacher of the village dojo.
+            manifest: "sprites/village_hayashi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Again. Slower. Then faster.", "*stamps a form with great ceremony*"],
+                hall: ["The rank exam has two parts and nine forms. The forms are harder.", "Strength is a habit. Paperwork is a discipline."],
+            ),
+        ),
+        "npc_village_ren": (
+            display_name: "Ren",
+            // The dojo's top student, who names a new rival every week.
+            manifest: "sprites/village_ren_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Hmph.", "You. Do not get comfortable."],
+                hall: ["Every week I choose a new rival. It keeps me sharp, and it keeps them humble.", "I have filled in the rival form in advance. It only needs your name."],
             ),
         ),
     },

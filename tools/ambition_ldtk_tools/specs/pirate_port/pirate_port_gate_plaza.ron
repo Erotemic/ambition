@@ -12,6 +12,9 @@
     parallax_theme: "pirate_port",
     music_track: "pirates_guild_black_flag_jig",
     entities: [
+        ( type: "Prop", px: [1000, 120], size: [600, 584], fields: ( name: "port_harbour_house_0", kind: "port_harbour_house" ) ),
+        ( type: "Prop", px: [543, 560], size: [286, 144], fields: ( name: "port_freight_booth_1", kind: "port_freight_booth" ) ),
+        ( type: "Prop", px: [109, 604], size: [18, 100], fields: ( name: "port_lamp_post_2", kind: "port_lamp_post" ) ),
         ( type: "Solid", px: [0, 704], size: [1600, 128], fields: ( name: "ground" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 704], fields: ( name: "west_wall" ) ),
         ( type: "Solid", px: [1584, 0], size: [16, 352], fields: ( name: "east_wall_high" ) ),

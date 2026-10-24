@@ -296,6 +296,16 @@ struct Exit<'a> {
 /// Walk from the live room through its exit to `target`, with the player's
 /// own inputs. Returns the frames it took.
 pub fn walk_through(walker: &mut impl Walker, target: &str) -> Result<usize, String> {
+    walk_through_the_first_exit(walker, target, None)
+}
+
+/// [`walk_through`] by the exit whose zone id is `zone`: two exits of one
+/// room can lead to the same room (a low road and a high road).
+pub fn walk_through_zone(walker: &mut impl Walker, target: &str, zone: &str) -> Result<usize, String> {
+    walk_through_the_first_exit(walker, target, Some(zone))
+}
+
+fn walk_through_the_first_exit(walker: &mut impl Walker, target: &str, zone_id: Option<&str>) -> Result<usize, String> {
     let player = the_player(walker.world_mut());
     let from = the_players_room_id(walker.world(), player);
     let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
@@ -309,12 +319,13 @@ pub fn walk_through(walker: &mut impl Walker, target: &str) -> Result<usize, Str
         .loading_zones
         .iter()
         .find(|zone| {
-            rooms
+            zone_id.is_none_or(|id| zone.id == id)
+                && rooms
                 .transition_for_player(definition, zone.aabb, ae::Vec2::ZERO, true)
                 .is_some_and(|transition| rooms.rooms[transition.target_room].id == target)
         })
         .map(|zone| (zone.aabb, zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door))
-        .ok_or_else(|| format!("`{from}` has no exit to `{target}`"))?;
+        .ok_or_else(|| format!("`{from}` has no exit to `{target}` (zone {zone_id:?})"))?;
     let graph = the_players_graph(walker, player, Some(zone))?;
     let goal = nearest_the_zone(&graph, zone).ok_or("no surface near the exit")?;
     walk(walker, player, &graph, goal, Some(Exit { zone, door, target }))

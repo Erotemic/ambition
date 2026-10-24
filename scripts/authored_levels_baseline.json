@@ -39,6 +39,18 @@
     "math_gate_hall",
     "math_town_street"
   ],
+  "ninja_village.ldtk": [
+    "ninja_village_dojo",
+    "ninja_village_forest",
+    "ninja_village_gate_shrine",
+    "ninja_village_street"
+  ],
+  "pirate_port.ldtk": [
+    "pirate_port_docks",
+    "pirate_port_gate_plaza",
+    "pirate_port_tavern",
+    "pirate_port_waterfront"
+  ],
   "sandbox.ldtk": [
     "basement_boss",
     "basement_breakables",

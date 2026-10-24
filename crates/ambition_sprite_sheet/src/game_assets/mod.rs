@@ -220,6 +220,15 @@ pub enum ParallaxTheme {
     /// Wolfenstein's throne room: pointed arches, a great round window with a
     /// red moon, a carved wolf's head, red curtains, iron chandeliers.
     CastleGodwinThrone,
+    /// The port of the pirate dimension in the late afternoon: a sea with a
+    /// lighthouse on a headland, a skyship over it, ships at the quay, and a
+    /// hill town of timber and plaster with red roofs. The rooms of the port
+    /// (`pirate_port.ldtk`) name it.
+    PiratePort,
+    /// The village of the ninja dimension at dusk: blue-green mountains in
+    /// mist, farmhouses with tiled roofs, a pagoda, red maples and paper
+    /// lanterns. The rooms of the village (`ninja_village.ldtk`) name it.
+    NinjaVillage,
     /// Mary-O's land in the colours of a magical girl: round hills, a far
     /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
     /// Mary-O name it.
@@ -284,6 +293,8 @@ impl ParallaxTheme {
         Self::CastleGodwin,
         Self::CastleGodwinLab,
         Self::CastleGodwinThrone,
+        Self::PiratePort,
+        Self::NinjaVillage,
         Self::Starlight,
         Self::Stardune,
         Self::Starless,
@@ -316,6 +327,8 @@ impl ParallaxTheme {
             Self::CastleGodwin => "castle_godwin",
             Self::CastleGodwinLab => "castle_godwin_lab",
             Self::CastleGodwinThrone => "castle_godwin_throne",
+            Self::PiratePort => "pirate_port",
+            Self::NinjaVillage => "ninja_village",
             Self::Starlight => "starlight",
             Self::Stardune => "stardune",
             Self::Starless => "starless",
@@ -416,6 +429,8 @@ impl ParallaxTheme {
             "castle_godwin" => Some(Self::CastleGodwin),
             "castle_godwin_lab" => Some(Self::CastleGodwinLab),
             "castle_godwin_throne" => Some(Self::CastleGodwinThrone),
+            "pirate_port" | "port" | "harbour" | "harbor" => Some(Self::PiratePort),
+            "ninja_village" | "village" => Some(Self::NinjaVillage),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
             "stardune" | "star_dunes" => Some(Self::Stardune),
             "starless" | "dark_magical_girl" => Some(Self::Starless),

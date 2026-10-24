@@ -12,6 +12,13 @@
     parallax_theme: "ninja_village",
     music_track: "morning_on_the_eaves",
     entities: [
+        ( type: "Prop", px: [0, 470], size: [520, 298], fields: ( name: "village_house_baker_0", kind: "village_house_baker" ) ),
+        ( type: "Prop", px: [520, 474], size: [520, 294], fields: ( name: "village_house_weaver_1", kind: "village_house_weaver" ) ),
+        ( type: "Prop", px: [1040, 538], size: [480, 230], fields: ( name: "village_tea_house_2", kind: "village_tea_house" ) ),
+        ( type: "Prop", px: [1520, 442], size: [480, 326], fields: ( name: "village_dojo_front_3", kind: "village_dojo_front" ) ),
+        ( type: "Prop", px: [2000, 410], size: [440, 358], fields: ( name: "village_storehouse_4", kind: "village_storehouse" ) ),
+        ( type: "Prop", px: [2192, 666], size: [96, 102], fields: ( name: "village_notice_board_5", kind: "village_notice_board" ) ),
+        ( type: "Prop", px: [2440, 322], size: [376, 446], fields: ( name: "village_watch_house_6", kind: "village_watch_house" ) ),
         ( type: "Solid", px: [0, 768], size: [2816, 128], fields: ( name: "street" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 416], fields: ( name: "west_wall_high" ) ),
         ( type: "Solid", px: [0, 528], size: [16, 144], fields: ( name: "west_wall_mid" ) ),

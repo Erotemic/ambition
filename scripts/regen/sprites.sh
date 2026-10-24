@@ -1179,6 +1179,60 @@ tackon_targets=(
     # (`targets/characters/steel_and_straw_man.py`): the girder and the sheaf.
     steel_man
     straw_man
+    # Residents of the gate network's districts, made by the character
+    # generator (`targets/characters/townsfolk.py`, one spec file each in
+    # `data/townsfolk/`).
+    port_ines
+    port_tomas
+    port_agnes
+    port_jory
+    port_bram
+    port_wren
+    village_sato
+    village_kenji
+    village_ume
+    village_daichi
+    village_hayashi
+    village_ren
+    # The districts' scenery props, drawn in their rooms' coordinates
+    # (`targets/props/pirate_port_props.py`, `ninja_village_props.py`).
+    port_harbour_house
+    port_freight_booth
+    port_lamp_post
+    port_waterfront_west
+    port_waterfront_middle
+    port_tavern_front
+    port_waterfront_stair
+    port_chandler_stall
+    port_chandlery
+    port_net_loft
+    port_tavern_room
+    port_warehouse
+    port_gantry
+    port_brig
+    port_dock_clutter
+    port_manifest_page
+    village_shrine_stair
+    village_torii
+    village_shrine_hall
+    village_shrine_small_things
+    village_house_baker
+    village_house_weaver
+    village_tea_house
+    village_dojo_front
+    village_storehouse
+    village_notice_board
+    village_watch_house
+    village_cedar_0
+    village_cedar_1
+    village_cedar_2
+    village_cedar_3
+    village_cedar_4
+    village_cedar_5
+    village_cedar_6
+    village_clan_gatehouse
+    village_dojo_entry
+    village_dojo_exam
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as

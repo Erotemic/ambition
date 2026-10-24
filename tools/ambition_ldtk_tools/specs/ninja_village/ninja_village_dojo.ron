@@ -12,6 +12,8 @@
     parallax_theme: "ninja_village",
     music_track: "nine_rooftops",
     entities: [
+        ( type: "Prop", px: [16, 32], size: [512, 480], fields: ( name: "village_dojo_entry_0", kind: "village_dojo_entry" ) ),
+        ( type: "Prop", px: [528, 32], size: [1056, 480], fields: ( name: "village_dojo_exam_1", kind: "village_dojo_exam" ) ),
         ( type: "Solid", px: [0, 512], size: [1600, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1600, 32], fields: ( name: "ceiling" ) ),
         ( type: "Solid", px: [0, 32], size: [16, 480], fields: ( name: "west_wall" ) ),

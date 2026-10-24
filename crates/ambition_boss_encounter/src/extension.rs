@@ -202,6 +202,7 @@ fn lower_boss_summons<L: LowersIn>(
                     ambition_boss_special_port::SummonSide::Boss => ambition_vfx::HitSide::Boss,
                     ambition_boss_special_port::SummonSide::Player => ambition_vfx::HitSide::Player,
                 },
+                calling: ambition_vfx::SummonCalling::Fight,
                 ridden_by_summoner: None,
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,

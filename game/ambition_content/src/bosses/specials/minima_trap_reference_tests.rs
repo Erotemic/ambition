@@ -161,6 +161,7 @@ pub fn spawn_minima_trap_from_special_messages(
                     character_id: MINIMA_TRAP_MINION_CHARACTER.to_string(),
                     encounter_id,
                     faction: ambition_vfx::HitSide::Enemy,
+                    calling: ambition_vfx::SummonCalling::Fight,
                     // A boss drops a minion; nobody rides it.
                     ridden_by_summoner: None,
                     // The sentinel's minions keep the vitals their character authors.

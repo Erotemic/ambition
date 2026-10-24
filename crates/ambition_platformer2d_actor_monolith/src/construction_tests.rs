@@ -311,6 +311,7 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
             character_id: "puppy_slug".into(),
             encounter_id: "enc_1".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
+            calling: ambition_vfx::SummonCalling::Fight,
         },
     );
 
@@ -356,6 +357,7 @@ fn two_summons_from_one_summoner_do_not_collide() {
         character_id: "puppy_slug".into(),
         encounter_id: "enc_1".into(),
         faction: ambition_characters::actor::ActorFaction::Enemy,
+        calling: ambition_vfx::SummonCalling::Fight,
     };
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
@@ -394,6 +396,7 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc_1".into(),
                 faction: ambition_characters::actor::ActorFaction::Enemy,
+                calling: ambition_vfx::SummonCalling::Fight,
             },
         )],
         &Default::default(),
@@ -742,6 +745,60 @@ fn successive_summons_allocate_non_overlapping_identities() {
     );
 }
 
+/// ⭐ A COMPANION IS BUILT AS ONE: passive, marked for its summoner's cap, and
+/// named under the identity the executor derives for it.
+///
+/// The puppy-slug gun used to spawn its slug through the minion spawner
+/// directly, with its own aggression and its own marker. It asks the executor
+/// now, so this is where what a companion IS gets decided. Poison: build a
+/// companion with `hostile()` and the aggression assertion fails; drop the
+/// marker and the count of companions reads 0.
+#[test]
+fn a_companion_summon_is_built_passive_marked_and_named_under_its_identity() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
+
+    let mut world = summon_world();
+    let summoner = world
+        .spawn((SimId::placement("gunner"), SimIdCounter::default()))
+        .id();
+    for _ in 0..2 {
+        run_summon(
+            &mut world,
+            summoner,
+            ambition_vfx::SummonSpec {
+                id: "slug".into(),
+                faction: ambition_vfx::HitSide::Player,
+                calling: ambition_vfx::SummonCalling::Companion,
+                ..summon_spec("slug")
+            },
+        );
+    }
+
+    let mut companions = world.query_filtered::<(
+        &ambition_combat::components::FeatureId,
+        &ambition_combat::components::ActorAggression,
+        &ambition_characters::actor::ActorFaction,
+        bevy::prelude::Has<ambition_combat::components::SummonedToTheFight>,
+    ), bevy::prelude::With<ambition_combat::components::SummonedCompanion>>();
+    let built: Vec<_> = companions
+        .iter(&world)
+        .map(|(id, aggression, faction, called)| {
+            (id.as_str().to_string(), *aggression == ambition_combat::components::ActorAggression::passive(), *faction, called)
+        })
+        .collect();
+    assert_eq!(built.len(), 2, "two companions built and marked: {built:?}");
+    for (id, passive, faction, called) in &built {
+        assert!(passive, "a companion wanders; it does not hunt: {id}");
+        assert_eq!(*faction, ambition_characters::actor::ActorFaction::Player, "{id}");
+        assert!(!called, "a companion is not called into a fight: {id}");
+        assert!(
+            id.starts_with("slug:placement:gunner/"),
+            "a companion is named under its derived identity: {id}"
+        );
+    }
+    assert_ne!(built[0].0, built[1].0, "each companion has its own name");
+}
+
 // ── Recipe descriptor and execution cannot drift ─────────────────────────────
 
 /// ⭐⭐ A WORLD MAY AUTHOR AN AXE ON THE GROUND, which it could not before
@@ -820,6 +877,7 @@ fn every_parameter_variant_matches_its_descriptor() {
             character_id: "puppy_slug".into(),
             encounter_id: "enc".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
+            calling: ambition_vfx::SummonCalling::Fight,
         },
     );
 
@@ -909,6 +967,7 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
             character_id: archetype.to_string(),
             encounter_id: "e".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
+            calling: ambition_vfx::SummonCalling::Fight,
         },
     )
 }

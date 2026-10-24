@@ -30,6 +30,7 @@ pub fn summon(effects: &mut MessageWriter<ambition_vfx::EffectRequest>, god: Ent
                 // pulse — Boss-side volumes, which hurt any other side they
                 // touch — pass through them, and they are no less your foe.
                 faction: ambition_vfx::HitSide::Boss,
+                calling: ambition_vfx::SummonCalling::Fight,
                 ridden_by_summoner: None,
                 health: None,
                 keeps_contact_damage: true,

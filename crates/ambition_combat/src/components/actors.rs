@@ -869,6 +869,12 @@ mod death_beat_tests {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SummonedToTheFight;
 
+/// A body summoned as a COMPANION (`ambition_vfx::SummonCalling::Companion`): it
+/// wanders at its summoner's side rather than hunting. A summoner caps its
+/// companions by counting these, and a sandbox reset retires them.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SummonedCompanion;
+
 /// Marker for hostile actors spawned dynamically by an encounter wave.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterMob {

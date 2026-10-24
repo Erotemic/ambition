@@ -269,6 +269,12 @@ where
         OWNER,
         "actor.summoned_to_the_fight",
     );
+    // A MARKER, and presence is the whole of it: a summoner's companion cap
+    // counts these, so a rewind that dropped one would let one more through.
+    registrar.rollback_component_clone::<crate::components::SummonedCompanion>(
+        OWNER,
+        "actor.summoned_companion",
+    );
     registrar.rollback_component_clone_probed::<crate::components::EncounterMob>(
         OWNER,
         "encounter.mob",

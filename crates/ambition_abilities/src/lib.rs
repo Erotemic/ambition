@@ -5,7 +5,8 @@
 //!   wielded abilities that are procedural modules (shockwave, beam, volley,
 //!   meteor, sentry, vortex, blink, dive, mark/recall, grapple)
 //! * [`ride`]: the extension adapters of a summoned ride
-//! * [`thrown`]: the gravity grenade
+//! * [`thrown`]: the gravity grenade, and the puppy-slug gun (a summon of a
+//!   companion through `ambition_vfx::Effect::Summon`)
 //! * [`traversal`]: the blink rule, the mark of mark/recall
 //! * [`ability_cooldown`]: the shared cooldown
 //!
@@ -16,13 +17,6 @@
 //! `control::input_systems` use them. Moving them here would rename the
 //! coupling, not reduce it. See
 //! `docs/planning/engine/actor-monolith-decomposition.md`.
-//!
-//! `thrown::puppy_slug_gun` is also not here: it spawns a body through the
-//! kernel-private `features::spawn_runtime_minion`. The canonical seam is
-//! `ambition_vfx::Effect::Summon` with a `SummonSpec`, materialized by the
-//! kernel into `ActorConstructionParams::SummonedMinion`. Using it needs two
-//! `SummonSpec` additions (the summon's `ActorAggression`, and the ally
-//! marker), which is a behavior change, not a file move.
 //!
 //! Schedule: [`AbilitySimulationPlugin`] configures
 //! `ItemPickupSet::ThrownItemEffects` and `ItemPickupSet::WieldedAbilities`
@@ -98,7 +92,14 @@ impl Plugin for AbilitySimulationPlugin {
         // the chained tuple arity cap of the core held-item group.
         app.add_systems(
             sim,
-            ability_cooldown::tick_ability_cooldown.in_set(ItemPickupSet::WieldedAbilities),
+            (
+                ability_cooldown::tick_ability_cooldown,
+                // After the whole held-item chain: nothing in it moves, arms or
+                // takes the summoner's hand on a plain Attack, and Shield+Attack
+                // (the throw) is refused by the gun itself.
+                thrown::puppy_slug_gun::fire_puppy_slug_gun_system.in_set(GameplayGated),
+            )
+                .in_set(ItemPickupSet::WieldedAbilities),
         );
     }
 }

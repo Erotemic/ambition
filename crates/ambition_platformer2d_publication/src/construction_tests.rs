@@ -279,6 +279,7 @@ fn every_parameter_variant_constructs_its_root() {
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc".into(),
                 faction: ambition_characters::actor::ActorFaction::Enemy,
+                calling: ambition_platformer2d_construction::SummonCalling::Fight,
             },
         ),
     ];
@@ -354,6 +355,7 @@ fn a_summoned_minion_takes_its_characters_name() {
             character_id: "puppy_slug".into(),
             encounter_id: "enc".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
+            calling: ambition_platformer2d_construction::SummonCalling::Fight,
         },
     );
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();

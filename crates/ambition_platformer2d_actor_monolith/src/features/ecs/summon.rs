@@ -146,18 +146,31 @@ pub fn apply_summon_effects(
                 ride,
             ));
         }
+        // A fight's summon is named by its emitter, stably across the encounter.
+        // A companion has no encounter: `id` names its kind, and the body is
+        // named under the identity derived here, so each one is distinct and
+        // its name rewinds with its summoner's counter.
+        let feature_id = match s.calling {
+            ambition_vfx::SummonCalling::Fight => s.id.clone(),
+            ambition_vfx::SummonCalling::Companion => format!(
+                "{}:{}",
+                s.id,
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(summoner, taken).as_str()
+            ),
+        };
         planned.push(ambition_platformer2d_construction::summoned_minion_request(
             summoner,
             taken,
             ambition_platformer2d_construction::SummonedMinionParams {
                 health: s.health,
                 keeps_contact_damage: s.keeps_contact_damage,
-                feature_id: s.id.clone(),
+                feature_id,
                 pos: s.pos,
                 half_size: s.half_size,
                 character_id: s.character_id.clone(),
                 encounter_id: s.encounter_id.clone(),
                 faction: ambition_combat::actor_faction_from_hit_side(s.faction),
+                calling: s.calling,
             },
         ));
     }

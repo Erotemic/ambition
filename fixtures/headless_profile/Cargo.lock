@@ -661,6 +661,7 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_shrine",
  "ambition_sprite_sheet",
+ "ambition_vfx",
  "bevy",
 ]
 

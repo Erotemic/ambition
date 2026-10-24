@@ -88,6 +88,7 @@ fn lower_summon_rides(
                 encounter_id: summon.label.clone(),
                 id: summon.label,
                 faction: ambition_vfx::HitSide::Neutral,
+                calling: ambition_vfx::SummonCalling::Fight,
                 ridden_by_summoner: Some(ambition_vfx::SummonedRide {
                     seconds: summon.seconds,
                     board_within: summon.board_within,

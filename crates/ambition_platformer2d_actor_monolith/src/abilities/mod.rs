@@ -1,21 +1,20 @@
 //! What stayed behind when the wielded ability kit was carved out (D33,
 //! 2026-09-03). The kit itself is [`ambition_abilities`].
 //!
-//! ⛔⛔ THESE ARE NOT "THE LEFTOVER ABILITIES". They are two groups that share a
-//! directory name with abilities and nothing else:
+//! ⛔⛔ THESE ARE NOT "THE LEFTOVER ABILITIES". They share a directory name with
+//! abilities and nothing else:
 //!
 //! * [`traversal`] — `teleport`, `trapdoor`, `flyline`: authored-world
 //!   traversal a move fires, registered by `ambition_platformer2d_runtime`.
 //!   Possession is control authority (a seat redirect) and lives in
 //!   `crate::control::possession`.
-//! * [`thrown`] — the puppy-slug gun, which SPAWNS A BODY through the
-//!   crate-private `features::spawn_runtime_minion`. The cross-crate seam for
-//!   that already exists (`ambition_vfx::Effect::Summon` → `SummonSpec` →
-//!   `ActorConstructionParams::SummonedMinion`); the gun is the one caller
-//!   bypassing it, so moving it is a behaviour change and not a file move.
 //!
-//! `docs/planning/engine/actor-monolith-decomposition.md` carries both
-//! arguments with their numbers, so neither group gets carved by line count.
+//! The puppy-slug gun stood here too, because it spawned its slug through the
+//! kernel's minion spawner. It asks the summon executor now
+//! (`ambition_vfx::SummonCalling::Companion`) and lives in
+//! `ambition_abilities::thrown`.
 //!
-pub mod thrown;
+//! `docs/planning/engine/actor-monolith-decomposition.md` carries the argument
+//! with its numbers, so the group does not get carved by line count.
+//!
 pub mod traversal;

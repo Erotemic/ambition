@@ -870,12 +870,8 @@ where
     // `ProjectileGameplay` (registered by the projectile domain, splash
     // included) is the only in-flight state it has.
 
-    // A MARKER, and presence is the whole of it — the summon cap counts these,
-    // so a rewind that dropped one lets a fourth slug through.
-    registrar.rollback_component_clone::<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>(
-        OWNER,
-        "ability.puppy_slug_ally",
-    );
+    // The puppy-slug gun's ally marker is `actor.summoned_companion` now,
+    // registered by the combat domain beside `actor.summoned_to_the_fight`.
 
     // Item checkpoint baselines declare their rewind/checksum obligations beside
     // the item horizon that owns capture, restore and durable adoption.

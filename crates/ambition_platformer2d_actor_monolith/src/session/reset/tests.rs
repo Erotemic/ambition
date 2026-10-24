@@ -69,7 +69,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
         .id();
     let ally = app
         .world_mut()
-        .spawn(crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly)
+        .spawn(ambition_combat::components::SummonedCompanion)
         .id();
     let player =
         app.world_mut()
@@ -108,7 +108,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
     assert!(
         app.world()
-            .get::<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>(ally)
+            .get::<ambition_combat::components::SummonedCompanion>(ally)
             .is_none(),
         "summoned ally despawned on reset"
     );

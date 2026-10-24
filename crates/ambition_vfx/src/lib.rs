@@ -110,6 +110,9 @@ pub struct SummonSpec {
     pub character_id: String,
     pub encounter_id: String,
     pub faction: HitSide,
+    /// What the body is summoned FOR, which decides how it behaves once it
+    /// exists. See [`SummonCalling`].
+    pub calling: SummonCalling,
     /// The summoner boards what it just made, if the pair is legal.
     ///
     /// This is on the summon, not a follow-up, because only the executor's
@@ -140,6 +143,24 @@ pub struct SummonSpec {
     /// The statuses the body holds from birth (`ambition.body.hold_status`
     /// kinds), so the module that summoned it ticks it. Empty for none.
     pub holds: Vec<String>,
+}
+
+/// What a summoned body is FOR.
+///
+/// A summon names its calling instead of its aggression or a marker type: the
+/// emitter states intent and the executor, which builds the body, decides what
+/// that intent is made of.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum SummonCalling {
+    /// Called into its summoner's fight (a boss's minion, a ride). It fights
+    /// along faction lines and knows where its quarry is.
+    #[default]
+    Fight,
+    /// A companion at its summoner's side (the puppy-slug gun's slug). It wanders
+    /// rather than hunts, and is marked so its summoner can count it. It has no
+    /// encounter to be stable in, so [`SummonSpec::id`] names its kind and the
+    /// executor names the body under the identity it derives for it.
+    Companion,
 }
 
 /// The summoner rides what it makes, for this long.

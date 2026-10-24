@@ -362,7 +362,7 @@ pub fn clear_transient_on_sandbox_reset(
                 With<ambition_portal2d::PortalShot>,
                 With<ambition_portal2d::PortalGunPickup>,
                 With<ambition_held_items::GroundItem>,
-                With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
+                With<ambition_combat::components::SummonedCompanion>,
             )>,
             // the rebuilt room's own contents are NOT this system's business.
             Without<RoomScopedEntity>,
@@ -373,7 +373,7 @@ pub fn clear_transient_on_sandbox_reset(
         (
             Or<(
                 With<ambition_held_items::GroundItem>,
-                With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
+                With<ambition_combat::components::SummonedCompanion>,
             )>,
             // the rebuilt room's own contents are NOT this system's business.
             Without<RoomScopedEntity>,

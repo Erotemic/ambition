@@ -199,6 +199,8 @@ pub enum ActorConstructionParams {
     },
 }
 
+pub use ambition_vfx::SummonCalling;
+
 /// A minion resolved from `Effect::Summon`.
 #[derive(Clone, Debug)]
 pub struct SummonedMinionParams {
@@ -211,6 +213,8 @@ pub struct SummonedMinionParams {
     pub character_id: String,
     pub encounter_id: String,
     pub faction: ambition_characters::actor::ActorFaction,
+    /// What the body is summoned for. See `ambition_vfx::SummonCalling`.
+    pub calling: ambition_vfx::SummonCalling,
     /// Health for this occurrence, overriding the character's authored vitals.
     /// See `ambition_vfx::SummonSpec::health`.
     pub health: Option<u32>,
@@ -788,12 +792,24 @@ fn construct_summoned_minion(
         &minion.character_id,
         minion.encounter_id.clone(),
         minion.faction,
-        ambition_combat::components::ActorAggression::hostile(),
+        match minion.calling {
+            ambition_vfx::SummonCalling::Fight => ambition_combat::components::ActorAggression::hostile(),
+            // On its summoner's side by faction, and it hunts nobody: the
+            // `can_damage` matrix still lets it hurt the summoner's foes.
+            ambition_vfx::SummonCalling::Companion => ambition_combat::components::ActorAggression::passive(),
+        },
         minion.health,
         minion.keeps_contact_damage,
     );
-    // Called into the fight: it knows where its quarry is.
-    ctx.root_scope().insert(ambition_combat::components::SummonedToTheFight);
+    match minion.calling {
+        // Called into the fight: it knows where its quarry is.
+        ambition_vfx::SummonCalling::Fight => {
+            ctx.root_scope().insert(ambition_combat::components::SummonedToTheFight);
+        }
+        ambition_vfx::SummonCalling::Companion => {
+            ctx.root_scope().insert(ambition_combat::components::SummonedCompanion);
+        }
+    }
 }
 
 fn construct_giant_host(

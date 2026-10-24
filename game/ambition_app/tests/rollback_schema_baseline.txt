@@ -1,11 +1,10 @@
-ggrs-rollback-schema-v380
+ggrs-rollback-schema-v381
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.held_course	component-clone	HeldCourse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; not in the session checksum
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -71,6 +70,7 @@ actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot
 actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.strike_rank	component-canonical	StrikeRank	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.summoned_companion	component-clone	SummonedCompanion	bevy_ggrs clone snapshot; not in the session checksum
 actor.summoned_to_the_fight	component-clone	SummonedToTheFight	bevy_ggrs clone snapshot; not in the session checksum
 actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.talk_spacing	component-clone	TalkSpacing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

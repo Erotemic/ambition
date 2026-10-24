@@ -109,16 +109,6 @@ impl Plugin for ItemPickupSimulationPlugin {
         );
         app.add_systems(
             sim,
-            // A held gun fires between the generic use step and the throw, as
-            // it always did.
-            crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
-                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
-                .in_set(ItemPickupSet::CoreHeldItems)
-                .after(HeldItemStep::Use)
-                .before(HeldItemStep::Throw),
-        );
-        app.add_systems(
-            sim,
             // WHAT THE MATCH DROPS, before the physics that settles it —
             // so an item spawned this tick falls this tick rather than
             // hanging at its point for one frame.
@@ -454,8 +444,9 @@ pub fn restore_custody_to_checkpoint(
 /// and after `BodyCustodySettled`, each step holds exactly the systems it
 /// should (counted, not named — Bevy hides names without `bevy_ecs/debug`,
 /// and a name lookup passes or fails by who else is in the build), and the
-/// three foreign systems that USED to be links of one chain attach to a step
-/// by an explicit edge. Poison: delete `.in_set(HeldItemStep::Release)` from
+/// two foreign systems that USED to be links of one chain attach to a step
+/// by an explicit edge (the third, the puppy-slug gun, is a wielded ability in
+/// `ambition_abilities` now). Poison: delete `.in_set(HeldItemStep::Release)` from
 /// `return_released_items` and the Release count reads 0; delete the shrine
 /// pair's `.before(HeldItemStep::Release)` and the edge count reads 0.
 mod held_item_steps {
@@ -609,9 +600,10 @@ mod held_item_steps {
                     "{step:?} holds exactly {expected} system(s)"
                 );
             }
-            // The three attachments that were links of the old single chain:
-            // the shrine heal before Release, the gun between Use and Throw, the
-            // match spawn between Throw and Settle.
+            // The attachments that were links of the old single chain: the
+            // shrine heal before Release and the match spawn between Throw and
+            // Settle. The gun that sat between Use and Throw is a wielded
+            // ability now, registered by `ambition_abilities`.
             //
             // ⛔ ONE, NOT TWO, SINCE A1b. The second was the checkpoint resume,
             // which this plugin installed and no longer does — see
@@ -621,11 +613,6 @@ mod held_item_steps {
                 attached_between(graph, None, Some(HeldItemStep::Release)),
                 1,
                 "the shrine heal runs before any hand changes"
-            );
-            assert_eq!(
-                attached_between(graph, Some(HeldItemStep::Use), Some(HeldItemStep::Throw)),
-                1,
-                "the held gun fires between use and throw"
             );
             assert_eq!(
                 attached_between(graph, Some(HeldItemStep::Throw), Some(HeldItemStep::Settle)),

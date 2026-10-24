@@ -110,12 +110,6 @@ Keep a cycle only when its shared invariant is stated.
   (`abilities/traversal/`) are control authority. The runtime registers their
   systems, and `body_custody`, `control::authority` and
   `control::input_systems` use them. Moving them would rename the coupling.
-- `abilities/thrown/puppy_slug_gun.rs` spawns a body through the crate-private
-  `features::spawn_runtime_minion`. The canonical seam is
-  `ambition_vfx::Effect::Summon` with a `SummonSpec`, materialized as
-  `ActorConstructionParams::SummonedMinion`. Routing the gun through it needs
-  `SummonSpec` to carry `ActorAggression` and the ally marker. That is a
-  behavior change, not a file move.
 
 ## Rules for every carve
 

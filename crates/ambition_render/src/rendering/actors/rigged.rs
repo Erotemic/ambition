@@ -562,6 +562,8 @@ type Roots<'w, 's> = Query<
         Option<&'static PerformedBodyWarp>,
         // A reader's ask for the draws of some tracks, and its answer.
         Option<(&'static PartSetRequest, &'static mut PartSetDraws)>,
+        // The tracks the root draws, when not all of them (`limb_twin`).
+        Option<&'static RiggedTrackMask>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
@@ -1062,7 +1064,7 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, &RiggedPresentationOf(root), mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed, _)) = roots.get(root) else {
+        let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed, _, _)) = roots.get(root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -1196,6 +1198,7 @@ pub fn drive_rigged_presentations(
             frame_in_sprite,
             performed,
             mut asked,
+            mask,
         )) = roots.get_mut(root)
         else {
             continue;
@@ -1234,6 +1237,16 @@ pub fn drive_rigged_presentations(
             &mut drawn,
             &mut posed_draws,
         );
+        // A root that draws some of its tracks draws those only, on either
+        // road and into its cell.
+        let masked: Vec<PartDraw>;
+        let draws = match (draws, mask) {
+            (Some(draws), Some(mask)) => {
+                masked = mask.keep(&flipbook, draws);
+                Some(masked.as_slice())
+            }
+            (draws, _) => draws,
+        };
         let (Some(draws), Some(basis), Some(mut root_anchor)) = (draws, animator.render_basis, root_anchor) else {
             presentation.drawn = drawn;
             presentation.posed_draws = posed_draws;
@@ -1754,6 +1767,8 @@ fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&An
 
 mod part_set;
 pub use part_set::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest, PlacedPart};
+mod limb_twin;
+pub use limb_twin::{follow_limb_twins, limb_tracks_drawn, LimbTwin, LimbTwins, RiggedTrackMask};
 
 #[cfg(test)]
 mod tests;

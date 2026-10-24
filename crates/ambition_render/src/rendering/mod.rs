@@ -695,6 +695,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 #[cfg(not(target_os = "android"))]
                 hit_flash::declare_hit_flash_demand,
                 passage_visuals::declare_passage_fade_demand,
+                // A limb drawn by itself in a portal pair follows its body
+                // after the body's frame and look are chosen.
+                actors::rigged::follow_limb_twins
+                    .after(passage_visuals::apply_passage_looks)
+                    .after(actors::BossAnimation),
             )
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(session_presentation_is_ready),

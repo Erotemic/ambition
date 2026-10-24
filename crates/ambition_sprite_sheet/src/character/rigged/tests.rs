@@ -798,3 +798,14 @@ fn a_head_turns_up_over_the_walk_as_the_look_up_row_turns_it() {
     asset.head_turned_as("idle_look_up", 0.0, &mut out);
     assert_eq!(out[1].rotation, 0.1);
 }
+
+/// The parts of a limb are its `limb:<slot>` tracks: the limb's own, and no
+/// other limb's whose slot starts with the same letters.
+#[test]
+fn a_limb_track_is_named_by_its_slot() {
+    assert!(is_limb_track("limb:hand_left", "hand_left"));
+    assert!(is_limb_track("limb:hand_left:fist", "hand_left"));
+    assert!(!is_limb_track("limb:hand_left_2:fist", "hand_left"));
+    assert!(!is_limb_track("limb:hand_right:fist", "hand_left"));
+    assert!(!is_limb_track("arm-left-fist", "hand_left"));
+}

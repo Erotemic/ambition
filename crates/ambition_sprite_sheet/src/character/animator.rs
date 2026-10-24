@@ -27,7 +27,10 @@ pub const SIT_AFTER_IDLE_S: f32 = 1.5;
 pub const DEATH_IDLE: &str = "death_idle";
 
 /// Per-character animation cursor.
-#[derive(Component)]
+///
+/// `Clone`: a second picture of one body (a limb drawn by itself through a
+/// portal pair, `rigged::limb_twin`) follows the body's cursor.
+#[derive(Component, Clone)]
 pub struct CharacterAnimator {
     pub spec: CharacterSheetSpec,
     /// Per-page texture and layout handles, cloned from the source asset. The

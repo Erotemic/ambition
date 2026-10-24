@@ -336,8 +336,10 @@ mod tests {
             // out of a portal (his smash attacks on a platform-fighter stage),
             // plus the three stages of the PCA's charge, plus the four rows
             // of GNU-ton's blows in his fight (the glint, the streak, the
-            // quake of the hammer, the impact).
-            206,
+            // quake of the hammer, the impact), plus five more of his fight
+            // (two blows that meet, his power, the launch, a push in space,
+            // the golden apple of its end).
+            211,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
 

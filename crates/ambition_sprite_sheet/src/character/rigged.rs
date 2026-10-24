@@ -198,6 +198,20 @@ pub fn is_head_track(name: &str) -> bool {
     })
 }
 
+/// The first word of the name of a track that is a part of a limb body: the
+/// parts of the limb `slot` of a body are its tracks `limb:<slot>` and
+/// `limb:<slot>:<part>` (`limb:hand_left:fist`).
+pub const LIMB_TRACK: &str = "limb:";
+
+/// Is a track of this name a part of the limb `slot` of its body
+/// ([`LIMB_TRACK`])? A limb that goes into a portal pair takes these parts
+/// with it, and only these.
+pub fn is_limb_track(name: &str, slot: &str) -> bool {
+    name.strip_prefix(LIMB_TRACK)
+        .and_then(|rest| rest.strip_prefix(slot))
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(':'))
+}
+
 /// Is a track of this name the head itself (`head`, `head_side`): the part
 /// whose pivot the head turns about?
 fn is_head_pivot_track(name: &str) -> bool {

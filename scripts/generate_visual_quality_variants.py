@@ -66,6 +66,13 @@ from publish_safely import break_mirrored_destination  # noqa: E402
 
 from PIL import Image
 
+# A baked sheet that the game draws from parts is still published, and the
+# giant gnu's is 180 megapixels (15040 x 11973, 2026-10-24): over PIL's
+# default guard against decompression bombs (179 megapixels). The sheets are
+# our own outputs, so the guard is set over the largest page a sheet may have
+# (16384 texels a side).
+Image.MAX_IMAGE_PIXELS = 16384 * 16384
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SPRITE_RENDERER_ROOT = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
 if str(SPRITE_RENDERER_ROOT) not in sys.path:
@@ -1775,7 +1782,10 @@ def generate_sprite_variants(
     flipbooks = {
         ron: pages
         for ron, pages in all_flipbooks.items()
-        if selects(ron.name.removesuffix("_parts.ron"), selectors)
+        # A body's flipbook is named for the body (`giant_gnu`), and sits in
+        # its target's folder (`gnu_ton_boss/`): a focused publish names the
+        # target, so the folder selects it too.
+        if selects(ron.name.removesuffix("_parts.ron"), selectors) or selects(ron.parent.name, selectors)
     }
     flipbook_pngs = {
         page.resolve() for pages in all_flipbooks.values() for page in pages

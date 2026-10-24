@@ -258,13 +258,22 @@ mod host_adapter {
 
     /// A limb in a portal pair carries its host's picture in: a giant's arm
     /// is drawn by the giant, and the limb that goes through is its fist
-    /// (`docs/planning/engine/portals-a-body-in-two-places.md`). The host's
-    /// visual is cut by the limb's pair, as deep past the plane as the limb
-    /// reaches and a limb's depth more ([`PortalHostReach`]): under the
-    /// opening and that deep, the picture is at the far end; the rest of it is
-    /// where it is. When no limb of it is in a pair, the facts go.
+    /// (`docs/planning/engine/portals-a-body-in-two-places.md`).
+    ///
+    /// A host whose flipbook names the parts of the limb (`limb:<slot>`
+    /// tracks) sends those parts only: while the limb is in a pair, the host
+    /// draws every part but the limb's, and the limb's twin
+    /// (`rigged::LimbTwin`) draws the limb's parts and is cut by the pair as
+    /// any body in it, as deep past the plane as the limb reaches and a
+    /// limb's depth more ([`PortalHostReach`]). Cut as one picture, the band
+    /// past the plane took the giant's back with its arm (2026-10-24).
+    ///
+    /// A host that does not name its limbs' parts is cut as one picture by
+    /// the pair of its deepest limb. When no limb of it is in a pair, the
+    /// facts go and its twins hide.
     ///
     /// [`PortalHostReach`]: ambition_portal2d_presentation::PortalHostReach
+    #[allow(clippy::type_complexity)]
     pub fn publish_threaded_host_pictures(
         mut commands: Commands,
         live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -278,14 +287,37 @@ mod host_adapter {
         hosts: Query<(&ambition_combat::FeatureId, &BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
         portals: Query<(Entity, &ambition_portal2d::PlacedPortal)>,
         visuals: Query<
-            (Entity, &ambition_render::rendering::FeatureVisual, Has<ambition_portal2d_presentation::PortalHostReach>),
+            (
+                Entity,
+                &ambition_render::rendering::FeatureVisual,
+                Has<ambition_portal2d_presentation::PortalHostReach>,
+                Option<&ambition_render::rendering::actors::rigged::RiggedPresentedBy>,
+                Option<&ambition_render::rendering::actors::rigged::LimbTwins>,
+                Has<ambition_render::rendering::actors::rigged::RiggedTrackMask>,
+            ),
             Without<PlayerVisual>,
         >,
+        presentations: Query<&ambition_render::rendering::actors::rigged::RiggedPresentation>,
+        mut twins: Query<(
+            &ambition_render::rendering::actors::rigged::LimbTwin,
+            &mut Visibility,
+            Has<PortalTransitView>,
+        )>,
     ) {
         use ambition_platformer2d_core::AabbExt;
+        use ambition_render::rendering::actors::rigged::{limb_tracks_drawn, LimbTwin, RiggedTrackMask};
         let by_room = ambition_portal2d::PortalsByRoom::collect(&portals, &live);
-        // Each host a limb carries in: its id, its room, the pair, and how deep.
-        let mut carried: Vec<(String, ambition_portal2d::PortalRoom, Entity, ambition_portal2d::PortalChannel, f32)> = Vec::new();
+        // Each limb in a pair: its host's id, its room, its host, its slot,
+        // the pair, and how deep.
+        struct Carried {
+            id: String,
+            room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            host: Entity,
+            slot: String,
+            straddling: ambition_portal2d::PortalChannel,
+            reach: f32,
+        }
+        let mut carried: Vec<Carried> = Vec::new();
         for (limb, of, kin, step, transit) in &limbs {
             let room = live.of(limb);
             let Some(portal) = ambition_portal2d::find_portal(by_room.in_room(room), transit.straddling) else {
@@ -299,27 +331,99 @@ mod host_adapter {
             let corners = [body.min, body.max, Vec2::new(body.min.x, body.max.y), Vec2::new(body.max.x, body.min.y)];
             let deepest = corners.iter().map(|c| -(*c - frame.origin).dot(frame.normal)).fold(0.0_f32, f32::max);
             let thickness = body.half_size().x * frame.normal.x.abs() + body.half_size().y * frame.normal.y.abs();
-            carried.push((id.0.clone(), room, of.of, transit.straddling, deepest + 2.0 * thickness));
+            carried.push(Carried {
+                id: id.0.clone(),
+                room,
+                host: of.of,
+                slot: of.slot.as_str().to_owned(),
+                straddling: transit.straddling,
+                reach: deepest + 2.0 * thickness,
+            });
         }
-        for (visual, feature, has_reach) in &visuals {
+        for (visual, feature, has_reach, presented, limb_twins, masked) in &visuals {
             let room = live.of(visual);
-            // One pair cuts the picture: the deepest limb's, then the lower
-            // channel, so the picture does not follow the query's order. Two
-            // limbs in two pairs at once are one cut: PORTAL-HOST-LIMBS.
-            let deepest = carried
+            let mine: Vec<&Carried> = carried.iter().filter(|c| c.id == feature.id && c.room == room).collect();
+            let presentation = presented.and_then(|presented| presentations.get(presented.owner()).ok());
+            // The limbs whose own parts the host draws: each goes as its twin.
+            let (by_twin, whole): (Vec<&Carried>, Vec<&Carried>) = mine
                 .iter()
-                .filter(|(id, r, ..)| *id == feature.id && *r == room)
-                .max_by(|a, b| a.4.total_cmp(&b.4).then(b.3.cmp(&a.3)));
+                .partition(|c| presentation.is_some_and(|presentation| limb_tracks_drawn(presentation, &c.slot)));
+            // Each twin: shown and cut while its limb is in a pair, else hidden.
+            let mut spawned: Vec<&str> = Vec::new();
+            for c in &by_twin {
+                let Ok((_, kin, step)) = hosts.get(c.host) else {
+                    continue;
+                };
+                let existing = limb_twins
+                    .into_iter()
+                    .flat_map(|t| t.twins().iter().copied())
+                    .find(|twin| twins.get(*twin).is_ok_and(|(of, ..)| of.slot == c.slot));
+                let twin = match existing {
+                    Some(twin) => twin,
+                    None if !spawned.contains(&c.slot.as_str()) => {
+                        spawned.push(c.slot.as_str());
+                        LimbTwin::spawn(&mut commands, visual, &c.slot)
+                    }
+                    None => continue,
+                };
+                // Shown on the frame its limb goes in; while it is cut, the
+                // portal hides and shows it (`resolve_portal_source_visibility`).
+                match twins.get_mut(twin) {
+                    Ok((_, mut visibility, false)) => *visibility = Visibility::Inherited,
+                    Ok(_) => {}
+                    Err(_) => {
+                        commands.entity(twin).insert(Visibility::Inherited);
+                    }
+                }
+                commands.entity(twin).try_insert((
+                    PortalSceneBody,
+                    body_view(c.host, kin, step),
+                    PortalTransitView { straddling: c.straddling },
+                    ambition_portal2d_presentation::PortalHostReach(c.reach),
+                ));
+            }
+            for twin in limb_twins.into_iter().flat_map(|t| t.twins().iter().copied()) {
+                let Ok((of, mut visibility, in_transit)) = twins.get_mut(twin) else {
+                    continue;
+                };
+                if by_twin.iter().any(|c| c.slot == of.slot) {
+                    continue;
+                }
+                visibility.set_if_neq(Visibility::Hidden);
+                if in_transit {
+                    commands
+                        .entity(twin)
+                        .remove::<(PortalTransitView, ambition_portal2d_presentation::PortalHostReach)>();
+                }
+            }
+            // The host draws every part but those of the limbs that go as
+            // twins.
+            match by_twin.is_empty() {
+                false => {
+                    commands
+                        .entity(visual)
+                        .try_insert(RiggedTrackMask::without(by_twin.iter().map(|c| c.slot.clone()).collect()));
+                }
+                true if masked => {
+                    commands.entity(visual).remove::<RiggedTrackMask>();
+                }
+                true => {}
+            }
+            // One pair cuts the picture of a host whose limbs are not drawn
+            // apart: the deepest limb's, then the lower channel, so the
+            // picture does not follow the query's order. Two limbs in two
+            // pairs at once are one cut: PORTAL-HOST-LIMBS.
+            let deepest = whole.iter().max_by(|a, b| a.reach.total_cmp(&b.reach).then(b.straddling.cmp(&a.straddling)));
             match deepest {
-                Some((_, _, host, straddling, reach)) => {
-                    let Ok((_, kin, step)) = hosts.get(*host) else {
+                Some(c) => {
+                    let Ok((_, kin, step)) = hosts.get(c.host) else {
                         continue;
                     };
                     commands.entity(visual).try_insert((
                         PortalSceneBody,
-                        body_view(*host, kin, step),
-                        PortalTransitView { straddling: *straddling },
-                        ambition_portal2d_presentation::PortalHostReach(*reach),
+                        body_view(c.host, kin, step),
+                        PortalTransitView { straddling: c.straddling },
+                        ambition_portal2d_presentation::PortalHostReach(c.reach),
                     ));
                 }
                 None if has_reach => {

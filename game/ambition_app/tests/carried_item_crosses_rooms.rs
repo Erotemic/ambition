@@ -1345,6 +1345,21 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
 /// the fixture aims the MOUNT so the RIDER lands in the door — the transition
 /// tests the controlled subject's box and the rider is snapped to a saddle above
 /// the mount.
+/// The limbs the character `mount` wears declares: its two hands and each
+/// limb more (`CharacterHands::more`; the giant gnu's hoof). 0 for a body
+/// that states no hands.
+fn declared_limbs(sim: &Platformer2dSimHarness, mount: Entity) -> usize {
+    let world = sim.world();
+    let worn = world
+        .get::<ambition_platformer2d::characters::actor::WornCharacter>(mount)
+        .expect("the mount wears a character");
+    world
+        .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
+        .get(worn.id())
+        .and_then(|prepared| prepared.hands.as_ref())
+        .map_or(0, |hands| 2 + hands.more.len())
+}
+
 #[test]
 fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
     use ambition_platformer2d::actors::control::possession::PossessionState;
@@ -1370,11 +1385,9 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
         .get::<LimbRig>(mount)
         .map(|rig| rig.limbs.values().copied().collect())
         .unwrap_or_default();
-    assert_eq!(
-        limbs.len(),
-        2,
-        "setup: the mount must have limbs, or this test is the mount test again"
-    );
+    let declared = declared_limbs(&sim, mount);
+    assert!(declared > 0, "setup: the mount must have limbs, or this test is the mount test again");
+    assert_eq!(limbs.len(), declared, "setup: the mount is built with every limb its character declares");
 
     let mut possessed = false;
     for i in 0..900 {
@@ -1450,9 +1463,9 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 /// rider → mount → limbs is protected by the same sentence that protects a
 /// carried axe, with nothing per-relation anywhere in the ledger.
 ///
-/// Measured in `gnu_ton_arena`, whose boss rides a mount with two hands: all
-/// FOUR identities appear, including the limbs' own
-/// `placement:EnemySpawn-6836/0` and `/1`.
+/// Measured in `gnu_ton_arena`, whose boss rides a mount with two hands and a
+/// hoof: every identity appears, including the limbs' own
+/// `placement:EnemySpawn-6836/0`, `/1` and `/2`.
 ///
 /// the second crossing is deliberate. The door out of `hall_of_bosses` does
 /// not lead back, so this is not a round trip — it is two transitions while
@@ -1498,11 +1511,13 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
                 .collect()
         })
         .unwrap_or_default();
+    let declared = declared_limbs(&sim, mount);
+    assert!(declared > 0, "setup: the mount must have limbs");
     assert_eq!(
         limb_ids.len(),
-        2,
-        "setup: the mount's limbs must carry identities of their own, or the ledger \
-         assertion below is about a shorter chain than it claims"
+        declared,
+        "setup: each limb the mount's character declares must carry an identity of its \
+         own, or the ledger assertion below is about a shorter chain than it claims"
     );
 
     for i in 0..900 {

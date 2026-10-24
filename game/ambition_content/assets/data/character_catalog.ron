@@ -5533,6 +5533,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["philosophy", "construct", "peaceful"],
+            barks: (
+                idle: ["*rivets settle*", "*a long, even breath of steam*"],
+                hall: ["Before you answer me, let me put your side better than you did.", "I have read your best argument. I am still standing here.", "If I am wrong, show me where it bears the load.", "Disagree with me at my strongest. Anything less proves nothing."],
+            ),
         ),
         "npc_straw_man": (
             display_name: "The Straw Man",
@@ -5546,6 +5550,10 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["philosophy", "construct", "peaceful"],
+            barks: (
+                idle: ["*rustle*", "*a straw drifts loose*"],
+                hall: ["So what you are saying is that I am right.", "Nobody has ever beaten me in an argument. I have checked. Mostly with myself.", "Go on, knock me down. That is what I am for.", "I awarded myself this ribbon. The judges agreed. I was the judges."],
+            ),
         ),
     },
 )

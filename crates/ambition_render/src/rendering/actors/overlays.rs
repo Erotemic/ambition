@@ -41,6 +41,18 @@ pub fn apply_hide_sprites_override(
     *prev_active = active;
 }
 
+/// Run condition of [`apply_hide_sprites_override`]: the override is on, or
+/// was on last frame (the frame that shows the sprites again).
+pub fn hide_sprites_is_on_or_was(
+    developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
+    mut was: Local<bool>,
+) -> bool {
+    let now = effective_hide_sprites(&developer_tools);
+    let run = now || *was;
+    *was = now;
+    run
+}
+
 fn effective_hide_sprites(developer_tools: &ambition_dev_tools::dev_tools::DeveloperTools) -> bool {
     // Placeholder art is a visible debug-art mode. If a persisted or
     // inspector state has both flags on, keep placeholders visible.

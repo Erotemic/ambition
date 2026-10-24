@@ -94,6 +94,8 @@ CLAIMED_DIRS = {"lofi_study_loop", "first_goblin_tune_v2"}
 # from the radio without deleting its render.
 DENY_IDS = {
     "dinosaur_liberators_adaptive",
+    # GNU-ton's fight cue: the radio plays standing_on_shoulders_v2.
+    "standing_on_shoulders_v2_adaptive",
     "flying_spaghetti_monster_fight",
 }
 

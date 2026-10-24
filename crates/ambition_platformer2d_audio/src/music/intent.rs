@@ -399,6 +399,13 @@ pub(super) fn boss_phase_key(phase: ambition_boss_encounter::BossEncounterPhase)
 /// with no state, or a bound cue with no boss of its archetype left, stops the
 /// cue (the room's music comes back); a binding whose cue is not playing and
 /// whose boss has no state claims nothing.
+///
+/// ⭐ AN OUTRO ONLY ENDS A CUE THAT IS PLAYING, as for an encounter
+/// (`outro_directive`). A fallen boss stays in `Death`, so a binding that
+/// gives `Death` the cue's outro state claims nothing once the outro has run
+/// out (the director clears the active cue then). If it claimed the outro
+/// again, the outro would start again at its end, and play each time the room
+/// with the body is entered.
 pub(super) fn resolve_boss_directive(
     catalog: &MusicCueCatalog,
     bosses: &[(&str, &'static str)],
@@ -412,6 +419,7 @@ pub(super) fn resolve_boss_directive(
             .filter(|(id, _)| *id == binding.boss_id)
             .find_map(|(_, phase)| binding.state_in(phase));
         match state {
+            Some(state_id) if !cue_active && catalog.is_outro_state(&binding.cue_id, state_id) => {}
             Some(state_id) => {
                 return Some(AdaptiveCueDirective::Play { cue_id: binding.cue_id.clone(), state_id: state_id.to_string() })
             }

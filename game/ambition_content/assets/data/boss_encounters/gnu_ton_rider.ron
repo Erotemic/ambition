@@ -21,12 +21,15 @@
     // The launch into space before phase 3 (`choreography::space::LEN`): he
     // powers up, the giant lifts off, the sky goes to space.
     enrage_seconds: 3.6,
-    // Standing on Shoulders v2, the extended boss battle; the approach room
-    // plays the original (Jon, 2026-10-20).
-    music_intro: "standing_on_shoulders_v2",
-    music_phase1: "standing_on_shoulders_v2",
-    music_phase2: "standing_on_shoulders_v2",
-    music_enrage: "standing_on_shoulders_v2",
+    // Music: Standing on Shoulders v2 as his adaptive cue,
+    // `standing_on_shoulders_v2_adaptive`, bound to his phases in
+    // `assets/audio/music_cues.ron` (`boss_bindings`): its intro one time, its
+    // body looped through every phase, its outro when he falls. No simple
+    // track per phase. The approach room plays the original (Jon, 2026-10-20).
+    music_intro: "",
+    music_phase1: "",
+    music_phase2: "",
+    music_enrage: "",
     // He speaks with the `npc_gnu_ton_boss` row's barks: Newton's voice.
     voice: Some("npc_gnu_ton_boss"),
 )

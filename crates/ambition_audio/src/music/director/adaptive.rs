@@ -242,7 +242,13 @@ fn queue_or_fire_outro(
     dt: f32,
 ) {
     if director.pending_state.is_none() {
-        let delay = seconds_until_next_phrase_marker(cue, director.seconds_in_loop, 2.0)
+        let pass_seconds = director
+            .current_section_id
+            .as_deref()
+            .and_then(|id| cue.section(id))
+            .filter(|section| section.looped)
+            .map(|section| section.duration_seconds(cue));
+        let delay = seconds_until_next_phrase_marker(cue, director.seconds_in_loop, 2.0, pass_seconds)
             .max(MIN_TRANSITION_DELAY_SECONDS);
         info!(
             target: MUSIC_LOG_TARGET,

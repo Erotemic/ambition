@@ -89,6 +89,13 @@ impl MusicCueCatalog {
         self.cues.get(id)
     }
 
+    /// Whether `state_id` is the outro state of the cue `cue_id`.
+    pub fn is_outro_state(&self, cue_id: &str, state_id: &str) -> bool {
+        self.cues
+            .get(cue_id)
+            .is_some_and(|cue| cue.outro_state.as_deref() == Some(state_id))
+    }
+
     /// The ids of every adaptive cue this catalog defines. A provider registers
     /// these through [`AdaptiveMusicCatalogRegistry`] so the music authority
     /// can gate adaptive playback to the cues that provider actually authored.

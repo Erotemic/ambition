@@ -779,6 +779,41 @@ fn a_bound_cue_stops_when_its_boss_has_no_state_left() {
     assert_eq!(resolve_boss_directive(&catalog, &[], &playing), Some(AdaptiveCueDirective::StopNow));
 }
 
+/// GNU-ton's fight: the cue plays its outro when he falls, and his body stays
+/// in `Death`. The outro plays while the fight's cue is playing; once it has
+/// run out (the director clears the cue), the body claims nothing, so the
+/// outro does not start again at its end or when the room is entered again.
+#[test]
+fn a_fallen_bosss_outro_plays_one_time() {
+    use ambition_audio::music::{BossMusicBinding, BossPhaseState, MusicCueSpec};
+    let cue = MusicCueSpec {
+        id: "fight".into(),
+        asset_root: "audio".into(),
+        bpm: 88.0,
+        beats_per_bar: 4.0,
+        relative_volume: 1.0,
+        sections: Vec::new(),
+        layers: Vec::new(),
+        states: Vec::new(),
+        outro_state: Some("outro".into()),
+        post_clear_bridge_state: None,
+        runtime_balance_overrides: Vec::new(),
+    };
+    let row = |phase: &str, state: &str| BossPhaseState { phase: phase.into(), state: state.into() };
+    let catalog = MusicCueCatalog::from_parts(vec![cue], Vec::new()).with_boss_bindings(vec![BossMusicBinding {
+        boss_id: "gnu".into(),
+        cue_id: "fight".into(),
+        phase_states: vec![row("Phase1", "loop"), row("Death", "outro")],
+    }]);
+    let outro = Some(AdaptiveCueDirective::Play { cue_id: "fight".into(), state_id: "outro".into() });
+    let playing = director_with_active_cue(Some("fight"));
+    assert_eq!(resolve_boss_directive(&catalog, &[("gnu", "Death")], &playing), outro);
+    let after_the_outro = MusicDirectorState::default();
+    assert_eq!(resolve_boss_directive(&catalog, &[("gnu", "Death")], &after_the_outro), None);
+    // A phase that is not the outro still starts the cue.
+    assert!(resolve_boss_directive(&catalog, &[("gnu", "Phase1")], &after_the_outro).is_some());
+}
+
 /// Every phase a binding can name is the key of a phase the boss domain has.
 #[test]
 fn the_boss_phase_keys_are_the_boss_domains_phases() {

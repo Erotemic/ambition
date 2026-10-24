@@ -210,6 +210,39 @@
             ],
         ),
         (
+            // GNU-ton's fight: Standing on Shoulders v2
+            // (scores/active/standing_on_shoulders_v2_adaptive.music.yaml, made
+            // from the radio's standing_on_shoulders_v2 by
+            // dev/derive_standing_on_shoulders_v2.py --adaptive). Its intro (the
+            // royal call, the proclamation, the giant takes the stage) plays one
+            // time. Then the body of the song loops, note for note the radio's:
+            // its B7 turnaround leads back into Hands of GNU, and the renderer
+            // carries the ring of the loop's end onto its head. Every phase plays
+            // the loop, so a phase change starts nothing again (Jon, 2026-10-24).
+            // The outro (the final royal impacts, one last slam, its ring) plays
+            // when he falls. One mastered `full` layer per section, so the
+            // renderer owns loudness, as for the radio's version.
+            id: "standing_on_shoulders_v2_adaptive",
+            asset_root: "audio/music/generated/standing_on_shoulders_v2_adaptive",
+            bpm: 88.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                // The intro's file runs on past its 24 beats with its ring,
+                // which sounds as the director fades it out under the loop.
+                (id: "intro", duration_beats: 24.0, looped: false, sources: [(layer_id: "full", path: "playback/intro/intro.full.ogg")]),
+                (id: "fight", duration_beats: 292.0, looped: true, sources: [(layer_id: "full", path: "playback/fight/fight.full.ogg")]),
+                (id: "outro", duration_beats: 20.0, looped: false, sources: [(layer_id: "full", path: "playback/outro/outro.full.ogg")]),
+            ],
+            layers: [(id: "full", slot: 0)],
+            states: [
+                (id: "intro", section_id: "intro", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "fight", section_id: "fight", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "outro", section_id: "outro", gains: [(layer_id: "full", gain: 1.0)]),
+            ],
+            outro_state: Some("outro"),
+        ),
+        (
             // The Evil dimension (Castle Godwin): The Tritone Decree
             // (scores/active/tritone_decree.music.yaml), heavy metal in E
             // Locrian. Its intro (bells, chant, the riff on floor toms) plays
@@ -287,6 +320,22 @@
     // A boss's phases choose the state of its cue, for every placement of
     // the archetype (the story's fight and the Hall of Bosses' copy).
     boss_bindings: [
+        (
+            // GNU-ton: the loop through every phase of the fight, and the
+            // outro when he falls (it plays one time: a fallen boss's outro
+            // only ends a cue that is playing).
+            boss_id: "gnu_ton_rider",
+            cue_id: "standing_on_shoulders_v2_adaptive",
+            phase_states: [
+                (phase: "Intro", state: "intro"),
+                (phase: "Phase1", state: "fight"),
+                (phase: "Transition", state: "fight"),
+                (phase: "Phase2", state: "fight"),
+                (phase: "Stagger", state: "fight"),
+                (phase: "Enrage", state: "fight"),
+                (phase: "Death", state: "outro"),
+            ],
+        ),
         (
             boss_id: "wolfenstein_boss",
             cue_id: "galvanic_march",

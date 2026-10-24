@@ -877,6 +877,9 @@ pub mod blows {
     /// The part of a windup row from which the limb draws back the last of
     /// the way (its hitch): the tell that the blow goes now.
     pub const HITCH_AT: f32 = 0.84;
+    /// The part of a windup row at which the blow is set on its line: the
+    /// pair is open by then.
+    pub const SET_AT: f32 = 0.66;
 
     /// An arm of the giant. Its left arm is on the left of its drawing (the
     /// side of its rump); a giant that is turned has each on the other side.
@@ -1035,6 +1038,13 @@ pub mod blows {
         pub strike: f32,
         pub hold: f32,
         pub recover: f32,
+        /// The part of the windup from which the arm is out of the place of
+        /// the near line's opening (the hanging arm is where a hammer's line
+        /// is), so the pair opens from there; the part of the recover by
+        /// which it is closed, before the arm goes home. The drawing's
+        /// `open_from` and `close_at` (`giant_art.BLOWS`).
+        pub open_from: f32,
+        pub close_at: f32,
         /// Half the length of each line of its pair: as big as the limb needs.
         pub half: f32,
         /// Its limb slot on the giant's rig.
@@ -1062,16 +1072,22 @@ pub mod blows {
     pub const fn limb(blow: Blow) -> Limb {
         let fist = Vec2::new(54.0, 46.0);
         // The hammer: down, the heaviest, the fastest through the line.
+        // The places of the near lines are the drawing's: each comes from the
+        // arm of its blow, so only the forearm and the fist go through it
+        // (`giant_art._derive_lines`, printed by `blow_lines_world`).
         let hammer = Limb {
-            line: Vec2::new(414.7, -299.65),
-            normal: Vec2::new(0.0, -1.0),
-            back: 210.0,
-            deep: 94.0,
-            out: 125.0,
+            // Down and forward: the line is by the shoulder.
+            line: Vec2::new(394.56, -187.5),
+            normal: Vec2::new(-0.643, -0.766),
+            back: 260.0,
+            deep: 60.0,
+            out: 140.0,
             past: 56.0,
             strike: 0.24,
             hold: 0.36,
             recover: 0.5,
+            open_from: 0.3,
+            close_at: 0.82,
             half: 84.0,
             slot: FIST,
             damage: 3,
@@ -1079,15 +1095,17 @@ pub mod blows {
             strike_half: fist,
         };
         let upper = Limb {
-            line: Vec2::new(406.25, -306.15),
+            line: Vec2::new(395.67, -307.22),
             normal: Vec2::new(0.0, 1.0),
-            back: 330.0,
-            deep: 100.0,
-            out: 120.0,
+            back: 230.0,
+            deep: 60.0,
+            out: 140.0,
             past: 56.0,
             strike: 0.26,
             hold: 0.24,
             recover: 0.4,
+            open_from: 0.05,
+            close_at: 0.82,
             half: 84.0,
             slot: FIST,
             damage: 2,
@@ -1096,17 +1114,29 @@ pub mod blows {
         };
         match blow {
             Blow::Hammer => hammer,
-            Blow::LeftHammer => Limb { line: Vec2::new(-106.6, -299.65), slot: FIST_LEFT, ..hammer },
+            // The left shoulder is at the middle of the body: its lines are
+            // over the body, and its blows go up into them (a line in the
+            // body would take the giant through its own portal).
+            Blow::LeftHammer => Limb {
+                line: Vec2::new(-97.55, -272.92),
+                normal: Vec2::new(0.174, 0.985),
+                open_from: 0.26,
+                slot: FIST_LEFT,
+                ..hammer
+            },
+            // Out and a little down: the line is turned to the forearm's way.
             Blow::Jab => Limb {
-                line: Vec2::new(380.25, -196.95),
-                normal: Vec2::new(-1.0, 0.0),
-                back: 190.0,
-                deep: 110.0,
-                out: 120.0,
+                line: Vec2::new(364.49, -58.76),
+                normal: Vec2::new(-0.966, -0.259),
+                back: 210.0,
+                deep: 60.0,
+                out: 140.0,
                 past: 56.0,
                 strike: 0.2,
                 hold: 0.24,
                 recover: 0.32,
+                open_from: 0.3,
+                close_at: 0.82,
                 half: 84.0,
                 slot: FIST,
                 damage: 2,
@@ -1114,15 +1144,17 @@ pub mod blows {
                 strike_half: fist,
             },
             Blow::LeftHook => Limb {
-                line: Vec2::new(-133.25, -254.15),
-                normal: Vec2::new(1.0, 0.0),
-                back: 150.0,
-                deep: 110.0,
-                out: 110.0,
+                line: Vec2::new(-103.07, -291.66),
+                normal: Vec2::new(0.342, 0.94),
+                back: 210.0,
+                deep: 60.0,
+                out: 140.0,
                 past: 56.0,
                 strike: 0.2,
                 hold: 0.24,
                 recover: 0.36,
+                open_from: 0.05,
+                close_at: 0.82,
                 half: 84.0,
                 slot: FIST_LEFT,
                 damage: 2,
@@ -1130,7 +1162,7 @@ pub mod blows {
                 strike_half: fist,
             },
             Blow::Upper => upper,
-            Blow::LeftUpper => Limb { line: Vec2::new(-98.15, -306.15), slot: FIST_LEFT, ..upper },
+            Blow::LeftUpper => Limb { line: Vec2::new(-96.58, -324.78), slot: FIST_LEFT, ..upper },
             Blow::Kick => Limb {
                 line: Vec2::new(315.25, 116.35),
                 normal: Vec2::new(-1.0, 0.0),
@@ -1141,6 +1173,8 @@ pub mod blows {
                 strike: 0.30,
                 hold: 0.24,
                 recover: 0.42,
+                open_from: 0.0,
+                close_at: 1.0,
                 half: 50.0,
                 slot: HOOF,
                 damage: 2,
@@ -1273,11 +1307,6 @@ pub mod blows {
     /// player has a thing to step out from under, and a way that is open.
     pub const TRACK_SPEED: f32 = 360.0;
     pub const LOCK: f32 = 0.3;
-    /// The pair eases open over this much of the tell, from this part of its
-    /// length, and closes over the last of the strike.
-    pub const OPEN: f32 = 0.4;
-    pub const CLOSE: f32 = 0.22;
-    pub const LEAST: f32 = 0.12;
     /// A blow whose tell starts this soon after the last one ended is the next
     /// of a combination: the other arm throws it (the one-two). The pattern
     /// rests less than this between the blows of a combination, and more
@@ -1370,16 +1399,18 @@ pub mod blows {
         (at, way)
     }
 
-    /// How open the pair is (0 to 1 of its length): it eases open through the
-    /// start of the tell, and closed at the end of the strike, when the limb
-    /// is out of it.
-    pub fn opening(cue: &Cue) -> f32 {
-        let u = if !cue.striking {
-            ease(cue.t / OPEN)
-        } else {
-            ease((cue.dur - cue.t) / CLOSE)
-        };
-        LEAST + (1.0 - LEAST) * u
+    /// How open the pair is (0 to 1 of its length; 0: there is no pair). It
+    /// eases open in the tell from the moment the arm is out of the place of
+    /// its opening (`Limb::open_from`) to the moment the blow is set
+    /// (`SET_AT`). It eases closed in the way back from the moment the limb
+    /// is out of it (`RECOVER_OUT`) to `Limb::close_at`, before the arm goes
+    /// home through that place. It never snaps (Jon, 2026-10-09).
+    pub fn opening(cue: &Cue, limb: &Limb) -> f32 {
+        if !cue.striking {
+            return ease((tell(cue) - limb.open_from) / (SET_AT - limb.open_from).max(0.05));
+        }
+        let back = (cue.t - (cue.dur - limb.recover)) / limb.recover.max(1e-3);
+        ease((limb.close_at - back) / (limb.close_at - RECOVER_OUT).max(0.05))
     }
 
     /// Does the far line still follow the player?
@@ -1925,22 +1956,34 @@ mod tests {
         }
     }
 
-    /// The pair eases open through the tell and closed at the end of the
-    /// strike: it never snaps (Jon 2026-10-09).
+    /// The pair eases open through the tell and closed in the way back: it
+    /// never snaps (Jon 2026-10-09). It is closed while the arm is where its
+    /// opening is: at the start of the tell, and when it goes home.
     #[test]
     fn a_blows_pair_eases_open_and_closed() {
-        let tell = |t| blows::opening(&cue(Move::PortalPunch, false, t, 1.0));
-        let strike = |t| blows::opening(&cue(Move::PortalPunch, true, t, 1.2));
-        assert!((tell(0.0) - blows::LEAST).abs() < 1e-4, "it opens from a sliver");
-        assert!((tell(blows::OPEN) - 1.0).abs() < 1e-4, "it is open by the end of its opening");
-        let mut before = blows::LEAST;
-        for k in 0..=60 {
-            let t = k as f32 / 60.0;
-            let now = tell(t);
-            assert!(now >= before && now - before < 0.12, "a step of the opening at {t}: {before} to {now}");
-            before = now;
+        for blow in [blows::Blow::Hammer, blows::Blow::Jab, blows::Blow::Upper, blows::Blow::LeftHammer, blows::Blow::LeftHook, blows::Blow::LeftUpper, blows::Blow::Kick] {
+            let limb = blows::limb(blow);
+            let tell = |t| blows::opening(&cue(Move::PortalPunch, false, t, 1.0), &limb);
+            let dur = limb.strike + limb.hold + limb.recover;
+            let strike = |t| blows::opening(&cue(Move::PortalPunch, true, t, dur), &limb);
+            assert_eq!(tell(limb.open_from * 0.99), 0.0, "{blow:?}: open while the arm is in its place");
+            assert!((tell(blows::SET_AT) - 1.0).abs() < 1e-4, "{blow:?}: not open when the blow is set");
+            let mut before = 0.0;
+            for k in 0..=120 {
+                let now = tell(k as f32 / 120.0);
+                assert!(now >= before && now - before < 0.12, "{blow:?}: a step of the opening at {k}: {before} to {now}");
+                before = now;
+            }
+            assert!((strike(limb.strike + limb.hold) - 1.0).abs() < 1e-4, "{blow:?}: it closes before the limb is out");
+            let closed = dur - limb.recover * (1.0 - limb.close_at);
+            assert_eq!(strike(closed + 1e-3), 0.0, "{blow:?}: open when the arm goes home");
+            let mut before = 1.0;
+            for k in 0..=120 {
+                let now = strike(dur * k as f32 / 120.0);
+                assert!(now <= before + 1e-6 && before - now < 0.25, "{blow:?}: a step of the closing at {k}: {before} to {now}");
+                before = now;
+            }
         }
-        assert!((strike(0.2) - 1.0).abs() < 1e-4 && strike(1.2) <= blows::LEAST + 1e-4, "it closes at the end");
     }
 
     #[test]

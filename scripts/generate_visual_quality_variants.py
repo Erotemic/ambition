@@ -1765,7 +1765,9 @@ def generate_sprite_variants(
     units: list[SheetUnit] = []
     for ron, pages in claims.items():
         stem = ron.name.removesuffix("_spritesheet.ron")
-        if not selects(stem, selectors):
+        # A target's folder holds the sheets of its bodies (`gnu_ton_boss/`
+        # holds `giant_gnu`'s): a focused publish names the target.
+        if not (selects(stem, selectors) or (ron.parent != src and selects(ron.parent.name, selectors))):
             continue
         target = source_targets.get(stem)
         units.append(

@@ -1000,7 +1000,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.punch_far = a(at + if to.length() <= step { to } else { to.normalize() * step });
     }
     // The pair eases open through the tell, and closed at the end.
-    c.opening = cue.as_ref().filter(|_| c.punch_open).map_or(1.0, blows::opening);
+    c.opening = cue
+        .as_ref()
+        .filter(|_| c.punch_open)
+        .zip(c.blow_kind())
+        .map_or(1.0, |(cue, blow)| blows::opening(cue, &blows::limb(blow)));
     // A blow that landed holds still.
     if c.freeze > 0.0 {
         c.freeze -= dt;
@@ -1717,7 +1721,11 @@ fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault>
     let (Some([near, far]), Some(blow)) = (c.punch_pair(), c.blow_kind()) else {
         return Ok(());
     };
-    let half = blows::limb(blow).half * c.opening.clamp(blows::LEAST, 1.0);
+    // A pair that is not open is not asked for: it is closed.
+    if c.opening <= 0.0 {
+        return Ok(());
+    }
+    let half = blows::limb(blow).half * c.opening.min(1.0);
     let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: half, half_thickness: None };
     inv.submit::<HeldPortalPairPort>(HeldPortalPair {
         slot: PUNCH_PAIR_SLOT,

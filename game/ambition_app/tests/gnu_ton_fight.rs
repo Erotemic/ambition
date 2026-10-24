@@ -32,6 +32,14 @@ fn arena() -> Platformer2dSimHarness {
     sim
 }
 
+/// The near line of the punch's pair: the end of the pair with its first
+/// look (the conductor asks for `looks: [24, 25]`, near then far). Its
+/// normal says nothing: a line of the left arm faces down (round 3).
+fn is_near_line(look: &ambition_platformer2d::portal::PortalLook) -> bool {
+    use ambition_platformer2d::portal::{PortalChannel, PortalChannelColor};
+    look.0 == PortalChannel::Authored(PortalChannelColor::Indexed(24))
+}
+
 /// A fist of the giant: its two hands, not its hoof (a limb that is always
 /// on its leg).
 fn is_fist(limb: &Limb) -> bool {
@@ -346,8 +354,8 @@ fn his_look_lines_are_the_lines_his_conductor_asks_for() {
 }
 
 /// The pair of the punch is the way up. From the floor, two jumps take the
-/// player up into the far line; it comes up out of the near line, over the
-/// giant's right shoulder, and goes to the side onto the giant's back.
+/// player up into the far line; it comes up out of the near line, in front
+/// of the giant's shoulder, and goes to the side onto the giant's back.
 #[test]
 fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     use ambition_platformer2d::portal::extension::HeldPortalOf;
@@ -356,8 +364,8 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     /// screen (the fist goes down into it), the far line down.
     fn line(sim: &mut Platformer2dSimHarness, near: bool) -> Option<ae::Vec2> {
         let world = sim.world_mut();
-        let mut portals = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();
-        portals.iter(world).find(|portal| (portal.normal.y < 0.0) == near).map(|portal| portal.pos)
+        let mut portals = world.query_filtered::<(&PlacedPortal, &ambition_platformer2d::portal::PortalLook), With<HeldPortalOf>>();
+        portals.iter(world).find(|(_, look)| is_near_line(look) == near).map(|(portal, _)| portal.pos)
     }
     let mut sim = arena();
     untouchable_player(&mut sim);
@@ -377,7 +385,9 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     let near = line(&mut sim, true).expect("the near line of the pair is open");
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
-    assert!(near.y < back.min.y, "the premise: the near line {near:?} is over the giant's back {back:?}");
+    // The near line is in front of the giant's shoulder, where its rigid arm
+    // puts it (round 3): not far under the back.
+    assert!(near.y < back.min.y + 220.0, "the premise: the near line {near:?} is by the giant's shoulders {back:?}");
     assert!(far.x < s.giant.pos.x, "the premise: the far line {far:?} is on the player's side of the giant");
 
     // On the floor under the far line, by the fist.
@@ -412,12 +422,11 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
          (the floor is {})",
         s.floor
     );
-    // Out of the near line and off its end: over the right shoulder that is
-    // toward the giant's middle, onto the back; over the left shoulder it is
-    // out over the slope of the back, which the player walks up. A body half
-    // through is held at the line's end until the pair closes.
+    // Out of the near line, by the shoulder (round 3: the line is where the
+    // rigid arm puts it, in front of the shoulder and over the back's
+    // height), and toward the giant's middle onto the back.
     let toward = if near.x < s.giant.pos.x { 1.0 } else { -1.0 };
-    let off = if near.x < back.min.x { -toward } else { toward };
+    let off = toward;
     let mut on_back = false;
     let mut trail = Vec::new();
     let mut closed_at = None;
@@ -1605,11 +1614,11 @@ fn a_fist_on_its_arm_has_no_trail() {
 fn the_punch_hurts_under_the_far_line_through_the_pair() {
     use ambition_platformer2d::portal::extension::HeldPortalOf;
     use ambition_platformer2d::portal::{PlacedPortal, PortalTransit};
-    let lines = |sim: &mut Platformer2dSimHarness| -> Option<(ae::Vec2, ae::Vec2)> {
+    let lines = |sim: &mut Platformer2dSimHarness| -> Option<((ae::Vec2, ae::Vec2), ae::Vec2)> {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();
-        let near = q.iter(world).find(|p| p.normal.y < 0.0)?.pos;
-        let far = q.iter(world).find(|p| p.normal.y > 0.0)?.pos;
+        let mut q = world.query_filtered::<(&PlacedPortal, &ambition_platformer2d::portal::PortalLook), With<HeldPortalOf>>();
+        let near = q.iter(world).find(|(_, look)| is_near_line(look)).map(|(p, _)| (p.pos, p.normal))?;
+        let far = q.iter(world).find(|(_, look)| !is_near_line(look))?.0.pos;
         Some((near, far))
     };
     // The fist of the arm that throws the blow.
@@ -1632,7 +1641,7 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
     step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
         scene(sim).performing == Some(("portal_punch", true))
     });
-    let (near, far) = lines(&mut sim).expect("the pair is open");
+    let ((near, normal), far) = lines(&mut sim).expect("the pair is open");
     // Under the far line, on the floor, and touchable again.
     place_player(&mut sim, ae::Vec2::new(far.x, far.y + 120.0));
     {
@@ -1647,7 +1656,10 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
     for _ in 0..40 {
         sim.step(AgentAction::default());
         let (fist, in_pair) = blow_fist(&mut sim);
-        assert!((fist.x - near.x).abs() < 1.0, "the fist is posed under the near line, not the far: {fist:?} near {near:?}");
+        // On the near line's axis (the limb goes in square to it), and not
+        // at the far line.
+        let across = (fist - near).dot(normal.perp());
+        assert!(across.abs() < 1.0, "the fist is posed off the near line's axis, not on it: {fist:?} near {near:?}");
         threaded |= in_pair && fist.y > near.y;
     }
     assert!(threaded, "the fist went into the near line and was in the pair");

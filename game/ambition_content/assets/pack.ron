@@ -116,6 +116,8 @@
         (path: "dialogue/sandbox/symmetry.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/hall.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/math.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/pirate_port.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/ninja_village.yarn", schema: "yarn_dialogue", version: 1),
         // How each held item is drawn on the ground and in the hand.
         (path: "data/held_item_art.ron", schema: "held_item_art", version: 1),
         // How an item is drawn over the hand of the body that wields it.

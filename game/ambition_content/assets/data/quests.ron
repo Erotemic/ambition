@@ -154,4 +154,57 @@
         ],
         auto_start: true,
     ),
+    // The Pirate Port (gate address SAILING): the wind took a page of the dock
+    // clerk's freight log to the crow's nest of the brig. Pick it up there
+    // (the PickupSpawn's flag) and hand it back to Ines (her talk sets the
+    // second flag).
+    (
+        id: "pirate_port_lost_manifest",
+        title: "Page Eleven",
+        summary: "The wind took a page of the Pirate Port's freight log to the brig's crow's nest.",
+        steps: [
+            (
+                description: "Find the page in the crow's nest of the brig at the docks.",
+                condition: FlagSet("pirate_port_manifest_found"),
+            ),
+            (
+                description: "Give the page back to Ines, the dock clerk.",
+                condition: FlagSet("pirate_port_manifest_returned"),
+            ),
+        ],
+        auto_start: true,
+        reward: Some((
+            banner: "PAGE ELEVEN RETURNED — Ines pays from the clerk's tin",
+            items: [
+                (item: "goldpouch", count: 1),
+                (item: "healthcell", count: 1),
+            ],
+        )),
+    ),
+    // The Ninja Village (gate address SILENT): the dojo's rank exam. Clear
+    // the exam floor (the dummies, then the examiner), then report to the
+    // teacher (his talk sets the flag).
+    (
+        id: "ninja_village_rank_exam",
+        title: "The Rank Exam",
+        summary: "The village dojo tests every applicant. The form does not say the applicant must be a person.",
+        steps: [
+            (
+                description: "Pass the rank exam on the village dojo's exam floor.",
+                condition: EncounterCleared("ninja_village.rank_exam"),
+            ),
+            (
+                description: "Report to Sensei Hayashi.",
+                condition: FlagSet("ninja_village_rank_awarded"),
+            ),
+        ],
+        auto_start: true,
+        reward: Some((
+            banner: "RANK AWARDED — stamped, counter-stamped and filed",
+            items: [
+                (item: "manacell", count: 2),
+                (item: "healthcell", count: 1),
+            ],
+        )),
+    ),
 ]

@@ -1,0 +1,102 @@
+title: pirate_port_context
+---
+// The Pirate Port's conversations (gate address SAILING), one node per
+// resident, named `pirate_port_<resident>`. The rooms are written by
+// `tools/ambition_ldtk_tools/specs/pirate_port/make_specs.py`.
+//
+// The problem of the port: the wind took a page of Ines's freight log to the
+// crow's nest of the brig (flag `pirate_port_manifest_found`, the page's
+// pickup). Handing it back sets `pirate_port_manifest_returned`; the quest
+// `pirate_port_lost_manifest` pays the reward.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: pirate_port_ines
+---
+<<if condition("world.flag_set", "pirate_port_manifest_returned")>>
+Ines: Page eleven, back in the book. The goat is logged, the limes are logged, and you are logged as "helpful".
+-> What came through today?
+    Ines: Two crates of lamp oil, a mapmaker with a nosebleed, and a letter for "whoever is in charge". I filed it under me.
+-> Carry on.
+<<elseif condition("world.flag_set", "pirate_port_manifest_found")>>
+Ines: Is that page eleven? From the crow's nest? You climbed the Persistence for a page of my log?
+-> Hand her the page.
+    <<command "world.set_flag" "pirate_port_manifest_returned" true>>
+    Ines: Every crate in the warehouse has an owner again. Take this from the clerk's tin. Do not tell the harbour master it was a tin.
+-> Keep it a moment longer.
+    Ines: It is not a souvenir. It is a legal document with a gull print on it.
+<<else>>
+Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge.
+-> You look worried.
+    Ines: The wind took page eleven of the freight log. It went up past the brig's yards and caught in her crow's nest. Without it, half the warehouse belongs to nobody.
+    Ines: The brig is at the end of the pier. Mind the gaps in the boards. The harbour keeps what it gets.
+-> What do you log?
+    Ines: Everything the ring brings. Crates, letters, a goat last week. The ring does not care what it carries. I do.
+-> Carry on.
+<<endif>>
+===
+
+title: pirate_port_tomas
+---
+Tomas: Do not mind me. I am waiting for my stomach. It is still in the other dimension.
+-> Is the gate always like this?
+    Tomas: For people, yes. Three seconds of nothing, then the floor arrives all at once. You are a machine. You probably felt a draught.
+-> Where are you going?
+    Tomas: To sell lamp oil to pirates. The ring made it a short trip. Nobody said it would make it a long recovery.
+-> Feel better.
+===
+
+title: pirate_port_agnes
+---
+Agnes: Rope, tar, biscuits, remedies. Forty years on this street. The ring changed the customers, not the rope.
+-> Ginger for the gate-sick?
+    Agnes: Your friend in the plaza has bought three bags. He is not better. He is fond of ginger now.
+-> Buy Health Cell — 8g <<if can_afford(8)>>
+    <<buy_item "healthcell" 8>>
+    Agnes: Good for what ails a body. Even yours.
+-> Buy Spare Battery — 12g <<if can_afford(12)>>
+    <<buy_item "sparebattery" 12>>
+    Agnes: Came through the ring last week. Fresh from somewhere.
+-> Just looking.
+===
+
+title: pirate_port_jory
+---
+Jory: Mind the boards. There are two gaps in the pier and the harbour is deeper than it looks.
+-> What do you catch?
+    Jory: Whatever this sea gives. Now the market sells fish from three seas, through the ring. Mine still taste of this one.
+-> What is up the brig's mast?
+    Jory: The crow's nest of the Persistence. Gulls, rope and, today, a piece of paper. Ines will want that.
+-> Carry on.
+===
+
+title: pirate_port_bram
+---
+Bram: Harbour master. The docks are mine, the cove is the crews', and the sky over it is anyone's who can fly.
+-> What is past that door?
+    Bram: The pirate cove. Mind your manners there. The crews keep a lookout above it, where the skyship raiders gather. They do not like visitors.
+-> Does the ring bother you?
+    Bram: A ship takes a week to bring what the ring brings in a breath. I still trust the ship. The ship never felt sick.
+-> Carry on.
+===
+
+title: pirate_port_wren
+---
+Wren: Welcome to The Drowned Compass. We never tell you where you are, which is why you come back.
+-> What do you serve?
+    Wren: Grog, chowder, and a tea for the gate-sick that is mostly ginger and hope.
+-> Who is the big one?
+    Wren: Bess, from the cove. She pays, she sings, and nobody asks about the cannon port in her blade.
+-> Carry on.
+===
+
+title: pirate_port_bess
+---
+Broadside Bess: Shore leave. A table, a chowder, and nobody to board. Do not ruin it.
+-> Do you crew from the cove?
+    Broadside Bess: The cove is home. The port is where the money is. The sky is where the trouble is.
+-> Have you been through the ring?
+    Broadside Bess: Once. I came out the other side and fired a broadside at the floor. On purpose. Probably.
+-> Enjoy the chowder.
+===

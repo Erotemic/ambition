@@ -20,6 +20,12 @@
         // its spoke, the gravity works where GNU-ton waits. The station's
         // gate dock and the works' orchard are its two gate arrivals.
         (id: "world.science_ldtk", file: "science.ldtk"),
+        // The pirate dimension: the Pirate Port (gate address SAILING), its
+        // docks and its way to the pirate cove.
+        (id: "world.pirate_port_ldtk", file: "pirate_port.ldtk"),
+        // The ninja dimension: the Ninja Village (gate address SILENT), its
+        // roofs, its forest and its dojo, and the way to the Shadow Dojo.
+        (id: "world.ninja_village_ldtk", file: "ninja_village.ldtk"),
         // The Evil dimension: a gate in the central hub is the way in. Its
         // first place is Castle Godwin.
         (id: "world.evil_ldtk", file: "evil.ldtk"),

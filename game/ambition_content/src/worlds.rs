@@ -492,14 +492,16 @@ mod tests {
     }
 
     #[test]
-    fn manifest_names_the_seven_worlds_and_the_hub_entry() {
+    fn manifest_names_the_nine_worlds_and_the_hub_entry() {
         let manifest = world_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 7);
+        assert_eq!(manifest.worlds.len(), 9);
         for (id, what) in [
             ("world.math_ldtk", "the Math dimension"),
             ("world.science_ldtk", "the Science dimension"),
             ("world.evil_ldtk", "the Evil dimension"),
+            ("world.pirate_port_ldtk", "the Pirate Port"),
+            ("world.ninja_village_ldtk", "the Ninja Village"),
         ] {
             assert!(manifest.worlds.iter().any(|world| world.id.as_str() == id), "{what}'s world is not in the manifest");
         }

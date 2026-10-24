@@ -467,7 +467,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
+        "crates/ambition_platformer2d_construction/src/whereabouts.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/errand.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
@@ -2080,7 +2080,7 @@ ADJUDICATED: dict[str, str] = {
         "`retract_mints_of_retracted_boss_defeats` (`items/pickup/"
         "minted_horizon.rs`). It removes rows and adds none, so the entry rule "
         "below is unchanged. The sixth FILE, added 2026-10-01 (Q38, OW3), is "
-        "`record_placed_bodies` (`actor_monolith/src/body_whereabouts.rs`): it "
+        "`record_placed_bodies` (`construction/src/whereabouts.rs`): it "
         "takes `republish_placements` for a persistent authored body whose "
         "custody just ended, the item producer's road under the same entry rule, "
         "and adds no method. (The away population set of the same module, "

@@ -236,7 +236,7 @@ pub fn advise_navigation(
                     None => {
                         let crossing = specs.as_ref().zip(live_room).map(|(specs, body_room)| {
                             let may_leave = config.is_some_and(|config| {
-                                crate::body_whereabouts::keeps_durable_whereabouts(specs, config, origin)
+                                ambition_platformer2d_construction::whereabouts::keeps_durable_whereabouts(specs, config, origin)
                             });
                             super::errand::errand_crossing(
                                 errand,

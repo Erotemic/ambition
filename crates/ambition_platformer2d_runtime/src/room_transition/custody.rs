@@ -2,7 +2,7 @@
 //! (Q38): the transition's reading of the body-whereabouts ledger.
 //!
 //! The ledger and its writer stay with the bodies
-//! (`ambition_platformer2d_actor_monolith::body_whereabouts`); what a crossing
+//! (`ambition_platformer2d_construction::whereabouts`); what a crossing
 //! retires is the transition's own rule, so it is read here, beside the loader
 //! that prepares the destination.
 

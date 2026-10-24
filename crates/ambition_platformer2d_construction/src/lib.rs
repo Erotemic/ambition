@@ -5,6 +5,7 @@
 //! through construction federation.
 
 pub mod placements;
+pub mod whereabouts;
 
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{

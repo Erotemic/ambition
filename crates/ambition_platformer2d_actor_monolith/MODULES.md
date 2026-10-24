@@ -13,7 +13,6 @@
 | [`body_conditions`](src/body_conditions.rs) | Authored BODY-CAPABILITY conditions — "can the body do this verb at all?" |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
-| [`body_whereabouts`](src/body_whereabouts.rs) | Where an authored body is when it is not in the room that authored it (Q38, OW3): a persistent character's durable whereabouts, and the population occurrences that live away from home. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
 | [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
 | [`character_runtime`](src/character_runtime/mod.rs) | Engine-owned character loading and materialization. |
@@ -37,7 +36,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D debris adapter (re-exported from its own crate), and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

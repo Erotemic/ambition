@@ -299,7 +299,7 @@ impl Plugin for PlayerSchedulePlugin {
         // row that is the evidence the body was carried.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::body_whereabouts::record_placed_bodies
+            ambition_platformer2d_construction::whereabouts::record_placed_bodies
                 .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record),
         );
         // And where a population occurrence lives away from the room that
@@ -308,7 +308,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AwayFromAuthoredRoom>();
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::body_whereabouts::record_bodies_away_from_home
+            ambition_platformer2d_construction::whereabouts::record_bodies_away_from_home
                 .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record),
         );
         // The damage policy the simulation reads changes only through the

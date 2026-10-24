@@ -273,7 +273,7 @@ pub fn cross_on_errands(
         let Some(body_room) = specs.live().of(body) else {
             continue;
         };
-        let durable = crate::body_whereabouts::keeps_durable_whereabouts(&specs, config, origin);
+        let durable = ambition_platformer2d_construction::whereabouts::keeps_durable_whereabouts(&specs, config, origin);
         let Ok(crossing) =
             errand_crossing(errand, body_room, durable, &specs, occurrences.as_deref(), &items)
         else {

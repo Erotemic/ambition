@@ -33,7 +33,6 @@ pub mod schedule;
 pub mod abilities;
 pub mod assets;
 pub mod body_custody;
-pub mod body_whereabouts;
 pub mod body_mode;
 mod checkpoint_horizon;
 pub use checkpoint_horizon::ActorCheckpointHorizonPlugin;

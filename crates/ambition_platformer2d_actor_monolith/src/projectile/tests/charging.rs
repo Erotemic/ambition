@@ -248,6 +248,32 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
     );
 }
 
+/// A gesture the meter cannot pay for does not eat the press: the press is a
+/// fireball, as a press with no gesture is. The control is the meter that
+/// pays for a fireball and not for a Hadouken.
+#[test]
+fn a_hadouken_the_meter_cannot_pay_for_is_a_fireball() {
+    let mut app = min_app();
+    {
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut t = 0.0;
+        for dir in [MotionDirection::Down, MotionDirection::Right] {
+            state.motion_buffer.push(dir, t);
+            t += 0.04;
+        }
+        state.clock = t;
+        state.spawner.meter.current = ProjectileKind::Fireball.cost();
+        assert!(state.spawner.meter.current < ProjectileKind::Hadouken.cost(), "control: no Hadouken");
+    }
+    tap_projectile(&mut app);
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app),
+        vec![Some(ProjectileKind::Fireball)],
+        "the press is a fireball"
+    );
+    assert!(refusals(&mut app).is_empty(), "a press that fired is not refused");
+}
+
 #[test]
 fn full_qcf_then_press_fires_hadouken_super() {
     let mut app = min_app();
@@ -318,25 +344,76 @@ fn refusals(app: &mut bevy::prelude::App) -> Vec<ambition_combat::RangedFireRefu
         .collect()
 }
 
-/// ⭐ Q33: A PRESS IN THE COOLDOWN MAKES NO SHOT AND SAYS WHY. The control
-/// is the first press, which fires and publishes no refusal.
+/// A tap in the cooldown is not lost: it waits, and it fires on the tick the
+/// cooldown is over. The control is the first tap, which fires at once.
 #[test]
-fn cooldown_blocks_second_fire_in_same_window() {
+fn a_tap_in_the_cooldown_fires_when_the_cooldown_is_over() {
     let mut app = min_app();
     tap_projectile(&mut app);
-    assert!(refusals(&mut app).is_empty(), "control: the first press fires");
-    // Don't advance past the cooldown — second tap should be no-op.
+    assert_eq!(crate::projectile::tests::projectile_bodies(&mut app).len(), 1, "control: the first tap fires");
     tap_projectile(&mut app);
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
-    assert_eq!(bodies.len(), 1);
+    assert_eq!(
+        crate::projectile::tests::projectile_bodies(&mut app).len(),
+        1,
+        "the second tap waits for the cooldown"
+    );
+    assert!(refusals(&mut app).is_empty(), "a tap that waits is not refused");
+    let mut waited = 0.0;
+    while crate::projectile::tests::projectile_bodies(&mut app).len() < 2 {
+        assert!(waited < ProjectileKind::Fireball.cooldown(), "the waiting tap did not fire in the cooldown");
+        advance_time(&mut app, 0.016);
+        app.update();
+        waited += 0.016;
+    }
+    assert!(refusals(&mut app).is_empty(), "the waiting tap fired, and nothing was refused");
+}
+
+/// ⭐ Q33: A TAP THAT WAITS LONGER THAN THE BUFFER MAKES NO SHOT AND SAYS WHY.
+/// A Hadouken Super's cooldown is longer than the buffer.
+#[test]
+fn a_tap_that_outwaits_the_buffer_is_refused_and_says_why() {
+    let mut app = min_app();
+    {
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        state.spawner.cooldown_remaining = ambition_projectiles::state::FIRE_BUFFER_S + 0.3;
+        state.spawner.cooldown_armed = state.spawner.cooldown_remaining;
+    }
+    tap_projectile(&mut app);
+    for _ in 0..((ambition_projectiles::state::FIRE_BUFFER_S / 0.016) as usize + 2) {
+        advance_time(&mut app, 0.016);
+        app.update();
+    }
+    assert!(crate::projectile::tests::projectile_bodies(&mut app).is_empty());
     let refused = refusals(&mut app);
-    assert_eq!(refused.len(), 1, "the refused press is published once: {refused:?}");
+    assert_eq!(refused.len(), 1, "the refused tap is published once: {refused:?}");
     let ambition_combat::WeaponReadiness::Recharging { progress: Some(progress) } =
         refused[0].readiness
     else {
         panic!("refused on the cooldown, with a progress: {:?}", refused[0]);
     };
     assert!(progress > 0.0 && progress < 1.0, "part of the cooldown is spent: {progress}");
+}
+
+/// A tap shorter than one tick arrives as a press and a release in the same
+/// tick. It is a shot, and it leaves no charge behind.
+#[test]
+fn a_press_and_release_in_one_tick_fires_one_fireball() {
+    let mut app = min_app();
+    shape_primary(&mut app, |frame| {
+        frame.projectile_pressed = true;
+        frame.projectile_held = false;
+        frame.projectile_released = true;
+    });
+    advance_time(&mut app, 0.016);
+    app.update();
+    shape_primary(&mut app, |frame| {
+        frame.projectile_pressed = false;
+        frame.projectile_released = false;
+    });
+    advance_time(&mut app, 0.016);
+    app.update();
+    assert_eq!(crate::projectile::tests::projectile_bodies(&mut app).len(), 1);
+    assert!(crate::projectile::tests::projectile_state_ref(&app).charging.is_none(), "no charge is left behind");
 }
 
 /// ⭐ Q33: A PRESS WITH AN EMPTY METER MAKES NO SHOT AND SAYS "NO AMMUNITION".

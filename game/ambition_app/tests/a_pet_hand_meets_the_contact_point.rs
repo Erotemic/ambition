@@ -128,19 +128,25 @@ pub(crate) fn unpublished(target: &str) -> String {
 /// `rows` that `target` has: sheet pixels from the feet, +x the way the art
 /// faces. The middle frame is the one the pet's mark is planned for.
 pub(crate) fn drawn_at_the_middle(target: &str, rows: &[&str], track: &str) -> Vec2 {
+    drawn_at(target, rows, track, |frames| frames / 2)
+}
+
+/// [`drawn_at_the_middle`], in the frame `pick` chooses from the row's frame
+/// count.
+pub(crate) fn drawn_at(target: &str, rows: &[&str], track: &str, pick: impl Fn(usize) -> usize) -> Vec2 {
     let flipbook = RiggedSpriteAsset::baked(target)
         .unwrap_or_else(|| panic!("{}", unpublished(target)));
     let (row, clip) = rows
         .iter()
         .find_map(|row| flipbook.clip(row).map(|clip| (*row, clip)))
         .unwrap_or_else(|| panic!("`{target}` draws none of {rows:?}"));
-    let middle = clip.frame_count() / 2;
+    let frame = pick(clip.frame_count());
     flipbook
-        .frame(row, middle)
-        .expect("the middle frame")
+        .frame(row, frame)
+        .expect("the frame")
         .iter()
         .find(|draw| draw.track.is_some_and(|index| flipbook.tracks[usize::from(index)] == track))
-        .unwrap_or_else(|| panic!("`{target}` row `{row}` frame {middle} draws no `{track}`"))
+        .unwrap_or_else(|| panic!("`{target}` row `{row}` frame {frame} draws no `{track}`"))
         .at
 }
 

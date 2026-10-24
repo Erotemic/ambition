@@ -163,3 +163,51 @@ What is built (`robot_slash`, in the sprite renderer):
    old jab's pace (one each 0.24 s; the jab was 0.25 s), and it now moves.
 7. A walk that holds attack does not go through the string by itself (a
    held attack at rest does).
+
+## The fireball (2026-10-24)
+
+Jon: "my fireballs aren't doing much damage", "somewhat difficult to have
+work", "it doesn't really work with the hand pose".
+
+Measured in the Mockingbird's sky with rollback on, the robot beside the
+winded Mockingbird (`game/ambition_app/tests/the_robots_fireball_against_the_mockingbird.rs`,
+`measure_…`, ignored):
+
+| Way of fighting | Before | After |
+|---|---|---|
+| Blade, a press each 0.25 s | 9 damage, 4.15/s | the same |
+| Fireball tap each 0.10 s | 22 presses, 6 shots, 2.33/s | 7 shots, 3.23/s |
+| Fireball tap each 0.20 s | 11 presses, 6 shots, 2.33/s | 7 shots, 3.23/s |
+| Fireball tap each 0.33 s | 7 shots, 3.23/s | the same |
+| Fireball held 0.4 s (tier 1) | 4 a shot, 8.7/s | the same |
+
+- **A press in the cooldown was lost.** The fireball fires on the release,
+  and a release in the 0.30 s cooldown was refused. Now it waits
+  (`PlayerProjectileState::buffered`, up to `FIRE_BUFFER_S`, 0.35 s) and
+  fires when the cooldown ends. A press and a release in one tick is a shot
+  (it left a charge that never fired). A Hadouken gesture the meter cannot
+  pay for is a fireball, not a lost press.
+- **The pose.** The `shoot` row hung the arm at the side and held the orb at
+  the knee, and the shot was born at the hand of the row's middle frame. The
+  shot is fired on the tick the row starts, so it is now born at the hand of
+  the FIRST frame (`SHOOT_RELEASE_PHASE`). The robot's `shoot` row is a push
+  of both palms at chest height from frame 0, 0.18 s long (the time the game
+  shows it); `aim` (the held charge) is the wind-up, both hands back at the hip
+  with the orb. No shot is drawn in the art: the shot is the game's.
+
+Open (Jon):
+
+1. A tap deals 1, as one swing does, and the 0.30 s cooldown holds taps to
+   3.3/s against the blade's 4.15/s. A charged shot deals 4 (0.35 s) or 16
+   (0.85 s). The tap's damage and the cooldown are Ambition's numbers on
+   `ProjectileKind`, and the Smash stage reads the same ones.
+2. Out at its side the Mockingbird's guard turns every blow, a fireball too,
+   and a tap flies about 430 px (360 px/s for 1.2 s) in a sky 1280 wide. So
+   a fireball hurts it only when it is close and open.
+3. The fireball fires on the release. A shot on the press (and a charged
+   shot on the release) is the Mega Man way.
+4. A shot aimed up or on a diagonal (the right stick) leaves the forward
+   push's hand: there is one `shoot` row.
+5. Under GGRS resimulation (sync test, check distance 1 or more) only the
+   first strike of a window damages the winded Mockingbird, blade or shot;
+   with check distance 0 all of them do (`probe_…`, ignored). Not fixed here.

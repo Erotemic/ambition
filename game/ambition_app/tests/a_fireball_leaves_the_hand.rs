@@ -1,17 +1,15 @@
 //! The player's shot is born at the hand that fires it.
 //!
-//! The shot was born off the edge of the body's box in the aim direction, a
-//! fifth of the body's height above its centre: in front of the robot's face.
-//! The robot's `shoot` row holds the orb in its near hand at knee height and
-//! draws the bolt leaving from there. The shot is now born with its rear edge
-//! at that hand, from the landmark query (ruling Q41).
+//! The shot is fired on the tick the `shoot` row starts, so it is born with its
+//! rear edge at the hand of that row's FIRST frame, from the landmark query
+//! (ruling Q41). The robot's first frame is the push: the hand out at the chest.
 //!
 //! ⚠ The expected hand does NOT come from that query. It comes from the draw
 //! table the renderer draws the `shoot` row from, at the scale the body states.
 
 #![cfg(feature = "rl_sim")]
 
-use crate::a_pet_hand_meets_the_contact_point::{art_point_in_world, drawn_at_the_middle};
+use crate::a_pet_hand_meets_the_contact_point::{art_point_in_world, drawn_at};
 use crate::common::{base, fixed_60hz_sim};
 use ambition_app::Platformer2dSimHarness;
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -89,7 +87,7 @@ fn a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it() {
     let facing = tap.body.facing.signum();
     let hand = art_point_in_world(
         &tap.body,
-        drawn_at_the_middle(&tap.sheet.target, &["shoot", "idle"], "near_hand"),
+        drawn_at(&tap.sheet.target, &["shoot", "idle"], "near_hand", |_| 0),
         tap.sheet.world_per_pixel,
     );
     let feet_y = tap.body.pos.y + tap.body.size.y * 0.5;
@@ -135,10 +133,11 @@ fn a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it() {
         "the shot is born at {:?}; with its rear edge at the hand ({hand:?}) it is born at {expected:?}",
         tap.born,
     );
-    // Control: the two places are far apart for this body, so this arm tells
-    // them apart.
+    // Control: the two places are apart by many times the 0.5 the arm above
+    // allows, so this arm tells them apart. (The push holds the hand at the
+    // chest, near the old box muzzle: they are about 13 apart.)
     assert!(
-        (box_muzzle - expected).length() > 15.0,
+        (box_muzzle - expected).length() > 5.0,
         "control: the box muzzle ({box_muzzle:?}) and the hand ({expected:?}) are too near to \
          witness which one the shot used",
     );
@@ -198,7 +197,7 @@ fn art_that_reaches_with_its_far_hand_fires_from_that_hand() {
     let at_hand = |track: &str| {
         let hand = art_point_in_world(
             &body,
-            drawn_at_the_middle(&sheet.target, &["shoot", "idle"], track),
+            drawn_at(&sheet.target, &["shoot", "idle"], track, |_| 0),
             sheet.world_per_pixel,
         );
         let feet_y = body.pos.y + body.size.y * 0.5;

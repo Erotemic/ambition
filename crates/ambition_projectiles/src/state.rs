@@ -33,6 +33,25 @@ pub struct PlayerProjectileState {
     ///   immediately and stays `None` (no charge bleeds into the
     ///   following frame).
     pub charging: Option<f32>,
+    /// A shot the player asked for while the spawner was cooling down. It
+    /// fires on the first tick the cooldown is over, if that is within
+    /// [`FIRE_BUFFER_S`] of the ask; else it is refused then.
+    pub buffered: Option<BufferedShot>,
+}
+
+/// How long a shot asked for in a cooldown waits for the cooldown to end
+/// (s). It is longer than the fireball's cooldown, so a tap at any time after
+/// a fireball is a shot.
+pub const FIRE_BUFFER_S: f32 = 0.35;
+
+/// A shot that waits for the spawner's cooldown (see
+/// [`PlayerProjectileState::buffered`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BufferedShot {
+    pub kind: crate::ProjectileKind,
+    pub charge_tier: u8,
+    /// The time it still waits (s).
+    pub remaining: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -61,6 +80,7 @@ impl Default for PlayerProjectileState {
             unlocked: ProjectileUnlocks::default(),
             charge_tuning: crate::FireballChargeTuning::DEFAULT,
             charging: None,
+            buffered: None,
         }
     }
 }

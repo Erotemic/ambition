@@ -143,7 +143,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 380 -> 381: a summon names its calling; a companion (the puppy-slug gun's
 /// slug) is built by the summon executor and marked `actor.summoned_companion`
 /// (`SummonedCompanion`, clone). `ability.puppy_slug_ally` is gone.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 381;
+/// 381 -> 382: `player.projectile_state` (`PlayerProjectileState`) encodes the
+/// shot that waits for the cooldown (`buffered`: its kind, charge tier and the
+/// time it still waits).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 382;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

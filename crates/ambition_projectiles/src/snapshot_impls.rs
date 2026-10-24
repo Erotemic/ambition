@@ -103,6 +103,12 @@ impl SnapshotState for crate::PlayerProjectileState {
         if let Some(charging) = self.charging {
             put_f32(out, charging);
         }
+        put_bool(out, self.buffered.is_some());
+        if let Some(shot) = self.buffered {
+            shot.kind.encode(out);
+            put_u8(out, shot.charge_tier);
+            put_f32(out, shot.remaining);
+        }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -136,6 +142,15 @@ impl SnapshotState for crate::PlayerProjectileState {
             heavy_after: r.f32()?,
         };
         let charging = if r.bool()? { Some(r.f32()?) } else { None };
+        let buffered = if r.bool()? {
+            Some(crate::state::BufferedShot {
+                kind: crate::ProjectileKind::decode(r)?,
+                charge_tier: r.u8()?,
+                remaining: r.f32()?,
+            })
+        } else {
+            None
+        };
 
         Some(crate::PlayerProjectileState {
             spawner: crate::ProjectileSpawner {
@@ -148,6 +163,7 @@ impl SnapshotState for crate::PlayerProjectileState {
             unlocked,
             charge_tuning,
             charging,
+            buffered,
         })
     }
 }

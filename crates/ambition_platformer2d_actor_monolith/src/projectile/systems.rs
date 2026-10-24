@@ -94,8 +94,11 @@ const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
 /// is born at the hand of the same rows, so it leaves the hand on screen.
 pub(super) const SHOOT_CLIPS: &[&str] = &["shoot", "idle"];
 
-/// The part of the shoot row the shot leaves the hand in: its middle.
-const SHOOT_RELEASE_PHASE: f32 = 0.5;
+/// The part of the shoot row the shot leaves the hand in: its first frame.
+/// The shot is fired on the tick the row starts, so the hand that releases
+/// it is the hand of the row's first frame. A row whose hand reaches out
+/// later draws the shot ahead of the hand that threw it.
+const SHOOT_RELEASE_PHASE: f32 = 0.0;
 
 fn player_projectile_local_fire_dir(aim_local: ae::Vec2, facing: f32) -> ae::Vec2 {
     if aim_local.length() > 0.1 {
@@ -270,14 +273,41 @@ pub fn charge_projectile_input(
             )
         };
 
-        // Count fires locally because spawn messages are consumed after this
-        // system, but shoot animation still pulses on the firing frame.
-        let mut fired_this_frame = 0u32;
+        let mut firing = Firing {
+            owner: body_entity,
+            origin_of: &origin_of,
+            direction,
+            damage_mult,
+            spawn: &mut spawn_projectiles,
+            refused: &mut refused,
+            fired: 0,
+        };
+
+        // A shot asked for in the cooldown fires on the first tick the
+        // cooldown is over, or is refused when it has waited too long.
+        if let Some(mut shot) = state.buffered.take() {
+            match firing.fire(&mut state, &mut events, shot.kind, shot.charge_tier) {
+                FireOutcome::Fired => {}
+                FireOutcome::Cooldown => {
+                    shot.remaining -= dt;
+                    if shot.remaining > 0.0 {
+                        state.buffered = Some(shot);
+                    } else {
+                        firing.refuse(&state, shot.kind);
+                    }
+                }
+                FireOutcome::OutOfResource => firing.refuse(&state, shot.kind),
+            }
+        }
 
         // Press edge: try Hadouken tiers first (most-specific motion gate
         // wins), else start charging a Fireball. Order matters — the
         // grace shape is a SUBSEQUENCE of the full QCF, so check Super
         // first; otherwise a 3-step input would fire a weak Hadouken.
+        //
+        // The press, the hold and the release are each read on their own: a
+        // tap shorter than one tick arrives as a press and a release in the
+        // same tick, and it is a shot.
         if tick_info.press {
             let super_qcf = technique_catalog.detect("qcf", &state.motion_buffer);
             let half_circle = technique_catalog.detect("hcf", &state.motion_buffer);
@@ -306,64 +336,35 @@ pub fn charge_projectile_input(
                 motion_kind,
             );
 
-            if let Some(kind) = motion_kind {
-                // Motion gesture committed — fire immediately, do not
-                // start a charge for this press.
-                fired_this_frame += try_fire_projectile(
-                    &mut state,
-                    body_entity,
-                    kind,
-                    origin_of(kind, 0),
-                    direction,
-                    damage_mult,
-                    0,
-                    &mut events,
-                    &mut spawn_projectiles,
-                    &mut refused,
-                ) as u32;
+            // A motion gesture fires (or waits for the cooldown) at once and
+            // starts no charge. A gesture the meter cannot pay for is not a
+            // lost press: the press charges the fireball, as a press with no
+            // gesture does.
+            let gesture_taken = motion_kind.is_some_and(|kind| {
                 state.motion_buffer.clear();
-                state.charging = None;
-            } else if state.unlocked.fireball {
-                // Begin charging the Fireball. Release-edge below
-                // commits the charged shot.
-                state.charging = Some(0.0);
-            }
+                firing.fire_or_wait(&mut state, &mut events, kind, 0) != FireOutcome::OutOfResource
+            });
+            state.charging = (!gesture_taken && state.unlocked.fireball).then_some(0.0);
         } else if tick_info.held {
             if let Some(t) = state.charging.as_mut() {
                 *t += dt;
             }
-        } else if tick_info.released {
+        }
+        if tick_info.released {
             if let Some(hold) = state.charging.take() {
                 let tier = state.charge_tuning.tier_for_hold(hold);
-                fired_this_frame += try_fire_projectile(
-                    &mut state,
-                    body_entity,
-                    ambition_projectiles::ProjectileKind::Fireball,
-                    origin_of(ambition_projectiles::ProjectileKind::Fireball, tier),
-                    direction,
-                    damage_mult,
-                    tier,
-                    &mut events,
-                    &mut spawn_projectiles,
-                    &mut refused,
-                ) as u32;
+                firing.ask(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, tier);
             }
         } else if tick_info.intent && state.charging.is_none() && state.unlocked.fireball {
             // An autonomous driver's "shoot" is a tap: an uncharged Fireball.
-            // The spawner's refire cooldown paces a driver that asks every tick.
-            fired_this_frame += try_fire_projectile(
-                &mut state,
-                body_entity,
-                ambition_projectiles::ProjectileKind::Fireball,
-                origin_of(ambition_projectiles::ProjectileKind::Fireball, 0),
-                direction,
-                damage_mult,
-                0,
-                &mut events,
-                &mut spawn_projectiles,
-                &mut refused,
-            ) as u32;
+            // The spawner's refire cooldown paces a driver that asks every
+            // tick, so it does not buffer.
+            let kind = ambition_projectiles::ProjectileKind::Fireball;
+            if firing.fire(&mut state, &mut events, kind, 0) == FireOutcome::OutOfResource {
+                firing.refuse(&state, kind);
+            }
         }
+        let fired_this_frame = firing.fired;
 
         // Mirror projectile state onto the player's animation flags. `aim`
         // tracks the held-charge pose every frame; `shoot` is a short
@@ -391,63 +392,108 @@ pub fn charge_projectile_input(
     } // end per-player loop
 }
 
-/// Run spawn checks for `kind`, apply the Fireball charge tier, and emit a
-/// next-tick [`ProjectileSpawnRequest`] on success. Shared by press and release
-/// paths; returns whether the shoot animation should pulse.
-#[allow(clippy::too_many_arguments)]
-fn try_fire_projectile(
-    state: &mut PlayerProjectileState,
+/// One charge body's firing on one tick: where its shots are born, which way
+/// they fly, and the two messages a press can end in.
+struct Firing<'a, 's, 'r> {
     owner: Entity,
-    kind: ambition_projectiles::ProjectileKind,
-    origin: ae::Vec2,
+    origin_of: &'a dyn Fn(ambition_projectiles::ProjectileKind, u8) -> ae::Vec2,
     direction: ae::Vec2,
     damage_mult: f32,
-    charge_tier: u8,
-    events: &mut Vec<ProjectileTraceEvent>,
-    spawn_projectiles: &mut MessageWriter<ProjectileSpawnRequest>,
-    refused: &mut MessageWriter<ambition_combat::RangedFireRefused>,
-) -> bool {
-    // ⭐ THE REFUSAL IS A FACT (`Q33`). Before, a cooldown refusal left
-    // nothing and an empty meter left only a trace event, so a refused press
-    // and no press looked the same to everything downstream. A failed
-    // `try_spawn` changes nothing, so the readiness read after it is the
-    // readiness the press was refused on.
-    let mut refuse = |state: &PlayerProjectileState| {
-        refused.write(ambition_combat::RangedFireRefused {
-            actor: owner,
-            readiness: ambition_combat::WeaponReadiness::of_spawner(&state.spawner, kind),
-        });
-    };
-    match state
-        .spawner
-        .try_spawn(kind, origin, direction, damage_mult)
-    {
-        Ok(spec) => {
-            let spec = kind.charged_spec(spec, charge_tier);
-            spawn_projectiles.write(
-                ProjectileSpawnRequest::named(
-                    owner,
-                    ambition_projectiles::InFlightProjectile {
-                        body: ambition_projectiles::ProjectileBody::from_spec(spec),
-                    },
-                    kind,
-                    ProjectileStart::StepNextTick,
-                )
-                .charged(charge_tier),
-            );
-            events.push(ProjectileTraceEvent::Fired { kind });
-            true
-        }
-        Err(ambition_projectiles::SpawnFailure::OutOfResource) => {
-            events.push(ProjectileTraceEvent::BlockedByResource { kind });
-            refuse(state);
-            false
-        }
-        Err(ambition_projectiles::SpawnFailure::Cooldown) => {
-            refuse(state);
-            false
+    spawn: &'a mut MessageWriter<'s, ProjectileSpawnRequest>,
+    refused: &'a mut MessageWriter<'r, ambition_combat::RangedFireRefused>,
+    /// Shots fired this tick: the shoot pose pulses on the firing tick.
+    fired: u32,
+}
+
+impl Firing<'_, '_, '_> {
+    /// Run spawn checks for `kind`, apply the Fireball charge tier, and emit
+    /// a next-tick [`ProjectileSpawnRequest`] on success.
+    fn fire(
+        &mut self,
+        state: &mut PlayerProjectileState,
+        events: &mut Vec<ProjectileTraceEvent>,
+        kind: ambition_projectiles::ProjectileKind,
+        charge_tier: u8,
+    ) -> FireOutcome {
+        let origin = (self.origin_of)(kind, charge_tier);
+        match state.spawner.try_spawn(kind, origin, self.direction, self.damage_mult) {
+            Ok(spec) => {
+                let spec = kind.charged_spec(spec, charge_tier);
+                self.spawn.write(
+                    ProjectileSpawnRequest::named(
+                        self.owner,
+                        ambition_projectiles::InFlightProjectile {
+                            body: ambition_projectiles::ProjectileBody::from_spec(spec),
+                        },
+                        kind,
+                        ProjectileStart::StepNextTick,
+                    )
+                    .charged(charge_tier),
+                );
+                events.push(ProjectileTraceEvent::Fired { kind });
+                self.fired += 1;
+                FireOutcome::Fired
+            }
+            Err(ambition_projectiles::SpawnFailure::OutOfResource) => {
+                events.push(ProjectileTraceEvent::BlockedByResource { kind });
+                FireOutcome::OutOfResource
+            }
+            Err(ambition_projectiles::SpawnFailure::Cooldown) => FireOutcome::Cooldown,
         }
     }
+
+    /// [`Self::fire`], and a shot the cooldown refuses waits in the buffer.
+    fn fire_or_wait(
+        &mut self,
+        state: &mut PlayerProjectileState,
+        events: &mut Vec<ProjectileTraceEvent>,
+        kind: ambition_projectiles::ProjectileKind,
+        charge_tier: u8,
+    ) -> FireOutcome {
+        let outcome = self.fire(state, events, kind, charge_tier);
+        if outcome == FireOutcome::Cooldown {
+            state.buffered = Some(ambition_projectiles::state::BufferedShot {
+                kind,
+                charge_tier,
+                remaining: ambition_projectiles::state::FIRE_BUFFER_S,
+            });
+        }
+        outcome
+    }
+
+    /// A player's ask for a shot: it fires, or waits in the buffer for the
+    /// cooldown, or is refused because the meter cannot pay for it.
+    fn ask(
+        &mut self,
+        state: &mut PlayerProjectileState,
+        events: &mut Vec<ProjectileTraceEvent>,
+        kind: ambition_projectiles::ProjectileKind,
+        charge_tier: u8,
+    ) {
+        if self.fire_or_wait(state, events, kind, charge_tier) == FireOutcome::OutOfResource {
+            self.refuse(state, kind);
+        }
+    }
+
+    /// ⭐ THE REFUSAL IS A FACT (`Q33`): a refused press and no press must
+    /// not look the same downstream. A failed `try_spawn` changes nothing, so
+    /// the readiness read here is the readiness the press was refused on.
+    fn refuse(&mut self, state: &PlayerProjectileState, kind: ambition_projectiles::ProjectileKind) {
+        self.refused.write(ambition_combat::RangedFireRefused {
+            actor: self.owner,
+            readiness: ambition_combat::WeaponReadiness::of_spawner(&state.spawner, kind),
+        });
+    }
+}
+
+/// What one attempt to fire did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FireOutcome {
+    Fired,
+    /// The spawner is cooling down. The caller decides whether the shot waits.
+    Cooldown,
+    /// The meter cannot pay for the shot.
+    OutOfResource,
 }
 
 /// Flattened view of the `PlayerProjectileTick` request — used inside

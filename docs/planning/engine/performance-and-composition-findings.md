@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 00:41Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,070 since
+**Status, 2026-10-24 00:46Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,067 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -135,6 +135,7 @@ says what they bought in frame time.
 | The mount crate's sets (link, boarding, leases, dismounts, backs as ground, steering, rider sync) run while a mount, rider, reservation or lease is in the world (`mounts_are_in_play`), beside the capability's own room condition | done | census: Ambition route 1,093 → 1,086 systems a tick; mount lib 13, app mount/ride/GNU-ton/FSM/reconstitution 107, `smash_it` 52 |
 | The boss bodies' passes run while a boss body stands, each on the component its query visits: integration and brains (`BossConfig`), phase (`BossPhase`), animators (`BossAnimFrame`), attack trigger and projection, damageable volumes (`BossAttackIntent` / `BossAttackState`), conducted facing, conduct queue (`BossEncounter`). Not the progression chain: it builds a boss room's encounters on entry | done | census: Ambition route 1,086 → 1,074 systems a tick; boss, GNU-ton, Inugami, Wolfenstein, hall, cut-rope, Mockingbird, FSM and reconstitution app tests 233 (the one red, the Hall's Steel and Straw Man with nothing to say, fixed in the next commit), boss lib 226 |
 | Lit fuses (bomb, gravity grenade), temporary gravity zones and respawn grace tick while one exists; stock spending peeks its knockout; the match's pace runs with an active match. The arming passes stay: they visit every ground item | done | census: Ambition route 1,074 → 1,070 systems a tick (two noise rows); Mary-O 922 unchanged; abilities 32, `smash_it` 52, app stock/bomb/grenade/versus/respawn/reconstitution 111 |
+| The wave encounter's effect and cleanup adapters run on a lifecycle event (a peek); the lock walls contribute while a lock wall exists. Checked first: the overlay rebuild clears every contribution each tick (`clear_engine_contributions`), so a sleeping contributor leaves nothing stale. That also clears the mount backs gated above | done | census: Ambition route 1,070 → 1,067 systems a tick (noise rows aside); encounter features 45, app encounter/wave/lock/arena/reconstitution 60 |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

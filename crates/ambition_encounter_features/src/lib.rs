@@ -113,6 +113,8 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)
                 .chain()
+                // Both answer this frame's lifecycle events; with none, neither has work.
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_encounter::EncounterEventMsg>)
                 .in_set(ENCOUNTERS)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
                 .after(EncounterLifecycleSet),

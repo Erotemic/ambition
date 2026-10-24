@@ -36,7 +36,11 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
             sim,
             (
                 // Encounter phase → seal walls.
-                ambition_encounter_features::contribute_encounter_lock_walls.in_set(
+                // The overlay rebuild clears every contribution each tick, so
+                // with no lock wall there is nothing to contribute.
+                ambition_encounter_features::contribute_encounter_lock_walls
+                    .run_if(bevy::prelude::any_with_component::<ambition_encounter::EncounterLockWall>)
+                    .in_set(
                     ambition_platformer2d_shared_tangle::capability::CapabilitySet(
                         ambition_platformer2d_shared_tangle::capability::Capability::Encounters,
                     ),

@@ -4749,6 +4749,13 @@ fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
     assert_eq!(staged(&app), expected, "the activation did not restate the arena's duel");
 }
 
+/// `text` with the first `from` made `to`; a fixture edit that finds
+/// nothing to change is a broken fixture, not a passing candidate.
+fn replaced(text: &str, from: &str, to: &str) -> String {
+    assert!(text.contains(from), "the fixture's edit no longer matches its source: {from}");
+    text.replacen(from, to, 1)
+}
+
 /// A reload that changes only the item art restates Ambition's rows at the
 /// activation: the held art manifest and the over-hand catalog take the edit,
 /// a withdrawn row leaves them, and another provider's row stays.
@@ -4769,15 +4776,20 @@ fn a_candidate_that_changes_only_item_art_restates_ambitions_rows() {
     let mut edited = Vec::new();
     let candidate = std::sync::Arc::new(
         crate::pack::compile_pack_with(|declared, text| match declared {
+            // Each edit names the text it changes and fails when that text is
+            // gone: an edit that matches nothing leaves generation N's row in
+            // the candidate, and the activation assertions below would then
+            // blame the reload for the fixture. (The axe row grew a `grip`
+            // after its size; the edit stops at the size.)
             "data/held_item_art.ron" => {
                 edited.push(declared.to_owned());
-                text.replacen(r#""axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)),"#, r#""axe": (path: "sprites/props/axe.png", size: (44.0, 18.0)),"#, 1)
-                    .replacen(r#""javelin": ("#, r#""javelin_withdrawn": ("#, 1)
+                let text = replaced(&text, r#""axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)"#, r#""axe": (path: "sprites/props/axe.png", size: (44.0, 18.0)"#);
+                replaced(&text, r#""javelin": ("#, r#""javelin_withdrawn": ("#)
             }
             "data/wielded_item_art.ron" => {
                 edited.push(declared.to_owned());
-                text.replacen("width_per_wielder_height: 0.9,", "width_per_wielder_height: 1.2,", 1)
-                    .replacen(r#""gun_sword_heavy": ("#, r#""gun_sword_heavy_withdrawn": ("#, 1)
+                let text = replaced(&text, "width_per_wielder_height: 0.9,", "width_per_wielder_height: 1.2,");
+                replaced(&text, r#""gun_sword_heavy": ("#, r#""gun_sword_heavy_withdrawn": ("#)
             }
             _ => text,
         })

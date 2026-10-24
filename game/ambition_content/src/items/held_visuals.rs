@@ -51,13 +51,14 @@ mod tests {
     /// the size it is drawn at, with no Rust build. The javelin is the control.
     #[test]
     fn the_held_item_art_is_the_pack_file() {
-        const AXE: &str = r#""axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)),"#;
+        // The anchor stops at the size: the row goes on (its `grip`).
+        const AXE: &str = r#""axe": (path: "sprites/props/axe.png", size: (40.0, 18.0)"#;
         let pack = crate::pack::compile_pack_with(|path, text| {
             if path != "data/held_item_art.ron" {
                 return text;
             }
             assert_eq!(text.matches(AXE).count(), 1, "the edit anchor");
-            text.replace(AXE, r#""axe": (path: "sprites/props/axe.png", size: (50.0, 20.0)),"#)
+            text.replace(AXE, r#""axe": (path: "sprites/props/axe.png", size: (50.0, 20.0)"#)
         })
         .unwrap_or_else(|failure| panic!("{}", failure.render()));
         let mut app = App::new();

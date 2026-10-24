@@ -400,6 +400,30 @@ mod tests {
         assert_eq!(drawn[1].0, 1);
     }
 
+    /// A platform's visual follows its set while a second room is live (a
+    /// door's neighbour, a gate link), as every other drawable does.
+    #[test]
+    #[ignore = "F48: the pass reads its room through `Single`, which Bevy skips with two live rooms; the fix places each visual by its own room"]
+    fn the_visual_follows_its_set_while_a_second_room_is_live() {
+        let mut app = app_with_platforms(vec![platform("a", 100.0)]);
+        app.update();
+        let before = visuals(&mut app)[0].1;
+        ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+            app.world_mut(),
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next(),
+            ae::RoomGeometry(ae::World::new("neighbour", ae::Vec2::new(640.0, 360.0), ae::Vec2::ZERO, Vec::new())),
+        );
+        let mut sets = app.world_mut().query::<&mut MovingPlatformSet>();
+        sets.iter_mut(app.world_mut()).next().expect("the fixture room has platforms").0[0].pos =
+            ae::Vec2::new(900.0, 200.0);
+        app.update();
+        let after = visuals(&mut app)[0].1;
+        assert!(
+            (after.x - before.x).abs() > 100.0,
+            "with two live rooms the visual must still follow its set ({before:?} -> {after:?})"
+        );
+    }
+
     /// It follows the authoritative set instead of remembering.
     ///
     /// A reconcile keeps no state, so it cannot overwrite restored platform

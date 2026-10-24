@@ -106,9 +106,12 @@ def wing_door_x(index: int) -> int:
 PUBLIC_RING_X = 1296
 PUBLIC_DIALER_X = 1500
 #: The door to the gate stack stands on the low platform in the middle of the
-#: hall, by the hub's start: the intro's gate comes out of it, and the public
-#: gate is a short walk east.
-GATE_STACK_DOOR = (1000, 832)
+#: hall, east of the hub's start: the intro's gate comes out of it, and the
+#: public gate is a short walk east. It is the nearest door to the start (the
+#: wake room's door is on the balcony above), and it stands clear of the start
+#: (x 936..964): a press of Interact where a body stands at the start, or where
+#: something dropped there lies, is not a press at the door.
+GATE_STACK_DOOR = (1100, 832)
 #: The bags for organic travellers, on the wall east of the dialer.
 BAGS_X = 1600
 #: The hub guide moves east of the bags, so a press at the ring or the dialer

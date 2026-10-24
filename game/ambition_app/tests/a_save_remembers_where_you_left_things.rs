@@ -73,12 +73,20 @@ fn resting_place(sim: &mut Platformer2dSimHarness, id: &SimId) -> (f32, f32) {
         .filter(|(sim_id, _, custody)| *sim_id == id && custody.in_world())
         .map(|(_, ground, _)| (ground.pos.x, ground.pos.y))
         .collect();
-    assert_eq!(
-        found.len(),
-        1,
-        "exactly one `{}` must be lying in the world here",
-        id.as_str()
-    );
+    if found.len() != 1 {
+        // Where every occurrence is, and where the body stands: a thing in a
+        // hand and a thing in another room read the same from the count.
+        let all = occurrences(sim, id);
+        let at = sim.observation();
+        panic!(
+            "exactly one `{}` must be lying in the world here; found {} lying, every \
+             occurrence {all:?}, the body at {:?} in `{}`",
+            id.as_str(),
+            found.len(),
+            at.player_pos,
+            at.active_room,
+        );
+    }
     found[0]
 }
 

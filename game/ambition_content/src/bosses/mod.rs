@@ -260,6 +260,8 @@ impl Plugin for AmbitionBossContentPlugin {
             sim,
             crate::AMBITION_RULES,
             mockingbird::strike_it_with_the_moon
+                // It strikes a boss; with none standing there is nothing to strike.
+                .run_if(any_with_component::<ambition_boss_encounter::BossConfig>)
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor),
         );
@@ -377,6 +379,7 @@ impl Plugin for AmbitionBossContentPlugin {
                 sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()
+                .run_if(cut_rope::a_cut_rope_arena_is_live_or_held)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor),
         );
 
@@ -413,6 +416,8 @@ impl Plugin for AmbitionBossContentPlugin {
             sim,
             crate::AMBITION_RULES,
             gnu_ton::duel::duel_gnu_ton
+                // It duels on a boss; with none standing there is no duel.
+                .run_if(any_with_component::<ambition_boss_encounter::BossConfig>)
                 .after(ambition_extension_host::ExtensionSet::Lower(ambition_content_modules::gnu_ton::conductor::CONDUCT_PHASE))
                 .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
         );

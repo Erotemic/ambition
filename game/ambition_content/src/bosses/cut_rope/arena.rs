@@ -58,6 +58,16 @@ fn live_arenas<'a>(
         .collect()
 }
 
+/// Run condition of the cut-rope flavor chain: a cut-rope room is live, or the
+/// arena state still holds one (the frame after it leaves, which forgets it).
+/// Each member acts only for a live arena.
+pub fn a_cut_rope_arena_is_live_or_held(
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
+    state: Res<CutRopeBossArenaState>,
+) -> bool {
+    !state.arenas.is_empty() || !live_arenas(&rooms).is_empty()
+}
+
 /// Detect a melee hit on the authored rope prop of a live cut-rope room and
 /// fire `Gate("rope_cut")` in that room (the cut-rope `EncounterScript` of
 /// that room turns it into the lure and anvil drop). The rope cut is the only

@@ -37,10 +37,11 @@ pub struct PropSheetSource {
 /// The prop sheets a composition's content registers, keyed by the
 /// `PropSpec.kind` its rooms author.
 ///
-/// Content adds rows when its plugin builds ([`PropSheetsAppExt`]), and
-/// [`load_game_assets`] loads every row with the rest of the art. So a prop's
-/// look is ready with the first `GameAssets`, and no game keeps a per-frame
-/// loader that waits for `GameAssets` and inserts its sheets.
+/// Content adds rows when its plugin builds ([`PropSheetsAppExt`]). A sheet is
+/// decoded on demand, by [`load_the_prop_sheets_in_reach`]: the scenery of a
+/// room when that room is in reach, every other row when a session starts.
+/// [`load_game_assets`] still loads every row it is handed; the compositions
+/// hand it none, so a boot decodes no scenery.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PropSheets(Vec<(String, PropSheetSource)>);
 
@@ -105,6 +106,101 @@ fn load_prop_sheet(
     packed.or_else(|| {
         character_sprites::load_prop_sheet_for_target(asset_server, layouts, &config.sprite_folder, &source.target, &source.tuning)
     })
+}
+
+/// The system set of [`load_the_prop_sheets_in_reach`]. A system that reads
+/// which prop sheets are loaded to decide what a room waits for (a room's
+/// asset manifest, the neighbour prefetch) orders after it.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PropSheetDemandSet;
+
+/// The prop kinds `room` draws as scenery: its props and the looks of its
+/// gated walls. Nothing else draws these kinds, so their sheets are needed
+/// only while the room is in reach.
+pub fn scenery_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpec) -> impl Iterator<Item = &str> {
+    room.props
+        .iter()
+        .map(|prop| prop.kind.as_str())
+        .chain(room.lock_walls.iter().filter_map(|wall| wall.look.as_deref()))
+}
+
+/// Decode the prop sheets the session can show soon, and no others.
+///
+/// A sheet is wanted when its kind is the scenery ([`scenery_prop_kinds`]) of
+/// a room in reach (a live room, a door's neighbour of one, or the far room of
+/// an open gate link), or when no room's scenery names its kind (a drop's
+/// look, a pickup, a platform's sheet: art that is not one room's). A wanted
+/// sheet that is not loaded is loaded; a loaded one stays, as character
+/// sheets do. It does the work only when the rooms in reach, the loaded art or
+/// the rows changed, so a session that stays in one room pays one comparison
+/// a frame.
+///
+/// Before this, every row decoded at boot, the scenery of every district
+/// with it (MEASURED 2026-10-24: 63.7 MP at boot against the 40 MP budget,
+/// 16 MP of it the Pirate Port's and the Ninja Village's scenery).
+#[allow(clippy::too_many_arguments)]
+pub fn load_the_prop_sheets_in_reach(
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    network: Option<Res<ambition_platformer2d_world::rooms::GateNetworkState>>,
+    sheets: Res<PropSheets>,
+    config: Res<GameAssetConfig>,
+    catalog: Res<ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog>,
+    asset_server: Res<AssetServer>,
+    (quality, settings): (
+        Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
+        Option<Res<ambition_persistence::settings::UserSettings>>,
+    ),
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut assets: ResMut<GameAssets>,
+    mut seen: Local<Option<(Vec<usize>, Vec<String>)>>,
+) {
+    let set = rooms.rooms();
+    let index_of = |id: &str| set.rooms.iter().position(|room| room.id == id);
+    let mut reach: Vec<usize> = rooms.live_specs().into_iter().filter_map(|(_, spec)| index_of(&spec.id)).collect();
+    reach.sort_unstable();
+    reach.dedup();
+    let mut far: Vec<String> = network
+        .iter()
+        .flat_map(|network| network.links.values().map(|link| link.far_room.clone()))
+        .collect();
+    far.sort();
+    far.dedup();
+    let signature = (reach, far);
+    if seen.as_ref() == Some(&signature) && !assets.is_changed() && !sheets.is_changed() && !rooms.set_is_changed() {
+        return;
+    }
+    let (live, far) = signature.clone();
+    *seen = Some(signature);
+    let mut near: Vec<usize> = live.clone();
+    for &room in &live {
+        near.extend(set.neighboring_room_indices_of(room));
+    }
+    near.extend(far.iter().filter_map(|room| index_of(room)));
+    let scenery: std::collections::BTreeSet<&str> = set.rooms.iter().flat_map(scenery_prop_kinds).collect();
+    let in_reach: std::collections::BTreeSet<&str> =
+        near.iter().filter_map(|&room| set.rooms.get(room)).flat_map(scenery_prop_kinds).collect();
+    let missing: Vec<(&str, &PropSheetSource)> = sheets
+        .iter()
+        .filter(|(kind, _)| !scenery.contains(kind) || in_reach.contains(kind))
+        .filter(|(kind, _)| !assets.characters.props.contains_key(*kind))
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(quality.as_deref(), settings.as_deref())
+        .budget
+        .clone();
+    for (kind, source) in missing {
+        match load_prop_sheet(source, &config, Some(&catalog), &asset_server, &mut layouts, Some(&quality)) {
+            Some(asset) => {
+                assets.characters.props.insert(kind.to_string(), asset);
+            }
+            None => bevy::log::warn_once!(
+                "the prop sheet for `{kind}` does not load under the {} profile; it draws as a placeholder",
+                catalog.profile().label(),
+            ),
+        }
+    }
 }
 
 /// Register prop sheets from a content plugin's `build`.
@@ -212,9 +308,13 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
     )
     .budget
     .clone();
+    let loaded_kinds: Vec<String> = world.resource::<GameAssets>().characters.props.keys().cloned().collect();
     let mut loaded = Vec::new();
     world.resource_scope(|_, mut layouts: Mut<Assets<TextureAtlasLayout>>| {
-        for (kind, source) in sheets.iter().filter(|(kind, _)| kinds.iter().any(|wanted| wanted == kind)) {
+        // Only the sheets that are loaded now: the others load when a room
+        // in reach shows them (`load_the_prop_sheets_in_reach`).
+        let loaded_now = |kind: &str| loaded_kinds.iter().any(|known| known == kind);
+        for (kind, source) in sheets.iter().filter(|(kind, _)| kinds.iter().any(|wanted| wanted == kind) && loaded_now(kind)) {
             let asset = load_prop_sheet(source, &config, catalog.as_ref(), &asset_server, &mut layouts, Some(&quality));
             loaded.push((kind.to_string(), asset));
         }

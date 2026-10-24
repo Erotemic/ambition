@@ -25,8 +25,6 @@ pub(crate) struct PresentationCatalogs<'w> {
     bosses: Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>,
     assets:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
-    /// The prop sheets content registered, loaded with the rest of the art.
-    props: Res<'w, ambition_platformer2d::game_assets::PropSheets>,
 }
 
 
@@ -99,7 +97,9 @@ pub(crate) fn setup_host_presentation_system(
             .map(|world| world.room_set.activation_spec().metadata.clone())
             .unwrap_or_default(),
         quality.as_deref().map(|q| &q.budget),
-        &catalogs.props,
+        // No prop sheets at boot: a session decodes the ones its rooms in
+        // reach show (`game_assets::load_the_prop_sheets_in_reach`).
+        &Default::default(),
     );
     scene_setup::host_presentation_scaffold(&mut commands);
     scene_setup::install_audio_library(
@@ -166,7 +166,9 @@ pub(crate) fn setup_host_presentation_system(
             .map(|world| world.room_set.activation_spec().metadata.clone())
             .unwrap_or_default(),
         quality.as_deref().map(|q| &q.budget),
-        &catalogs.props,
+        // No prop sheets at boot: a session decodes the ones its rooms in
+        // reach show (`game_assets::load_the_prop_sheets_in_reach`).
+        &Default::default(),
     );
     scene_setup::host_presentation_scaffold(&mut commands);
     commands.insert_resource(game_assets);

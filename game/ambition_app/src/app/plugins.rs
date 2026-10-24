@@ -324,6 +324,14 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
             .chain()
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
+    // Prop sheets decode on demand, for the rooms the session can show soon:
+    // the host's boot loads none (`setup_host_presentation_system`).
+    app.add_systems(
+        Update,
+        ambition_platformer2d::game_assets::load_the_prop_sheets_in_reach
+            .in_set(ambition_platformer2d::game_assets::PropSheetDemandSet)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+    );
     // `sync_portal_quality_budget` left this file, for exactly
     // the reason the note above gives for its sibling: it REQUIRES
     // `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin` owns, and being

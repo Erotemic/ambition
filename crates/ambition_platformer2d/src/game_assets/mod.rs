@@ -13,7 +13,8 @@ use bevy::prelude::*;
 mod sheets;
 pub use sheets::{
     boss_sheet_keys_for_room, ensure_boss_sheets_loaded, load_game_assets, reload_fx_sheets_of_targets,
-    reload_prop_sheets_of_targets, restate_prop_sheet_rows, PropSheetSource, PropSheets, PropSheetsAppExt,
+    load_the_prop_sheets_in_reach, reload_prop_sheets_of_targets, restate_prop_sheet_rows, scenery_prop_kinds,
+    PropSheetDemandSet, PropSheetSource, PropSheets, PropSheetsAppExt,
 };
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -175,6 +176,13 @@ impl Plugin for PlatformerAssetsPlugin {
         app.add_systems(
             Startup,
             bind_game_assets.before(crate::presentation::PlatformerPresentationSetupSet),
+        );
+        // Prop sheets decode on demand, for the rooms a session can show soon.
+        app.add_systems(
+            Update,
+            sheets::load_the_prop_sheets_in_reach
+                .in_set(sheets::PropSheetDemandSet)
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
     }
 }

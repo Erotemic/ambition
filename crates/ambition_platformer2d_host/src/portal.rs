@@ -999,6 +999,21 @@ mod host_adapter {
     /// - `load_portal_gun_art` at startup (asset PATHS are Ambition content).
     pub struct PortalObservationPlugin;
 
+    /// Run condition of the portal observation publishers: a portal stands or
+    /// a body carries a transit latch, now or on the last frame. Without either
+    /// they publish empty answers (no viewer, no transiting body), and the one
+    /// run after the last portal goes publishes those, so the readers see them.
+    fn portals_in_play_or_were(
+        portals: Query<(), With<ambition_portal2d::PlacedPortal>>,
+        transits: Query<(), With<ambition_portal2d::PortalTransit>>,
+        mut were: Local<bool>,
+    ) -> bool {
+        let now = !portals.is_empty() || !transits.is_empty();
+        let run = now || *were;
+        *were = now;
+        run
+    }
+
     impl Plugin for PortalObservationPlugin {
         fn build(&self, app: &mut App) {
             app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
@@ -1045,7 +1060,8 @@ mod host_adapter {
                         .in_set(PortalObservationSet)
                         .run_if(
                             ambition_platformer2d_shared_tangle::lifecycle::session_world_exists,
-                        ),
+                        )
+                        .run_if(portals_in_play_or_were),
                     portal_dev_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<
                         ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
                     >),

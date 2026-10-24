@@ -340,7 +340,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     bubble_shield::spawn_bubble_shield_visual
                         .run_if(bevy::prelude::not(bevy::prelude::any_with_component::<bubble_shield::BubbleShieldVisual>)),
-                    bubble_shield::sync_bubble_shield_visual.in_set(SpriteVisualSync),
+                    bubble_shield::sync_bubble_shield_visual
+                        .run_if(bubble_shield::a_shield_is_raised_or_shown)
+                        .in_set(SpriteVisualSync),
                 )
                     .chain()
                     .in_set(BodyOwnedDrawableSync)

@@ -239,6 +239,16 @@ fn shield_blow_point(
 /// player and any brain-controlled actor). One pooled bubble per active
 /// shielder; unused sprites hide, and the pool grows on demand. Scale follows
 /// each body's size.
+/// Run condition of [`sync_bubble_shield_visual`]: a shield is raised, or a
+/// pooled bubble is still shown. With neither, each bubble is already hidden
+/// and the pass would only hide it again.
+pub fn a_shield_is_raised_or_shown(
+    active: Res<ambition_sim_view::ShieldRingsView>,
+    bubbles: Query<&Visibility, With<BubbleShieldVisual>>,
+) -> bool {
+    !active.0.is_empty() || bubbles.iter().any(|visibility| *visibility != Visibility::Hidden)
+}
+
 pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,

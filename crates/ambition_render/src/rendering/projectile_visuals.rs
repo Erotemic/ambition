@@ -316,6 +316,16 @@ fn build_sheet_visual(
 /// Spawn + maintain one persistent sprite for each in-flight projectile (player and enemy alike).
 /// Runs after `step_projectiles`.
 #[allow(clippy::too_many_arguments)]
+/// Run condition of [`sync_projectile_visuals`]: a projectile's view exists
+/// to draw, or a drawn visual exists to move or retire. With neither, both of
+/// its loops are empty.
+pub fn projectiles_or_their_visuals(
+    views: Query<(), With<ProjectileView>>,
+    visuals: Query<(), With<VisualProjectile>>,
+) -> bool {
+    !views.is_empty() || !visuals.is_empty()
+}
+
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.

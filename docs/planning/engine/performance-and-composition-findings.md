@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 02:29Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,063 since
+**Status, 2026-10-24 02:30Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,045 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:

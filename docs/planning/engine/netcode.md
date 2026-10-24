@@ -127,6 +127,25 @@ N2 was the only instrument for two open questions:
   "Remote peers" row of
   [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
 
+**2026-10-24 netplay readiness gate:** the maintainer now requires an
+unrelated player to keep playing while another crosses an ordinary door,
+including players in different live rooms. The peer freeze described above
+halts the whole simulation; isolating the local loading UI does not remove
+that halt. This is an **open lifecycle protocol task** under
+[`MULTIPLAYER-SEAMS`](../queue.md#multiplayer-seams--make-local-multiplayer-safe-for-netplay),
+with cause, design constraints, and tests in
+[`local-coop-integration.md`](local-coop-integration.md#room-crossing-isolate-cover-and-eliminate-unrelated-simulation-stalls).
+
+Do not disable `a_peer_commit_holds_the_simulation` in isolation. The
+existing poison tests show that commit without a shared state diverges.
+Investigate a normal room lifecycle event that peers authorize on one
+confirmed timeline without resetting the whole GGRS session. Prove stable
+content identity, event ordering, exact rollback/replay behavior, preparation
+success and failure, and concurrent crossings before production transport.
+Retain the existing safe peer barrier until the replacement passes two-peer
+consistency and gameplay-liveness tests. Whole-session reloads may still
+need a separately authorized global barrier.
+
 **A preparation that fails on one peer had no rule (measured 2026-10-04,
 Q156; the default below now ends it).** Each peer prepares the room of an operation on its own machine, in
 `Update`, and commits alone. When one machine's preparation fails, the other

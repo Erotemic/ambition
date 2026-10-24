@@ -34,6 +34,19 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
+## Current multiplayer correctness interrupt (2026-10-24)
+
+The maintainer confirms that baseline local two-player play and adaptive
+split/merge now work in the shipped game. The next cross-cutting correctness
+work is [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay):
+owner-routed dialogue, view-scoped UI and transitions, symmetrical blink
+clocks, default-on optional friendly fire, fixed split, per-seat menus, and
+per-view diagnostics. This is a netplay preparation campaign, not a parallel
+task list. Read [local-coop integration](engine/local-coop-integration.md)
+before changing owners. The older 2026-10-19 queue order remains in force for
+unrelated work; this correctness interrupt can be handled in independent
+slices.
+
 ## Work order from the additional maintainer rulings of 2026-10-19
 
 These come first. The rulings are the later 2026-10-19 rows in
@@ -78,8 +91,10 @@ These rows come before the content campaign below. The rulings are in
    (Q165), camera refinement (Q79, Q162 tuning), presentation flair, content
    tuning (Q36 heights, Q158 range).
 
-Out of scope: fluid simulation (Q160), memory budgets (Q94), production online
-netplay (Q155, Q156).
+Out of scope in this **2026-10-19** ordering: fluid simulation (Q160),
+memory budgets (Q94), and production online transport (Q155, Q156).
+**2026-10-24 update:** netplay **readiness** is in scope under
+`MULTIPLAYER-SEAMS`; this does not itself require shipping online transport.
 
 ## Priority order (Jon, 2026-10-14, 48 h; reordered 2026-10-17)
 
@@ -244,7 +259,8 @@ picture follows its own pose and live room (`sync_visuals`). Witnesses:
 `local_play_modes.rs` (left stick through the raw axis event; the split
 camera's view, layers, screen effects and its own half of the display),
 `room_placement_tests::each_player_visual_follows_its_own_body_in_its_live_room`.
-Not yet seen on a GPU with two physical pads.
+The maintainer reports the co-op baseline now works in the main game
+with two players (2026-10-24); see `MULTIPLAYER-SEAMS` for new playtest defects.
 
 **Next action, in slices:**
 
@@ -270,6 +286,82 @@ Not yet seen on a GPU with two physical pads.
 **Acceptance:** the controller and multiplayer tests of the 2026-10-19
 assignment (section 11), each a simulation-level witness with a negative
 control.
+
+### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
+
+**Failure (maintainer playtest, 2026-10-24):** local co-op works, but Player 2
+cannot control its own dialogue; dialogue and room loading cover the other
+viewport; Player 2 can remain in blink presentation; friendly fire is off;
+the Ambition menu has one input/cursor/visible state; F1 gizmos use primary
+room data. Fixed split is not a selectable policy. These are independent
+authority, client-local presentation, and gameplay-rule boundaries. See the
+source-verified [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
+and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-2026-10-24-playtest).
+
+**Owner:** dialogue input (`ambition_dialog`, `ambition_conversation`,
+`ambition_input`), UI ownership and viewport mapping (`ambition_sim_view`,
+`ambition_content::presentation::dialog`, `ambition_app::menu`), blink clocks
+(`ambition_platformer2d_actor_monolith`), combat/session rule projection
+(`ambition_combat`, Ambition settings/session), room lifecycle
+(`ambition_platformer2d_runtime`, `ambition_platformer2d_rollback_ggrs`,
+Ambition transition presenter), debug viz (`ambition_render`, Ambition dev UI).
+Do not assign one crate as owner of every concern.
+
+**Next action (ordered slices; complete each behavior gate before moving):**
+
+1. **Dialogue authority and viewport:** route the initiator's
+   `ConversationInputOwner` through participant-to-seat mapping to
+   `SeatMenuFrames`; make dialogue hold context owner-specific; project owner
+   in `DialogView` and constrain the rendered overlay and pointer targets to
+   the initiating participant's view. Keep the current one-conversation
+   authority and stamped narrative output. Check split/merge during dialogue.
+2. **Blink symmetry:** tick `PlayerBlinkCameraState` for each owner that can
+   arm it. Verify the simulation blink hold/release and visual ease separately
+   for both seats; do not move the core blink operation without a failing
+   kernel witness.
+3. **Gameplay and presentation options:** add `Adaptive`/`AlwaysSplit` as
+   client-local presentation policy with adaptive as default. Add co-op
+   friendly fire ON by default and a host OFF option through the common
+   damage relation. Freeze/agree the effective gameplay rule in the session
+   contract before peer simulation. Include melee, ranged, and possession
+   coverage; keep self-damage and NPC target selection rules distinct.
+4. **Independent local menus:** separate per-seat open state, focus, page,
+   inventory, and viewport UI for Grid and Kaleidoscope. An offline session
+   pause arbiter pauses while any menu is open, but each seat still controls
+   its own menu and one close cannot resume the game prematurely. An online
+   pause policy must be decided before reusing this rule with remote peers.
+5. **Per-view presentation isolation:** a room transition cover follows only
+   its affected participant/view; the other viewport renders and accepts
+   gameplay. Define a deterministic policy for concurrent transition requests
+   because `RoomTransitionLoadState` has one active transaction. Move F1
+   debug geometry and labels to per-room/per-view presentation, reusing the
+   room-layered retained-gizmo seam used for trails. Keep joint threshold and
+   merge-animation polish deferred.
+6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
+   can commit on an agreed timeline without freezing other rooms and without
+   desync. The current peer commit freezes and rebases the whole session
+   (23-43 held updates in the existing witness). Preserve that safe protocol
+   until a replacement passes two-peer confirmed/rollback/failed-preparation
+   tests. Track content identity, deterministic operation order, and peer
+   readiness explicitly. A full-party reload may use a global barrier.
+
+**Blocked by:** slice 6 depends on a written peer event/commit protocol and
+two-peer rollback witnesses. The earlier slices do not require transport.
+The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
+items; reuse their participant lifecycle and checkpoint rules, not duplicate
+them in this row.
+
+**Acceptance:** two controllers can each begin and control dialogue; each
+UI surface renders only in its owner's viewport; two-player fixed split never
+merges while adaptive still does; each blink finishes; friendly fire has an
+agreed ON default and working OFF setting; two menus navigate independently
+while a single offline pause applies; Player 1 fights without a flash or
+pause during Player 2's remote-room door; F1 diagnostics use each view's
+room and pose. Then two peers do the same crossing without a global sim hold
+or checksum divergence, including delayed and failed room preparation. Test
+these in focused engine/host harnesses **and** in one rendered two-controller
+main-game playthrough. No new primary-player fallback is allowed at these
+seams.
 
 ### MORPH-BALL-VISIBILITY — the standing sprite draws behind the ball
 

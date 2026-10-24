@@ -33,7 +33,7 @@ That is product/ruleset policy.
 
 ## Presentation behavior
 
-The preferred default for ordinary co-op is potentially BG3-like:
+The default for ordinary local co-op is BG3-style adaptive split/merge:
 
 1. when controlled subjects are close and one camera can frame them well, share
    one view;
@@ -45,6 +45,50 @@ The preferred default for ordinary co-op is potentially BG3-like:
 
 Exact thresholds, animation and layout are feel work. The engine needs only the
 policy hooks and view-index model.
+
+### Local co-op behavior decided in the 2026-10-24 playtest
+
+These decisions apply to Ambition. Generic presentation and input contracts
+remain in [`../engine/local-coop-integration.md`](../engine/local-coop-integration.md).
+
+- **Layout choice:** `Adaptive` remains the default. Add `Always Split`: with
+  two joined local participants, each always has an independent half-screen
+  gameplay view, even while standing together in the same room. The views do
+  not merge in this mode. With one joined participant, the viewport is full.
+  Changing this setting must not rebuild gameplay or change input claims.
+  Keep split-distance feel tuning for later.
+- **Dialogue:** the participant who starts a conversation drives its choices.
+  When two local views are split, display the dialogue only in that
+  participant's viewport; on a shared view, show it once and identify the
+  controller. The other participant can continue playing. A single live
+  conversation per session is the current limit; multiple independent story
+  dialogues remain a separate decision.
+- **Friendly fire:** local co-op defaults to **ON**. Allow the host to set it
+  **OFF**. Player-caused attacks can hurt the other controlled player when on,
+  subject to ordinary self-hit, invulnerability, and attack rules. Do not
+  change AI hostility or authored Versus rules as a side effect. All peers
+  must agree on the active damage rule.
+- **Pause menus:** each local participant can open, navigate, and close its
+  own menu in its own view. The offline game stops simulating while one or
+  both menus are open. If both are open, each can still operate its menu and
+  the simulation resumes only when both are closed. In a shared view, menu
+  layout must keep each owner's controls distinct. This policy is provisional;
+  the online pause rule is **not** decided and cannot let one client stop all
+  peers without a shared protocol.
+- **Room crossing:** a participant's routine door or loading-zone transition
+  must not black out, cover, reset, or interrupt an unrelated participant's
+  viewport, controls, or gameplay, even when they are in different rooms.
+  With shared views, the presentation must separate the affected view before
+  showing a private loading cover, or use another presentation that does not
+  cover the other player's image. The current peer room-commit freeze is a
+  known online blocker; the requirement does not certify that protocol.
+- **Debugging:** F1 diagnostics must use the viewed room and participant, not
+  the primary player's room. Developer-only graphics must obey the same
+  room/view isolation rules as gameplay graphics.
+
+These are product rules, not a request for `player2` variants of engine
+systems. The executable work is the `MULTIPLAYER-SEAMS` row in
+[`../queue.md`](../queue.md).
 
 ## Room and world consequences
 
@@ -239,7 +283,11 @@ The cost is the freeze, for each peer and each live room:
 
 at a link latency of 3 updates each way (`two_peers.rs`, four runs, two
 crossings). The handshake is five GGRS round trips and is most of the cost.
-Q155 (2026-10-19): the hold is a performance issue to revisit, not a policy. Named remainders: a link that loses
+Q155 (2026-10-19) treated the hold as a performance issue, not a fixed
+policy. The 2026-10-24 requirement above now calls for uninterrupted gameplay
+for an unaffected participant. That makes a global peer freeze on a routine
+door crossing a **netplay readiness blocker**. Preserve the current barrier
+until a peer-consistent, no-global-hold lifecycle passes the required tests. Named remainders: a link that loses
 parcels needs a linger before the old session ends, and the freeze is of the
 whole world, also of the room that nobody leaves.
 

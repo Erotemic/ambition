@@ -157,6 +157,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The room-transition cover's driver runs while a transition is active or the last one left a cover or state for its idle branch to clear (`54c9566b6`) | done | REASONED: 1 system a frame on both routes (its idle branch did nothing once cleared; its frame count is compared only within a transition); app_it `room_transition` 17, `cover` 36, `door` 34, `walking_into_a_loading_zone` 5, `first_room` 3, app lib 18 green |
 | The first room's art preparation runs while a session is published or a job of one is still held; its empty `retain` also stopped marking the job store changed each frame (`25b7ae764`) | done | census: Ambition route 983 → 980 (with the cover driver above); a hub capture draws the room; app_it `first_room` 3, `boot` 10, `cover` 36, `launcher` 10 green |
 | The quest registry fills until it is filled; the attunement's banner peeks `EncounterEventMsg` (`ba13b3047`) | done | census: Ambition route 980 → 978; app_it `quest` 36, `attunement` 2, `symmetry` 13, `canonical_reconstitution` 19, content `quest`/`encounter` 34 green |
+| GNU-ton's arena ladder (a world-overlay contributor; the overlay is rebuilt each tick) runs while its arena is a live room (`LADDER`) | done | REASONED: 1 system a tick on both routes; app_it `gnu_ton` 46, `ladder` 1, `canonical_reconstitution` 19 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

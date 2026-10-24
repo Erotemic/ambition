@@ -71,6 +71,24 @@ fn placement_is_gnu_ton(
 /// each live room that is the arena. Each live arena reads its own members.
 /// Two live instances of the arena share its placements, so a defeat
 /// recorded in one is the outcome of both: it is a fact of the world.
+/// Run condition of [`gate_gnu_ton_arena_ladder`]: GNU-ton's arena is a live
+/// room. The overlay is rebuilt each tick, so with no arena live the ladder
+/// contributes nothing and need not run.
+pub fn the_gnu_ton_arena_is_live(
+    arenas: Query<
+        &ambition_platformer2d_world::rooms::LiveRoomDefinition,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >,
+    room_set: Option<
+        Single<
+            &ambition_platformer2d_world::rooms::RoomSet,
+            With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        >,
+    >,
+) -> bool {
+    room_set.is_some_and(|rooms| arenas.iter().any(|definition| rooms.spec(*definition).id == ARENA_ROOM_NAME))
+}
+
 pub fn gate_gnu_ton_arena_ladder(
     arenas: Query<
         (

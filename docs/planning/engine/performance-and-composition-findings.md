@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 08:32Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 903 systems a frame (40 of them the census's own markers, absent on a phone); hub Ambition route 1,323 → 975 since
+**Status, 2026-10-24 08:43Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 901 systems a frame (40 of them the census's own markers, absent on a phone); hub Ambition route 1,323 → 974 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F49, 08:00Z): main-world wall 12.98 → 6.74 ms a frame (Mary-O), 13.91 → 5.12 ms (Ambition); frame p50 24.0 → 20.8 ms (Mary-O), 51.1 → 27.2 ms (Ambition hub; REASONED: mostly the F46 look cuts). Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time

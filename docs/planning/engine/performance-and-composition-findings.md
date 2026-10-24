@@ -160,7 +160,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | GNU-ton's arena ladder (a world-overlay contributor; the overlay is rebuilt each tick) runs while its arena is a live room (`6ec66901a`) | done | REASONED: 1 system a tick on both routes; app_it `gnu_ton` 46, `ladder` 1, `canonical_reconstitution` 19 green |
 | The boss sprite upgrade runs under `bosses_are_shown_or_were`: it acts only on rows of the boss read model (`4c0ba82b4`) | done | REASONED: 1 system a frame where no boss is shown; GNU-ton's arena capture draws both bodies; render `boss` 5, app_it `boss_sheet` 6, `boss_lifecycle` 15, `gnu_ton` 46 green |
 | The gradient sentinel's lane visual runs while a boss frame holds a hazard lane or a lane is drawn, its own early return lifted into a condition (`66760f85b`) | done | REASONED: 1 system a frame where no lane is in play; render lane test 1 green (no app test drives the lane) |
-| The bubble shield's pooled visual runs while a shield is raised or a bubble is still shown (`SHIELD`) | done | MEASURED: idle on the Mary-O route (census row); the route total moves within the census's ±3 noise; render `bubble`/`shield` 10, app_it `shield` 6, `bubble` 1 green |
+| The bubble shield's pooled visual runs while a shield is raised or a bubble is still shown (`acfe82c5a`) | done | MEASURED: idle on the Mary-O route (census row); the route total moves within the census's ±3 noise; render `bubble`/`shield` 10, app_it `shield` 6, `bubble` 1 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

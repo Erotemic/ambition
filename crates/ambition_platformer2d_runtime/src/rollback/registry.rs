@@ -137,7 +137,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 378 -> 379: the shark ride is a module: a summoned body may hold statuses
 /// from birth, and a riderless shark's way out is a record on it and a course
 /// it holds (`ability.held_course`); `smash.departing_mount` is gone.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 379;
+/// 379 -> 380: the gate network: its live links, open terminal, reports and
+/// recent addresses (`resource.gate_network_state`) and the terminal's
+/// request channel (`message.gate_terminal_intent`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 380;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

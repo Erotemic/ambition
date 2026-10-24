@@ -1,5 +1,5 @@
 # Written by specs/math_town/make_specs.py. Change the script, not this file.
-# Gate 7 of the gate station: the gate to the Math dimension.
+# Ring 7 of the gate station: the Math line.
 level_id: gate_stack_lower
 entities:
   - type: Prop
@@ -15,17 +15,18 @@ entities:
     size: [96, 192]
     fields:
       id: math_gate_home_zone
-      name: to the Math dimension
+      name: ring 7
       activation: Door
-      target_room: math_gate_hall
-      target_zone: math_gate_return_zone
+      target_room: ""
+      target_zone: ""
       bidirectional: false
   - type: Switch
     px: [1360, 704]
     size: [24, 32]
     fields:
       id: math_gate_switch
-      name: math_gate_switch
+      name: Ring 7 breaker
+      prompt: Throw the breaker
       action: ResetEncounter
       target_encounter: ""
   - type: DebugLabel
@@ -33,5 +34,20 @@ entities:
     size: [260, 24]
     fields:
       name: gate_stack_sign_gate_seven
-      text: "GATE 7: MATH (see the switch)"
+      text: "RING 7: the Math line (power: the breaker)"
       category: Custom
+  - type: Prop
+    px: [1400, 680]
+    size: [64, 56]
+    fields:
+      name: "Ring 7 (Home) Dialer"
+      kind: "gate_dialer"
+  - type: Switch
+    px: [1420, 692]
+    size: [24, 32]
+    fields:
+      id: "ring7_terminal"
+      name: "Ring 7 (Home) terminal"
+      prompt: "Dial the gate"
+      target_encounter: ""
+      action: "GateTerminal"

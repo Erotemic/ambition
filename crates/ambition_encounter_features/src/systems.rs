@@ -513,6 +513,8 @@ pub fn drive_wave_encounters(
             ambition_encounter::switches::SwitchAction::ToggleFlag => {}
             // The boss domain carries it out (`apply_boss_life_switches`).
             ambition_encounter::switches::SwitchAction::BossLife => {}
+            // The gate network opens the terminal (`run_gate_network`).
+            ambition_encounter::switches::SwitchAction::GateTerminal => {}
             ambition_encounter::switches::SwitchAction::Unhandled(action) => {
                 bevy::log::warn!(
                     target: "ambition_encounter::switches",

@@ -101,6 +101,10 @@ pub mod input_techniques;
 pub(crate) mod prop_sheets;
 /// The gate portals its rooms hold: the pack's `data/gate_portals.ron`.
 pub(crate) mod gate_portals;
+/// The gate network its rings form: the pack's `data/gate_network.ron`.
+pub(crate) mod gate_network;
+/// The gate terminal's model and input claim.
+pub mod gate_terminal;
 pub mod intro;
 /// Ambition's day: its length, its phases, its light.
 pub mod day_cycle;

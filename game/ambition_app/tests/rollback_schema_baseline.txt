@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v379
+ggrs-rollback-schema-v380
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -369,6 +369,7 @@ message.fire_portal_gun	message-clear	FirePortalGun	clear abandoned-future messa
 message.fireworks_request	message-clear	FireworksRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.gameplay_banner_requested	message-clear	GameplayBannerRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.gameplay_sfx_requested	message-clear	GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.gate_terminal_intent	message-clear	GateTerminalIntent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.grabs_parried	message-clear	GrabsParried	clear abandoned-future message buffer in LoadWorld::Mapping
 message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -469,6 +470,7 @@ resource.day_clock	resource-canonical	DayClock	bevy_ggrs canonical codec snapsho
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; not in the session checksum
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
 resource.gameplay_elapsed	component-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.gate_network_state	resource-clone-custom-checksum	GateNetworkState	bevy_ggrs clone snapshot + open terminal, links, reports and recent addresses
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
 resource.gravity_field	derived	GravityField	re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock

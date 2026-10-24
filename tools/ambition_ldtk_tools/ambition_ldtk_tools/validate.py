@@ -777,6 +777,10 @@ def validate(
                     continue
                 secondary_index[sec_area].add(str(sec_zone_id))
 
+    # Each ring of the game's gate network is a zone a live link arrives
+    # through, so it names no target of its own (`data/gate_network.ron`).
+    secondary_arrivals |= gate_network_ring_zones(path)
+
     schema_errors, schema_warnings = validate_official_schema(
         project, schema_path, require_schema
     )
@@ -1303,6 +1307,34 @@ def _check_intro_authoring_hygiene(project, warnings):
     so checks emit first-class Issue codes instead of string warnings.
     """
     warnings.extend(issue.message for issue in authoring_hygiene_issues(project))
+
+
+def gate_network_ring_zones(path: Path) -> set[tuple[str, str]]:
+    """The `(room, zone)` of each ring of the gate network beside `path`.
+
+    The catalog is the content pack's `data/gate_network.ron`, next to the
+    pack's `worlds/` directory. A world file of a game with no gate network
+    has none. Read by pattern, not by the RON parser: each ring states its
+    `zone` and then its `room`, and nothing else in the file is spelled so.
+    """
+    import re
+
+    from ambition_ldtk_tools.ldtk.paths import default_worlds_dir
+
+    candidates = [path.parent.parent / "data" / "gate_network.ron"]
+    try:
+        if path.resolve().parent == default_worlds_dir().resolve():
+            candidates.append(default_worlds_dir().parent / "data" / "gate_network.ron")
+    except OSError:
+        pass
+    for catalog in candidates:
+        if catalog.exists():
+            text = catalog.read_text()
+            return {
+                (room, zone)
+                for zone, room in re.findall(r'zone:\s*"([^"]+)",\s*name:\s*"[^"]*",\s*facility:\s*"[^"]*",\s*room:\s*"([^"]+)"', text)
+            }
+    return set()
 
 
 def sibling_worlds(path: Path) -> list[Path]:

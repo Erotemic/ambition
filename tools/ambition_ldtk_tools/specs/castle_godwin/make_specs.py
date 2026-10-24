@@ -21,9 +21,10 @@ dimension. Its rooms:
   is a fight that shuts the room (encounter `castle_godwin_muster`,
   `data/encounters/goblin_encounter.ron`).
 
-And in the Home dimension, in the central hub (`sandbox.ldtk`): a stone shelf
-high on the east side with the gate on it and its switch. Both gates follow
-that one switch (the pair is one link, `data/gate_portals.ron`).
+The forest's gate is a dialed ring of the gate network (address CITADEL,
+`data/gate_network.ron`), with its terminal beside it: a traveller dials home
+(LEGAL is written on the terminal) and walks in. The central hub's public
+gate dials it (`specs/gate_network/make_gates.py`).
 
 A room names doors in rooms that are made after it, so the worlds are whole
 only after the last room: run `--apply` to make them all, in order.
@@ -42,6 +43,9 @@ if str(TOOLS) not in sys.path:
 
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
+sys.path.insert(0, str(HERE.parent / "gate_network"))
+import gates  # noqa: E402
+
 EVIL_LDTK = default_worlds_dir() / "evil.ldtk"
 SANDBOX_LDTK = default_worlds_dir() / "sandbox.ldtk"
 
@@ -50,12 +54,11 @@ FOREST_MUSIC, CASTLE_MUSIC = "oppressive_crush", "military_iron_resolve"
 FOREST_BG, CASTLE_BG = "#1A0A0C", "#0E0E14"
 WALL = 16
 
-#: The ids `data/gate_portals.ron` names.
-SWITCH = "evil_gate_switch"
-HOME_ZONE = "evil_gate_home_zone"
+#: The ring of the forest: its zone (`data/gate_portals.ron`,
+#: `data/gate_network.ron`), its props' label and its terminal.
 EVIL_ZONE = "evil_gate_return_zone"
-HOME_RING, HOME_PORTAL = "Evil Gate Ring (Home)", "Evil Gate Portal (Home)"
-EVIL_RING, EVIL_PORTAL = "Evil Gate Ring (Evil)", "Evil Gate Portal (Evil)"
+EVIL_GATE = "Evil Gate (Evil)"
+EVIL_TERMINAL = "evil_gate_terminal"
 
 FOREST = "evil_gate_forest"
 GATEHOUSE = "castle_godwin_gatehouse"
@@ -132,18 +135,6 @@ def label(name, x, y, text, w=420):
 def door(zone, name, x, floor, to_room, to_zone):
     return (f'( type: "LoadingZone", px: [{x}, {floor - 96}], size: [48, 96], fields: ( id: "{zone}", name: "{name}", '
             f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
-
-
-def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
-    """A gate ring standing on `floor` at `x` (its left edge), its portal in
-    it, and the door of the portal: a Door the size of the opening."""
-    top = floor - 192
-    return [
-        f'( type: "Prop", px: [{x}, {top}], size: [192, 192], fields: ( name: "{ring}", kind: "gate_ring" ) ),',
-        f'( type: "Prop", px: [{x}, {top}], size: [192, 192], fields: ( name: "{portal}", kind: "gate_portal" ) ),',
-        (f'( type: "LoadingZone", px: [{x + 48}, {top}], size: [96, 192], fields: ( id: "{zone}", name: "{name}", '
-         f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: false ) ),'),
-    ]
 
 
 def soldier(room, n, x, feet_y, character=SOLDIER):
@@ -258,10 +249,11 @@ def forest():
         solid("west_wall", 0, 0, WALL, floor),
         solid("east_wall", w - WALL, 0, WALL, floor),
         f'( type: "PlayerStart", px: [360, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        *gate(EVIL_RING, EVIL_PORTAL, EVIL_ZONE, 112, floor, "central_hub_complex", HOME_ZONE, "to the Home dimension"),
+        *gates.as_ron(gates.ring(EVIL_GATE, EVIL_ZONE, 112, floor, "the gate")),
+        *gates.as_ron(gates.terminal(EVIL_GATE, EVIL_TERMINAL, 316, floor)),
         # Scenery, furthest back first: the castle's front, the thorns, the sign.
         standing("castle_godwin_front", "castle_godwin_entrance", entrance_x, floor),
-        standing("thorns_gate", "evil_thorn_bush", 330, floor),
+        standing("thorns_gate", "evil_thorn_bush", 430, floor),
         standing("thorns_road_a", "evil_thorn_bush", 900, floor),
         standing("thorns_road_b", "evil_thorn_bush", 1180, floor),
         standing("thorns_wall", "evil_thorn_bush", entrance_x - 60, floor),
@@ -600,53 +592,6 @@ ROOMS = (forest, gatehouse, barracks, tower, great_hall, throne)
 #: coordinates (box centres; the floor is at y = 832).
 
 
-def home_gate_yaml() -> str:
-    """The gate in the central hub: a stone shelf high on the east side, the
-    ring and its portal on it, the door of the portal, the switch."""
-    shelf_y, x = 400, 1440
-    top = shelf_y - 192
-    return f"""# Written by specs/castle_godwin/make_specs.py. Change the script, not this file.
-# The gate to the Evil dimension, on a shelf high in the central hub.
-level_id: central_hub_main
-entities:
-  - type: Solid
-    px: [1408, {shelf_y}]
-    size: [384, 32]
-    fields: {{name: evil_gate_shelf}}
-  - type: Prop
-    px: [{x}, {top}]
-    size: [192, 192]
-    fields: {{name: "{HOME_RING}", kind: gate_ring}}
-  - type: Prop
-    px: [{x}, {top}]
-    size: [192, 192]
-    fields: {{name: "{HOME_PORTAL}", kind: gate_portal}}
-  - type: LoadingZone
-    px: [{x + 48}, {top}]
-    size: [96, 192]
-    fields:
-      id: {HOME_ZONE}
-      name: to the Evil dimension
-      activation: Door
-      target_room: {FOREST}
-      target_zone: {EVIL_ZONE}
-      bidirectional: false
-  - type: Switch
-    px: [{x + 240}, {shelf_y - 32}]
-    size: [24, 32]
-    fields:
-      id: {SWITCH}
-      name: {SWITCH}
-      prompt: Power the gate
-      action: ResetEncounter
-      target_encounter: ""
-"""
-
-
-def home_gate_is_placed() -> bool:
-    return HOME_ZONE in SANDBOX_LDTK.read_text()
-
-
 def run(*args) -> tuple[int, str]:
     done = subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", *args], cwd=TOOLS, capture_output=True, text=True)
     print(done.stdout + done.stderr)
@@ -661,20 +606,13 @@ def main(argv):
         path.write_text(text)
         made.append(path)
         print(path.relative_to(TOOLS))
-    gate_path = HERE / "home_gate.yaml"
-    gate_path.write_text(home_gate_yaml())
-    print(gate_path.relative_to(TOOLS))
     if "--apply" in argv:
-        # Each room's doors name the other rooms and the hub gate, so the
+        # Each room's doors name the other rooms, so the
         # worlds are not whole until all are made: until then it is enough
         # that each room was written. The last check is the one that must pass.
         for path in made:
             code, out = run("area", "create", str(path), "--ldtk", str(EVIL_LDTK), "--replace-existing")
             if code != 0 and "wrote new level" not in out and "replaced level" not in out:
-                return code
-        if not home_gate_is_placed():
-            code, _ = run("entity", "add", str(gate_path), "--ldtk", str(SANDBOX_LDTK), "--in-place")
-            if code != 0:
                 return code
         for world in (EVIL_LDTK, SANDBOX_LDTK):
             code, _ = run("validate", str(world))

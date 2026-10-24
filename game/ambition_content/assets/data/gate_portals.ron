@@ -1,7 +1,8 @@
 // The gate portals of Ambition's rooms (schema `gate_portals`, owned by the
 // world capability), by the loading zone each one holds. A portal lets a
-// body through its zone only while it is on; its switch boots it and shuts
-// it down. The visuals find its portal and ring props by these names, across
+// body through its zone only while it is on. Its command boots it and shuts
+// it down: a save switch (`Switch(id)`), or the gate network (`Dialed`), for
+// a ring of `gate_network.ron` that a terminal dials. The visuals find its portal and ring props by these names, across
 // rooms, so each portal has its own props.
 //
 // The admission check refuses an empty name and a prop that two portals
@@ -11,37 +12,33 @@
 {
     // The intro's gate, at the end of the intro.
     "intro_portal_zone": (
-        switch_id: "intro_portal_switch",
+        command: Switch("intro_portal_switch"),
         portal_sprite_name: "Interdimensional Gate Portal",
         ring_sprite_name: "Interdimensional Gate Ring",
     ),
-    // The Math gate pair is one link with one switch, which stands by the
-    // Home gate: switched on there, both portals boot, so a traveller who
-    // went through can come back. Gate 7 of the Home gate station
-    // (`gate_stack_lower`), to the Math square:
+    // The rings of the gate network (`gate_network.ron`): a link that a
+    // terminal dials opens them. The central hub's public gate:
+    "hub_public_gate_zone": (
+        command: Dialed,
+        portal_sprite_name: "Public Gate (Hub) Portal",
+        ring_sprite_name: "Public Gate (Hub) Ring",
+    ),
+    // Ring 7 of the Home gate station (`gate_stack_lower`), the Math line.
     "math_gate_home_zone": (
-        switch_id: "math_gate_switch",
+        command: Dialed,
         portal_sprite_name: "Math Gate Portal (Home)",
         ring_sprite_name: "Math Gate Ring (Home)",
     ),
-    // The gate on the Math square, back to the Home gate station.
+    // The ring of the Math town's gate hall.
     "math_gate_return_zone": (
-        switch_id: "math_gate_switch",
+        command: Dialed,
         portal_sprite_name: "Math Gate Portal (Math)",
         ring_sprite_name: "Math Gate Ring (Math)",
     ),
-    // The Evil gate pair, one link with one switch, which stands by the hub
-    // gate. The gate on a shelf high in the central hub, to the forest of
-    // the Evil dimension:
-    "evil_gate_home_zone": (
-        switch_id: "evil_gate_switch",
-        portal_sprite_name: "Evil Gate Portal (Home)",
-        ring_sprite_name: "Evil Gate Ring (Home)",
-    ),
-    // The gate in the forest by Castle Godwin, back to the central hub.
+    // The ring in the forest by Castle Godwin.
     "evil_gate_return_zone": (
-        switch_id: "evil_gate_switch",
-        portal_sprite_name: "Evil Gate Portal (Evil)",
-        ring_sprite_name: "Evil Gate Ring (Evil)",
+        command: Dialed,
+        portal_sprite_name: "Evil Gate (Evil) Portal",
+        ring_sprite_name: "Evil Gate (Evil) Ring",
     ),
 }

@@ -265,6 +265,7 @@ pub struct SessionScopedResources<'w> {
     /// its portals open from `Off` on every peer. `Option` because a
     /// composition without the room domain has none.
     gate_portal_phases: Option<ResMut<'w, ambition_platformer2d_world::rooms::GatePortalPhases>>,
+    gate_network: Option<ResMut<'w, ambition_platformer2d_world::rooms::GateNetworkState>>,
 }
 
 /// Reset session-scoped resources before the incoming world is activated.
@@ -421,6 +422,7 @@ fn reset(resources: SessionScopedResources) {
         clock_state,
         world_time,
         gate_portal_phases,
+        gate_network,
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
@@ -483,6 +485,9 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut phases) = gate_portal_phases {
         *phases = ambition_platformer2d_world::rooms::GatePortalPhases::default();
+    }
+    if let Some(mut network) = gate_network {
+        *network = ambition_platformer2d_world::rooms::GateNetworkState::default();
     }
 }
 

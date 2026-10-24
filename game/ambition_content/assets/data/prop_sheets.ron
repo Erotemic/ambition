@@ -142,6 +142,12 @@
     "cut_rope_anvil": (frame_sample_inset: 2),
     "cut_rope_piano": (frame_sample_inset: 2),
     // The interdimensional gate: its ring and its portal surface.
+    // The fittings of a gate of the gate network: the dialer beside each
+    // ring, its power, the traffic board, the bags for organic travellers.
+    "gate_dialer": (),
+    "gate_power_cabinet": (),
+    "gate_traffic_board": (),
+    "gate_transit_bags": (),
     "gate_ring": (sheet: Some("interdimensional_gate_ring"), frame_sample_inset: 2),
     "gate_portal": (sheet: Some("interdimensional_gate_portal"), frame_sample_inset: 2),
     // The Pirate Port's scenery (`targets/props/pirate_port_props.py`): each

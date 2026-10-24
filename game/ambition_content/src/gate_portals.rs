@@ -52,7 +52,7 @@ mod tests {
         }
         assert_eq!(app.world().resource::<AmbitionGatePortals>().0, shipped.keys().cloned().collect::<Vec<_>>());
 
-        let switch = r#"switch_id: "intro_portal_switch","#;
+        let switch = r#"command: Switch("intro_portal_switch"),"#;
         let with = |replacement: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/gate_portals.ron" {
@@ -62,10 +62,10 @@ mod tests {
                 text.replace(switch, replacement)
             })
         };
-        let edited = with(r#"switch_id: "another_switch","#).expect("an edited row compiles");
-        assert_eq!(lowered_gate_portals(&edited)["intro_portal_zone"].switch_id, "another_switch");
-        let refused = format!("{:?}", with(r#"switch_id: "","#).expect_err("a portal with no switch"));
-        assert!(refused.contains("`intro_portal_zone.switch_id` is empty"), "{refused}");
+        let edited = with(r#"command: Switch("another_switch"),"#).expect("an edited row compiles");
+        assert_eq!(lowered_gate_portals(&edited)["intro_portal_zone"].command.switch_id(), Some("another_switch"));
+        let refused = format!("{:?}", with(r#"command: Switch(""),"#).expect_err("a portal with no switch"));
+        assert!(refused.contains("`intro_portal_zone.command` names an empty switch"), "{refused}");
         assert!(refused.contains("gate_portals.ron"), "{refused}");
     }
 
@@ -82,7 +82,8 @@ mod tests {
             .map(|path| std::fs::read_to_string(path).expect("a world file is readable"))
             .collect();
         for (zone, portal) in &lowered_gate_portals(crate::pack::shipped()) {
-            for name in [zone, &portal.switch_id, &portal.portal_sprite_name, &portal.ring_sprite_name] {
+            let names = [Some(zone.as_str()), portal.command.switch_id(), Some(&portal.portal_sprite_name), Some(&portal.ring_sprite_name)];
+            for name in names.into_iter().flatten() {
                 let quoted = format!("\"{name}\"");
                 assert!(texts.iter().any(|text| text.contains(&quoted)), "`{name}` ({zone}) is in no world file");
             }

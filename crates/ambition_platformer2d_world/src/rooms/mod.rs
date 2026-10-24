@@ -8,6 +8,7 @@ pub mod binding;
 #[cfg(test)]
 mod binding_tests;
 mod camera;
+mod gate_network;
 mod gate_portal;
 mod graph;
 mod loading_zone;
@@ -19,6 +20,7 @@ mod specs;
 
 pub use binding::RoomBindings;
 pub use camera::*;
+pub use gate_network::*;
 pub use gate_portal::*;
 pub use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 pub use rollback::register_rollback_state;

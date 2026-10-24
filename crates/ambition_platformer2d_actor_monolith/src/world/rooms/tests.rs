@@ -84,6 +84,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
     app.init_resource::<GatePortalPhases>();
+    app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     app.init_resource::<ambition_time::WorldTime>();
@@ -229,6 +230,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
     app.init_resource::<GatePortalPhases>();
+    app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     // A 60 fps frame; the body crosses the whole zone within it.
@@ -373,6 +375,7 @@ fn room_crossed_to(
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
     app.init_resource::<GatePortalPhases>();
+    app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
@@ -1114,6 +1117,7 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
             .expect("a fresh registry has no conflicting portal");
         app.insert_resource(registry);
         app.init_resource::<GatePortalPhases>();
+        app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
         let mut save = ambition_persistence::save::AmbitionGameSave::default();
         save.data_mut().set_switch("gate_switch", true);
         app.insert_resource(save);
@@ -1324,6 +1328,7 @@ fn app_with_a_door(
     );
         app.insert_resource(GatePortalRegistry::default());
         app.init_resource::<GatePortalPhases>();
+        app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<ambition_time::WorldTime>();
         app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
@@ -1602,6 +1607,7 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
     );
         app.insert_resource(GatePortalRegistry::default());
         app.init_resource::<GatePortalPhases>();
+        app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<ambition_time::WorldTime>();
         app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();

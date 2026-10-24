@@ -1564,6 +1564,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          the reload transaction, at its publication boundary. The live phase it \
          used to carry is rollback state and moved to `GatePortalPhases`",
     ),
+    (
+        "::gate_network::GateNetworkCatalog",
+        "the authored gate network (`gate_network.ron`): addresses, facilities and \
+         rings, written at composition time and restated only by the reload \
+         transaction, at its publication boundary. The live links and the open \
+         terminal are rollback state, in `GateNetworkState`",
+    ),
     ("::world_manifest::WorldManifest", "authored world manifest"),
     (
         "::day::DayCycle",
@@ -2210,6 +2217,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_content::tuning::AmbitionTuning",
         "Ambition's own tuning (`ambition_rules.ron`: boss idle bark, GNU-ton duel,          African swallow), lowered from the pack. Inserted at composition time; the          one runtime writer is the reload transaction, at the publication boundary,          so no tick a rewind can reach changed it",
+    ),
+    (
+        "ambition_content::gate_terminal::TerminalUi",
+        "the gate terminal panel's own state (its tab, the symbols entered, its \
+         cursor): host presentation, written in `Update` by the panel and read by no \
+         simulation system. A dial reaches the simulation only as a stamped host \
+         intent (`GateTerminalIntent`)",
     ),
     (
         "ambition_content::gate_portals::AmbitionGatePortals",

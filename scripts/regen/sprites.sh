@@ -779,6 +779,13 @@ tackon_targets=(
     coconut_palm
     # The stand of a dimension gate (an LDtk `Prop`): the Math gate square.
     gate_cradle
+    # The fittings of a gate of the gate network (LDtk `Prop`s,
+    # `targets/props/gate_network_props.py`): the dialer every ring has, and
+    # what keeps a ring running.
+    gate_dialer
+    gate_power_cabinet
+    gate_traffic_board
+    gate_transit_bags
     # Castle Godwin of the Evil dimension: its entrance and the thorns at
     # its foot, and its sign at the road (LDtk `Prop`s).
     castle_godwin_entrance

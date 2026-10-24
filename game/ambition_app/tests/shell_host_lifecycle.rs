@@ -2373,8 +2373,7 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
             .world()
             .resource::<GatePortalRegistry>()
             .iter()
-            .map(|(zone, config)| (zone.clone(), config.switch_id.clone()))
-            .next()
+            .find_map(|(zone, config)| Some((zone.clone(), config.command.switch_id()?.to_string())))
             .expect("the Ambition world registers a gate portal");
         veteran
             .world_mut()

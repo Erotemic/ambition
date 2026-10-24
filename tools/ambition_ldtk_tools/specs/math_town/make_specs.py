@@ -25,12 +25,14 @@ rooms:
   `math_observatory` on the summit. Each is entered by the door its house
   front paints; the room's door is drawn over the painted one, as tall.
 
+The hall's gate is a dialed ring of the gate network (address TANGENT,
+`data/gate_network.ron`), with its terminal beside the cradle; LEGAL, the
+way home, is written on it.
+
 And in the Home dimension, in `gate_stack_lower` (`intro.ldtk`, the gate
-station by the creator's lab), Gate 7: a second gate ring whose portal goes
-to the gate square. Both gates follow one switch, `math_gate_switch`, by the
-Home gate: switched on there, both are open (the gate pair is one link).
-The engine side of the pair (`GatePortalRegistry` rows) is in
-`game/ambition_content/src/math_town.rs`; its ids are the ones here.
+station by the creator's lab), Ring 7: a dialed ring tuned to the Math line
+only, powered through its breaker (`math_gate_switch`), with its own
+terminal. `specs/gate_network/make_gates.py` turns an old Gate 7 into it.
 """
 from __future__ import annotations
 
@@ -45,6 +47,9 @@ if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
+
+sys.path.insert(0, str(HERE.parent / "gate_network"))
+import gates  # noqa: E402
 
 MATH_LDTK = default_worlds_dir() / "math.ldtk"
 INTRO_LDTK = default_worlds_dir() / "intro.ldtk"
@@ -137,11 +142,13 @@ def room(rid, entities, label_text, theme=BIOME):
 """
 
 
-def wanderer(name, character, x, floor, h=64):
-    """A townsperson who walks about the room and pays the player no mind."""
+def wanderer(name, character, x, floor, h=64, dialogue=None):
+    """A townsperson who walks about the room and pays the player no mind,
+    and says `dialogue` when spoken to."""
     del name  # An NpcSpawn has no name field; the character is its name.
+    talk = f', dialogue_id: "{dialogue}"' if dialogue else ""
     return (f'( type: "NpcSpawn", px: [{x}, {floor - h}], size: [32, {h}], fields: ( '
-            f'character_id: "{character}", brain_override: "townsfolk_roam" ) ),')
+            f'character_id: "{character}", brain_override: "townsfolk_roam"{talk} ) ),')
 
 
 def line(name, points, boarding="auto"):
@@ -200,16 +207,18 @@ def gate_hall():
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         f'( type: "PlayerStart", px: [{cx - 330}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *stand,
-        *gate(MATH_RING, MATH_PORTAL, MATH_ZONE, cx - 96, plinth, "gate_stack_lower", HOME_ZONE, "to the Home dimension"),
+        *gate(MATH_RING, MATH_PORTAL, MATH_ZONE, cx - 96, plinth, "", "", "the gate"),
+        # The ring's terminal, on the floor east of the cradle.
+        *gates.as_ron(gates.terminal("Math Gate (Math)", "math_gate_terminal", cx + 260, floor)),
         # Galleries along the walls, and the ledges up to them.
         ledge("west_ledge", 336, floor - 96, 96),
         ledge("west_gallery", 64, floor - 192, 352),
         ledge("east_ledge", w - 432, floor - 96, 96),
         ledge("east_gallery", w - 416, floor - 192, 352),
         door(f"{rid}_up", "up to the town", w - 112, floor, STREET, f"{STREET}_down"),
-        wanderer("traveller_trent", "npc_trent", 220, floor),
-        wanderer("traveller_walter", "npc_walter", 1180, floor),
-        wanderer("porter_beaver", "npc_busy_beaver", 1320, floor, 48),
+        wanderer("traveller_trent", "npc_trent", 220, floor, dialogue="trent"),
+        wanderer("traveller_walter", "npc_walter", 1180, floor, dialogue="walter"),
+        wanderer("porter_beaver", "npc_busy_beaver", 1320, floor, 48, dialogue="busy_beaver"),
         label("hall_sign_gate", cx - 150, floor - 300, "GATE OF THE MATH DIMENSION", 300),
         label("hall_sign_axioms", 64, floor - 236, "Arrivals: please declare all axioms", 380),
         label("hall_sign_infinity", w - 444, floor - 236, "Infinity is not a valid destination", 380),
@@ -546,13 +555,14 @@ PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, to
 
 
 def home_gate_yaml() -> str:
-    """Gate 7 in `gate_stack_lower`: the ring, its portal, its door and the
-    switch, on the floor east of the old gate."""
+    """Ring 7 in `gate_stack_lower`: the ring, its portal, its zone, its
+    breaker and its terminal, on the floor east of the old gate."""
     floor = 736
     x = 1150
     top = floor - 192
+    terminal = gates.as_yaml("gate_stack_lower", gates.terminal("Ring 7 (Home)", "ring7_terminal", 1400, floor)).split("entities:\n", 1)[1]
     return f"""# Written by specs/math_town/make_specs.py. Change the script, not this file.
-# Gate 7 of the gate station: the gate to the Math dimension.
+# Ring 7 of the gate station: the Math line.
 level_id: gate_stack_lower
 entities:
   - type: Prop
@@ -568,17 +578,18 @@ entities:
     size: [96, 192]
     fields:
       id: {HOME_ZONE}
-      name: to the Math dimension
+      name: ring 7
       activation: Door
-      target_room: {HALL}
-      target_zone: {MATH_ZONE}
+      target_room: ""
+      target_zone: ""
       bidirectional: false
   - type: Switch
     px: [{x + 210}, {floor - 32}]
     size: [24, 32]
     fields:
       id: {SWITCH}
-      name: {SWITCH}
+      name: Ring 7 breaker
+      prompt: Throw the breaker
       action: ResetEncounter
       target_encounter: ""
   - type: DebugLabel
@@ -586,9 +597,9 @@ entities:
     size: [260, 24]
     fields:
       name: gate_stack_sign_gate_seven
-      text: "GATE 7: MATH (see the switch)"
+      text: "RING 7: the Math line (power: the breaker)"
       category: Custom
-"""
+{terminal}"""
 
 
 MANIFEST_LABEL_DELETE = """# Written by specs/math_town/make_specs.py. Change the script, not this file.

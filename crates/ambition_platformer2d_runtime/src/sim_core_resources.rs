@@ -164,6 +164,9 @@ impl Plugin for SimCoreResourcesPlugin {
             // as `resource.gate_portal_phases`). Two resources because only one
             // of them rewinds.
             .init_resource::<ambition_platformer2d_world::rooms::GatePortalPhases>()
+            // The gate network's live links and open terminal: rollback state
+            // (`resource.gate_network_state`) that commands the dialed rings.
+            .init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>()
             // `CameraEaseState` is NOT here any more: it is per-VIEW state and
             // lives on the local view entity, spawned by `CameraObservationPlugin`.
             // The tuning below stays global — it is authored feel, one game-wide

@@ -37,6 +37,7 @@ pub fn tick_portal_phases_system(
     world_time: Res<WorldTime>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     portals: Res<GatePortalRegistry>,
+    network: Res<ambition_platformer2d_world::rooms::GateNetworkState>,
     mut phases: ResMut<GatePortalPhases>,
 ) {
     // Scaled dt — pause / hitstop / bullet-time naturally freezes
@@ -51,8 +52,11 @@ pub fn tick_portal_phases_system(
     // phase, so no portal can observe another's update. Nothing here folds an
     // order-dependent accumulator.
     for (zone_id, config) in portals.iter() {
-        let switch_on = save.data().switch(&config.switch_id);
-        tick_gate_portal_phase(phases.phase_mut(zone_id), switch_on, dt);
+        let commanded_on = match &config.command {
+            ambition_platformer2d_world::rooms::GatePortalCommand::Switch(switch) => save.data().switch(switch),
+            ambition_platformer2d_world::rooms::GatePortalCommand::Dialed => network.holds_open(zone_id),
+        };
+        tick_gate_portal_phase(phases.phase_mut(zone_id), commanded_on, dt);
     }
 }
 
@@ -84,6 +88,9 @@ pub fn detect_room_transition_system(
     >,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
+    // A gate ring's live link: where the ring leads now, and the record that
+    // a traveller went in, which lets the link close.
+    mut network: ResMut<ambition_platformer2d_world::rooms::GateNetworkState>,
     // The transition subjects are the DRIVEN bodies, one per seat: if a driven
     // body (home avatar or possessed actor) enters an exit/door, THAT body
     // transitions. Future door restrictions gate on body properties
@@ -156,9 +163,17 @@ pub fn detect_room_transition_system(
             .and_then(|sample| sample.ending_at(kin.pos))
             .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
         let wants_interact = slot_gestures.get(seat).buffered();
-        let Some(zone) = rooms
+        // A zone's edge is its authored link, or, for a gate ring, its live
+        // link: the far ring a terminal dialed. A ring with no link has no
+        // edge, and its portal is shut.
+        let routed = rooms
             .rooms()
-            .transition_for_player(definition, path_end, delta, wants_interact) else {
+            .zone_for_player(definition, path_end, delta, wants_interact)
+            .and_then(|zone| match network.route_from(&zone.id) {
+                Some(link) => rooms.rooms().transition_into(definition, &zone.id, &link.far_room, &link.far),
+                None => rooms.rooms().transition_through(definition, &zone.id),
+            });
+        let Some(zone) = routed else {
             // `warn_once`: a stuck body re-enters this branch every tick, and the
             // situation is a standing one — the first report is the whole message.
             // and it costs nothing on the normal path: it runs only after the
@@ -309,6 +324,7 @@ pub fn detect_room_transition_system(
                 foot: far.aabb.center() + ae::Vec2::new(0.0, far.aabb.half_size().y),
                 heart: far.aabb.center(),
             };
+            network.crossed(&zone.zone.id);
             commands.entity(subject_entity).try_insert(super::passage::ZonePassage::enter(
                 kind,
                 &zone.zone.id,
@@ -373,6 +389,7 @@ pub fn detect_room_transition_system(
             // anything, which is now true of the whole function.
             return;
         }
+        network.crossed(&zone.zone.id);
         // Consume the gesture only once the crossing is ADMITTED — not merely
         // describable. Every invariant needed to describe it was checked above; the
         // slot is the one that decides whether it happens.

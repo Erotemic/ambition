@@ -362,6 +362,9 @@ pub enum SwitchAction {
     /// and kills it immediately, otherwise ... it just marks the boss as
     /// dead"). The boss domain carries it out (`apply_boss_life_switches`).
     BossLife,
+    /// A gate network terminal: the press opens the terminal of the ring the
+    /// network catalog names for this switch id. The switch stores nothing.
+    GateTerminal,
     /// Authored but not a kind this engine acts on. Carried rather than dropped
     /// so a consumer can report it; the string road could not tell this apart
     /// from a handled action that did nothing.
@@ -412,6 +415,9 @@ impl SwitchAction {
         }
         if action == "BossLife" {
             return Self::BossLife;
+        }
+        if action == "GateTerminal" {
+            return Self::GateTerminal;
         }
         Self::Unhandled(action.to_string())
     }
@@ -554,7 +560,7 @@ pub fn drain_switch_activations(
                     .map(|alive| !alive)
                     .unwrap_or(false)
             }
-            SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
+            SwitchAction::GateTerminal | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
         };
         resolved.0.push(ResolvedSwitchActivation {
             id: activation.id,

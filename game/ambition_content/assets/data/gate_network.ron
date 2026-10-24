@@ -1,0 +1,217 @@
+// Ambition's gate network (schema `gate_network`, owned by the world
+// capability): the symbols on the chevrons, the gate facilities, and each
+// ring with the loading zone a traveller goes through. The rules are in
+// `docs/planning/game/gate-network.md`; the engine's rules are
+// `ambition_platformer2d_world::rooms::gate_network`.
+//
+// - An address reaches one ring. A ring with no address only sends.
+// - A ring never dials a ring in its own facility. Two facilities of one
+//   dimension can dial each other (the Science dimension's gravity trail and
+//   orbital station are far apart).
+// - A status reads only authored facts (a switch, a flag), never chance.
+// - A `posted` address is written on the ring's terminal, so every
+//   destination has a way home that needs no knowledge.
+// - A ring whose room is not built yet is `Offline` with a reason; it is
+//   never "unknown".
+//
+// Each ring's zone is a gate portal too (`gate_portals.ron`, `Dialed`), and a
+// `Switch` with action `GateTerminal` and the ring's `terminal` id dials it.
+// `the_gate_network_names_what_the_world_files_hold` holds each online ring to
+// the world files. An edit here is played at the next start, and a content
+// reload restates it, with no Rust build.
+(
+    // The symbols of the ring's inscription, ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ, as the
+    // letters they stand for.
+    alphabet: "ACDEGILNSTY",
+    // Which addresses a traveller knows before learning any. `All`: every
+    // address is listed from the start, as a development game starts with
+    // everything unlocked (Jon, 2026-10-24). `Discovered` (the release rule):
+    // only what a dial, a sign, a person or a document taught. Knowledge only
+    // lists; a dial never reads it.
+    start_known: All,
+    bands: ["civil", "military"],
+    facilities: [
+        (id: "home_gate_station", name: "Home Gate Station", dimension: "home"),
+        (id: "military_gate_annex", name: "Military Gate Annex", dimension: "home"),
+        (id: "math_town_gate_hall", name: "Math Town Gate Hall", dimension: "math"),
+        (id: "primeval_trailhead_ring", name: "Primeval Trailhead Ring", dimension: "jungle"),
+        (id: "primeval_rookery_ring", name: "Rookery Survey Ring", dimension: "jungle"),
+        (id: "godwin_forest_ring", name: "Godwin Forest Ring", dimension: "evil"),
+        (id: "gravity_trail_ring", name: "Gravity Trail Ring", dimension: "science"),
+        (id: "gravity_trail_survey_ring", name: "Trail Survey Ring", dimension: "science"),
+        (id: "orbital_station_dock", name: "Orbital Station Gate Dock", dimension: "science"),
+        (id: "pirate_port_plaza", name: "Pirate Port Gate Plaza", dimension: "water"),
+        (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "forest"),
+        (id: "noodly_temple_narthex", name: "Noodly Temple Narthex", dimension: "noodle"),
+    ],
+    rings: [
+        // ── Home ──────────────────────────────────────────────────────────
+        (
+            zone: "hub_public_gate_zone",
+            name: "Central Hub public gate",
+            facility: "home_gate_station",
+            room: "central_hub_complex",
+            address: Some("LEGAL"),
+            terminal: Some("hub_public_terminal"),
+            note: "Public ring. Organic travellers: expect nausea for an hour.",
+        ),
+        // Ring 7 of the gate stack is the old Math line. It dials one address
+        // and draws power through the breaker beside it.
+        (
+            zone: "math_gate_home_zone",
+            name: "Gate stack, ring 7",
+            facility: "home_gate_station",
+            room: "gate_stack_lower",
+            terminal: Some("ring7_terminal"),
+            reach: Only(
+                addresses: ["TANGENT"],
+                reason: "Ring 7 is tuned to the Math line only.",
+            ),
+            status: PoweredBy(
+                switch: "math_gate_switch",
+                reason: "Ring 7 has no power. Throw the breaker beside it.",
+            ),
+            posted: ["TANGENT"],
+            note: "Maintenance ring. Decades in service; the bearings sing.",
+        ),
+        // The military's own ring. Civil traffic may not dial in. A
+        // clearance flag admits a civil ring; the duct under the guard post
+        // admits a small robot (`docs/planning/game/gate-network.md`).
+        (
+            zone: "military_gate_zone",
+            name: "Military Gate Annex",
+            facility: "military_gate_annex",
+            room: "military_gate_annex",
+            address: Some("SENTINEL"),
+            terminal: Some("military_gate_terminal"),
+            band: Some("military"),
+            admits: Some((
+                bands: ["military"],
+                permit: Some("gate.clearance.military"),
+                reason: "The military ring refuses civil traffic.",
+            )),
+            posted: ["LEGAL"],
+            note: "Priority band. Unauthorized use is logged.",
+        ),
+        // ── Math ──────────────────────────────────────────────────────────
+        (
+            zone: "math_gate_return_zone",
+            name: "Math Town gate hall",
+            facility: "math_town_gate_hall",
+            room: "math_gate_hall",
+            address: Some("TANGENT"),
+            terminal: Some("math_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "The town pays for the ring's power by the hour.",
+        ),
+        // ── Jungle (the primeval trail) ───────────────────────────────────
+        (
+            zone: "primeval_trailhead_gate",
+            name: "Primeval trailhead",
+            facility: "primeval_trailhead_ring",
+            room: "primeval_trailhead",
+            address: Some("GENESIS"),
+            terminal: Some("primeval_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Field ring. Keep the hatch shut: the birds nest in it.",
+        ),
+        // A short hidden address: an old survey ring at the rookery, part way
+        // up the trail. It only receives; the trail leads back down.
+        (
+            zone: "primeval_rookery_gate",
+            name: "Rookery survey ring",
+            facility: "primeval_rookery_ring",
+            room: "primeval_rookery",
+            address: Some("NEST"),
+            hidden: true,
+            note: "Receive only.",
+        ),
+        // ── Evil (Castle Godwin) ──────────────────────────────────────────
+        (
+            zone: "evil_gate_return_zone",
+            name: "Godwin forest",
+            facility: "godwin_forest_ring",
+            room: "evil_gate_forest",
+            address: Some("CITADEL"),
+            terminal: Some("evil_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Outer ring, out of the castle's sight. Go home if you hear boots.",
+        ),
+        // ── Science (GNU-ton's gravity trail and the orbital station) ─────
+        (
+            zone: "orchard_gate",
+            name: "Gravity trail, the orchard",
+            facility: "gravity_trail_ring",
+            room: "gnu_ton_orchard",
+            address: Some("ASCENT"),
+            terminal: Some("orchard_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Low gravity at the ring. Step out slowly.",
+        ),
+        // The military's survey ring at the far end of the gravity trail: a
+        // short way to GNU-ton for a traveller who reaches a military ring.
+        (
+            zone: "trail_survey_gate",
+            name: "Trail survey ring",
+            facility: "gravity_trail_survey_ring",
+            room: "gnu_ton_inversion_gallery",
+            address: Some("TESLA"),
+            hidden: true,
+            admits: Some((
+                bands: ["military"],
+                permit: Some("gate.clearance.military"),
+                reason: "A military survey ring. Civil traffic is refused.",
+            )),
+            status: Offline("The survey ring at the trail's end is being re-aligned."),
+            note: "Receive only.",
+        ),
+        (
+            zone: "orbital_station_gate_arrival",
+            name: "Orbital station gate dock",
+            facility: "orbital_station_dock",
+            room: "orbital_station_gate_dock",
+            address: Some("GALACTIC"),
+            terminal: Some("orbital_station_gate_terminal"),
+            status: Offline("The far ring is not yet built."),
+            posted: ["LEGAL"],
+            note: "Docking ring. Freight has right of way.",
+        ),
+        // ── Water (the pirate port) ───────────────────────────────────────
+        (
+            zone: "pirate_port_gate_arrival",
+            name: "Pirate port gate plaza",
+            facility: "pirate_port_plaza",
+            room: "pirate_port_gate_plaza",
+            address: Some("SAILING"),
+            terminal: Some("pirate_port_gate_terminal"),
+            status: Offline("The far ring is not yet built."),
+            posted: ["LEGAL"],
+            note: "Port ring. Salt in the bearings again.",
+        ),
+        // ── Forest (the ninja village) ────────────────────────────────────
+        (
+            zone: "ninja_village_gate_arrival",
+            name: "Ninja village gate shrine",
+            facility: "ninja_village_shrine",
+            room: "ninja_village_gate_shrine",
+            address: Some("SILENT"),
+            terminal: Some("ninja_village_gate_terminal"),
+            status: Offline("The far ring is not yet built."),
+            posted: ["LEGAL"],
+            note: "Shrine ring. Bow to the keeper; the keeper keeps the log.",
+        ),
+        // ── Noodle (the Noodly Temple) ────────────────────────────────────
+        // The temple's own ring, in its narthex: the way to the Noodle
+        // dimension.
+        (
+            zone: "noodly_narthex_gate",
+            name: "Noodly Temple narthex",
+            facility: "noodly_temple_narthex",
+            room: "noodly_narthex",
+            address: Some("ALDENTE"),
+            terminal: Some("noodly_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Temple ring. The pilgrims keep it clean; the sauce does not.",
+        ),
+    ],
+)

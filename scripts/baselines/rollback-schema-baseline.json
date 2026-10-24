@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v379",
+    "version": "ggrs-rollback-schema-v380",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -115,6 +115,7 @@
       "resource.custody_baseline\tcomponent-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
       "resource.day_clock\tresource-canonical\tDayClock\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
+      "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + open terminal, links, reports and recent addresses",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",

@@ -83,6 +83,22 @@ impl Plugin for ProgressionSchedulePlugin {
             ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system
                 .in_set(ProgressionSet::WorldSync),
         );
+        // The terminal's requests: the channel is the host-intent ledger's
+        // (`HostIntentPlugin`); it is named here too so a composition without
+        // the ledger still builds this system. `add_message` is idempotent.
+        app.add_message::<ambition_platformer2d_world::rooms::GateTerminalIntent>();
+        // The gate network: a terminal opens at its switch's press, a dial
+        // opens a link, and the link commands its rings' portal phases. After
+        // the switch drain (it reads the press) and before the portal tick (it
+        // reads the links), so a dial boots its ring on the tick it is made.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::rooms::gate_network::run_gate_network
+                .run_if(ambition_platformer2d_actor_monolith::rooms::gate_network::the_gate_network_has_work)
+                .after(ambition_encounter::switches::SwitchActivationDrained)
+                .before(ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system)
+                .in_set(ProgressionSet::WorldSync),
+        );
         // ⭐ THE MAP OWNS ITS SIMULATION HALF, completing the split its input/view half
         // already had: this composition named both private systems and their phase.
         // ⚠ Deliberately a SEPARATE installer from `install_map_menu_systems` — that one

@@ -72,9 +72,8 @@ impl GatePortalPhase {
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatePortalConfig {
-    /// The switch whose on/off state commands this portal's boot /
-    /// shutdown sequence. Read from `save.data().switch(switch_id)`.
-    pub switch_id: String,
+    /// What commands this portal's boot / shutdown sequence.
+    pub command: GatePortalCommand,
     /// LDtk display name of the portal sprite entity (NpcSpawn
     /// name). The visibility system matches this against
     /// `FeatureName` to hide the portal sprite when phase == Off.
@@ -82,6 +81,27 @@ pub struct GatePortalConfig {
     /// LDtk display name of the ring sprite entity. Used by the
     /// ring-spin visual flourish during `Opening`.
     pub ring_sprite_name: String,
+}
+
+/// What commands a portal to boot and to shut down.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
+pub enum GatePortalCommand {
+    /// A save switch: the portal is on while `save.data().switch(id)` is.
+    Switch(String),
+    /// The gate network: the portal is on while a link holds its ring open
+    /// (`GateNetworkState::holds_open`). Its zone is a ring of the network
+    /// catalog, and the link decides where it leads.
+    Dialed,
+}
+
+impl GatePortalCommand {
+    /// The switch that commands the portal, if a switch does.
+    pub fn switch_id(&self) -> Option<&str> {
+        match self {
+            Self::Switch(id) => Some(id),
+            Self::Dialed => None,
+        }
+    }
 }
 
 /// Per-portal AUTHORED registry mapping `LoadingZone.id` → portal
@@ -113,10 +133,10 @@ impl std::fmt::Display for GatePortalConflict {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "loading zone `{}` already has a gate portal commanded by switch \
-             `{}`; a second registration wants switch `{}`. One zone is one \
-             portal — rename the zone or reuse the existing registration.",
-            self.zone_id, self.existing.switch_id, self.incoming.switch_id
+            "loading zone `{}` already has a gate portal commanded by {:?}; \
+             a second registration wants {:?}. One zone is one portal — \
+             rename the zone or reuse the existing registration.",
+            self.zone_id, self.existing.command, self.incoming.command
         )
     }
 }
@@ -143,8 +163,10 @@ pub fn gate_portal_problems(rows: &GatePortalRows) -> Vec<String> {
         if zone.trim().is_empty() {
             problems.push("a portal's zone id is empty".to_string());
         }
+        if portal.command.switch_id().is_some_and(|id| id.trim().is_empty()) {
+            problems.push(format!("`{zone}.command` names an empty switch"));
+        }
         for (field, value) in [
-            ("switch_id", &portal.switch_id),
             ("portal_sprite_name", &portal.portal_sprite_name),
             ("ring_sprite_name", &portal.ring_sprite_name),
         ] {
@@ -207,7 +229,7 @@ impl GatePortalRegistry {
     ) -> Result<ambition_registry_core::RegistrationOutcome, GatePortalConflict> {
         let zone_id = zone_id.into();
         let incoming = GatePortalConfig {
-            switch_id: switch_id.into(),
+            command: GatePortalCommand::Switch(switch_id.into()),
             portal_sprite_name: portal_sprite_name.into(),
             ring_sprite_name: ring_sprite_name.into(),
         };
@@ -734,20 +756,20 @@ mod gate_portal_registry_tests {
         let refused = registry
             .try_register("cove_gate", "other_switch", p, r)
             .expect_err("a different portal on a claimed zone must be refused");
-        assert_eq!(refused.existing.switch_id, "gate_switch");
-        assert_eq!(refused.incoming.switch_id, "other_switch");
+        assert_eq!(refused.existing.command.switch_id(), Some("gate_switch"));
+        assert_eq!(refused.incoming.command.switch_id(), Some("other_switch"));
 
         // The registry is unchanged. A refusal that had already mutated would
         // be an overwrite, and a caller cannot check for that.
         assert!(registry
             .iter()
-            .any(|(zone, held)| zone == "cove_gate" && held.switch_id == "gate_switch"));
+            .any(|(zone, held)| zone == "cove_gate" && held.command.switch_id() == Some("gate_switch")));
         assert_eq!(registry.iter().count(), 1);
     }
 
     fn row(switch: &str, portal: &str, ring: &str) -> GatePortalConfig {
         GatePortalConfig {
-            switch_id: switch.into(),
+            command: GatePortalCommand::Switch(switch.into()),
             portal_sprite_name: portal.into(),
             ring_sprite_name: ring.into(),
         }
@@ -765,7 +787,7 @@ mod gate_portal_registry_tests {
             ("b_zone".to_string(), row("a_switch", "A Portal", "B Ring")),
         ]);
         let problems = gate_portal_problems(&bad);
-        assert!(problems.iter().any(|p| p.starts_with("`a_zone.switch_id` is empty")), "{problems:?}");
+        assert!(problems.iter().any(|p| p.starts_with("`a_zone.command` names an empty switch")), "{problems:?}");
         assert!(
             problems.iter().any(|p| p.starts_with("`b_zone.portal_sprite_name` `A Portal` is also a prop of `a_zone`")),
             "{problems:?}"
@@ -789,7 +811,7 @@ mod gate_portal_registry_tests {
         let held = registry.restate(held.iter().map(String::as_str), &next).expect("its own zones");
         assert_eq!(held, ["ours"]);
         assert!(!registry.is_portal("gone") && registry.is_portal("theirs"));
-        assert_eq!(registry.iter().find(|(zone, _)| *zone == "ours").unwrap().1.switch_id, "t");
+        assert_eq!(registry.iter().find(|(zone, _)| *zone == "ours").unwrap().1.command.switch_id(), Some("t"));
         let before = registry.clone();
         let stolen = GatePortalRows::from([("theirs".to_string(), row("s", "X", "Y"))]);
         assert!(registry.restate(held.iter().map(String::as_str), &stolen).is_err());

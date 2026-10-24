@@ -105,6 +105,8 @@
         (path: "data/worlds.ron", schema: "world_manifest", version: 1),
         // The gate portals its rooms hold, by loading zone.
         (path: "data/gate_portals.ron", schema: "gate_portals", version: 1),
+        // Its gate network: the addresses a terminal dials, and each ring.
+        (path: "data/gate_network.ron", schema: "gate_network", version: 1),
         // The dialogue: one Yarn file per zone. A file added here is in the
         // next start's Yarn project, with no Rust build; an edit to a file
         // reaches a running game (`content_watch::yarn`).

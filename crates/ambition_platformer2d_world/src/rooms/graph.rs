@@ -429,20 +429,53 @@ impl RoomSet {
         delta: ae::Vec2,
         wants_interact: bool,
     ) -> Option<RoomTransition> {
-        let zone = self
-            .spec(room)
-            .loading_zones
-            .iter()
-            .find(|zone| {
-                ae::cast::aabb_path_contacts(
-                    player_aabb.center(),
-                    player_aabb.half_size(),
-                    delta,
-                    zone.aabb,
-                ) && zone.is_ready(wants_interact)
-            })?
-            .clone();
+        let zone = self.zone_for_player(room, player_aabb, delta, wants_interact)?.clone();
         self.transition_from_zone(room, zone)
+    }
+
+    /// The first zone of `room` that the body's path reaches and that is
+    /// ready for it, whatever the zone leads to. [`Self::transition_for_player`]
+    /// is this zone's authored edge; a gate ring's edge is its live link
+    /// ([`Self::transition_into`]).
+    pub fn zone_for_player(
+        &self,
+        room: LiveRoomDefinition,
+        player_aabb: ae::Aabb,
+        delta: ae::Vec2,
+        wants_interact: bool,
+    ) -> Option<&LoadingZone> {
+        self.spec(room).loading_zones.iter().find(|zone| {
+            ae::cast::aabb_path_contacts(player_aabb.center(), player_aabb.half_size(), delta, zone.aabb)
+                && zone.is_ready(wants_interact)
+        })
+    }
+
+    /// The transition through the zone `zone` of `room` into the zone
+    /// `to_zone` of the room `to_room`, which no authored edge states: the
+    /// route a gate ring's live link gives. `None` when either end is not in
+    /// this set.
+    pub fn transition_into(
+        &self,
+        room: LiveRoomDefinition,
+        zone: &str,
+        to_room: &str,
+        to_zone: &str,
+    ) -> Option<RoomTransition> {
+        let zone = self.spec(room).loading_zones.iter().find(|candidate| candidate.id == zone)?.clone();
+        let target_room = self.room_index_by_id(to_room)?;
+        let target_zone = self.zone_by_id(target_room, to_zone)?;
+        let arrival = arrival_from_target_zone(&self.rooms[target_room].world, target_zone);
+        Some(RoomTransition {
+            zone,
+            target_room,
+            target_zone: to_zone.to_string(),
+            arrival,
+        })
+    }
+
+    /// Whether the room `room_id` of this set holds the zone `zone_id`.
+    pub fn has_zone(&self, room_id: &str, zone_id: &str) -> bool {
+        self.room_index_by_id(room_id).is_some_and(|room| self.zone_by_id(room, zone_id).is_some())
     }
 
     /// The transition through the zone `zone` of `room`, whatever body is in

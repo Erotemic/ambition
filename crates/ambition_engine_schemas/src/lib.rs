@@ -38,6 +38,8 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         // A gate portal belongs with the world's rooms. The world IR does not
         // link the content pack, so its rows are registered here.
         gate_portals_schema(),
+        // The gate network reads the same rooms as the portals it opens.
+        gate_network_schema(),
         world_manifest_schema(),
         // Capability schemas remain owned by the capability that can interpret them.
         ambition_items::content_schema::item_catalog_schema(),
@@ -79,6 +81,20 @@ pub fn gate_portals_schema() -> ambition_content_pack::SchemaRegistration {
         "The gate portals a game's rooms hold, by loading zone: the switch \
          that boots each portal, and the names of its portal and ring props.",
         gate_portal_problems,
+    )
+}
+
+/// The `gate_network` schema: a game's dialable gate network
+/// (`ambition_platformer2d_world::rooms::GateNetworkCatalog`).
+pub fn gate_network_schema() -> ambition_content_pack::SchemaRegistration {
+    use ambition_platformer2d_world::rooms::{gate_network_problems, GateNetworkCatalog, GATE_NETWORK_SCHEMA, WORLD_CAPABILITY};
+    ambition_content_pack::rules_schema::<GateNetworkCatalog>(
+        GATE_NETWORK_SCHEMA,
+        1,
+        WORLD_CAPABILITY,
+        "A game's gate network: the dialing alphabet, the facilities, and each \
+         ring with its room, address, terminal, reach, admission and status.",
+        gate_network_problems,
     )
 }
 

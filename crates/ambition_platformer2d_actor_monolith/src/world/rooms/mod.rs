@@ -12,6 +12,7 @@ use ambition_platformer2d_core as ae;
 // would have had to be applied, and a dead one. A fork you cannot reach is still a fork that
 // lies about how many commits this engine has.
 mod reconstitution;
+pub mod gate_network;
 pub mod passage;
 pub mod residency;
 mod systems;

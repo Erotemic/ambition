@@ -36,6 +36,10 @@ impl Plugin for AmbitionContentPlugin {
 
         // The gate portals its rooms hold (`data/gate_portals.ron`).
         super::gate_portals::register(app);
+        // The gate network its rings form (`data/gate_network.ron`).
+        super::gate_network::register(app);
+        // The gate terminal's local state and its input claim.
+        super::gate_terminal::register(app);
 
         // App-local authored audio registries.
         super::audio_registries::register(app);

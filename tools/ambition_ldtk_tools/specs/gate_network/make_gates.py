@@ -111,8 +111,11 @@ PUBLIC_DIALER_X = 1500
 GATE_STACK_DOOR = (1000, 832)
 #: The bags for organic travellers, on the wall east of the dialer.
 BAGS_X = 1600
-#: The hub guide moves west of the ring, so a press at the ring is the ring's.
-GUIDE_X = 1150
+#: The hub guide moves east of the bags, so a press at the ring or the dialer
+#: is theirs. Their patrol (96 each way) stays on the main floor: west of the
+#: ring the floor opening to the basement begins at 1152, and a guide placed
+#: there walked into it.
+GUIDE_X = 1700
 
 #: Ring 7 of the gate stack: its dialer east of the ring, by the breaker.
 RING7_DIALER = (1400, 736)

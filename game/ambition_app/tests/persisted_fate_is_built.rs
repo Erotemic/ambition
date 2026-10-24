@@ -287,7 +287,10 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     assert_eq!(
         talking(&sim),
         Some((npc, mount)),
-        "setup: the possessed body did not start a conversation with {id}"
+        "setup: the possessed body did not start a conversation with {id} (it is at {:?}, the body at {:?}, in `{}`)",
+        pos(&sim, npc),
+        pos(&sim, mount),
+        sim.observation().active_room,
     );
 
     // THE CHOICE.

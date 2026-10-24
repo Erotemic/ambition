@@ -2082,7 +2082,7 @@
             // 170 cm, as the Shadow Duelist.
             standing_height: Some(65.8),
             composition: None,
-            default_brain: "melee_brute_striker",
+            default_brain: "",
             default_action_set: "striker_swipe",
             // A body that can fight where it is placed as an enemy: the
             // examiner of the Ninja Village's rank exam.

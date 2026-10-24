@@ -417,7 +417,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         .after(actors::sync_visuals),
                     // Derived from `MovingPlatformSet`; never writes it. See
                     // `moving_platforms`.
-                    moving_platforms::sync_moving_platform_visuals,
+                    moving_platforms::sync_moving_platform_visuals.run_if(moving_platforms::platforms_or_their_visuals),
                 )
                     .after(item_visuals::report_unloadable_item_art)
                     .run_if(session_presentation_is_ready),

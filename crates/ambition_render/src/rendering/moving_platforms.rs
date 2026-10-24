@@ -175,6 +175,15 @@ pub struct MovingPlatformVisual {
 /// resizes the rest. Idempotent: it compares populations instead of reacting
 /// to events, so it needs no change detection and cannot double-spawn during
 /// a rollback resimulation.
+/// Run condition of [`sync_moving_platform_visuals`]: a live room has a
+/// moving platform to draw, or a platform visual exists to move or retire.
+pub fn platforms_or_their_visuals(
+    rooms: Query<Option<&MovingPlatformSet>, With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+    visuals: Query<(), With<MovingPlatformVisual>>,
+) -> bool {
+    !visuals.is_empty() || rooms.iter().any(|set| set.is_some_and(|set| !set.0.is_empty()))
+}
+
 pub fn sync_moving_platform_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,

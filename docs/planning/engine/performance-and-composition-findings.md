@@ -29,7 +29,7 @@ the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
 **Status, 2026-10-24 08:32Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 904 systems a frame (40 of them the census's own markers, absent on a phone); hub Ambition route 1,323 → 975 since
+route 1,320 → 903 systems a frame (40 of them the census's own markers, absent on a phone); hub Ambition route 1,323 → 975 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F49, 08:00Z): main-world wall 12.98 → 6.74 ms a frame (Mary-O), 13.91 → 5.12 ms (Ambition); frame p50 24.0 → 20.8 ms (Mary-O), 51.1 → 27.2 ms (Ambition hub; REASONED: mostly the F46 look cuts). Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
@@ -162,6 +162,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The gradient sentinel's lane visual runs while a boss frame holds a hazard lane or a lane is drawn, its own early return lifted into a condition (`66760f85b`) | done | REASONED: 1 system a frame where no lane is in play; render lane test 1 green (no app test drives the lane) |
 | The bubble shield's pooled visual runs while a shield is raised or a bubble is still shown (`acfe82c5a`) | done | MEASURED: idle on the Mary-O route (census row); the route total moves within the census's ±3 noise; render `bubble`/`shield` 10, app_it `shield` 6, `bubble` 1 green |
 | The projectile visual pass runs while a projectile view or a drawn projectile exists (`f0b33cb36`) | done | census: Mary-O route 904 (idle here); render `projectile` 2, app_it `projectile` 6, `shoot` 3 green |
+| The moving-platform visual pass runs while a live room has a moving platform or a platform visual exists (`PLATVIS`) | done | census: Mary-O route 903 (idle here); render `moving_platform` 8, app_it `platform` 10, `cart` 1 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

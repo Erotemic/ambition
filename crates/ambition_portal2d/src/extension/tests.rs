@@ -236,6 +236,7 @@ fn ask_lines(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         normal: [1.0, 0.0],
         length: 120.0,
         look: 24,
+        on_limb: None,
     };
     if count > 0 {
         inv.submit::<LightLinePort>(line(0, -1.0))?;

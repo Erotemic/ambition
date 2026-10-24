@@ -106,6 +106,7 @@ pub fn light_fist_lines(
                         pos: at,
                         normal,
                         length,
+                        depth: None,
                     },
                     FistLine { fighter },
                     Name::new("GNU-ton fist line"),

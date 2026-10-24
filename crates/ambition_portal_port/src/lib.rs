@@ -51,6 +51,9 @@
 //! * **Read model** — world units, +Y down. A `normal` points out of the
 //!   line into the room.
 //! * **Look** — the authored channel index whose colour the line has.
+//! * **On a limb** (v2) — a line may name the limb whose cut it is on
+//!   (`LineOnLimb`). The presentation then puts the line on the seam that the
+//!   limb's drawn picture publishes, as wide as the limb there and over it.
 //! * **Replay** — presentation: the view is derived again each tick from the
 //!   module's record, and no simulation system reads it.
 //! * **Result** — submitted is not applied. No acknowledgement port.
@@ -131,7 +134,7 @@ impl Port for HeldPortalPairPort {
 
 /// A line of a portal's light that a module asks for: a look, and no way
 /// through.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LightLine {
     /// The module's name for the line. Slots are per entry.
     pub slot: u32,
@@ -143,6 +146,23 @@ pub struct LightLine {
     pub length: f32,
     /// The authored channel index whose colour it has.
     pub look: u8,
+    /// The limb whose cut the line is on, when it is on one (v2).
+    pub on_limb: Option<LineOnLimb>,
+}
+
+/// The cut of a limb that a line of light is on. The presentation puts the
+/// line on the cut that the limb's picture publishes (its seam): at the
+/// middle of the cut, along it, and over the limb. The line is never shorter
+/// than the limb is wide there; the line's own `length` is how far it is
+/// open. `at` and `normal` are where the line is while no seam is published,
+/// and the presentation eases between the two.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LineOnLimb {
+    /// The limb's slot (`hand_left`).
+    pub limb: String,
+    /// The cut is on the limb's own body (the end of an arm that came out of
+    /// a portal), not on the body it is a limb of.
+    pub on_its_body: bool,
 }
 
 /// The request port marker for a line of light. See its port card at the
@@ -150,7 +170,7 @@ pub struct LightLine {
 pub struct LightLinePort;
 
 impl Port for LightLinePort {
-    const KEY: PortKey = PortKey::new("ambition.portal.light_line", 1);
+    const KEY: PortKey = PortKey::new("ambition.portal.light_line", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = LightLine;
 
@@ -160,6 +180,10 @@ impl Port for LightLinePort {
         wire::put_vec2(out, v.normal);
         wire::put_f32(out, v.length);
         wire::put_u8(out, v.look);
+        wire::put_opt(out, v.on_limb.as_ref(), |out, on| {
+            wire::put_str(out, &on.limb);
+            wire::put_bool(out, on.on_its_body);
+        });
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<LightLine, WireError> {
@@ -169,6 +193,7 @@ impl Port for LightLinePort {
             normal: r.vec2()?,
             length: r.f32()?,
             look: r.u8()?,
+            on_limb: r.opt(|r| Ok(LineOnLimb { limb: r.str()?.to_owned(), on_its_body: r.bool()? }))?,
         })
     }
 }
@@ -197,11 +222,14 @@ mod tests {
 
     #[test]
     fn a_light_line_comes_back_from_the_wire_equal() {
-        let line = LightLine { slot: 2, at: [-4.0, 96.5], normal: [1.0, 0.0], length: 130.0, look: 25 };
-        let mut bytes = Vec::new();
-        LightLinePort::encode(&line, &mut bytes);
-        let mut reader = WireReader::new(&bytes);
-        assert_eq!(LightLinePort::decode(&mut reader).unwrap(), line);
-        assert!(reader.finish().is_ok());
+        let on_limb = LineOnLimb { limb: "hand_left".into(), on_its_body: true };
+        for on_limb in [None, Some(on_limb)] {
+            let line = LightLine { slot: 2, at: [-4.0, 96.5], normal: [1.0, 0.0], length: 130.0, look: 25, on_limb };
+            let mut bytes = Vec::new();
+            LightLinePort::encode(&line, &mut bytes);
+            let mut reader = WireReader::new(&bytes);
+            assert_eq!(LightLinePort::decode(&mut reader).unwrap(), line);
+            assert!(reader.finish().is_ok());
+        }
     }
 }

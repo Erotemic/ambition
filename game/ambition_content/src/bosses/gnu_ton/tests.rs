@@ -734,3 +734,57 @@ mod pinned_rows {
         }
     }
 }
+
+/// ⭐ THE LOOK LINES ARE WHERE THE ARMS ARE CUT. The giant's sheet publishes
+/// the cut of each arm in its line (anchors `seam:<slot>:a` / `:b`, measured
+/// on the drawn arm by the renderer), and the lone fist's sheet the cut of
+/// its fore arm (`seam:self`). The presentation lays the conductor's lines
+/// on those cuts; where the conductor puts them (`ch::arms::SHOULDER_LINES`,
+/// `WRIST_LINE`) is where they are while no cut is published, so the two
+/// must agree at rest or a line slides when the cut comes. Each cut is as
+/// wide as the arm (about 55 world units: the arm is 57 wide in the drawing
+/// with its ink).
+#[test]
+fn the_conductors_look_lines_are_on_the_published_cuts_at_rest() {
+    use ambition_content_modules::gnu_ton::choreography as ch;
+    use ambition_sprite_sheet::character::sheets::record_for_sheet_key;
+    let world_per_pixel = ch::blows::DESIGN * 2.0;
+    // Each cut of the row `rest`'s first frame: its name, its middle from the
+    // middle of the body (world units), its length, and its way.
+    let cuts = |key: &str| {
+        let record = record_for_sheet_key(key).unwrap_or_else(|| panic!("the sheet `{key}` is published"));
+        let body = record.body_metrics.as_ref().and_then(|m| m.body_pixel_bbox).expect("an authored body");
+        let (cx, cy) = body.center();
+        let row = record.rows.iter().find(|row| row.animation == "rest").expect("a row `rest`");
+        let anchors = &row.rects[0].anchors;
+        let world = |p: &ambition_sprite_sheet::NormPoint| {
+            ae::Vec2::new(p.x * record.frame_width as f32 - cx, p.y * record.frame_height as f32 - cy) * world_per_pixel
+        };
+        anchors
+            .iter()
+            .filter_map(|(key, a)| {
+                let name = key.strip_prefix("seam:")?.strip_suffix(":a")?;
+                let b = anchors.get(&format!("seam:{name}:b"))?;
+                let (a, b) = (world(a), world(b));
+                Some((name.to_owned(), (a + b) * 0.5, a.distance(b), (b - a).normalize()))
+            })
+            .collect::<Vec<_>>()
+    };
+    let giant = cuts("giant_gnu");
+    for (shoulder, limb) in ["hand_left", "hand_right"].into_iter().enumerate() {
+        let (_, middle, length, along) =
+            giant.iter().find(|cut| cut.0 == limb).unwrap_or_else(|| panic!("no cut of {limb}: {giant:?}"));
+        let line = ch::arms::SHOULDER_LINES[shoulder];
+        assert!(middle.distance(line) <= 3.0, "{limb}: cut at {middle:?}, line at {line:?}");
+        assert!((length - 55.0).abs() <= 6.0, "{limb}: the cut is {length} wide");
+        assert!(along.x.abs() < 0.05, "{limb}: the arm is cut on an upright line: {along:?}");
+    }
+    // The right fist, as drawn: its wrist to the left of its middle.
+    let fist = cuts("giant_gnu_fist");
+    let (_, middle, ..) = fist.iter().find(|cut| cut.0 == "self").expect("the fist publishes its own cut");
+    assert!(
+        middle.distance(ae::Vec2::new(-ch::arms::WRIST_LINE, 0.0)) <= 4.0,
+        "the fist's cut is at {middle:?}, its wrist line at {}",
+        -ch::arms::WRIST_LINE
+    );
+}

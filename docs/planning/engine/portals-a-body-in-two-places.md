@@ -118,6 +118,31 @@ side always; one after another where the game's `PortalGeometry` composes
 them), the drawing has a piece through each, and a player's strike through a
 pair reaches the giant (feature hits take the pieces).
 
+## A limb's cut is a published fact (2026-10-24)
+
+A line of light that is no portal (`ambition.portal.light_line`) can be ON a
+limb (`LineOnLimb`, port v2): the stump of an arm in its line, or the cut end
+of a fist that came out of the far line. The line is drawn on the cut that the
+drawn picture publishes, not where a game's constant puts it.
+
+- The renderer measures each cut on the drawn arm and publishes its two ends
+  as anchors of the frame: `seam:<slot>:a` / `:b` on the host's sheet, and
+  `seam:self:a` / `:b` on the sheet of a limb alone. Each is a part of the
+  frame (0 to 1), so every quality tier has the same.
+- `ambition_render::publish_limb_seams` puts each cut in the world each frame
+  (`LimbSeams` on the drawn body): the frame's authored body box is on the
+  body's box, mirrored with the picture.
+- `ambition_portal2d_presentation::lay_light_lines_on_limb_seams` lays each
+  line on its cut: the middle of the cut, rotated to it, never shorter than
+  the limb is wide plus a margin, and over the limb's picture. A line eases
+  onto a cut and off it (`LAY_S`); it never jumps.
+- A stump is found by its limb's slot. A limb alone does not know its slot,
+  so a line on a limb's own picture takes the nearest cut in `LAY_REACH`.
+
+Tests: renderer `tests/test_gnu_ton_limb_seams.py` (each published cut is
+the drawn arm's edges), `glow::tests::a_line_on_a_limb_is_laid_on_the_limbs_cut`,
+and `gnu_ton::tests::the_conductors_look_lines_are_on_the_published_cuts_at_rest`.
+
 ## The general model (implemented, G1-G6)
 
 Invariant: a portal transforms where the parts of an object are; it never makes a

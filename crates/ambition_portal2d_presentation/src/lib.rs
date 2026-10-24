@@ -24,6 +24,7 @@ mod clip_material;
 mod effects;
 mod glow;
 mod gun_visuals;
+mod limb_seams;
 mod plugin;
 mod source_visibility;
 #[cfg(feature = "effect_view_cones")]
@@ -67,6 +68,10 @@ pub use glow::{
     dress_held_light_lines, opening_length, sync_portal_glows, sync_portal_light_lines, HeldLightLineOf, PortalGlow, PortalGlowMaterial, PortalGlowStyle, PortalLightLine, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S,
 };
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
+pub use limb_seams::{
+    eased_between, lay_light_lines_on_limb_seams, laid_on, LightLineOnLimb, LimbSeam, LimbSeams, LAY_REACH, LAY_S, LIMB_LINE_MARGIN,
+    OVER_LIMB_Z,
+};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]
 pub use view_cones::{

@@ -470,6 +470,16 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(camera::camera_follow)
                     .after(ambition_portal2d_presentation::PortalObservationSet),
             );
+            // Where each drawn limb is cut at a portal's line: the lines of
+            // light on limbs are laid on it (`limb_seams`).
+            app.add_systems(
+                Update,
+                actors::publish_limb_seams
+                    .after(actors::animate_characters)
+                    .after(actors::BossAnimation)
+                    .before(PortalPresentationSet)
+                    .run_if(session_presentation_is_ready),
+            );
         }
         // Gravity zones are not portals; they shared the portal build feature.
         #[cfg(feature = "portal_render")]

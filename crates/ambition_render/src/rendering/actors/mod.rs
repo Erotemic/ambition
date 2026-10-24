@@ -111,10 +111,14 @@ pub(crate) fn realization_is_ready(
 mod animation;
 pub mod rigged;
 mod boss;
+#[cfg(feature = "portal_render")]
+mod limb_seams;
 mod overlays;
 
 pub use animation::*;
 pub use boss::*;
+#[cfg(feature = "portal_render")]
+pub use limb_seams::{frame_seams, publish_limb_seams, seam_in_world};
 pub use overlays::*;
 
 /// Ensure every simulation-owned player visual has a renderable sprite.

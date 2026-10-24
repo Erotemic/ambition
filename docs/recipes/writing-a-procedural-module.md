@@ -155,7 +155,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.feedback.speech_bubble` v1 | request (`boss_conduct`) | `ambition_combat_port::SpeechBubble` (text in a bubble, in the body's live room) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
 | `ambition.portal.held_pair` v1 | request (`boss_conduct`; a game with the `portal` feature) | `ambition_portal_port::HeldPortalPair` (a linked pair of portals, held while re-submitted each tick at the submitted places; named by its slot; a look index for each end) |
-| `ambition.portal.light_line` v1 | request (`boss_conduct`; a game with the `portal` feature) | `ambition_portal_port::LightLine` (a line of a portal's light that is no portal: nothing goes through it and it pushes nothing; drawn while re-submitted each tick; named by its slot; a look index) |
+| `ambition.portal.light_line` v2 | request (`boss_conduct`; a game with the `portal` feature) | `ambition_portal_port::LightLine` (a line of a portal's light that is no portal: nothing goes through it and it pushes nothing; drawn while re-submitted each tick; named by its slot; a look index; v2: `on_limb`, the limb whose drawn cut the line is laid on) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
 | `ambition.combat.held_ray` v1 | request (`technique_execution`, `boss_conduct`) | `ambition_combat_port::HeldRay` (a strike along a line, cast through portals, drawn as its named look) |
 | `ambition.feedback.lightning` v1 | request (`boss_conduct`) | `ambition_combat_port::Lightning` (a leased bolt that shows and does not hurt) |

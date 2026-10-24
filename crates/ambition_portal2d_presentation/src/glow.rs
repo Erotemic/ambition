@@ -169,10 +169,15 @@ pub fn opening_length(portal: &PlacedPortal) -> f32 {
 /// AMBITION_REVIEW(spatial): the engine is y-down and render space is y-up, so
 /// the wall direction's y is negated before the angle is taken.
 fn glow_transform(frame: &crate::PortalWorldFrame, pos: Vec2, normal: Vec2, length: f32) -> Transform {
+    glow_transform_at(frame, pos, normal, length, crate::PORTAL_FRAME_Z)
+}
+
+/// [`glow_transform`] at the render z `z`.
+fn glow_transform_at(frame: &crate::PortalWorldFrame, pos: Vec2, normal: Vec2, length: f32, z: f32) -> Transform {
     let along = Vec2::new(-normal.y, normal.x);
     let angle = (-along.y).atan2(along.x);
     Transform {
-        translation: frame.to_render(pos, crate::PORTAL_FRAME_Z),
+        translation: frame.to_render(pos, z),
         rotation: Quat::from_rotation_z(angle),
         scale: quad_size(length).extend(1.0),
     }
@@ -409,6 +414,10 @@ pub struct PortalLightLine {
     pub normal: Vec2,
     /// Its length in px.
     pub length: f32,
+    /// The render z it is drawn at, when it is not a portal's
+    /// (`PORTAL_FRAME_Z`): a line on a limb is drawn over the limb
+    /// (`limb_seams`).
+    pub depth: Option<f32>,
 }
 
 /// On a [`PortalLightLine`] that [`dress_held_light_lines`] keeps: the body
@@ -434,6 +443,7 @@ pub fn dress_held_light_lines(
         &HeldLightLineOf,
         &mut PortalLightLine,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&mut crate::limb_seams::LightLineOnLimb>,
     )>,
 ) {
     let light_of = |line: &ambition_portal2d::extension::HeldLightLine| PortalLightLine {
@@ -441,10 +451,18 @@ pub fn dress_held_light_lines(
         pos: line.at,
         normal: line.normal,
         length: line.length,
+        depth: None,
+    };
+    // A line on a limb: where the module put it is kept on its
+    // `LightLineOnLimb`, and `lay_light_lines_on_limb_seams` places it.
+    let on_limb_of = |line: &ambition_portal2d::extension::HeldLightLine| {
+        line.on_limb.as_ref().map(|on| {
+            crate::limb_seams::LightLineOnLimb::new(on.limb.clone(), on.on_its_body, (line.at, line.normal, line.length))
+        })
     };
     let mut wanted: Vec<(Entity, &ambition_portal2d::extension::HeldLightLine)> =
         holders.iter().flat_map(|(owner, held)| held.0.iter().map(move |line| (owner, line))).collect();
-    for (entity, of, mut light, room) in &mut lines {
+    for (entity, of, mut light, room, on_limb) in &mut lines {
         let Some(index) =
             wanted.iter().position(|(owner, line)| *owner == of.owner && line.entry == of.entry && line.slot == of.slot)
         else {
@@ -453,8 +471,33 @@ pub fn dress_held_light_lines(
         };
         let (owner, line) = wanted.swap_remove(index);
         let want = light_of(line);
-        if *light != want {
-            *light = want;
+        match (on_limb_of(line), on_limb) {
+            // On a limb: the module's place is kept, and the line is placed
+            // from it and the seam (its colour is the module's).
+            (Some(wanted_on), Some(mut on)) => {
+                if on.limb != wanted_on.limb || on.on_its_body != wanted_on.on_its_body {
+                    *on = wanted_on;
+                } else if on.nominal != wanted_on.nominal {
+                    on.nominal = wanted_on.nominal;
+                }
+                if light.channel != want.channel {
+                    light.channel = want.channel;
+                }
+            }
+            (wanted_on, had) => {
+                match (wanted_on, had) {
+                    (Some(on), None) => {
+                        commands.entity(entity).insert(on);
+                    }
+                    (None, Some(_)) => {
+                        commands.entity(entity).remove::<crate::limb_seams::LightLineOnLimb>();
+                    }
+                    _ => {}
+                }
+                if *light != want {
+                    *light = want;
+                }
+            }
         }
         // The line is drawn in its body's room: a body that crossed takes it.
         if let Some(owner_room) = live.of(owner) {
@@ -472,14 +515,19 @@ pub fn dress_held_light_lines(
         let Some(room) = live.of(owner) else {
             continue;
         };
-        commands.spawn_session_scoped(
-            scope.in_room(Some(room)),
-            (
-                light_of(line),
-                HeldLightLineOf { owner, entry: line.entry.clone(), slot: line.slot },
-                Name::new(format!("light line {} of {}", line.slot, line.entry)),
-            ),
-        );
+        let spawned = commands
+            .spawn_session_scoped(
+                scope.in_room(Some(room)),
+                (
+                    light_of(line),
+                    HeldLightLineOf { owner, entry: line.entry.clone(), slot: line.slot },
+                    Name::new(format!("light line {} of {}", line.slot, line.entry)),
+                ),
+            )
+            .id();
+        if let Some(on) = on_limb_of(line) {
+            commands.entity(spawned).insert(on);
+        }
     }
 }
 
@@ -505,7 +553,8 @@ pub fn sync_portal_light_lines(
         };
         let normal = line.normal.normalize_or_zero();
         let length = line.length.max(PORTAL_VISUAL_THICKNESS);
-        let placed = glow_transform(&placement.frame, line.pos, normal, length);
+        let placed =
+            glow_transform_at(&placement.frame, line.pos, normal, length, line.depth.unwrap_or(crate::PORTAL_FRAME_Z));
         let size = quad_size(length);
         let colour = linear(line.channel.display().1);
         let (Some(material), Some(mut transform)) = (material, transform) else {

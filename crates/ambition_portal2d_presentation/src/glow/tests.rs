@@ -290,6 +290,7 @@ fn view(lines: &[(u32, f32)]) -> ambition_portal2d::extension::HeldLightLines {
                 normal: Vec2::new(1.0, 0.0),
                 length: 120.0,
                 look: 25,
+                on_limb: None,
             })
             .collect(),
     )
@@ -332,4 +333,76 @@ fn a_light_line_is_drawn_while_its_body_has_it_in_its_view() {
     app.update();
     app.update();
     assert_eq!(held_lines(&mut app), vec![], "no view, no line");
+}
+
+/// ⭐ A LINE ON A LIMB IS ON THE LIMB'S CUT (Jon, 2026-10-24: "We need the
+/// capability to know exactly where the end points of the arms "moving
+/// through" the portal are, so we can draw the portal lines correctly"). A
+/// module puts a shoulder's line and a wrist's line near the arm; the drawn
+/// pictures publish where the arm is cut (`LimbSeams`). Each line is laid on
+/// its cut: its middle within a few px of the cut's middle, as wide as the
+/// arm there plus its margin, rotated to the cut, and drawn over the arm. A
+/// cut of another limb, or a limb's own cut out of reach, is not taken.
+#[test]
+fn a_line_on_a_limb_is_laid_on_the_limbs_cut() {
+    use crate::limb_seams::{LimbSeam, LimbSeams, LAY_REACH, LAY_S, LIMB_LINE_MARGIN, OVER_LIMB_Z};
+    let mut app = App::new();
+    crate::one_live_room(&mut app, WORLD);
+    app.init_resource::<Time>();
+    app.add_systems(Update, (dress_held_light_lines, crate::limb_seams::lay_light_lines_on_limb_seams).chain());
+    let on_limb = |slot: u32, x: f32, limb: &str, on_its_body: bool| ambition_portal2d::extension::HeldLightLine {
+        entry: "test::lines/conduct".into(),
+        slot,
+        at: Vec2::new(x, 300.0),
+        normal: Vec2::new(1.0, 0.0),
+        // Tight: shorter than the arm is wide.
+        length: 30.0,
+        look: 24,
+        on_limb: Some(ambition_portal2d::extension::LineOnLimb { limb: limb.into(), on_its_body }),
+    };
+    app.world_mut().spawn(ambition_portal2d::extension::HeldLightLines(vec![
+        on_limb(0, 100.0, "hand_left", false),
+        on_limb(2, 600.0, "hand_left", true),
+        on_limb(3, 900.0, "hand_right", true),
+    ]));
+    let seam = |limb: Option<&str>, middle: Vec2, along: Vec2, half: f32| LimbSeam {
+        limb: limb.map(str::to_owned),
+        middle,
+        along,
+        half,
+        depth: 12.0,
+    };
+    let slant = Vec2::new(0.2, 1.0).normalize();
+    // The giant: its left stump, and its right stump nearer the left line.
+    app.world_mut().spawn(LimbSeams(vec![
+        seam(Some("hand_left"), Vec2::new(130.0, 320.0), slant, 28.0),
+        seam(Some("hand_right"), Vec2::new(101.0, 300.0), Vec2::Y, 28.0),
+    ]));
+    // A lone fist by the wrist line at 600; none in reach of the one at 900.
+    app.world_mut().spawn(LimbSeams(vec![seam(None, Vec2::new(590.0, 302.0), Vec2::Y, 29.0)]));
+    app.world_mut().spawn(LimbSeams(vec![seam(None, Vec2::new(900.0 + LAY_REACH + 40.0, 300.0), Vec2::Y, 29.0)]));
+    step(&mut app, frames_of(LAY_S) + 2);
+
+    let lines: Vec<(u32, PortalLightLine)> = app
+        .world_mut()
+        .query::<(&HeldLightLineOf, &PortalLightLine)>()
+        .iter(app.world())
+        .map(|(of, line)| (of.slot, *line))
+        .collect();
+    let line = |slot: u32| lines.iter().find(|(s, _)| *s == slot).map(|(_, line)| *line).expect("the line is drawn");
+
+    let stump = line(0);
+    assert!(stump.pos.distance(Vec2::new(130.0, 320.0)) <= 2.0, "the shoulder's line is off its cut: {:?}", stump.pos);
+    assert!((stump.length - (56.0 + LIMB_LINE_MARGIN)).abs() < 0.5, "not as wide as the arm: {}", stump.length);
+    assert!(stump.normal.dot(slant).abs() < 1e-3, "not rotated to the cut: {:?}", stump.normal);
+    assert!(stump.normal.x > 0.0, "the room's side is the side the module named");
+    assert_eq!(stump.depth, Some(12.0 + OVER_LIMB_Z), "drawn over the arm it cuts");
+
+    let wrist = line(2);
+    assert!(wrist.pos.distance(Vec2::new(590.0, 302.0)) <= 2.0, "the wrist's line is off its cut: {:?}", wrist.pos);
+    assert!((wrist.length - (58.0 + LIMB_LINE_MARGIN)).abs() < 0.5);
+
+    let lonely = line(3);
+    assert_eq!(lonely.pos, Vec2::new(900.0, 300.0), "a cut out of reach is another limb's");
+    assert_eq!((lonely.length, lonely.depth), (30.0, None));
 }

@@ -156,6 +156,26 @@ impl CharacterSheetSpec {
         self.record.rows.get(row).map(|row| row.animation.as_str())
     }
 
+    /// The named anchors of frame `frame` of `record.rows[row]`
+    /// ([`crate::FrameRect::anchors`]). `None` for a row or frame the sheet
+    /// does not have.
+    pub fn frame_anchors(
+        &self,
+        row: usize,
+        frame: usize,
+    ) -> Option<&std::collections::BTreeMap<String, crate::NormPoint>> {
+        self.record.rows.get(row)?.rects.get(frame).map(|rect| &rect.anchors)
+    }
+
+    /// The sheet's authored gameplay body in its frame for the pose `anim`,
+    /// in pixels of the frame: the box the body's collision box is drawn on
+    /// (`posed_body_geometry`). `None` for a sheet whose body box is measured
+    /// from its art, not authored.
+    pub fn authored_body_box(&self, anim: CharacterAnim) -> Option<crate::PixelRect> {
+        let metrics = self.record.body_metrics.as_ref()?;
+        metrics.authored_body.then(|| metrics.pose_body_bbox(anim)).flatten()
+    }
+
     /// The names of all rows, in row order.
     pub fn row_names(&self) -> impl Iterator<Item = &str> {
         self.record.rows.iter().map(|row| row.animation.as_str())

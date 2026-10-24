@@ -34,7 +34,7 @@ use ambition_combat_port::{
     Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
-use ambition_portal_port::{HeldPortalPair, HeldPortalPairPort, LightLine, LightLinePort, PortalEnd};
+use ambition_portal_port::{HeldPortalPair, HeldPortalPairPort, LightLine, LightLinePort, LineOnLimb, PortalEnd};
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
     ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
@@ -1920,7 +1920,10 @@ const LOOK_LINE_NORMALS: [[f32; 2]; 4] = [[1.0, 0.0], [-1.0, 0.0], [-1.0, 0.0], 
 
 /// The lines at his shoulders and behind his wrists are a look and no way
 /// through: ask the portal domain to draw each one that the record has, in
-/// the slot of its place in `look_lines`.
+/// the slot of its place in `look_lines`. Each is ON its arm's cut: a
+/// shoulder's on the stump the giant's picture publishes, a wrist's on the
+/// cut of its fist's picture. The presentation puts it there, as wide as the
+/// arm, and over it.
 fn hold_look_lines(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault> {
     for (slot, placed) in c.look_lines().into_iter().enumerate() {
         let Some((at, half)) = placed else {
@@ -1932,6 +1935,7 @@ fn hold_look_lines(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault>
             normal: LOOK_LINE_NORMALS[slot],
             length: half * 2.0,
             look: LOOK_LINE_LOOKS[slot],
+            on_limb: Some(LineOnLimb { limb: FIST_SLOTS[slot % 2].to_owned(), on_its_body: slot >= 2 }),
         })?;
     }
     Ok(())

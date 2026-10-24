@@ -50,6 +50,9 @@ pub fn install_for_technique_execution(app: &mut App) {
     );
 }
 
+/// The limb a held line of light is on (the port's own type).
+pub use ambition_portal_port::LineOnLimb;
+
 /// The lines of light that a body's modules asked for this tick
 /// ([`LightLinePort`]): a view, which the presentation draws.
 ///
@@ -70,6 +73,8 @@ pub struct HeldLightLine {
     pub length: f32,
     /// The authored channel index whose colour it has.
     pub look: u8,
+    /// The limb whose cut the line is on, when it is on one.
+    pub on_limb: Option<LineOnLimb>,
 }
 
 /// See the port card on `LightLinePort`: each body's lines are the lines its
@@ -89,6 +94,7 @@ fn lower_light_lines(
             normal: ae::Vec2::from(s.value.normal),
             length: s.value.length,
             look: s.value.look,
+            on_limb: s.value.on_limb.clone(),
         };
         let lines = match wanted.iter().position(|(owner, _)| *owner == s.scope) {
             Some(index) => &mut wanted[index].1,

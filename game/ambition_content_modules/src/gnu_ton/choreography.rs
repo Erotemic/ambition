@@ -775,22 +775,25 @@ pub mod arms {
     pub const REST_ROW: f32 = 0.88;
 
     /// The two lines the arms are in after phase 1 (left, right): each stands
-    /// up, out from its shoulder.
-    /// Each is at the middle of the arm that is in it (MEASURED in the drawing,
-    /// 2026-10-11: the arm is 57 wide there, and the fore arm behind a wrist
-    /// is 60 wide).
-    pub const SHOULDER_LINES: [Vec2; 2] = [Vec2::new(-89.0, -152.1), Vec2::new(389.4, -152.1)];
+    /// up, out from its shoulder, and the level fore arm goes through it.
+    /// Each is at the middle of the arm's cut at rest (the renderer's
+    /// `giant_art.limb_seams` of the row `rest`, 2026-10-24). The lines are
+    /// drawn ON the cuts the giant's frames publish (`LineOnLimb`); this is
+    /// where a line is while no cut is published.
+    pub const SHOULDER_LINES: [Vec2; 2] = [Vec2::new(-89.0, -102.5), Vec2::new(389.4, -102.5)];
     /// Half the length of a shoulder's line: when it opens, and when it is
-    /// tight on the arm.
+    /// tight on the arm. Tight, it is shorter than the arm is wide, so the
+    /// line is as wide as the arm's cut.
     pub const SHOULDER_WIDE: f32 = 78.0;
-    pub const SHOULDER_TIGHT: f32 = 32.0;
-    /// The line behind the wrist of a fist that is a body of its own.
+    pub const SHOULDER_TIGHT: f32 = 20.0;
+    /// The line behind the wrist of a fist that is a body of its own: the cut
+    /// of its fore arm (`giant_art.fist_seams`).
     pub const WRIST_LINE: f32 = 97.5;
     pub const WRIST_WIDE: f32 = 72.0;
-    pub const WRIST_TIGHT: f32 = 33.0;
-    /// Where such a fist rests: this far out and down from the line its arm
-    /// is in.
-    pub const REST_OUT: Vec2 = Vec2::new(230.0, 20.0);
+    pub const WRIST_TIGHT: f32 = 20.0;
+    /// Where such a fist rests: this far out from the line its arm is in, and
+    /// this far down (up when less than 0).
+    pub const REST_OUT: Vec2 = Vec2::new(230.0, -29.6);
 
     /// Where the fist of a shoulder (0 left, 1 right) rests, from the middle
     /// of the giant, as the giant is drawn.

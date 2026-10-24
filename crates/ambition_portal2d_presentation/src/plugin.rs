@@ -120,7 +120,12 @@ impl Plugin for PortalPresentationPlugin {
                 Update,
                 (
                     crate::glow::sync_portal_glows,
-                    (crate::glow::dress_held_light_lines, crate::glow::sync_portal_light_lines).chain(),
+                    (
+                        crate::glow::dress_held_light_lines,
+                        crate::limb_seams::lay_light_lines_on_limb_seams,
+                        crate::glow::sync_portal_light_lines,
+                    )
+                        .chain(),
                 )
                     .in_set(PortalPresentationSet)
                     .run_if(resource_exists::<Assets<Mesh>>)

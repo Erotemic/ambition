@@ -158,7 +158,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | The first room's art preparation runs while a session is published or a job of one is still held; its empty `retain` also stopped marking the job store changed each frame (`25b7ae764`) | done | census: Ambition route 983 → 980 (with the cover driver above); a hub capture draws the room; app_it `first_room` 3, `boot` 10, `cover` 36, `launcher` 10 green |
 | The quest registry fills until it is filled; the attunement's banner peeks `EncounterEventMsg` (`ba13b3047`) | done | census: Ambition route 980 → 978; app_it `quest` 36, `attunement` 2, `symmetry` 13, `canonical_reconstitution` 19, content `quest`/`encounter` 34 green |
 | GNU-ton's arena ladder (a world-overlay contributor; the overlay is rebuilt each tick) runs while its arena is a live room (`6ec66901a`) | done | REASONED: 1 system a tick on both routes; app_it `gnu_ton` 46, `ladder` 1, `canonical_reconstitution` 19 green |
-| The boss sprite upgrade runs under `bosses_are_shown_or_were`: it acts only on rows of the boss read model (`BOSSUP`) | done | REASONED: 1 system a frame where no boss is shown; GNU-ton's arena capture draws both bodies; render `boss` 5, app_it `boss_sheet` 6, `boss_lifecycle` 15, `gnu_ton` 46 green |
+| The boss sprite upgrade runs under `bosses_are_shown_or_were`: it acts only on rows of the boss read model (`4c0ba82b4`) | done | REASONED: 1 system a frame where no boss is shown; GNU-ton's arena capture draws both bodies; render `boss` 5, app_it `boss_sheet` 6, `boss_lifecycle` 15, `gnu_ton` 46 green |
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

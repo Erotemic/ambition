@@ -670,6 +670,33 @@ ledger), so the 24 of them that ran each frame in Ambition's rooms run on the
 frames a conversation has stamped something (hub census 1,323 → 1,298 with
 one other slice). No type erasure and no shared registry were needed.
 
+#### S7f — Run on the subject (2026-10-23/24, the 24h run's main tool)
+
+A pass whose body does nothing without its subject runs only while the
+subject exists. MEASURED by the census, the hub routes went from 1,320 to
+909 systems a frame (Mary-O) and from 1,323 to 980 (Ambition); the run table
+on the findings page has each slice. Unlike P18, the subject differs per pass,
+so the condition belongs to the pass and not to a game's scope set. The rules
+the run kept:
+
+- **Exact, or not at all.** A condition is the body's own early return
+  lifted out: `any_with_component::<C>` when the body iterates `C`; a
+  resource's own state when the body returns on it. A pass that clears or
+  retires something keeps running while there is something to clear
+  (`rows_or_drawn`, "or its record still holds something").
+- **Messages are peeked, never read** (`a_message_waits::<T>`). A reader in
+  a condition takes the message from its system (F45).
+- **Presentation clean-up gets one frame after** (`Local<bool>` "or was
+  last frame") only in `Update`. It is never used in the sim schedule:
+  `Local` is not rollback state, and a restored world can need the clean-up
+  that the `Local` thinks already ran.
+- **No change-detection conditions** (`Changed`, `is_changed`) in a set that
+  can be off: the condition's tick advances while the set sleeps.
+- **A sim gate runs `canonical_reconstitution`** before it is pushed.
+- Since F41 the main-world schedules are serial, so each gate now saves less
+  than it did. A pass whose condition would repeat its body's walk over every
+  body (the technique drawables) is left alone.
+
 #### Acceptance and rejection gates
 
 For each candidate, record before/after: registered and **executed** system

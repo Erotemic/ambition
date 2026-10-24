@@ -104,7 +104,7 @@ pub fn plate_of(special: &FighterSpecial) -> Result<ModuleEntitySpawn, Fault> {
 /// The plate's cue, where it is: a plate nobody saw arrive is an ambush.
 fn announce(inv: &mut Invocation<'_>, fx: Option<&str>, at: [f32; 2]) -> Result<(), Fault> {
     match fx.filter(|fx| !fx.trim().is_empty()) {
-        Some(fx) => inv.submit::<EffectPort>(Effect { at: Place::World(at), fx: fx.to_owned(), scale: 1.0 }),
+        Some(fx) => inv.submit::<EffectPort>(Effect { at: Place::World(at), fx: fx.to_owned(), scale: 1.0, angle: 0.0 }),
         None => Ok(()),
     }
 }

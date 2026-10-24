@@ -1082,6 +1082,73 @@ pattern in `boss_profiles.ron`.
   giant's own picture through the far line is cut at the frame's edge if a
   limb goes farther than the jab does.
 
+**Two arms, a heavier hammer, a fight in three parts, and a giant drawn from
+pieces (built 2026-10-24; Jon: "the size of the sheet should be able to be
+mitigated by part based rendering ... is it always with the canvas-right arm?
+... the hammer isn't visually forceful enough").** What changed and why:
+
+- *The giant is drawn from pieces.* The giant's drawing (`giant_art.scene_for`,
+  `_pieces.py`) is now pieces, each painted once: the bones of the legs and
+  the arms (stretched along the bone), the barrel of the beast (it turns about
+  its rump to the stance), the chest, the head (one face for each
+  expression, turned by its tilt), the ears, the tail. The arm of a blow, one
+  curve, is a chain of eight bones; the ink of each is drawn before the fill
+  of any, so the chain reads as one tube. The giant publishes a part
+  flipbook (`giant_gnu_parts.ron`) and the game draws it from that and loads
+  no baked page. MEASURED in the arena (`capture_scene`, the `[image]`
+  census): the giant's texture was 89.1 MP (10558 x 8443, 356 MB) at `high`
+  and 23.1 MP (two pages, 92 MB) at `low`. After: one page of pieces,
+  1.0 MP (1020 x 983, 4 MB) at `high` and 0.26 MP (512 x 501, 1 MB) at
+  `low` (MEASURED, the same census). A row costs no texels now, so the rows
+  are dense. The giant is read as one image (through a portal, in a hit
+  flash) from the largest impostor cell (1152 px); near its rest length the
+  barrel is painted as drawn, so that its quad stays in that cell.
+- *Both arms throw.* Each arm has a blow down (the HAMMER), one across (the
+  right JAB, the left HOOK out behind, over the slope of the back) and one up
+  (the UPPERCUT). The arm on the player's side of the giant throws; a blow
+  whose tell starts less than 0.5 s after another ended is the next of a
+  combination and the OTHER arm throws it (the one-two). Each blow has its own
+  windup and body (the hammer rears up with the fist over the head and slams
+  with the whole body; the jab is cocked by the jaw and lunges; the hook is
+  wound across the chest and twists out; the uppercut crouches with the fist
+  by the knee and rises), its own follow-through (the other arm braces or
+  swings back) and its own recovery (the hammer drags its arm out of the
+  floor; the jab snaps back). So the tell says which blow comes, and the side
+  of the arm says from where.
+- *The hitch.* Each windup is set on its line and trembles, then draws back
+  the last of the way (`giant_art.SET_AT`, `HITCH_AT`) with a star at the far
+  line (`gnu_blow_glint`): the blow goes NOW. The face flares with it.
+- *The hammer lands.* Its strike is 0.24 s (was 0.35) and the fist is out of
+  the far line in its last 0.07 s; lines of speed come out with it
+  (`gnu_blow_streak`, turned to the line's normal). Into the floor it quakes
+  (`gnu_hammer_quake`: cracks, a flat ring of dust, a plume, stones), shakes
+  the camera 22 (was 11) and holds the giant still 0.07 s. On a body it
+  bursts (`gnu_blow_impact`), shakes 32 and holds 0.16 s, and deals 3. The
+  effects are an authored sheet (`gnu_ton_blow_fx`) that the giant OWNS (its
+  record names `npc_giant_gnu`): it is decoded with the giant. The effect port
+  turns an effect (`ambition.feedback.effect` v2, `angle`) and is offered in
+  `boss_conduct`.
+- *A punish window on the floor.* A hammer's fist in the floor is an opening
+  while it is held there: its first blow passes to him, as a stuck fist's does
+  in phase 2. So phase 1 has two answers: strike the fist from the floor (safe,
+  one blow), or go up through the pair to fight him on the back (more blows,
+  more danger).
+- *Phase 1 in three parts* (`boss_profiles.ron`). Fresh: one blow at a time
+  with a long tell, after the slow first hammer (its fist stays about 1.5 s
+  in the floor: the lesson). Under 86%: the one-two, a kick then an arm, and each
+  hammer into the floor sends a shock along it each way (jump it). Under 74%:
+  three blows in a row, the arms in turn, the last one slow to come out of
+  the floor.
+- Tests: the arms, their blows and their lines; a blow comes through its line
+  once (module); a player on the left is struck by the left arm and both arms
+  throw once he is hurt; a hammer in the floor is an opening that passes one
+  blow (app). Art: renderer (the pieces, the rows, the effects).
+
+Open: whether the left jab should be a hook out behind (it is: a left jab
+would bring its near line through the slope of the back); the eight-bone arm
+of a blow is not the smooth curve it was (it bends at its joints); the new
+rows and effects are not yet seen on a GPU at speed.
+
 **Placed in the main game (2026-10-23).** Jon asked for a gravity and
 portal puzzle level with GNU-ton at its end. The level is the GNU-ton
 gravity handle, the gravity works of the Science dimension (`science.ldtk`;

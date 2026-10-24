@@ -803,13 +803,14 @@ pub fn ensure_fx_sheet_loaded(
     true
 }
 
-/// Demand the character-owned FX sheets a realized character's moveset names.
+/// Demand the character-owned FX sheets a realized character's moveset names,
+/// and those whose record names it an owner.
 ///
-/// The seam for the nine sheets that are not core: a fighter's own effect
-/// art cannot fire before the fighter exists, so it is decoded when the
-/// character is — beside its pages, behind whatever cover realized it. A
-/// character with no registered moveset, or one naming only core rows, owes
-/// nothing here. Returns the targets newly demanded, for the ledger line.
+/// The seam for the sheets that are not core: a fighter's own effect art
+/// cannot fire before the fighter exists, so it is decoded when the character
+/// is — beside its pages, behind whatever cover realized it. A character with
+/// no registered moveset and no owned sheet, or one naming only core rows,
+/// owes nothing here. Returns the targets newly demanded, for the ledger line.
 pub fn demand_character_fx_sheets(
     set: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
     registry: &ambition_characters::prepared::PreparedCharacterRegistry,
@@ -822,15 +823,13 @@ pub fn demand_character_fx_sheets(
     // arrives beside — not to whatever the boot set happened to choose.
     quality: Option<&VisualQualityBudget>,
 ) -> Vec<&'static str> {
-    let Some(moveset) = registry
-        .get(character_id)
-        .and_then(|prepared| prepared.kit.projectable_moveset())
-    else {
-        return Vec::new();
-    };
-    let effects = moveset.moves.iter().flat_map(|spec| spec.vfx_effects());
+    let moveset = registry.get(character_id).and_then(|prepared| prepared.kit.projectable_moveset());
+    let effects = moveset.into_iter().flat_map(|moveset| moveset.moves.iter().flat_map(|spec| spec.vfx_effects()));
+    let mut owed = ambition_sprite_sheet::fx::owned_fx_sheets_named_by(effects);
+    // And the sheets that name this character their owner.
+    owed.extend(ambition_sprite_sheet::fx::owned_fx_sheets_of(character_id));
     let mut demanded = Vec::new();
-    for target in ambition_sprite_sheet::fx::owned_fx_sheets_named_by(effects) {
+    for target in owed {
         if !set.contains(target)
             && ensure_fx_sheet_loaded(
                 set,

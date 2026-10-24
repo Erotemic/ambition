@@ -87,6 +87,7 @@ fn mark(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         at: here,
         fx: EFFECT.into(),
         scale: 0.4,
+        angle: 0.0,
     })
 }
 
@@ -117,5 +118,6 @@ fn recall(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         at: there,
         fx: EFFECT.into(),
         scale: 0.6,
+        angle: 0.0,
     })
 }

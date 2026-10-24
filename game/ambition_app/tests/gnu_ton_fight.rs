@@ -365,6 +365,9 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
         scene(sim).performing == Some(("portal_punch", true))
     });
+    // Out from under it, so the blow goes into the floor: a struck player is
+    // in hitstun, and this is about the way up, not the blow.
+    place_player(&mut sim, ae::Vec2::new(400.0 + 260.0, 1200.0));
     // The blow is over in half a second; the fist stays down, and the pair
     // stays open.
     for _ in 0..30 {
@@ -388,13 +391,15 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
     let release = AgentAction { jump_released: true, ..AgentAction::default() };
     let mut top = f32::MAX;
     let mut through = false;
+    // Over the near line: two jumps from the floor reach nowhere near it, so
+    // only the pair puts the player there.
     'jumps: for jump in 0..2 {
         sim.step(press.clone());
         for _ in 0..(if jump == 0 { 15 } else { 40 }) {
             sim.step(held.clone());
             let (kin, _) = player(&mut sim);
             top = top.min(kin.pos.y);
-            if kin.pos.x > s.giant.pos.x {
+            if kin.pos.y < near.y && (kin.pos.x - near.x).abs() < 120.0 {
                 through = true;
                 break 'jumps;
             }
@@ -407,12 +412,24 @@ fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
          (the floor is {})",
         s.floor
     );
-    // Out of the near line, and to the side: onto the back.
-    let left = AgentAction { move_x: -1.0, jump_held: true, ..AgentAction::default() };
+    // Out of the near line and off its end: over the right shoulder that is
+    // toward the giant's middle, onto the back; over the left shoulder it is
+    // out over the slope of the back, which the player walks up. A body half
+    // through is held at the line's end until the pair closes.
+    let toward = if near.x < s.giant.pos.x { 1.0 } else { -1.0 };
+    let off = if near.x < back.min.x { -toward } else { toward };
     let mut on_back = false;
     let mut trail = Vec::new();
-    for _ in 0..90 {
-        sim.step(left.clone());
+    let mut closed_at = None;
+    for frame in 0..300 {
+        if closed_at.is_none() && line(&mut sim, true).is_none() {
+            closed_at = Some(frame);
+        }
+        let way = match closed_at {
+            Some(_) => toward,
+            _ => off,
+        };
+        sim.step(AgentAction { move_x: way, jump_held: closed_at.is_none(), ..AgentAction::default() });
         let (kin, _) = player(&mut sim);
         trail.push((kin.pos.x.round(), kin.pos.y.round()));
         let feet = kin.pos.y + kin.size.y * 0.5;
@@ -1595,14 +1612,19 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
         let far = q.iter(world).find(|p| p.normal.y > 0.0)?.pos;
         Some((near, far))
     };
-    let right_fist = |sim: &mut Platformer2dSimHarness| -> (ae::Vec2, bool) {
+    // The fist of the arm that throws the blow.
+    let blow_fist = |sim: &mut Platformer2dSimHarness| -> (ae::Vec2, bool) {
+        let slot = match blow_limb(sim).and_then(|(blow, _)| blow.arm()) {
+            Some(ambition_content::bosses::gnu_ton::Arm::Left) => LimbSlot::HAND_LEFT,
+            _ => LimbSlot::HAND_RIGHT,
+        };
         let world = sim.world_mut();
         world
             .query::<(&Limb, &ae::BodyKinematics, Has<PortalTransit>)>()
             .iter(world)
-            .find(|(limb, ..)| limb.slot == LimbSlot::HAND_RIGHT)
+            .find(|(limb, ..)| limb.slot == slot)
             .map(|(_, kin, threaded)| (kin.pos, threaded))
-            .expect("the right fist")
+            .expect("the fist of the blow")
     };
     let mut sim = arena();
     untouchable_player(&mut sim);
@@ -1624,7 +1646,7 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
     let mut threaded = false;
     for _ in 0..40 {
         sim.step(AgentAction::default());
-        let (fist, in_pair) = right_fist(&mut sim);
+        let (fist, in_pair) = blow_fist(&mut sim);
         assert!((fist.x - near.x).abs() < 1.0, "the fist is posed under the near line, not the far: {fist:?} near {near:?}");
         threaded |= in_pair && fist.y > near.y;
     }
@@ -1641,6 +1663,18 @@ fn blow(sim: &mut Platformer2dSimHarness) -> Option<(ambition_content::bosses::g
         .find(|(_, config)| config.behavior.id == GNU_TON_ID)
         .map(|(entity, _)| entity)?;
     conductor_of(world, scholar)?.blow
+}
+
+/// The limb of the blow of this tick, from his conductor: the blow (its arm,
+/// or the leg) and whether its fist is in the floor and an opening.
+fn blow_limb(sim: &mut Platformer2dSimHarness) -> Option<(ambition_content::bosses::gnu_ton::Blow, bool)> {
+    let world = sim.world_mut();
+    let scholar = world
+        .query::<(Entity, &BossConfig)>()
+        .iter(world)
+        .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+        .map(|(entity, _)| entity)?;
+    conductor_of(world, scholar)?.blow_limb
 }
 
 /// The far end of the open pair of his blow: the end whose line is not fixed
@@ -1730,4 +1764,80 @@ fn a_kick_hurts_where_the_hoof_comes_out_of_the_pair() {
     assert!(threaded, "the hoof went into the near line and was in the pair");
     assert!(player(&mut sim).1 < before, "the player the kick was aimed at was not struck");
     assert!(landed, "the conductor did not feel the kick land");
+}
+
+/// Jon 2026-10-24: "is it always with the canvas-right arm? It would be good
+/// if both arms could do it." A blow comes from the arm on the player's side
+/// of the giant, and once he is hurt the blows come in pairs, one from each
+/// arm: from one spot, both arms throw.
+#[test]
+fn his_arms_throw_from_the_players_side_and_a_pair_of_blows_is_both_arms() {
+    use ambition_content::bosses::gnu_ton::Arm;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let giant = scene(&mut sim).giant.pos;
+    let left_spot = ae::Vec2::new(300.0, 1200.0);
+    assert!(left_spot.x < giant.x, "the premise: the spot is on the giant's left");
+    place_player(&mut sim, left_spot);
+    let mut first = None;
+    for _ in 0..900 {
+        sim.step(AgentAction::default());
+        if let Some((blow, _)) = blow_limb(&mut sim).filter(|(blow, _)| blow.arm().is_some()) {
+            first = blow.arm();
+            break;
+        }
+    }
+    assert_eq!(first, Some(Arm::Left), "a player on the giant's left is struck by its left arm");
+
+    // Hurt, from the same spot: the pairs of blows bring the other arm.
+    scholar_health_to(&mut sim, 0.8);
+    let mut arms = std::collections::BTreeSet::new();
+    let mut was_open = false;
+    for frame in 0..3600 {
+        if frame % 30 == 0 {
+            place_player(&mut sim, left_spot);
+        }
+        sim.step(AgentAction::default());
+        let now = blow_limb(&mut sim);
+        if let (Some((blow, _)), false) = (now, was_open) {
+            if let Some(arm) = blow.arm() {
+                arms.insert(format!("{arm:?}"));
+            }
+        }
+        was_open = now.is_some();
+        if arms.len() == 2 {
+            break;
+        }
+    }
+    assert_eq!(arms.len(), 2, "from one side both arms throw once he is hurt: {arms:?}");
+}
+
+/// A hammer that goes into the floor stays there a moment: its fist is an
+/// opening, its first blow passes to him, and a second does not.
+#[test]
+fn a_hammer_in_the_floor_is_an_opening_and_its_first_blow_passes_to_him() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let spot = ae::Vec2::new(300.0, 1200.0);
+    place_player(&mut sim, spot);
+    // The first blow is a hammer straight down. Out from under it at its
+    // strike, so it goes into the floor and not into the player.
+    step_until(&mut sim, 900, "the strike of the first blow", |sim| scene(sim).performing == Some(("portal_punch", true)));
+    place_player(&mut sim, ae::Vec2::new(spot.x + 260.0, 1200.0));
+    step_until(&mut sim, 60, "the hammer's fist in the floor, an opening", |sim| {
+        blow_limb(sim).is_some_and(|(blow, open)| blow.is_hammer() && open)
+    });
+    let (far, normal) = far_end(&mut sim).expect("the pair is open");
+    assert!(normal.y > 0.5, "the premise: the hammer comes down out of its far line");
+    let s = scene(&mut sim);
+    // Beside the fist, on the floor, facing it.
+    let stand = ae::Vec2::new(far.x + 90.0, s.floor - 30.0);
+    let before = s.scholar_hp;
+    assert!(strike_him_from(&mut sim, stand, -1.0), "a blow on the hammer's fist in the floor did not reach him");
+    let after = scene(&mut sim).scholar_hp;
+    assert!(after < before);
+    assert!(
+        !blow_limb(&mut sim).is_some_and(|(_, open)| open),
+        "after its blow passed, the fist is no longer an opening"
+    );
 }

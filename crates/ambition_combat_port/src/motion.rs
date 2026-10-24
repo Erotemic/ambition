@@ -256,10 +256,12 @@ impl Port for StrikePort {
 /// Port card:
 ///
 /// * **Operation** — show the authored effect `fx` (an effect id, for
-///   example `classic_burst`) at `at`, upright, at `scale`, in the live room
-///   of the body. Presentation: no simulation state reads it.
+///   example `classic_burst`) at `at`, at `scale`, its art's +X turned by
+///   `angle` (radians, clockwise in the world, +Y down; `0.0` is upright), in
+///   the live room of the body. Presentation: no simulation state reads it.
 /// * **Owner** — `ambition_abilities::extension`.
-/// * **Time** — `wielded_use`.
+/// * **Time** — `wielded_use`, `technique_execution`, `module_entity_tick`
+///   and `boss_conduct`.
 pub struct EffectPort;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -267,10 +269,11 @@ pub struct Effect {
     pub at: Place,
     pub fx: String,
     pub scale: f32,
+    pub angle: f32,
 }
 
 impl Port for EffectPort {
-    const KEY: PortKey = PortKey::new("ambition.feedback.effect", 1);
+    const KEY: PortKey = PortKey::new("ambition.feedback.effect", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = Effect;
 
@@ -278,6 +281,7 @@ impl Port for EffectPort {
         v.at.put(out);
         wire::put_str(out, &v.fx);
         wire::put_f32(out, v.scale);
+        wire::put_f32(out, v.angle);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Effect, WireError> {
@@ -285,6 +289,7 @@ impl Port for EffectPort {
             at: Place::read(r)?,
             fx: r.str()?.to_owned(),
             scale: r.f32()?,
+            angle: r.f32()?,
         })
     }
 }
@@ -391,7 +396,7 @@ mod tests {
             knockback: Some(StrikeKnockback { dir: -1.0, feel_scale: 1.4 }),
         };
         assert_eq!(round_trip::<StrikePort>(&span), span);
-        let effect = Effect { at: Place::World([1.0, 2.0]), fx: "classic_burst".into(), scale: 0.35 };
+        let effect = Effect { at: Place::World([1.0, 2.0]), fx: "classic_burst".into(), scale: 0.35, angle: 0.5 };
         assert_eq!(round_trip::<EffectPort>(&effect), effect);
         let pull = SetVelocity { velocity: [-620.0, 0.5] };
         assert_eq!(round_trip::<SetVelocityPort>(&pull), pull);

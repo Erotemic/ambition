@@ -404,10 +404,13 @@ pub fn apply_feature_hit_events(
     // one term of the shared eligibility gate, which the actor cluster query
     // has no column left to carry.
     // `victim_held` answers whether another authority owns where it is.
-    (victim_volumes, victim_motion, victim_held): (
+    // `passages` answers WHERE that geometry is: a body a portal pair cuts (a
+    // limb a conductor holds in one) is reached at each of its pieces.
+    (victim_volumes, victim_motion, victim_held, passages): (
         Query<&ambition_combat::components::DamageableVolumes>,
         Query<&ambition_platformer2d_core::BodyMotionFacts>,
         Query<(), bevy::prelude::With<ambition_platformer2d_core::PoseOwnedExternally>>,
+        Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
     ),
     mut banner: ResMut<GameplayBanner>,
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
@@ -790,10 +793,13 @@ pub fn apply_feature_hit_events(
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
-            if !ambition_combat::hitbox::hit_reaches_victim(
+            if !ambition_combat::hitbox::hit_reaches_victim_through(
                 &event,
                 victim_volumes.get(actor_entity).ok(),
                 aabb,
+                actor_entity,
+                passages.as_deref(),
+                rooms.of(actor_entity),
             ) {
                 continue;
             }

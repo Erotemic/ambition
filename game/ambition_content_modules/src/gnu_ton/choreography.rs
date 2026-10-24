@@ -839,7 +839,7 @@ pub mod arms {
 /// The blows through a portal pair (Jon, 2026-10-23: "it should track where
 /// the player is so gnuton spawns the portal it punches through where it
 /// makes sense ... down diagonal, horizontal, or up ... sometimes its a kick
-/// with a leg").
+/// with a leg"; 2026-10-24: "it would be good if both arms could do it").
 ///
 /// A blow is a limb of the giant that goes into the NEAR line of a real pair,
 /// square to it, and comes out of the FAR line by the player. The near line is
@@ -848,6 +848,12 @@ pub mod arms {
 /// body is posed in the giant's chart, past the near line as its picture is,
 /// and the pair carries the body, its strike and the giant's picture of it to
 /// the far line (`docs/planning/engine/portals-a-body-in-two-places.md`).
+///
+/// Each arm has a blow down (the HAMMER), one across (the right JAB, the left
+/// HOOK out behind) and one up (the UPPERCUT); the near fore leg KICKS. Each
+/// has a windup of its own, so it is read before it comes: the arm high over
+/// the head is a hammer, the fist by the jaw a jab, the arm across the chest a
+/// hook, the fist low by the knee an uppercut.
 ///
 /// The places and the numbers of each limb are of the giant's DRAWING
 /// (`giant_art.BLOWS` of the sprite renderer; `giant_art.blow_lines_world`
@@ -865,9 +871,53 @@ pub mod blows {
     pub const RECOVER_OUT: f32 = 0.45;
     /// How far the end of a limb gives back toward its line in `*_hold`.
     pub const HOLD_GIVE: f32 = 14.0;
-    /// The length of each row `*_windup` (8 frames of 80 ms). The tell plays it
-    /// over its own length, so the blow is cocked, and trembles, at its end.
-    pub const WINDUP_ROW: f32 = 0.64;
+    /// The length of each row `*_windup` (12 frames of 60 ms). The tell plays
+    /// it over its own length, so the blow is cocked at its end.
+    pub const WINDUP_ROW: f32 = 0.72;
+    /// The part of a windup row from which the limb draws back the last of
+    /// the way (its hitch): the tell that the blow goes now.
+    pub const HITCH_AT: f32 = 0.84;
+
+    /// An arm of the giant. Its left arm is on the left of its drawing (the
+    /// side of its rump); a giant that is turned has each on the other side.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Arm {
+        Left,
+        Right,
+    }
+
+    impl Arm {
+        pub fn other(self) -> Arm {
+            match self {
+                Arm::Left => Arm::Right,
+                Arm::Right => Arm::Left,
+            }
+        }
+
+        /// A record holds an arm as this.
+        pub fn code(self) -> u32 {
+            match self {
+                Arm::Left => 1,
+                Arm::Right => 2,
+            }
+        }
+
+        pub fn of_code(code: u32) -> Option<Arm> {
+            match code {
+                1 => Some(Arm::Left),
+                2 => Some(Arm::Right),
+                _ => None,
+            }
+        }
+
+        /// Its fist's limb slot.
+        pub fn slot(self) -> &'static str {
+            match self {
+                Arm::Left => FIST_LEFT,
+                Arm::Right => FIST,
+            }
+        }
+    }
 
     /// Which limb, and how it goes into its line.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -878,8 +928,30 @@ pub mod blows {
         Jab,
         /// The right arm, up in front of the chest.
         Upper,
+        /// The left arm, down from over its shoulder, over the slope of the back.
+        LeftHammer,
+        /// The left arm, wound across the chest and thrown out behind, level.
+        LeftHook,
+        /// The left arm, up from the left of the chest.
+        LeftUpper,
         /// The near fore leg, forward and low.
         Kick,
+    }
+
+    impl Blow {
+        /// The arm that throws it; `None` for the kick.
+        pub fn arm(self) -> Option<Arm> {
+            match self {
+                Blow::Hammer | Blow::Jab | Blow::Upper => Some(Arm::Right),
+                Blow::LeftHammer | Blow::LeftHook | Blow::LeftUpper => Some(Arm::Left),
+                Blow::Kick => None,
+            }
+        }
+
+        /// A blow down into the floor: the hammer of either arm.
+        pub fn is_hammer(self) -> bool {
+            matches!(self, Blow::Hammer | Blow::LeftHammer)
+        }
     }
 
     /// Where the limb comes out of the far line, and which way it goes.
@@ -912,13 +984,22 @@ pub mod blows {
             code.checked_sub(1).and_then(|i| Self::ALL.get(i as usize).copied())
         }
 
-        pub fn blow(self) -> Blow {
-            match self {
-                Exit::Down | Exit::Diagonal => Blow::Hammer,
-                Exit::Across => Blow::Jab,
-                Exit::Up => Blow::Upper,
-                Exit::Sweep | Exit::Stomp => Blow::Kick,
+        /// The blow of this exit thrown by `arm` (a kick's exit is the leg's).
+        pub fn blow(self, arm: Arm) -> Blow {
+            match (self, arm) {
+                (Exit::Down | Exit::Diagonal, Arm::Right) => Blow::Hammer,
+                (Exit::Down | Exit::Diagonal, Arm::Left) => Blow::LeftHammer,
+                (Exit::Across, Arm::Right) => Blow::Jab,
+                (Exit::Across, Arm::Left) => Blow::LeftHook,
+                (Exit::Up, Arm::Right) => Blow::Upper,
+                (Exit::Up, Arm::Left) => Blow::LeftUpper,
+                (Exit::Sweep | Exit::Stomp, _) => Blow::Kick,
             }
+        }
+
+        /// A kick's exit: the hoof's, not an arm's.
+        pub fn is_kick(self) -> bool {
+            matches!(self, Exit::Sweep | Exit::Stomp)
         }
 
         /// The way the limb comes out of the far line (the far line's normal),
@@ -939,13 +1020,13 @@ pub mod blows {
     pub struct Limb {
         /// The middle of its near line from the middle of the giant, as the
         /// giant is drawn (facing +x), and the line's normal: the side the
-        /// giant is on. The limb goes in against the normal.
+        /// limb comes from. The limb goes in against the normal.
         pub line: Vec2,
         pub normal: Vec2,
         /// Design units: how far the end of the limb (the wrist, the fetlock)
-        /// is on the giant's side of the line when it is cocked, past it at
-        /// the full blow, and on the giant's side when it is out again; how
-        /// far the middle of the fist (the hoof) is past the wrist.
+        /// is on the near side of the line when it is cocked, past it at the
+        /// full blow, and on the near side when it is out again; how far the
+        /// middle of the fist (the hoof) is past the wrist.
         pub back: f32,
         pub deep: f32,
         pub out: f32,
@@ -973,29 +1054,49 @@ pub mod blows {
         }
     }
 
-    /// The right fist, and the hoof of the near fore leg.
+    /// The fists, and the hoof of the near fore leg.
     pub const FIST: &str = "hand_right";
+    pub const FIST_LEFT: &str = "hand_left";
     pub const HOOF: &str = "hoof_right";
 
     pub const fn limb(blow: Blow) -> Limb {
         let fist = Vec2::new(54.0, 46.0);
+        // The hammer: down, the heaviest, the fastest through the line.
+        let hammer = Limb {
+            line: Vec2::new(414.7, -299.65),
+            normal: Vec2::new(0.0, -1.0),
+            back: 210.0,
+            deep: 94.0,
+            out: 125.0,
+            past: 56.0,
+            strike: 0.24,
+            hold: 0.36,
+            recover: 0.5,
+            half: 84.0,
+            slot: FIST,
+            damage: 3,
+            knockback: 2.8,
+            strike_half: fist,
+        };
+        let upper = Limb {
+            line: Vec2::new(406.25, -306.15),
+            normal: Vec2::new(0.0, 1.0),
+            back: 330.0,
+            deep: 100.0,
+            out: 120.0,
+            past: 56.0,
+            strike: 0.26,
+            hold: 0.24,
+            recover: 0.4,
+            half: 84.0,
+            slot: FIST,
+            damage: 2,
+            knockback: 2.6,
+            strike_half: fist,
+        };
         match blow {
-            Blow::Hammer => Limb {
-                line: Vec2::new(414.7, -299.65),
-                normal: Vec2::new(0.0, -1.0),
-                back: 190.0,
-                deep: 94.0,
-                out: 125.0,
-                past: 56.0,
-                strike: 0.35,
-                hold: 0.28,
-                recover: 0.42,
-                half: 84.0,
-                slot: FIST,
-                damage: 2,
-                knockback: 2.6,
-                strike_half: fist,
-            },
+            Blow::Hammer => hammer,
+            Blow::LeftHammer => Limb { line: Vec2::new(-106.6, -299.65), slot: FIST_LEFT, ..hammer },
             Blow::Jab => Limb {
                 line: Vec2::new(380.25, -196.95),
                 normal: Vec2::new(-1.0, 0.0),
@@ -1003,31 +1104,33 @@ pub mod blows {
                 deep: 110.0,
                 out: 120.0,
                 past: 56.0,
-                strike: 0.24,
+                strike: 0.2,
                 hold: 0.24,
-                recover: 0.40,
+                recover: 0.32,
                 half: 84.0,
                 slot: FIST,
                 damage: 2,
                 knockback: 2.4,
                 strike_half: fist,
             },
-            Blow::Upper => Limb {
-                line: Vec2::new(406.25, -306.15),
-                normal: Vec2::new(0.0, 1.0),
+            Blow::LeftHook => Limb {
+                line: Vec2::new(-133.25, -254.15),
+                normal: Vec2::new(1.0, 0.0),
                 back: 150.0,
-                deep: 100.0,
-                out: 120.0,
+                deep: 110.0,
+                out: 110.0,
                 past: 56.0,
-                strike: 0.30,
+                strike: 0.2,
                 hold: 0.24,
-                recover: 0.40,
+                recover: 0.36,
                 half: 84.0,
-                slot: FIST,
+                slot: FIST_LEFT,
                 damage: 2,
-                knockback: 2.6,
+                knockback: 2.5,
                 strike_half: fist,
             },
+            Blow::Upper => upper,
+            Blow::LeftUpper => Limb { line: Vec2::new(-98.15, -306.15), slot: FIST_LEFT, ..upper },
             Blow::Kick => Limb {
                 line: Vec2::new(315.25, 116.35),
                 normal: Vec2::new(-1.0, 0.0),
@@ -1051,9 +1154,16 @@ pub mod blows {
     /// arms on the giant has its own rows (its arms are drawn whole).
     pub fn rows(blow: Blow, arms_on: bool) -> [&'static [&'static str]; 4] {
         match (blow, arms_on) {
-            (Blow::Hammer, _) => [&["punch_windup"], &["punch_strike"], &["punch_hold"], &["punch_recover"]],
+            (Blow::Hammer, _) => [&["hammer_windup"], &["hammer_strike"], &["hammer_hold"], &["hammer_recover"]],
             (Blow::Jab, _) => [&["jab_windup"], &["jab_strike"], &["jab_hold"], &["jab_recover"]],
             (Blow::Upper, _) => [&["upper_windup"], &["upper_strike"], &["upper_hold"], &["upper_recover"]],
+            (Blow::LeftHammer, _) => {
+                [&["left_hammer_windup"], &["left_hammer_strike"], &["left_hammer_hold"], &["left_hammer_recover"]]
+            }
+            (Blow::LeftHook, _) => [&["left_hook_windup"], &["left_hook_strike"], &["left_hook_hold"], &["left_hook_recover"]],
+            (Blow::LeftUpper, _) => {
+                [&["left_upper_windup"], &["left_upper_strike"], &["left_upper_hold"], &["left_upper_recover"]]
+            }
             (Blow::Kick, true) => {
                 [&["armed_kick_windup"], &["armed_kick_strike"], &["armed_kick_hold"], &["armed_kick_recover"]]
             }
@@ -1126,6 +1236,13 @@ pub mod blows {
         before < at && now >= at
     }
 
+    /// The end of the limb crosses its near line between these two times of
+    /// the strike: it comes out of the far line now.
+    pub fn comes_through(limb: &Limb, before: f32, now: f32) -> bool {
+        let depth = |t: f32| wrist_depth(limb, Part::Strike(t.max(0.0))).unwrap_or(-1.0);
+        depth(before) < 0.0 && depth(now) >= 0.0
+    }
+
     /// The giant's row in a blow: its tell over the tell's length, then the
     /// parts of the strike.
     pub fn gnu(blow: Blow, arms_on: bool, cue: &Cue, part: Option<Part>) -> rows::Pin {
@@ -1134,8 +1251,14 @@ pub mod blows {
             (Some(Part::Strike(t)), true) => (strike, t, false),
             (Some(Part::Hold(t)), true) => (hold, t, false),
             (Some(Part::Recover(t)), true) => (recover, t, false),
-            _ => (windup, (cue.t / cue.dur.max(0.1)).min(1.0) * WINDUP_ROW, false),
+            _ => (windup, tell(cue) * WINDUP_ROW, false),
         }
+    }
+
+    /// How far through its tell a blow is (0 to 1): the windup row is played
+    /// over the tell's length.
+    pub fn tell(cue: &Cue) -> f32 {
+        (cue.t / cue.dur.max(0.1)).min(1.0)
     }
 
     /// The player is this far over the floor (their feet): off the floor.
@@ -1155,6 +1278,11 @@ pub mod blows {
     pub const OPEN: f32 = 0.4;
     pub const CLOSE: f32 = 0.22;
     pub const LEAST: f32 = 0.12;
+    /// A blow whose tell starts this soon after the last one ended is the next
+    /// of a combination: the other arm throws it (the one-two). The pattern
+    /// rests less than this between the blows of a combination, and more
+    /// after a blow alone.
+    pub const COMBO_GAP: f32 = 0.5;
 
     /// The exit of a blow, chosen by where the player is. `kick`: the move is
     /// a kick. `high`: the player is off the floor. `near`: by the giant's
@@ -1177,20 +1305,32 @@ pub mod blows {
         (0..choices.len()).map(|k| choices[(first + k) % choices.len()]).find(|e| Some(*e) != last).unwrap_or(choices[0])
     }
 
+    /// The arm of a blow. The arm on the player's side of the giant (`side`:
+    /// where the player is, in the giant's drawing: -1 its left, 1 its
+    /// right), unless the blow follows another in a combination: then the
+    /// other arm than the last (`last`).
+    pub fn arm(side: f32, last: Option<Arm>, combo: bool) -> Arm {
+        match last.filter(|_| combo) {
+            Some(last) => last.other(),
+            None if side < 0.0 => Arm::Left,
+            None => Arm::Right,
+        }
+    }
+
     /// The side a blow goes to: away from the giant, unless its far line
     /// would be in the giant there.
-    pub fn side(stage: &Stage, giant: Vec2, giant_size: Vec2, exit: Exit, target: Vec2) -> f32 {
+    pub fn side(stage: &Stage, giant: Vec2, giant_size: Vec2, blow: Blow, exit: Exit, target: Vec2) -> f32 {
         let away = if target.x < giant.x { -1.0 } else { 1.0 };
-        let (at, _) = far_end_unclear(stage, exit, away, target);
-        if in_giant(giant, giant_size, exit, at) {
+        let (at, _) = far_end_unclear(stage, blow, exit, away, target);
+        if in_giant(giant, giant_size, blow, exit, at) {
             -away
         } else {
             away
         }
     }
 
-    fn in_giant(giant: Vec2, giant_size: Vec2, exit: Exit, at: Vec2) -> bool {
-        let half = limb(exit.blow()).half;
+    fn in_giant(giant: Vec2, giant_size: Vec2, blow: Blow, exit: Exit, at: Vec2) -> bool {
+        let half = limb(blow).half;
         let way = exit.way(1.0);
         // How far the line goes along x from its middle.
         let reach_x = half * way.y.abs() + CLEAR;
@@ -1198,8 +1338,8 @@ pub mod blows {
     }
 
     /// Where the far line is, before it is kept clear of the giant.
-    fn far_end_unclear(stage: &Stage, exit: Exit, side: f32, target: Vec2) -> (Vec2, Vec2) {
-        let l = limb(exit.blow());
+    fn far_end_unclear(stage: &Stage, blow: Blow, exit: Exit, side: f32, target: Vec2) -> (Vec2, Vec2) {
+        let l = limb(blow);
         let way = exit.way(side);
         let on_floor = stage.hall.floor - stage.fist.y * 0.5;
         // Where the middle of the fist (the hoof) is at the full blow.
@@ -1216,13 +1356,13 @@ pub mod blows {
         (at, way)
     }
 
-    /// The far line of a blow with exit `exit` to the side `side`, for a
-    /// player at `target`: its middle and its normal (the way the limb comes
+    /// The far line of a blow `blow` with exit `exit` to the side `side`, for
+    /// a player at `target`: its middle and its normal (the way the limb comes
     /// out). It is in the hall, over its floor, and clear of the giant.
-    pub fn far_end(stage: &Stage, giant: Vec2, giant_size: Vec2, exit: Exit, side: f32, target: Vec2) -> (Vec2, Vec2) {
-        let (mut at, way) = far_end_unclear(stage, exit, side, target);
-        if in_giant(giant, giant_size, exit, at) {
-            let half = limb(exit.blow()).half;
+    pub fn far_end(stage: &Stage, giant: Vec2, giant_size: Vec2, blow: Blow, exit: Exit, side: f32, target: Vec2) -> (Vec2, Vec2) {
+        let (mut at, way) = far_end_unclear(stage, blow, exit, side, target);
+        if in_giant(giant, giant_size, blow, exit, at) {
+            let half = limb(blow).half;
             let clear = giant_size.x * 0.5 + half * way.y.abs() + CLEAR + 1.0;
             let to = if at.x < giant.x { -1.0 } else { 1.0 };
             at.x = giant.x + to * clear;
@@ -1677,11 +1817,12 @@ mod tests {
     fn a_blows_far_line_brings_the_limb_at_the_player() {
         let s = stage();
         let (giant, size) = GIANT;
-        for exit in blows::Exit::ALL {
+        for (exit, arm) in blows::Exit::ALL.into_iter().flat_map(|e| [(e, blows::Arm::Left), (e, blows::Arm::Right)]) {
+            let blow = exit.blow(arm);
             for target in [Vec2::new(250.0, 1200.0), Vec2::new(1550.0, 1000.0), Vec2::new(1450.0, 700.0)] {
-                let side = blows::side(&s, giant, size, exit, target);
-                let (at, way) = blows::far_end(&s, giant, size, exit, side, target);
-                let limb = blows::limb(exit.blow());
+                let side = blows::side(&s, giant, size, blow, exit, target);
+                let (at, way) = blows::far_end(&s, giant, size, blow, exit, side, target);
+                let limb = blows::limb(blow);
                 let fist = at + way * limb.reach();
                 let want = match exit {
                     blows::Exit::Down => Vec2::new(target.x, s.on_floor(target.x).y),
@@ -1703,6 +1844,39 @@ mod tests {
         }
     }
 
+    /// Each exit of an arm is a blow of that arm, and the arm of a blow is the
+    /// one on the player's side, unless the blow is the next of a combination:
+    /// then it is the other arm (the one-two).
+    #[test]
+    fn a_blow_is_thrown_by_the_arm_on_the_players_side_and_a_combination_alternates() {
+        use blows::{Arm, Exit};
+        for exit in [Exit::Down, Exit::Diagonal, Exit::Across, Exit::Up] {
+            for arm in [Arm::Left, Arm::Right] {
+                assert_eq!(exit.blow(arm).arm(), Some(arm), "{exit:?} of the {arm:?} arm");
+                assert_eq!(blows::limb(exit.blow(arm)).slot, arm.slot());
+            }
+        }
+        assert!(Exit::Down.blow(Arm::Left).is_hammer() && Exit::Diagonal.blow(Arm::Right).is_hammer());
+        assert_eq!(blows::arm(-1.0, None, false), Arm::Left);
+        assert_eq!(blows::arm(1.0, Some(Arm::Right), false), Arm::Right, "no combination: the player's side");
+        assert_eq!(blows::arm(1.0, Some(Arm::Right), true), Arm::Left, "the next of a combination: the other arm");
+        assert_eq!(blows::arm(-1.0, Some(Arm::Left), true), Arm::Right);
+    }
+
+    /// A blow comes out of its far line exactly once in its strike, and before
+    /// it is full.
+    #[test]
+    fn a_blow_comes_through_its_line_once_before_it_is_full() {
+        for blow in [blows::Blow::Hammer, blows::Blow::LeftHook, blows::Blow::LeftUpper, blows::Blow::Kick] {
+            let l = blows::limb(blow);
+            let dt = 1.0 / 60.0;
+            let ticks: Vec<f32> = (0..=(l.strike / dt) as usize + 1).map(|k| k as f32 * dt).collect();
+            let through: Vec<f32> = ticks.windows(2).filter(|w| blows::comes_through(&l, w[0], w[1])).map(|w| w[1]).collect();
+            assert_eq!(through.len(), 1, "{blow:?}: {through:?}");
+            assert!(through[0] <= l.strike * blows::STRIKE_FULL + dt, "{blow:?}: through at {}, full at {}", through[0], l.strike * blows::STRIKE_FULL);
+        }
+    }
+
     /// No blow is the one before it, and the first punch is straight down
     /// (the one that shows the way up).
     #[test]
@@ -1714,7 +1888,7 @@ mod tests {
             let (kick, high, near) = (count % 4 == 3, count % 5 < 2, count % 7 < 3);
             let exit = blows::choose(kick, high, near, last, count);
             assert_ne!(Some(exit), last, "blow {count} is the one before it");
-            assert_eq!(kick, exit.blow() == blows::Blow::Kick, "a kick is the leg, a punch the arm");
+            assert_eq!(kick, exit.blow(blows::Arm::Left) == blows::Blow::Kick, "a kick is the leg, a punch the arm");
             seen.insert(exit.code());
             last = Some(exit);
         }
@@ -1726,7 +1900,15 @@ mod tests {
     /// again early in its way back.
     #[test]
     fn a_blows_limb_goes_through_its_line_and_comes_back_out() {
-        for blow in [blows::Blow::Hammer, blows::Blow::Jab, blows::Blow::Upper, blows::Blow::Kick] {
+        for blow in [
+            blows::Blow::Hammer,
+            blows::Blow::Jab,
+            blows::Blow::Upper,
+            blows::Blow::LeftHammer,
+            blows::Blow::LeftHook,
+            blows::Blow::LeftUpper,
+            blows::Blow::Kick,
+        ] {
             let l = blows::limb(blow);
             let at = |part| blows::wrist_depth(&l, part);
             assert_eq!(at(blows::Part::Strike(0.0)), Some(-l.back), "{blow:?}: cocked on the giant's side");

@@ -201,14 +201,16 @@ pub fn install_module_entities(app: &mut App) {
     );
 }
 
-/// Install the sound request port in `boss_conduct` (a conducted boss is
-/// heard as itself).
+/// Install the sound and the effect request ports in `boss_conduct` (a
+/// conducted boss is heard as itself, and shows its authored effects).
 pub fn install_for_boss_conduct(app: &mut App) {
     app.install_extension_submitted_request::<BodySoundPort, _>(
         BOSS_CONDUCT,
         "ambition_abilities",
         lower_body_sounds::<InBossConduct>,
     );
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+    app.install_extension_submitted_request::<EffectPort, _>(BOSS_CONDUCT, "ambition_abilities", lower_effects::<InBossConduct>);
 }
 
 /// Install the burst and the sound requests in `body_contact`: a contact
@@ -612,7 +614,9 @@ fn lower_effects<L: LowersIn>(
             pos,
             fx: ambition_vfx::fx::FxId::new(&effect.fx),
             scale: effect.scale,
-            pose: ambition_vfx::FxPose::UPRIGHT,
+            // The port turns clockwise in the world (+Y down); a pose turns
+            // counter-clockwise on screen (+Y up).
+            pose: ambition_vfx::FxPose { mirror: false, angle: -effect.angle },
         });
     }
 }

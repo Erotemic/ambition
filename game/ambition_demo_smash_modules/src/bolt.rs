@@ -193,7 +193,7 @@ pub fn advance(
     let mark = if flight.trail_in_s <= 0.0 {
         flight.trail_in_s = number("trail_every_s")?;
         let fx = tick.text("trail_vfx").ok_or(Fault::Module("trail_vfx".into()))?.to_owned();
-        Some(Effect { at: Place::World(to), fx, scale: 1.0 })
+        Some(Effect { at: Place::World(to), fx, scale: 1.0, angle: 0.0 })
     } else {
         None
     };
@@ -293,7 +293,7 @@ mod tests {
             panic!("a new bolt did not fly");
         };
         assert_eq!((to, flight.velocity, flight.clear_of_caster), ([25.0, 0.0], [-300.0, 0.0], false));
-        assert_eq!(mark, Some(Effect { at: Place::World([25.0, 0.0]), fx: "trail".into(), scale: 1.0 }));
+        assert_eq!(mark, Some(Effect { at: Place::World([25.0, 0.0]), fx: "trail".into(), scale: 1.0, angle: 0.0 }));
         assert_eq!(flight.trail_in_s, 0.5);
     }
 

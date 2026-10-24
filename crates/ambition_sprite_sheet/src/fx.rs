@@ -40,6 +40,10 @@ pub struct FxSheet {
     /// Who fades an effect of this sheet out. Declared, because the art
     /// decides it and the game cannot read that from a frame.
     pub fade: FxFade,
+    /// The characters an [`FxResidency::OwnedByCharacter`] sheet is decoded
+    /// with besides those whose moveset names its rows: a body whose effects
+    /// a conductor shows, not its moves (the giant gnu's blows).
+    pub owners: &'static [String],
 }
 
 /// Who fades an effect out. See [`FxSheet::fade`].
@@ -71,6 +75,8 @@ pub struct FxSheetFacts {
     pub cue_family: String,
     pub residency: FxResidency,
     pub fade: FxFade,
+    #[serde(default)]
+    pub owners: Vec<String>,
 }
 
 /// The effect sheets the published art declares: each sheet record with
@@ -94,7 +100,13 @@ pub(crate) fn fx_sheets_of(records: &'static std::collections::HashMap<String, c
         .filter(|(key, _)| !crate::sprite_tree::TIERS.iter().any(|(_, marker)| key.strip_suffix(marker).is_some_and(|rest| rest.ends_with('.'))))
         .filter_map(|(key, record)| {
             let facts = record.fx.as_ref()?;
-            Some(FxSheet { target: key.as_str(), cue_family: facts.cue_family.as_str(), residency: facts.residency, fade: facts.fade })
+            Some(FxSheet {
+                target: key.as_str(),
+                cue_family: facts.cue_family.as_str(),
+                residency: facts.residency,
+                fade: facts.fade,
+                owners: facts.owners.as_slice(),
+            })
         })
         .collect();
     sheets.sort_by_key(|sheet| (sheet.residency != FxResidency::Core, sheet.target));
@@ -130,6 +142,16 @@ pub fn owned_fx_sheets_named_by<'a>(
                 .is_some_and(|sheet| sheet.residency == FxResidency::OwnedByCharacter)
         })
         .map(|effect| effect.sheet)
+        .collect()
+}
+
+/// The character-owned sheets whose record names `character_id` an owner:
+/// decoded when that character is, whatever its moveset names.
+pub fn owned_fx_sheets_of(character_id: &str) -> BTreeSet<&'static str> {
+    fx_sheets()
+        .iter()
+        .filter(|sheet| sheet.residency == FxResidency::OwnedByCharacter && sheet.owners.iter().any(|o| o == character_id))
+        .map(|sheet| sheet.target)
         .collect()
 }
 
@@ -311,8 +333,11 @@ mod tests {
             // special charges at the muzzle, which follows his aim and lasts
             // while the button is held, so it cannot be a character row), plus
             // the trapdoor rows, plus GNU-ton's three rows of the giant's fist
-            // out of a portal (his smash attacks on a platform-fighter stage).
-            199,
+            // out of a portal (his smash attacks on a platform-fighter stage),
+            // plus the three stages of the PCA's charge, plus the four rows
+            // of GNU-ton's blows in his fight (the glint, the streak, the
+            // quake of the hammer, the impact).
+            206,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
 

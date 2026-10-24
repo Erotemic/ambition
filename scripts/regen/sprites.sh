@@ -1001,6 +1001,9 @@ tackon_targets=(
     ninja_shadow_oni_leader_vfx
     # GNU-ton the fighter: the fist of his giant, out of a portal's line.
     gnu_ton_vfx
+    # GNU-ton's giant in his fight: the glint, streak, quake and impact of
+    # its blows.
+    gnu_ton_blow_fx
     # these two were AUTHORED IN THE SUBMODULE AND NEVER LISTED HERE
     # . `george_booul_vfx` ships a published sheet only because
     # someone ran it with a focused `--target`, so a fresh clone's regen would

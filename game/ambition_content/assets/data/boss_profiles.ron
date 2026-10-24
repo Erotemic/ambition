@@ -395,59 +395,102 @@
             // Phase 1 — "A Demonstration at a Distance": the giant's arms are
             // on it. Each blow goes into a portal by the giant and comes out
             // of the pair's far line by the player: the conductor chooses the
-            // limb and the angle by where the player is (straight down or at
-            // a slant onto the floor; across or up at a player off the floor;
-            // a kick along the floor or down from over their head), and no
-            // blow is the one before it. The pair is a real one: the way up
-            // to the giant's back, and to him. The first is the slow punch
-            // straight down that shows the way; then the blows come faster,
-            // each with its own tell.
+            // limb, the arm and the angle by where the player is (the arm on
+            // the player's side; straight down or at a slant onto the floor;
+            // across or up at a player off the floor; a kick along the floor
+            // or down from over their head), and no blow is the one before
+            // it. Each blow has a windup of its own (the arm over the head is
+            // a hammer, the fist by the jaw a jab, the arm across the chest a
+            // hook, the fist by the knee an uppercut) and a last pull with a
+            // star at the far line: it goes NOW. The pair is a real one: the
+            // way up to the giant's back, and to him. A hammer's fist stays
+            // in the floor: strike it, and the blow is his.
+            //
+            // It is a lesson in three parts, by his health. Fresh, he throws
+            // one blow at a time, each with a long tell. Hurt (under 86%), the
+            // blows come in pairs, one from each arm (the one-two: a blow soon
+            // after another is the other arm's), and a hammer into the floor
+            // sends a shock along it each way. At the end of the phase (under
+            // 74%) he throws three in a row.
             phase1: (steps: [
                 Rest(duration: 1.0),
-                // Its tell is its own (pose and cue): not the tell of a
-                // demonstration.
-                Telegraph(profile: Special("portal_punch"), duration: 1.1,
+                // The first: slow, straight down, and it stays in the floor.
+                // It shows the way up, and the fist to strike.
+                // boss-tuning: the active time is long on purpose; the stuck
+                // fist IS the punish window.
+                Telegraph(profile: Special("portal_punch"), duration: 1.2,
                     telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
-                // 2.0 is the longest strike of a slam (`boss_seeds.ron`).
-                Strike(profile: Special("portal_punch"), duration: 2.0),
+                Strike(profile: Special("portal_punch"), duration: 2.3),
                 Rest(duration: 0.6),
-                Telegraph(profile: Special("portal_punch"), duration: 0.8,
-                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("portal_punch"), duration: 1.2),
-                // A slam needs more than 0.4 to punish (the fairness rules).
-                Rest(duration: 0.5),
+                // Then the leg: a kick, along the floor or down from over the
+                // player.
                 Telegraph(profile: Special("portal_kick"), duration: 0.9,
                     telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
                 Strike(profile: Special("portal_kick"), duration: 1.1),
-                Rest(duration: 0.5),
+                Rest(duration: 0.6),
                 Select(table: [
+                    // One blow, and a long look at it.
+                    (weight: 1.0, when: None, steps: [
+                        Telegraph(profile: Special("portal_punch"), duration: 0.95,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("portal_punch"), duration: 1.6),
+                        Rest(duration: 0.6),
+                    ]),
+                    // Near the giant: the leg.
+                    (weight: 0.8, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("portal_kick"), duration: 0.85,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("portal_kick"), duration: 1.1),
+                        Rest(duration: 0.55),
+                    ]),
                     // Off the floor: a blow across, or up from under them.
                     (weight: 1.0, when: Some(PlayerAbove), steps: [
-                        Telegraph(profile: Special("portal_punch"), duration: 0.7,
+                        Telegraph(profile: Special("portal_punch"), duration: 0.75,
                             telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
                         Strike(profile: Special("portal_punch"), duration: 1.1),
                         Rest(duration: 0.5),
                     ]),
-                    // On the floor and far: a one-two, the second quicker.
-                    (weight: 1.0, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("portal_punch"), duration: 0.75,
+                    // Hurt: the one-two, the second blow quicker and from the
+                    // other arm, then a breath.
+                    (weight: 2.5, when: Some(HpBelow(0.86)), steps: [
+                        Telegraph(profile: Special("portal_punch"), duration: 0.8,
                             telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
                         Strike(profile: Special("portal_punch"), duration: 1.1),
                         Rest(duration: 0.45),
                         Telegraph(profile: Special("portal_punch"), duration: 0.6,
                             telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
-                        Strike(profile: Special("portal_punch"), duration: 1.1),
-                        Rest(duration: 0.5),
+                        Strike(profile: Special("portal_punch"), duration: 1.5),
+                        Rest(duration: 0.7),
                     ]),
-                    // Near the giant: the leg.
-                    (weight: 0.8, when: Some(PlayerNear), steps: [
+                    // Hurt and near: the leg, then an arm.
+                    (weight: 1.2, when: Some(HpBelow(0.86)), steps: [
                         Telegraph(profile: Special("portal_kick"), duration: 0.7,
                             telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
                         Strike(profile: Special("portal_kick"), duration: 1.0),
-                        Rest(duration: 0.5),
+                        Rest(duration: 0.45),
+                        Telegraph(profile: Special("portal_punch"), duration: 0.65,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("portal_punch"), duration: 1.4),
+                        Rest(duration: 0.7),
+                    ]),
+                    // The end of the phase: three in a row, the arms in turn,
+                    // the last one slow to come out of the floor.
+                    (weight: 3.0, when: Some(HpBelow(0.74)), steps: [
+                        Telegraph(profile: Special("portal_punch"), duration: 0.7,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("portal_punch"), duration: 0.95),
+                        Rest(duration: 0.45),
+                        Telegraph(profile: Special("portal_punch"), duration: 0.55,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("portal_punch"), duration: 0.95),
+                        Rest(duration: 0.45),
+                        Telegraph(profile: Special("portal_punch"), duration: 0.55,
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                        Strike(profile: Special("portal_punch"), duration: 1.7),
+                        Rest(duration: 0.9),
                     ]),
                 ]),
-                Rest(duration: 0.8),
+                Rest(duration: 0.4),
             ]),
             // The clamp: two lines take the arms and close on them. The
             // conductor performs it while the encounter holds its beat.

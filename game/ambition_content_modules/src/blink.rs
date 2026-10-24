@@ -74,10 +74,12 @@ fn blink(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         at: Place::World(w.position),
         fx: EFFECT.into(),
         scale: 0.35,
+        angle: 0.0,
     })?;
     inv.submit::<EffectPort>(Effect {
         at: Place::Body,
         fx: EFFECT.into(),
         scale: 0.5,
+        angle: 0.0,
     })
 }

@@ -328,6 +328,33 @@ pub fn hit_reaches_victim(
     }
 }
 
+/// [`hit_reaches_victim`] for a victim a portal pair may cut: a body half
+/// through a pair, or a limb a conductor holds in one, is reached where each
+/// piece of it is (`docs/planning/engine/portals-a-body-in-two-places.md`),
+/// as [`apply_hitbox_damage`] reaches it. A victim no pair cuts is
+/// [`hit_reaches_victim`].
+pub fn hit_reaches_victim_through(
+    event: &crate::events::HitEvent,
+    victim_damageable: Option<&super::components::DamageableVolumes>,
+    victim_aabb: &super::components::CenteredAabb,
+    victim: Entity,
+    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> bool {
+    let Some(passages) = passages.filter(|p| p.cuts_in(room, Some(victim))) else {
+        return hit_reaches_victim(event, victim_damageable, victim_aabb);
+    };
+    let parts = match victim_damageable {
+        Some(published) if published.intangible() => return false,
+        Some(published) if published.published() => published.volumes.clone(),
+        _ => vec![ambition_platformer2d_core::CombatVolume::aabb(victim_aabb.aabb())],
+    };
+    parts
+        .iter()
+        .flat_map(|part| passages.pieces(part, Some(victim), victim_aabb.center, room))
+        .any(|piece| event.meets(&piece.volume))
+}
+
 pub fn strike_reaches_victim(
     world_volume: &ambition_platformer2d_core::CombatVolume,
     victim_damageable: Option<&super::components::DamageableVolumes>,

@@ -29,7 +29,8 @@ use ambition_boss_special_port::{
     MountView, MountViewPort, Pose as BodyPose,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, Place, RidingHitbox,
+    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, Effect, EffectPort, HeldDamageBox, HeldDamageBoxPort,
+    Place, RidingHitbox,
     RidingHitboxPort, RidingKnockback, SpeechBubble, SpeechBubblePort,
 };
 use ambition_portal_port::{HeldPortalPair, HeldPortalPairPort, LightLine, LightLinePort, PortalEnd};
@@ -39,7 +40,7 @@ use ambition_extension_sdk::{
 };
 use bevy_math::Vec2;
 
-use super::choreography::blows::{self, Exit};
+use super::choreography::blows::{self, Arm, Blow, Exit};
 use super::choreography::{self as ch, Cue, Fist, Hall, Latch, Move, Pose, Stage};
 
 /// The behaviour id of the boss it conducts.
@@ -112,6 +113,37 @@ const LAND_FREEZE: f32 = 0.11;
 /// A blow into the floor, and one into the air.
 const FLOOR_SHAKE: f32 = 11.0;
 const AIR_SHAKE: f32 = 4.0;
+/// The hammer is the heaviest blow: a land on a body shakes the camera this
+/// hard and holds the giant this long; into the floor it shakes this hard,
+/// and holds the giant still a moment there too.
+const HAMMER_LAND_SHAKE: f32 = 32.0;
+const HAMMER_LAND_FREEZE: f32 = 0.16;
+const HAMMER_FLOOR_SHAKE: f32 = 22.0;
+const HAMMER_FLOOR_FREEZE: f32 = 0.07;
+/// Under this part of his health a hammer into the floor sends a shock along
+/// it each way, as the giant's stomp does: the fight's second lesson.
+const QUAKE_UNDER: f32 = 0.86;
+/// The authored effects of a blow (the sheet `gnu_ton_blow_fx`, which the
+/// giant owns): the star where the limb will come out as it draws back the
+/// last of the way, the lines of speed as it comes out of the far line, a
+/// fist into the floor, and a blow that lands on a body. Each scale is of the
+/// game's effect square (56 world units).
+const FX_GLINT: &str = "gnu_blow_glint";
+const FX_STREAK: &str = "gnu_blow_streak";
+const FX_QUAKE: &str = "gnu_hammer_quake";
+const FX_IMPACT: &str = "gnu_blow_impact";
+const GLINT_SCALE: f32 = 3.0;
+const STREAK_SCALE: f32 = 5.5;
+// Seen in the arena at 6 and 4: the dust stood higher than the giant's fist
+// and hid it for all of its time in the floor (the opening).
+const QUAKE_SCALE: f32 = 4.0;
+const STOMP_QUAKE_SCALE: f32 = 3.0;
+const IMPACT_SCALE: f32 = 3.0;
+/// The quake's floor is this far under the middle of its square (the art's
+/// floor line, 120 of its 512 design units).
+const QUAKE_FLOOR: f32 = 120.0 / 512.0;
+/// The side of the effect square, in world units, at scale 1.
+const FX_SIZE: f32 = 56.0;
 /// The flash of a blow that lands.
 const FLASH: [f32; 4] = [1.0, 0.97, 0.82, 1.0];
 /// The index of the hoof in the per-limb rows of the record (after the fists).
@@ -250,6 +282,18 @@ record! {
     68 near_normal: [f32; 2],
     69 far_normal: [f32; 2],
     70 opening: f32,
+    /// The arm of the blow (`Arm::code`, 0 for the leg), the arm of the last
+    /// blow of an arm and when it ended: a blow soon after is the next of a
+    /// combination, and the other arm throws it.
+    71 blow_arm: u32,
+    72 last_arm: u32,
+    73 last_blow_end: f32,
+    /// The blow went into the floor; a hammer there is an opening until a
+    /// blow of the player's on it has passed to him.
+    74 floored: bool,
+    75 blow_spent: bool,
+    /// The star of its tell was shown.
+    76 glinted: bool,
 }
 
 /// What he does on the giant's back when he is not in his saddle.
@@ -293,6 +337,8 @@ enum Bark {
     Clamped,
     /// The first kick through a pair.
     Kick,
+    /// The first blow of a combination: the other arm follows.
+    Combo,
 }
 
 impl Bark {
@@ -303,6 +349,7 @@ impl Bark {
             Bark::Clamp => "Enough! Hold still.",
             Bark::Clamped => "Now we shall be rigorous.",
             Bark::Kick => "Every action, an equal kick!",
+            Bark::Combo => "And for every action... another!",
         }
     }
 }
@@ -392,6 +439,17 @@ impl Conductor {
     /// The blow whose pair is open, and whether it landed on a body.
     pub fn blow(&self) -> Option<(Exit, bool)> {
         Exit::of_code(self.blow_exit).filter(|_| self.punch_open).map(|exit| (exit, self.blow_landed))
+    }
+
+    /// The limb of the blow whose pair is open (the arm and the blow, or the
+    /// kick), and whether its fist is in the floor and still an opening.
+    pub fn blow_limb(&self) -> Option<(Blow, bool)> {
+        self.blow_kind().filter(|_| self.punch_open).map(|blow| (blow, self.floored && !self.blow_spent))
+    }
+
+    /// The blow of the record: its exit thrown by its arm.
+    fn blow_kind(&self) -> Option<Blow> {
+        Exit::of_code(self.blow_exit).map(|exit| exit.blow(Arm::of_code(self.blow_arm).unwrap_or(Arm::Right)))
     }
 
     /// The pair of the punch, when it is open: its near line and its far line.
@@ -497,6 +555,7 @@ pub fn module() -> ModuleDescriptor {
             writes: vec![Conductor::KEY],
             requests: vec![
                 ConductedPosePort::KEY,
+                EffectPort::KEY,
                 BossGuardPort::KEY,
                 DrawnRowPort::KEY,
                 LimbPosePort::KEY,
@@ -554,60 +613,82 @@ fn burst(inv: &mut Invocation<'_>, at: Vec2, kind: &str, count: u32, speed: f32,
     inv.submit::<BurstPort>(Burst { at: a(at), count, speed, color, kind: kind.into() })
 }
 
+/// An authored effect at `at`, at `scale` of the effect square, its +X
+/// turned along `way` (world units, +y down).
+fn effect(inv: &mut Invocation<'_>, fx: &str, at: Vec2, scale: f32, way: Vec2) -> Result<(), Fault> {
+    inv.submit::<EffectPort>(Effect { at: Place::World(a(at)), fx: fx.into(), scale, angle: way.y.atan2(way.x) })
+}
+
 /// The moments of a blow through the pair, each felt once. It LANDS on a body
-/// (the strike its limb carries hit one): a flash and debris where it hit, the
-/// camera shakes hard, and the limb and the giant hold still for a moment. Or
-/// it is full and hit nothing: into the floor (the limb is stopped by what it
-/// meets) with dust and a boom, or into the air with a rush of it.
+/// (the strike its limb carries hit one): a burst where it hit, the camera
+/// shakes hard, and the limb and the giant hold still for a moment. Or it is
+/// full and hit nothing: into the floor (the limb is stopped by what it
+/// meets) with a quake and a boom, or into the air with a rush of it. A
+/// hammer is the heaviest of them. Returns where a hammer went into the floor.
 #[allow(clippy::too_many_arguments)]
 fn impact(
     inv: &mut Invocation<'_>,
     c: &mut Conductor,
     limb: &blows::Limb,
-    exit: Exit,
+    blow: Blow,
     body: &ambition_boss_special_port::MountLimb,
     cue: &Cue,
     dt: f32,
     floor: f32,
     target: Option<Vec2>,
-) -> Result<(), Fault> {
+) -> Result<Option<Vec2>, Fault> {
     let now = cue.t - c.lag;
     let depth = blows::depth(limb, blows::part(limb, now, cue.dur - cue.t)).unwrap_or(limb.reach());
     // Where the fist (the hoof) is at the far end of the pair.
     let fist = v(c.punch_far) + v(c.far_normal) * depth;
+    let hammer = blow.is_hammer();
     if body.struck > c.blow_struck && !c.blow_landed {
         c.blow_landed = true;
         let at = target.map_or(fist, |target| (target + fist) * 0.5);
-        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: LAND_SHAKE })?;
-        c.freeze = LAND_FREEZE;
-        spark(inv, at, FLASH, 46, 520.0)?;
-        spark(inv, at, GOLD, 22, 300.0)?;
-        burst(inv, at, "streak", 12, 640.0, FLASH)?;
-        burst(inv, at, "shard", 12, 420.0, [0.8, 0.7, 0.52, 1.0])?;
+        inv.submit::<CameraShakePort>(CameraShake { amplitude_px: if hammer { HAMMER_LAND_SHAKE } else { LAND_SHAKE } })?;
+        c.freeze = if hammer { HAMMER_LAND_FREEZE } else { LAND_FREEZE };
+        effect(inv, FX_IMPACT, at, IMPACT_SCALE * if hammer { 1.25 } else { 1.0 }, v(c.far_normal))?;
+        spark(inv, at, FLASH, 24, 520.0)?;
+        burst(inv, at, "shard", 10, 420.0, [0.8, 0.7, 0.52, 1.0])?;
         play(inv, SFX_LAND, at)?;
     }
     c.blow_struck = body.struck;
     // Held still by a land, the blow is not full this tick.
     let before = if c.freeze > 0.0 { now } else { now - dt };
-    if c.blow_landed || !blows::lands(limb, before, now) {
-        return Ok(());
+    // It lands on the floor once: a freeze holds its clock back, and the
+    // clock must not come to the moment of the land again.
+    if c.blow_landed || c.floored || !blows::lands(limb, before, now) {
+        return Ok(None);
     }
     let reach = limb.strike_half.y.max(limb.strike_half.x);
     let ground = body.contact.map(v).or_else(|| (fist.y + reach >= floor - 6.0).then(|| Vec2::new(fist.x, floor)));
+    let kick = blow == Blow::Kick;
     match ground {
         Some(at) => {
-            inv.submit::<CameraShakePort>(CameraShake { amplitude_px: FLOOR_SHAKE })?;
-            dust(inv, at, 34, 380.0, [0.62, 0.52, 0.42, 1.0])?;
-            burst(inv, at, "shard", 10, 360.0, [0.55, 0.5, 0.45, 1.0])?;
-            play(inv, if exit.blow() == blows::Blow::Kick { SFX_HOOF } else { SFX_FLOOR }, at)?;
+            c.floored = true;
+            let (shake, scale) = if hammer { (HAMMER_FLOOR_SHAKE, QUAKE_SCALE) } else { (FLOOR_SHAKE, STOMP_QUAKE_SCALE) };
+            inv.submit::<CameraShakePort>(CameraShake { amplitude_px: shake })?;
+            if hammer {
+                c.freeze = HAMMER_FLOOR_FREEZE;
+            }
+            // The quake stands on the floor: its square is lifted so its
+            // floor line is the floor.
+            let size = FX_SIZE * scale;
+            effect(inv, FX_QUAKE, at - Vec2::new(0.0, size * QUAKE_FLOOR), scale, Vec2::X)?;
+            dust(inv, at, 18, 380.0, [0.62, 0.52, 0.42, 1.0])?;
+            play(inv, if kick { SFX_HOOF } else { SFX_FLOOR }, at)?;
+            if hammer {
+                play(inv, SFX_STOMP, at)?;
+                return Ok(Some(at));
+            }
         }
         None => {
             inv.submit::<CameraShakePort>(CameraShake { amplitude_px: AIR_SHAKE })?;
             burst(inv, fist, "streak", 10, 420.0, [0.95, 0.92, 0.85, 0.8])?;
-            play(inv, if exit.blow() == blows::Blow::Kick { SFX_HOOF } else { SFX_WHOOSH }, fist)?;
+            play(inv, if kick { SFX_HOOF } else { SFX_WHOOSH }, fist)?;
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 fn play(inv: &mut Invocation<'_>, cue: &str, at: Vec2) -> Result<(), Fault> {
@@ -777,9 +858,19 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             let near = (aim_now.x - giant_pos.x).abs() < giant_size.x * 0.5 + blows::NEAR;
                             let kick = mv == Move::PortalKick;
                             let exit = blows::choose(kick, high, near, Exit::of_code(c.last_exit), c.blow_count);
-                            let side = blows::side(&stage, giant_pos, giant_size, exit, aim_now);
-                            let (far, way) = blows::far_end(&stage, giant_pos, giant_size, exit, side, aim_now);
+                            // The arm on the player's side of the giant (as it
+                            // is drawn), or, soon after a blow, the other arm.
+                            let combo = c.last_blow_end > 0.0 && clock - c.last_blow_end < blows::COMBO_GAP;
+                            let drawn_side = (aim_now.x - giant_pos.x).signum() * turn;
+                            let arm = blows::arm(drawn_side, Arm::of_code(c.last_arm), combo);
+                            let blow = exit.blow(arm);
+                            let side = blows::side(&stage, giant_pos, giant_size, blow, exit, aim_now);
+                            let (far, way) = blows::far_end(&stage, giant_pos, giant_size, blow, exit, side, aim_now);
                             c.blow_exit = exit.code();
+                            c.blow_arm = if kick { 0 } else { arm.code() };
+                            c.floored = false;
+                            c.blow_spent = false;
+                            c.glinted = false;
                             c.blow_side = side;
                             c.last_exit = exit.code();
                             c.blow_count = c.blow_count.wrapping_add(1);
@@ -792,6 +883,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             // Not a punch the pattern starts after the clamp began.
                             if kick {
                                 say(inv, &mut c, Bark::Kick, head)?;
+                            } else if combo {
+                                say(inv, &mut c, Bark::Combo, head)?;
                             } else if !c.loosed && c.clamp.is_none() {
                                 say(inv, &mut c, Bark::Punch, head)?;
                             }
@@ -872,7 +965,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let exit = Exit::of_code(c.blow_exit).filter(|_| {
         c.part().is_some_and(|p| p.mv == Move::PortalKick || (p.mv == Move::PortalPunch && arms_on))
     });
-    let blow_limb = exit.map(|exit| blows::limb(exit.blow()));
+    let blow = exit.and(c.blow_kind());
+    let blow_limb = blow.map(blows::limb);
     c.punch_open = exit.is_some();
     if let Some(blow_limb) = blow_limb.as_ref() {
         c.punch_near = a(from_giant(blow_limb.line));
@@ -894,7 +988,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // The far line of a blow follows the player through the tell, then locks.
     if let (Some(exit), Some(_)) = (exit, cue.as_ref().filter(|cue| blows::tracking(cue))) {
-        let (want, _) = blows::far_end(&stage, giant_pos, giant_size, exit, c.blow_side, aim_now);
+        let (want, _) = blows::far_end(&stage, giant_pos, giant_size, blow.unwrap_or(Blow::Hammer), exit, c.blow_side, aim_now);
         let mut at = v(c.punch_far);
         // The line does not go through the giant: when the player is on its
         // other side, the line is there at once.
@@ -1175,7 +1269,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.pull = Some(0.0);
     }
     if let Some(t) = c.pull {
-        let recover = Exit::of_code(c.blow_exit).map_or(blows::limb(blows::Blow::Hammer), |e| blows::limb(e.blow())).recover;
+        let recover = blows::limb(c.blow_kind().unwrap_or(Blow::Hammer)).recover;
         c.pull = (t + dt < recover).then_some(t + dt);
     }
     // Where he is when he is not in his saddle, and his speed there.
@@ -1218,7 +1312,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         _ if c.dueling && cue.is_none() => draw(inv, DrawnPart::Body, Some((&["idle"], clock, true)))?,
         _ => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
     }
-    let blow_row = exit.zip(cue.as_ref()).map(|(exit, cue)| blows::gnu(exit.blow(), arms_on, cue, part_now));
+    let blow_row = blow.zip(cue.as_ref()).map(|(blow, cue)| blows::gnu(blow, arms_on, cue, part_now));
     match (c.reflex, c.clamp) {
         // The reflex rears and bucks, whatever his fists are doing.
         (Some(t), _) if arms_on => draw(inv, DrawnPart::Mount, Some((&["armed_buck", "buck"], t, false)))?,
@@ -1230,7 +1324,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (None, None) if blow_row.is_some() => draw(inv, DrawnPart::Mount, blow_row)?,
         (None, None) if arms_on => match c.pull.filter(|_| cue.is_none()) {
             Some(t) => {
-                let blow = Exit::of_code(c.blow_exit).map_or(blows::Blow::Hammer, Exit::blow);
+                let blow = c.blow_kind().unwrap_or(Blow::Hammer);
                 draw(inv, DrawnPart::Mount, Some((blows::rows(blow, true)[3], t, false)))?
             }
             None => draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), clock)))?,
@@ -1265,8 +1359,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // body, its strike and the giant's picture of it to the far line
     // (`docs/planning/engine/portals-a-body-in-two-places.md`). A limb that
     // is not on its way through waits inside the giant. Its own sheet draws
-    // nothing, and it is no opening.
+    // nothing. It is no opening, but for a hammer's fist in the floor: that
+    // is the punish window of phase 1, as a fist that sticks is in phase 2.
     let near = v(c.punch_near);
+    let way = v(c.far_normal);
+    // The tell's last pull: a star where the limb will come out.
+    if let (Some(cue), Some(_)) = (cue.as_ref().filter(|cue| !cue.striking), blow) {
+        if !c.glinted && blows::tell(cue) >= blows::HITCH_AT {
+            c.glinted = true;
+            effect(inv, FX_GLINT, v(c.punch_far), GLINT_SCALE, way)?;
+        }
+    }
+    let mut quake_at = None;
     let inward = -v(c.near_normal);
     let mut on_giant: Vec<(usize, &str, f32)> =
         Fist::BOTH.into_iter().filter(|_| arms_on).map(|fist| (fist.index(), FIST_SLOTS[fist.index()], fist.side())).collect();
@@ -1275,8 +1379,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let Some(body) = giant.limbs.iter().find(|l| l.slot == slot) else {
             continue;
         };
-        let blow = blow_limb.as_ref().filter(|l| l.slot == slot).zip(part_now);
-        let depth = blow.and_then(|(l, part)| blows::depth(l, part));
+        let driven = blow_limb.as_ref().filter(|l| l.slot == slot).zip(part_now);
+        let depth = driven.and_then(|(l, part)| blows::depth(l, part));
         let pos = depth.map_or(giant_pos, |d| near + inward * d);
         let vel = match (depth, c.last_pos[i]) {
             (Some(_), Some(last)) => (pos - v(last)) / dt,
@@ -1284,11 +1388,28 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         };
         inv.submit::<LimbPosePort>(LimbPose { slot: slot.into(), hold: Some(LimbHold { position: a(pos), velocity: a(vel), facing }) })?;
         draw(inv, DrawnPart::Limb(slot.into()), Some(ch::arms::NO_FIST))?;
+        // A hammer's fist in the floor, held there: its first blow passes on
+        // to him, as a stuck fist's does in phase 2.
+        let stuck = driven.is_some_and(|(_, part)| matches!(part, blows::Part::Hold(_)))
+            && c.floored
+            && blow.is_some_and(Blow::is_hammer);
+        let open = stuck && !c.blow_spent;
+        // Where it is at the far end of the pair.
+        let far_fist = v(c.punch_far) + way * depth.unwrap_or(0.0);
         if body.lost_health > 0 {
-            inv.submit::<LimbBlowPort>(LimbBlow { slot: slot.into(), pass: false })?;
+            let pass = open && !scholar.invulnerable;
+            inv.submit::<LimbBlowPort>(LimbBlow { slot: slot.into(), pass })?;
+            if pass {
+                c.blow_spent = true;
+                spark(inv, far_fist, GOLD, 18, 280.0)?;
+            }
         }
-        inv.submit::<LimbOpeningPort>(LimbOpening { slot: slot.into(), open: false })?;
-        match blow.filter(|(l, part)| blows::harmful(l, *part)) {
+        inv.submit::<LimbOpeningPort>(LimbOpening { slot: slot.into(), open })?;
+        if open && ticks % 12 == 0 {
+            // It glints while it is an opening.
+            spark(inv, far_fist - Vec2::new(0.0, body.size[1] * 0.5), GOLD, 2, 60.0)?;
+        }
+        match driven.filter(|(l, part)| blows::harmful(l, *part)) {
             Some((l, _)) => {
                 if !c.armed[i] {
                     c.armed[i] = true;
@@ -1307,14 +1428,39 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
             None => c.armed[i] = false,
         }
-        if let (Some((l, _)), Some(cue), Some(exit)) = (blow, cue.as_ref(), exit) {
-            impact(inv, &mut c, l, exit, body, cue, dt, hall.floor, scholar.target_body.map(|b| v(b.position)))?;
+        if let (Some((l, part)), Some(cue), Some(kind)) = (driven, cue.as_ref(), blow) {
+            // The lines of speed as it comes out of the far line.
+            if let blows::Part::Strike(t) = part {
+                if blows::comes_through(l, t - dt, t) {
+                    effect(inv, FX_STREAK, v(c.punch_far), STREAK_SCALE, way)?;
+                }
+            }
+            if let Some(arm) = kind.arm() {
+                // An arm's blow ends now (or later): the next blow soon after
+                // is the other arm's.
+                c.last_arm = arm.code();
+                c.last_blow_end = clock;
+            }
+            quake_at = impact(inv, &mut c, l, kind, body, cue, dt, hall.floor, scholar.target_body.map(|b| v(b.position)))?;
         }
         if i < 2 {
             poses[i] = Pose::idle(pos);
             c.last_stuck[i] = false;
         }
         c.last_pos[i] = Some(a(pos));
+    }
+    // Hurt, he puts more into the hammer: it sends a shock along the floor
+    // each way, as the giant's stomp does.
+    let worn = scholar.health as f32 <= c.full_health.max(1) as f32 * QUAKE_UNDER;
+    if let Some(at) = quake_at.filter(|_| worn) {
+        for dir in [-1.0, 1.0] {
+            let Some(slot) = c.wave_x.iter().position(Option::is_none) else {
+                break;
+            };
+            c.wave_x[slot] = Some(at.x + dir * blows::limb(Blow::Hammer).strike_half.x);
+            c.wave_dir[slot] = dir;
+            c.wave_generation[slot] = c.wave_generation[slot].wrapping_add(1);
+        }
     }
 
     // ── The fists that are bodies of their own ──
@@ -1568,10 +1714,10 @@ fn hold_look_lines(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault>
 /// the far line; a body that goes into the far line comes out of the near
 /// line. Its ends are blue and orange (channels 24 and 25), a look only.
 fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault> {
-    let (Some([near, far]), Some(exit)) = (c.punch_pair(), Exit::of_code(c.blow_exit)) else {
+    let (Some([near, far]), Some(blow)) = (c.punch_pair(), c.blow_kind()) else {
         return Ok(());
     };
-    let half = blows::limb(exit.blow()).half * c.opening.clamp(blows::LEAST, 1.0);
+    let half = blows::limb(blow).half * c.opening.clamp(blows::LEAST, 1.0);
     let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: half, half_thickness: None };
     inv.submit::<HeldPortalPairPort>(HeldPortalPair {
         slot: PUNCH_PAIR_SLOT,
@@ -1626,7 +1772,7 @@ fn ink(
             // come, as far as it reaches: the colour of a warning when the
             // line has locked.
             let (far, way) = (v(c.punch_far), v(c.far_normal));
-            let reach = Exit::of_code(c.blow_exit).map_or(0.0, |e| blows::limb(e.blow()).reach()) * 1.6;
+            let reach = c.blow_kind().map_or(0.0, |b| blows::limb(b).reach()) * 1.6;
             let colour = if blows::tracking(cue) { INK } else { WARNING };
             for k in 1..=6 {
                 let at = far + way * (reach * k as f32 / 6.0);

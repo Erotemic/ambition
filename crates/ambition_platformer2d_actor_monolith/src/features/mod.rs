@@ -1315,6 +1315,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::capture::systems::tick_capture_holds
+                .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_combat::capture::systems::CaptureHoldsTicked)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures))
                 .in_set(
@@ -1394,6 +1395,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::capture::systems::maintain_existing_capture_pose
+                .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
         );

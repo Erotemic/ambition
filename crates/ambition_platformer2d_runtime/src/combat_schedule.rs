@@ -649,18 +649,21 @@ impl Plugin for CombatSchedulePlugin {
                 // The pummel lands BEFORE the pose sync (in `Settle`), so the
                 // damage and the frame the captive is drawn in belong to the
                 // same tick.
-                ambition_combat::capture::systems::apply_capture_pummels,
+                ambition_combat::capture::systems::apply_capture_pummels
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::capture::CapturePummelRequested>),
                 // The throw releases and launches in one step. AFTER the pummel
                 // so a tick carrying both resolves in authored order, and BEFORE
                 // the pose sync so a thrown body is not snapped back into a hold
                 // it has just left.
-                ambition_combat::capture::systems::apply_capture_throws,
+                ambition_combat::capture::systems::apply_capture_throws
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::capture::CaptureThrowRequested>),
                 // THE CARRY, after the throw for the reason the throw sits after
                 // the pummel: a tick carrying both resolves in authored order.
                 // ⛔ And after rather than before because a release must win — a
                 // carry applied to a hold the same tick's throw has just ended
                 // would set terms on a relationship that no longer exists.
-                ambition_combat::capture::systems::apply_capture_carries,
+                ambition_combat::capture::systems::apply_capture_carries
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::capture::CaptureCarryRequested>),
             )
                 .chain()
                 .in_set(CombatSet::Materialize)
@@ -694,6 +697,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_combat::capture::systems::release_interrupted_captures
+                .run_if(ambition_combat::capture::a_capture_stands)
                 // ⭐ THE SET IS WHAT MAKES THE INSTALL CHECKABLE — see
                 // `GrabInterruptionApplied`. System NAMES are unavailable in this
                 // build, so the guard below asks the graph about this node.
@@ -714,9 +718,11 @@ impl Plugin for CombatSchedulePlugin {
                 // The translator (in `Materialize`) wrote the attempt this
                 // tick; a message lives until the tick ends.
                 ambition_combat::capture::systems::acquire_captures
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::capture::CaptureAttemptRequested>)
                     .in_set(ambition_combat::capture::CapturesAcquired),
                 // A parried grab rebounds in the tick it was parried.
-                ambition_combat::capture::systems::rebound_from_parried_grabs,
+                ambition_combat::capture::systems::rebound_from_parried_grabs
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::capture::GrabsParried>),
                 // and posed the SAME tick it is caught. The pose sync also
                 // runs in `WorldPrep`, which is EARLIER in the tick than this —
                 // so without this second call a body grabbed now would hang where
@@ -726,6 +732,7 @@ impl Plugin for CombatSchedulePlugin {
                 // of the captor's rig (a jaw) is placed from the pose of THIS
                 // tick, the pose the captor is drawn with.
                 ambition_combat::capture::systems::finalize_new_capture_pose
+                    .run_if(ambition_combat::capture::a_capture_stands)
                     .after(ambition_combat::body_rig::BodyRigPoseResolved),
                 // the captive's POSE, published beside the constraint that
                 // holds it. `CharacterAnim` has no held row, so this draws the

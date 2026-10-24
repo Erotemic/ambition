@@ -28,8 +28,8 @@ ambition faster if it is still bottlenecked on cpu scheduling)". Started
 the systems that run for nothing on the Mary-O route, then the larger
 consolidations and the monolith packets.
 
-**Status, 2026-10-24 00:01Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,103 since
+**Status, 2026-10-24 00:10Z (MEASURED, desktop census and A/B):** hub Mary-O
+route 1,320 → 922 systems a frame; hub Ambition route 1,323 → 1,093 since
 the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
@@ -131,6 +131,7 @@ says what they bought in frame time.
 | K6: actor construction leaves the monolith as `ambition_platformer2d_construction` (a leaf since K3; K4 was its precondition). No system moved; the tests that drive it through the kernel's lowering stay in the monolith | done | monolith production lines 63,879 → 61,303; the cycle is the four of K3; construction 61 tests (55 + 6), publication 82, room-building app tests 105, absence contracts 55/55 |
 | The gravity-zone mechanic moves up into the runtime, its only installer. Found while proving it: `ambition_workspace_policy` was red from this run's time, music and trace moves (and K4's and S2b's), a lane those moves never ran; its policies now name the new owners. The level-box readers ratchet was red from five reads across 10-20..23; four classified, the slow-zone overlap converted to the footprint | done | monolith 61,303 → 60,612 production lines; workspace policy 38/38, level-box guard green, runtime gravity 9, app gravity 26, Mary-O clock, Hunny slow 13 |
 | Ambition's hub stops running absent bosses' content: the cut-rope flavor chain while a cut-rope arena is live or held, GNU-ton's duel and Mockingbird's moon strike while a boss stands (F47's candidate row, the exact ones) | done | census: Ambition route 1,109 → 1,103 systems a tick; cut-rope, GNU-ton, Mockingbird and reconstitution app tests 95, content lib 29 |
+| The capture passes run with their work: the request appliers (attempt, pummel, throw, carry, parried rebound) while their message waits (peeks), and the seven that visit holds while a body is held (`a_capture_stands`). The anim-facts mirror keeps running: it clears a released body's flags the tick after | done | census: Ambition route 1,103 → 1,093 systems a tick (Mary-O does not use captures); combat capture 42, `smash_it` 52, Smash lib 293, app capture/grab/throw/reconstitution 44 |
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 

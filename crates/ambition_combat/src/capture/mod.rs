@@ -47,6 +47,12 @@ use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;
 
+/// Run condition of a capture pass that visits the holds: a body is held.
+/// With none, the pass has nothing to pose, tick, sample or release.
+pub fn a_capture_stands(captives: bevy::prelude::Query<(), bevy::prelude::With<CapturedBy>>) -> bool {
+    !captives.is_empty()
+}
+
 /// Who is holding this body; the sole authority for the capture relationship.
 ///
 /// The inverse is derived with [`captive_of`] rather than stored separately. A

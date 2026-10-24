@@ -191,16 +191,16 @@ impl Plugin for PlayerSchedulePlugin {
                 // pair moved back into it from `BeforeIntegrate` because a scripted
                 // body must be blanked BEFORE the gate consumers below read its
                 // frame — see `configure_actor_decision_phases`.
-                ambition_combat::capture::systems::sample_capture_escape.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
+                ambition_combat::capture::systems::sample_capture_escape.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // The captor's stick, read for the throw edge. Beside the
                 // captive's escape sampling because both are the RULESET's
                 // reading of a capture's inputs, and both are scoped by asking
                 // for `SmashHoldState`.
-                ambition_combat::capture::systems::arm_smash_throw_edge.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
+                ambition_combat::capture::systems::arm_smash_throw_edge.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // Held bodies are the ones that carry `ControlHolds`.
                 ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames
                     .run_if(bevy::prelude::any_with_component::<ambition_characters::control::ControlHolds>),
-                ambition_combat::capture::systems::restrict_captor_control.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
+                ambition_combat::capture::systems::restrict_captor_control.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any

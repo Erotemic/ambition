@@ -586,7 +586,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // cell this draws, and the driver then replaces this baked frame
                 // on the root. Drawn after the driver, the baked frame would
                 // cover the parts.
-                actors::animate_bosses.in_set(actors::BossAnimation).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                actors::animate_bosses.run_if(bevy::prelude::any_with_component::<ambition_sprite_sheet::boss::BossAnimator>).in_set(actors::BossAnimation).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
                 // Attach the hit-flash overlay to every character sprite once its
                 // texture or atlas is loaded.
                 // Guarded on all three assets it uses (`Assets<Mesh>`,
@@ -703,12 +703,14 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .before(actors::animate_player),
                 // A boss drawn from parts: demanded, bound once its sheet is
                 // realized, and posed from the cell `animate_bosses` drew.
-                actors::demand_boss_part_sheets.in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+                actors::demand_boss_part_sheets.run_if(bevy::prelude::any_with_component::<ambition_sprite_sheet::boss::BossAnimator>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
                 actors::bind_boss_part_animators
+                    .run_if(bevy::prelude::any_with_component::<ambition_sprite_sheet::boss::BossAnimator>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                     .after(actors::upgrade_boss_sprites)
                     .before(actors::rigged::bind_rigged_presentations),
                 actors::pose_boss_part_animators
+                    .run_if(bevy::prelude::any_with_component::<ambition_sprite_sheet::boss::BossAnimator>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                     .after(actors::BossAnimation)
                     .before(actors::rigged::drive_rigged_presentations),

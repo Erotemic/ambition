@@ -27,9 +27,17 @@ The art is authored in the art submodule and published by
 | --- | --- | --- |
 | Parallax layers and the foreground | `backgrounds/` | `backgrounds/parallax_layers/<theme>_<layer>.png` |
 | Terrain skins, motes, decor and doors | `terrain/` | `room_dressing/<theme>_<part>.png` |
+| The Mockingbird's space (dark, stars, planet, moon, lane dash) | `backgrounds/sky_parts.py` | `backgrounds/sky_parts/<part>.png` |
 
 `quality_variants.sh --backgrounds-only` makes the smaller tiers of the parallax
-layers. The room dressing has no tiers.
+layers. The room dressing and the sky parts have no tiers.
+
+The sky parts are posed by the fight that owns them
+(`ambition_content/src/presentation/mockingbird_sky.rs`): the dark and its
+stars come down from above the room as the fight climbs, the planet falls
+away, and the moon follows the conductor's record. `python -m
+ambition_sprite2d_renderer.backgrounds parts-preview OUT.png` draws a labelled
+sheet of each look of them, posed as the game poses them.
 
 ## The theme of a room
 

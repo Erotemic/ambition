@@ -176,10 +176,10 @@ WAIVERS = {
         "`BossOverlaySet`"
     ),
     "SpaceSky": (
-        "the space quad over the Mockingbird's sky, one for each live room; "
+        "the root of the Mockingbird's space parts, one for each live room; "
         "filtered by `present_space` only, `Update` in "
-        "`SessionScopeSet::Presentation`, which draws it from the conductor's "
-        "record each frame and keeps no state in it"
+        "`SessionScopeSet::Presentation`, which poses its parts from the "
+        "conductor's record each frame and keeps no state in it"
     ),
     "PresentedRoomLook": (
         "two sites in `presentation/room_look.rs`, both `Update`: "

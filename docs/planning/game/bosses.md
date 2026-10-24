@@ -734,7 +734,7 @@ that the only way to kill a mockingbird is by hitting it with the moon."
   blow, also while it dives and while it hangs winded: no blow of yours hurts
   it again. The sky climbs into space in `ASCENT_S` (7 s): the dark comes
   down from the top, the stars come out and the planet's limb falls to the
-  bottom of the room (`mockingbird_space.wgsl`). The sharks stay: the footing
+  bottom of the room (authored parts, see below). The sharks stay: the footing
   does not change.
 - **The moon.** In space the moon crosses the room from right to left on a
   lane (a 5 s crossing each 10 s; the lane is drawn as a dashed arc). It hurts
@@ -777,6 +777,31 @@ Open:
 - Tuning lives in `mockingbird.rs` (speeds, stun lengths) and
   `boss_profiles.ron` (tells, rests, the pattern per phase).
 
+**Asked (Jon, 2026-10-24), built the same day: space as part-based art.**
+"I think currently in the mockingbird battle, the background and things like
+the moon and earth is done via shaders a lot, and that is likely expensive,
+when perhaps we should be using part-based spritework there."
+
+- **Done.** `mockingbird_space.wgsl` (one quad over the room that made noise,
+  stars, the planet and the moon for each pixel) is deleted. Space is nine
+  authored pictures (`backgrounds/sky_parts.py` in the art submodule,
+  published to `backgrounds/sky_parts/` by `scripts/regen/backgrounds.sh`):
+  the dark with its dust band and a soft lower edge, two tiled star layers
+  and an edge strip, a glint, the planet's limb, the moon, its halo and a lane
+  dash. `presentation/mockingbird_sky.rs` poses them from the record: the
+  dark and its stars come down from above the room as the fight climbs, the
+  planet falls away and curves more (the shader's radius and top), the moon is
+  where the record puts it, and the dashes walk its lane. A few glints twinkle
+  by alpha. No shader is left in it, so space looks the same with shaders off.
+- **Cost.** See `docs/planning/engine/performance-and-composition-findings.md`
+  (llvmpipe rasterizer CPU a frame, -6% at `high`, -10% at `low`).
+- **Open (Jon's eye).** Look A ("night", today's palette) is built; looks B
+  (outlined, cel moon, sparkles) and C (violet, sunrise on the limb) are one
+  line each (`sky_parts.PUBLISHED`). `python -m
+  ambition_sprite2d_renderer.backgrounds parts-preview OUT.png` draws all
+  three. What differs from the shader: the stars now come down with the dark
+  instead of fading in place; the planet's surface does not drift; the stars
+  are a little denser; the dust band is fainter.
 ## The hall of bosses: its own instances, and life switches (proposed 2026-10-06, Jon)
 
 **The problem.** Two of the hall's ten doors lead into main-game rooms

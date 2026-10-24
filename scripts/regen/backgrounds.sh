@@ -63,6 +63,17 @@ echo "==> parallax scenes -> $parallax_dir"
         --out-dir "$parallax_dir"
 )
 
+# The parts of the Mockingbird's space, which the game poses as its fight
+# climbs (`backgrounds/sky_parts.py`).
+sky_parts_dir="$background_root/sky_parts"
+mkdir -p "$sky_parts_dir"
+echo "==> sky parts -> $sky_parts_dir"
+(
+    cd "$scene_renderer_dir"
+    "$scene_python" -m ambition_sprite2d_renderer.backgrounds parts \
+        --out-dir "$sky_parts_dir"
+)
+
 # The terrain skin of each biome: what the game lays on the blocks of a room.
 terrain_dir="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/room_dressing"
 mkdir -p "$terrain_dir"
@@ -78,6 +89,7 @@ required_outputs=(
     "$background_root/default/manifest.txt"
     "$parallax_dir/hub_sky.png"
     "$parallax_dir/hub_clean_sky.png"
+    "$sky_parts_dir/mockingbird_moon.png"
     "$terrain_dir/lab_fill.png"
 )
 for output in "${required_outputs[@]}"; do

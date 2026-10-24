@@ -49,7 +49,7 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
     sprite::Anchor,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
+    sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d},
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
@@ -133,7 +133,9 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
     app.init_resource::<
         ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
     >();
-    app.add_plugins(Material2dPlugin::<HitFlashMaterial>::default());
+    // Android draws no flash, so its material's per-type systems are not paid.
+    #[cfg(not(target_os = "android"))]
+    app.add_plugins(bevy::sprite_render::Material2dPlugin::<HitFlashMaterial>::default());
 }
 
 /// Material2d backing the white-silhouette overlay.
@@ -182,10 +184,8 @@ pub struct HitFlashOverlay {
     source: Entity,
 }
 
-/// Attach a flash overlay to every textured character sprite that
-/// doesn't already have one. Gates on `FeatureVisual` / `PlayerVisual`
-/// presence so prop visuals and one-shot VFX don't pick up the
-/// overlay accidentally.
+/// Android draws no flash and schedules none of the four passes. The
+/// stubs stay so the ordering points that name them still compile.
 #[cfg(target_os = "android")]
 pub fn attach_hit_flash_overlays() {}
 

@@ -594,6 +594,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // 0.19 panics when a parameter is missing, and a headless
                 // composition has no render stack. See
                 // `engine/headless-verification.md`.
+                // Android draws no flash: none of the four is scheduled there.
+                #[cfg(not(target_os = "android"))]
                 hit_flash::attach_hit_flash_overlays
                     .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
                         bevy::asset::Assets<bevy::mesh::Mesh>,
@@ -611,7 +613,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 //
                 // Mirror the source sprite's atlas and transform into the hit-flash
                 // overlay, after the animator, so it tracks this tick's frame.
+                #[cfg(not(target_os = "android"))]
                 hit_flash::sync_hit_flash_overlays.in_set(BodyOwnedDrawableSync),
+                #[cfg(not(target_os = "android"))]
                 hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_feature_sprites,
@@ -683,7 +687,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         );
         app.add_systems(
             Update,
-            (hit_flash::declare_hit_flash_demand, passage_visuals::declare_passage_fade_demand)
+            (
+                #[cfg(not(target_os = "android"))]
+                hit_flash::declare_hit_flash_demand,
+                passage_visuals::declare_passage_fade_demand,
+            )
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(session_presentation_is_ready),
         );

@@ -1001,7 +1001,7 @@ fn ground_distances(motion_model: &ae::MotionModel, vel: ae::Vec2, gravity_down:
 /// won each argument.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn perception_body_for(
-    body: &crate::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
+    body: &ambition_body_seed::clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
     faction: ActorFaction,
     gravity_down: ae::Vec2,
     action_set: Option<&ambition_characters::brain::ActionSet>,

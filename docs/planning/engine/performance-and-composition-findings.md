@@ -34,7 +34,7 @@ the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
 run's start against HEAD (F44, 19:55Z): main-world wall 15.27 → 7.89 ms a frame (Mary-O), 15.93 → 8.47 ms (Ambition), frame
 time unchanged there because llvmpipe bounds it. Monolith packets this run:
 audio, the trace recorder, the quest producer, the cutscene player, the time
-module, the debris physics adapter, actor construction (K6, its own crate) the gravity-zone mechanic and the body causal recorders (to the runtime; ~8,000 production lines out, 59,821 left, by `wc -l` and the module graph
+module, the debris physics adapter, actor construction (K6, its own crate) the gravity-zone mechanic and the body causal recorders (to the runtime; ~8,300 production lines out, 59,566 left, by `wc -l` and the module graph
 at each move). Last green commit: `8aae83270` (full `app_it` 1,304 of 1,304 run, app 253, Mary-O 204; F45: `7c6745589`..`27f7fee6d` were red in `canonical_reconstitution`). The `ambition_content` `worlds::tests` red since `0d4b5f656` are green again (`bb99b17fc`).
 Waiting on: a phone profile of a build with these slices, the measurement that
 says what they bought in frame time.
@@ -150,6 +150,7 @@ says what they bought in frame time.
 | Android schedules no hit flash: its four passes were empty stubs there and still ran each frame, and its `Material2dPlugin` paid per-type systems in both worlds for a material no Android frame draws (`0c8aaec1f`) | done | REASONED: 4 main-world systems a frame plus the material's per-type main and render-world systems, on both phone routes; desktop unchanged; render `hit_flash`/`portal_compositing` 18 green; the Android build is NOT checked here (no NDK on this VM) |
 | The dialogue-visit counter runs while a conversation is live: it counts the tick one opens (`7b009182d`) | done | census: 1 system a tick on both routes (REASONED from its body); app_it `visit`/`canonical_reconstitution` 26 green; F48 records what is left |
 | Body whereabouts (where an authored body is away from home: the placed and away-from-home records and the durable-whereabouts predicate) leave the monolith for the construction crate, beside authored placements and persisted fate (`2b70a6203`) | done | monolith -208 lines, no system added; construction 6, runtime 110, workspace policy 38, multi-writer and level-box guards, app_it `persistent` 7, `errand` 4, `canonical_reconstitution` 19 green; `carried` 26/28, the 2 reds are the GNU-ton kick leg's (sent back) |
+| The actor's live cluster view (`ActorMut`, `SeedActorMut`, `ActorClusterQueryData`, the damage i-frame window) leaves the monolith for `ambition_body_seed::clusters`, beside the seed it binds to the simulation (`CLUSTERS`) | done | monolith -255 lines (59,566 left), no system added; body_seed 19, monolith lib 1,214, workspace policy 38 (sweep and archetype policies follow the file), app_it `canonical_reconstitution` 19, `enemy` 8, `boss_lifecycle` 15 green |
 
 ### F48 — After the content gates: what is left is Bevy's and Jon's (2026-10-24)
 

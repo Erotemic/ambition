@@ -8,7 +8,7 @@
 use super::*;
 
 fn shark_charge_crashed(
-    em: &crate::actor_clusters::ActorMut<'_>,
+    em: &ambition_body_seed::clusters::ActorMut<'_>,
     is_being_ridden: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,

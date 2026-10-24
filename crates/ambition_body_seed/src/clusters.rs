@@ -1,13 +1,13 @@
-//! The per-tick view of an actor: [`ActorMut`](crate::actor_clusters::ActorMut),
+//! The per-tick view of an actor: [`ActorMut`](crate::clusters::ActorMut),
 //! the borrow the integration
 //! mutates in place, and the query that assembles it from live components.
 //!
-//! The body a construction path spawns from is [`ambition_body_seed::ActorClusterSeed`];
+//! The body a construction path spawns from is [`crate::ActorClusterSeed`];
 //! this module binds that seed to the simulation
-//! ([`SeedActorMut`](crate::actor_clusters::SeedActorMut)) and owns
+//! ([`SeedActorMut`](crate::clusters::SeedActorMut)) and owns
 //! nothing about what a body IS.
 
-use ambition_body_seed::{ActorClusterSeed, ActorMotionPath};
+use crate::{ActorClusterSeed, ActorMotionPath};
 use ambition_characters::actor::ai::ActorStatus;
 use ambition_combat::actor_tuning::{ActorConfig, ActorPolicy};
 use ambition_platformer2d_core::BodyKinematics;

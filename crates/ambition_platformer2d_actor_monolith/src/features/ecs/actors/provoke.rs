@@ -4,7 +4,7 @@
 //! provokes it. A person the save remembers as provoked is not flipped here:
 //! construction builds them provoked from the same answer
 //! (`brain_builders::provoked_mind`, via `NpcActorSpawnPlan::provoke`).
-//! It reads and mutates the live cluster view (`crate::actor_clusters::ActorMut`),
+//! It reads and mutates the live cluster view (`ambition_body_seed::clusters::ActorMut`),
 //! which is why it lives in the actor kernel and not in the spawn capability:
 //! the spawn crate builds brains and bodies from data; it never touches a live
 //! entity. The brain BUILDERS it calls (`aggressive_brain_for_enemy`)
@@ -22,7 +22,7 @@ use ambition_platformer2d_actor_spawn::brain_builders::provoked_mind;
 pub fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
-    em: &mut crate::actor_clusters::ActorMut<'_>,
+    em: &mut ambition_body_seed::clusters::ActorMut<'_>,
     disposition: &mut ActorDisposition,
     // WHAT THE BODY CAN DO, read rather than rebuilt: provocation changes who
     // is deciding, never the body's repertoire, so the brain choice consumes

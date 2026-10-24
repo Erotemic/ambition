@@ -8,7 +8,7 @@
 //! axis-swept policy. Attack AABBs are derived here; archetype tuning comes
 //! from the [`super::CharacterRoster`].
 
-use crate::actor_clusters::ActorMut;
+use ambition_body_seed::clusters::ActorMut;
 use super::*;
 use ambition_combat::events::{
     FeatureCombatTuning, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
@@ -556,7 +556,7 @@ impl ContactAttack {
 
 #[cfg(test)]
 pub(crate) trait SeedActorIntegrationTestExt:
-    crate::actor_clusters::SeedActorMut
+    ambition_body_seed::clusters::SeedActorMut
 {
     /// One integration tick over a pre-spawn seed, with optional runtime inputs
     /// defaulted exactly as the historical actor-movement scratch harness did.

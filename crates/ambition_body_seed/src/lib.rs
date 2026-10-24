@@ -34,6 +34,7 @@ use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::body::{AncillaryMovementBundle, SpawnBaseline};
 
+pub mod clusters;
 pub mod physical_baseline;
 mod snapshot_impls;
 pub use physical_baseline::{

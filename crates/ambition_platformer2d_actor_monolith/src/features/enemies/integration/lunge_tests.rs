@@ -1,7 +1,7 @@
 //! A lunge's authored windup step, through the real movement kernel.
 
 use super::*;
-use crate::actor_clusters::SeedActorMut;
+use ambition_body_seed::clusters::SeedActorMut;
 use ambition_body_seed::{ActorBody, ActorClusterSeed};
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::action_set::{LungeSpec, MeleeActionSpec, SwipeSpec};

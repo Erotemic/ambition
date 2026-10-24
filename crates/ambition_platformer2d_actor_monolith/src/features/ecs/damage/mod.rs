@@ -461,7 +461,7 @@ pub fn apply_feature_hit_events(
                 &'static mut ambition_characters::actor::BodyWallet,
                 &'static ambition_characters::actor::BodyWalletShield,
             )>,
-            crate::actor_clusters::ActorClusterQueryData,
+            ambition_body_seed::clusters::ActorClusterQueryData,
             // CM8: this body's own hurt reaction (its `CombatTuning.hurt_feedback`).
             // `Option` for bare test fixtures spawned without the combat carrier
             // (they fall back to the ENEMY default). The victim owns its spray;

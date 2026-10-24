@@ -7,7 +7,6 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
-| [`actor_clusters`](src/actor_clusters.rs) | The per-tick view of an actor: [`ActorMut`](crate::actor_clusters::ActorMut), the borrow the integration mutates in place, and the query that assembles it from live components. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
 | [`body_conditions`](src/body_conditions.rs) | Authored BODY-CAPABILITY conditions — "can the body do this verb at all?" |
@@ -36,7 +35,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D debris adapter (re-exported from its own crate), and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

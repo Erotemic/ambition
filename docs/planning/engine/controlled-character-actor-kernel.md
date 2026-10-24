@@ -60,7 +60,7 @@ uses shared body integration from avatar code, but still contains policy and
 population decisions. One shared integration call does not prove every actor
 gets one tick or that home-avatar assumptions have disappeared.
 
-`crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs` is the live
+`crates/ambition_body_seed/src/clusters.rs` is the live
 query/mutation authority restored by the spawn correction. Builders remain in
 `ambition_platformer2d_actor_spawn`; live provocation, ladder projection and rider
 rebuild remain kernel operations. Keep that distinction.

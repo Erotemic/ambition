@@ -2,7 +2,7 @@
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
 use super::*;
-use crate::actor_clusters::ActorMut;
+use ambition_body_seed::clusters::ActorMut;
 use crate::features::ActorMutIntegrationExt;
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
@@ -72,7 +72,7 @@ pub(crate) fn observe_actor_decision_inputs(
             Entity,
             &ActorDisposition,
             &ambition_combat::components::ActorTarget,
-            Option<crate::actor_clusters::ActorClusterQueryDataReadOnly>,
+            Option<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
             Option<&ambition_characters::actor::ActorFaction>,
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
             // A ridden mount contests no space of its own. See below.
@@ -317,7 +317,7 @@ pub fn tick_actor_brains(
                 // The generated read-only view of the COMPLETE actor cluster.
                 // Using the existing cluster shape preserves the old eligibility
                 // contract exactly while removing decision's mutable body authority.
-                Option<crate::actor_clusters::ActorClusterQueryDataReadOnly>,
+                Option<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
                 // The brain interprets controller input and perceives "down" through it — never
                 // through a private gravity lookup.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
@@ -1452,7 +1452,7 @@ pub fn integrate_sim_bodies(
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,
-            Option<crate::actor_clusters::ActorClusterQueryData>,
+            Option<ambition_body_seed::clusters::ActorClusterQueryData>,
             // The body's live move, if any — its authored per-window motion
             // lock scales the steering intent inside `integrate_actor_body`.
             Option<&ambition_combat::moveset::MovePlayback>,
@@ -1758,7 +1758,7 @@ pub fn apply_actor_contact_damage(
                 // Sanic's ball dash, a super form, a spiked shell — and none of
                 // those flows through this permanent trait.
                 Has<ambition_match::MatchSeat>,
-                Option<crate::actor_clusters::ActorClusterQueryData>,
+                Option<ambition_body_seed::clusters::ActorClusterQueryData>,
                 Option<&ambition_combat::actor_tuning::ContactThreatWithdrawn>,
                 // ⛔ THE SADDLE IS NOT A CONTACT. A rider stands IN its mount's
                 // box — the seat is where its soles rest on the mount's back, so
@@ -2427,7 +2427,7 @@ pub(crate) fn movement_law_of(
 
 #[allow(clippy::too_many_arguments)]
 fn build_enemy_brain_snapshot(
-    body: &crate::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
+    body: &ambition_body_seed::clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
     target_pos: ae::Vec2,
     target_alive: bool,
     crowding: Option<ambition_characters::brain::smash::CrowdingSignal>,

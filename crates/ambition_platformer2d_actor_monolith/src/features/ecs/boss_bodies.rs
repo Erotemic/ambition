@@ -4,7 +4,7 @@
 //! ⭐⭐ IT STAYS BECAUSE ITS OWN VERDICT SAYS SO. The doc below already recorded
 //! that `integrate_actor_body` is the shared seam and that this function is *"the
 //! boss orchestrator around that seam"* — so it reaches `actors::ActorSteering`,
-//! `actor_clusters::ActorClusterQueryData` and `actors::integrate_actor_body`,
+//! `ambition_body_seed::clusters::ActorClusterQueryData` and `actors::integrate_actor_body`,
 //! three things the monolith still owns. Moving it would have meant moving the
 //! generic actor integrator, which is a different carve with a different price.
 //!
@@ -52,7 +52,7 @@ pub fn integrate_boss_bodies(
     mut bosses: Query<
         (
             Entity,
-            crate::actor_clusters::ActorClusterQueryData,
+            ambition_body_seed::clusters::ActorClusterQueryData,
             &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut ambition_characters::actor::BodyAnimFacts>,

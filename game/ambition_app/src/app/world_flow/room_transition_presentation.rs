@@ -196,6 +196,26 @@ struct RoomTransitionPresentationState {
     reveal_reported: bool,
 }
 
+/// Run condition of [`drive_room_transition_presentation`]: a transition is
+/// active, or the last one left a cover or presentation state for the idle
+/// branch to clear. Once cleared, the idle branch does nothing; its frame
+/// count is compared only within one transition.
+fn a_cover_is_owed(
+    transitions: Res<RoomTransitionLoadState>,
+    runtime: Res<RoomTransitionPresentationState>,
+    covers: Query<(), With<RoomTransitionCoverRoot>>,
+) -> bool {
+    transitions.active.is_some()
+        || runtime.sequence.is_some()
+        || runtime.owner.is_some()
+        || runtime.commit_observed_at.is_some()
+        || runtime.visible_before_commit
+        || runtime.foreground_finished
+        || runtime.visible_elapsed != Duration::ZERO
+        || runtime.reveal_reported
+        || !covers.is_empty()
+}
+
 /// Why a transition's loading screen appeared: what the readiness gate was
 /// still waiting on when it did. Pure, so the naming contract is testable.
 pub(crate) fn loading_screen_reason(
@@ -282,7 +302,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 // `Update` — checked, not assumed, because an `.after` across
                 // schedules is silently vacuous and this one going quiet
                 // reintroduces the exact flash it fixes.
-                drive_room_transition_presentation.in_set(RoomTransitionCoverSet),
+                drive_room_transition_presentation.run_if(a_cover_is_owed).in_set(RoomTransitionCoverSet),
             )
                 .chain()
                 // A room's manifest waits for the prop sheets it shows, so

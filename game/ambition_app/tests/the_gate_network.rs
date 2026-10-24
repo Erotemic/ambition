@@ -15,7 +15,7 @@ use ambition_platformer2d::world::rooms::{
 };
 
 use crate::common::walk::{walk_to, Pad};
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, finish_passages, fixed_60hz_room_options};
+use crate::common::{base, finish_passages, fixed_60hz_room_options};
 
 const HUB: &str = "central_hub_complex";
 const HUB_RING: &str = "hub_public_gate_zone";
@@ -37,7 +37,7 @@ fn room_with(id: &str, save: ambition_platformer2d::session::AmbitionGameSaveDat
 }
 
 fn room(id: &str) -> Platformer2dSimHarness {
-    room_with(id, a_save_that_has_seen_the_hub_intro())
+    room_with(id, Default::default())
 }
 
 fn network(sim: &mut Platformer2dSimHarness) -> GateNetworkState {
@@ -440,7 +440,7 @@ fn hold_until(
 /// public gate still refuses both military addresses afterwards.
 #[test]
 fn the_military_gate_is_reached_early_by_the_crawlway_and_grants_no_free_passage() {
-    let mut sim = into_the_annex(a_save_that_has_seen_the_hub_intro());
+    let mut sim = into_the_annex(Default::default());
     let walk = AgentAction { move_x: 1.0, ..base() };
     let past = |o: &ambition_app::AgentObservation| o.player_pos.0 > CHECKPOINT.1 + 20.0;
     assert!(!hold_until(&mut sim, walk.clone(), 240, past), "a standing traveller walked through the checkpoint");
@@ -476,7 +476,7 @@ fn the_military_gate_is_reached_early_by_the_crawlway_and_grants_no_free_passage
 /// checkpoint stands open for a standing traveller.
 #[test]
 fn the_military_clearance_admits_the_public_gate_and_opens_the_checkpoint() {
-    let mut cleared = a_save_that_has_seen_the_hub_intro();
+    let mut cleared = ambition_platformer2d::session::AmbitionGameSaveData::default();
     cleared.set_flag(CLEARANCE, true);
     let mut sim = room_with(HUB, cleared);
     assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, "SENTINEL"), ANNEX);
@@ -494,7 +494,7 @@ fn the_military_clearance_admits_the_public_gate_and_opens_the_checkpoint() {
 #[test]
 fn a_dial_and_a_crossing_hold_under_rollback() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()).with_sync_test_rollback_settings(4, 10),
+        fixed_60hz_room_options(HUB).with_sync_test_rollback_settings(4, 10),
     )
     .expect("the hub builds under a sync-test rollback session");
     for _ in 0..30 {

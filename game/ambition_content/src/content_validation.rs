@@ -1006,7 +1006,7 @@ mod tests {
 
     /// The shipped worlds name their room cutscenes in data, and the rows the
     /// validator reads are those rows. A reader that finds no rows passes every
-    /// rule, so this also pins that the validator sees the six rooms.
+    /// rule, so this also pins that the validator sees the five rooms.
     #[test]
     fn each_shipped_room_cutscene_is_read_from_its_world_file() {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
@@ -1016,7 +1016,6 @@ mod tests {
             .map(|(_, room, cutscene)| (room, cutscene))
             .collect();
         let expected: BTreeSet<(String, String)> = [
-            ("central_hub_complex", "test_intro"),
             ("basement_boss", "boss_intro_gradient_sentinel"),
             ("cutscene_lab", "cutscene_lab_intro"),
             ("intro_wake_room", "intro_wake"),

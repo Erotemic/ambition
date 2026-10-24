@@ -18,7 +18,7 @@ use ambition_platformer2d::characters::control::PlayerSlot;
 use bevy::prelude::App;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room_of};
-use crate::the_note_travels_from_alice_to_bob::{a_returning_players_session, bag, flag, talk_and_choose};
+use crate::the_note_travels_from_alice_to_bob::{the_shipped_session, bag, flag, talk_and_choose};
 
 const QUEST: &str = "orbital_consignment";
 const DOCK: &str = "orbital_station_gate_dock";
@@ -104,7 +104,7 @@ fn a_session_loaded_from(root: &ambition_platformer2d::persistence::PersistenceR
 /// in place.
 #[test]
 fn consignment_0447_is_cleared_across_two_dimensions_and_remembered() {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     assert_eq!(step_of(&app), Some((0, false)), "the errand is open from the start, at its first step");
 
     // The station: customs holds the crate; the freight lane is shut.

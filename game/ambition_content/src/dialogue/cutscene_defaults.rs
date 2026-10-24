@@ -62,16 +62,16 @@ mod tests {
             .expect("one more script compiles");
         assert!(ids(&edited).contains(&"pack_probe".to_string()));
 
-        let again = r#"(id: "test_intro", beats: [Wait(seconds: 0.1)])"#;
+        let again = r#"(id: "cutscene_lab_intro", beats: [Wait(seconds: 0.1)])"#;
         let doubled = crate::pack::compile_pack_with(append("data/cutscenes/intro.ron", again));
         let failure = format!("{:?}", doubled.expect_err("an id in both files refuses the pack"));
         assert!(failure.contains("DuplicateIdentity"), "{failure}");
     }
 
     #[test]
-    fn default_cutscene_library_includes_test_intro() {
+    fn default_cutscene_library_includes_cutscene_lab_intro() {
         let lib = cutscene_library_of(crate::pack::shipped());
-        assert!(lib.get("test_intro").is_some());
+        assert!(lib.get("cutscene_lab_intro").is_some());
     }
 
     #[test]

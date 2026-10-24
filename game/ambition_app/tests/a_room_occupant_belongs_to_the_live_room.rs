@@ -14,7 +14,7 @@ use ambition_platformer2d::platformer::lifecycle::{
 };
 
 use crate::common::{
-    a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to,
+    base, fixed_60hz_room_options, walk_through_the_door_to,
 };
 
 const ROOM: &str = "switch_lab";
@@ -65,7 +65,7 @@ fn settle(sim: &mut Platformer2dSimHarness) {
 #[test]
 fn every_room_occupant_belongs_to_the_live_room_it_was_built_for() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .expect("switch_lab boots");
     settle(&mut sim);
@@ -116,7 +116,7 @@ fn every_room_occupant_belongs_to_the_live_room_it_was_built_for() {
 #[test]
 fn a_resident_of_another_live_room_stays_when_this_one_is_replaced() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .expect("switch_lab boots");
     settle(&mut sim);
@@ -160,7 +160,7 @@ fn a_resident_of_another_live_room_stays_when_this_one_is_replaced() {
 fn every_room_resident_carries_its_live_room_after_combat() {
     use ambition_platformer2d::platformer::lifecycle::{Departure, Destination};
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(HUB),
     )
     .expect("the hub boots");
     let rooms: Vec<String> = session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(sim.world_mut())
@@ -254,7 +254,7 @@ fn stamp_the_body(sim: &mut Platformer2dSimHarness, room: LiveRoomInstance) {
 #[test]
 fn a_body_moves_only_against_the_live_room_it_is_in() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .expect("switch_lab boots");
     settle(&mut sim);

@@ -8,7 +8,7 @@
 //! climb), and reads where the body ends. The coordinates are the room's
 //! own (`make_specs.py`).
 
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{base, fixed_60hz_room_options, walk_through_the_door_to};
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 
 const ORCHARD: &str = "gnu_ton_orchard";
@@ -21,7 +21,7 @@ const SPOKE: &str = "orbital_station_spoke";
 const PLACEMENT: &str = "gnu_ton_handle.gnu_ton";
 
 fn room(id: &str) -> Platformer2dSimHarness {
-    room_with(id, a_save_that_has_seen_the_hub_intro())
+    room_with(id, Default::default())
 }
 
 fn room_with(id: &str, save: ambition_platformer2d::session::AmbitionGameSaveData) -> Platformer2dSimHarness {
@@ -129,7 +129,7 @@ fn standing(sim: &mut Platformer2dSimHarness) -> Vec<String> {
 /// home.
 #[test]
 fn the_handle_is_one_road_from_the_hub_to_gnu_ton_and_home() {
-    let mut save = a_save_that_has_seen_the_hub_intro();
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_boss(PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
     let mut sim = room_with("central_hub_complex", save);
     let road = ["central_hub_complex", ORCHARD, WELL, HALL, GALLERY, APPROACH, ARENA];
@@ -351,7 +351,7 @@ fn gnu_ton_waits_at_the_end_and_his_defeat_opens_the_way_home() {
     assert_eq!(gnu_tons(&mut sim), [(PLACEMENT.to_string(), true)], "GNU-ton, alive, at the handle's placement");
     assert!(standing(&mut sim).contains(&"gated_lock:shoulders_exit_grille".to_string()), "{:?}", standing(&mut sim));
 
-    let mut save = a_save_that_has_seen_the_hub_intro();
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_boss(PLACEMENT, ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared);
     let mut won = room_with(ARENA, save);
     assert!(!gnu_tons(&mut won).iter().any(|(_, alive)| *alive), "a cleared placement is not built alive");
@@ -427,7 +427,7 @@ fn the_lift_from_the_approach_is_let_go_from_inside() {
     assert!(walked.is_ok(), "out of the alcove to the orchard: {walked:?}");
     assert_eq!(sim.observation().active_room, ORCHARD);
     // The release is a fact of the save: the gate stays open.
-    let mut save = a_save_that_has_seen_the_hub_intro();
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     save.set_flag("switch_spoke_lift_release_used".to_string(), true);
     let mut later = room_with(SPOKE, save);
     assert!(!standing(&mut later).iter().any(|name| name.contains("spoke_lift_gate")), "{:?}", standing(&mut later));

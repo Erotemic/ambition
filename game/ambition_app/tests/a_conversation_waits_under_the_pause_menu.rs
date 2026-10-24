@@ -24,7 +24,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross};
 use crate::the_note_travels_from_alice_to_bob::{
-    a_returning_players_session, dialog_active, npc, put_body_at, tap,
+    the_shipped_session, dialog_active, npc, put_body_at, tap,
 };
 
 fn body_text(app: &App) -> String {
@@ -61,7 +61,7 @@ fn shown_dialog_boxes(app: &mut App) -> usize {
 
 #[test]
 fn a_conversation_waits_under_the_pause_menu() {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     // A pinned frame so the typewriter moves a known amount per update.
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)));
     let body = primary_body(&mut app);

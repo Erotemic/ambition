@@ -34,9 +34,9 @@ fn visible(sim: &mut Platformer2dSimHarness) -> Vec2 {
 /// it is farther from her than the shared view shows (or `frames` pass).
 /// Returns the sim, Alice's body and seat 1's body.
 fn bob_runs_out_of_the_shared_frame() -> (Platformer2dSimHarness, bevy::prelude::Entity, bevy::prelude::Entity) {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use crate::common::fixed_60hz_room_options;
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(HUB),
     )
     .unwrap_or_else(|error| panic!("{HUB} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);

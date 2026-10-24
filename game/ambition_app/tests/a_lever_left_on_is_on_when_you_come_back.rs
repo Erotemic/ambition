@@ -10,7 +10,7 @@
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 
 use crate::common::{
-    a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to,
+    base, fixed_60hz_room_options, walk_through_the_door_to,
 };
 
 const ROOM: &str = "switch_lab";
@@ -71,7 +71,7 @@ fn press_the_lever(sim: &mut Platformer2dSimHarness) {
 #[test]
 fn a_lever_left_on_is_on_when_you_come_back() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .expect("switch_lab boots");
     for _ in 0..10 {

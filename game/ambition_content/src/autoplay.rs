@@ -12,9 +12,9 @@
 //! or in the air by its flight map), with the input a person would give, and
 //! the policy presses Interact there.
 //!
-//! A cutscene that plays on a room's entry (the hub's boot line from the
-//! Warden) holds the body until its line is dismissed: the policy presses
-//! Confirm, as a person would.
+//! A cutscene that plays on a room's entry (a level's `entry_cutscene`) holds
+//! the body until its lines are dismissed: the policy presses Confirm, as a
+//! person would.
 //!
 //! What it does not do: talk (a conversation reads the menu input, which no
 //! script drives), fight, or pick up. It is a load, not a playthrough.

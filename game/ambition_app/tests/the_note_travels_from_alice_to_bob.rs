@@ -20,33 +20,30 @@ pub(crate) const QUEST: &str = "intro_cartography_route";
 pub(crate) const NOTE_FLAG: &str = "alice_route_note_carried";
 pub(crate) const SURVEY_FLAG: &str = "bob_field_survey_received";
 
-/// The shipped shell session, for a player who has seen the hub's intro: the
-/// intro cutscene holds the seat's input while it plays.
-pub(crate) fn a_returning_players_session() -> App {
-    a_returning_players_session_accepting_joins(false)
+/// The shipped shell session, in the hub.
+pub(crate) fn the_shipped_session() -> App {
+    the_shipped_session_accepting_joins(false)
 }
 
-/// [`a_returning_players_session`] with the second-player setting `accept`.
+/// [`the_shipped_session`] with the second-player setting `accept`.
 /// On, the session holds a claimable seat for a second player from its start
 /// (`declare_ambition_seating`).
-pub(crate) fn a_returning_players_session_accepting_joins(accept: bool) -> App {
+pub(crate) fn the_shipped_session_accepting_joins(accept: bool) -> App {
     use ambition_app::app::{build_visible_app, VisibleRenderMode};
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.finish();
-    a_returning_player_enters(app, accept)
+    the_player_enters(app, accept)
 }
 
-/// The gameplay route of `app`, an App whose plugins are finished, for a
-/// player who has seen the hub's intro, with the second-player setting
-/// `accept`.
-pub(crate) fn a_returning_player_enters(mut app: App, accept: bool) -> App {
+/// The gameplay route of `app`, an App whose plugins are finished, with the
+/// second-player setting `accept`.
+pub(crate) fn the_player_enters(mut app: App, accept: bool) -> App {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     app.update();
     app.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>()
         .gameplay
         .accept_local_joins = accept;
-    crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::ReplaceWith {
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,
@@ -172,7 +169,7 @@ pub(crate) fn quest_step(app: &App) -> Option<u8> {
 /// survey, and advances it again.
 #[test]
 fn the_note_travels_from_alice_to_bob() {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     let body = primary_body(&mut app);
     cross(&mut app, body, PlayerSlot(0), "alice_relay");
     assert_eq!(room_of(&app, body).as_deref(), Some("alice_relay"));

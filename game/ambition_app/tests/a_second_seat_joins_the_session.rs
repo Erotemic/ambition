@@ -243,11 +243,11 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
 /// its death, seat 1 is in another live room than Alice.
 #[test]
 fn a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room() {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options, walk_through_the_door_to};
+    use crate::common::{fixed_60hz_room_options, walk_through_the_door_to};
     const ROOM: &str = "switch_lab";
     const HUB: &str = "central_hub_complex";
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);
@@ -294,9 +294,9 @@ const ROOM: &str = "switch_lab";
 const HUB: &str = "central_hub_complex";
 
 fn booted_in(room: &str) -> Platformer2dSimHarness {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use crate::common::fixed_60hz_room_options;
     let mut sim =
-        Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room).with_save(a_save_that_has_seen_the_hub_intro()))
+        Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room))
             .unwrap_or_else(|error| panic!("{room} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);
     sim

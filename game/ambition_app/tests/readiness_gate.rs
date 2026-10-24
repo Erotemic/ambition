@@ -10,7 +10,7 @@
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadPhase, RoomTransitionLoadState};
 
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, door_to, fixed_60hz_room_options};
+use crate::common::{base, door_to, fixed_60hz_room_options};
 use crate::two_players_two_live_rooms::ROOM;
 
 const HUB: &str = "central_hub_complex";
@@ -53,7 +53,6 @@ struct Crossing {
 fn cross(fixed_tick: bool, halve_the_frame: bool) -> Crossing {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let options = fixed_60hz_room_options(ROOM)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_fixed_tick(fixed_tick);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
     // The subject is the crossing's transaction, which a door's passage only

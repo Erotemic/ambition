@@ -328,10 +328,10 @@ fn the_blink_next_door() -> (
     ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
     ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
 ) {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use crate::common::fixed_60hz_room_options;
     use ambition_app::rl_sim::AmbitionSim as _;
     let sim = ambition_app::Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(HUB),
     )
     .expect("the hub boots");
     put_the_blink_next_door(sim)
@@ -588,11 +588,10 @@ fn send_the_dog_next_door_from_inside_the_timeline(
 /// Alice's room, with the Blink in the dog's custody.
 #[test]
 fn a_dog_that_goes_through_a_door_on_an_errand_resimulates_to_the_same_world() {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use crate::common::fixed_60hz_room_options;
     use ambition_platformer2d::sim::SimScheduleExt;
 
     let options = fixed_60hz_room_options(HUB)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
     let sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
@@ -666,10 +665,10 @@ fn bodies_of(sim: &mut ambition_app::Platformer2dSimHarness, id: &SimId) -> Vec<
 /// retires and the Blink lies in a room that is not live, where its ledger
 /// row puts it. Returns the harness and the dog.
 fn the_blink_in_a_room_nobody_holds() -> (ambition_app::Platformer2dSimHarness, Entity) {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use crate::common::fixed_60hz_room_options;
     use ambition_app::rl_sim::AmbitionSim as _;
     let sim = ambition_app::Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(HUB),
     )
     .expect("the hub boots");
     leave_the_blink_in_a_room_nobody_holds(sim)
@@ -810,12 +809,11 @@ fn send_the_dog_away_from_inside_the_timeline(
 /// premise: the dog left, and its row puts it in `basement_npcs`.
 #[test]
 fn a_dog_that_leaves_for_a_room_nobody_holds_resimulates_to_the_same_world() {
-    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use crate::common::fixed_60hz_room_options;
     use ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts;
     use ambition_platformer2d::sim::SimScheduleExt;
 
     let options = fixed_60hz_room_options(HUB)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10);
     let sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;

@@ -4105,23 +4105,23 @@ fn a_boundary_that_closes_after_the_breaker_still_publishes() {
 // I2/I3: the cutscene library takes part in the generation transaction.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// The first beat of `test_intro`, the hub's boot cutscene: a banner whose
-/// text a pack edit can change.
-fn test_intro_banner(library: &ambition_cutscene::CutsceneLibrary) -> Option<String> {
-    match library.get("test_intro")?.beats.first()? {
+/// The first beat of `cutscene_lab_intro`, `cutscene_lab`'s entry cutscene: a
+/// banner whose text a pack edit can change.
+fn lab_banner(library: &ambition_cutscene::CutsceneLibrary) -> Option<String> {
+    match library.get("cutscene_lab_intro")?.beats.first()? {
         ambition_cutscene::CutsceneBeat::Banner { text, .. } => Some(text.clone()),
         _ => None,
     }
 }
 
-/// The shipped pack with `test_intro`'s banner reworded.
-fn pack_with_a_reworded_boot_banner() -> ambition_content_pack::PreparedContentPack {
+/// The shipped pack with `cutscene_lab_intro`'s banner reworded.
+fn pack_with_a_reworded_lab_banner() -> ambition_content_pack::PreparedContentPack {
     let mut edited = false;
     let pack = crate::pack::compile_pack_with(|declared, text| {
         if declared != "data/cutscenes/sandbox.ron" {
             return text;
         }
-        let out = text.replacen("// boot sequence", "// boot sequence, revised", 1);
+        let out = text.replacen("// cutscene proof", "// cutscene proof, revised", 1);
         edited = out != text;
         out
     })
@@ -4140,7 +4140,7 @@ fn world_with_cutscenes_and_one_foreign_row() -> bevy::ecs::world::World {
         "foreign_probe",
         vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 1.0 }],
     ));
-    let playing = library.get("test_intro").expect("the boot cutscene").clone();
+    let playing = library.get("cutscene_lab_intro").expect("the lab's entry cutscene").clone();
     world.insert_resource(library);
     world.insert_resource(ambition_cutscene::ActiveCutscene {
         runtime: Some(ambition_cutscene::CutsceneRuntime::new(playing)),
@@ -4161,11 +4161,11 @@ fn a_cutscene_publication_replaces_only_the_rows_the_pack_owns() {
     let mut world = world_with_cutscenes_and_one_foreign_row();
     let before = world
         .resource::<ambition_cutscene::CutsceneLibrary>()
-        .get("test_intro")
+        .get("cutscene_lab_intro")
         .cloned();
     assert_eq!(
-        test_intro_banner(world.resource::<ambition_cutscene::CutsceneLibrary>()).as_deref(),
-        Some("// boot sequence"),
+        lab_banner(world.resource::<ambition_cutscene::CutsceneLibrary>()).as_deref(),
+        Some("// cutscene proof"),
         "the premise: generation N's banner"
     );
 
@@ -4180,12 +4180,12 @@ fn a_cutscene_publication_replaces_only_the_rows_the_pack_owns() {
     );
 
     // A reworded banner: N+1's row replaces N's.
-    let candidate = pack_with_a_reworded_boot_banner();
+    let candidate = pack_with_a_reworded_lab_banner();
     crate::reload::publish_participant_families(&mut world, &candidate);
     let library = world.resource::<ambition_cutscene::CutsceneLibrary>();
     assert_eq!(
-        test_intro_banner(library).as_deref(),
-        Some("// boot sequence, revised"),
+        lab_banner(library).as_deref(),
+        Some("// cutscene proof, revised"),
         "the candidate's row was not published"
     );
     assert!(library.get("foreign_probe").is_some(), "⛔ ANOTHER PROVIDER'S ROW WAS ERASED");
@@ -4210,29 +4210,29 @@ fn a_cutscene_file_the_candidate_drops_removes_its_rows_and_only_its_rows() {
     .map(|script| script.id)
     .collect();
     assert!(
-        !dropped_ids.contains(&"test_intro".to_string()),
-        "the premise: the sandbox file is where test_intro lives"
+        !dropped_ids.contains(&"cutscene_lab_intro".to_string()),
+        "the premise: the sandbox file is where cutscene_lab_intro lives"
     );
 
     let candidate = crate::pack::compile_pack_omitting(&["data/cutscenes/sandbox.ron"]).expect("compiles");
     crate::reload::publish_participant_families(&mut world, &candidate);
     let library = world.resource::<ambition_cutscene::CutsceneLibrary>();
-    assert!(library.get("test_intro").is_none(), "a dropped file's row survived");
+    assert!(library.get("cutscene_lab_intro").is_none(), "a dropped file's row survived");
     assert!(library.get("foreign_probe").is_some(), "another provider's row was erased");
     for id in &dropped_ids {
         assert!(library.get(id).is_some(), "{id} belongs to a file the candidate still declares");
     }
 }
 
-/// The shipped world, but another provider holds `test_intro` (the SAME id the
+/// The shipped world, but another provider holds `cutscene_lab_intro` (the SAME id the
 /// pack ships, not a different one: the original arm used `foreign_probe`, which
 /// can never collide).
-fn world_where_a_foreign_provider_holds_the_boot_cutscene() -> bevy::ecs::world::World {
+fn world_where_a_foreign_provider_holds_the_lab_cutscene() -> bevy::ecs::world::World {
     let mut world = world_with_cutscenes_and_one_foreign_row();
     world
         .resource_mut::<ambition_cutscene::CutsceneLibrary>()
         .insert(ambition_cutscene::CutsceneScript::new(
-            "test_intro",
+            "cutscene_lab_intro",
             vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 9.0 }],
         ));
     world
@@ -4247,15 +4247,15 @@ fn world_where_a_foreign_provider_holds_the_boot_cutscene() -> bevy::ecs::world:
 /// refusal lives at admission, and this arm pins it with the colliding id.
 #[test]
 fn a_candidate_cutscene_whose_id_a_foreign_row_holds_is_refused_before_it_can_overwrite_it() {
-    let world = world_where_a_foreign_provider_holds_the_boot_cutscene();
-    let candidate = pack_with_a_reworded_boot_banner();
+    let world = world_where_a_foreign_provider_holds_the_lab_cutscene();
+    let candidate = pack_with_a_reworded_lab_banner();
     let refusal = crate::reload::candidate_cutscene_ownership(&world, &candidate)
         .expect_err("⛔ a candidate that would overwrite another provider's row was admitted");
-    assert!(refusal.contains("test_intro"), "the refusal does not name the id: {refusal}");
+    assert!(refusal.contains("cutscene_lab_intro"), "the refusal does not name the id: {refusal}");
     // Admission wrote nothing: the foreign row is what it was.
     let held = world
         .resource::<ambition_cutscene::CutsceneLibrary>()
-        .get("test_intro")
+        .get("cutscene_lab_intro")
         .cloned()
         .expect("the foreign row");
     assert!(
@@ -4270,10 +4270,10 @@ fn a_candidate_cutscene_whose_id_a_foreign_row_holds_is_refused_before_it_can_ov
 #[test]
 fn a_candidate_cutscene_that_replaces_ambitions_own_row_is_admitted() {
     let world = world_with_cutscenes_and_one_foreign_row();
-    crate::reload::candidate_cutscene_ownership(&world, &pack_with_a_reworded_boot_banner())
+    crate::reload::candidate_cutscene_ownership(&world, &pack_with_a_reworded_lab_banner())
         .expect("replacing the pack's own row was refused");
     // An unchanged family is not asked at all, even over a foreign collision.
-    let colliding = world_where_a_foreign_provider_holds_the_boot_cutscene();
+    let colliding = world_where_a_foreign_provider_holds_the_lab_cutscene();
     crate::reload::candidate_cutscene_ownership(&colliding, crate::pack::shipped())
         .expect("a family the candidate does not change must not be judged");
 }
@@ -4282,13 +4282,13 @@ fn a_candidate_cutscene_that_replaces_ambitions_own_row_is_admitted() {
 /// "absent means remove" removes only what the pack still owns.
 #[test]
 fn a_candidate_dropping_a_cutscene_a_foreign_row_now_holds_leaves_the_foreign_row() {
-    let mut world = world_where_a_foreign_provider_holds_the_boot_cutscene();
+    let mut world = world_where_a_foreign_provider_holds_the_lab_cutscene();
     let candidate = crate::pack::compile_pack_omitting(&["data/cutscenes/sandbox.ron"]).expect("compiles");
     crate::reload::candidate_cutscene_ownership(&world, &candidate)
         .expect("dropping the id is not an overwrite");
     crate::reload::publish_participant_families(&mut world, &candidate);
     assert!(
-        world.resource::<ambition_cutscene::CutsceneLibrary>().get("test_intro").is_some(),
+        world.resource::<ambition_cutscene::CutsceneLibrary>().get("cutscene_lab_intro").is_some(),
         "⛔ the foreign row at a dropped id was removed"
     );
 }

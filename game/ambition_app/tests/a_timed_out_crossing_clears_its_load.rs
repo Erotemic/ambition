@@ -56,7 +56,6 @@ fn in_passage(app: &mut App) -> bool {
 fn a_timed_out_crossing_clears_the_host_load_and_its_cover() {
     let mut app = rendered_app();
     settle(&mut app);
-    crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::GoTo(
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));

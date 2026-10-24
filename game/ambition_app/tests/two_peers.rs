@@ -21,7 +21,7 @@ use ambition_platformer2d::rollback::{
 };
 use bevy::prelude::*;
 
-use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options, strengthen_the_float_rows};
+use crate::common::{fixed_60hz_room_options, strengthen_the_float_rows};
 use crate::two_players_two_live_rooms::{
     bob_beside_alice, door_of, live_rooms, put_bob_at, where_they_are, ROOM,
 };
@@ -141,7 +141,6 @@ fn peer_prepared_by(
     prepare: fn(&mut Platformer2dSimHarness),
 ) -> (Platformer2dSimHarness, Vec<&'static str>) {
     let options = fixed_60hz_room_options(room)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
@@ -1135,7 +1134,6 @@ fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {
 #[test]
 fn a_host_that_commits_alone_simulates_while_its_crossing_waits() {
     let options = fixed_60hz_room_options(ROOM)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");

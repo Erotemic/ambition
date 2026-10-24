@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{base, fixed_60hz_room_options, walk_through_the_door_to};
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::BodyHealth;
@@ -18,7 +18,7 @@ use ambition_platformer2d::ldtk_map::LdtkProject;
 
 fn room(id: &str) -> Platformer2dSimHarness {
     let mut sim =
-        Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(id).with_save(a_save_that_has_seen_the_hub_intro()))
+        Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(id))
             .unwrap_or_else(|e| panic!("`{id}` builds: {e}"));
     for _ in 0..30 {
         sim.step(base());

@@ -22,7 +22,7 @@ use bevy::prelude::{App, Entity, KeyCode};
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, room_of};
 use crate::the_note_travels_from_alice_to_bob::{
-    a_returning_player_enters, a_returning_players_session, bag, flag, quest_step, talk_and_choose, NOTE_FLAG,
+    the_player_enters, the_shipped_session, bag, flag, quest_step, talk_and_choose, NOTE_FLAG,
     SURVEY_FLAG,
 };
 
@@ -173,7 +173,7 @@ fn gate_stands(app: &App, block: &str) -> bool {
 /// and the open wall at the end of the route.
 #[test]
 fn the_note_reaches_bob_and_opens_alices_return() {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     let start = live_room(&mut app);
     assert_eq!(start, "central_hub_complex", "the shipped game starts in the hub");
     let step0 = quest_step(&app).expect("the intro quest starts by itself");
@@ -279,7 +279,7 @@ fn the_save_file(
 /// The shipped game with a render app: `OffscreenGpu`, a real wgpu backend
 /// (a software adapter is enough) and no window. `NoWindow` has no render
 /// app, so nothing in it is drawn.
-fn a_rendered_returning_players_session() -> App {
+fn a_rendered_shipped_session() -> App {
     use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
     let mut app = build_visible_app_with(VisibleRenderMode::OffscreenGpu, true, |_| {});
     // The surface a window would give the camera. Without it the camera has
@@ -304,7 +304,7 @@ fn a_rendered_returning_players_session() -> App {
         app.finish();
         app.cleanup();
     }
-    a_returning_player_enters(app, false)
+    the_player_enters(app, false)
 }
 
 /// ⭐ PLAYABLE WHERE IT IS DRAWN. The same capability, route and hand-over in
@@ -316,7 +316,7 @@ fn a_rendered_returning_players_session() -> App {
 /// no device and no render app.
 #[test]
 fn the_playthrough_runs_in_the_composition_that_draws_it() {
-    let mut app = a_rendered_returning_players_session();
+    let mut app = a_rendered_shipped_session();
     assert!(
         app.world().contains_resource::<bevy::render::renderer::RenderDevice>(),
         "this composition has no wgpu device, so nothing in it is drawn"
@@ -420,7 +420,7 @@ fn gates_by_live_room(app: &mut App, block: &str) -> Vec<(String, bool)> {
 #[test]
 fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
     // The setting on, so the session holds a seat for a second player.
-    let mut app = crate::the_note_travels_from_alice_to_bob::a_returning_players_session_accepting_joins(true);
+    let mut app = crate::the_note_travels_from_alice_to_bob::the_shipped_session_accepting_joins(true);
     for room in ROUTE_TO_ALICE {
         go_through(&mut app, room);
     }
@@ -493,7 +493,7 @@ fn die(app: &mut App) {
 /// survey flag whichever way Q164 rules on the flag.
 #[test]
 fn a_death_sends_the_blink_back_to_where_it_lay() {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     let blink = SimId::placement(BLINK);
     let found_at = take(&mut app, &blink);
     for room in ROUTE_TO_ALICE {
@@ -582,7 +582,7 @@ fn come_out_of_the_door_to(app: &mut App, target: &str) {
 /// its passage too (Jon, 2026-10-19).
 #[test]
 fn doors_and_gates_take_the_player_through_by_a_passage() {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     come_out_of_the_door_to(&mut app, ROUTE_TO_ALICE[0]);
     for room in &ROUTE_TO_ALICE[1..4] {
         go_through(&mut app, room);

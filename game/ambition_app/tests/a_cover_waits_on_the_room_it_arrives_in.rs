@@ -26,7 +26,6 @@ use crate::shell_host_rendered::{rendered_app, settle};
 fn a_committed_crossing_names_the_live_room_it_arrived_in() {
     let mut app = rendered_app();
     settle(&mut app);
-    crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::GoTo(
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));

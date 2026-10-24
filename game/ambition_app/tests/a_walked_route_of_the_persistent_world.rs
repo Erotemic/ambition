@@ -12,7 +12,7 @@
 use ambition_app::rl_sim::AmbitionSim as _;
 
 use crate::common::walk::{walk_through, Pad};
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options};
+use crate::common::{base, fixed_60hz_room_options};
 
 const HUB: &str = "central_hub_complex";
 
@@ -37,7 +37,7 @@ const ROUTE_TO_BOB: &[&str] = &[
 #[test]
 fn the_player_walks_from_the_hub_to_alice_and_bob() {
     let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(HUB),
     )
     .expect("the hub boots");
     sim.step_n(base(), 30);

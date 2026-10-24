@@ -73,8 +73,6 @@ fn session(pads: usize, accept: bool) -> (App, Vec<Entity>) {
     settle(&mut app);
     accept_joins(&mut app, accept);
     let connected = (0..pads).map(|index| connect_named_pad(&mut app, &format!("pad {index}"))).collect();
-    // The hub's intro holds the seat's input while it plays.
-    crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::GoTo(
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));

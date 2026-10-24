@@ -4316,32 +4316,32 @@ fn a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive
 // I2/I3: the cutscene library takes part in a reload.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// The text of `test_intro`'s opening banner in the App's cutscene library.
-fn boot_banner(app: &bevy::prelude::App) -> String {
+/// The text of `cutscene_lab_intro`'s opening banner in the App's cutscene library.
+fn lab_banner(app: &bevy::prelude::App) -> String {
     match app
         .world()
         .resource::<ambition_platformer2d::cutscene::CutsceneLibrary>()
-        .get("test_intro")
-        .expect("the boot cutscene")
+        .get("cutscene_lab_intro")
+        .expect("the lab's entry cutscene")
         .beats
         .first()
         .expect("a first beat")
     {
         ambition_platformer2d::cutscene::CutsceneBeat::Banner { text, .. } => text.clone(),
-        other => panic!("test_intro no longer opens on a banner: {other:?}"),
+        other => panic!("cutscene_lab_intro no longer opens on a banner: {other:?}"),
     }
 }
 
-/// `test_intro`'s banner reworded, optionally with an SFX cue edited too (a
+/// `cutscene_lab_intro`'s banner reworded, optionally with an SFX cue edited too (a
 /// second participating family) or the SFX registry dropped (a refusal).
-fn pack_with_a_reworded_boot_banner(
+fn pack_with_a_reworded_lab_banner(
     also_edit_sfx: bool,
     drop_sfx: bool,
 ) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
     let mut edited = false;
     let edit = |declared: &str, text: String| {
         if declared == "data/cutscenes/sandbox.ron" {
-            let out = text.replacen("// boot sequence", "// boot sequence, revised", 1);
+            let out = text.replacen("// cutscene proof", "// cutscene proof, revised", 1);
             edited = out != text;
             return out;
         }
@@ -4365,7 +4365,7 @@ fn pack_with_a_reworded_boot_banner(
 }
 
 /// ⭐ **A CUTSCENE EDIT IS VISIBLE WITH ITS SESSION AND WITH EVERY OTHER CHANGED
-/// FAMILY, ON THE SAME FRAME.** The candidate rewords the boot banner and edits
+/// FAMILY, ON THE SAME FRAME.** The candidate rewords the lab's banner and edits
 /// an SFX cue; frame by frame the test records whether the shell activated a new
 /// session, whether the library states N+1, and whether the SFX catalog does.
 #[test]
@@ -4374,24 +4374,24 @@ fn a_cutscene_edit_is_visible_with_its_session_and_with_the_other_changed_famili
     let live_activation = activation_id(&app).expect("a live session");
     let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
     let sfx_before = first_sfx_frequency_of(&app);
-    assert_eq!(boot_banner(&app), "// boot sequence", "the premise: N's banner");
+    assert_eq!(lab_banner(&app), "// cutscene proof", "the premise: N's banner");
 
     let outcome = ambition_content::reload::request_reload(
         app.world_mut(),
         ambition_content::CandidateGeneration::prepared_against(
-            pack_with_a_reworded_boot_banner(true, false),
+            pack_with_a_reworded_lab_banner(true, false),
             Some(base),
         ),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    assert_eq!(boot_banner(&app), "// boot sequence", "⛔ the request published the library on the spot");
+    assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ the request published the library on the spot");
 
     let mut first_flip = None;
     for frame in 0..240 {
         app.update();
         let seen = (
             activation_id(&app) != Some(live_activation),
-            boot_banner(&app) == "// boot sequence, revised",
+            lab_banner(&app) == "// cutscene proof, revised",
             first_sfx_frequency_of(&app) == sfx_before + 1.0,
         );
         if seen != (false, false, false) {
@@ -4427,14 +4427,14 @@ fn a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation() {
     let outcome = ambition_content::reload::request_reload(
         app.world_mut(),
         ambition_content::CandidateGeneration::prepared_against(
-            pack_with_a_reworded_boot_banner(false, true),
+            pack_with_a_reworded_lab_banner(false, true),
             Some(base),
         ),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
     step_until_the_generation_settles(&mut app);
     assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
-    assert_eq!(boot_banner(&app), "// boot sequence", "⛔ A REFUSED CANDIDATE'S CUTSCENES WERE PUBLISHED");
+    assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ A REFUSED CANDIDATE'S CUTSCENES WERE PUBLISHED");
     assert_eq!(
         ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
         base,
@@ -4458,18 +4458,18 @@ fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
     let outcome = ambition_content::reload::request_reload(
         app.world_mut(),
         ambition_content::CandidateGeneration::prepared_against(
-            pack_with_a_reworded_boot_banner(false, false),
+            pack_with_a_reworded_lab_banner(false, false),
             Some(base),
         ),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
     step_until_the_generation_settles(&mut app);
-    assert_eq!(boot_banner(&app), "// boot sequence, revised", "the premise: the edit published");
+    assert_eq!(lab_banner(&app), "// cutscene proof, revised", "the premise: the edit published");
 
     let stale = std::sync::Arc::new(
         ambition_content::pack::compile_pack_with(|declared, text| {
             if declared == "data/cutscenes/sandbox.ron" {
-                return text.replacen("// boot sequence", "// boot sequence, stale", 1);
+                return text.replacen("// cutscene proof", "// cutscene proof, stale", 1);
             }
             text
         })
@@ -4489,7 +4489,7 @@ fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
         "a stale candidate was not refused as stale: {outcome:?}"
     );
     step_with_no_generation_pending(&mut app);
-    assert_eq!(boot_banner(&app), "// boot sequence, revised", "a stale candidate changed the library");
+    assert_eq!(lab_banner(&app), "// cutscene proof, revised", "a stale candidate changed the library");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4775,7 +4775,7 @@ fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
 }
 
 /// ⛔ **A PROVIDER THAT TAKES AN AMBITION CUTSCENE ID WHILE A GENERATION WAITS
-/// CANCELS IT, NOT OVERWRITTEN BY IT.** The candidate rewords `test_intro` and is
+/// CANCELS IT, NOT OVERWRITTEN BY IT.** The candidate rewords `cutscene_lab_intro` and is
 /// admitted while the library holds Ambition's row. Before it activates another
 /// provider replaces that row (same id). The publication cannot refuse, so the
 /// activation gate asks the ownership question again and cancels: the foreign row
@@ -4792,7 +4792,7 @@ fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
     app.world_mut()
         .resource_mut::<ambition_platformer2d::cutscene::CutsceneLibrary>()
         .insert(ambition_platformer2d::cutscene::CutsceneScript::new(
-            "test_intro",
+            "cutscene_lab_intro",
             vec![ambition_platformer2d::cutscene::CutsceneBeat::Banner {
                 text: "// the other provider".to_string(),
                 seconds: 1.0,
@@ -4805,7 +4805,7 @@ fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
     let reason = ambition_content::reload::activation_refusal(app.world())
         .expect("a foreign row took the id while the generation waited, and nothing refused");
     assert!(
-        matches!(reason, ambition_content::reload::ActivationRefusal::CutsceneOwnershipChanged(ref why) if why.contains("test_intro")),
+        matches!(reason, ambition_content::reload::ActivationRefusal::CutsceneOwnershipChanged(ref why) if why.contains("cutscene_lab_intro")),
         "⛔ the cutscene-ownership race was reported as {reason:?}"
     );
     assert!(
@@ -4819,7 +4819,7 @@ fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
         "⛔ THE GENERATION ACTIVATED OVER ANOTHER PROVIDER'S CUTSCENE"
     );
     assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
-    assert_eq!(boot_banner(&app), "// the other provider", "⛔ THE FOREIGN ROW WAS OVERWRITTEN");
+    assert_eq!(lab_banner(&app), "// the other provider", "⛔ THE FOREIGN ROW WAS OVERWRITTEN");
 }
 
 /// ⛔ **A STEP THE PLAYER REACHES WHILE A GENERATION WAITS IS PINNED TOO.** The
@@ -4942,7 +4942,7 @@ fn a_save_that_moves_while_a_generation_without_quest_changes_waits_does_not_can
         Some(live_activation),
         "a candidate with no quest edit was cancelled by a save that moved"
     );
-    assert_eq!(boot_banner(&app), "// a banner, no quest edit", "the candidate never published");
+    assert_eq!(lab_banner(&app), "// a banner, no quest edit", "the candidate never published");
     assert_eq!(
         quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
         Some((true, 1)),
@@ -4954,13 +4954,13 @@ fn a_save_that_moves_while_a_generation_without_quest_changes_waits_does_not_can
 // I3: a newer candidate supersedes the generation in flight.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// A pack that rewords the boot banner to `text` (the observable the supersession
+/// A pack that rewords the lab's banner to `text` (the observable the supersession
 /// arms read) and optionally edits an SFX cue (a second family).
-fn pack_with_the_boot_banner(text: &'static str, also_edit_sfx: bool) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
+fn pack_with_the_lab_banner(text: &'static str, also_edit_sfx: bool) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
     let mut edited = false;
     let pack = ambition_content::pack::compile_pack_with(|declared, source| {
         if declared == "data/cutscenes/sandbox.ron" {
-            let out = source.replacen("// boot sequence", text, 1);
+            let out = source.replacen("// cutscene proof", text, 1);
             edited = out != source;
             return out;
         }
@@ -4987,7 +4987,7 @@ fn request_the_banner(
     ambition_content::reload::request_reload(
         app.world_mut(),
         ambition_content::CandidateGeneration::prepared_against(
-            pack_with_the_boot_banner(text, also_edit_sfx),
+            pack_with_the_lab_banner(text, also_edit_sfx),
             Some(base),
         ),
     )
@@ -5045,11 +5045,11 @@ fn a_newer_candidate_supersedes_the_one_in_flight_and_the_old_one_is_never_seen(
     let mut activations = std::collections::BTreeSet::new();
     for _ in 0..240 {
         app.update();
-        let banner = boot_banner(&app);
+        let banner = lab_banner(&app);
         assert_ne!(banner, "// A, which is superseded", "⛔ THE SUPERSEDED CANDIDATE'S CUTSCENES WERE PUBLISHED");
         activations.insert(activation_id(&app));
     }
-    assert_eq!(boot_banner(&app), "// B, which wins", "the newest candidate never published");
+    assert_eq!(lab_banner(&app), "// B, which wins", "the newest candidate never published");
     assert_eq!(first_sfx_frequency_of(&app), sfx_before + 1.0, "B's second family did not arrive with it");
     assert_eq!(
         activations.len(),
@@ -5091,7 +5091,7 @@ fn reverting_the_content_while_a_generation_is_in_flight_cancels_it() {
     );
     for _ in 0..240 {
         app.update();
-        assert_eq!(boot_banner(&app), "// boot sequence", "⛔ THE REVERTED CANDIDATE'S CUTSCENES WERE PUBLISHED");
+        assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ THE REVERTED CANDIDATE'S CUTSCENES WERE PUBLISHED");
     }
     assert_eq!(activation_id(&app), Some(live_activation), "the cancelled candidate's session activated");
     assert!(ambition_content::reload::pending_pack(app.world()).is_none());
@@ -5135,8 +5135,8 @@ fn request_and_expect_a_graph_refusal(
 }
 
 /// ⛔ **A CANDIDATE THAT REMOVES A CUTSCENE THE WORLD STILL NAMES IS REFUSED.**
-/// The hub's `entry_cutscene` field names `test_intro`; the candidate renames the
-/// script, so the room's binding would silently never play
+/// `cutscene_lab`'s `entry_cutscene` field names `cutscene_lab_intro`; the
+/// candidate renames the script, so the room's binding would silently never play
 /// (`drain_cutscene_triggers` skips a missing script). Startup refuses the same
 /// graph; the reload now asks the same judge.
 #[test]
@@ -5145,7 +5145,7 @@ fn a_candidate_that_removes_a_cutscene_a_room_names_is_refused() {
     let candidate = std::sync::Arc::new(
         ambition_content::pack::compile_pack_with(|declared, text| {
             if declared == "data/cutscenes/sandbox.ron" {
-                let out = text.replacen(r#"id: "test_intro","#, r#"id: "test_intro_renamed","#, 1);
+                let out = text.replacen(r#"id: "cutscene_lab_intro","#, r#"id: "cutscene_lab_intro_renamed","#, 1);
                 edited = out != text;
                 return out;
             }
@@ -5156,7 +5156,7 @@ fn a_candidate_that_removes_a_cutscene_a_room_names_is_refused() {
     assert!(edited, "the cutscene file no longer states the renamed script");
     let errors = request_and_expect_a_graph_refusal(candidate);
     assert!(
-        errors.iter().any(|error| error.contains("test_intro") && error.contains("unknown cutscene")),
+        errors.iter().any(|error| error.contains("cutscene_lab_intro") && error.contains("unknown cutscene")),
         "the refusal does not name the dead binding: {errors:?}"
     );
 }
@@ -5179,7 +5179,7 @@ fn a_candidate_refused_by_the_content_graph_cancels_the_generation_in_flight() {
     let broken = std::sync::Arc::new(
         ambition_content::pack::compile_pack_with(|declared, text| {
             if declared == "data/cutscenes/sandbox.ron" {
-                let out = text.replacen(r#"id: "test_intro","#, r#"id: "test_intro_renamed","#, 1);
+                let out = text.replacen(r#"id: "cutscene_lab_intro","#, r#"id: "cutscene_lab_intro_renamed","#, 1);
                 edited = out != text;
                 return out;
             }
@@ -5207,7 +5207,7 @@ fn a_candidate_refused_by_the_content_graph_cancels_the_generation_in_flight() {
     );
     for _ in 0..240 {
         app.update();
-        assert_eq!(boot_banner(&app), "// boot sequence", "⛔ THE CANCELLED GENERATION'S CUTSCENES WERE PUBLISHED");
+        assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ THE CANCELLED GENERATION'S CUTSCENES WERE PUBLISHED");
     }
     assert_eq!(activation_id(&app), Some(live_activation), "the cancelled generation activated");
 }

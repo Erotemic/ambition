@@ -70,23 +70,4 @@
         ],
         seen_flag: Some("cutscene_lab_intro_seen"),
     ),
-    // The hub's boot cutscene: central_hub_main's `entry_cutscene`.
-    (
-        id: "test_intro",
-        beats: [
-            Banner(
-                text: "// boot sequence",
-                seconds: 1.4,
-            ),
-            Dialogue(
-                speaker: "WARDEN",
-                text: "Instance online. You\'ll know your purpose when you find it.",
-            ),
-            SetFlag(
-                id: "test_intro_seen",
-                on: true,
-            ),
-        ],
-        seen_flag: Some("test_intro_seen"),
-    ),
 ]

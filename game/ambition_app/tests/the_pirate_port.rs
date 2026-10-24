@@ -16,7 +16,7 @@ use bevy::prelude::{App, KeyCode};
 use crate::common::walk::{walk_through, walk_through_zone, walk_to, Keys};
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room_of};
 use crate::the_note_travels_from_alice_to_bob::{
-    a_returning_players_session, dialog_active, first_choice, flag, npc, tap,
+    the_shipped_session, dialog_active, first_choice, flag, npc, tap,
 };
 
 const PLAZA: &str = "pirate_port_gate_plaza";
@@ -38,7 +38,7 @@ fn settle(app: &mut App) {
 
 /// The session, with the player in `room` (where a gate arrives).
 pub(crate) fn a_session_in(room: &str) -> App {
-    let mut app = a_returning_players_session();
+    let mut app = the_shipped_session();
     let body = primary_body(&mut app);
     cross(&mut app, body, PlayerSlot(0), room);
     settle(&mut app);

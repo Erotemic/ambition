@@ -27,7 +27,7 @@ use ambition_platformer2d::sim_view::{
 use bevy::prelude::*;
 
 use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, die, join, place_of, room_of, the_primary};
-use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{fixed_60hz_room_options, walk_through_the_door_to};
 use crate::two_players_two_live_rooms::{live_rooms, the_views, view_frame, ROOM};
 
 const SEAT: u8 = 1;
@@ -121,7 +121,7 @@ fn a_joined_seat_has_its_own_hud_on_the_shared_view() {
 #[test]
 fn a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);
@@ -205,7 +205,7 @@ fn a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room() {
 #[test]
 fn the_facts_that_are_one_per_session_stay_the_primarys_after_a_join() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);
@@ -320,8 +320,6 @@ fn drawn_huds_around_a_start_press(pads: Pads, accept: bool) -> [(Vec<Option<u8>
     if matches!(pads, Pads::TwoBeforeTheSession) {
         presser = connect_a_pad(&mut app);
     }
-    // The hub's intro holds every seat's input while it plays.
-    crate::common::the_hub_intro_has_already_played(app.world_mut());
     app.world_mut().write_message(ShellCommand::GoTo(
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));

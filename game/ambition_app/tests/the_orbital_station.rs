@@ -3,7 +3,7 @@
 //! the robot's own inputs, the gates its errand opens, the tram over the open
 //! spoke, and the damaged spur.
 
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{base, fixed_60hz_room_options, walk_through_the_door_to};
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness};
 
 const DOCK: &str = "orbital_station_gate_dock";
@@ -25,11 +25,11 @@ fn room_with(id: &str, save: ambition_platformer2d::session::AmbitionGameSaveDat
 }
 
 fn room(id: &str) -> Platformer2dSimHarness {
-    room_with(id, a_save_that_has_seen_the_hub_intro())
+    room_with(id, Default::default())
 }
 
 fn with_flags(flags: &[&str]) -> ambition_platformer2d::session::AmbitionGameSaveData {
-    let mut save = a_save_that_has_seen_the_hub_intro();
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
     for flag in flags {
         save.set_flag((*flag).to_string(), true);
     }

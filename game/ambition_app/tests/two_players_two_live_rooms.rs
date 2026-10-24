@@ -11,7 +11,7 @@
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 
-use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
+use crate::common::{base, fixed_60hz_room_options, walk_through_the_door_to};
 
 pub(crate) const ROOM: &str = "switch_lab";
 const HUB: &str = "central_hub_complex";
@@ -160,7 +160,7 @@ pub(crate) fn alice_leaves_bob_for_a_replay() -> (Platformer2dSimHarness, LiveRo
 /// Returns their shared live room.
 pub(crate) fn alice_beside_bob() -> (Platformer2dSimHarness, LiveRoomInstance) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     let first = bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
@@ -185,7 +185,7 @@ pub(crate) fn alice_leaves_bob_in(
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
     alice_leaves_bob_with(
         Platformer2dSimHarness::new_with_options(
-            fixed_60hz_room_options(start).with_save(a_save_that_has_seen_the_hub_intro()),
+            fixed_60hz_room_options(start),
         )
         .unwrap_or_else(|error| panic!("{start} boots: {error:?}")),
         start,
@@ -1235,7 +1235,6 @@ fn effect_request_rooms(
 #[test]
 fn two_players_in_two_live_rooms_resimulate_to_the_same_world() {
     let options = fixed_60hz_room_options(ROOM)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
     let (mut sim, first) = alice_leaves_bob_with(
@@ -1323,7 +1322,7 @@ fn an_item_carried_out_of_a_room_another_player_holds_crosses_whole() {
     const TARGET: &str = "portal_bridge";
     let (item, authored) = {
         let mut sim = Platformer2dSimHarness::new_with_options(
-            fixed_60hz_room_options(SOURCE).with_save(a_save_that_has_seen_the_hub_intro()),
+            fixed_60hz_room_options(SOURCE),
         )
         .expect("blink_run boots");
         for _ in 0..10 {
@@ -1573,7 +1572,7 @@ fn robot_strike_cues(
 fn a_heavy_robot_strike_stays_heavy_while_another_room_is_live() {
     use ambition_platformer2d::sfx::ids;
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     for _ in 0..10 {
@@ -2350,7 +2349,7 @@ fn alice_leaves_bob_after(
     prepare: impl FnOnce(&mut Platformer2dSimHarness),
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     prepare(&mut sim);
@@ -2738,7 +2737,7 @@ fn a_crossing_holds_only_the_seat_that_crossed() {
 fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .expect("switch_lab boots");
     // The subject is the seat's door cooldown, which a passage only delays.
@@ -3649,7 +3648,7 @@ fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() 
 /// (`DefinitionAlreadyLive`, OW3).
 fn one_room_after(reset: fn(&mut Platformer2dSimHarness)) -> (Vec<(LiveRoomInstance, String)>, (Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>)) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(ROOM),
     )
     .expect("switch_lab boots");
     let first = bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
@@ -3710,7 +3709,6 @@ fn nudge_bobs_room_from_outside_the_timeline(
 fn two_rooms_under_a_sync_test(poison: bool) -> (bool, Result<(), String>) {
     use ambition_platformer2d::sim::SimScheduleExt;
     let options = fixed_60hz_room_options(ROOM)
-        .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         // The session must carry slot 1, or slot 1's input never reaches
         // Bob and the control that he runs is not measured.

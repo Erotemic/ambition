@@ -17,7 +17,7 @@ that somebody looked; what it never could hold is whether they were right.
 
 ⛔⛤ **WHAT THIS CANNOT WITNESS, AND IT USED TO CLAIM OTHERWISE.** Until
 2026-09-18 the three places below said option 2 drives the `new`/`of` rows to
-zero. Both halves are wrong, and `session/mechanics.rs` — the constructors' own
+zero. Both halves are wrong, and `ambition_platformer2d_construction/src/mechanics.rs` — the constructors' own
 doc comments — already said so:
 
   * `::of` is *"a generation's values with NO App fallback"* (`mechanics.rs:206`),
@@ -109,7 +109,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 #: The three constructors, and what each one MEANS about its caller's
 #: composition. Taken from their doc blocks in
-#: `crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs`.
+#: `crates/ambition_platformer2d_construction/src/mechanics.rs`.
 CONSTRUCTORS: dict[str, str] = {
     "for_live_session": (
         "the caller is inside a shell-routed session and REFUSES rather than "

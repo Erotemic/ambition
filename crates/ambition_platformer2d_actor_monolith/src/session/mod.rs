@@ -22,10 +22,7 @@ pub mod death;
 pub mod durable_horizon;
 /// A second seat joins the session (Q153 default).
 pub mod join;
-/// Host intents (a menu press) enter the simulation on a stamped tick.
-pub mod host_intents;
 pub mod lifecycle_commit;
-pub mod mechanics;
 pub mod reset;
 pub mod setup;
 pub mod teardown;

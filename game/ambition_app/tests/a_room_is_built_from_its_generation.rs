@@ -10,7 +10,7 @@
 //!
 //! ⭐⭐ **THE MECHANISM LANDED (`SessionMechanics` + `GenerationMechanics`) AND
 //! THE WITNESS DID NOT, WHICH IS WHY THIS FILE EXISTS.** The unit arms in
-//! `session::mechanics` prove the PROJECTION ranks the generation over the App.
+//! `ambition_platformer2d::construction::mechanics` prove the PROJECTION ranks the generation over the App.
 //! They cannot prove the shipped ROOM-TRANSITION road hands it the generation —
 //! that is a fact about `room_transition/loading.rs`'s `SystemParam`, not about
 //! `GenerationMechanics::characters()`. This repository has been bitten by
@@ -150,7 +150,7 @@ fn a_room_entered_after_activation_is_built_from_the_generation_not_the_app() {
     // is about the fallback rather than the freeze.
     assert!(
         sim.world_mut()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .is_some(),
         "no `SessionMechanics` in this harness, so there is no activated \
          generation for the App's registry to be stale against"
@@ -270,7 +270,7 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
 
     assert!(
         sim.world_mut()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .is_some(),
         "no `SessionMechanics` in this harness, so there is no activated \
          generation for the App's registry to be stale against"
@@ -416,7 +416,7 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
 
     assert!(
         sim.world_mut()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .is_some(),
         "no `SessionMechanics` in this harness, so there is no activated \
          generation for the App's registry to be stale against"
@@ -440,7 +440,7 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
     sim.world_mut().insert_resource(an_empty_cast());
 
     // THE MENU'S ROAD: a host intent, admitted as a checkpoint restore.
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );
@@ -679,7 +679,7 @@ fn an_ldtk_world_reload_rebuilds_the_room_from_the_generation_not_the_app() {
     // makes a capped App a DISAGREEMENT rather than two registries agreeing.
     assert_eq!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .expect("a running shipped session activated no generation")
             .population_cap,
         ambition_platformer2d::characters::actor::AuthoredPopulationCap::UNCAPPED,
@@ -732,7 +732,7 @@ fn an_ldtk_world_reload_rebuilds_the_room_from_the_generation_not_the_app() {
     // and the next death must still find the generation this session activated.
     assert_eq!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .expect("the world reload left the session with no generation at all")
             .population_cap,
         ambition_platformer2d::characters::actor::AuthoredPopulationCap::UNCAPPED,

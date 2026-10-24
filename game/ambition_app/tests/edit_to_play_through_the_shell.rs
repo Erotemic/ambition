@@ -505,7 +505,7 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
         // freeze now; this asserts the frozen record directly as well.
         let frozen = sim
             .world()
-            .resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .bosses
             .behavior("mockingbird")
             .map(|b| b.strike_speed_scale);

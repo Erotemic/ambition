@@ -721,7 +721,7 @@ pub fn begin_room_transition_load_system(
         // could walk through a door and have the next room built from N+1's cast
         // because a reload had published one in between. The frozen values win
         // where they exist; see `SessionMechanics`.
-        Option<Res<ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics>>,
+        Option<Res<ambition_platformer2d_construction::mechanics::SessionMechanics>>,
         // ⛔ COMPOSITION MODE, in this bundle because a `SystemParam` stops at
         // sixteen and because it belongs with them: it is what says whether the
         // generation above is OWED. Installed only by `ambition_game_shell`'s
@@ -762,7 +762,7 @@ pub fn begin_room_transition_load_system(
     // preparation error below, on the road this system already has for a room it
     // cannot prepare.
     let mechanics =
-        ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
+        ambition_platformer2d_construction::mechanics::GenerationMechanics::for_live_session(
             generation.as_deref(),
             frozen_cast.as_deref(),
         );

@@ -8,7 +8,7 @@
 //! and sends what they ask through the host intent ledger. While the pause
 //! menu or another surface owns the seat, the terminal reads nothing.
 
-use ambition_platformer2d::actors::session::host_intents::HostIntentWriter;
+use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
 use ambition_platformer2d::world::rooms::{GateNetworkCatalog, GateNetworkState, GateTerminalIntent};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::prelude::*;

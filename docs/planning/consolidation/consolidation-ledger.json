@@ -3145,19 +3145,19 @@
       "id": "AUTH-SESSION-MECHANICS",
       "category": "authority",
       "name": "Frozen mechanics for the activated content generation",
-      "owner": "ambition_platformer2d_actor_monolith::session::mechanics",
+      "owner": "ambition_platformer2d_construction::mechanics",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "SessionMechanics holds generation-owned cast, sheets, boss catalog, forced brain override, population cap, and perception extent. Live-session construction reads it and nothing else; the App-registry fallback was deleted 2026-09-20.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+        "crates/ambition_platformer2d_construction/src/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "SessionMechanics holds generation-owned cast, sheets, boss catalog, forced brain override, population cap, and perception extent. Live-session construction reads it and nothing else; the App-registry fallback was deleted 2026-09-20.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+            "crates/ambition_platformer2d_construction/src/mechanics.rs"
           ]
         }
       ],
@@ -4093,14 +4093,14 @@
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "`GenerationMechanics` holds ONE set of registries and no ranking. Three named constructors decide which authority a construction spends: `of` (an activated generation), `for_live_session` (the same, or a refusal), and `for_the_generation_being_built` (the candidate a hot reload is publishing). The App-registry fallback for compositions with no activated generation is deleted; a direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own, which is the scoped fixture authority Q144 permits.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+        "crates/ambition_platformer2d_construction/src/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "`GenerationMechanics` holds ONE set of registries and no ranking. Three named constructors decide which authority a construction spends: `of` (an activated generation), `for_live_session` (the same, or a refusal), and `for_the_generation_being_built` (the candidate a hot reload is publishing). The App-registry fallback for compositions with no activated generation is deleted; a direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own, which is the scoped fixture authority Q144 permits.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+            "crates/ambition_platformer2d_construction/src/mechanics.rs"
           ]
         }
       ],
@@ -4514,12 +4514,12 @@
       "id": "LIFE-SESSION-MECHANICS",
       "category": "lifecycle",
       "name": "Generation-owned mechanics stored as App resource",
-      "owner": "ambition_platformer2d_actor_monolith::session::mechanics",
+      "owner": "ambition_platformer2d_construction::mechanics",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs",
+        "crates/ambition_platformer2d_construction/src/mechanics.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
       ],
       "evidence": [
@@ -4527,7 +4527,7 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs",
+            "crates/ambition_platformer2d_construction/src/mechanics.rs",
             "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
           ]
         }
@@ -5599,14 +5599,14 @@
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "GenerationMechanics::for_live_session refuses missing SessionMechanics in shell-routed live rebuilds but permits App-registry fallback in direct/headless compositions.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+        "crates/ambition_platformer2d_construction/src/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "GenerationMechanics::for_live_session refuses missing SessionMechanics in shell-routed live rebuilds but permits App-registry fallback in direct/headless compositions.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+            "crates/ambition_platformer2d_construction/src/mechanics.rs"
           ]
         }
       ],
@@ -5964,14 +5964,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "DELETED 2026-09-20. The three-state contract is two: a live rebuild reads the activated generation or REFUSES, whoever asks. The `shell_routed` discriminator is gone with the case it protected -- a direct/headless composition that rebuilds rooms declares a scoped `SessionMechanics` instead of falling through to the App.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+        "crates/ambition_platformer2d_construction/src/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "DELETED 2026-09-20. The three-state contract is two: a live rebuild reads the activated generation or REFUSES, whoever asks. The `shell_routed` discriminator is gone with the case it protected -- a direct/headless composition that rebuilds rooms declares a scoped `SessionMechanics` instead of falling through to the App.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+            "crates/ambition_platformer2d_construction/src/mechanics.rs"
           ]
         }
       ],

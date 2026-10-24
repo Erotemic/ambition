@@ -49,7 +49,7 @@ pub enum RoomConstructionError {
     /// registries its generation was prepared against; falling back to whatever
     /// the App holds now rebuilds a live world out of a generation it was never
     /// prepared for. ⇒ A road that rebuilds a LIVE room refuses instead. See
-    /// `session::mechanics::GenerationMechanics::for_live_session`.
+    /// `ambition_platformer2d_construction::mechanics::GenerationMechanics::for_live_session`.
     LiveGenerationMechanicsMissing,
 }
 

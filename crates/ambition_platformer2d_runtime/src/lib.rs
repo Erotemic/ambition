@@ -101,7 +101,7 @@ pub use mode_scope::{
 };
 pub use ambition_combat::governing_rules::CurrentRoom;
 /// The one road a host input takes into the simulation. See the module docs.
-pub use ambition_platformer2d_actor_monolith::session::host_intents;
+pub use ambition_platformer2d_shared_tangle::host_intents;
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;

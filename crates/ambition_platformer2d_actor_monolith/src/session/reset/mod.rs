@@ -416,7 +416,7 @@ pub struct NewGameResetPlugin;
 impl Plugin for NewGameResetPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<RoomReplayRequested>();
-        app.add_plugins(crate::session::host_intents::HostIntentPlugin::<NewGameRequested>::default());
+        app.add_plugins(ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<NewGameRequested>::default());
         // After the item domain's restore, so the custody restore has emptied
         // the hand of authored occurrences before the transient clear strips
         // what is left.

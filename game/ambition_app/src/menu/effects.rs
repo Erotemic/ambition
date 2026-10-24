@@ -158,7 +158,7 @@ impl PrimaryHand<'_, '_> {
 /// Where a menu asks the simulation to use a consumable. The simulation
 /// spends the item and applies its effect on one stamped tick
 /// (`apply_item_uses`), so the menu writes neither the bag nor the body.
-pub(crate) type MenuItemUses<'w, 's> = ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
+pub(crate) type MenuItemUses<'w, 's> = ambition_platformer2d::platformer::host_intents::HostIntentWriter<
     'w,
     's,
     ambition_platformer2d::items::ItemUseRequested,

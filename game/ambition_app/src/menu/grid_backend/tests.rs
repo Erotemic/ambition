@@ -53,8 +53,8 @@ fn grid_app() -> App {
     app.init_resource::<GridMenuTabState>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-    app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
-    app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     // nav PUBLISHES activations now, so a harness that registers nav without

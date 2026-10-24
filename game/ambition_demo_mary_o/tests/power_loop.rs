@@ -664,7 +664,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     // The damage path sizes split offspring from the sheets of its generation
     // (U1 stage B), and resolves no hit when there is none. This fixture
     // states an empty generation.
-    app.init_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>();
+    app.init_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<ProjectileVisualCatalog>();

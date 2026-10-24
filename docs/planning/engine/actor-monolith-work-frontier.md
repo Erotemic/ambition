@@ -265,6 +265,20 @@ was `abilities`, `features`, `items`, `session`
 - `items -> abilities` was the gun's registration in the item plugin; it
   went with the gun.
 
+**Then the last two: the kernel's module graph is a DAG.** `features ->
+session` was 11 references to two pieces of vocabulary, and both left the
+session:
+- `SessionMechanics` and `GenerationMechanics`, the frozen construction
+  values of one content generation, are
+  `ambition_platformer2d_construction::mechanics`: every construction road
+  reads them, and the session only activates and retires them.
+- `HostIntentPlugin` and its ledger, a stamped ingress gated by the live
+  session scope, are `ambition_platformer2d_shared_tangle::host_intents`.
+
+`session -> features` (4: the consumed-pickups ledger, the world-time
+schedule, one ordering edge) stays: the session orchestrates the domains'
+checkpoint state, as it does `items`'.
+
 ## A8. Prove live world-instance isolation before generalizing residency
 
 **State:** several live rooms are landed (see

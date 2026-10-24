@@ -1020,7 +1020,7 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );
@@ -1110,7 +1110,7 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );

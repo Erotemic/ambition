@@ -26,7 +26,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveSessionScope, SessionScopeId};
+use crate::lifecycle::{LiveSessionScope, SessionScopeId};
 
 #[derive(Clone, Debug, PartialEq)]
 struct StampedHostIntent<M> {
@@ -127,7 +127,7 @@ impl<M: Message + Clone> HostIntentWriter<'_, '_, M> {
 /// [`HostIntentWriter::write`] from exclusive world access, for a host step
 /// that holds the `World` (a harness, a test driver).
 pub fn write_host_intent<M: Message + Clone>(world: &mut World, payload: M) {
-    let Some(scope) = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world)
+    let Some(scope) = crate::lifecycle::live_session_scope(world)
     else {
         warn!(
             target: "ambition_platformer2d::host_intents",
@@ -183,7 +183,7 @@ pub struct HostIntentTypes {
 /// At the head of the simulation, before the clock names the next tick, so the
 /// tick compared is the one the writer stamped.
 pub fn release_every_host_intent(world: &mut World) {
-    let Some(live) = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world) else {
+    let Some(live) = crate::lifecycle::live_session_scope(world) else {
         return;
     };
     let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
@@ -201,7 +201,7 @@ pub fn release_every_host_intent(world: &mut World) {
 /// Not in the simulation schedule: a resimulated tick that erased its own
 /// input would reach a different history than the pass it reproduces.
 pub fn prune_every_host_intent(world: &mut World) {
-    let live = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
+    let live = crate::lifecycle::live_session_scope(world);
     let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
     // Absent on a host that does not speculate: a passed tick is settled.
     let prediction_distance = world.get_resource::<ConfirmedFrameBoundary>().map_or(0, |boundary| {
@@ -230,7 +230,7 @@ impl<M: Message + Clone> Default for HostIntentPlugin<M> {
 
 impl<M: Message + Clone> Plugin for HostIntentPlugin<M> {
     fn build(&self, app: &mut App) {
-        use ambition_platformer2d_shared_tangle::schedule::{
+        use crate::schedule::{
             GameplaySimulationRoot, Platformer2dSimulationPhase, SimClockHead,
             SimScheduleExt as _,
         };

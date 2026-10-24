@@ -2819,7 +2819,7 @@ fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
     for _ in 0..20 {
         outside.step(AgentAction::default());
     }
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         outside.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );
@@ -3276,7 +3276,7 @@ fn a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell() {
     };
     let cells_before = cells(&outside);
     assert!(cells_before >= 1, "the starter bag holds no Health Cell to use");
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         outside.world_mut(),
         ambition_platformer2d::items::ItemUseRequested {
             item: ambition_platformer2d::items::Item::HealthCell,
@@ -4087,7 +4087,7 @@ fn a_host_intent_acts_on_the_tick_it_is_stamped_for() {
     assert!(before >= 1, "the starter bag holds no Health Cell to use");
     let written_after = tick(&sim);
 
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::items::ItemUseRequested { item: Item::HealthCell },
     );

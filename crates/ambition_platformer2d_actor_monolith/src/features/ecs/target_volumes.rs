@@ -89,7 +89,7 @@ pub fn refresh_boss_damageable_volumes(
     // reload publishes the App's catalog before its session is activated, and
     // a resimulated frame must not read it. `None`: no session runs, see
     // `SessionMechanics`.
-    generation: Option<Res<crate::session::mechanics::SessionMechanics>>,
+    generation: Option<Res<ambition_platformer2d_construction::mechanics::SessionMechanics>>,
     mut bosses: Query<(
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,

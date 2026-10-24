@@ -1597,9 +1597,9 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
-            crate::session::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),
+            ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),
             // A gate terminal's dial, hangup and close, through the same ledger.
-            crate::session::host_intents::HostIntentPlugin::<ambition_platformer2d_world::rooms::GateTerminalIntent>::default(),
+            ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_platformer2d_world::rooms::GateTerminalIntent>::default(),
         ));
 
         // THE ORDER, SAID OUT LOUD. Every reason each boundary exists is

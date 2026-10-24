@@ -6,10 +6,11 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`mechanics`](src/mechanics.rs) | Mechanical inputs bound to one admitted content generation. |
 | [`placements`](src/placements.rs) | Actor construction's context for lowering authored placement records. |
 | [`whereabouts`](src/whereabouts.rs) | Where an authored body is when it is not in the room that authored it (Q38, OW3): a persistent character's durable whereabouts, and the population occurrences that live away from home. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

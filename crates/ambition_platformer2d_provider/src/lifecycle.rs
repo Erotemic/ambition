@@ -1824,7 +1824,7 @@ pub struct PreparedPlatformerSession {
 /// call and every later road (a door, a death, a reset) went back to the App.
 /// Living in `actor_monolith` it can also be the RESOURCE those roads read. One
 /// type, two lifetimes: frozen in the prepared record, promoted at activation.
-pub use ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics;
+pub use ambition_platformer2d_construction::mechanics::SessionMechanics;
 
 #[derive(Resource, Default)]
 pub struct PreparedPlatformerSessions {
@@ -2635,7 +2635,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                             .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog),
                         // ⛔ THE GENERATION BEING ACTIVATED, WITH NO FALLBACK.
                         // See `GenerationMechanics::of`.
-                        &ambition_platformer2d_actor_monolith::session::mechanics::
+                        &ambition_platformer2d_construction::mechanics::
                             GenerationMechanics::of(mechanical, cast),
                         // ⭐ THE ACTIVATION GENERATION, BOTH HALVES, FROM THE
                         // ONE VALUE THAT HOLDS THEM. `PreparedContentIdentity`
@@ -2794,7 +2794,7 @@ pub struct PreparedCandidateSession {
     /// sessions, installed at adoption. See `StartingBag`.
     starting_bag: ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag,
     /// The generation's frozen registries, installed at adoption.
-    mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
+    mechanics: ambition_platformer2d_construction::mechanics::SessionMechanics,
     /// The cast frozen with them, installed beside them.
     cast: ambition_characters::prepared::ActiveSessionCast,
 }
@@ -4326,7 +4326,7 @@ mod mechanical_registries_reach_the_identity {
             ambition_boss_encounter::test_boss_catalog().deterministic_dump(),
         );
         assert!(
-            ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
+            ambition_platformer2d_construction::mechanics::GenerationMechanics::for_live_session(
                 Some(frozen),
                 Some(frozen_cast),
             )

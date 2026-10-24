@@ -107,7 +107,7 @@ def test_no_constructor_reads_the_app_registries_any_more():
         "architecture-census.md on the strength of there being no such road."
     )
 
-    home = REPO / "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+    home = REPO / "crates/ambition_platformer2d_construction/src/mechanics.rs"
     body = strip_comments(home.read_text())
     constructors = sorted(set(re.findall(r"pub fn (\w+)\(\s*\n?\s*(?:generation|active)", body)))
     assert constructors == ["for_live_session", "of"], (

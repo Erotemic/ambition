@@ -556,8 +556,8 @@ pub struct SenseExtent<'w> {
     app: Option<bevy::prelude::Res<'w, ambition_characters::perception::PerceptionExtentOverride>>,
     // The activated generation outranks the App: two Apps with the same
     // prepared content must give their actors the same senses. See
-    // `session::mechanics::perception_extent_for`.
-    generation: Option<bevy::prelude::Res<'w, crate::session::mechanics::SessionMechanics>>,
+    // `ambition_platformer2d_construction::mechanics::perception_extent_for`.
+    generation: Option<bevy::prelude::Res<'w, ambition_platformer2d_construction::mechanics::SessionMechanics>>,
     // ⛔ COMPOSITION MODE. Installed only by `ambition_game_shell`'s session
     // plugin, so its presence tells "this composition has no generation on
     // purpose" from "this shell session lost the one it had".
@@ -570,7 +570,7 @@ impl SenseExtent<'_> {
     /// The half extent a sighted body sees, or `None` when this session cannot
     /// decide it: a shell-routed session whose generation is missing.
     pub fn resolve(&self) -> Option<ae::Vec2> {
-        crate::session::mechanics::perception_extent_for(
+        ambition_platformer2d_construction::mechanics::perception_extent_for(
             self.session_gate.is_some(),
             self.generation.as_deref(),
             self.app.as_deref(),

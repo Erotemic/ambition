@@ -279,7 +279,7 @@ impl<'a> ActorConstructionContext<'a> {
         characters: &'a CharacterCatalog,
         // WHAT THEY LOOK LIKE and WHAT THEY ARE — the generation's own sheets and
         // prepared cast, from the one owner that has them.
-        mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
+        mechanics: &ambition_platformer2d_construction::mechanics::GenerationMechanics<'a>,
         // THE ONE GENERATION: both the content these roots are made of and the
         // generation their commit boundary must still find live. A door, a
         // death, a reset and a prefetch all rebuild a room the ACTIVE generation
@@ -350,7 +350,7 @@ impl<'a> ActorConstructionContext<'a> {
         // `SessionMechanics` first, so the values spent and the values
         // fingerprinted are one object. There is no constructor that takes
         // loose registries any more.
-        mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
+        mechanics: &ambition_platformer2d_construction::mechanics::GenerationMechanics<'a>,
         // The generation still live in the world being published INTO. The
         // staleness comparison at the boundary is against this.
         expected_live: ambition_platformer2d_shared_tangle::construction::ContentBinding,
@@ -381,7 +381,7 @@ impl<'a> ActorConstructionContext<'a> {
     fn with_room_authorities(
         recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
-        mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
+        mechanics: &ambition_platformer2d_construction::mechanics::GenerationMechanics<'a>,
         expected_live: ambition_platformer2d_shared_tangle::construction::ContentBinding,
         incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding,
         brain_profiles: Option<
@@ -1370,7 +1370,7 @@ pub fn serve_encounter_spawn_commands(
     // The sheets of the running session, as every construction road reads
     // them (`GenerationMechanics::sheets`). `None`: no session runs, see
     // `SessionMechanics`.
-    generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
+    generation: Option<bevy::prelude::Res<ambition_platformer2d_construction::mechanics::SessionMechanics>>,
     // The room each mob is built in: it starts on the ground there, as a
     // placed enemy does. `None`: a composition with no rooms.
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,

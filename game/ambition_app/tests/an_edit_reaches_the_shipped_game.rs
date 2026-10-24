@@ -2372,7 +2372,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
     // refused candidate must leave A's alone.
     let mechanics_before = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+        .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
         .map(|mechanics| format!("{mechanics:?}"));
     let platforms_before = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world()).expect("the live room has moving platforms")
         .0
@@ -2463,7 +2463,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
 
     assert_eq!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .map(|mechanics| format!("{mechanics:?}")),
         mechanics_before,
         "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S MECHANICS"
@@ -2769,7 +2769,7 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
     // true of a composition that never installs it at all.
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .is_some(),
         "an adopted session has no `SessionMechanics`, so the cancel arm's claim          that preparation installs none is a claim about nothing"
     );
@@ -2979,7 +2979,7 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     // what makes their ABSENCE meaningful.
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
             .is_none(),
         "⛔ PREPARING A CANDIDATE SESSION INSTALLED `SessionMechanics` PROCESS-WIDE.          The candidate was cancelled and never adopted, so the generation's frozen          registries belong to no session at all"
     );

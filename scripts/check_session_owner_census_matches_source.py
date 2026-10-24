@@ -78,7 +78,7 @@ FAMILY_FIELD = re.compile(r"^\s{4}pub\s+\w+:\s*([\w:]+),\s*$", re.M)
 #: never counted by field.
 SINGLETON = (
     "SessionMechanics",
-    "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs",
+    "crates/ambition_platformer2d_construction/src/mechanics.rs",
 )
 
 #: ⛔ A member is `ResMut<'w, T>` or `Option<ResMut<'w, T>>`, and the optional

@@ -3501,7 +3501,7 @@ by its own value (schema 327).
 ### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update` — CLOSED 2026-09-19
 
 Menu presses reach the simulation through `HostIntentLedger<M>`
-(`crates/ambition_platformer2d_actor_monolith/src/session/host_intents.rs`),
+(`crates/ambition_platformer2d_shared_tangle/src/host_intents.rs`),
 released at the head of the stamped tick in every pass. Ruled (`Q140`): one frame of stale UI is acceptable. ⛔ Do not add
 duplicate authoritative inventory state or optimistic reconciliation to hide it.
 Witness: `a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell`.

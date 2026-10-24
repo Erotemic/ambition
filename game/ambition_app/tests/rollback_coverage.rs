@@ -228,7 +228,7 @@ const WAIVED: &[(&str, &str)] = &[
     // The host's ingress of the same shape: a menu's intent, stamped with the
     // tick it applies on and the session it belongs to.
     (
-        "ambition_platformer2d_actor_monolith::session::host_intents::HostIntentLedger",
+        "ambition_platformer2d_shared_tangle::host_intents::HostIntentLedger",
         "an EXTERNAL INPUT from the host, stamped with the tick it applies on — \
          rewinding it would erase what the simulation was told rather than what \
          it decided",
@@ -1105,7 +1105,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "a list of functions filled while the App is built: one step per quarantined effect family and phase (open, journal, release, discard). Each pass takes a family's step out of the list, runs it on the world and puts it back in the same system run, so the list is the same before and after every pass. The journals the steps write are their own resources. It holds no game state; rewinding it would change nothing",
     ),
     (
-        "ambition_platformer2d_actor_monolith::session::host_intents::HostIntentTypes",
+        "ambition_platformer2d_shared_tangle::host_intents::HostIntentTypes",
         "a list of functions filled while the App is built: the release and prune step of each registered host-intent type. Each pass takes a step out, runs it and puts it back in the same system run, so the list is the same before and after every pass. The intents the steps act on are their own resources. It holds no game state; rewinding it would change nothing",
     ),
     (
@@ -1932,7 +1932,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the DEVICE side of the input boundary, for EVERY seat including zero: it          folds device samples between ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
     ),
     (
-        "ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics",
+        "ambition_platformer2d_construction::mechanics::SessionMechanics",
         "THE MECHANICAL REGISTRIES THE ACTIVE GENERATION IS MADE OF \u{2014} the prepared          cast, the authored sheets and the boss catalog, frozen when this          generation's identity was taken and promoted at activation so a room          transition, a death and a reset all rebuild from the SAME values the          session was prepared against. \u{26d4} IT IS MECHANICAL AND THAT IS WHY IT IS          HERE RATHER THAN UNLISTED: what it holds decides what a body's stats,          geometry and moveset are. \u{2b50} But it is written at exactly ONE moment \u{2014} the          activation boundary \u{2014} and by exactly one writer, and a resimulated frame          activates no session and reconstructs no world, so a rewind has nothing          to put back. It is the INPUT a generation was built from, and          `PreparedContentIdentity` already binds all three of its members: the          rollback timeline contract compares that identity to decide whether a          snapshot may be restored at all, so a session whose mechanics differ is          refused before any frame of it is replayed. Snapshotting a copy would be          a second authority for a value the contract already governs",
     ),
     (

@@ -55,7 +55,7 @@ pub fn apply_summon_effects(
     // The sheets and the boss catalog of the running session, and not those of
     // the App: a reload publishes the App's before the session that runs them
     // is activated. `None`: no session runs, see `SessionMechanics`.
-    generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
+    generation: Option<bevy::prelude::Res<ambition_platformer2d_construction::mechanics::SessionMechanics>>,
     recipes: bevy::prelude::Res<ambition_platformer2d_construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
     identities: bevy::prelude::Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,

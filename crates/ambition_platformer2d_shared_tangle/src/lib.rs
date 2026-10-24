@@ -37,6 +37,8 @@ pub mod block_nudge;
 pub mod feature_kind;
 pub mod feature_overlay;
 
+/// Host intents (a menu press) enter the simulation on a stamped tick.
+pub mod host_intents;
 pub mod held_item_art;
 pub mod world_item_art;
 

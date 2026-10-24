@@ -300,7 +300,7 @@ fn every_parameter_variant_constructs_its_root() {
 
     let mut world = World::new();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    world.init_resource::<ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics>();
+    world.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     let services = ActorConstructionServices {
         context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -1900,7 +1900,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
         ActorConstructionContext::for_content_replacement(
             &recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
+            &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
             // The world it is being committed into, which is still N.
             live.0,
             // The INCOMING generation — what a reload is publishing.
@@ -1962,7 +1962,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
             ActorConstructionContext::for_content_replacement(
                 &recipes,
                 &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-                &ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
+                &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
                 // … to be committed INTO a world running 4.
                 expected.0,
                 // built FROM generation 5 …

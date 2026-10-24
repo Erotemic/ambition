@@ -86,7 +86,7 @@ fn request_sandbox_reset(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes;
     let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator").latest().cloned();
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );

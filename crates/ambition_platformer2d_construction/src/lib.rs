@@ -4,6 +4,9 @@
 //! closed [`ConstructionDomain`](ambition_platformer2d_shared_tangle::construction::ConstructionDomain)
 //! through construction federation.
 
+/// The frozen construction values of one admitted content generation, which
+/// every construction road of a session reads.
+pub mod mechanics;
 pub mod placements;
 pub mod whereabouts;
 

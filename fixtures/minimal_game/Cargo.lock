@@ -822,6 +822,7 @@ dependencies = [
  "ambition_projectile_spec",
  "ambition_registry_core",
  "ambition_sim_schedule",
+ "ambition_time",
  "bevy",
  "tracing",
 ]

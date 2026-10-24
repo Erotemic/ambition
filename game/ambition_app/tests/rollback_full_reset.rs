@@ -53,7 +53,7 @@ fn a_full_sandbox_reset_survives_the_rollback_window() {
     assert!(!before.is_empty(), "the room has a roster before the reset");
 
     // The menu's road: a host intent, with no rebase.
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );

@@ -23,6 +23,7 @@
 | [`gameplay_presentation`](src/gameplay_presentation/mod.rs) | Gameplay presentation policy: where the gameplay camera renders on the physical display, and where important subjects should stay inside it. |
 | [`gravity`](src/gravity.rs) | Shared world physics applied to every actor body. |
 | [`held_item_art`](src/held_item_art.rs) | Provider-contributed art declarations for inventory/held items (the ground pickup + in-hand icon of a `HeldItem`: an axe, a javelin, a gun-sword, a wielded-gauntlet ability prop). |
+| [`host_intents`](src/host_intents.rs) | Host intents enter the simulation on a stamped tick. |
 | [`lifecycle`](src/lifecycle/mod.rs) | Lifecycle vocabulary for reusable platformer entities. |
 | [`markers`](src/markers.rs) | Content-free entity markers shared by reusable mechanics and presentation. |
 | [`math`](src/math.rs) | Pure portal-map vector math for platformer mechanics. |
@@ -44,7 +45,7 @@
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 
-_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_38 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

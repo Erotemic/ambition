@@ -466,7 +466,7 @@ fn fight_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
     // The generation the damage path reads: a fixture states an empty one.
-    app.init_resource::<crate::session::mechanics::SessionMechanics>();
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.insert_resource(
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(EMPTY_CATALOG),

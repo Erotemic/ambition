@@ -29,7 +29,7 @@
 /// below are what told the two apart.
 #[test]
 fn an_activated_session_carries_the_cast_it_was_prepared_against() {
-    use ambition_platformer2d::actors::session::mechanics::SessionMechanics;
+    use ambition_platformer2d::construction::mechanics::SessionMechanics;
     use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
     let mut sim = crate::common::fixed_60hz_room_sim("proving_grounds");

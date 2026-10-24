@@ -643,7 +643,7 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     gravity_room: ambition_platformer2d::session::PrimaryLiveRoom<'w, 's>,
     // New Game is a host intent: the simulation arms its reset on the tick
     // the ledger stamps, so a rewind cannot erase the press.
-    reset: ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
+    reset: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
         'w,
         's,
         ambition_platformer2d::actors::session::reset::NewGameRequested,

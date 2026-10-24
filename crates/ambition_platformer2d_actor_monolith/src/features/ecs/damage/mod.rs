@@ -360,7 +360,7 @@ pub struct FeatureHitCatalogs<'w> {
     /// its sheet like anything else (U1 stage B), and that sheet is the
     /// generation's, as for every construction road (`GenerationMechanics`).
     /// `None`: no session runs, see `SessionMechanics`.
-    pub generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
+    pub generation: Option<Res<'w, ambition_platformer2d_construction::mechanics::SessionMechanics>>,
     /// The item catalog, for the ability a defeated boss drops.
     pub items: ambition_items::ItemCatalogRead<'w>,
 }

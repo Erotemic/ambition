@@ -115,7 +115,7 @@ fn open_terminal(sim: &mut Platformer2dSimHarness, id: &str, ring: &str) {
 /// Send one request to the open terminal of `ring`, as its panel does, and let
 /// the simulation take it.
 fn ask(sim: &mut Platformer2dSimHarness, ring: &str, action: GateTerminalAction) {
-    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
         GateTerminalIntent { ring: ring.to_string(), action },
     );

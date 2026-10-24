@@ -134,7 +134,7 @@ pub(super) fn handle_ldtk_hot_reload(
         // are the correct answer for a WORLD-only reload.
         // And the cast frozen beside them (`ActiveSessionCast`, its owner).
         (
-            Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
+            Option<Res<ambition_platformer2d::construction::mechanics::SessionMechanics>>,
             Option<Res<ambition_platformer2d::characters::prepared::ActiveSessionCast>>,
         ),
     ),
@@ -511,7 +511,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // and that case is a REFUSAL rather than a fallback, exactly as
     // `for_live_session` demands of every other live rebuild road.
     session_mechanics: Option<
-        &ambition_platformer2d::actors::session::mechanics::SessionMechanics,
+        &ambition_platformer2d::construction::mechanics::SessionMechanics,
     >,
     // The cast frozen with them; refused with them when absent.
     session_cast: Option<&ambition_platformer2d::characters::prepared::ActiveSessionCast>,
@@ -610,7 +610,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // the fingerprint and publishes a new `SessionMechanics` with them; it is
     // not something a world reload may smuggle.
     let live_mechanics =
-        ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
+        ambition_platformer2d::construction::mechanics::GenerationMechanics::for_live_session(
             session_mechanics,
             session_cast,
         )

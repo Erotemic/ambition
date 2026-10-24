@@ -1899,7 +1899,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     // construction reading another. Building the generation that OWNS the cap is
     // the same experiment through the road production now takes.
     let planned_under = |cap: AuthoredPopulationCap| -> Vec<String> {
-        let generation = crate::session::mechanics::SessionMechanics {
+        let generation = ambition_platformer2d_construction::mechanics::SessionMechanics {
             population_cap: cap,
             ..Default::default()
         };
@@ -1911,7 +1911,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             crate::features::ActorConstructionContext::for_live_room_construction(
                 &recipes,
                 &catalog,
-                &crate::session::mechanics::GenerationMechanics::of(
+                &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(
                     &generation,
                     &ambition_characters::prepared::ActiveSessionCast(None),
                 ),
@@ -1970,7 +1970,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
 #[test]
 fn a_spawn_request_on_the_bus_becomes_a_body() {
     let mut app = spawn_request_app();
-    app.init_resource::<crate::session::mechanics::SessionMechanics>();
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.update();
     assert_eq!(
         bodies_built(&mut app),

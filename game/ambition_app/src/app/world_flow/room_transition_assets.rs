@@ -1483,7 +1483,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // while the door builds from the session's frozen ones is a cache whose
         // entries can never be right — a silent, permanent miss at best, and a
         // promoted plan built from the wrong cast at worst.
-        Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
+        Option<Res<ambition_platformer2d::construction::mechanics::SessionMechanics>>,
     ),
     // Grouped to stay under Bevy's SystemParam arity limit: where the players
     // stand ranks the neighbours (`neighbour_prefetch_set`).
@@ -1507,7 +1507,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // built from the App's registries in a shell composition would reintroduce
     // the very fallback the door now refuses, laundered through the cache.
     let Some(mechanics) =
-        ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
+        ambition_platformer2d::construction::mechanics::GenerationMechanics::for_live_session(
             generation.as_deref(),
             frozen_cast.as_deref(),
         )

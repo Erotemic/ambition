@@ -39,8 +39,8 @@ pub fn empty_room(id: &str) -> ambition_platformer2d_world::rooms::RoomSpec {
 ///
 /// `'static` for the same reason as [`fixture_cast`]: `GenerationMechanics`
 /// borrows it and the context borrows that.
-pub fn replacement_mechanics() -> &'static crate::session::mechanics::SessionMechanics {
-    static MECHANICS: std::sync::OnceLock<crate::session::mechanics::SessionMechanics> =
+pub fn replacement_mechanics() -> &'static ambition_platformer2d_construction::mechanics::SessionMechanics {
+    static MECHANICS: std::sync::OnceLock<ambition_platformer2d_construction::mechanics::SessionMechanics> =
         std::sync::OnceLock::new();
     MECHANICS.get_or_init(Default::default)
 }
@@ -222,7 +222,7 @@ pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::Summo
 pub fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    world.init_resource::<crate::session::mechanics::SessionMechanics>();
+    world.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     world.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
     world.insert_resource(fixture_cast().clone());

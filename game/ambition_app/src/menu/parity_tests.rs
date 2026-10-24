@@ -549,8 +549,8 @@ mod dispatch_parity {
         app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-        app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
-    app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
+        app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
         // both backends now dispatch from the SAME message, which is what

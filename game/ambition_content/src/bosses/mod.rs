@@ -329,13 +329,16 @@ impl Plugin for AmbitionBossContentPlugin {
             crate::AMBITION_RULES,
             (
                 reset_cut_rope_boss_arena_on_room_reset
+                    .run_if(ambition_combat::events::a_replay_is_admitted)
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
                 emit_cut_rope_room_replay_after_the_conversation_ends
+                    .run_if(cut_rope::a_cut_rope_replay_is_chosen_or_pending)
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet),
                 // The content half of an in-place room replay: clear the cut-rope
                 // boss's per-attempt state. The host anchors this slot before its
                 // generic replay consumer (which owns the player/world reset).
                 reset_cut_rope_attempt_on_replay
+                    .run_if(ambition_combat::events::a_replay_is_admitted)
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
             ),
         );
@@ -393,7 +396,9 @@ impl Plugin for AmbitionBossContentPlugin {
             crate::AMBITION_RULES,
             // Victory NPC spawn — after the boss chain frees the payload,
             // before the save mirrors run.
-            spawn_cut_rope_victory_npc.in_set(ambition_boss_encounter::ContentEncounterVictorySet),
+            spawn_cut_rope_victory_npc
+                .run_if(cut_rope::a_release_waits_or_an_arena_is_live)
+                .in_set(ambition_boss_encounter::ContentEncounterVictorySet),
         );
 
         // GNU-ton arena gate: a derived collision-overlay contributor (hides the

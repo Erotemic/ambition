@@ -46,6 +46,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             play_portal_sfx
+                .run_if(super::sfx_adapter::a_portal_signal_waits)
                 .in_set(PortalSet::Transited),
         );
 
@@ -70,6 +71,8 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 crate::portal::host_adapter::refresh_hosted_portal_frames,
             )
                 .chain()
+                // Both visit placed portals only.
+                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
                 .in_set(PortalSet::Pose)
                 .before(ambition_portal2d::PortalLinkResolution),
         );
@@ -96,6 +99,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             portal_projectile_step
+                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PortalShot>)
                 .in_set(GameplayGated)
                 .in_set(PortalSet::WeaponAndProjectiles)
                 .after(portal_fire_system),
@@ -138,6 +142,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             resolve_portal_fire_intent
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::FirePortalGun>)
                 .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
@@ -153,6 +158,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             pickup_portal_gun_system
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::PickUpPortalGun>)
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
                 .after(ambition_portal2d::PortalPickupArming),
@@ -164,6 +170,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             drop_portal_gun_system
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::DropPortalGun>)
                 .in_set(GameplayGated)
                 // `PortalSet::WeaponAndProjectiles` is wired
                 // `.in_set(PlayerSimulation)` in `wire_portal_schedule`, so the

@@ -146,6 +146,25 @@ pub fn restart_heavy_object_cycle_on_activation(
 /// once the conversation is over. `AmbitionBossContentPlugin` registers it in
 /// the engine's `ContentDialogueFollowupSet` slot, so the host never names this
 /// system. The conversation authority decides when the conversation is over.
+/// Run condition of [`emit_cut_rope_room_replay_after_the_conversation_ends`]:
+/// "try again" was chosen this tick, or one waits for the dialog to close.
+pub fn a_cut_rope_replay_is_chosen_or_pending(
+    chosen: Res<bevy::ecs::message::Messages<CutRopeRoomReplayRequested>>,
+    pending: Res<PendingCutRopeRoomReplay>,
+) -> bool {
+    !chosen.is_empty() || pending.requested
+}
+
+/// Run condition of [`spawn_cut_rope_victory_npc`]: a payload release waits
+/// to be drained, or a cut-rope arena is live or held.
+pub fn a_release_waits_or_an_arena_is_live(
+    released: Res<bevy::ecs::message::Messages<ambition_boss_encounter::PayloadReleased>>,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
+    state: Res<CutRopeBossArenaState>,
+) -> bool {
+    !released.is_empty() || arena::a_cut_rope_arena_is_live_or_held(rooms, state)
+}
+
 pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     conversation: Res<ambition_conversation::ActiveConversation>,
     mut chosen: MessageReader<CutRopeRoomReplayRequested>,

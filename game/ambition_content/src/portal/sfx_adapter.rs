@@ -19,6 +19,16 @@ use ambition_portal2d::{PortalBodyEntered, PortalBodyTransited, PortalShotFired}
 ///
 /// Runs after the portal fire + transit systems so every signal emitted this
 /// frame is played the same frame, byte-identical to the old in-core writes.
+/// Run condition of [`play_portal_sfx`]: one of its three signals waits.
+/// Peeks; the reader takes them.
+pub fn a_portal_signal_waits(
+    fired: Res<Messages<PortalShotFired>>,
+    entered: Res<Messages<PortalBodyEntered>>,
+    transited: Res<Messages<PortalBodyTransited>>,
+) -> bool {
+    !fired.is_empty() || !entered.is_empty() || !transited.is_empty()
+}
+
 pub fn play_portal_sfx(
     mut fired: MessageReader<PortalShotFired>,
     mut entered: MessageReader<PortalBodyEntered>,

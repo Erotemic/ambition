@@ -453,9 +453,9 @@ fn a_wall_may_be_gated_on_what_the_body_can_do() {
 
     let mut app = world_with_one_wall_gated_by("body.can wall_climb");
     app.publish_subject_condition(
-        crate::body_conditions::can_descriptor(),
-        crate::body_conditions::can,
-        crate::body_conditions::can_for,
+        ambition_abilities::body_conditions::can_descriptor(),
+        ambition_abilities::body_conditions::can,
+        ambition_abilities::body_conditions::can_for,
     );
     let body = app
         .world_mut()
@@ -511,9 +511,9 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
 
     let mut app = world_with_one_wall_gated_by("body.fits 32");
     app.publish_subject_condition(
-        crate::body_conditions::fits_descriptor(),
-        crate::body_conditions::fits,
-        crate::body_conditions::fits_for,
+        ambition_abilities::body_conditions::fits_descriptor(),
+        ambition_abilities::body_conditions::fits,
+        ambition_abilities::body_conditions::fits_for,
     );
     let mut standing_body = BodyKinematics::default();
     standing_body.size.y = 64.0;
@@ -565,9 +565,9 @@ fn a_body_gate_is_open_only_for_the_bodies_that_satisfy_it() {
 
     let mut app = world_with_one_wall_gated_by("body.can wall_climb");
     app.publish_subject_condition(
-        crate::body_conditions::can_descriptor(),
-        crate::body_conditions::can,
-        crate::body_conditions::can_for,
+        ambition_abilities::body_conditions::can_descriptor(),
+        ambition_abilities::body_conditions::can,
+        ambition_abilities::body_conditions::can_for,
     );
     let mut climbs = ambition_platformer2d_core::abilities::AbilitySet::default();
     climbs.wall_climb = true;
@@ -807,8 +807,8 @@ fn a_wall_gated_on_the_body_follows_the_vessel_the_participant_drives() {
     fn app_with_possession(home_climbs: bool, vessel_climbs: bool) -> App {
         let mut app = world_with_one_wall_gated_by("body.can wall_climb");
         app.publish_condition(
-            crate::body_conditions::can_descriptor(),
-            crate::body_conditions::can,
+            ambition_abilities::body_conditions::can_descriptor(),
+            ambition_abilities::body_conditions::can,
         );
         let abilities = |climbs: bool| {
             let mut set = ambition_platformer2d_core::abilities::AbilitySet::default();

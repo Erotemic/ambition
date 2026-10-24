@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
+| [`body_conditions`](src/body_conditions.rs) | Authored BODY-CAPABILITY conditions — "can the body do this verb at all?" |
 | [`extension`](src/extension.rs) | The held-item domain's extension adapters (fast-iteration I7: a wielded ability as a procedural module). |
 | [`mana`](src/mana.rs) | The main game's Mana: the resource the held abilities in this crate spend. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities (fast-iteration I7): the adapters of `ambition.world.spawn_module_entity` and `ambition.world.module_entity_tick`. |
@@ -16,7 +17,7 @@
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade. |
 | [`traversal`](src/traversal/mod.rs) | Traversal rules a held item uses through its ports: the blink rule and the mark, which the blink, dive and mark/recall modules use. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

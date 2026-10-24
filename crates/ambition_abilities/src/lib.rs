@@ -33,6 +33,7 @@
 //! for a unit fixture; the game also installs the kernel.
 
 pub mod ability_cooldown;
+pub mod body_conditions;
 pub mod extension;
 pub mod mana;
 pub mod module_entity;

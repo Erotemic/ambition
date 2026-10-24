@@ -332,7 +332,7 @@ pub fn fits_for(world: &World, subject: bevy::prelude::Entity, args: &[AuthoredA
 /// Publishes the body domain's conditions.
 ///
 /// One plugin for one registration line, matching
-/// [`WorldFactConditionsPlugin`](crate::world_facts::WorldFactConditionsPlugin)
+/// the actor monolith's `world_facts::WorldFactConditionsPlugin`
 /// and the inventory's: composition adds it, and nothing else in the engine
 /// learns that a body can be asked what it is capable of.
 pub struct BodyCapabilityConditionsPlugin;

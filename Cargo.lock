@@ -167,6 +167,7 @@ dependencies = [
  "ambition_time",
  "ambition_vfx",
  "bevy",
+ "serde_json",
 ]
 
 [[package]]

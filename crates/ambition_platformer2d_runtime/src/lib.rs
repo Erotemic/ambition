@@ -690,7 +690,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // reader of `AbilitySet`. FOURTH provider, one line, and it is only
             // useful because `gated_by` became a condition line: a route may
             // now ask what the body it is stopping can actually do.
-            .add(ambition_platformer2d_actor_monolith::body_conditions::BodyCapabilityConditionsPlugin)
+            .add(ambition_abilities::body_conditions::BodyCapabilityConditionsPlugin)
             // The encounter capability's own provider — `encounter.cleared(id)`.
             // FIFTH provider, and the first one that does not live in the actor
             // monolith: it ships from `ambition_encounter_features` beside the

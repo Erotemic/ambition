@@ -43,7 +43,6 @@ pub mod clash;
 pub mod config;
 #[cfg(test)]
 pub mod enemy_projectile;
-pub mod body_conditions;
 pub mod items;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.

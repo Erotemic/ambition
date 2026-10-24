@@ -943,6 +943,25 @@ impl ContributedRoomAssets {
 /// `Running` whenever `RoomTransitionAssetContributor` is installed; this system
 /// is what installs that marker's promise.
 #[allow(clippy::too_many_arguments)]
+/// Run condition of [`contribute_room_transition_assets_system`]: a transition
+/// is active, or the record of the last one still holds something to clear.
+pub(crate) fn a_transition_is_active_or_contributed(
+    transitions: Res<RoomTransitionLoadState>,
+    contributed: Res<ContributedRoomAssets>,
+) -> bool {
+    transitions.active.is_some()
+        || contributed.sequence.is_some()
+        || contributed.manifest.is_some()
+        || contributed.room.is_some()
+        || !contributed.demanded_characters.is_empty()
+}
+
+/// Run condition of [`poll_room_transition_asset_readiness_system`]: a
+/// transition is active.
+pub(crate) fn a_transition_is_active(transitions: Res<RoomTransitionLoadState>) -> bool {
+    transitions.active.is_some()
+}
+
 pub(crate) fn contribute_room_transition_assets_system(
     room_set: SessionWorldRef<RoomSet>,
     mut transitions: ResMut<RoomTransitionLoadState>,

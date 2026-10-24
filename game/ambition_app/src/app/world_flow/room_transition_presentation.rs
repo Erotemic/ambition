@@ -273,8 +273,9 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             Update,
             (
                 super::first_room_art::prepare_first_room_art_system,
-                contribute_room_transition_assets_system,
-                poll_room_transition_asset_readiness_system,
+                contribute_room_transition_assets_system
+                    .run_if(super::room_transition_assets::a_transition_is_active_or_contributed),
+                poll_room_transition_asset_readiness_system.run_if(super::room_transition_assets::a_transition_is_active),
                 // the census must be THIS frame's. The presentation floor
                 // republishes `UnclaimedFeatureViews` at the tail of the visual
                 // chain; the cover retires on it being empty. Both ends are in
@@ -284,6 +285,9 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 drive_room_transition_presentation.in_set(RoomTransitionCoverSet),
             )
                 .chain()
+                // A room's manifest waits for the prop sheets it shows, so
+                // they are demanded first.
+                .after(ambition_platformer2d::game_assets::PropSheetDemandSet)
                 .before(LoadPresentationSet::Observe),
         )
         .add_systems(
@@ -300,6 +304,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             Update,
             prefetch_neighbor_room_preparation_system
                 .after(LoadPresentationSet::Finalize)
+                .after(ambition_platformer2d::game_assets::PropSheetDemandSet)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         // ⭐ Residency, not presentation — but this is where the room-change
@@ -316,6 +321,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         .add_systems(
             Update,
             handle_room_transition_presentation_events
+                .run_if(ambition_platformer2d::engine_core::a_message_waits::<LoadPresentationEvent>)
                 .after(LoadPresentationSet::Actions)
                 .before(LoadPresentationSet::Finalize),
         );

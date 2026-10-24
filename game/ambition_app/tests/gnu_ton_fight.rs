@@ -32,6 +32,12 @@ fn arena() -> Platformer2dSimHarness {
     sim
 }
 
+/// A fist of the giant: its two hands, not its hoof (a limb that is always
+/// on its leg).
+fn is_fist(limb: &Limb) -> bool {
+    limb.slot == LimbSlot::HAND_LEFT || limb.slot == LimbSlot::HAND_RIGHT
+}
+
 fn place_player(sim: &mut Platformer2dSimHarness, at: ae::Vec2) {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel), PrimaryPlayerOnly>();
@@ -125,8 +131,9 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
         .facing;
     let mut fists: Vec<_> = rig
         .limbs
-        .values()
-        .map(|&fist| {
+        .iter()
+        .filter(|(slot, _)| **slot == LimbSlot::HAND_LEFT || **slot == LimbSlot::HAND_RIGHT)
+        .map(|(_, &fist)| {
             let kin = world.get::<ae::BodyKinematics>(fist).expect("a fist body").clone();
             let health = *world.get::<BodyHealth>(fist).expect("a fist's health");
             (kin, health.current(), health.max())
@@ -452,8 +459,12 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
             .map(|(entity, _)| entity)
             .expect("GNU-ton is in the arena");
         let lines = conductor_of(world, scholar).expect("his conductor").look_lines;
-        let fists: Vec<(LimbSlot, FeatureId)> =
-            world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
+        let fists: Vec<(LimbSlot, FeatureId)> = world
+            .query::<(&Limb, &FeatureId)>()
+            .iter(world)
+            .filter(|(limb, _)| is_fist(limb))
+            .map(|(limb, id)| (limb.slot, id.clone()))
+            .collect();
         let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
         assert_eq!(fists.len(), 2);
         for (slot, id) in fists {
@@ -1033,6 +1044,7 @@ fn entering_the_arena_the_fists_are_on_the_giants_arms() {
         let (fists, homes) = world
             .query::<(&ae::BodyKinematics, &Limb)>()
             .iter(world)
+            .filter(|(_, limb)| is_fist(limb))
             .map(|(kin, limb)| (kin.pos, limb.home_offset))
             .unzip();
         let giant = world
@@ -1281,15 +1293,16 @@ fn the_fists_are_built_as_the_scholars() {
                 .map(|(faction, posed, combatant, death, row)| (*faction, posed, combatant, death, row))
                 .collect();
             let gnu_row = world.query_filtered::<Has<Row>, (With<LimbRig>, Without<Limb>)>().iter(world).next();
-            let found = (fists.len() == 2).then_some(()).and(gnu_row).map(|row| (fists, row));
+            // Its two fists and its hoof.
+            let found = (fists.len() == 3).then_some(()).and(gnu_row).map(|row| (fists, row));
             if found.is_none() {
                 sim.step(AgentAction::default());
             }
             found
         })
-        .expect("the arena builds the gnu and both fists");
+        .expect("the arena builds the gnu, both fists and its hoof");
     let theirs = (ambition_platformer2d::actor::ActorFaction::Boss, true, true, true, true);
-    assert_eq!(fists, vec![theirs, theirs], "each fist, on the first tick it exists");
+    assert_eq!(fists, vec![theirs; 3], "each limb, on the first tick it exists");
     assert!(gnu_row, "the gnu's row is his to choose");
 }
 
@@ -1311,9 +1324,10 @@ fn defeated_he_lets_go_and_his_fists_fall() {
     let fists = |sim: &mut Platformer2dSimHarness| -> Vec<(ae::Vec2, bool, bool)> {
         let world = sim.world_mut();
         let mut fists: Vec<_> = world
-            .query_filtered::<(&ae::BodyKinematics, Has<ae::PoseOwnedExternally>, &ae::BodyGroundState), With<Limb>>()
+            .query::<(&ae::BodyKinematics, Has<ae::PoseOwnedExternally>, &ae::BodyGroundState, &Limb)>()
             .iter(world)
-            .map(|(kin, held, ground)| (kin.pos, held, ground.on_ground))
+            .filter(|(.., limb)| is_fist(limb))
+            .map(|(kin, held, ground, _)| (kin.pos, held, ground.on_ground))
             .collect();
         fists.sort_by(|a, b| a.0.x.total_cmp(&b.0.x));
         fists
@@ -1364,8 +1378,10 @@ fn alive_again_he_takes_his_fists_back() {
     let held = |sim: &mut Platformer2dSimHarness| -> Vec<bool> {
         let world = sim.world_mut();
         world
-            .query_filtered::<Has<ae::PoseOwnedExternally>, With<Limb>>()
+            .query::<(Has<ae::PoseOwnedExternally>, &Limb)>()
             .iter(world)
+            .filter(|(_, limb)| is_fist(limb))
+            .map(|(held, _)| held)
             .collect()
     };
     set_health(&mut sim, false);
@@ -1537,8 +1553,12 @@ fn the_punchs_pair_is_one_pair_across_rewinds() {
 fn a_fist_on_its_arm_has_no_trail() {
     let bonds = |sim: &mut Platformer2dSimHarness| -> Vec<(LimbSlot, Option<ae::Vec2>)> {
         let world = sim.world_mut();
-        let fists: Vec<(LimbSlot, FeatureId)> =
-            world.query::<(&Limb, &FeatureId)>().iter(world).map(|(limb, id)| (limb.slot, id.clone())).collect();
+        let fists: Vec<(LimbSlot, FeatureId)> = world
+            .query::<(&Limb, &FeatureId)>()
+            .iter(world)
+            .filter(|(limb, _)| is_fist(limb))
+            .map(|(limb, id)| (limb.slot, id.clone()))
+            .collect();
         let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
         fists.into_iter().map(|(slot, id)| (slot, views.get(id.as_str()).and_then(|view| view.limb_host))).collect()
     };
@@ -1610,4 +1630,104 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
     }
     assert!(threaded, "the fist went into the near line and was in the pair");
     assert!(player(&mut sim).1 < before, "the player under the far line was not struck");
+}
+
+/// The blow of this tick, from his conductor: its exit and whether it landed.
+fn blow(sim: &mut Platformer2dSimHarness) -> Option<(ambition_content::bosses::gnu_ton::Exit, bool)> {
+    let world = sim.world_mut();
+    let scholar = world
+        .query::<(Entity, &BossConfig)>()
+        .iter(world)
+        .find(|(_, config)| config.behavior.id == GNU_TON_ID)
+        .map(|(entity, _)| entity)?;
+    conductor_of(world, scholar)?.blow
+}
+
+/// The far end of the open pair of his blow: the end whose line is not fixed
+/// to the giant. Its middle and its normal.
+fn far_end(sim: &mut Platformer2dSimHarness) -> Option<(ae::Vec2, ae::Vec2)> {
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
+    use ambition_platformer2d::portal::PlacedPortal;
+    let giant = scene(sim).giant.pos;
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();
+    q.iter(world).max_by(|a, b| a.pos.distance(giant).total_cmp(&b.pos.distance(giant))).map(|p| (p.pos, p.normal))
+}
+
+/// Jon 2026-10-23: "it shouldn't punch so similarly, it should track where
+/// the player is". Over the first blows of the fight, with the player on the
+/// floor and then on a perch, each blow comes out where the player is, the
+/// first is straight down (it shows the way up), no blow is the one before,
+/// a far line is at a slant when its blow needs it, and the giant kicks.
+#[test]
+fn his_blows_are_aimed_at_the_player_and_none_is_the_one_before() {
+    use ambition_content::bosses::gnu_ton::Exit;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let floor_spot = ae::Vec2::new(300.0, 1200.0);
+    let perch_spot = ae::Vec2::new(1456.0, 520.0);
+    place_player(&mut sim, floor_spot);
+    let mut exits: Vec<Exit> = Vec::new();
+    let mut slanted = false;
+    let mut was_open = false;
+    for frame in 0..2400 {
+        // The first three blows from the floor, the rest from a perch.
+        let spot = if exits.len() < 3 { floor_spot } else { perch_spot };
+        if frame % 30 == 0 {
+            place_player(&mut sim, spot);
+        }
+        sim.step(AgentAction::default());
+        let now = blow(&mut sim);
+        if let (Some((exit, _)), false) = (now, was_open) {
+            exits.push(exit);
+        }
+        if let (Some((Exit::Diagonal, _)), Some((_, normal))) = (now, far_end(&mut sim)) {
+            slanted |= normal.x.abs() > 0.3 && normal.y.abs() > 0.3;
+        }
+        was_open = now.is_some();
+        if exits.len() >= 6 {
+            break;
+        }
+    }
+    assert!(exits.len() >= 5, "the premise: five blows in the time, got {exits:?}");
+    assert_eq!(exits[0], Exit::Down, "the first punch is straight down: {exits:?}");
+    for pair in exits.windows(2) {
+        assert_ne!(pair[0], pair[1], "a blow is the one before it: {exits:?}");
+    }
+    assert!(exits.iter().any(|e| matches!(e, Exit::Sweep | Exit::Stomp)), "the giant kicks: {exits:?}");
+    assert!(exits[3..].iter().any(|e| matches!(e, Exit::Across | Exit::Up | Exit::Diagonal | Exit::Stomp)), "on a perch the blows come at the perch: {exits:?}");
+    if exits.contains(&Exit::Diagonal) {
+        assert!(slanted, "a blow at a slant came out of a line that is not at a slant");
+    }
+}
+
+/// The kick is a blow through a real pair as the punch is: the hoof (a limb
+/// body of its own, which the giant's picture draws) goes into the near line
+/// and hurts where it comes out, and its land is the conductor's to feel.
+#[test]
+fn a_kick_hurts_where_the_hoof_comes_out_of_the_pair() {
+    use ambition_platformer2d::portal::PortalTransit;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(300.0, 1200.0));
+    step_until(&mut sim, 1500, "the tell of a kick", |sim| scene(sim).performing == Some(("portal_kick", false)));
+    touchable_player(&mut sim);
+    let before = player(&mut sim).1;
+    let mut threaded = false;
+    let mut landed = false;
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        threaded |= world
+            .query::<(&Limb, Has<PortalTransit>)>()
+            .iter(world)
+            .any(|(limb, in_pair)| limb.slot.as_str() == "hoof_right" && in_pair);
+        landed |= blow(&mut sim).is_some_and(|(_, landed)| landed);
+        if scene(&mut sim).performing != Some(("portal_kick", false)) && scene(&mut sim).performing != Some(("portal_kick", true)) {
+            break;
+        }
+    }
+    assert!(threaded, "the hoof went into the near line and was in the pair");
+    assert!(player(&mut sim).1 < before, "the player the kick was aimed at was not struck");
+    assert!(landed, "the conductor did not feel the kick land");
 }

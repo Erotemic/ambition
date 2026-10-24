@@ -1903,8 +1903,12 @@
             // Its two fists are bodies of their own. They hover at the height
             // of its chest on each side, clear of its flanks (its body is 315
             // to each side of its centre): every beat of GNU-ton's starts and
-            // ends here.
-            hands: Some((character: "npc_giant_gnu_hands", rest: Some((400.0, -120.0)))),
+            // ends here. Its near fore leg kicks through a portal as a fist
+            // punches through one: the hoof is a limb body of its own
+            // (`hoof_right`), which rests at that hoof. The giant's picture
+            // draws the leg; the limb carries its blow through the pair.
+            hands: Some((character: "npc_giant_gnu_hands", rest: Some((400.0, -120.0)),
+                more: [(slot: "hoof_right", rest: (192.0, 180.0))])),
             // It never looks for anyone and never strikes. Whether it is your enemy
             // is the placement's decision: the sandbox giant is `Peaceful`.
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),

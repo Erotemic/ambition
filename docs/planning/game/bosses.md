@@ -1047,6 +1047,41 @@ bright trail, and 6 (it needs rows with one arm on and one in its line).
   shoulder it was too low, and the player came out with no rise left.
 - Not tuned: the times, the damage, how many blows end phase 1.
 
+**Aimed blows, a kick, and their weight (built 2026-10-24; Jon, 2026-10-23:
+"it should track where the player is ... down diagonal, horizontal, or up ...
+sometimes its a kick with a leg ... it should feel dangerous").** Where:
+`choreography::blows` (the module), the conductor, the rows `punch_*`,
+`jab_*`, `upper_*`, `kick_*`, `armed_kick_*` (`giant_art.BLOWS`), and the
+pattern in `boss_profiles.ron`.
+
+- Each blow goes into a near line that is fixed to the giant, square to it,
+  and comes out of a far line by the player. Four limbs: the hammer (down
+  from over the right shoulder), the jab (straight out), the uppercut (up in
+  front of the chest), the kick (the near fore leg, forward and low). The
+  far line is at an angle when the blow needs it: the pair turns the limb.
+- The conductor chooses the exit by where the player is: down or at 45
+  degrees onto a player on the floor (at a slant near the giant's flank),
+  across or up at a player off the floor, a sweep along the floor or a hoof
+  down from over the head for a kick. No blow is the one before it. The first
+  punch is straight down: it shows the way up.
+- `portal_kick` is a move of its own, in phase 1 and in phase 2: with the
+  arms in their lines, the hoof keeps a real pair in the fight, and the way
+  up to the back. The hoof is a limb body (`hoof_right`, from
+  `CharacterHands::more`) that the giant's picture draws.
+- Tell: the pair eases open over the first 0.4 s of the tell and closed at
+  the end of the strike; the windup row plays over the tell and ends cocked
+  and trembling (the lock); a dotted line shows the way the limb will come.
+  Each tell has its own length in the pattern.
+- Weight: the strike that lands (`ambition.boss.mount` v3 `struck`) shakes the
+  camera hard, holds the limb and the giant still for 0.11 s, and throws a
+  flash, sparks and shards; the launch is 2.2 to 2.6 of the standard one. A
+  blow that misses hits the floor (dust, a boom, a shake) or the air. Sounds
+  (`boss.gnu_ton.blow_*`, `hoof_kick`, `portal_open`) are generated; the
+  candidates are in `untracked/sfx-candidates/gnu_ton_blows/`.
+- Not done: a recoil row of its own after a land (the hold row jolts); the
+  giant's own picture through the far line is cut at the frame's edge if a
+  limb goes farther than the jab does.
+
 **Placed in the main game (2026-10-23).** Jon asked for a gravity and
 portal puzzle level with GNU-ton at its end. The level is the GNU-ton
 gravity handle, the gravity works of the Science dimension (`science.ldtk`;

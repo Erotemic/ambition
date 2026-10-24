@@ -74,7 +74,8 @@
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
-            "portal_punch",     // GNU-ton: the giant's fist comes down out of a portal over where you stood, and stays
+            "portal_punch",     // GNU-ton: the giant's fist comes out of a portal by you (down, at a slant, across or up, by where you are), and stays
+            "portal_kick",      // GNU-ton: the giant's hoof comes out of a portal by you, along the floor or down on you
             "noodly_dive",   // the FSM: tracks you from above, falls, and lies stranded on the floor
             "mockingbird_snap", // the Mockingbird: a lunging bite at whoever rides a shark into its reach
         ],

@@ -45,6 +45,7 @@
         "buck": ["spike_halo"],
         "stomp": ["spike_halo"],
         "portal_punch": ["spike_halo"],
+        "portal_kick": ["spike_halo"],
         // The Flying Spaghetti Monster's moves, each on the sheet row its
         // conductor pins, so the god's hurt hull is the pose it is drawn in.
         "noodle_lash": ["side_sweep"],

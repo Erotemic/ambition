@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 use crate::bosses::hall::Hall;
 
+pub use ambition_content_modules::gnu_ton::choreography::blows::Exit;
 pub use ambition_content_modules::gnu_ton::choreography::Move;
 pub use ambition_content_modules::gnu_ton::conductor::GNU_TON_ID;
 
@@ -25,6 +26,8 @@ pub struct GnuTonView {
     /// The look lines, where each is: the left shoulder's, the right
     /// shoulder's, the left wrist's, the right wrist's.
     pub look_lines: [Option<ae::Vec2>; 4],
+    /// The blow whose portal pair is open, and whether it landed on a body.
+    pub blow: Option<(Exit, bool)>,
 }
 
 /// The conductor's record on `scholar`, as a view. `None` before the module
@@ -37,5 +40,6 @@ pub fn conductor_of(world: &World, scholar: Entity) -> Option<GnuTonView> {
         performing: c.performing(),
         hall: c.hall().map(|hall| Hall { floor: hall.floor, left: hall.left, right: hall.right }),
         look_lines: c.look_lines().map(|line| line.map(|(at, _)| ae::Vec2::new(at.x, at.y))),
+        blow: c.blow(),
     })
 }

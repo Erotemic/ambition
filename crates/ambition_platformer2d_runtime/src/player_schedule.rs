@@ -246,7 +246,7 @@ impl Plugin for PlayerSchedulePlugin {
         // the engine only gives the slot its phase home.
         app.configure_sets(
             sim,
-            ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet
+            ambition_platformer2d_shared_tangle::lifecycle::ContentDialogueFollowupSet
                 .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 

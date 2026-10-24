@@ -179,13 +179,13 @@ fn a_character_released_in_another_room_is_there_when_you_come_back() {
         .0 = file;
     fresh
         .world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::durable_horizon::SaveRestored>()
+        .resource_mut::<ambition_platformer2d::platformer::lifecycle::SaveRestored>()
         .0 = false;
     fresh.step_n(base(), 90);
     assert!(
         fresh
             .world()
-            .resource::<ambition_platformer2d::actors::session::durable_horizon::SaveRestored>()
+            .resource::<ambition_platformer2d::platformer::lifecycle::SaveRestored>()
             .0,
         "setup: the load never landed"
     );

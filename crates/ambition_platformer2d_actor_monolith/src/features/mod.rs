@@ -1684,7 +1684,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                     ecs::world_time_schedule::disown_scheduled_returns_on_restore
                         .run_if(ambition_combat::events::a_replay_is_admitted),
                 )
-                    .in_set(crate::session::reset::ContentRoomReplayResetSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet),
             )
             .add_systems(
                 ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
@@ -1725,7 +1725,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 sim,
                 ecs::pickups::disown_consumed_pickups_on_restore
                     .run_if(ambition_combat::events::a_replay_is_admitted)
-                    .in_set(crate::session::reset::ContentRoomReplayResetSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet),
             );
         // ⭐ The encounter switch index registers itself from
         // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`

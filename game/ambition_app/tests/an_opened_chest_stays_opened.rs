@@ -131,12 +131,12 @@ fn chest_after_a_load(
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .0 = file.clone();
     sim.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::durable_horizon::SaveRestored>()
+        .resource_mut::<ambition_platformer2d::platformer::lifecycle::SaveRestored>()
         .0 = false;
     sim.step_n(base(), 90);
     assert!(
         sim.world()
-            .resource::<ambition_platformer2d::actors::session::durable_horizon::SaveRestored>()
+            .resource::<ambition_platformer2d::platformer::lifecycle::SaveRestored>()
             .0,
         "precondition: the load landed"
     );

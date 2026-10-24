@@ -330,16 +330,16 @@ impl Plugin for AmbitionBossContentPlugin {
             (
                 reset_cut_rope_boss_arena_on_room_reset
                     .run_if(ambition_combat::events::a_replay_is_admitted)
-                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
                 emit_cut_rope_room_replay_after_the_conversation_ends
                     .run_if(cut_rope::a_cut_rope_replay_is_chosen_or_pending)
-                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentDialogueFollowupSet),
                 // The content half of an in-place room replay: clear the cut-rope
                 // boss's per-attempt state. The host anchors this slot before its
                 // generic replay consumer (which owns the player/world reset).
                 reset_cut_rope_attempt_on_replay
                     .run_if(ambition_combat::events::a_replay_is_admitted)
-                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet),
             ),
         );
         // The same two, for a checkpoint restore at its publication.
@@ -348,7 +348,7 @@ impl Plugin for AmbitionBossContentPlugin {
             (
                 reset_cut_rope_boss_arena_on_room_reset
                     .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
-                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
                 reset_cut_rope_attempt_on_replay
                     .in_set(ambition_combat::events::RestoreConsequenceSet::ReplayContent),
             ),

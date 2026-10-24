@@ -742,7 +742,7 @@ where
     );
     // Save application is a rollback-relevant latch because the state it guards
     // rewinds even though the literal Update systems that set it do not resimulate.
-    registrar.rollback_resource_clone::<crate::session::durable_horizon::SaveRestored>(
+    registrar.rollback_resource_clone::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>(
         OWNER,
         "resource.save_restored",
     );

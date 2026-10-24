@@ -122,7 +122,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             (bridge_room_reset_to_clear_portals, clear_portals_on_reset)
                 .chain()
                 .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
-                .after(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                .after(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
         );
 
         // Translate this frame's ControlFrame into portal intents BEFORE the

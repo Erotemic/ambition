@@ -101,7 +101,7 @@ impl Plugin for PortalSchedulePlugin {
             sim,
             PortalSet::RoomReset
                 .in_set(Platformer2dSimulationPhase::RoomTransition)
-                .after(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                .after(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
         );
 
         // TransitGuards: suppress ledge-grab while transiting, BEFORE the

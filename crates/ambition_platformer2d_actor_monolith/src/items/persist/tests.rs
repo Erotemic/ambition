@@ -7,7 +7,7 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
     app.insert_resource(ambition_items::test_item_catalog().clone());
     app.insert_resource(save);
     app.insert_resource(owned);
-    app.init_resource::<crate::session::durable_horizon::SaveRestored>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
         (
@@ -19,7 +19,7 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
         Update,
         (
             restore_inventory_from_save,
-            |mut restored: ResMut<crate::session::durable_horizon::SaveRestored>| {
+            |mut restored: ResMut<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>| {
                 restored.0 = true;
             },
             persist_inventory_to_save,

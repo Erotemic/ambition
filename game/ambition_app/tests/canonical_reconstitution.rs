@@ -928,7 +928,7 @@ fn boot_with_save(
     room: &str,
     file: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
 ) -> Platformer2dSimHarness {
-    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
 
     let mut sim = fixed_60hz_room_sim(room);
@@ -1067,7 +1067,7 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
 /// which is exactly the shape a two-endpoint test cannot see.
 #[test]
 fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
-    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
     use ambition_platformer2d::persistence::save_data::{
         PersistedOccurrence, PersistedWhereabouts,
     };
@@ -1163,7 +1163,7 @@ fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
 /// and all three poisons left it green.
 #[test]
 fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
-    use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
     use ambition_platformer2d::persistence::save_data::{
         PersistedCheckpoint, PersistedOccurrence, PersistedWhereabouts,
     };

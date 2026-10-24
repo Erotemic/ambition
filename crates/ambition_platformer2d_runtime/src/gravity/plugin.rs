@@ -140,13 +140,13 @@ impl Plugin for GravityPlugin {
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::RoomTransition)
-                .after(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                .after(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
         );
         app.add_systems(
             ambition_combat::events::RestoreConsequences,
             reset_gravity_on_room_reset
                 .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
-                .after(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                .after(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
         );
     }
 }

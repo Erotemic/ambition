@@ -10,9 +10,11 @@ mod cleanup;
 mod departure;
 mod continuity;
 mod custody_horizon;
+mod durable_horizon;
 pub mod horizon;
 mod markers;
 mod mode_visit;
+mod reset_slots;
 mod room_instance;
 mod round;
 mod session;
@@ -27,6 +29,8 @@ pub use continuity::{
     OccurrenceDisposition,
     OccurrenceWhereabouts, RoomOccurrenceOutlook,
 };
+pub use durable_horizon::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
+pub use reset_slots::{ContentDialogueFollowupSet, ContentRoomReplayResetSet, ContentRoomResetSet};
 pub use custody_horizon::{capture_custody_baseline, live_custody_rows, CustodyBaseline};
 pub use horizon::{
     adopt_pinned_lifecycle_baselines, CheckpointCapture, CheckpointCommitted,

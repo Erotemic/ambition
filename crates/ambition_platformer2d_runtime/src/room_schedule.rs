@@ -46,13 +46,13 @@ impl Plugin for RoomTransitionSchedulePlugin {
             ambition_combat::events::RestoreConsequences,
             ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt
                 .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
-                .before(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                .before(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
         );
         // Content-specific room resets run after the engine feature reset;
         // generic plugins order against this set rather than naming content systems.
         app.configure_sets(
             sim,
-            ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet
+            ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet
                 .in_set(Platformer2dSimulationPhase::RoomTransition)
                 // The PHASE, not the reset system's name.
                 .after(RoomTransitionSet::Reset),

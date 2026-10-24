@@ -153,7 +153,7 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
 /// placed in the real sets of the real app.
 #[test]
 fn the_replay_reset_runs_after_the_admission_that_authorizes_it() {
-    use ambition_platformer2d::actors::session::reset::{
+    use ambition_platformer2d::platformer::lifecycle::{
         ContentDialogueFollowupSet, ContentRoomReplayResetSet,
     };
     use ambition_platformer2d::runtime::{RoomReplayAdmission, RoomReplayConsequences};

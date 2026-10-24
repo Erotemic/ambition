@@ -33,7 +33,7 @@ use crate::common::{base, door_to, fixed_60hz_room_sim, possess_the_authored_ene
 type Custody = ambition_platformer2d::held_items::ItemCustody;
 type Ground = ambition_platformer2d::held_items::GroundItem;
 type Held = ambition_platformer2d::combat::held_items::HeldItem;
-type SaveRestored = ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+type SaveRestored = ambition_platformer2d::platformer::lifecycle::SaveRestored;
 
 /// `blink_run` authors exactly one `GroundItem` and exactly one `Door`, and that
 /// door leads to `portal_bridge`. One item and one exit is what makes "carried it

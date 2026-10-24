@@ -694,7 +694,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
             sim,
             retract_mints_of_retracted_boss_defeats
                 .run_if(ambition_platformer2d_core::a_message_waits::<ambition_boss_encounter::BossDefeatRetracted>)
-                .in_set(crate::session::reset::ContentRoomReplayResetSet)
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet)
                 .after(ambition_boss_encounter::BossDefeatRetraction),
         )
         .add_systems(
@@ -801,7 +801,7 @@ pub fn adopt_checkpoint_baselines_from_save(
 /// ledger places it in a room (see [`with_dormant_mints`]). The room build
 /// reads this field when that room becomes live again, and a load adopts it.
 pub fn persist_minted_item_horizon_to_save(
-    restored: Res<crate::session::durable_horizon::SaveRestored>,
+    restored: Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>,
     minted: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
     ledger: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     mut save: ResMut<AmbitionGameSave>,

@@ -49,7 +49,7 @@ const NAMES_STRIPPED: &str = "<Enable the debug feature to see the name>";
 /// than a silently empty list.
 fn retraction_slot_members(app: &mut App, label: impl ScheduleLabel) -> Vec<String> {
     let label = label.intern();
-    let slot = ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet.intern();
+    let slot = ambition_platformer2d::platformer::lifecycle::ContentRoomReplayResetSet.intern();
     app.world_mut()
         .resource_scope(|world, mut schedules: Mut<Schedules>| {
             let schedule = schedules.get_mut(label).expect("the schedule exists");

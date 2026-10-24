@@ -31,7 +31,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     app.init_resource::<SlotInteractionState>();
-    app.init_resource::<crate::session::durable_horizon::SaveRestored>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>();
     // The occurrence ledger. Session-scoped for the same reason as the rest: it
     // is a statement about ONE live world. Its checkpoint copies are the
     // session root's (C03) and need no reset.
@@ -73,7 +73,7 @@ fn app_with_populated_mirrors() -> App {
         .interact_buffer_timer = 0.75;
     // Session A applied its save.
     app.world_mut()
-        .resource_mut::<crate::session::durable_horizon::SaveRestored>()
+        .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>()
         .0 = true;
     // ...and its world had somewhere to put things.
     {
@@ -122,7 +122,7 @@ fn retirement_clears_the_save_applied_latch() {
     app.update();
     assert!(
         app.world()
-            .resource::<crate::session::durable_horizon::SaveRestored>()
+            .resource::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>()
             .0,
         "the latch must survive an ordinary frame; clearing it mid-session would \
          re-apply the save over live state"
@@ -134,7 +134,7 @@ fn retirement_clears_the_save_applied_latch() {
 
     assert!(
         !app.world()
-            .resource::<crate::session::durable_horizon::SaveRestored>()
+            .resource::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>()
             .0,
         "the world the save was applied to has retired, so the next session must \
          re-run its restore rather than inherit this one's ledgers"
@@ -262,7 +262,7 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
     );
     assert!(
         !app.world()
-            .resource::<crate::session::durable_horizon::SaveRestored>()
+            .resource::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>()
             .0,
         "the latch still said A's save had been applied, so B would never \
          restore into its own world"

@@ -4,7 +4,7 @@
 //! through both representations, so the two restore paths must agree.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+use ambition_platformer2d::platformer::lifecycle::SaveRestored;
 use ambition_platformer2d::item::Item;
 use ambition_platformer2d::item::ItemGrantRequested;
 use ambition_platformer2d::item::OwnedItems;

@@ -26,7 +26,7 @@
 use bevy::prelude::*;
 
 use ambition_items::OwnedItems;
-use crate::session::durable_horizon::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
+use ambition_platformer2d_shared_tangle::lifecycle::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
 use ambition_characters::actor::BodyWallet;
 use ambition_persistence::save::AmbitionGameSave;
 

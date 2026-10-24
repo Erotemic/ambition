@@ -82,7 +82,7 @@ pub struct SessionScopedResources<'w> {
     slot_interactions: ResMut<'w, SlotInteractionState>,
     /// Whether the loaded save has been applied to the current world.
     /// Retirement resets the latch so the next session restores into its fresh world.
-    save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
+    save_restored: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>,
     /// ⛔⛔ WHERE THE OCCURRENCES **THIS WORLD** HAS MINTED ACTUALLY ARE. The
     /// ledger is a statement about ONE live world, and it was app-level: session
     /// B's first room construction read session A's rows. A row saying an object
@@ -443,7 +443,7 @@ fn reset(resources: SessionScopedResources) {
     }
     *quest_registry = QuestRegistry::default();
     *slot_interactions = SlotInteractionState::default();
-    *save_restored = crate::session::durable_horizon::SaveRestored::default();
+    *save_restored = ambition_platformer2d_shared_tangle::lifecycle::SaveRestored::default();
     *occurrences = ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
     *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();

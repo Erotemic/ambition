@@ -211,9 +211,7 @@ fn a_spin_dash_rolls_checksum_identical_under_resimulation() {
 /// `Update`'s. The `Update` reader runs before `DurableRestoreSet`, so a chain
 /// moved back into `Update` is seen there.
 fn where_the_save_is_applied() -> (u32, u32) {
-    use ambition_platformer2d::actors::session::durable_horizon::{
-        DurableRestoreSet, SaveRestored,
-    };
+    use ambition_platformer2d::platformer::lifecycle::{DurableRestoreSet, SaveRestored};
     #[derive(Resource, Default)]
     struct Seen {
         at_first: bool,

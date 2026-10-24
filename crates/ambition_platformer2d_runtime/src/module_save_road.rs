@@ -21,9 +21,7 @@ use ambition_extension_host::save::{adopt_saved_rows, merged_rows, saved_rows, S
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, SaveRoad, SessionRecords};
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::PersistedModuleRecord;
-use ambition_platformer2d_actor_monolith::session::durable_horizon::{
-    DurableHorizonSet, DurableRestoreSet, SaveRestored,
-};
+use ambition_platformer2d_shared_tangle::lifecycle::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 

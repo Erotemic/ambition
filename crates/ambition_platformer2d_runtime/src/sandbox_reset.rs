@@ -574,9 +574,9 @@ impl Plugin for RoomReplaySchedulePlugin {
         app.configure_sets(
             sim,
             (
-                ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet,
+                ambition_platformer2d_shared_tangle::lifecycle::ContentDialogueFollowupSet,
                 RoomReplayAdmission,
-                ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet,
+                ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet,
                 RoomReplayConsequences,
             )
                 .chain(),
@@ -593,7 +593,7 @@ impl Plugin for RoomReplaySchedulePlugin {
             ambition_boss_encounter::retract_boss_defeats_on_replay
                 .run_if(ambition_combat::events::a_replay_is_admitted)
                 .in_set(ambition_boss_encounter::BossDefeatRetraction)
-                .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet),
         );
         // THE SAME TWO, FOR A CHECKPOINT RESTORE, run by its publication
         // (`ambition_combat::events::RestoreConsequences`). The schedule and its

@@ -25,12 +25,11 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// Whether the loaded save has been applied to this world.
-///
-/// This is the single durable-restore latch across inventory and occurrence
-/// domains. It gates behavior and is therefore rollback state, not a cache.
-#[derive(Resource, Default, Clone)]
-pub struct SaveRestored(pub bool);
+// The slots and the latch are the durable horizon's VOCABULARY, which the
+// domains that join them name too; this module installs and orders them.
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    DurableHorizonSet, DurableRestoreSet, SaveRestored,
+};
 
 /// Run condition of the [`DurableRestoreSet`] slots: the loaded save is not yet
 /// applied. A read of rollback state, so a rewind to before the latch rose runs
@@ -361,28 +360,6 @@ pub fn complete_durable_restore(
     {
         resets.write(ResetToCheckpoint);
     }
-}
-
-/// Where a domain's durable adapters run in the simulation. A domain installs
-/// its own systems here; this module orders the slots.
-#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum DurableHorizonSet {
-    /// Other domains' live → save mirrors. Each domain chains its own members:
-    /// they all take `ResMut<AmbitionGameSave>`.
-    DomainMirror,
-    /// This module's live → save mirrors, after every domain's.
-    SessionMirror,
-}
-
-/// Where a loaded file is applied, in the simulation schedule.
-#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum DurableRestoreSet {
-    /// The lifecycle/occurrence baseline, which the domains' restores build on.
-    Lifecycle,
-    /// Each domain applies its half of the file and adopts its own baselines.
-    Domains,
-    /// The file is fully applied; a checkpoint resume may now be requested.
-    Complete,
 }
 
 /// Install the session's durable-save application/mirroring chain and the

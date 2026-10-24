@@ -23,7 +23,7 @@ use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 
-type SaveRestored = ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
+type SaveRestored = ambition_platformer2d::platformer::lifecycle::SaveRestored;
 type AmbitionGameSave = ambition_platformer2d::persistence::save::AmbitionGameSave;
 type OwnedItems = ambition_platformer2d::item::OwnedItems;
 type Item = ambition_platformer2d::item::Item;

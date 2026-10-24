@@ -4,7 +4,7 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition_platformer2d::actors::game_assets as actor_game_assets;
+use ambition_platformer2d::game_assets as actor_game_assets;
 
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
@@ -26,7 +26,7 @@ pub(crate) struct PresentationCatalogs<'w> {
     assets:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
     /// The prop sheets content registered, loaded with the rest of the art.
-    props: Res<'w, ambition_platformer2d::actors::game_assets::PropSheets>,
+    props: Res<'w, ambition_platformer2d::game_assets::PropSheets>,
 }
 
 

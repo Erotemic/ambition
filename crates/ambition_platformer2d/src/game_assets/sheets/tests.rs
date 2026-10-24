@@ -258,7 +258,7 @@ fn no_assets_profile_disables_every_image_in_the_manifest() {
 /// `static_core_assets` packages ChestClosed but not BreakableIntact.
 #[test]
 fn web_static_loads_core_sprites_and_skips_out_of_set_sprites() {
-    use crate::assets::platformer_assets::Platformer2dAssetCatalog;
+    use ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog;
 
     let inner = build_sandbox_image_catalog("sprites");
     let catalog = Platformer2dAssetCatalog::new(inner, AssetProfile::WebStatic);
@@ -274,7 +274,7 @@ fn web_static_loads_core_sprites_and_skips_out_of_set_sprites() {
             path,
             format!(
                 "embedded://{}",
-                crate::assets::platformer_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
+                ambition_platformer2d_actor_monolith::assets::platformer_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
             ),
         );
     } else {
@@ -344,7 +344,7 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
     let config = GameAssetConfig::default();
     let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let bosses = ambition_boss_encounter::BossCatalog::default();
-    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+    let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_platformer2d_asset_catalog(
         &config,
         &characters,
         &bosses,
@@ -413,7 +413,7 @@ fn a_prop_row_draws_its_records_page_or_the_pack() {
     let config = GameAssetConfig::default();
     let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let bosses = ambition_boss_encounter::BossCatalog::default();
-    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+    let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_platformer2d_asset_catalog(
         &config,
         &characters,
         &bosses,

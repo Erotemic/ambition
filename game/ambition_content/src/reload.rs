@@ -1083,7 +1083,7 @@ fn publish_prop_sheets(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
-    use ambition_platformer2d_actor_monolith::game_assets::restate_prop_sheet_rows;
+    use ambition_platformer2d::game_assets::restate_prop_sheet_rows;
     let rows = ambition_sprite_sheet::prop_sheets::lowered_prop_sheets(pack).cloned().unwrap_or_default();
     let previous = world
         .get_resource::<crate::prop_sheets::AmbitionPropSheets>()

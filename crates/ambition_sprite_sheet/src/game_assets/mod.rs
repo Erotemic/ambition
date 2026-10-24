@@ -731,7 +731,7 @@ impl GameAssets {
     }
 }
 
-// Full `load_game_assets` remains in `ambition_platformer2d_actor_monolith::game_assets`
+// Full `load_game_assets` remains in `ambition_platformer2d::game_assets`
 // because it joins the content-installed character roster. The render-facing
 // data/resource types and static image loaders live here.
 

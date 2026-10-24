@@ -9,7 +9,7 @@
 | [`app`](src/app.rs) | High-level platformer application composition. |
 | [`autopilot`](src/autopilot.rs) | A seat that navigation drives: the player's own body goes to a goal by the room's surface graph, with the input a person would give. |
 | [`demo_shell`](src/demo_shell.rs) | The launcher conventions a demo's own standalone shell speaks. |
-| [`game_assets`](src/game_assets.rs) | Install the asset resources required by generic platformer presentation. |
+| [`game_assets`](src/game_assets/mod.rs) | Install the asset resources required by generic platformer presentation. |
 | [`prelude`](src/prelude.rs) | Curated imports for games built on the Ambition engine facade. |
 | [`rollback`](src/rollback.rs) | Supported rollback session entry points. |
 | [`scripted_input`](src/scripted_input.rs) | Drive scripted local input through the production participant pipeline. |

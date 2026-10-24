@@ -8,6 +8,14 @@
 
 use bevy::prelude::*;
 
+/// The prop sheets content registers and the decode of `GameAssets` from the
+/// catalogs (moved from the actor monolith, whose kernel never read them).
+mod sheets;
+pub use sheets::{
+    boss_sheet_keys_for_room, ensure_boss_sheets_loaded, load_game_assets, reload_fx_sheets_of_targets,
+    reload_prop_sheets_of_targets, restate_prop_sheet_rows, PropSheetSource, PropSheets, PropSheetsAppExt,
+};
+
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog;
 use ambition_boss_encounter::BossCatalog;
@@ -163,7 +171,7 @@ impl Plugin for PlatformerAssetsPlugin {
             app.init_asset::<TextureAtlasLayout>();
         }
         app.init_resource::<GameAssets>();
-        app.init_resource::<ambition_platformer2d_actor_monolith::game_assets::PropSheets>();
+        app.init_resource::<sheets::PropSheets>();
         app.add_systems(
             Startup,
             bind_game_assets.before(crate::presentation::PlatformerPresentationSetupSet),
@@ -187,10 +195,10 @@ fn bind_game_assets(
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
-    prop_sheets: Res<ambition_platformer2d_actor_monolith::game_assets::PropSheets>,
+    prop_sheets: Res<sheets::PropSheets>,
     mut game_assets: ResMut<GameAssets>,
 ) {
-    *game_assets = ambition_platformer2d_actor_monolith::game_assets::load_game_assets(
+    *game_assets = sheets::load_game_assets(
         &config,
         &character_catalog,
         &authored_sheets,

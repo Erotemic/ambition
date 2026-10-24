@@ -583,8 +583,8 @@ fn publish_the_staged_sheets(world: &mut World) {
         info!(target: "ambition_platformer2d::sprites", "restating `{name}` from sheet generation {generation}");
         restate(world);
     }
-    crate::actors::game_assets::reload_prop_sheets_of_targets(world, &staged);
-    crate::actors::game_assets::reload_fx_sheets_of_targets(world, &staged);
+    crate::game_assets::reload_prop_sheets_of_targets(world, &staged);
+    crate::game_assets::reload_fx_sheets_of_targets(world, &staged);
     // Each resident realization is now of an older generation: the residency
     // convergence makes a worn one again in place (its body keeps drawing
     // until the new one is ready, then binds again) and retires the others

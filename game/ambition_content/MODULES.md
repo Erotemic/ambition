@@ -17,7 +17,9 @@
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
+| [`gate_network`](src/gate_network.rs) | Ambition's gate network (the pack's `data/gate_network.ron`): the addresses a terminal dials and each ring of the network. |
 | [`gate_portals`](src/gate_portals.rs) | Ambition's gate portals (the pack's `data/gate_portals.ron`): the intro's gate and the Math gate pair, by the loading zone each one holds. |
+| [`gate_terminal`](src/gate_terminal.rs) | The gate terminal's model: what a terminal shows and what a press on it asks of the simulation. |
 | [`input_techniques`](src/input_techniques.rs) | Ambition's motion techniques: the pack's `data/motion_techniques.ron`. |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
@@ -42,7 +44,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

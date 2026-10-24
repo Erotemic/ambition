@@ -91,7 +91,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     };
     // A prop drawn from the sheet holds the frame rects of the records it was
     // made from, so the publication makes it again.
-    use ambition_platformer2d::actors::game_assets::{reload_prop_sheets_of_targets, PropSheetsAppExt, PropSheetSource};
+    use ambition_platformer2d::game_assets::{reload_prop_sheets_of_targets, PropSheetsAppExt, PropSheetSource};
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<Image>();
     app.init_asset::<bevy::image::TextureAtlasLayout>();

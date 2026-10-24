@@ -59,7 +59,6 @@ pub mod world_facts;
 /// combat timing that rides it. Kernel vocabulary: every per-tick actor system
 /// reads it, so it lives here and not in the spawn capability that builds bodies.
 pub mod features;
-pub mod game_assets;
 pub use world::rooms;
 
 // Keep generic time vocabulary in `ambition_time`; export only the local bridge.

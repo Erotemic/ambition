@@ -303,7 +303,7 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
 /// room that authors a `BossSpawn` is prepared; `load_game_assets` decodes none.
 #[test]
 fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
-    use ambition_platformer2d::actors::game_assets::{
+    use ambition_platformer2d::game_assets::{
         ensure_boss_sheets_loaded, load_game_assets,
     };
     use bevy::prelude::*;
@@ -386,7 +386,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         .map(|room| {
             (
                 *room,
-                ambition_platformer2d::actors::game_assets::boss_sheet_keys_for_room(
+                ambition_platformer2d::game_assets::boss_sheet_keys_for_room(
                     room,
                     &boss_catalog,
                 ),

@@ -113,7 +113,7 @@ impl EmbeddedPackReloadPlugin {
         use crate::sprite_sheet::prop_sheets::{lowered_prop_sheets, PROP_SHEETS_SCHEMA};
         let rows = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();
         Self::owning_rows(pack, PROP_SHEETS_SCHEMA, rows(pack.prepared()).into_keys().collect(), move |world, owned, pack| {
-            crate::actors::game_assets::restate_prop_sheet_rows(world, owned, &rows(pack))
+            crate::game_assets::restate_prop_sheet_rows(world, owned, &rows(pack))
         })
     }
 
@@ -903,7 +903,7 @@ mod tests {
     /// rows.
     #[test]
     fn a_pack_restates_only_its_own_rows_of_a_shared_catalog() {
-        use crate::actors::game_assets::{PropSheets, PropSheetsAppExt};
+        use crate::game_assets::{PropSheets, PropSheetsAppExt};
         use crate::sprite_sheet::prop_sheets::lowered_prop_sheets;
 
         let rows_of = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();

@@ -272,8 +272,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_content/src/quest.rs",
     ),
     "GameAssets": (
-        "crates/ambition_platformer2d/src/game_assets.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/game_assets/mod.rs",
+        "crates/ambition_platformer2d/src/game_assets/mod.rs",
+        "crates/ambition_platformer2d/src/game_assets/sheets.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_sprites/rigged.rs",
         "crates/ambition_render/src/rendering/parallax.rs",

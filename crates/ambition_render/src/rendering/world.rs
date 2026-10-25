@@ -486,12 +486,15 @@ pub fn spawn_room_prop(
     }
 }
 
-/// Render a single `WaterRegion` as a tinted overlay quad. Any region source
-/// (IntGrid `Water` or entity `WaterVolume`) uses this path. Two layers:
+/// Backdrop depth: after all regular parallax (-18 through -15), before
+/// collision/world surfaces (0). It is not a camera or overlay layer.
+const WATER_BACKDROP_Z: f32 = -8.0;
+
+/// Render a water region in its room's coordinates.
 ///
-/// - Body: a tinted rect over the whole region. Clear sits behind the player
-///   so the player stays visible; Murky sits in front and hides what is below.
-/// - Surface strip: a brighter band along the top edge.
+/// The optional theme backplate is bounded by the real water volume. It draws
+/// over camera-relative scenery but behind terrain and characters. The water
+/// tint and surface strip retain their independent opacity and depth.
 fn spawn_water_region(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -508,6 +511,37 @@ fn spawn_water_region(
     let region_min = region.aabb.center() - region.aabb.half_size();
     let size = region.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
+    // The themed backdrop is a world-space scene, not another parallax panel.
+    // A split view, a merged view, and a portal capture see the same boundary.
+    // Other themes can publish their own backdrop without changing this path.
+    if let Some(theme) = theme {
+        // The port keeps a plain opaque matte until its generated art loads.
+        // An unpainted biome has no new matte and retains its former water.
+        let fallback = if theme == ambition_sprite_sheet::game_assets::ParallaxTheme::PiratePort {
+            Color::srgb(0.12, 0.36, 0.44)
+        } else {
+            Color::NONE
+        };
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(fallback, render),
+                Transform::from_translation(world_to_bevy(
+                    world,
+                    region.aabb.center(),
+                    WATER_BACKDROP_Z,
+                )),
+                ThemedFixture {
+                    theme,
+                    kind: ThemedFixtureKind::WaterBackdrop,
+                    min: BVec2::new(region_min.x, region_min.y),
+                    size: render,
+                },
+                Name::new("Water backdrop"),
+                RoomVisual,
+            ),
+        );
+    }
     let (body_color, body_z) = match region.kind {
         // Cool blue, mostly transparent, just above blocks.
         ae::WaterKind::Clear => (Color::srgba(0.24, 0.72, 0.88, 0.32), WORLD_Z_BLOCK + 5.0),
@@ -551,6 +585,57 @@ fn spawn_water_region(
     );
     if let Some(fixture) = fixture(ThemedFixtureKind::WaterSurface, region_min, strip_size) {
         strip.insert(fixture);
+    }
+}
+
+#[cfg(test)]
+mod water_backdrop_tests {
+    use super::*;
+    use super::super::terrain_skin::{ThemedFixture, ThemedFixtureKind};
+
+    #[test]
+    fn port_water_owns_a_world_aligned_backdrop_between_parallax_and_play() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, |mut commands: Commands| {
+            let room = ae::World::new(
+                "port_docks",
+                ae::Vec2::new(2816.0, 960.0),
+                ae::Vec2::ZERO,
+                Vec::new(),
+            );
+            let water = ae::WaterRegion::new(
+                ae::aabb_from_min_size(
+                    ae::Vec2::new(0.0, 784.0),
+                    ae::Vec2::new(2816.0, 144.0),
+                ),
+                ae::WaterKind::Clear,
+                Default::default(),
+            );
+            spawn_water_region(
+                &mut commands,
+                SessionSpawnScope::UNSCOPED,
+                &room,
+                &water,
+                Some(ambition_sprite_sheet::game_assets::ParallaxTheme::PiratePort),
+            );
+        });
+        app.update();
+
+        let mut query = app.world_mut().query::<(&Name, &Sprite, &Transform, &ThemedFixture)>();
+        let backdrops: Vec<_> = query
+            .iter(app.world())
+            .filter(|(name, _, _, _)| name.as_str() == "Water backdrop")
+            .collect();
+        assert_eq!(backdrops.len(), 1);
+        let (_, sprite, transform, fixture) = backdrops[0];
+        assert_eq!(sprite.custom_size, Some(BVec2::new(2816.0, 144.0)));
+        assert_eq!(sprite.color, Color::srgb(0.12, 0.36, 0.44));
+        assert_eq!(fixture.kind, ThemedFixtureKind::WaterBackdrop);
+        assert_eq!(fixture.min, BVec2::new(0.0, 784.0));
+        // A world-space waterline at y=784 in a 960-high room.
+        assert_eq!(transform.translation, Vec3::new(0.0, -376.0, WATER_BACKDROP_Z));
+        assert!(WATER_BACKDROP_Z > -15.0 && WATER_BACKDROP_Z < WORLD_Z_BLOCK);
     }
 }
 

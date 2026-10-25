@@ -1414,6 +1414,8 @@ pub enum ThemedFixtureKind {
     WaterClear,
     WaterMurky,
     WaterSurface,
+    /// Opaque scenery between parallax and water, bounded by the water volume.
+    WaterBackdrop,
 }
 
 /// A fixture visual of a room that names a theme (a ladder, a body of water,
@@ -1486,6 +1488,7 @@ pub fn dress_themed_fixtures(
             ThemedFixtureKind::Ladder => (RoomDressingPart::Ladder, Vec2::new(16.0, 32.0), fixture.min, fixture.size),
             ThemedFixtureKind::WaterClear => (RoomDressingPart::WaterClear, Vec2::splat(SKIN_PERIOD), fixture.min, fixture.size),
             ThemedFixtureKind::WaterMurky => (RoomDressingPart::WaterMurky, Vec2::splat(SKIN_PERIOD), fixture.min, fixture.size),
+            ThemedFixtureKind::WaterBackdrop => (RoomDressingPart::WaterBackdrop, Vec2::ZERO, fixture.min, fixture.size),
             // The picture is higher than the strip it takes the place of, and
             // its line goes on the top of the water.
             ThemedFixtureKind::WaterSurface => (
@@ -1498,6 +1501,14 @@ pub fn dress_themed_fixtures(
         let Some(image) = assets.room_dressing.get(fixture.theme, part) else {
             continue;
         };
+        // A backdrop is one scene, not a repeating texture. Fit it to the
+        // authored water volume. The volume clips it at the true waterline,
+        // and its own opaque pixels cover the camera-relative background.
+        if fixture.kind == ThemedFixtureKind::WaterBackdrop {
+            *sprite = Sprite::from_image(image.clone());
+            sprite.custom_size = Some(fixture.size);
+            continue;
+        }
         // The pieces are placed from the middle of the rectangle they fill,
         // and the sprite is at the middle of the fixture: the difference.
         let shift = (min + size * 0.5) - (fixture.min + fixture.size * 0.5);
@@ -1569,6 +1580,11 @@ mod tests {
             assets.room_dressing.insert(ParallaxTheme::Cave, part, Handle::default());
         }
         assets.room_dressing.mark_attempted(ParallaxTheme::Lab);
+        assets.room_dressing.insert(
+            ParallaxTheme::PiratePort,
+            RoomDressingPart::WaterBackdrop,
+            Handle::default(),
+        );
         world.insert_resource(assets);
         let fixture = |world: &mut World, theme: ParallaxTheme, kind: ThemedFixtureKind, min: Vec2, size: Vec2| {
             let body = world.spawn((ThemedFixture { theme, kind, min, size }, Sprite::from_color(Color::WHITE, size))).id();
@@ -1579,6 +1595,7 @@ mod tests {
         };
         let ladder = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
         let surface = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::WaterSurface, Vec2::new(0.0, 200.0), Vec2::new(128.0, 4.0));
+        let backdrop = fixture(&mut world, ParallaxTheme::PiratePort, ThemedFixtureKind::WaterBackdrop, Vec2::new(0.0, 784.0), Vec2::new(2816.0, 144.0));
         let plain = fixture(&mut world, ParallaxTheme::Lab, ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
         world.run_system_once(dress_themed_fixtures).unwrap();
 
@@ -1586,6 +1603,10 @@ mod tests {
         assert_eq!(pieces.iter().map(|(size, _)| size.x * size.y).sum::<f32>(), 16.0 * 96.0, "the pieces cover the ladder");
         assert_eq!(world.entity(ladder).get::<Children>().unwrap().len(), pieces.len(), "the rung of the placeholder is gone");
         assert_eq!(world.entity(ladder).get::<Sprite>().unwrap().color, Color::NONE);
+
+        let painted = world.entity(backdrop).get::<Sprite>().unwrap();
+        assert_eq!(painted.custom_size, Some(Vec2::new(2816.0, 144.0)));
+        assert_eq!(painted.color, Color::WHITE, "the authored scene replaces the placeholder");
 
         let strip = fixture_pieces(&mut world, surface);
         assert!(strip.iter().all(|(size, _)| size.y == WATER_SURFACE_HEIGHT));

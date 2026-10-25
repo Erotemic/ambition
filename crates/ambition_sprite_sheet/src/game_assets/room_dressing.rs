@@ -59,6 +59,9 @@ pub enum RoomDressingPart {
     WaterMurky,
     /// The line of the surface of a body of water. It repeats along it.
     WaterSurface,
+    /// An opaque scene behind a water volume. It is fitted to that volume and
+    /// drawn behind the play, in front of camera-relative parallax.
+    WaterBackdrop,
     /// A wall a blink goes through: a field of light. It repeats each way.
     BlinkSoft,
     /// A wall no blink goes through: armour. It repeats each way.
@@ -114,7 +117,7 @@ pub const MOTE_CELL_PX: u32 = 32;
 impl RoomDressingPart {
     pub const ALL: &'static [Self] =
         &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
-            Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface,
+            Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface, Self::WaterBackdrop,
             Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge, Self::HazardFill, Self::HazardEdge,
             Self::DecorGlow, Self::Pillar, Self::Arch, Self::Banner, Self::Ivy, Self::IvyStrands,
             Self::Emblem];
@@ -134,6 +137,7 @@ impl RoomDressingPart {
             Self::WaterClear => "water_clear",
             Self::WaterMurky => "water_murky",
             Self::WaterSurface => "water_surface",
+            Self::WaterBackdrop => "water_backdrop",
             Self::BlinkSoft => "blink_soft",
             Self::BlinkHard => "blink_hard",
             Self::BlinkEdge => "blink_edge",

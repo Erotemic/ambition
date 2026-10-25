@@ -135,10 +135,11 @@ def check_backgrounds(asset_root: Path, sources, plans_only: bool) -> list[str]:
         """import json
 from ambition_sprite2d_renderer.backgrounds.scenes import THEMES, LAYERS
 from ambition_sprite2d_renderer.backgrounds.sky_parts import PARTS
-from ambition_sprite2d_renderer.terrain import skins, motes, decor, doors, shimmer
+from ambition_sprite2d_renderer.terrain import skins, motes, decor, doors, shimmer, water_backdrops
 paths = [f'backgrounds/parallax_layers/{theme}_{layer}.png' for theme in THEMES for layer in LAYERS]
 paths += [f'backgrounds/sky_parts/{part}.png' for part in PARTS]
 paths += [f'room_dressing/{skin.key}_{part}.png' for skin in skins.SKINS for part in skins.PARTS]
+paths += [f'room_dressing/{theme}_water_backdrop.png' for theme in water_backdrops.BACKDROPS]
 for registry, parts in [(motes.MOTES, ['motes']), (motes.SHADOWS, ['shadow']), (decor.DECOR, ['decor', 'decor_glow']), (doors.DOORS, ['door']), (shimmer.SHIMMERS, ['shimmer'])]:
     paths += [f'room_dressing/{key}_{part}.png' for key in registry for part in parts]
 print(json.dumps(paths))

@@ -9,10 +9,8 @@
 //!
 //! 1. No-drift exhaustiveness — every [`SettingsOptionId`] is surfaced by the
 //!    settings IR (`settings_menu_model`), and every [`SystemMenuEntryId`] is
-//!    surfaced by the System model (`SystemMenuModel::build`). The match/iteration
-//!    is EXHAUSTIVE over the enums, so adding a new variant fails compilation (the
-//!    match arm) or the test (the surfaced-set assertion) until it is wired into a
-//!    presentation — the test is a living inventory, not a silent gap.
+//!    surfaced by the System model (`SystemMenuModel::build`). The settings owner
+//!    supplies its option list. The tests check that each option reaches a screen.
 //! 2. Dispatch parity — for a representative set of actions (equip an item,
 //!    change page, toggle a setting, drill a System entry), the GRID's real
 //!    pointer-release path and the CUBE's real pointer-release path produce the
@@ -32,146 +30,6 @@ use ambition_platformer2d::settings_menu::system::{
 // ---------------------------------------------------------------------------
 // Part 1a — no-drift exhaustiveness (settings IR + System model)
 // ---------------------------------------------------------------------------
-
-/// EVERY [`SettingsOptionId`] variant, listed exhaustively. The trailing
-/// `match`-less destructuring of a value below forces this list to stay in sync:
-/// a NEW variant fails to compile here until it is added, and adding it here but
-/// not to the IR fails [`every_settings_option_is_surfaced_by_the_settings_ir`].
-const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
-    SettingsOptionId::DisplayMode,
-    SettingsOptionId::CameraZoom,
-    SettingsOptionId::CameraAspect,
-    SettingsOptionId::CameraFraming,
-    SettingsOptionId::ViewShape,
-    SettingsOptionId::Flashes,
-    SettingsOptionId::Colorblind,
-    SettingsOptionId::ShowFps,
-    SettingsOptionId::FramePacing,
-    SettingsOptionId::Vsync,
-    SettingsOptionId::VisualQuality,
-    SettingsOptionId::ShaderStrength,
-    SettingsOptionId::ShaderCrtStrength,
-    SettingsOptionId::ShaderCrtScanlines,
-    SettingsOptionId::ShaderCrtMask,
-    SettingsOptionId::ShaderCrtCurvature,
-    SettingsOptionId::ShaderCrtBloom,
-    SettingsOptionId::ShaderCrtChroma,
-    SettingsOptionId::ShaderFilmGrainStrength,
-    SettingsOptionId::ShaderFilmGrainSize,
-    SettingsOptionId::ShaderFilmGrainFps,
-    SettingsOptionId::ShaderFilmGrainLumaBias,
-    SettingsOptionId::ShaderRobotDeathStrength,
-    SettingsOptionId::ShaderRobotStatic,
-    SettingsOptionId::ShaderRobotTear,
-    SettingsOptionId::ShaderRobotDesaturate,
-    SettingsOptionId::ShaderRobotScanlines,
-    SettingsOptionId::ShaderUnderwaterStrength,
-    SettingsOptionId::ShaderUnderwaterDistortion,
-    SettingsOptionId::ShaderDeepDreamStrength,
-    SettingsOptionId::ShaderVignetteStrength,
-    SettingsOptionId::MasterVolume,
-    SettingsOptionId::MusicVolume,
-    SettingsOptionId::SfxVolume,
-    SettingsOptionId::Mute,
-    SettingsOptionId::KeyboardPreset,
-    SettingsOptionId::ControllerProfile,
-    SettingsOptionId::LeftStickDeadzone,
-    SettingsOptionId::RightStickDeadzone,
-    SettingsOptionId::TriggerPress,
-    SettingsOptionId::TriggerRelease,
-    SettingsOptionId::DpadMenuNav,
-    SettingsOptionId::InvertAimY,
-    SettingsOptionId::BurstInputMode,
-    SettingsOptionId::RightStickMode,
-    SettingsOptionId::TouchControls,
-    SettingsOptionId::MenuTapMode,
-    SettingsOptionId::ResetControlFiltering,
-    SettingsOptionId::Difficulty,
-    SettingsOptionId::Assist,
-    SettingsOptionId::PlayerDamage,
-    SettingsOptionId::DebugHud,
-    SettingsOptionId::QuestHud,
-    SettingsOptionId::TraceAutoDump,
-    SettingsOptionId::PauseInputUnfocused,
-    SettingsOptionId::PortalReverseFacing,
-    SettingsOptionId::AcceptLocalJoins,
-    SettingsOptionId::MovementFrameMode,
-    SettingsOptionId::AimFrameMode,
-    SettingsOptionId::CameraReferenceFrame,
-    SettingsOptionId::Close,
-];
-
-/// Compile-time completeness guard for [`ALL_SETTINGS_OPTION_IDS`]: an EXHAUSTIVE
-/// match over the enum that does nothing but force a build error the moment a new
-/// `SettingsOptionId` variant is added without being listed above (and therefore
-/// without being checked for surfacing). Never called — its only job is to fail
-/// `cargo build` on an unlisted variant.
-#[allow(dead_code)]
-fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
-    match id {
-        SettingsOptionId::DisplayMode
-        | SettingsOptionId::CameraZoom
-        | SettingsOptionId::CameraAspect
-        | SettingsOptionId::CameraFraming
-        | SettingsOptionId::ViewShape
-        | SettingsOptionId::Flashes
-        | SettingsOptionId::Colorblind
-        | SettingsOptionId::ShowFps
-        | SettingsOptionId::FramePacing
-        | SettingsOptionId::Vsync
-        | SettingsOptionId::VisualQuality
-        | SettingsOptionId::ShaderStrength
-        | SettingsOptionId::ShaderCrtStrength
-        | SettingsOptionId::ShaderCrtScanlines
-        | SettingsOptionId::ShaderCrtMask
-        | SettingsOptionId::ShaderCrtCurvature
-        | SettingsOptionId::ShaderCrtBloom
-        | SettingsOptionId::ShaderCrtChroma
-        | SettingsOptionId::ShaderFilmGrainStrength
-        | SettingsOptionId::ShaderFilmGrainSize
-        | SettingsOptionId::ShaderFilmGrainFps
-        | SettingsOptionId::ShaderFilmGrainLumaBias
-        | SettingsOptionId::ShaderRobotDeathStrength
-        | SettingsOptionId::ShaderRobotStatic
-        | SettingsOptionId::ShaderRobotTear
-        | SettingsOptionId::ShaderRobotDesaturate
-        | SettingsOptionId::ShaderRobotScanlines
-        | SettingsOptionId::ShaderUnderwaterStrength
-        | SettingsOptionId::ShaderUnderwaterDistortion
-        | SettingsOptionId::ShaderDeepDreamStrength
-        | SettingsOptionId::ShaderVignetteStrength
-        | SettingsOptionId::MasterVolume
-        | SettingsOptionId::MusicVolume
-        | SettingsOptionId::SfxVolume
-        | SettingsOptionId::Mute
-        | SettingsOptionId::KeyboardPreset
-        | SettingsOptionId::ControllerProfile
-        | SettingsOptionId::LeftStickDeadzone
-        | SettingsOptionId::RightStickDeadzone
-        | SettingsOptionId::TriggerPress
-        | SettingsOptionId::TriggerRelease
-        | SettingsOptionId::DpadMenuNav
-        | SettingsOptionId::InvertAimY
-        | SettingsOptionId::BurstInputMode
-        | SettingsOptionId::RightStickMode
-        | SettingsOptionId::TouchControls
-        | SettingsOptionId::MenuTapMode
-        | SettingsOptionId::ResetControlFiltering
-        | SettingsOptionId::Difficulty
-        | SettingsOptionId::Assist
-        | SettingsOptionId::PlayerDamage
-        | SettingsOptionId::DebugHud
-        | SettingsOptionId::QuestHud
-        | SettingsOptionId::TraceAutoDump
-        | SettingsOptionId::PauseInputUnfocused
-        | SettingsOptionId::PortalReverseFacing
-        | SettingsOptionId::AcceptLocalJoins
-        | SettingsOptionId::MovementFrameMode
-        | SettingsOptionId::AimFrameMode
-        | SettingsOptionId::CameraReferenceFrame
-        | SettingsOptionId::Close => {}
-    }
-}
 
 /// EVERY [`SystemMenuEntryId`] variant, listed exhaustively (compile-guarded by
 /// [`assert_all_system_menu_entry_ids_listed`]).
@@ -210,9 +68,7 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
 
 /// No-drift: every `SettingsOptionId` is surfaced by the settings IR
 /// (`settings_menu_model`) — i.e. appears in some category's option rows — EXCEPT
-/// the documented exclusions below. A newly-added variant fails to compile (the
-/// `assert_all_settings_option_ids_listed` match) or fails this test (the
-/// surfaced-set check) until it is wired into the IR.
+/// the documented exclusions below. The settings owner supplies the option list.
 #[test]
 fn every_settings_option_is_surfaced_by_the_settings_ir() {
     let model = settings_menu_model(&UserSettings::default());
@@ -223,7 +79,7 @@ fn every_settings_option_is_surfaced_by_the_settings_ir() {
         .map(|o| o.id)
         .collect();
 
-    for id in ALL_SETTINGS_OPTION_IDS {
+    for id in &SettingsOptionId::ALL {
         // DOCUMENTED EXCLUSION: `Close` is a renderer pseudo-option (close the
         // menu) provided by `close_menu_option()`, not a `UserSettings` field, so
         // it is intentionally NOT a category row in `settings_menu_model`. Assert
@@ -375,7 +231,7 @@ fn every_settings_option_is_curated_into_the_system_model() {
         .map(|o| o.id)
         .collect();
 
-    for id in ALL_SETTINGS_OPTION_IDS {
+    for id in &SettingsOptionId::ALL {
         // DOCUMENTED EXCLUSION: `Close` is the close-menu pseudo-option, never a
         // curated settings row.
         if *id == SettingsOptionId::Close {

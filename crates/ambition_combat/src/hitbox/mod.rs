@@ -573,10 +573,7 @@ impl StrikeVictimItem<'_, '_> {
             _ => vec![ambition_platformer2d_core::CombatVolume::aabb(self.aabb.aabb())],
         };
         match passages {
-            Some(passages) => parts
-                .iter()
-                .flat_map(|part| passages.pieces(part, Some(self.entity), self.aabb.center, room))
-                .collect(),
+            Some(passages) => hurt_pieces_of(self.entity, self.aabb.center, parts, Some(passages), room),
             None => parts.into_iter().map(VolumePiece::whole).collect(),
         }
     }
@@ -804,6 +801,45 @@ fn spatial_source_of(hitbox: &Hitbox, owner_pos: ae::Vec2) -> ae::Vec2 {
     }
 }
 
+/// Where a strike's volume is in live room `room`: its pieces, as the portal
+/// pairs cut it, or its whole volume. The one rule [`apply_hitbox_damage`]
+/// resolves by and the combat read model shows. A volume the owner carries
+/// (it follows the owner) reaches from it: through an opening it goes in the
+/// wedge from the owner through the opening's ends, and what it swept beside
+/// the opening met the host (its drawing is cut the same way,
+/// `ambition_portal2d_presentation::carry`). One placed in the world is cut
+/// square on by what it reaches through.
+pub fn strike_pieces(
+    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    hitbox: &Hitbox,
+    owner_pos: ae::Vec2,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Vec<ambition_platformer2d_core::frame::thread::VolumePiece> {
+    let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
+    let volume = hitbox.world_volume(owner_pos);
+    match passages.filter(|p| p.cuts_in(room, carrier)) {
+        Some(p) if carrier.is_some() => p.pieces_reaching(&volume, carrier, owner_pos, room),
+        Some(p) => p.pieces(&volume, carrier, spatial_source_of(hitbox, owner_pos), room),
+        None => vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)],
+    }
+}
+
+/// Where a body's hurt volumes `parts` are in live room `room`: their pieces,
+/// as the portal pairs cut them (a body half through a pair is hurt at both
+/// ends), or whole. The rule [`apply_hitbox_damage`] reaches a victim by.
+pub fn hurt_pieces_of(
+    body: Entity,
+    center: ae::Vec2,
+    parts: Vec<ae::CombatVolume>,
+    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Vec<ambition_platformer2d_core::frame::thread::VolumePiece> {
+    match passages.filter(|p| p.cuts_in(room, Some(body))) {
+        Some(passages) => parts.iter().flat_map(|part| passages.pieces(part, Some(body), center, room)).collect(),
+        None => parts.into_iter().map(ambition_platformer2d_core::frame::thread::VolumePiece::whole).collect(),
+    }
+}
+
 pub fn apply_hitbox_damage(
     // ⭐ THE MOVE INSTANCE RIDES ALONG, `Option` because this system resolves
     // volumes that no move spawned (an ability's own box, a hazard). See
@@ -936,15 +972,7 @@ pub fn apply_hitbox_damage(
         // live rooms share one local frame, so a body at the same place
         // in another room is not in reach.
         let room = rooms.stamped(hitbox_entity).or_else(|| rooms.of(hitbox.owner));
-        // A volume the owner carries (it follows the owner) is cut by the pair
-        // the owner is in; one placed in the world, by what it reaches through.
-        let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
-        let volume = hitbox.world_volume(owner_pos);
-        let pieces = match passages.as_deref().filter(|p| p.cuts_in(room, carrier)) {
-            Some(p) => p.pieces(&volume, carrier, spatial_source_of(hitbox, owner_pos), room),
-            None => vec![VolumePiece::whole(volume)],
-        };
-        (room, pieces)
+        (room, strike_pieces(passages.as_deref(), hitbox, owner_pos, room))
     };
     // The victims in a stable order (see the victim loop), sorted once a
     // tick: the order is the same for every strike.

@@ -7,6 +7,15 @@
 //! the plane and beside the opening stays where it is. A part carried through
 //! one pair can cross another, and is cut again ([`partition`]).
 //!
+//! A volume either moves through whole or reaches from a point. A body (a
+//! hurtbox, a shot, a thrown thing) moves through square on: its part past
+//! the plane between the opening's ends goes through, and the snag holds it
+//! to fitting the opening ([`partition`]). A swing reaches from its owner
+//! ([`partition_reaching`]): its part past the plane went through where the
+//! line from the owner to it crosses the plane inside the opening, the wedge
+//! from the owner through the ends ([`opening_from`]), as an eye sees through
+//! a window. What it swept beside the opening met the host.
+//!
 //! A piece is the whole shape placed in its chart and the half planes that
 //! bound the part of it that is there, so the test is exact for every
 //! [`CombatVolume`]: a circle cut by a plane stays a cut circle.
@@ -83,10 +92,11 @@ impl PortalLink {
         Iso2::through(&self.enter.frame, &self.exit.frame, convention)
     }
 
-    /// The half planes of what goes through, at the entry: behind the plane,
-    /// between the ends, and no deeper than [`Self::depth`].
-    fn slab(&self) -> impl Iterator<Item = HalfPlane> {
-        opening(&self.enter).into_iter().chain(self.deepest(&self.enter))
+    /// The half planes of what goes through, at the entry: past the plane,
+    /// between the ends (in the wedge from `reach`, for a volume that reaches
+    /// from it), and no deeper than [`Self::depth`].
+    fn through_from(&self, reach: Option<Vec2>) -> impl Iterator<Item = HalfPlane> {
+        entry_opening(&self.enter, reach).into_iter().chain(self.deepest(&self.enter))
     }
 
     /// The half plane no deeper than [`Self::depth`] past `ap`'s plane.
@@ -272,22 +282,50 @@ pub fn opening(ap: &PortalAperture) -> [HalfPlane; 3] {
     ]
 }
 
+/// The half planes of what goes through `ap` from `root`: past its plane, and
+/// in the wedge from `root` through its ends (a line from `root` to a point
+/// in it crosses the plane inside the opening). A root on or past the plane
+/// sees the opening square on: the wedge is the opening's own width
+/// ([`opening`]), as from a root far in front.
+pub fn opening_from(ap: &PortalAperture, root: Vec2) -> [HalfPlane; 3] {
+    let square = opening(ap);
+    if ap.frame.to_local(root).y <= EPS {
+        return square;
+    }
+    let (o, t, h) = (ap.frame.origin, ap.frame.tangent(), ap.half_length);
+    let (lo, hi) = (o - t * h, o + t * h);
+    // The side of the line from `root` through `end` that holds `other`.
+    let side = |end: Vec2, other: Vec2| {
+        let n = (end - root).perp().normalize_or_zero();
+        HalfPlane { point: end, inward: if (other - end).dot(n) >= 0.0 { n } else { -n } }
+    };
+    [square[0], side(lo, hi), side(hi, lo)]
+}
+
+fn entry_opening(ap: &PortalAperture, reach: Option<Vec2>) -> [HalfPlane; 3] {
+    reach.map_or_else(|| opening(ap), |from| opening_from(ap, from))
+}
+
 /// Does `volume` reach past `ap`'s plane inside its opening?
 pub fn reaches_through(volume: &CombatVolume, ap: &PortalAperture) -> bool {
     let link = PortalLink { enter: *ap, exit: *ap, key: 0, depth: None };
-    piece_reaches_through(&VolumePiece::whole(volume.clone()), &link)
+    piece_reaches_through(&VolumePiece::whole(volume.clone()), &link, None)
 }
 
-fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink) -> bool {
+fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink, reach: Option<Vec2>) -> bool {
     let ap = &link.enter;
     // The box around the volume first: most openings are nowhere near.
     let b = piece.volume.bounds();
     let corners = [b.min, Vec2::new(b.max.x, b.min.y), b.max, Vec2::new(b.min.x, b.max.y)].map(|c| ap.frame.to_local(c));
     let h = ap.half_length;
-    if corners.iter().all(|l| l.y >= 0.0) || corners.iter().all(|l| l.x <= -h) || corners.iter().all(|l| l.x >= h) {
+    if corners.iter().all(|l| l.y >= 0.0) {
         return false;
     }
-    holds(&piece.volume, piece.bounds.iter().copied().chain(link.slab()))
+    // Square on, a box wholly past an end is beside the opening.
+    if reach.is_none() && (corners.iter().all(|l| l.x <= -h) || corners.iter().all(|l| l.x >= h)) {
+        return false;
+    }
+    holds(&piece.volume, piece.bounds.iter().copied().chain(link.through_from(reach)))
 }
 
 /// The partitioner's working memory, kept between calls on a thread so that a
@@ -336,11 +374,12 @@ fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool
 }
 
 /// `piece` cut by `link`: its part in front of the entry plane, its parts past
-/// the plane and beside the opening, its part deeper than the link goes, and
-/// (unless `refused`) its part through the opening, at the exit. Empty parts
-/// are left out.
-fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, refused: bool) -> Vec<VolumePiece> {
-    let [behind, lo, hi] = opening(&link.enter);
+/// the plane and beside the opening (seen from `reach`, for a piece that
+/// reaches from it), its part deeper than the link goes, and (unless
+/// `refused`) its part through the opening, at the exit. Empty parts are left
+/// out.
+fn cut_by(piece: &VolumePiece, reach: Option<Vec2>, link: &PortalLink, convention: MapConvention, refused: bool) -> Vec<VolumePiece> {
+    let [behind, lo, hi] = entry_opening(&link.enter, reach);
     let mut parts = Vec::with_capacity(5);
     let mut stay = |more: &[HalfPlane]| {
         if holds(&piece.volume, piece.bounds.iter().chain(more).copied()) {
@@ -355,7 +394,7 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
     }
     if !refused {
         let map = link.map(convention);
-        let [exit_behind, exit_lo, exit_hi] = opening(&link.exit);
+        let [exit_behind, _, _] = opening(&link.exit);
         let mut path = piece.path.clone();
         path.push(link.key);
         // Out of the exit, as deep as it went in.
@@ -369,7 +408,7 @@ fn cut_by(piece: &VolumePiece, link: &PortalLink, convention: MapConvention, ref
                 .bounds
                 .iter()
                 .map(|plane| plane.mapped(&map))
-                .chain([exit_behind.flipped(), exit_lo, exit_hi])
+                .chain([exit_behind.flipped(), lo.mapped(&map), hi.mapped(&map)])
                 .chain(shallow)
                 .collect(),
             to_piece: piece.to_piece.then(&map),
@@ -426,6 +465,34 @@ pub fn partition(
     budget: PieceBudget,
     convention: MapConvention,
 ) -> Partition {
+    partition_from(volume, root, false, links, first, budget, convention)
+}
+
+/// [`partition`] for a volume that reaches from `root` (a swing from its
+/// owner): what it reaches past a plane goes through in the wedge from its
+/// root through the opening's ends ([`opening_from`]), and what is beside it
+/// stays. A piece carried through reaches from where its root's line came
+/// out of the exit.
+pub fn partition_reaching(
+    volume: &CombatVolume,
+    root: Vec2,
+    links: &[PortalLink],
+    first: Option<u32>,
+    budget: PieceBudget,
+    convention: MapConvention,
+) -> Partition {
+    partition_from(volume, root, true, links, first, budget, convention)
+}
+
+fn partition_from(
+    volume: &CombatVolume,
+    root: Vec2,
+    reaching: bool,
+    links: &[PortalLink],
+    first: Option<u32>,
+    budget: PieceBudget,
+    convention: MapConvention,
+) -> Partition {
     let mut out = Partition::default();
     let mut work = WORK.take();
     work.clear();
@@ -438,11 +505,12 @@ pub fn partition(
     while let Some((piece, root)) = work.pop_front() {
         steps += 1;
         let forced = (steps == 1).then_some(first).flatten();
+        let reach = reaching.then_some(root);
         let reaching = links
             .iter()
             .filter(|link| {
                 (Some(link.key) == forced || link.enter.frame.to_local(root).y > 0.0)
-                    && piece_reaches_through(&piece, link)
+                    && piece_reaches_through(&piece, link, reach)
             })
             .min_by(|a, b| {
                 let rank = |link: &PortalLink| {
@@ -469,12 +537,12 @@ pub fn partition(
         let kept = out.pieces.len() + work.len();
         let fits = |parts: &[VolumePiece]| kept + parts.len() <= usize::from(budget.max_pieces);
         let through = (piece.path.len() < usize::from(budget.max_hops))
-            .then(|| cut_by(&piece, link, convention, false))
+            .then(|| cut_by(&piece, reach, link, convention, false))
             .filter(|parts| fits(parts));
         let parts = match through {
             Some(parts) => parts,
             None => {
-                let parts = cut_by(&piece, link, convention, true);
+                let parts = cut_by(&piece, reach, link, convention, true);
                 let whole = !fits(&parts);
                 out.refused.push(Refusal { path: piece.path.clone(), link: link.key, whole });
                 if whole {

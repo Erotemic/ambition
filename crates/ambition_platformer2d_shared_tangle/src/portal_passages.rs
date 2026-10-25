@@ -5,7 +5,7 @@
 //! The portal domain writes it each tick after its transit; a composition with
 //! no portals leaves it empty, and every volume is whole.
 
-use ambition_platformer2d_core::frame::thread::{partition, PieceBudget, PortalLink, VolumePiece};
+use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
 use ambition_platformer2d_core::frame::{MapConvention, PortalAperture};
 use ambition_platformer2d_core::{CombatVolume, Vec2};
 use bevy::prelude::{Component, Entity, Resource};
@@ -176,6 +176,31 @@ impl PortalPassages {
         root: Vec2,
         room: Option<LiveRoomInstance>,
     ) -> Vec<VolumePiece> {
+        self.pieces_from(volume, owner, root, false, room)
+    }
+
+    /// [`Self::pieces`] for a volume that reaches from `root` (a strike from
+    /// its owner): it goes through an opening in the wedge from `root`
+    /// through the opening's ends ([`partition_reaching`]).
+    pub fn pieces_reaching(
+        &self,
+        volume: &CombatVolume,
+        owner: Option<Entity>,
+        root: Vec2,
+        room: Option<LiveRoomInstance>,
+    ) -> Vec<VolumePiece> {
+        self.pieces_from(volume, owner, root, true, room)
+    }
+
+    fn pieces_from(
+        &self,
+        volume: &CombatVolume,
+        owner: Option<Entity>,
+        root: Vec2,
+        reaching: bool,
+        room: Option<LiveRoomInstance>,
+    ) -> Vec<VolumePiece> {
+        let cut_by = if reaching { partition_reaching } else { partition };
         let Some(budget) = self.budget_for(owner, room) else {
             return vec![VolumePiece::whole(volume.clone())];
         };
@@ -185,9 +210,9 @@ impl PortalPassages {
             Some(link) if !links.contains(&link) => {
                 let mut with: Vec<PortalLink> = links.to_vec();
                 with.push(link);
-                partition(volume, root, &with, Some(link.key), budget, self.convention)
+                cut_by(volume, root, &with, Some(link.key), budget, self.convention)
             }
-            _ => partition(volume, root, links, straddled.map(|l| l.key), budget, self.convention),
+            _ => cut_by(volume, root, links, straddled.map(|l| l.key), budget, self.convention),
         };
         for refusal in &cut.refused {
             let kept = if refusal.whole {

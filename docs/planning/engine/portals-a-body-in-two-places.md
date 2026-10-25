@@ -27,6 +27,30 @@ What counts as "coming from the front":
   owner's centre) is on. A sword swung into a portal reaches through it; the swordsman
   need not be in transit.
 
+### Moving through, and reaching (2026-10-25)
+
+Jon, 2026-10-25: "A thing wider than the opening should not be allowed to go though
+it." A body already obeys: the snag (`ambition_portal2d::snag`) lets it through only
+whole, so it never straddles an end. A swing is not a wide thing: it is a thin blade
+moving, and a thin blade crosses the plane at one point, inside the opening or beside
+it. So a volume says which it is:
+
+- **It moves through** (a body's hurtbox, a shot, a thrown thing, a worn helmet):
+  `partition`. Its part past the plane between the ends goes through (the slab).
+- **It reaches from a point** (a strike that follows its owner, a slash with
+  `ReachesFrom`): `partition_reaching`. Its part past the plane went through where the
+  line from the root to it crosses the plane inside the opening: the wedge from the
+  root through the opening's ends (`opening_from`), as an eye sees through a window.
+  What it swept beside the opening met the host and stays where it is. Out of the exit
+  it is bounded by that wedge carried through the pair, not by the exit's ends.
+
+The wedge is not a slash rule: it is the window's view cone with a hand for the eye. A
+body that fits the opening and reaches from its own centre is all in its wedge, so a
+carry that holds a body and the swing it swings is cut by the wedge as the slab would
+cut the body. Combat and drawing use the same cut: `apply_hitbox_damage` cuts a volume
+the owner carries with `pieces_reaching`, the carry cuts a drawable with `ReachesFrom`
+with `partition_reaching`.
+
 ## Pieces
 
 `ambition_platformer2d_core::frame::thread`. A piece is a whole shape placed in its chart
@@ -591,8 +615,9 @@ the CPU), a dev build, 1280x720, 900 frames, the load average 14 to 30
   The sim knows what goes through; the carry knows only the geometry and
   `ReachesFrom`.
 - A drawable larger than a carry camera's span is cut at the span's edge.
-- A part of a drawable past the entry plane but beside the opening (a
-  slash below a wall portal) is drawn where it is, in the wall.
+- A drawable with no physics that moves through square on and straddles an
+  end (a spark across a wall portal's end) is still cut there, part through
+  and part beside: the snag holds bodies to fitting, not drawables.
 - The cost on a phone is not measured.
 
 Closed since 2026-10-16: a shot's step ends at the crossing and its

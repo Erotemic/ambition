@@ -13,10 +13,13 @@
 //! * Any other drawable (worn gear, a held item, a flash, a trail, a slash,
 //!   dust, a spark, a bolt) goes through an opening when it reaches past the
 //!   entry plane, inside the opening, from the front: the rule a combat volume
-//!   is cut by. It reaches out from its own centre, or from the point it says
+//!   is cut by. It moves through square on from its own centre, or reaches
+//!   from the point it says
 //!   ([`ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom`]: a
-//!   swing, from the body that swings it). No kind opts in, so a new kind is
-//!   carried when it is made.
+//!   swing, from the body that swings it), and then goes through in the wedge
+//!   from that point through the opening's ends, as its hits do
+//!   ([`ae::frame::thread::partition_reaching`]). No kind opts in, so a new
+//!   kind is carried when it is made.
 //! * A drawable that is part of another's picture ([`PortalDrawnWith`], and
 //!   each child) goes with that one.
 //!
@@ -49,7 +52,7 @@ use ambition_platformer2d_shared_tangle::camera_layers::{
     PORTAL_CARRY_LAYER_BASE, PORTAL_CARRY_LAYERS, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
 };
 
-use ae::frame::thread::{partition, PieceBudget, PortalLink, VolumePiece};
+use ae::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
 use ambition_portal2d::{find_portal, PlacedPortal};
 
 use crate::clip_material::{clip_piece_transform, clip_plane_render, ClipQuadPool, PortalClipMaterial, CLIP_PLANES};
@@ -121,6 +124,9 @@ const WARM_SLOTS: usize = 2;
 /// The clipped quads made before the first need: the pieces of two carries
 /// through a pair each (here, two beside, through) and one more.
 const WARM_QUADS: usize = 10;
+/// How near (world px) two drawables' roots are to be one root: a swing's
+/// owner and the body it is.
+const ROOT_SLACK: f32 = 1.0;
 /// The largest texture side of a carry, in texels.
 const MAX_SIDE: u32 = 2048;
 /// The camera order of the carries: after the impostor cameras (a carried
@@ -152,6 +158,8 @@ struct Carry {
     link: u32,
     /// Where it comes from: the body's centre, or the first drawable's.
     root: Vec2,
+    /// It reaches from `root` (a swing): it is cut by the wedge from there.
+    reaching: bool,
     /// The body whose policy cuts it, when a body goes through.
     body: Option<Entity>,
     /// A host's picture goes in only as deep as its limb (`PortalHostReach`).
@@ -386,6 +394,7 @@ pub fn carry_through_pairs(
                     frame: placement.frame,
                     link: link.key,
                     root: view.pos,
+                    reaching: false,
                     body: Some(view.body),
                     reach,
                     drawables: vec![visual],
@@ -434,24 +443,43 @@ pub fn carry_through_pairs(
                 continue;
             };
             let corners = vec![min, Vec2::new(max.x, min.y), max, Vec2::new(min.x, max.y)];
-            let cut = partition(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention);
+            let cut = match reaches_from {
+                Some(_) => partition_reaching(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention),
+                None => partition(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention),
+            };
             let Some(through) = cut.pieces.iter().find(|piece| piece.is_carried()) else {
                 continue;
             };
             let link = through.path[0];
             let z = at.translation.z;
-            match carries.iter_mut().find(|c| c.room == placement.room && c.link == link && c.reach.is_none()) {
+            // A carry is cut by one rule. Square-on drawables share one; a
+            // swing shares only with what reaches from its root, or with the
+            // body that swings it (a body that fits the opening is all in the
+            // wedge from its centre, so the wedge cuts it as square on does).
+            let reaching = reaches_from.is_some();
+            let shares = |c: &Carry| {
+                c.room == placement.room
+                    && c.link == link
+                    && c.reach.is_none()
+                    && if reaching { c.root.distance(root) <= ROOT_SLACK && (c.reaching || c.body.is_some()) } else { !c.reaching }
+            };
+            match carries.iter_mut().find(|c| shares(c)) {
                 Some(carry) => {
                     carry.drawables.push(drawable);
                     carry.min = carry.min.min(min);
                     carry.max = carry.max.max(max);
                     carry.z = carry.z.max(z);
+                    if reaching {
+                        carry.reaching = true;
+                        carry.root = root;
+                    }
                 }
                 None => carries.push(Carry {
                     room: placement.room,
                     frame: placement.frame,
                     link,
                     root,
+                    reaching,
                     body: None,
                     reach: None,
                     drawables: vec![drawable],
@@ -544,7 +572,11 @@ pub fn carry_through_pairs(
         );
         let corners = vec![lo, Vec2::new(hi.x, lo.y), hi, Vec2::new(lo.x, hi.y)];
         let first = links.iter().find(|link| link.key == carry.link).map(|link| link.key);
-        let cut = partition(&ae::CombatVolume::convex(corners), carry.root, &links, first, budget, convention);
+        let cut = if carry.reaching {
+            partition_reaching(&ae::CombatVolume::convex(corners), carry.root, &links, first, budget, convention)
+        } else {
+            partition(&ae::CombatVolume::convex(corners), carry.root, &links, first, budget, convention)
+        };
         let through = cut.pieces.iter().any(VolumePiece::is_carried);
         let image = atlas.slots[slot].image.clone();
         for piece in &cut.pieces {
@@ -610,11 +642,20 @@ pub fn carry_through_pairs(
         for (body, at, straddling) in &carry.traced {
             bevy::log::debug!(
                 target: "ambition_portal::piece_trace",
-                "piece body={:?} at={:.1},{:.1} straddling={} {}",
+                "piece body={:?} at={:.1},{:.1} straddling={} bounds={:.0},{:.0}..{:.0},{:.0} span={:.0} drawn={:.0},{:.0}..{:.0},{:.0} {}",
                 body,
                 at.x,
                 at.y,
                 straddling.name(),
+                carry.min.x,
+                carry.min.y,
+                carry.max.x,
+                carry.max.y,
+                span,
+                lo.x,
+                lo.y,
+                hi.x,
+                hi.y,
                 match (handoff, through) {
                     (true, _) => "pieces made: the body shows whole",
                     (false, true) => "cut",

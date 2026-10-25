@@ -72,13 +72,50 @@ fn a_volume_beside_the_opening_or_from_behind_it_is_whole() {
 
 #[test]
 fn a_volume_across_an_end_keeps_its_part_beside_the_opening() {
-    // Half over the opening's right end, 20 deep: what is past the end is
-    // beside it, here; what is over the opening is at the ceiling.
+    // Half over the opening's right end, 20 deep, reaching from 30 over the
+    // middle: what the root sees past the end (the line from it crosses the
+    // floor beside the opening) is beside it, here; the rest is at the
+    // ceiling. The wedge from the root through the right end is x = 40 + y·4/3.
     let wide = boxed(Vec2::new(40.0, 0.0), Vec2::new(20.0, 20.0));
     let pieces = thread_volume(&wide, ABOVE, &[floor_pair()], MapConvention::Reflection);
     assert_eq!(pieces.len(), 3, "{pieces:?}");
     assert!(hits(&pieces, Vec2::new(55.0, 15.0)));
     assert!(!hits(&pieces, Vec2::new(30.0, 15.0)));
+    // Reaching from the same root, the root sees part of what is past the end
+    // through the opening (the wedge through the right end is x = 40 + y·4/3).
+    let reached = partition_reaching(&wide, ABOVE, &links(&[floor_pair()]), None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).pieces;
+    let at = |p: Vec2| reached.iter().any(|piece| piece.meets(&victim_small(p)));
+    assert!(at(Vec2::new(58.0, 3.0)), "outside the wedge: beside, here");
+    assert!(!at(Vec2::new(52.0, 15.0)), "in the wedge: through, not here");
+}
+
+/// A swing reaches through an opening in the wedge from its root through the
+/// opening's ends, as an eye sees through a window: what the blade swept
+/// beside the opening met the floor and stays here, and what it swept inside
+/// it comes out of the partner, unclipped by the partner's ends.
+#[test]
+fn a_swing_goes_through_in_the_wedge_from_its_root() {
+    // The floor opening is 80 wide. A slash 120 wide and 20 deep, from a
+    // shoulder 20 over the floor's middle: the wedge widens past the plane
+    // (x = ±40·(1 + y/20)), so at 10 deep it spans ±60.
+    let shoulder = Vec2::new(0.0, -20.0);
+    let slash = boxed(Vec2::new(0.0, 5.0), Vec2::new(60.0, 15.0));
+    let pieces = partition_reaching(&slash, shoulder, &links(&[floor_pair()]), None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).pieces;
+    let at = |p: Vec2| pieces.iter().any(|piece| piece.meets(&victim_small(p)));
+    let through = pieces.iter().find(|p| p.is_carried()).expect("a part goes through");
+    // 10 deep and 55 to the side: past the end, in the wedge. It comes out
+    // of the ceiling 10 under it and 55 from its middle (mirrored or not).
+    let out = [Vec2::new(500.0 + 55.0, -190.0), Vec2::new(500.0 - 55.0, -190.0)];
+    assert!(out.iter().any(|p| through.meets(&victim_small(*p))), "{through:?}");
+    assert!(!at(Vec2::new(55.0, 10.0)), "in the wedge, not here");
+    // Just under the floor and 58 to the side: outside the wedge, here.
+    assert!(at(Vec2::new(58.0, 1.5)));
+    // The parts tile the swing: nothing is lost or drawn twice.
+    assert_tiles(&slash, &pieces);
+}
+
+fn victim_small(center: Vec2) -> VolumePiece {
+    VolumePiece::whole(boxed(center, Vec2::splat(1.0)))
 }
 
 #[test]

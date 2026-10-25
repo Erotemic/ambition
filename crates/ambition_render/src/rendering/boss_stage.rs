@@ -319,6 +319,7 @@ mod name_card_tests {
                 title: Some("of the rope".to_string()),
                 stage: Default::default(),
                 awake: true,
+                fighting: true,
                 finish: 0.0,
             };
             view.stage.card = card;

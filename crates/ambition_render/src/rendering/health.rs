@@ -47,12 +47,13 @@ pub fn sync_boss_health_bar_overlay(
     mut drawn: Local<Option<DrawnBossBar>>,
 ) {
     let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
-    // The boss being fought: alive and awake. A successor that sleeps until
-    // its predecessor falls stands in the room at full health the whole time.
+    // The boss being fought: alive and past its intro. A successor that
+    // sleeps until its predecessor falls stands in the room at full health
+    // the whole time, and a boss in its intro is not fought yet.
     let fought = session_scope.and_then(|_| {
         boss_render.iter().find_map(|(id, ident)| {
             let view = feature_views.get(id)?;
-            (view.alive && ident.awake).then(|| {
+            (view.alive && ident.fighting).then(|| {
                 let health = Health {
                     current: view.hp_current,
                     max: view.hp_max,
@@ -443,6 +444,7 @@ mod room_tests {
                 title: None,
                 stage: Default::default(),
                 awake: true,
+                fighting: true,
                 finish: 0.0,
             },
         )]));

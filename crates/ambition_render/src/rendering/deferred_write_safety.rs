@@ -360,6 +360,7 @@ mod boss_pass {
             title: None,
             stage: Default::default(),
             awake: true,
+            fighting: true,
             finish: 0.0,
         };
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([

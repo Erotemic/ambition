@@ -913,6 +913,11 @@ pub struct BossRenderView {
     /// the fight: a successor that waits for its predecessor to fall
     /// (`BossConfig::wakes_after`) does not take the health bar from it.
     pub awake: bool,
+    /// Its fight has begun: it is past its intro. Its health bar comes up
+    /// with its fight, not with its wake (Jon, 2026-10-24: "boss bar comes up
+    /// to early"): the Inugami's bar was up through the whole of
+    /// Wolfenstein's death and its own rise.
+    pub fighting: bool,
     /// How deep in its slow-motion finish it is, 0 to 1
     /// (`ambition_boss_encounter::finish`): presentation drains the picture
     /// of its colour but the boss, and draws cinema bars, this much.
@@ -1004,7 +1009,9 @@ pub fn rebuild_boss_render_index(
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
-        let awake = boss.status.encounter_phase() != ambition_boss_encounter::BossEncounterPhase::Dormant;
+        let phase = boss.status.encounter_phase();
+        let awake = phase != ambition_boss_encounter::BossEncounterPhase::Dormant;
+        let fighting = awake && phase != ambition_boss_encounter::BossEncounterPhase::Intro;
         let finish = ambition_boss_encounter::finish::finish_of(boss.config, boss.status);
         let fresh = |view: &BossRenderView| {
             view.name == boss.config.name
@@ -1012,6 +1019,7 @@ pub fn rebuild_boss_render_index(
                 && view.title == boss.config.behavior.title
                 && view.stage == boss.status.stage
                 && view.awake == awake
+                && view.fighting == fighting
                 && view.finish == finish
         };
         // Compared before it is built, so a row that has not changed
@@ -1028,6 +1036,7 @@ pub fn rebuild_boss_render_index(
                 title: boss.config.behavior.title.clone(),
                 stage: boss.status.stage,
                 awake,
+                fighting,
                 finish,
             },
         );

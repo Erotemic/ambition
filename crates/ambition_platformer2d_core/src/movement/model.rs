@@ -903,6 +903,34 @@ impl MotionModel {
         }
     }
 
+    /// The body's own top speed without a timed boost (speed shoes).
+    ///
+    /// A picture asks this, not [`Self::commanded_top_speed`]: a classic
+    /// momentum runner shows its full-speed run at its ordinary top speed, and
+    /// a boost does not move that line.
+    pub fn unboosted_top_speed(&self) -> f32 {
+        match self {
+            Self::SurfaceMomentum(momentum) => momentum.params.top_speed,
+            _ => self.commanded_top_speed(),
+        }
+    }
+
+    /// The speed along the surface a surface-momentum body rides (its ground
+    /// speed), or `None` when the body does not ride a surface.
+    ///
+    /// This is the speed a riding body moves at on a slope, a wall or a loop.
+    /// The run component along the gravity frame's side axis is nearly zero on
+    /// a wall, so it is not a measure of a run there.
+    pub fn ground_speed(&self) -> Option<f32> {
+        match self {
+            Self::SurfaceMomentum(momentum) => match momentum.state {
+                SurfaceMotion::Riding { v_t, .. } => Some(v_t.abs()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub const fn kind(&self) -> MotionModelKind {
         match self {
             Self::AxisSwept(_) => MotionModelKind::AxisSwept,
@@ -1203,6 +1231,36 @@ mod tests {
         assert_eq!(motion.state, riding);
         assert_eq!(motion.depth_lane, -1);
         assert_eq!(motion.params, updated);
+    }
+
+    /// A boost (speed shoes) moves the top speed a controller commands, and
+    /// not the top speed a picture measures a run against. The ground speed is
+    /// the ridden tangent speed, and there is none in the air.
+    #[test]
+    fn a_boost_moves_the_commanded_top_speed_only() {
+        let params = MomentumParams::default();
+        let mut model = MotionModel::surface_momentum(params);
+        let MotionModel::SurfaceMomentum(motion) = &mut model else {
+            unreachable!();
+        };
+        motion.boost = Some(MomentumBoost {
+            top_speed_scale: 1.4,
+            ground_accel_scale: 1.5,
+            remaining_s: 8.0,
+        });
+        assert_eq!(model.commanded_top_speed(), params.top_speed * 1.4);
+        assert_eq!(model.unboosted_top_speed(), params.top_speed);
+        assert_eq!(model.ground_speed(), None);
+
+        let MotionModel::SurfaceMomentum(motion) = &mut model else {
+            unreachable!();
+        };
+        motion.state = SurfaceMotion::Riding {
+            on: SurfaceRef::Chain(0),
+            s: 0.0,
+            v_t: -700.0,
+        };
+        assert_eq!(model.ground_speed(), Some(700.0));
     }
 
     #[test]

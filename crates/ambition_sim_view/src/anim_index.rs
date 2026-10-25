@@ -372,7 +372,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
                 |f| f.basis(),
             ),
-            a.model.map_or(0.0, ae::MotionModel::commanded_top_speed),
+            ambition_character_sprites::MotionSpeeds::of(a.model),
         );
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).

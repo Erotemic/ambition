@@ -18,14 +18,39 @@ pub const WALL_SLIDE_ABOVE: f32 = 40.0;
 /// Below this speed along its run axis an actor's sprite shows its Idle row.
 pub const ACTOR_IDLE_BELOW: f32 = 8.0;
 /// A body in the run gait at or above this fraction of its OWN top speed
-/// (`MotionModel::commanded_top_speed`) shows its `sprint` row. A picture
-/// choice only: the gait the simulation and the hurt geometry read stays
-/// `Running`. A sheet with no `sprint` row draws its `run` row
+/// ([`MotionSpeeds::top_speed`], without a timed boost) shows its `sprint`
+/// row. A picture choice only: the gait the simulation and the hurt geometry
+/// read stays `Running`. A sheet with no `sprint` row draws its `run` row
 /// (`CharacterAnim::Sprint` falls back to `Run`).
 ///
-/// Below `1.0` so that a body whose speed comes near its top speed on a slope,
-/// or that has not yet closed the last of the gap, still shows it.
-pub const SPRINT_FRAC: f32 = 0.9;
+/// The Sonic 2 rule (Jon, 2026-10-25: "It should play very similar to Sonic
+/// 2"): the full-speed run plays AT top speed. Held input stops exactly at
+/// the top speed, so a run on the flat that reaches it holds the row with no
+/// flicker; a climb that slows the body below it shows the run again. The
+/// small margin below `1.0` absorbs float rounding only.
+pub const SPRINT_FRAC: f32 = 0.98;
+
+/// What a body's motion model says about its speed, for the picture.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MotionSpeeds {
+    /// The body's own top speed without a timed boost
+    /// (`MotionModel::unboosted_top_speed`), or `0.0` when the body has no
+    /// model (it never sprints).
+    pub top_speed: f32,
+    /// The speed along the surface the body rides (`MotionModel::ground_speed`),
+    /// or `None` when it rides none. On a wall or a loop this is the speed of
+    /// the run; the run component along the gravity frame's side is not.
+    pub ground_speed: Option<f32>,
+}
+
+impl MotionSpeeds {
+    pub fn of(model: Option<&ae::MotionModel>) -> Self {
+        model.map_or_else(Self::default, |model| Self {
+            top_speed: model.unboosted_top_speed(),
+            ground_speed: model.ground_speed(),
+        })
+    }
+}
 
 use ambition_characters::actor::body::BodyAnimFacts;
 use ambition_combat::components::MeleeSwing;
@@ -182,9 +207,9 @@ pub struct BodyAnimView {
     /// always running. A gait is speed against THIS body's own top speed, which
     /// is what `MovementTuning::run_commit_frac` asks and the kernel publishes.
     pub running: bool,
-    /// Grounded: this body's speed as a fraction of its own top speed. A run
-    /// at or above [`SPRINT_FRAC`] is a sprint. `0.0` when the top speed is
-    /// not known, which never sprints.
+    /// Grounded: this body's speed as a fraction of its own unboosted top
+    /// speed. A run at or above [`SPRINT_FRAC`] is a sprint. `0.0` when the
+    /// top speed is not known, which never sprints.
     pub top_speed_frac: f32,
     /// Aerial: `speed > fly_above`  Fly, else Idle (hover).
     pub fly_above: f32,
@@ -602,8 +627,8 @@ fn compact_from_mode(mode: ambition_platformer2d_core::player_state::BodyMode) -
 /// (the run component along the body's own `side` axis); an aerial adapter
 /// overrides it with total speed.
 ///
-/// `top_speed` is the body's own top speed
-/// (`MotionModel::commanded_top_speed`), or `0.0` when the body has no model.
+/// `motion` is what the body's motion model says about its speed
+/// ([`MotionSpeeds::of`]).
 pub fn body_view_from_body(
     kinematics: &ae::BodyKinematics,
     ground: &ae::BodyGroundState,
@@ -614,7 +639,7 @@ pub fn body_view_from_body(
     abilities: &ae::BodyAbilities,
     shield: &ae::BodyShieldState,
     frame: ae::AccelerationFrame,
-    top_speed: f32,
+    motion: MotionSpeeds,
 ) -> BodyAnimView {
     use ambition_platformer2d_core::player_state::BodyMode;
     // THE THREE READS BELOW ARE FRAME-RELATIVE, AND EACH WAS A WORLD-AXIS
@@ -669,11 +694,18 @@ pub fn body_view_from_body(
         compact: compact_from_mode(body_mode.body_mode),
         // the grounded metric is the RUN component, not total speed: a body
         // sliding straight down its own wall must stay Idle, not walk in place.
-        speed: along_run.abs(),
+        // A body that RIDES a surface runs along it, so its ground speed is the
+        // metric: on the wall of a loop the side component is near zero, and
+        // a full-speed lap read as Idle.
+        speed: motion.ground_speed.unwrap_or(along_run.abs()),
         running: facts.running,
-        // Total speed, not the run-axis metric: a running body moves along
-        // its ground, and on a slope or a loop the run axis foreshortens it.
-        top_speed_frac: if top_speed > 0.0 { kinematics.vel.length() / top_speed } else { 0.0 },
+        // Speed along the ground, not the run-axis metric: on a slope or a
+        // loop the run axis foreshortens it.
+        top_speed_frac: if motion.top_speed > 0.0 {
+            motion.ground_speed.unwrap_or_else(|| kinematics.vel.length()) / motion.top_speed
+        } else {
+            0.0
+        },
         ..Default::default()
     }
 }
@@ -693,7 +725,7 @@ pub fn pick_player_anim(
     abilities: &ae::BodyAbilities,
     shield: &ae::BodyShieldState,
     frame: ae::AccelerationFrame,
-    top_speed: f32,
+    motion: MotionSpeeds,
 ) -> CharacterAnim {
     // Movement/ability fields come from the shared cluster builder (identical to
     // every actor); the player overlays its combat-cluster hit read, its own
@@ -709,7 +741,7 @@ pub fn pick_player_anim(
         abilities,
         shield,
         frame,
-        top_speed,
+        motion,
     );
     // The player is ALIVE again by the time anything draws it — the respawn is
     // immediate — so its death cannot be read off liveness the way an actor's is.
@@ -836,7 +868,7 @@ pub fn pick_actor_anim(
     swing: Option<&MeleeSwing>,
     state: ActorAnimState,
     frame: ae::AccelerationFrame,
-    top_speed: f32,
+    motion: MotionSpeeds,
 ) -> CharacterAnim {
     let mut v = body_view_from_body(
         kinematics,
@@ -848,7 +880,7 @@ pub fn pick_actor_anim(
         abilities,
         shield,
         frame,
-        top_speed,
+        motion,
     );
     v.dead = !state.alive;
     v.hit = state.hit_flash;

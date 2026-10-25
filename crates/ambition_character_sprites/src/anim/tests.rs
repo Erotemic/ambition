@@ -27,9 +27,10 @@ struct PickClusters {
     /// every pre-existing case reads exactly as it did before the frame became
     /// an input; a rotated-gravity case sets it.
     frame: ae::AccelerationFrame,
-    /// The body's own top speed. `0.0` (not known) never sprints, so every
-    /// case that does not set it reads as it did before the sprint row.
-    top_speed: f32,
+    /// What the body's motion model says about its speed. The default (top
+    /// speed not known, no ridden surface) never sprints, so every case that
+    /// does not set it reads as it did before the sprint row.
+    motion: MotionSpeeds,
 }
 
 impl PickClusters {
@@ -44,7 +45,7 @@ impl PickClusters {
             abilities: Default::default(),
             shield: Default::default(),
             frame: ae::AccelerationFrame::new(ae::Vec2::new(0.0, 1.0)),
-            top_speed: 0.0,
+            motion: MotionSpeeds::default(),
         }
     }
 }
@@ -84,7 +85,7 @@ fn pick(
         &c.abilities,
         &c.shield,
         c.frame,
-        c.top_speed,
+        c.motion,
     )
 }
 
@@ -510,7 +511,7 @@ fn pick_actor(
         swing,
         state,
         c.frame,
-        c.top_speed,
+        c.motion,
     )
 }
 
@@ -982,7 +983,7 @@ fn a_run_near_the_bodys_own_top_speed_is_a_sprint() {
         let (anim, combat, blink_cam, mut c) = pick_inputs();
         c.ground.on_ground = true;
         c.facts.running = true;
-        c.top_speed = top_speed;
+        c.motion.top_speed = top_speed;
         let both = |c: &PickClusters| (pick(&anim, &combat, &blink_cam, None, c), pick_actor(c, None, actor_state()));
 
         c.kinematics = walking_in_gravity(down, top_speed);
@@ -996,7 +997,42 @@ fn a_run_near_the_bodys_own_top_speed_is_a_sprint() {
         assert_eq!(both(&c), (CharacterAnim::Walk, CharacterAnim::Walk), "top speed {top_speed}");
 
         c.facts.running = true;
-        c.top_speed = 0.0;
+        c.motion.top_speed = 0.0;
         assert_eq!(both(&c), (CharacterAnim::Run, CharacterAnim::Run), "top speed {top_speed}");
     }
+}
+
+/// The Sonic 2 rule: the full-speed run plays AT the top speed, not near it.
+/// A run a little under the top speed is a run, so the row does not change
+/// while the body is still closing on its top speed.
+#[test]
+fn a_sprint_starts_at_the_top_speed_not_below_it() {
+    let down = ae::Vec2::new(0.0, 1.0);
+    let (anim, combat, blink_cam, mut c) = pick_inputs();
+    c.ground.on_ground = true;
+    c.facts.running = true;
+    c.motion.top_speed = 1200.0;
+    c.kinematics = walking_in_gravity(down, 1200.0 * 0.9);
+    assert_eq!(pick(&anim, &combat, &blink_cam, None, &c), CharacterAnim::Run);
+    c.kinematics = walking_in_gravity(down, 1200.0);
+    assert_eq!(pick(&anim, &combat, &blink_cam, None, &c), CharacterAnim::Sprint);
+}
+
+/// A body that rides the wall of a loop runs along the wall. Its velocity
+/// there is nearly all along gravity, so the side-axis metric reads near zero;
+/// the ground speed is the speed of the run, and a full-speed lap must not
+/// read as Idle.
+#[test]
+fn a_run_up_the_wall_of_a_loop_is_still_a_run() {
+    let (anim, combat, blink_cam, mut c) = pick_inputs();
+    c.ground.on_ground = true;
+    c.facts.running = true;
+    c.motion.top_speed = 1200.0;
+    c.kinematics.vel = ae::Vec2::new(0.0, -1200.0);
+    c.motion.ground_speed = Some(1200.0);
+    assert_eq!(pick(&anim, &combat, &blink_cam, None, &c), CharacterAnim::Sprint);
+    assert_eq!(pick_actor(&c, None, actor_state()), CharacterAnim::Sprint);
+    c.kinematics.vel = ae::Vec2::new(0.0, -700.0);
+    c.motion.ground_speed = Some(700.0);
+    assert_eq!(pick(&anim, &combat, &blink_cam, None, &c), CharacterAnim::Run);
 }

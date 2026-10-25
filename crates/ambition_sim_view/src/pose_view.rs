@@ -604,7 +604,7 @@ pub fn rebuild_body_pose_views(
                     },
                     |f| f.basis(),
                 ),
-                model.map_or(0.0, ambition_platformer2d_core::MotionModel::commanded_top_speed),
+                ambition_character_sprites::MotionSpeeds::of(model),
             ),
             _ => CharacterAnim::Idle,
         };

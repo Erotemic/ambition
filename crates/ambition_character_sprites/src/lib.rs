@@ -10,8 +10,8 @@ mod attack_hitbox;
 mod posed_body;
 
 pub use anim::{
-    ActorAnimState, FighterClipFacts, GuardBreakBeat, body_state_clip, pick_actor_anim,
-    pick_player_anim,
+    ActorAnimState, FighterClipFacts, GuardBreakBeat, MotionSpeeds, body_state_clip,
+    pick_actor_anim, pick_player_anim,
 };
 pub use attack_hitbox::{
     actor_attack_hitbox_local, actor_attack_hitbox_world, authored_attack_volume_resolver,

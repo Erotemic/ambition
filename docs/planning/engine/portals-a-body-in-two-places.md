@@ -131,9 +131,10 @@ bar from the near line to the floor. Fixed in `950467e64`:
   size it wrote the frame before as a stance squash: the twin was 2,119,969
   px tall after 12 frames, so its pieces were drawn off the screen.
 - The twin is made before its limb goes in: each limb of a host in a room
-  with a portal has its twin, hidden, composited by the room rule of
-  `declare_portal_body_demand`. Made on the frame the limb went in, the
-  limb was drawn by nothing for the frames the twin took to be drawn.
+  with a portal has its twin, hidden. Made on the frame the limb went in,
+  the limb was drawn by nothing for the frames the twin took to be drawn.
+  (Since the carry, below, a twin draws its parts directly; it is not
+  composited.)
 - The twin is cut with no depth: it is the limb only, so all of it past the
   plane goes through. `PortalHostReach` stays for a host cut as one picture.
 - Three pictures keep the frame's draw order: the host draws the parts
@@ -491,39 +492,108 @@ that cut a portal.
 - A shot that crosses a pair ends its step just past the plane, and the rest
   of that step is its next one's (a delay of less than a tick, not a skip).
 
+## One road for every drawable: the carry (2026-10-25)
+
+Jon (2026-10-17): it must not be possible to add a drawable that does not
+work with portals. The old cut (`sync_portal_body_pieces`) was given to a
+drawable by a host adapter of its kind; a kind with no adapter (a slash,
+a spark, worn gear) was drawn whole on its side of the pair, in the wall.
+Built in `63797b0ac` (`ambition_portal2d_presentation::carry`); the old
+cutter, its fallback copy and `PortalTransitHidden` are deleted.
+
+- **Selection is by what goes through.** A body's own drawable
+  (`PortalSceneBody`: every `PlayerVisual`, `FeatureVisual`,
+  `VisualProjectile`, `GroundItemVisual`, `LimbTwin`) goes through while
+  its body is in transit (`PortalTransitView`). A body that only overlaps
+  an opening (the giant's back under its near line) is not carried.
+- Any other top-level `Sprite`, `Mesh2d` or `Text2d` over the window z
+  goes through when its bounds reach past an entry plane inside the
+  opening from its root: the rule a combat volume is cut by. The root is
+  its centre, or the point it reaches from (`portal_passages::ReachesFrom`:
+  a swing, from its body). No kind opts in.
+- A drawable drawn as part of another (`PortalDrawnWith`: a rigged body's
+  parts, the over twin) and each child go with that one.
+- **Drawing is by geometry.** Each pair that carries has a capture camera
+  (layer `PORTAL_CARRY_LAYER_BASE` + slot). Its drawables are on that layer
+  only for the frame (given back in `First`). The texture is drawn back cut
+  by `frame::thread::partition`: in front of the entry where it is, the
+  rest out of the exit. Two slots (side = the view's largest side, rounded
+  up to a power of two, 256 to 2048) and ten quads are made when a live
+  room first has a portal.
+- ⛔ It runs in `PostUpdate` before the assets' events, the cameras and the
+  propagation, so it reads a drawable's `Transform`, and computes a
+  sprite's bounds itself (its `Aabb` is computed later: one frame old, and
+  missing on the frame the sprite is made; MEASURED: each new slash was
+  drawn whole in the wall for its first frame).
+- The far-side compositor leaves a carried drawable, and one that reaches
+  out from the viewer's side of a pane, to the carry.
+
+Guard: `scripts/check_portal_carry.py` films each kind with and without it
+(windows off), and fails when the kind is drawn behind the entry inside
+the opening (more than 40 px) or nothing comes out of the exit. MEASURED
+(low): carry on 3/3, 0 px behind; `--carry off` 0/3 (slash up to 1955 px
+behind, fireball 190, worn helmet 320).
+
+Cost: `scripts/measure_portal_carry_cost.sh` (a body in a space helmet
+falls through portal_lab's D pair again and again, windows on).
+
+MEASURED 2026-10-25 on the agent VM: llvmpipe (the GPU's work is done on
+the CPU), a dev build, 1280x720, 900 frames, the load average 14 to 30
+(other work on the machine). Two runs at `potato` and `low`, one at
+`high`; median of the frame census windows after 10 s:
+
+| tier | p50 ms, carry on | p50 ms, carry off | max RSS on / off (MB) | textures with no file |
+|---|---|---|---|---|
+| potato | 137.0, 88.9 | 75.6, 65.2 | 1933 / 1722, 1893 / 1731 | +2 (+8.3 MP) |
+| low | 122.1, 109.3 | 80.0, 74.6 | 1955 / 1653, 1940 / 1766 | +2 (+8.3 MP) |
+| high | 147.3 | 138.3 | 1966 / 1892 | +2 (+8.3 MP) |
+
+- The two carry targets are 2048 x 2048 at every tier here (the view is
+  1280 px wide): 8.4 MP, 33.5 MB at 4 bytes a texel (MEASURED by the image
+  census; the bytes REASONED). The RSS difference is larger (74 to 302 MB)
+  and noisy; on llvmpipe a texture and its driver copies are in the
+  process.
+- On llvmpipe the carry adds 24 to 61 ms a frame at `potato` and `low`
+  while it carries: a camera that clears and draws a 2048 x 2048 target is
+  rasterized on the CPU. That is not a phone's cost. On a phone the CPU
+  pays the carry system and one more camera's extract, queue and sort
+  (REASONED: small, as one window's capture camera); the GPU pays a target
+  up to 4.5 times the screen's pixels. NOT MEASURED on a phone.
+- A smaller target is the obvious step: the carry needs only the bounds of
+  what it carries, not the view's largest side.
+
+| drawable | carried through a pair? | how known |
+|---|---|---|
+| the player's body | yes | MEASURED (`portal_seam_lab.py`, pairs A and D: no frame vanished, least drawn 0.95) |
+| an actor's sprite (`FeatureVisual` of a body in transit) | yes | REASONED (the same road as the player's; test `a_body_that_is_not_the_player_is_cut_while_it_is_in_transit` checks the facts, not pixels) |
+| a limb of a part-drawn body (`LimbTwin`) | yes | MEASURED (`check_limb_through_portal.py` 2/2, windows off and on) |
+| a thrown item, a shot | yes | MEASURED (seam lab, pairs A, B, D: no frame vanished, least drawn 0.95) |
+| a slash (`slash_visuals`), the unauthored swing | yes | MEASURED slash (`check_portal_carry.py` slash); the swing REASONED (same `ReachesFrom`) |
+| a fireball and its sparks | yes | MEASURED (`sparks` case) |
+| worn gear (`worn_gear_visuals`) | yes | MEASURED (`helmet` case) |
+| a held or wielded item | yes | MEASURED in passing: the robot's held gun comes out of the exit in the `slash` films; not guarded |
+| the hit flash silhouette, dust, particles, lightning meshes | yes, by the same rule | REASONED (top-level drawables over the window z) |
+| a limb trail (`limb_trail.rs`) | yes, by the same rule | REASONED. MEASURED that no film puts one into a pair: GNU-ton's phase 2 with a floor pair under the lower fist (129 frames): the trail runs at least about 20 px over the floor and never reaches an opening |
+| a light line on a limb | not a portal drawable: it is laid on the published cut | REASONED |
+
 ## Open
 
-**Which drawables a pair cuts (2026-10-25).** The cut of a picture
-(`sync_portal_body_pieces`) is given to a drawable by a host adapter of its
-kind (`publish_portal_body_views`, `publish_transiting_feature_bodies`,
-`publish_threaded_host_pictures`, `publish_transiting_drawn_bodies`). A kind
-with no adapter is drawn whole on its side of the pair. Jon (2026-10-17): it
-must not be possible to add a drawable that does not work with portals.
-
-| drawable | cut by the pair, drawn on both sides? | how known |
-|---|---|---|
-| the player's body | yes | MEASURED (`portal_seam_lab.py` 2026-10-25, pairs A and D: no frame vanished, least drawn 0.96) |
-| an actor's sprite (`FeatureVisual` of a body in transit) | yes | REASONED (same cut; test `a_body_that_is_not_the_player_is_cut_while_it_is_in_transit` checks the facts, not pixels) |
-| a part-drawn body (composited in a portal room) | yes, as one picture | MEASURED for GNU-ton's limb (above); a whole part-drawn body REASONED |
-| a limb of a part-drawn body (`LimbTwin`) | yes | MEASURED (above) |
-| a thrown item, a shot | yes | MEASURED (the same run, pairs A, B, D: no frame vanished, least drawn 0.90) |
-| worn gear (`worn_gear_visuals`) | no: a sprite of its own | REASONED |
-| a held or wielded item (`item_visuals`, `wielded_item_visuals`) | no | REASONED |
-| the hit flash silhouette (a mesh over the body) | no (known gap in `visuals.rs`) | REASONED |
-| a limb trail (`limb_trail.rs`) | no | REASONED |
-| a light line on a limb | not a portal drawable: it is laid on the published cut | REASONED |
-| a slash, an effect sheet, particles, dust, lightning meshes | no | REASONED |
-
-Proposal for Jon (not built): one road for every drawable. A pair draws
-what is behind its entry plane inside its opening out of its exit, by a
-capture of that slab (as a window captures the far side), and the entry's
-pane hides it on the near side. Then any sprite, mesh, particle or trail is
-cut by geometry, with no adapter per kind, and the per-kind cut (the
-adapters, `LimbTwin`, `PortalHostReach`) is deleted. Cost: one more capture
-per pair that has something in its slab. Open questions: a drawable that
-overlaps a mid-air opening and is not going through (the giant's back at
-its near line) must not be carried; the sim knows what goes through (a
-transit, a limb in a pair), the slab does not.
+- A limb trail is a straight line from its start to the limb. When a limb
+  is through a pair, the trail does not go through the pair: it goes
+  across the room to where the limb came out. Routing a bond through the
+  pair it is in is the game's (`LimbBondStart`), not the carry's.
+- A new render target (an impostor page, a carry slot made late) built
+  while a window is open may blank the windows for that frame (REASONED
+  from one frame on old code: tick 313, window pixels 118,593 to 18 as a
+  page was built; not reproduced on current main).
+- A drawable that reaches past an opening in mid-air from its front is
+  carried even when it is not "going in" (a swing past a mid-air line).
+  The sim knows what goes through; the carry knows only the geometry and
+  `ReachesFrom`.
+- A drawable larger than a carry camera's span is cut at the span's edge.
+- A part of a drawable past the entry plane but beside the opening (a
+  slash below a wall portal) is drawn where it is, in the wall.
+- The cost on a phone is not measured.
 
 Closed since 2026-10-16: a shot's step ends at the crossing and its
 next step sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature

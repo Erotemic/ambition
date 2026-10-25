@@ -33,6 +33,33 @@ options, written `* **(a) …`. Derive gates from the field, not from row prose.
 
 ## Gameplay and content
 
+## Q170 — which generations of a character does the game ship as skins?
+
+**Owner:** [`docs/planning/game/character-generations.md`](game/character-generations.md)
+(the design history lineages and `WornSkin`).
+
+**Context (measured 2026-10-24):** 95 lineages hold 221 eras. 105 eras are
+older looks of a published target and have no runtime sheet; each would be
+published from its own commit. A lineage target costs a median 1.8 MB and a
+mean 4.1 MB in all four quality tiers, and Android packages every tier. All
+105 older looks would add about 190 to 430 MB (reasoned) to 1.86 GB of
+sprites.
+
+**The choice:**
+
+- **(a) A curated set (recommended):** Jon picks the generations that ship
+  (for example one or two per main character); each is a catalog row with
+  `form_of` and a `generation` field, published from its era commit. The
+  other eras stay commits, browsable in the design history and the art
+  inspector.
+- **(b) Every major era:** each era is published and selectable. Simple to
+  state, and the package grows by hundreds of MB.
+- **(c) On demand:** generations are a downloadable pack outside the base
+  package. Needs a content-download path that does not exist yet.
+
+**What it blocks:** nothing in the blocking set. The steps in
+`docs/planning/game/character-generations.md` wait on it.
+
 ## Architecture and engine policy
 
 ## Q168 — should the robot family's forward slash reach six body widths?

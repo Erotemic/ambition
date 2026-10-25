@@ -60,7 +60,8 @@
     const g = gens[a.generator] || {};
     haystack.set(a.id, [a.id, a.name, a.display, a.family, a.character_id, (a.tags || []).join(" "), a.generator, g.source, g.module,
       (a.uses || []).map((u) => u.path + " " + (u.row || "")).join(" "), (a.placements || []).map((p) => p.level + " " + p.field).join(" "),
-      a.products.join(" ")].join(" ").toLowerCase());
+      a.products.join(" "), (a.lineages || []).map((l) => l.lineage + " " + l.name).join(" "),
+      a.authorship ? a.authorship.shares.map((x) => x.who).join(" ") : ""].join(" ").toLowerCase());
   }
   function matches(a) {
     const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -134,7 +135,9 @@
     if (a.portraits) left.push(portraitBox(a));
     if (a.id.startsWith("skin:") || a.id.startsWith("legacy_bg:") || a.id.startsWith("ref:")) left.push(filesGrid(a));
     if (a.parts || a.body_rig) left.push(partsBox(a));
+    (a.lineages || []).forEach((l) => left.push(lineageBox(l)));
     right.push(generatorBox(a, g));
+    if (a.authorship) right.push(authorshipBox(a.authorship));
     right.push(usageBox(a));
     const finds = C.findings.filter((f) => f.asset === a.id || a.products.includes(f.subject));
     if (finds.length) right.push(`<section class="box"><h2>Findings (${finds.length})</h2>${findingTable(finds)}</section>`);
@@ -282,6 +285,44 @@
       html += `<h2 style="margin-top:10px">Body rig joints</h2>${tree("", 0)}`;
     }
     return html + `</section>`;
+  }
+
+  // ---- lineage and authorship (the design history) -------------------------------------
+  const CONFIDENCE_CHIP = { high: "verified", medium: "declared", low: "inferred", none: "unknown" };
+  const confChip = (c) => `<span class="chip c-${CONFIDENCE_CHIP[c] || "info"}" title="authorship confidence">${esc(c)}</span>`;
+  const pct = (n, total) => total ? Math.round(100 * n / total) + "%" : "";
+  function shareText(shares) {
+    const total = (shares || []).reduce((s, x) => s + x.lines, 0);
+    return (shares || []).slice(0, 3).map((x) => `${esc(x.who)} ${pct(x.lines, total)}`).join(", ");
+  }
+  function lineageBox(l) {
+    const eras = l.eras.map((e) => {
+      const gen = e.generator;
+      const lines = [`<b>${esc(e.label)}</b>`, `${esc((e.date || "").slice(0, 10))} · <code>${esc(e.commit.slice(0, 9))}</code>${e.target ? ` · <code>${esc(e.target)}</code>` : ""}`];
+      if (e.pin) lines.push(`commit: ${esc(e.pin.label)}`);
+      if (gen && gen.lines) {
+        if (gen.parts.code.length) lines.push(`code: ${shareText(gen.parts.code)}`);
+        if (gen.parts.art.length) lines.push(`art: ${shareText(gen.parts.art)}`);
+        lines.push(confChip(gen.confidence));
+      } else if (!e.in_store) lines.push("not in the history store");
+      return `<figure title="${esc(e.note || "")}"><div class="checker">${e.still ? img(e.still, e.label) : '<span class="controls">no still</span>'}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
+    }).join("");
+    return `<section class="box"><h2>Lineage: ${esc(l.name)} (${l.eras.length} era${l.eras.length === 1 ? "" : "s"})</h2>
+      <p class="controls">${esc(l.summary)} · found via ${esc(l.found_via || "")} · targets ${l.targets.map((t) => `<code>${esc(t)}</code>`).join(" ")}</p>
+      <div class="thumbs">${eras}</div>
+      <p class="controls">An era is a commit (<code>design_history/lineages.yaml</code>). "commit" names who made the commit that pins the era; "code" and "art" are the lines of its generator files at that commit, by author (git blame). <code>python -m design_history build ${esc(l.lineage)}</code> draws the stills.</p></section>`;
+  }
+  function authorshipBox(w) {
+    const rows = [];
+    for (const part of ["code", "art"]) {
+      const shares = w.parts[part] || [], total = shares.reduce((s, x) => s + x.lines, 0);
+      shares.forEach((x) => rows.push(`<tr><td>${part}</td><td>${esc(x.who)}</td><td class="num">${fmt(x.lines)}</td><td class="num">${pct(x.lines, total)}</td><td>${esc(x.basis)}</td><td class="mono">${x.commits.map((c) => esc(c.slice(0, 9))).join(" ")}</td></tr>`));
+    }
+    const files = Object.entries(w.files);
+    return `<section class="box"><h2>Authorship of the generator</h2>
+      <p>${confChip(w.confidence)} ${fmt(w.lines)} lines in ${files.length} file${files.length === 1 ? "" : "s"} at renderer <code>${esc(w.commit.slice(0, 10))}</code> (files from ${esc(w.files_from || w.found_by)}). Each line's commit names its author: a ledger session (measured), a <code>Co-Authored-By</code> trailer (declared), a model named in the message, or Jon's account with no model named.</p>
+      ${rows.length ? `<div class="tablebox"><table><tr><th>part</th><th>author</th><th class="num">lines</th><th class="num">share</th><th>basis</th><th>commits</th></tr>${rows.join("")}</table></div>` : '<p class="empty">No generator file found.</p>'}
+      ${files.length ? `<details><summary>${files.length} files</summary>${files.map(([f, n]) => `<div>${source("tools/ambition_sprite2d_renderer/" + f)} <span class="controls">${fmt(n)} lines</span></div>`).join("")}</details>` : ""}</section>`;
   }
 
   function generatorBox(a, g) {

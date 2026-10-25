@@ -28,6 +28,17 @@ finding. The links come from the generators' own provenance records:
 - `python -m ambition_sprite2d_renderer.provenance backfill` records art
   published before the records existed.
 
+A character's asset page also shows its lineage and authorship from the
+sprite renderer's design history
+(`tools/ambition_sprite2d_renderer/design_history/`): each era of the
+character (a commit, with its still when the design-history cache has one),
+who made that commit, and who wrote the lines of the generator's code and
+art, by `git blame`. A model is named only by evidence (a resource-ledger
+session, a `Co-Authored-By` trailer or the commit message); a commit from
+Jon's account that names no model is shown as that, and no evidence is
+`unknown`. Run `python -m design_history fetch` in the renderer once so that
+the eras before the active renderer repository have authorship too.
+
 The inspector is read-only. It does not regenerate art and it does not
 replace a registry: the renderer registry, the content packs and the LDtk
 worlds stay the authorities.

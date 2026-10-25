@@ -11,7 +11,9 @@ The build writes `.agent/art_inspector/` (git-ignored): `index.html`,
 `app.js`, `app.css`, `catalog.js` and the previews. Open `index.html` from
 disk; it needs no server and no network. `--no-previews` rebuilds only the
 index, `--prune` deletes previews that the index no longer names, `--jobs N`
-sets the preview processes (at most 6).
+sets the preview processes (at most 6), `--no-lineage` skips the
+lineages and the authorship (`git blame`; about 10 s when its cache is warm,
+about 2 min the first time).
 
 ## Views
 
@@ -25,6 +27,12 @@ sets the preview processes (at most 6).
   the regen command, the record and the files the render read), where the
   game uses it (content rows with their line, LDtk placements per level),
   every file with its confidence, and the findings.
+- **Lineage and authorship** (on a character's asset page): each lineage
+  of the design history that claims the character, with its eras (the
+  commit, who made it, who wrote the generator's code and art at that
+  commit, and the still when the design-history cache has it), and who wrote
+  the lines of the character's generator files now. See
+  `tools/ambition_sprite2d_renderer/design_history/README.md`.
 - **Generators**, **Findings** (copy as CSV), **Coverage** (how many files
   of each root link to a generator).
 

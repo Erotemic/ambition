@@ -76,6 +76,8 @@ links to.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
+- [`game/character-generations.md`](game/character-generations.md) — older
+  generations of a character as skins (design; open question Q170).
 - [`game/noodly-temple.md`](game/noodly-temple.md) — the level of keys and
   doors that ends at the Flying Spaghetti Monster.
 - [`game/robot-combat-feel.md`](game/robot-combat-feel.md) — the robot's

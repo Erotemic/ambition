@@ -165,3 +165,31 @@ def test_each_shape_of_the_sheet_layout_names_its_pages(tmp_path, shape):
     assert layout["pages"][0] == "foo_spritesheet.png"
     if shape != "image":
         assert layout["pages"] == ["foo_spritesheet.png", "foo_spritesheet.1.png"]
+
+
+def test_a_character_page_names_its_lineage_from_the_design_history(built, tmp_path, monkeypatch):
+    """The lineage comes from the renderer's design history: found through
+    the sheet's target and through its catalog id. With no history store and
+    no renderer checkout the eras keep their commit and label only."""
+    repo, _out, _c = built
+    real = Path(__file__).resolve().parents[2] / "ambition_sprite2d_renderer" / "design_history"
+    pkg = repo / "tools" / "ambition_sprite2d_renderer" / "design_history"
+    pkg.mkdir(parents=True, exist_ok=True)
+    for source in real.glob("*.py"):
+        (pkg / source.name).write_text(source.read_text())
+    (pkg / "lineages.yaml").write_text(
+        'lineages:\n  foo:\n    name: Foo\n    ids: [foo]\n    paths: [foo]\n    summary: "two looks"\n'
+        '    eras:\n      - commit: "abcdef1"\n        label: "First"\n      - commit: "abcdef2"\n        label: "Second"\n'
+    )
+    monkeypatch.setenv("AMBITION_HISTORY_STORE", str(tmp_path / "no-store"))
+    monkeypatch.setenv("AMBITION_DESIGN_HISTORY_CACHE", str(tmp_path / "cache"))
+    for name in [m for m in sys.modules if m == "design_history" or m.startswith("design_history.")]:
+        monkeypatch.delitem(sys.modules, name)
+    monkeypatch.syspath_prepend(str(pkg.parent))
+    targets = {"foo": {"family": "sprite_target", "id": "foo", "category": "characters", "source": "tools/foo.py", "outputs": []}}
+    c = build.build(repo, tmp_path / "out", jobs=1, previews=False, targets=targets, log=lambda *_: None)
+    (lineage,) = c["assets"]["sheet:foo"]["lineages"]
+    assert lineage["lineage"] == "foo" and lineage["found_via"] == "target foo"
+    assert [e["label"] for e in lineage["eras"]] == ["First", "Second"]
+    assert not any(e["in_store"] for e in lineage["eras"])
+    assert any(f["code"] == "lineage-warning" for f in c["findings"])

@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, thumbs, usage
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, thumbs, usage
 from .paths import repo_root, roots
 from .scan import HashCache, scan
 
@@ -44,6 +44,7 @@ def build(
     prune: bool = False,
     python: str | None = None,
     targets: dict[str, Any] | None = None,
+    lineages: bool = True,
     log=print,
 ) -> dict[str, Any]:
     """Index the art of `repo` into `out`. `targets` stands in for the
@@ -101,6 +102,10 @@ def build(
     found += [{"code": "ldtk-unresolved", "severity": "info", "subject": f"{u['field']}={u['value']}", "message": f"{u['count']} placement(s) in {u['world']} name no asset the index can resolve.", **u} for u in unresolved_ldtk]
 
     catalog = _catalog(repo, out, products, assets, ev, content + literals, placements, found)
+    if lineages:
+        step("lineages and authorship (design history)")
+        for warning in lineage.attach(repo, out, assets, catalog["assets"], targets, log=log):
+            catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
     text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)
@@ -228,11 +233,13 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
     b.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
     b.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
+    b.add_argument("--no-lineage", action="store_true", help="skip the lineages and the authorship (git blame) of the design history")
     b.add_argument("--open", action="store_true", help="open the page in a browser when built")
     args = parser.parse_args(argv)
     repo = repo_root()
     out = (args.out or repo / ".agent" / "art_inspector").resolve()
-    build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python)
+    build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
+          lineages=not args.no_lineage)
     if args.open:
         webbrowser.open((out / "index.html").as_uri())
     return 0

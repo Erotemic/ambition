@@ -4,7 +4,7 @@
 //! inventory drop adapter into the portal subsystem's schedule sets so the
 //! reusable portal core consumes intents the same frame they are produced. The
 //! pickup adapter is registered alongside the held-item simulation (in
-//! `ambition_platformer2d_actor_monolith::items::pickup`) because it must run last in that set, after the core
+//! `ambition_platformer2d_items::pickup`) because it must run last in that set, after the core
 //! fire system, so picking up the gun doesn't also fire on the same press.
 
 use bevy::prelude::*;
@@ -151,7 +151,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
 
         // Portal-gun ground pickups: the Ambition inventory grant on Attack.
         // Ordered `.after(arm_portal_pickups)` (registered by
-        // `ambition_platformer2d_actor_monolith::items::pickup` in `ItemPickupSet::CoreHeldItems`) so the
+        // `ambition_platformer2d_items::pickup` in `ItemPickupSet::CoreHeldItems`) so the
         // arm → grant chain edge is identical to the old inline `.chain()`,
         // and after `portal_fire` (via the set order) so grabbing the gun
         // does not also fire on the same Attack press.

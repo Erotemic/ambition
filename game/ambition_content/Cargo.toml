@@ -50,6 +50,7 @@ ron = { workspace = true }
 serde = { workspace = true }
 
 [dependencies]
+ambition_platformer2d_items = { path = "../../crates/ambition_platformer2d_items" }
 ambition_platformer2d_session = { path = "../../crates/ambition_platformer2d_session" }
 # Ambition's own schemas (`ambition_rules`), beside the engine's. A crate with
 # no Bevy, so the package guard's check binary builds in seconds.

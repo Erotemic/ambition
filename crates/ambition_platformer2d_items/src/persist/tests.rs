@@ -11,8 +11,8 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
         (
-            crate::items::pickup::minted_horizon::MintedItemBaseline::default(),
-            crate::items::pickup::minted_horizon::OwnedItemsBaseline::default(),
+            crate::pickup::minted_horizon::MintedItemBaseline::default(),
+            crate::pickup::minted_horizon::OwnedItemsBaseline::default(),
         ),
     );
     app.add_systems(
@@ -107,7 +107,7 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
     app.update();
 
     let baseline = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
-        crate::items::pickup::minted_horizon::OwnedItemsBaseline,
+        crate::pickup::minted_horizon::OwnedItemsBaseline,
     >(app.world())
     .unwrap();
     assert_eq!(baseline.remembered().count(Item::HealthCell), 4);
@@ -159,7 +159,7 @@ fn round_trips_the_owned_counts_by_id() {
 /// the next persistence pass, so the test lets one happen.
 #[test]
 fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
-    use crate::items::pickup::minted_horizon::{
+    use crate::pickup::minted_horizon::{
         restore_owned_items_to_checkpoint, start_the_item_domain_fresh,
         ItemCheckpointRestoreInputs, OwnedItemsBaseline,
     };

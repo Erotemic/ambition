@@ -409,8 +409,8 @@ fn a_wall_may_be_gated_on_an_item_the_player_carries() {
     // this wall must be able to be up at all.
     app.insert_resource(ambition_items::OwnedItems::default());
     app.publish_condition(
-        ambition_platformer2d_actor_monolith::items::conditions::holds_descriptor(),
-        ambition_platformer2d_actor_monolith::items::conditions::holds,
+        ambition_platformer2d_items::conditions::holds_descriptor(),
+        ambition_platformer2d_items::conditions::holds,
     );
 
     app.update();

@@ -11,14 +11,14 @@ use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
-use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::{
+use ambition_platformer2d_items::pickup::minted_horizon::{
     MintedItemBaseline, MintedItemDescription, OwnedItemsBaseline,
 };
 
 /// The session's chain plus the item domain's adapters, as the runtime composes them.
 fn install_horizon(app: &mut App) {
     install_durable_save_horizon(app);
-    ambition_platformer2d_actor_monolith::items::persist::install_item_durable_horizon(app);
+    ambition_platformer2d_items::persist::install_item_durable_horizon(app);
 }
 
 fn horizon_app() -> App {

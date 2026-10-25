@@ -518,7 +518,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # Activation stayed the one writer. 2026-09-03: activation's file is
             # `match_activation.rs` (preparation left for `ambition_match`); the
             # exemption moved with the writer, it did not widen.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
+            ":(exclude)crates/ambition_platformer2d_session/src/match_activation.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
             # ⛔⛤ THE THIRD WRITER ARRIVED 2026-09-16, AND THE REVIEW THIS
             # CONTRACT EXISTS TO FORCE IS WHAT PUT IT HERE: a GPT architecture

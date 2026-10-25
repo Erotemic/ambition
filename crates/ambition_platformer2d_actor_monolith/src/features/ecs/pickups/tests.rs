@@ -1,5 +1,5 @@
 use super::*;
-use crate::avatar::PlayerHealRequested;
+use ambition_damage::healing::PlayerHealRequested;
 use ambition_combat::components::FeatureId;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;

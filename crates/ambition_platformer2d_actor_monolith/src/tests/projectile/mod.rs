@@ -13,7 +13,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::{Block, World};
 use bevy::prelude::*;
 
-use super::systems::{charge_projectile_input, step_projectiles};
+use ambition_projectile_combat::{charge_projectile_input, step_projectiles};
 use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
@@ -131,7 +131,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<ambition_combat::RangedFireRefused>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.add_plugins(ambition_characters::brain::BrainPlugin);
     app.add_systems(
@@ -161,7 +161,7 @@ fn min_app() -> App {
 }
 
 /// Read-only view of the primary player's `PlayerProjectileState`.
-pub(in crate::projectile) fn projectile_state_ref(app: &App) -> &PlayerProjectileState {
+pub(super) fn projectile_state_ref(app: &App) -> &PlayerProjectileState {
     let world = app.world();
     let mut q = world.try_query::<&PlayerProjectileState>().unwrap();
     q.iter(world)
@@ -170,7 +170,7 @@ pub(in crate::projectile) fn projectile_state_ref(app: &App) -> &PlayerProjectil
 }
 
 /// Mutable handle to the primary player's `PlayerProjectileState`.
-pub(in crate::projectile) fn projectile_state_mut(
+pub(super) fn projectile_state_mut(
     app: &mut App,
 ) -> bevy::prelude::Mut<'_, PlayerProjectileState> {
     let world = app.world_mut();
@@ -189,7 +189,7 @@ pub(in crate::projectile) fn projectile_state_mut(
 }
 
 /// The entity id of the (single) primary player spawned by `min_app`.
-pub(in crate::projectile) fn primary_player_entity(app: &mut App) -> Entity {
+pub(super) fn primary_player_entity(app: &mut App) -> Entity {
     let world = app.world_mut();
     let mut q = world
         .try_query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>()
@@ -204,7 +204,7 @@ pub(in crate::projectile) fn primary_player_entity(app: &mut App) -> Entity {
 /// presented. Recomposes a [`ambition_projectiles::ProjectileBody`] from the
 /// entity's split `BodyKinematics` + `ProjectileGameplay` so the tests can
 /// keep asserting on `.body.kin` / `.body.game` exactly as before.
-pub(in crate::projectile) fn projectile_bodies(
+pub(super) fn projectile_bodies(
     app: &mut App,
 ) -> Vec<ambition_projectiles::ProjectileBody> {
     use ambition_projectiles::{ProjectileGameplay, ProjectileSeq};
@@ -233,7 +233,7 @@ pub(in crate::projectile) fn projectile_bodies(
 /// (oldest first). The named kind rides as its own `ProjectileKind` component
 /// (the engine body is generic), so kind assertions read it here rather than
 /// off `ProjectileBody`. `None` for any kind-less shot.
-pub(in crate::projectile) fn projectile_kinds(
+pub(super) fn projectile_kinds(
     app: &mut App,
 ) -> Vec<Option<ambition_projectiles::ProjectileKind>> {
     use ambition_projectiles::{ProjectileKind, ProjectileSeq};
@@ -253,7 +253,7 @@ pub(in crate::projectile) fn projectile_kinds(
 /// primary player — the entity-era equivalent of the old
 /// `state.bodies.push(InFlightProjectile { .. })` test setup. Assigns the
 /// next monotonic `ProjectileSeq` so injected bodies keep a stable order.
-pub(in crate::projectile) fn spawn_player_projectile(
+pub(super) fn spawn_player_projectile(
     app: &mut App,
     body: ambition_projectiles::ProjectileBody,
 ) {

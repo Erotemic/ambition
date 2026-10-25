@@ -93,7 +93,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_combat::events::ActorStimulus>()
             .add_message::<ambition_combat::RoomReplayAdmitted>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
-            .add_message::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>()
+            .add_message::<ambition_damage::healing::PlayerHealRequested>()
             // Staging fact: a room's contents finished spawning (JD4).
             .add_message::<ambition_platformer2d_world::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes
@@ -259,7 +259,7 @@ impl Plugin for SimCoreResourcesPlugin {
         // A composition with a direct session root begins with the bag it
         // was built with. On a shell host the adoption of each session gives
         // it the bag of its experience (`StartingBag::begin_the_session`).
-        ambition_platformer2d_actor_monolith::items::starting_bag::install_starting_bag(app);
+        ambition_platformer2d_items::starting_bag::install_starting_bag(app);
         // The camera of a session that ended is not the camera of the next
         // one. A composition with no session lifecycle has no activation; the
         // reader then reads an empty channel.

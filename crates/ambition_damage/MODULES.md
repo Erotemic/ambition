@@ -6,8 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`healing`](src/healing.rs) | Health restoration requests and their application to home bodies. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for health effects. |
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

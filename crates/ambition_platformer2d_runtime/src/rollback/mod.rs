@@ -47,6 +47,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // edits only that domain, and the runtime contains no gameplay type paths.
     ambition_encounter::register_rollback_state(registrar);
     ambition_combat::register_rollback_state(registrar);
+    ambition_match::register_rollback_state(registrar);
+    ambition_damage::register_rollback_state(registrar);
     ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
     ambition_platformer2d_session::register_rollback_state(registrar);
     ambition_mount::register_rollback_state(registrar);
@@ -69,6 +71,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_cutscene::register_rollback_state(registrar);
     ambition_persistence::register_rollback_state(registrar);
     ambition_projectiles::register_rollback_state(registrar);
+    ambition_projectile_combat::register_rollback_state(registrar);
+    ambition_platformer2d_items::register_rollback_state(registrar);
     ambition_extension_host::register_rollback_state(registrar);
     ambition_sim_view::register_rollback_state(registrar);
     ambition_platformer2d_world::register_rollback_state(registrar);

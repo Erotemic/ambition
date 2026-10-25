@@ -32,8 +32,8 @@
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition_tests.rs:150",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition_tests.rs:35",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:420",
-   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:110",
-   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:129",
+   "crates/ambition_platformer2d_session/src/match_activation.rs:110",
+   "crates/ambition_platformer2d_session/src/match_activation.rs:129",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:424",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:618",
    "game/ambition_app_tools/src/bin/moveset_export.rs:689"
@@ -116,7 +116,7 @@
    "crates/ambition_characters/src/prepared.rs:272",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:545",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:550",
-   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:36",
+   "crates/ambition_platformer2d_session/src/match_activation.rs:36",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1556",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:2034",
    "game/ambition_app/tests/registered_character_art_resolves.rs:108"
@@ -205,7 +205,7 @@
   "mount": [
    "crates/ambition_characters/src/prepared.rs:1767",
    "crates/ambition_characters/src/prepared.rs:270",
-   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:510",
+   "crates/ambition_platformer2d_session/src/match_activation.rs:510",
    "crates/ambition_platformer2d_construction/src/lib.rs:1230",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1618",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1674",

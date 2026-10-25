@@ -211,7 +211,7 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     // projection honest; this list only records that a reviewer checked it.
     "ambition_match::settlement::StocksMatchSettled",
     "ambition_match::settlement::SuddenDeathEntered",
-    "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",
+    "ambition_match::live_match_clock::LiveMatchTicks",
     // ⛔ ONE ROOT CAUSE, THREE CARRIERS. Each stores a `CheckpointOperationKey`
     // and projects it through the key's own
     // `write_peer_stable_into` — the admission sequence plus whether a scope

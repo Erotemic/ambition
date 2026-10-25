@@ -279,7 +279,7 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
                 sim,
                 (
                     the_roster_arrives_on_a_tick.before(
-                        ambition_platformer2d::actors::character_runtime::prepare_the_match,
+                        ambition_platformer2d::session::match_activation::prepare_the_match,
                     ),
                     trace_the_activation.in_set(Platformer2dSimulationPhase::Trace),
                 ),
@@ -776,7 +776,7 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
                 sim,
                 (
                     the_human_roster_arrives_on_a_tick.before(
-                        ambition_platformer2d::actors::character_runtime::prepare_the_match,
+                        ambition_platformer2d::session::match_activation::prepare_the_match,
                     ),
                     // The trace is not decoration here: the settling helper reads
                     // it to decide when the rollback window is demonstrably open.

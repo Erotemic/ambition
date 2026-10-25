@@ -182,7 +182,6 @@ dependencies = [
  "ambition_demo_smash",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
- "ambition_platformer2d_session",
  "ambition_sim_harness",
  "bevy",
  "bevy-inspector-egui",
@@ -403,6 +402,7 @@ dependencies = [
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_items",
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_session",
@@ -893,6 +893,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_resource_spec",
  "ambition_sprite_sheet",
+ "ambition_time",
  "bevy",
  "ron 0.11.0",
  "serde",
@@ -991,6 +992,7 @@ dependencies = [
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_host",
+ "ambition_platformer2d_items",
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_physics_debris",
  "ambition_platformer2d_provider",
@@ -1003,6 +1005,7 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_portal2d",
  "ambition_portal2d_presentation",
+ "ambition_projectile_combat",
  "ambition_projectiles",
  "ambition_relativity",
  "ambition_relativity2d",
@@ -1053,10 +1056,12 @@ dependencies = [
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_items",
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_portal2d",
+ "ambition_projectile_combat",
  "ambition_projectiles",
  "ambition_registry_core",
  "ambition_resource_spec",
@@ -1189,6 +1194,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_platformer2d_items"
+version = "0.1.0"
+dependencies = [
+ "ambition_abilities",
+ "ambition_boss_encounter",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_damage",
+ "ambition_held_items",
+ "ambition_items",
+ "ambition_match",
+ "ambition_persistence",
+ "ambition_platformer2d_construction",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_shrine",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_platformer2d_ldtk"
 version = "0.1.0"
 dependencies = [
@@ -1230,6 +1256,7 @@ dependencies = [
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_items",
  "ambition_platformer2d_publication",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_session",
@@ -1315,6 +1342,7 @@ dependencies = [
  "ambition_input",
  "ambition_items",
  "ambition_load",
+ "ambition_match",
  "ambition_menu",
  "ambition_mount",
  "ambition_persistence",
@@ -1322,6 +1350,7 @@ dependencies = [
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_items",
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_physics_debris",
  "ambition_platformer2d_publication",
@@ -1330,6 +1359,7 @@ dependencies = [
  "ambition_platformer2d_trace",
  "ambition_platformer2d_world",
  "ambition_portal2d",
+ "ambition_projectile_combat",
  "ambition_projectiles",
  "ambition_registry_core",
  "ambition_sfx",
@@ -1358,16 +1388,19 @@ dependencies = [
  "ambition_conversation",
  "ambition_cutscene",
  "ambition_encounter",
+ "ambition_entity_catalog",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
  "ambition_match",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_items",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_portal2d",
@@ -1461,6 +1494,28 @@ name = "ambition_portal_port"
 version = "0.1.0"
 dependencies = [
  "ambition_extension_sdk",
+]
+
+[[package]]
+name = "ambition_projectile_combat"
+version = "0.1.0"
+dependencies = [
+ "ambition_abilities",
+ "ambition_boss_encounter",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_damage",
+ "ambition_entity_catalog",
+ "ambition_gameplay_trace",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_portal2d",
+ "ambition_projectiles",
+ "ambition_sfx",
+ "ambition_time",
+ "ambition_vfx",
+ "bevy",
 ]
 
 [[package]]

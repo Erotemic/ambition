@@ -40,7 +40,7 @@ pub fn install_item_durable_horizon(app: &mut App) {
         sim,
         (
             persist_inventory_to_save,
-            crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+            crate::pickup::minted_horizon::persist_minted_item_horizon_to_save,
         )
             .chain()
             .in_set(DurableHorizonSet::DomainMirror),
@@ -65,10 +65,10 @@ pub fn restore_inventory_from_save(
     // plugin has no root that carries them, so this restore does not run: a
     // save must not be adopted where no checkpoint can give it back.
     mut minted_baseline: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        crate::items::pickup::minted_horizon::MintedItemBaseline,
+        crate::pickup::minted_horizon::MintedItemBaseline,
     >,
     mut owned_baseline: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        crate::items::pickup::minted_horizon::OwnedItemsBaseline,
+        crate::pickup::minted_horizon::OwnedItemsBaseline,
     >,
     // SLOT-0 BY DESIGN: the SAVE FILE belongs to the local player. `BodyWallet` is
     // body vocabulary (a currency-dropping NPC carries one), but only slot 0's
@@ -91,7 +91,7 @@ pub fn restore_inventory_from_save(
         wallet.balance = data.wallet();
     }
     // Domain-owned durable adoption.
-    crate::items::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
+    crate::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
         data,
         &owned,
         wallet.balance,

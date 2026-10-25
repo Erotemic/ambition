@@ -743,7 +743,7 @@ pub fn step_projectiles(
     >,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
-    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Damage authority comes from the firer's faction/grudge/team. Match team outranks
     // faction for whether a shot may land; bosses use the authored catalog below.
@@ -1354,7 +1354,7 @@ pub fn step_projectiles(
                         &super::intercept::ProjectileInterception::Consume,
                     );
                     if victim.is_player {
-                        heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
+                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL));
                     }
                     // ⛔⛔ A SWALLOWED SHOT IS GONE, AND THIS USED TO `continue`
                     // THE VICTIM LOOP. `intercept_projectile` returns whether the
@@ -1399,7 +1399,7 @@ pub fn step_projectiles(
                         &mut vfx,
                     );
                     if victim.is_player {
-                        heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
+                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL));
                     }
                     reflected = true;
                     break;
@@ -1858,4 +1858,61 @@ mod parry_tests {
             "velocity reversed and boosted by the reflect scale"
         );
     }
+}
+
+#[cfg(test)]
+mod wall_order_tests {
+/// ⛔⛔ **THE TIE WENT TO THE TARGET, AND THE COMMENT CLAIMED THAT WAS THE
+/// PROTOCOL.**
+///
+/// `projectile-contact-protocol.md` says an independent blocking surface at
+/// exactly the same impact time WINS over an unrelated hurt target, precisely
+/// so a tie cannot grant damage through a wall. The road implemented
+/// `wall < contact - f32::EPSILON` — the opposite policy, expressed with the
+/// epsilon comparator the same document forbids by name.
+///
+/// ⭐ ASSERTED ON THE COMPARISON ITSELF, not through a fixture. Two swept code
+/// paths (`body_sweep` for the wall, `reached_along` for the victim) producing
+/// bit-identical `f32` times is not something a behavioural test can promise,
+/// and a tie test that never actually ties proves nothing at all.
+#[test]
+fn an_independent_wall_wins_an_exact_tie_against_a_hurt_target() {
+    use super::*;
+
+    // THE CASE THAT FLIPPED. Equal times: the wall takes it.
+    assert!(
+        wall_reaches_first(Some(0.5), 0.5),
+        "a wall at exactly the target's contact time must win — a tie may not \
+         grant damage through it"
+    );
+
+    // ⭐ AND THE EPSILON SWALLOWED REAL WALLS TOO. `f32::EPSILON` is ~1.19e-7
+    // while the gap between adjacent floats at 0.5 is ~5.96e-8, so a wall a
+    // FULL REPRESENTABLE STEP earlier still failed `wall < contact - EPSILON`:
+    // the old form called a genuinely earlier wall second.
+    //
+    // ⚠ `next_down`/`next_up`, NOT `0.5 +/- 1e-9`. Written that way first, and
+    // both arms were vacuous: 1e-9 is far below the ulp here, so both constants
+    // round to exactly 0.5 and the "strictly later" control was silently
+    // asserting the tie case with the answer inverted.
+    assert!(
+        wall_reaches_first(Some(0.5f32.next_down()), 0.5),
+        "a wall that genuinely reaches the leg first was ordered behind the \
+         target by the epsilon slack"
+    );
+    assert!(wall_reaches_first(Some(0.1), 0.5), "a plainly earlier wall is first");
+
+    // ⭐ CONTROLS. A rule that answered `true` always would satisfy every
+    // assertion above while making every shot stop at nothing.
+    assert!(
+        !wall_reaches_first(Some(0.5f32.next_up()), 0.5),
+        "a wall reached AFTER the target must not block it"
+    );
+    assert!(!wall_reaches_first(Some(0.9), 0.5), "a plainly later wall is second");
+    assert!(
+        !wall_reaches_first(None, 0.5),
+        "no wall on the leg cannot block anything"
+    );
+}
+
 }

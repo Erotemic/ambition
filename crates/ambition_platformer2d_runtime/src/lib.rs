@@ -501,6 +501,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
             .add(ambition_platformer2d_actor_monolith::character_runtime::CharacterRuntimePlugin)
+            .add(ambition_platformer2d_session::MatchLifecyclePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
             // Traversal ability/weapon kit + shared app state.
@@ -530,7 +531,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // chain and no members; with only the domains', members and no
             // chain. Order between the three does not matter — each configures
             // its own sets.
-            .add(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin)
+            .add(ambition_platformer2d_items::pickup::ItemPickupSimulationPlugin)
             // ⭐ ITS SIBLING, AND THE TWO ARE COMPOSED HERE RATHER THAN ONE
             // ADDING THE OTHER: the TOUCHED collectible — where it is, whether
             // it is moving, and that walking into it collects it. Split out of
@@ -682,9 +683,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The inventory domain's provider, added for the same reason and in
             // the same way. it is the THIRD provider and it cost one line of
             // composition — which is the acceptance clause, restated as code.
-            .add(ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin)
+            .add(ambition_platformer2d_items::conditions::InventoryConditionsPlugin)
             .add(
-                ambition_platformer2d_actor_monolith::items::wallet_conditions::WalletConditionsPlugin,
+                ambition_platformer2d_items::wallet_conditions::WalletConditionsPlugin,
             )
             // The body domain's provider — `body.can(verb)`, the route-facing
             // reader of `AbilitySet`. FOURTH provider, one line, and it is only

@@ -602,7 +602,7 @@ pub fn register_functions(
 
     // Inventory checks use `condition("inventory.holds", "<item>")`, which reads
     // the live `OwnedItems`; `ItemCatalog::item_by_dialog_id` owns loose spelling. See
-    // `ambition_platformer2d_actor_monolith::items::conditions`.
+    // `ambition_platformer2d_items::conditions`.
     }
 
 // Loose item spelling has one implementation: `ItemCatalog::item_by_dialog_id`.
@@ -677,6 +677,6 @@ mod tests {
 
     // Inventory does not depend on a save: `inventory.holds` reads `OwnedItems`
     // directly. `a_composition_with_no_inventory_cannot_answer` in
-    // `ambition_platformer2d_actor_monolith::items::conditions` covers the
+    // `ambition_platformer2d_items::conditions` covers the
     // other half.
 }

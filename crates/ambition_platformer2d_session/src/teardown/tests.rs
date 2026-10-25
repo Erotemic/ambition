@@ -54,7 +54,7 @@ fn app_with_populated_mirrors() -> App {
     // behind an agreeing checksum.
     app.init_resource::<ambition_match::StocksMatchSettled>();
     app.init_resource::<ambition_match::SuddenDeathEntered>();
-    app.init_resource::<ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks>();
+    app.init_resource::<ambition_match::live_match_clock::LiveMatchTicks>();
     app.init_resource::<ambition_match::seating::SessionMatchOrdinal>();
     app.add_systems(
         Update,

@@ -245,3 +245,71 @@ impl SnapshotState for crate::StocksMatchSettled {
         Some(crate::StocksMatchSettled::from_snapshot(decided))
     }
 }
+
+/// HOW LONG THIS MATCH HAS BEEN FOUGHT, and WHICH MATCH that is.
+///
+/// ⛔⛔ THIS ONE IS COUNTED, which is what makes it different from the two
+/// beside it. `time_remaining` used to be a pure function of `(activated_on,
+/// now)` — its own doc says a rewind RECOMPUTES the clock and a match clock
+/// costs no wire format. Excluding pauses ends that: "how long was this stopped"
+/// is written nowhere else, so the count is the only record and a rewind must
+/// restore it. The bytes are the price of the mechanic.
+impl SnapshotState for crate::live_match_clock::LiveMatchTicks {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let (of, ticks) = self.parts();
+        match of {
+            None => put_bool(out, false),
+            Some(instance) => {
+                put_bool(out, true);
+                let (session, activated_on, ordinal) = instance.parts();
+                match session {
+                    None => put_bool(out, false),
+                    Some(session) => {
+                        put_bool(out, true);
+                        put_u64(out, session.0);
+                    }
+                }
+                match activated_on {
+                    None => put_bool(out, false),
+                    Some(tick) => {
+                        put_bool(out, true);
+                        put_u64(out, tick);
+                    }
+                }
+                // ⭐ THE PEER HALF TRAVELS TOO. A rewind that restored the local
+                // stamp without it would restore a value that no longer names
+                // which match of the agreed session it describes.
+                match ordinal {
+                    None => put_bool(out, false),
+                    Some(ordinal) => {
+                        put_bool(out, true);
+                        put_u64(out, ordinal);
+                    }
+                }
+            }
+        }
+        put_u64(out, ticks);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let of = if r.bool()? {
+            let session = if r.bool()? {
+                Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+            } else {
+                None
+            };
+            let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+            let ordinal = if r.bool()? { Some(r.u64()?) } else { None };
+            Some(crate::MatchInstance::from_snapshot(
+                session,
+                activated_on,
+                ordinal,
+            ))
+        } else {
+            None
+        };
+        Some(
+            crate::live_match_clock::LiveMatchTicks::from_snapshot(of, r.u64()?),
+        )
+    }
+}
+

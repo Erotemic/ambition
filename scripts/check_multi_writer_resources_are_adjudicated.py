@@ -258,8 +258,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/persist.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "crates/ambition_platformer2d_session/src/rooms/gate_network.rs",
@@ -299,10 +299,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/narrative.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/starting_bag.rs",
+        "crates/ambition_platformer2d_items/src/narrative.rs",
+        "crates/ambition_platformer2d_items/src/persist.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/starting_bag.rs",
         "game/ambition_content/src/portal/inventory_adapter.rs",
         "game/ambition_content/src/quest.rs",
     ),
@@ -456,13 +456,13 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "BagSpendsSinceCheckpoint": (
         "crates/ambition_held_items/src/lib.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "RewardGrantsSinceCheckpoint": (
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "AuthoredOccurrences": (
@@ -471,7 +471,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/errand.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
@@ -614,7 +614,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "GameplayTraceBuffer": (
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_platformer2d_trace/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+        "crates/ambition_projectile_combat/src/systems.rs",
     ),
     "KaleidoscopeCursor": (
         "game/ambition_app/src/menu/grid_backend.rs",
@@ -768,7 +768,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash/src/select_screen.rs",
     ),
     "LiveMatchTicks": (
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs",
+        "crates/ambition_match/src/live_match_clock.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "LocalSeatTopology": (
@@ -853,7 +853,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash/src/select_screen.rs",
     ),
     "SessionMatchOrdinal": (
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
+        "crates/ambition_platformer2d_session/src/match_activation.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "SfxPlaybackState": (
@@ -3340,7 +3340,7 @@ ADJUDICATED: dict[str, str] = {
         "neither: `current_tick` (`buffer.rs:105`) takes `&self` and only "
         "reads `self.tick`, so "
         "`crates/ambition_encounter_features/src/systems.rs:483` and "
-        "`crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs:302` "
+        "`crates/ambition_projectile_combat/src/systems.rs:302` "
         "are both READERS the crude regex flagged as contended writers — a "
         "census instrument artifact. `push_event` (`buffer.rs:229`) is a "
         "genuine mutator, but it only pops the oldest entry when full and "
@@ -3824,8 +3824,8 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
     ),
     "MintedItemBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/persist.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
     ),
     "OccurrenceBaseline": (
@@ -3834,8 +3834,8 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
     ),
     "OwnedItemsBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/persist.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
     ),
 }
 

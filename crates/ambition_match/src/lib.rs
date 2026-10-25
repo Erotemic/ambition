@@ -39,3 +39,7 @@ pub use staging::{
 
 pub use settlement::{the_live_match_is_settled, StocksMatchSettled, SuddenDeathEntered};
 pub use lifetime::{stamp_credit_stand_ins, stamp_match_object, sweep_objects_from_ended_matches};
+
+pub mod live_match_clock;
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

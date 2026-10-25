@@ -1,18 +1,7 @@
-//! The kernel's residue of the pressed held-item domain.
+//! Item schedule integration and checkpoint custody restoration.
 //!
-//! The domain — `GroundItem`, `ItemCustody`, the held specs, pickup / use /
-//! throw / physics / residency and their tests — is `ambition_held_items`
-//! since 2026-09-03 (D33). What stays here is what is the KERNEL's and not the
-//! item's: [`ItemPickupSimulationPlugin`], which chains the three
-//! `ItemPickupSet` variants and attaches the kernel's own systems to the
-//! domain's `HeldItemStep`s; [`restore_custody_to_checkpoint`], which is
-//! checkpoint policy over a foreign crate's components; and
-//! [`minted_horizon`], whose one kernel reference (`SaveRestored`) is why it
-//! did not move.
-//!
-//! ⛔ NOTHING IS RE-EXPORTED FROM HERE. A `pub use ambition_held_items::…`
-//! would keep this module as the discovery path for code it no longer owns;
-//! games reach the domain through the facade's `held_items`.
+//! Held-item transitions belong to `ambition_held_items`. This module orders the
+//! item capabilities and restores custody from the admitted checkpoint data.
 
 pub mod minted_horizon;
 pub use minted_horizon::{GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint};
@@ -112,7 +101,7 @@ impl Plugin for ItemPickupSimulationPlugin {
             // WHAT THE MATCH DROPS, before the physics that settles it —
             // so an item spawned this tick falls this tick rather than
             // hanging at its point for one frame.
-            crate::items::match_spawn::spawn_match_items
+            crate::match_spawn::spawn_match_items
                 .run_if(bevy::prelude::resource_exists::<ambition_match::ActiveMatch>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .in_set(ItemPickupSet::CoreHeldItems)

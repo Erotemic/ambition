@@ -1,9 +1,7 @@
-//! Match ACTIVATION: the kernel's side of a prepared match.
+//! Build, bind, and release the cast of an admitted match.
 //!
-//! Preparation is `ambition_match` (`prepare_match` and the immutable
-//! [`PreparedMatch`] it produces). This module spawns the bodies that plan
-//! names, binds their control, releases the opening hold and declares the
-//! cast as the view -- construction and lifecycle, which are the kernel's.
+//! Match preparation owns the immutable plan. Session activation builds its
+//! bodies and applies the opening policy from that plan.
 
 use ambition_match::prepared::{
     prepare_match, ControlAuthority, MatchPreparationProblems, OpeningPhase, PreparedMatch,
@@ -232,7 +230,7 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
             commands
                 .entity(body)
                 .insert(ambition_characters::control::DrivingParticipant(
-                    crate::participant_seat::player_slot_of(*channel),
+                    ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(*channel),
                 ));
         }
         // The seed already carries the archetype's brain, derived in
@@ -276,7 +274,7 @@ pub fn prepare_the_match(
     // — it lowered no avatar, so no seat can collide with one.
     home_body: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            crate::avatar::starting_character::InitialBodyPolicy,
+            ambition_platformer2d_actor_monolith::avatar::starting_character::InitialBodyPolicy,
         >,
     >,
     // WHICH session this plan is for; a plan from the previous one is stale.

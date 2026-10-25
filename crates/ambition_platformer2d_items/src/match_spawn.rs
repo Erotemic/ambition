@@ -23,7 +23,7 @@ pub fn spawn_match_items(
     active: Option<Res<ambition_match::ActiveMatch>>,
     // HOW LONG THIS MATCH HAS BEEN FOUGHT — the same reading the timeout uses,
     // which is the whole point of the row this closes.
-    live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
+    live: Res<ambition_match::live_match_clock::LiveMatchTicks>,
 ) {
     let (Some(prepared), Some(active)) = (prepared, active) else {
         return;

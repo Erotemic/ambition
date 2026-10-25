@@ -87,7 +87,7 @@ mod held_item_steps {
         let mut app = App::new();
         app.add_plugins((
             ambition_held_items::HeldItemSimulationPlugin,
-            ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin,
+            ambition_platformer2d_items::pickup::ItemPickupSimulationPlugin,
         ));
         if with_session_checkpoint {
             app.add_plugins(crate::checkpoint::SessionCheckpointHorizonPlugin);

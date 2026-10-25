@@ -191,7 +191,6 @@ perf_probe = ["ambition_platformer2d/perf_probe"]
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 
 [dependencies]
-ambition_platformer2d_session = { path = "../../crates/ambition_platformer2d_session" }
 # The linked game providers of the multi-game shell host. The HOST depends on
 # providers; providers never depend on hosts (each also runs unchanged in its
 # own standalone demo app).

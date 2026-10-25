@@ -11,3 +11,8 @@ pub mod pickup;
 pub mod starting_bag;
 /// `wallet.can_afford` — the purse's own published question.
 pub mod wallet_conditions;
+
+/// Register the item horizon state for rollback.
+pub fn register_rollback_state<R: ambition_platformer2d_core::snapshot::RollbackRegistrar>(registrar: &mut R) {
+    pickup::minted_horizon::register_checkpoint_rollback_state(registrar);
+}

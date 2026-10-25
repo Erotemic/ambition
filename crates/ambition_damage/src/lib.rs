@@ -1737,3 +1737,7 @@ pub fn install_staged_hit_lifecycle_guard(
             .in_set(ambition_combat::events::RestoreConsequenceSet::Gameplay),
     );
 }
+
+pub mod healing;
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

@@ -11,6 +11,8 @@ default = []
 portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
+ambition_mount = { path = "../ambition_mount" }
+ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_abilities = { path = "../ambition_abilities" }
 ambition_asset_manager = { path = "../ambition_asset_manager" }
 ambition_audio = { path = "../ambition_audio" }
@@ -45,6 +47,7 @@ serde.workspace = true
 serde_json = "1"
 
 [dev-dependencies]
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
 ambition_combat = { path = "../ambition_combat", features = ["test-support"] }

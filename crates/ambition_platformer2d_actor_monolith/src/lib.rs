@@ -39,11 +39,12 @@ pub mod character_sprites;
 pub mod clash;
 #[cfg(test)]
 pub mod enemy_projectile;
-pub mod items;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-pub mod projectile;
+#[cfg(test)]
+#[path = "tests/projectile/mod.rs"]
+mod projectile_tests;
 pub mod repertoire;
 mod snapshot_impls;
 

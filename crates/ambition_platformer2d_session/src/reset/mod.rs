@@ -424,7 +424,7 @@ impl Plugin for NewGameResetPlugin {
             ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
             (begin_fresh_run, clear_transient_on_sandbox_reset)
                 .chain()
-                .after(ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::start_the_item_domain_fresh),
+                .after(ambition_platformer2d_items::pickup::minted_horizon::start_the_item_domain_fresh),
         );
     }
 }

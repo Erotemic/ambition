@@ -3116,11 +3116,11 @@ const PLAYER_HEAL_AMOUNT: i32 = 10;
 fn heal_the_player_from_inside_the_sim(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut heals: bevy::prelude::MessageWriter<
-        ambition_platformer2d::actors::avatar::PlayerHealRequested,
+        ambition_platformer2d::damage::healing::PlayerHealRequested,
     >,
 ) {
     if tick.0 == PLAYER_HEAL_TICK {
-        heals.write(ambition_platformer2d::actors::avatar::PlayerHealRequested::new(
+        heals.write(ambition_platformer2d::damage::healing::PlayerHealRequested::new(
             PLAYER_HEAL_AMOUNT,
         ));
     }
@@ -3290,7 +3290,7 @@ fn a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell() {
     });
     assert_eq!(
         player_health(&mut outside),
-        before + ambition_platformer2d::actors::items::narrative::HEALTH_CELL_HEAL,
+        before + ambition_platformer2d::item_runtime::narrative::HEALTH_CELL_HEAL,
         "a Health Cell used from the menu did not heal exactly once. Equal to \
          `before`: the rewind revoked it again. Twice the heal: a replayed tick \
          spent the intent a second time"

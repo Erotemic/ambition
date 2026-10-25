@@ -55,7 +55,7 @@ impl Plugin for CheckpointHorizonPlugin {
         app.add_plugins((
             LifecycleCheckpointHorizonPlugin,
             ambition_platformer2d_session::checkpoint::SessionCheckpointHorizonPlugin,
-            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
+            ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
         ));
     }
 }

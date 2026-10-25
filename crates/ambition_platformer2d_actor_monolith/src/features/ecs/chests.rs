@@ -69,7 +69,7 @@ pub fn open_ecs_chests(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The grant, routed to the body that opened it — the same three writers the
     // walk-over pickup hands to `grant_pickup`.
-    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
     // What a chest gave: a retracted defeat takes back a boss reward
@@ -80,7 +80,7 @@ pub fn open_ecs_chests(
     // own that (Q63, Q151).
     (sim_ids, mut reward_grants, participants, mut occurrences, mut spent_since, room_specs): (
         Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-        Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+        Option<ResMut<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
         Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
         Option<ResMut<super::pickups::ConsumedSinceCheckpoint>>,
@@ -174,14 +174,14 @@ pub fn open_ecs_chests(
                     (sim_ids.get(subject), reward_grants.as_deref_mut())
                 {
                     let source = match boss_reward {
-                        Some(boss_reward) => crate::items::pickup::GrantSource::BossChest {
+                        Some(boss_reward) => ambition_platformer2d_items::pickup::GrantSource::BossChest {
                             placement: boss_reward.encounter_id.clone(),
                         },
-                        None => crate::items::pickup::GrantSource::Authored {
+                        None => ambition_platformer2d_items::pickup::GrantSource::Authored {
                             owners: super::world_time_schedule::owners_beside(entity, &rooms, &participants),
                         },
                     };
-                    reward_grants.record(crate::items::pickup::RewardGrant {
+                    reward_grants.record(ambition_platformer2d_items::pickup::RewardGrant {
                         source,
                         collector: collector.clone(),
                         granted,

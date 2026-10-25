@@ -13,11 +13,11 @@ use super::{
 fn tap_release_fires_one_fireball() {
     let mut app = min_app();
     tap_projectile(&mut app);
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     // Tap-release is below the medium threshold → tier 0 Fireball.
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        crate::projectile_tests::projectile_kinds(&mut app)[0],
         Some(ProjectileKind::Fireball)
     );
 }
@@ -33,10 +33,10 @@ fn press_without_release_only_starts_charge() {
     });
     advance_time(&mut app, 0.016);
     app.update();
-    let charging = crate::projectile::tests::projectile_state_ref(&app)
+    let charging = crate::projectile_tests::projectile_state_ref(&app)
         .charging
         .is_some();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(
         bodies.is_empty(),
         "press without release must not spawn a fireball"
@@ -73,11 +73,11 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     });
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     let body = &bodies[0];
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        crate::projectile_tests::projectile_kinds(&mut app)[0],
         Some(ProjectileKind::Fireball)
     );
     // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
@@ -226,7 +226,7 @@ fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
 fn grace_qcf_then_press_fires_hadouken_immediately() {
     let mut app = min_app();
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut state = crate::projectile_tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [MotionDirection::Down, MotionDirection::Right] {
             state.motion_buffer.push(dir, t);
@@ -240,10 +240,10 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
     });
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        crate::projectile_tests::projectile_kinds(&mut app)[0],
         Some(ProjectileKind::Hadouken)
     );
 }
@@ -255,7 +255,7 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
 fn a_hadouken_the_meter_cannot_pay_for_is_a_fireball() {
     let mut app = min_app();
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut state = crate::projectile_tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [MotionDirection::Down, MotionDirection::Right] {
             state.motion_buffer.push(dir, t);
@@ -267,7 +267,7 @@ fn a_hadouken_the_meter_cannot_pay_for_is_a_fireball() {
     }
     tap_projectile(&mut app);
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app),
+        crate::projectile_tests::projectile_kinds(&mut app),
         vec![Some(ProjectileKind::Fireball)],
         "the press is a fireball"
     );
@@ -278,7 +278,7 @@ fn a_hadouken_the_meter_cannot_pay_for_is_a_fireball() {
 fn full_qcf_then_press_fires_hadouken_super() {
     let mut app = min_app();
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut state = crate::projectile_tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [
             MotionDirection::Down,
@@ -296,10 +296,10 @@ fn full_qcf_then_press_fires_hadouken_super() {
     });
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        crate::projectile_tests::projectile_kinds(&mut app)[0],
         Some(ProjectileKind::HadoukenSuper)
     );
 }
@@ -308,7 +308,7 @@ fn full_qcf_then_press_fires_hadouken_super() {
 fn half_circle_still_fires_hadouken_super() {
     let mut app = min_app();
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut state = crate::projectile_tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [
             MotionDirection::Left,
@@ -328,10 +328,10 @@ fn half_circle_still_fires_hadouken_super() {
     });
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app)[0],
+        crate::projectile_tests::projectile_kinds(&mut app)[0],
         Some(ProjectileKind::HadoukenSuper)
     );
 }
@@ -350,16 +350,16 @@ fn refusals(app: &mut bevy::prelude::App) -> Vec<ambition_combat::RangedFireRefu
 fn a_tap_in_the_cooldown_fires_when_the_cooldown_is_over() {
     let mut app = min_app();
     tap_projectile(&mut app);
-    assert_eq!(crate::projectile::tests::projectile_bodies(&mut app).len(), 1, "control: the first tap fires");
+    assert_eq!(crate::projectile_tests::projectile_bodies(&mut app).len(), 1, "control: the first tap fires");
     tap_projectile(&mut app);
     assert_eq!(
-        crate::projectile::tests::projectile_bodies(&mut app).len(),
+        crate::projectile_tests::projectile_bodies(&mut app).len(),
         1,
         "the second tap waits for the cooldown"
     );
     assert!(refusals(&mut app).is_empty(), "a tap that waits is not refused");
     let mut waited = 0.0;
-    while crate::projectile::tests::projectile_bodies(&mut app).len() < 2 {
+    while crate::projectile_tests::projectile_bodies(&mut app).len() < 2 {
         assert!(waited < ProjectileKind::Fireball.cooldown(), "the waiting tap did not fire in the cooldown");
         advance_time(&mut app, 0.016);
         app.update();
@@ -374,7 +374,7 @@ fn a_tap_in_the_cooldown_fires_when_the_cooldown_is_over() {
 fn a_tap_that_outwaits_the_buffer_is_refused_and_says_why() {
     let mut app = min_app();
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut state = crate::projectile_tests::projectile_state_mut(&mut app);
         state.spawner.cooldown_remaining = ambition_projectiles::state::FIRE_BUFFER_S + 0.3;
         state.spawner.cooldown_armed = state.spawner.cooldown_remaining;
     }
@@ -383,7 +383,7 @@ fn a_tap_that_outwaits_the_buffer_is_refused_and_says_why() {
         advance_time(&mut app, 0.016);
         app.update();
     }
-    assert!(crate::projectile::tests::projectile_bodies(&mut app).is_empty());
+    assert!(crate::projectile_tests::projectile_bodies(&mut app).is_empty());
     let refused = refusals(&mut app);
     assert_eq!(refused.len(), 1, "the refused tap is published once: {refused:?}");
     let ambition_combat::WeaponReadiness::Recharging { progress: Some(progress) } =
@@ -412,8 +412,8 @@ fn a_press_and_release_in_one_tick_fires_one_fireball() {
     });
     advance_time(&mut app, 0.016);
     app.update();
-    assert_eq!(crate::projectile::tests::projectile_bodies(&mut app).len(), 1);
-    assert!(crate::projectile::tests::projectile_state_ref(&app).charging.is_none(), "no charge is left behind");
+    assert_eq!(crate::projectile_tests::projectile_bodies(&mut app).len(), 1);
+    assert!(crate::projectile_tests::projectile_state_ref(&app).charging.is_none(), "no charge is left behind");
 }
 
 /// ⭐ Q33: A PRESS WITH AN EMPTY METER MAKES NO SHOT AND SAYS "NO AMMUNITION".
@@ -421,11 +421,11 @@ fn a_press_and_release_in_one_tick_fires_one_fireball() {
 fn out_of_resource_blocks_fire() {
     let mut app = min_app();
     {
-        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
+        let mut state = crate::projectile_tests::projectile_state_mut(&mut app);
         state.spawner.meter.current = 0.0;
     }
     tap_projectile(&mut app);
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(bodies.is_empty());
     let refused = refusals(&mut app);
     assert_eq!(
@@ -505,7 +505,7 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     advance_time(&mut app, 0.016);
     app.update();
 
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
     let shot = &bodies[0].kin;
     assert!(
@@ -548,7 +548,7 @@ fn an_autonomous_fire_intent_on_a_charge_body_fires_one_fireball() {
     advance_time(&mut app, 0.016);
     app.update();
     assert_eq!(
-        crate::projectile::tests::projectile_kinds(&mut app),
+        crate::projectile_tests::projectile_kinds(&mut app),
         vec![Some(ProjectileKind::Fireball)],
         "one fire intent is one uncharged shot"
     );

@@ -804,7 +804,7 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
     app.add_plugins((
         LifecycleCheckpointHorizonPlugin,
         crate::checkpoint::SessionCheckpointHorizonPlugin,
-        ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
+        ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
     ));
     let sim = app.sim_schedule();
     let schedules = app.world().resource::<Schedules>();
@@ -862,7 +862,7 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
 fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs() {
     use ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs;
 
-    use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
+    use ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
     use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
 
     let crossing = |room: &str| {
@@ -1220,7 +1220,7 @@ fn an_operation_answered_before_its_intent_leaves_keeps_its_one_answer() {
 fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_builds() {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline;
+    use ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline;
     use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
 
     fn crossing() -> RoomTransitionIntent {
@@ -1250,7 +1250,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
                 occurrences: Default::default(),
                 custody: Default::default(),
             }),
-            item: Some(ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+            item: Some(ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: MintedItemBaseline::default(),
                 owned: Default::default(),
                 grants: Default::default(),

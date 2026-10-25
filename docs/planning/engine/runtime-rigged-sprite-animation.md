@@ -363,7 +363,7 @@ headless (`capture_scene` can show them).
 | Landmark query | `crates/ambition_combat/src/body_landmarks.rs` |
 | Embedded landmark tables and digest | `crates/ambition_sprite_sheet/build.rs`, `src/baked_landmarks.rs`, `src/character/landmarks_published.rs` |
 | Pet mark | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs` |
-| Player shot origin | `crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs` |
+| Player shot origin | `crates/ambition_projectile_combat/src/systems.rs` |
 | Flipbook asset and switch | `crates/ambition_sprite_sheet/src/character/rigged.rs` |
 | Rigged draw | `crates/ambition_render/src/rendering/actors/rigged*` |
 | Portal tint | `ambition_portal2d_presentation::PortalPieceTint` |

@@ -100,3 +100,10 @@ scope = "game"
 [[root]]
 path = "game/ambition_demo_mary_o"
 scope = "game"
+
+[[root]]
+path = "crates/ambition_platformer2d_items"
+scope = "engine"
+[[root]]
+path = "crates/ambition_projectile_combat"
+scope = "engine"

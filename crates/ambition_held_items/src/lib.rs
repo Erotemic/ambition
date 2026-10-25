@@ -7,7 +7,7 @@
 //! back onto the ground ahead of the player, restoring the player's original
 //! action set. One held item at a time.
 //!
-//! ⭐⭐ CARVED OUT OF `ambition_platformer2d_actor_monolith::items::pickup` (D33,
+//! ⭐⭐ CARVED OUT OF `ambition_platformer2d_items::pickup` (D33,
 //! 2026-09-03), the sibling of `ambition_world_items` (the TOUCHED half) along
 //! the collect TRIGGER — touched versus pressed. What moved is the domain: its
 //! components, its specs, its systems and its tests. What stayed in the kernel

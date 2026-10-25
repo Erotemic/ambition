@@ -25,7 +25,7 @@
 #![cfg(feature = "ui")]
 
 use ambition_boss_encounter::conditions::BossConditionsPlugin;
-use ambition_platformer2d_actor_monolith::items::wallet_conditions::WalletConditionsPlugin;
+use ambition_platformer2d_items::wallet_conditions::WalletConditionsPlugin;
 use ambition_characters::actor::BodyWallet;
 use ambition_content::quests::conditions::QuestConditionsPlugin;
 use ambition_persistence::save::AmbitionGameSave;

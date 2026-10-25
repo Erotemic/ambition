@@ -1329,7 +1329,7 @@ pub fn begin_room_transition_load_system(
             .or(released_ledger.as_ref())
             .or(construction_services.6.as_deref());
         let door_minted = construction_services.7.as_deref().map(|save| {
-            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::minted_baseline_from_save(
+            ambition_platformer2d_items::pickup::minted_horizon::minted_baseline_from_save(
                 save.data(),
             )
         });

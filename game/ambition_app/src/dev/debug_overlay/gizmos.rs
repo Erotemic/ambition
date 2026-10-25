@@ -125,7 +125,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         (
             Entity,
             &'static ambition_platformer2d::engine_core::BodyKinematics,
-            Option<&'static ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
+            Option<&'static ambition_platformer2d::projectile_combat::ProjectileAllegiance>,
             &'static ambition_platformer2d::platformer::projectile::ProjectileGameplay,
         ),
         (

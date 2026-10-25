@@ -1987,3 +1987,8 @@ macro_rules! __content_pack_text {
         }
     };
 }
+
+/// Item simulation and checkpoint integration.
+pub use ambition_platformer2d_items as item_runtime;
+/// Projectile contacts and combat execution.
+pub use ambition_projectile_combat as projectile_combat;

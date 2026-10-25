@@ -28,7 +28,7 @@ pub fn apply_item_grants(
     for request in requests.read() {
         owned.grant(items.get(), request.item, request.count);
         info!(
-            target: "crate::items::narrative",
+            target: "crate::narrative",
             "give_item: granted {}x {:?}", request.count, request.item,
         );
     }
@@ -53,7 +53,7 @@ pub fn apply_shop_transactions(
     for request in requests.read() {
         let outcome = request.apply(&mut wallet, &mut owned, items.get());
         info!(
-            target: "crate::items::narrative",
+            target: "crate::narrative",
             "{:?} {:?} @ {} -> {outcome:?} (balance now {})",
             request.side, request.item, request.price, wallet.balance,
         );
@@ -73,7 +73,7 @@ pub const MANA_CELL_RESTORE: f32 = 40.0;
 pub fn apply_item_uses(
     mut requests: MessageReader<ambition_items::ItemUseRequested>,
     mut owned: ResMut<OwnedItems>,
-    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
     mut banks: Query<
         &mut ambition_platformer2d_core::resources::ActorResources,
         (
@@ -87,7 +87,7 @@ pub fn apply_item_uses(
         match request.item {
             Item::HealthCell => {
                 if owned.take(Item::HealthCell, 1) > 0 {
-                    heals.write(crate::avatar::PlayerHealRequested::new(HEALTH_CELL_HEAL));
+                    heals.write(ambition_damage::healing::PlayerHealRequested::new(HEALTH_CELL_HEAL));
                 }
             }
             Item::ManaCell => {
@@ -102,7 +102,7 @@ pub fn apply_item_uses(
             }
             other => {
                 warn!(
-                    target: "crate::items::narrative",
+                    target: "crate::narrative",
                     "a use of {other:?} was asked for, and it is not a consumable"
                 );
             }

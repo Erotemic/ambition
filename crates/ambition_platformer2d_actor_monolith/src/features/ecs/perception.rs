@@ -439,7 +439,7 @@ pub fn collect_perception_projectiles(
             bevy::prelude::Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ambition_projectiles::ProjectileGameplay,
-            Option<&crate::projectile::ProjectileAllegiance>,
+            Option<&ambition_projectile_combat::ProjectileAllegiance>,
             Option<&ambition_projectiles::ProjectileOwner>,
         ),
         bevy::prelude::With<ambition_projectiles::LiveProjectile>,

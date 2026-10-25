@@ -4,6 +4,8 @@ members = [
     "crates/ambition_platformer2d",
     "crates/ambition_platformer2d_publication",
     "crates/ambition_platformer2d_session",
+    "crates/ambition_platformer2d_items",
+    "crates/ambition_projectile_combat",
     "crates/ambition_platformer2d_construction",
     "crates/ambition_relativity",
     "crates/ambition_relativity2d",

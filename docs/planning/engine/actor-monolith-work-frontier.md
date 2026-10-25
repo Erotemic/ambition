@@ -229,7 +229,7 @@ mix mechanical and visual values from different revisions.
 ## A7. Separate item custody/accounting from lifecycle orchestration
 
 **State:** A1 is closed. [Item custody and accounting](item-custody-and-accounting.md)
-owns the item writers. The checkpoint baseline is written only inside the monolith;
+owns the item writers. The checkpoint baseline is written by `ambition_platformer2d_items`;
 `OwnedItems` is written from four crates. `GroundItem` is `#[non_exhaustive]`
 with `at_rest` and `released` as its only constructors. Every death drop goes
 through `spawn_death_drop` with a `DropIdentity` that has no default

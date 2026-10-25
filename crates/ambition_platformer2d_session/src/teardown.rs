@@ -73,7 +73,7 @@ pub struct SessionScopedResources<'w> {
     /// The grants of the mints collected since the last checkpoint. The next
     /// session's file is its baseline, so a retraction there must take back
     /// none of this session's.
-    reward_grants: Option<ResMut<'w, ambition_platformer2d_actor_monolith::items::pickup::RewardGrantsSinceCheckpoint>>,
+    reward_grants: Option<ResMut<'w, ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
     /// The bag spends since the last checkpoint, for the same reason.
     bag_spends: Option<ResMut<'w, ambition_held_items::BagSpendsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
@@ -222,7 +222,7 @@ pub struct SessionScopedResources<'w> {
     /// review of 2026-09-16.
     settled: ResMut<'w, ambition_match::StocksMatchSettled>,
     sudden_death: ResMut<'w, ambition_match::SuddenDeathEntered>,
-    live_match_ticks: ResMut<'w, ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks>,
+    live_match_ticks: ResMut<'w, ambition_match::live_match_clock::LiveMatchTicks>,
     /// ⭐ AND THE MINT ITSELF, WHICH USED TO RESET LAZILY INSIDE `take`. A mint
     /// that notices the session changed at the moment it is next ASKED still
     /// holds the previous session's count until then, so two peers with different
@@ -463,7 +463,7 @@ fn reset(resources: SessionScopedResources) {
     *settled = ambition_match::StocksMatchSettled::default();
     *sudden_death = ambition_match::SuddenDeathEntered::default();
     *live_match_ticks =
-        ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks::default();
+        ambition_match::live_match_clock::LiveMatchTicks::default();
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
     if let Some(mut tick) = sim_tick {
         *tick = ambition_time::SimTick::default();

@@ -185,6 +185,8 @@ basic_shell_presentation = [
 ]
 
 [dependencies]
+ambition_projectile_combat = { path = "../ambition_projectile_combat" }
+ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }
 # The `extension` namespace: the procedural extension host and SDK the runtime
 # already composes, named as one engine concept rather than as crate paths.

@@ -121,7 +121,7 @@ pub fn decide_stocks_match(
     // HOW LONG THIS MATCH HAS BEEN FOUGHT. Not `Option`: the clock is installed
     // by the same plugin this system is, so a composition that can decide a
     // match can count one.
-    live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
+    live: Res<ambition_match::live_match_clock::LiveMatchTicks>,
     fighters: Query<(
         &ambition_match::MatchSeat,
         Option<&ambition_combat::targeting::MatchTeam>,

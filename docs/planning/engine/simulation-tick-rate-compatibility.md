@@ -193,7 +193,7 @@ hitstop authority. They can share tests but not a duplicate rate source.
 
 **Change:** preserve the *authoritative tick boundary*, but derive its length from named authored seconds and the selected rate. For gestures, either publish rate-derived tick windows at session construction or store elapsed unscaled time with explicit semantics. Avoid storing a duplicate rate-independent and rate-dependent authority for the same window.
 
-**Important exception:** `LiveMatchTicks` in `crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs` already accumulates elapsed microseconds and projects them into **conceptual 60 Hz units**. The Smash time limit and match item cadence use that projection. A literal `60` there is a *reference unit*, **not** evidence that the runtime must execute at 60 Hz. Keep that distinction; verify at other rates before altering the match-clock format.
+**Important exception:** `LiveMatchTicks` in `crates/ambition_match/src/live_match_clock.rs` already accumulates elapsed microseconds and projects them into **conceptual 60 Hz units**. The Smash time limit and match item cadence use that projection. A literal `60` there is a *reference unit*, **not** evidence that the runtime must execute at 60 Hz. Keep that distinction; verify at other rates before altering the match-clock format.
 
 ### P1-5. Make rate part of replay and session compatibility
 

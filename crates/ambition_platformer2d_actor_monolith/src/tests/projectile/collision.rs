@@ -54,7 +54,7 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
         ae::RoomGeometry(empty),
         ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
     ));
-    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     app.world_mut()
         .entity_mut(shooter)
         .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
@@ -73,7 +73,7 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(395.0, 300.0);
         body.kin.vel = ae::Vec2::new(50.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -105,7 +105,7 @@ fn with_the_portal_transit(app: &mut App) {
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.add_systems(
         Update,
-        ambition_portal2d::portal_transit.after(crate::projectile::step_projectiles),
+        ambition_portal2d::portal_transit.after(ambition_projectile_combat::step_projectiles),
     );
 }
 
@@ -126,7 +126,7 @@ fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle
         ae::RoomGeometry(empty),
         ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
     ));
-    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     app.world_mut().entity_mut(shooter).insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
     for (channel, pos, normal) in [
         (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
@@ -163,8 +163,8 @@ fn a_body_behind_a_portal_is_hit(portals: bool) -> bool {
     let mut app = open_lane_app();
     with_the_portal_transit(&mut app);
     app.init_resource::<Struck>();
-    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
-    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     // Its left edge is at 616.
     let target = spawn_boss(&mut app, "behind", ae::Vec2::new(630.0, 200.0), ae::Vec2::new(14.0, 23.0));
     if portals {
@@ -212,8 +212,8 @@ fn a_fast_shot_through_a_portal_reaches_a_body_just_past_the_exit() {
     let mut app = open_lane_app();
     with_the_portal_transit(&mut app);
     app.init_resource::<Struck>();
-    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
-    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     for (channel, pos, normal) in [
         (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
         (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
@@ -293,7 +293,7 @@ fn fireball_damages_enemy_on_intersect() {
         // overlaps the enemy AABB regardless of arc tuning.
         body.kin.pos = ae::Vec2::new(395.0, 300.0);
         body.kin.vel = ae::Vec2::new(50.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -313,7 +313,7 @@ fn fireball_damages_enemy_on_intersect() {
         enemy_max,
         enemy_health
     );
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(
         bodies.is_empty(),
         "fireball must despawn after hitting an actor"
@@ -351,11 +351,11 @@ fn fireball_bounces_off_floor_in_system() {
         body.kin.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1, "fireball must survive a floor bounce");
     let body = &bodies[0];
     assert!(
@@ -396,11 +396,11 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         body.kin.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(
         bodies.len(),
         1,
@@ -443,11 +443,11 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         // landing. Velocity is purely horizontal.
         body.kin.pos = ae::Vec2::new(500.0, 404.0);
         body.kin.vel = ae::Vec2::new(360.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(
         bodies.len(),
         1,
@@ -488,11 +488,11 @@ fn hadouken_expires_on_solid_in_system() {
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(595.0, 300.0);
         body.kin.vel = ae::Vec2::new(520.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(
         bodies.is_empty(),
         "Hadouken must expire on first solid hit (no bounces); still alive: {}",
@@ -567,7 +567,7 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(395.0, 300.0);
             body.kin.vel = ae::Vec2::new(50.0, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -661,7 +661,7 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
         // the victim — which is exactly the case the endpoint test cannot see.
         body.kin.pos = ae::Vec2::new(360.0, 300.0);
         body.kin.vel = ae::Vec2::new(4000.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -688,7 +688,7 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     // correctly damaging nobody. The caller now pulls a tunnelled shot back to
     // its crossing before resolving, which restores the precondition that test
     // was written for.
-    let survivors = crate::projectile::tests::projectile_bodies(&mut app);
+    let survivors = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(
         survivors.is_empty(),
         "a shot fast enough to end the tick past a thin wall must still be stopped \
@@ -752,7 +752,7 @@ fn a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(360.0, 300.0);
             body.kin.vel = ae::Vec2::new(4000.0, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -858,7 +858,7 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(360.0, 300.0);
             body.kin.vel = ae::Vec2::new(4000.0, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -972,7 +972,7 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(360.0, 300.0);
         body.kin.vel = ae::Vec2::new(8000.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -1058,7 +1058,7 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(360.0, 300.0);
             body.kin.vel = ae::Vec2::new(speed, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -1147,7 +1147,7 @@ fn a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box() {
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(360.0, 300.0);
         body.kin.vel = ae::Vec2::new(600.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -1282,7 +1282,7 @@ fn a_shot_leaving_its_throwers_hull_still_reaches_the_boss_beyond_it() {
 
     let mut app = open_lane_app();
     app.init_resource::<EmittedTargets>();
-    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
     let thrower =
         spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0));
     // Inside the thrower's hull too, ahead of the shot on this tick's leg.
@@ -1344,7 +1344,7 @@ fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.init_resource::<EmittedTargets>();
-    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
     app.world_mut().spawn((
         ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
         ambition_combat::components::FeatureId::new("crate"),
@@ -1367,7 +1367,7 @@ fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
         body.kin.vel = ae::Vec2::new(1500.0, 0.0);
         // A landing splash is what makes the pair, and its ORDER, exist at all.
         body.game.splash_half_extent = 40.0;
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -1440,11 +1440,11 @@ fn a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not() 
                 // own definition, not a separate flag to keep in sync.
                 body.game.accel = ae::Vec2::new(-6000.0, 0.0);
             }
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
-        !crate::projectile::tests::projectile_bodies(&mut app).is_empty()
+        !crate::projectile_tests::projectile_bodies(&mut app).is_empty()
     }
 
     assert!(
@@ -1511,7 +1511,7 @@ fn a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(360.0, 300.0);
             body.kin.vel = ae::Vec2::new(speed, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -1632,7 +1632,7 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
                 "the directional rule is `descending AND has a bounce left`; a \
                  spent fireball would pass through and prove nothing"
             );
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -1723,7 +1723,7 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
             body.kin.vel = ae::Vec2::new(4000.0, 0.0);
             // The one thing that differs between the arms.
             body.game.world_hit = world_hit;
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -1796,11 +1796,11 @@ fn a_shot_clipping_a_block_corner_along_its_path_hits_it() {
         body.kin.pos = ae::Vec2::new(500.0, 400.0);
         // Fast enough that one leg carries the box past the ledge entirely.
         body.kin.vel = ae::Vec2::new(0.0, -8000.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(
         bodies.is_empty(),
         "the shot's box swept through the ledge's corner and nothing stopped it: \
@@ -1844,11 +1844,11 @@ fn an_expire_on_contact_shot_does_not_tunnel_through_a_one_way() {
         // different stepper.
         body.game.world_hit = ambition_projectiles::WorldHitPolicy::ExpireOnContact;
         body.game.gravity = 0.0;
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert!(
         bodies.is_empty(),
         "an ExpireOnContact shot crossed a one-way platform in one leg: {:?}",
@@ -1885,11 +1885,11 @@ fn a_bouncing_shot_still_crosses_a_one_way_platform_sideways() {
         body.kin.pos = ae::Vec2::new(420.0, 344.0);
         body.kin.vel = ae::Vec2::new(1200.0, 0.0);
         body.game.gravity = 0.0;
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(
         bodies.len(),
         1,
@@ -1986,7 +1986,7 @@ fn the_body_a_stacked_shot_strikes(
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(360.0, 300.0);
         body.kin.vel = ae::Vec2::new(4000.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -2120,12 +2120,12 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(495.0, 300.0);
         body.kin.vel = ae::Vec2::new(60.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
 
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(
         bodies.len(),
         1,
@@ -2206,14 +2206,14 @@ fn a_closed_parry_window_lets_the_shot_through() {
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(495.0, 300.0);
         body.kin.vel = ae::Vec2::new(60.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
 
     // ⛔ NOT "the shot is gone" — a struck shot and a reflected one are both
     // absent from a naive count. The claim is that nothing came BACK.
-    let reversed = crate::projectile::tests::projectile_bodies(&mut app)
+    let reversed = crate::projectile_tests::projectile_bodies(&mut app)
         .into_iter()
         .any(|b| b.kin.vel.x < 0.0);
     assert!(
@@ -2277,13 +2277,13 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(495.0, 300.0);
         body.kin.vel = ae::Vec2::new(60.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
 
     assert!(
-        crate::projectile::tests::projectile_bodies(&mut app).is_empty(),
+        crate::projectile_tests::projectile_bodies(&mut app).is_empty(),
         "an absorbing stance returned the shot instead of eating it — so
          `absorb_window_timer` is not reaching the interception, and every
          absorber is a reflector wearing another name"
@@ -2406,7 +2406,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(495.0, 300.0);
             body.kin.vel = ae::Vec2::new(60.0, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -2463,58 +2463,6 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
     }
 }
 
-/// ⛔⛔ **THE TIE WENT TO THE TARGET, AND THE COMMENT CLAIMED THAT WAS THE
-/// PROTOCOL.**
-///
-/// `projectile-contact-protocol.md` says an independent blocking surface at
-/// exactly the same impact time WINS over an unrelated hurt target, precisely
-/// so a tie cannot grant damage through a wall. The road implemented
-/// `wall < contact - f32::EPSILON` — the opposite policy, expressed with the
-/// epsilon comparator the same document forbids by name.
-///
-/// ⭐ ASSERTED ON THE COMPARISON ITSELF, not through a fixture. Two swept code
-/// paths (`body_sweep` for the wall, `reached_along` for the victim) producing
-/// bit-identical `f32` times is not something a behavioural test can promise,
-/// and a tie test that never actually ties proves nothing at all.
-#[test]
-fn an_independent_wall_wins_an_exact_tie_against_a_hurt_target() {
-    use crate::projectile::systems::wall_reaches_first;
-
-    // THE CASE THAT FLIPPED. Equal times: the wall takes it.
-    assert!(
-        wall_reaches_first(Some(0.5), 0.5),
-        "a wall at exactly the target's contact time must win — a tie may not \
-         grant damage through it"
-    );
-
-    // ⭐ AND THE EPSILON SWALLOWED REAL WALLS TOO. `f32::EPSILON` is ~1.19e-7
-    // while the gap between adjacent floats at 0.5 is ~5.96e-8, so a wall a
-    // FULL REPRESENTABLE STEP earlier still failed `wall < contact - EPSILON`:
-    // the old form called a genuinely earlier wall second.
-    //
-    // ⚠ `next_down`/`next_up`, NOT `0.5 +/- 1e-9`. Written that way first, and
-    // both arms were vacuous: 1e-9 is far below the ulp here, so both constants
-    // round to exactly 0.5 and the "strictly later" control was silently
-    // asserting the tie case with the answer inverted.
-    assert!(
-        wall_reaches_first(Some(0.5f32.next_down()), 0.5),
-        "a wall that genuinely reaches the leg first was ordered behind the \
-         target by the epsilon slack"
-    );
-    assert!(wall_reaches_first(Some(0.1), 0.5), "a plainly earlier wall is first");
-
-    // ⭐ CONTROLS. A rule that answered `true` always would satisfy every
-    // assertion above while making every shot stop at nothing.
-    assert!(
-        !wall_reaches_first(Some(0.5f32.next_up()), 0.5),
-        "a wall reached AFTER the target must not block it"
-    );
-    assert!(!wall_reaches_first(Some(0.9), 0.5), "a plainly later wall is second");
-    assert!(
-        !wall_reaches_first(None, 0.5),
-        "no wall on the leg cannot block anything"
-    );
-}
 
 /// ⛔⛔ **THE LANDING SPLASH DETONATED WHERE THE TICK ENDED, NOT WHERE THE SHOT
 /// HIT.**
@@ -2560,7 +2508,7 @@ fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.init_resource::<SplashCentres>();
-    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
     app.world_mut().spawn((
         ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
         ambition_combat::components::FeatureId::new("crate"),
@@ -2587,7 +2535,7 @@ fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
         body.kin.vel = ae::Vec2::new(10000.0, 0.0);
         body.game.splash_half_extent = 40.0;
         endpoint_x = 360.0 + 10000.0 * 0.016;
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -2653,12 +2601,12 @@ fn a_shot_that_ends_inside_a_later_wall_still_resolves_against_the_one_it_reache
         // 0.016 * 7750 = 124 px: from y=380 to y=504, which is INSIDE `far`.
         body.kin.vel = ae::Vec2::new(0.0, 7750.0);
         assert!(body.game.bounces_remaining > 0, "the shot must be able to bounce");
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
 
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1, "a bouncing fireball survives its first ledge");
     let pos = bodies[0].kin.pos;
     assert!(
@@ -2783,11 +2731,11 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
     );
 
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
-    crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    crate::projectile_tests::spawn_player_projectile(&mut app, body);
     advance_time(&mut app, DT);
     app.update();
 
-    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    let bodies = crate::projectile_tests::projectile_bodies(&mut app);
     assert_eq!(
         bodies.len(),
         1,
@@ -2889,7 +2837,7 @@ fn stacked_unidentified_victims(identified: bool) {
         // victim at all and reported "the assert does not fire".
         body.kin.vel = ae::Vec2::new(8000.0, 0.0);
         body.game.gravity = 0.0;
-        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        crate::projectile_tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -2931,7 +2879,7 @@ fn a_shot_breaks_a_solid_crate_rather_than_stopping_on_its_own_wall() {
         app.add_systems(
             Update,
             crate::features::ecs::world_overlay::rebuild_feature_ecs_world_overlay
-                .before(crate::projectile::step_projectiles),
+                .before(ambition_projectile_combat::step_projectiles),
         );
 
         let mut breakable = ambition_interaction::Breakable::new("crate", 1);
@@ -2963,7 +2911,7 @@ fn a_shot_breaks_a_solid_crate_rather_than_stopping_on_its_own_wall() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(360.0, 300.0);
             body.kin.vel = ae::Vec2::new(4000.0, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         advance_time(&mut app, 0.016);
         app.update();
@@ -3020,7 +2968,7 @@ fn a_crate_no_shot_can_break_still_stops_the_shot() {
         app.add_systems(
             Update,
             crate::features::ecs::world_overlay::rebuild_feature_ecs_world_overlay
-                .before(crate::projectile::step_projectiles),
+                .before(ambition_projectile_combat::step_projectiles),
         );
 
         let mut breakable = ambition_interaction::Breakable::new("crate", 3);
@@ -3050,7 +2998,7 @@ fn a_crate_no_shot_can_break_still_stops_the_shot() {
             let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
             body.kin.pos = ae::Vec2::new(360.0, 300.0);
             body.kin.vel = ae::Vec2::new(4000.0, 0.0);
-            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+            crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
         // ⚠ THREE TICKS. One tick carries the shot 64 px, from 360 to 424 —
         // INSIDE the crate's span (408..432) and short of the far side, so a

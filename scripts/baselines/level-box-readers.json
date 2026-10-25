@@ -70,22 +70,22 @@
       "class": "the gravity of a body"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "file": "crates/ambition_projectile_combat/src/systems.rs",
       "code": "let gravity_dir = gravity.dir_for(shot_room, kin.aabb());",
       "class": "a shot"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "file": "crates/ambition_projectile_combat/src/systems.rs",
       "code": "let shot_box_at_leg_start = ae::Aabb::new(leg_start, kin.size * 0.5);",
       "class": "a shot"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "file": "crates/ambition_projectile_combat/src/systems.rs",
       "code": "ae::Aabb::new(leg_start, kin.size * 0.5),",
       "class": "a shot"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "file": "crates/ambition_projectile_combat/src/systems.rs",
       "code": "let shot_half = kin.size * 0.5;",
       "class": "a shot"
     },
@@ -215,7 +215,7 @@
       "class": "a conducted limb"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "file": "crates/ambition_projectile_combat/src/systems.rs",
       "code": "half: kin.size * 0.5,",
       "class": "a shot"
     }

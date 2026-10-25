@@ -47,4 +47,4 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 pub use ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom;
 
 /// Session lifecycle operations and their domain installers.
-pub use ambition_platformer2d_session::{checkpoint, data, death, durable_horizon, join, lifecycle_commit, reset, rooms, setup, teardown, SessionTeardownPlugin};
+pub use ambition_platformer2d_session::{checkpoint, data, death, durable_horizon, join, lifecycle_commit, match_activation, reset, rooms, setup, teardown, MatchLifecyclePlugin, SessionTeardownPlugin};

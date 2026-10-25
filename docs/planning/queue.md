@@ -1717,7 +1717,7 @@ the two sub-workspace lockfiles, after `ambition_portal2d` took
 from these slices: foreign ordering 84 edges (ceiling 76), the multi-writer
 baseline (`capture_scene`'s `ShieldRingsView`, `PortalEffectSelection`,
 `SlotControls`), the level-box reads at `ambition_combat/src/extension.rs:90`
-and `ambition_platformer2d_actor_monolith/src/projectile/systems.rs:902`, and
+and `ambition_projectile_combat/src/systems.rs:902`, and
 the rewind-boundary census.
 
 **Re-run 2026-10-16, later:** 1844 passed, 8 failed. Two were from the

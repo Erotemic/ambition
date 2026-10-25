@@ -27,9 +27,8 @@ The session lifecycle and room-crossing policy now have a separate owner,
 `ambition_platformer2d_session`, above the actor kernel. Publication and runtime
 call that owner directly. The actor kernel has no production dependency on it.
 
-The remaining work is responsibility separation. Move item integration,
-character activation and asset materialization, projectile contact execution,
-and world-object behavior to their owners. Keep accepted control, body custody,
+The remaining work is responsibility separation. Move asset materialization,
+world-object behavior, and device input assembly to their owners. Keep accepted control, body custody,
 body motion, and action execution together. A dependency on a lower domain is
 valid when the kernel needs that domain's facts.
 
@@ -388,7 +387,7 @@ ids) is the remaining, downward edge. No system or resource moved;
 `PropSheets`' rollback exemption follows its new type path.
 
 **Done — A2 contact helpers.** The swept contact pair and its ordering are
-`crates/ambition_platformer2d_actor_monolith/src/projectile/feature_contact.rs`.
+`crates/ambition_projectile_combat/src/feature_contact.rs`.
 The shot-birth rule is
 `ambition_combat::shot_birth::clear_of_the_feet`. Both projectile and brain
 callers use the shared rule. `target_is_ignored` stays with damage resolution.
@@ -561,6 +560,41 @@ The actor crate's `world` and `world_facts` paths are deleted. The debris
 feature belongs to runtime composition. The display-state forwarding module,
 empty platform module, and duplicate color helper are deleted.
 
+### K9 — Match time and health effects belong to their domains
+
+`ambition_match` owns `LiveMatchTicks`, its wire codec, and its rollback
+registration. Match identity and outcome declarations move to the same owner.
+`ambition_damage::healing` owns heal requests and their consumer; its two routing
+tests move with it. The message key, target policy, and wire meaning stay the same.
+The runtime calls both domain declarations in its existing registration pass.
+
+### K10 — Item lifecycle integration leaves the actor kernel
+
+`ambition_platformer2d_items` owns inventory commands and conditions, starting
+bags, match item cadence, custody restoration, persistence, and checkpoint
+baselines. It composes lower item capabilities and names no actor kernel type.
+The session coordinates the same admitted capture and restore boundaries.
+The facade publishes this integration as `item_runtime`; the inventory model
+stays at `items`. The old actor `items` module is deleted.
+
+### K11 — Projectile combat execution leaves the actor kernel
+
+`ambition_projectile_combat` owns charging, combat allegiance, swept contacts,
+interception, and hit delivery. The reusable model stays at `ambition_projectiles`.
+The allegiance codec and declaration move with the executor without a wire change.
+Body construction and damage fixtures stay in the actor crate's `projectile_tests`.
+Private contact tests and the module-entity bolt fixture move with their owner.
+The old actor `projectile` module and its shot-birth forwarding export are deleted.
+
+### K12 — Match activation belongs to session lifecycle
+
+The session owns match preparation admission, body seating, opening holds, match
+object retirement, and the cast view declaration. `MatchLifecyclePlugin` installs
+the same systems with the same phases, gates, chains, and projection edge.
+The runtime composes it beside character materialization. Match activation tests
+move with the session and use public body construction. No production API is
+widened for a test. The actor character module exports no match activation path.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved
@@ -615,7 +649,7 @@ because it is durable decomposition doctrine.
 |---|---|
 | `crates/ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
 | `crates/ambition_characters/src/brain/fighter`, `crates/ambition_characters/src/brain/state_machine/mod.rs`, `crates/ambition_characters/src/snapshot_impls.rs`, or `crates/ambition_characters/src/brain/mod.rs` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
-| `crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs` or `game/ambition_app/src/app/versus.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
+| `crates/ambition_platformer2d_session/src/match_activation.rs` or `game/ambition_app/src/app/versus.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
 | `crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs` or `game/ambition_app/src/dev/rollback_observatory.rs` | `the-seat-topology-has-one-engine-side-creator` |
 | `game/ambition_app/src/app/versus.rs` or `game/ambition_demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
 | `tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py` or `tools/ambition_ldtk_tools/tests/test_ldtk_core_helpers.py` | `the-worlds-path-is-confined-to-ldtk-paths` |

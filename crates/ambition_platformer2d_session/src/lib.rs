@@ -26,3 +26,7 @@ mod rollback_registration;
 pub use rollback_registration::register_rollback_state;
 #[cfg(test)]
 mod item_schedule_tests;
+
+pub mod match_activation;
+mod match_lifecycle;
+pub use match_lifecycle::MatchLifecyclePlugin;

@@ -485,11 +485,11 @@ fn a_coin_taken_after_the_checkpoint_then(
         settle(&mut sim, 2);
         let owners = sim
             .world()
-            .resource::<ambition_platformer2d::actors::items::pickup::RewardGrantsSinceCheckpoint>()
+            .resource::<ambition_platformer2d::item_runtime::pickup::RewardGrantsSinceCheckpoint>()
             .grants()
             .iter()
             .filter_map(|grant| match &grant.source {
-                ambition_platformer2d::actors::items::pickup::GrantSource::Authored { owners } => Some(owners.clone()),
+                ambition_platformer2d::item_runtime::pickup::GrantSource::Authored { owners } => Some(owners.clone()),
                 _ => None,
             })
             .collect();

@@ -1251,7 +1251,7 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
         "the checkpoint's custody baseline has no row for the gauntlet, so          nothing will ask for it back; rows were {custody_rows:?}"
     );
 
-    let minted: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(sim.world()).unwrap()
+    let minted: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(sim.world()).unwrap()
         .rows()
         .map(|(id, description)| format!("{} = {}", id.as_str(), description.held_item))
         .collect();
@@ -1934,7 +1934,7 @@ fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_roo
 fn the_bag_after_a_new_game(
     starting: Option<ambition_platformer2d::items::OwnedItems>,
 ) -> (ambition_platformer2d::items::OwnedItems, ambition_platformer2d::items::OwnedItems) {
-    use ambition_platformer2d::actors::items::starting_bag::StartingBag;
+    use ambition_platformer2d::item_runtime::starting_bag::StartingBag;
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 10);
     let own = sim.world().resource::<StartingBag>().bag().clone();

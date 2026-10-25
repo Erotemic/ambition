@@ -142,7 +142,7 @@ pub struct OccurrenceContinuity<'a> {
     /// the capture takes only `SpawnOrigin::Dynamic` rows and an authored record
     /// can never spell one. `None` is the honest answer for a composition with
     /// no checkpoint behind it.
-    pub minted: Option<&'a crate::items::pickup::minted_horizon::MintedItemBaseline>,
+    pub minted: Option<&'a ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>,
 }
 
 /// What construction planning needs beyond the room's authored content: the

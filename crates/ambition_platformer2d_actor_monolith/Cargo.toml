@@ -40,7 +40,7 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.
-portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_projectiles/portal", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal"]
+portal = ["ambition_projectile_combat/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_projectiles/portal", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal"]
 # `portal_render` does NOT force `visible` on, so the web backbone
 # (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
 # into portal visuals without dragging in the desktop-only audio/ui/physics
@@ -309,6 +309,8 @@ frame_pacing = ["dep:bevy_framepace"]
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
+ambition_projectile_combat = { path = "../ambition_projectile_combat" }
+ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_registry_core = { path = "../ambition_registry_core" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 # `ambition_sfx` stays in the dep graph regardless of the `audio`

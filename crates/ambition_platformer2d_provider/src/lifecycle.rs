@@ -2422,7 +2422,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// [`crate::session_contents`].
     session_contents: Res<'w, crate::SessionContentsCatalog>,
     /// The bag each experience declares for its sessions.
-    starting_bags: ambition_platformer2d_actor_monolith::items::starting_bag::StartingBagOf<'w>,
+    starting_bags: ambition_platformer2d_items::starting_bag::StartingBagOf<'w>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2792,7 +2792,7 @@ pub struct PreparedCandidateSession {
     prepared_from: ambition_platformer2d_session::durable_horizon::PreparedFromSave,
     /// The bag that the experience of this candidate declares for its
     /// sessions, installed at adoption. See `StartingBag`.
-    starting_bag: ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag,
+    starting_bag: ambition_platformer2d_items::starting_bag::StartingBag,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_construction::mechanics::SessionMechanics,
     /// The cast frozen with them, installed beside them.

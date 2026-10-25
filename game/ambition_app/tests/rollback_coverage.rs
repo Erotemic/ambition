@@ -2016,7 +2016,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          this value",
     ),
     (
-        "ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag",
+        "ambition_platformer2d_items::starting_bag::StartingBag",
         "the bag that the live session began with. The adoption of a candidate \
          session writes it (`StartingBag::begin_the_session`, with the bag that \
          the experience of the session declares), before the session world is \
@@ -2029,7 +2029,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          the window holds the same value",
     ),
     (
-        "ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventories",
+        "ambition_platformer2d_items::starting_bag::InitialInventories",
         "the starting bag that each experience declares, by experience id: host \
          configuration. `PlatformerExperienceAuthoring::install` writes it when \
          the experience is registered, at App build, and nothing writes it after. \

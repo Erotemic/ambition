@@ -628,14 +628,18 @@ def throne():
     # Each section frames itself. On the run you go west with the head
     # behind you: the camera keeps you to the left of the picture, so the
     # head is in it (Jon, 2026-10-24: "the camera should let the player go
-    # much further right, so we can have the inugami head on screen").
+    # much further right, so we can have the inugami head on screen"). A zoom
+    # under 1 is 1, and 1 shows some 490 across: the run is framed as wide
+    # as his arena's fight is (about 800 across), you 220 left of its middle
+    # and low in it, so the head over you is in it too (measured 2026-10-24:
+    # at zoom 1 and 420 you were out of view, and the head's top was cut).
     cameras = [
         camera(f"{rid}_camera", arena_x, 0, THRONE_W, slab_bottom, ', clamp_mode: "zone_bounds"'),
-        camera(f"{rid}_drop_camera", shaft_x, 0, SHAFT_W, floors[0], ", zoom: 0.85, target_offset_y: 160.0"),
-        camera(f"{rid}_run_camera", FINAL_W, slab_bottom, shaft_x - FINAL_W, h - slab_bottom, ", zoom: 0.8, target_offset_x: 420.0"),
+        camera(f"{rid}_drop_camera", shaft_x, 0, SHAFT_W, floors[0], ", zoom: 1.6, target_offset_y: 120.0"),
+        camera(f"{rid}_run_camera", FINAL_W, slab_bottom, shaft_x - FINAL_W, h - slab_bottom, ", zoom: 1.6, target_offset_x: 220.0, target_offset_y: -110.0"),
         # Not clamped to itself: its east side is open to the run, and a
         # camera that came in at the run's offset was stopped at its edge.
-        camera(f"{rid}_final_camera", 0, final_vault - 48, FINAL_W, h - final_vault + 48, ', clamp_mode: "room_bounds"'),
+        camera(f"{rid}_final_camera", 0, final_vault - 48, FINAL_W, h - final_vault + 48, ', zoom: 1.6, target_offset_y: -60.0, clamp_mode: "room_bounds"'),
     ]
     text = room(rid, e, "Castle Godwin: the throne room of Wolfenstein, and the way out of it under the castle.", "castle_godwin_throne",
                 THRONE_MUSIC, CASTLE_BG, cameras)

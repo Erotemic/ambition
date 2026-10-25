@@ -299,6 +299,9 @@ const ALLY_BESIDE: f32 = 70.0;
 const ALLY_OVER: f32 = 30.0;
 const ALLY_WALL: f32 = 220.0;
 const DISPEL_S: f32 = 0.9;
+/// She comes when it has stalked you to within this across (world px): her
+/// spell, its ward breaking and you are in one picture.
+const ALLY_NEAR: f32 = 520.0;
 /// Her health: she does not stay long enough to fall.
 const ALLY_HEALTH: u32 = 200;
 
@@ -601,6 +604,28 @@ pub fn module() -> ModuleDescriptor {
     }
 }
 
+/// `v` within `lo..=hi`, or their middle when the room is too small for the
+/// body (`lo > hi`): a body pushed where its bounds cross, as a head drawn
+/// after you through the arena's floor, is not a fault (`f32::clamp` panics).
+fn within(v: f32, lo: f32, hi: f32) -> f32 {
+    if lo > hi {
+        (lo + hi) * 0.5
+    } else {
+        v.clamp(lo, hi)
+    }
+}
+
+/// A flash of `peak` that dies away over a quarter of a second, `t` after it,
+/// and is out at the end of [`FLASH_S`].
+fn flash_after(t: f32, peak: f32) -> f32 {
+    if t >= FLASH_S {
+        0.0
+    } else {
+        peak * (-t / 0.25).exp()
+    }
+}
+const FLASH_S: f32 = 0.8;
+
 fn ease(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
@@ -826,8 +851,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let target = inu.target.map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
     let clamp = |p: Vec2| {
         Vec2::new(
-            p.x.clamp(hall.left + half.x + 8.0, hall.right - half.x - 8.0),
-            p.y.clamp(top, hall.floor - half.y - 8.0),
+            within(p.x, hall.left + half.x + 8.0, hall.right - half.x - 8.0),
+            within(p.y, top, hall.floor - half.y - 8.0),
         )
     };
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
@@ -872,7 +897,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if c.dead_for.is_none() {
             c.from_y = at.y;
         }
-        let x = if lived { at.x } else { (rise_from.x + side * h.len(30.0)).clamp(hall.left + half.x, hall.right - half.x) };
+        let x = if lived { at.x } else { within(rise_from.x + side * h.len(30.0), hall.left + half.x, hall.right - half.x) };
         let from_y = if lived { c.from_y } else { ground };
         let u = ((t / DEATH_S - DEATH_FALL.0) / (DEATH_FALL.1 - DEATH_FALL.0)).clamp(0.0, 1.0);
         // Landed, it lies where its body came to rest. Held on the floor's line
@@ -954,10 +979,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     }
                     if mv == Move::Storm {
                         // One mark under you, one each side.
-                        let x = target.x.clamp(hall.left + 40.0, hall.right - 40.0);
+                        let x = within(target.x, hall.left + 40.0, hall.right - 40.0);
                         c.marks = [x - MARK_SPREAD, x, x + MARK_SPREAD]
                             .into_iter()
-                            .map(|m| m.clamp(hall.left + 40.0, hall.right - 40.0))
+                            .map(|m| within(m, hall.left + 40.0, hall.right - 40.0))
                             .collect();
                         c.marks_floor = hall.floor;
                     }
@@ -1040,6 +1065,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
         }
         let t = c.rearing.map_or(0.0, |t| t + dt);
+        // The flash of its howl dies away (a stage's flash holds until it is
+        // set again: held, it washed the picture white for the whole
+        // transition).
+        inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: flash_after(t, 0.4), card: 0.0 })?;
         if c.rear_crash && c.ticks % 4 == 0 && t < FLARE_S {
             burst(inv, at, 4, 220.0, WARD_FIRE, "spark")?;
         }
@@ -1138,12 +1167,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Kagero comes to your aid in the final hall: her spell breaks its ward ──
-    if c.arrived && c.warded && !c.ally_called && c.appear.is_none() && in_final_hall(target.x) {
+    let near = (at.x - target.x).abs() < ALLY_NEAR;
+    if c.arrived && c.warded && !c.ally_called && c.appear.is_none() && in_final_hall(target.x) && near {
         c.ally_called = true;
         c.binding = Some(0.0);
         let toward_it = if at.x < target.x { -1.0 } else { 1.0 };
-        let x = (target.x + toward_it * ALLY_BESIDE).clamp(hall.left + ALLY_WALL, hall.right - ALLY_WALL);
-        let y = (target.y - ALLY_OVER).clamp(top, hall.floor - 80.0);
+        let x = within(target.x + toward_it * ALLY_BESIDE, hall.left + ALLY_WALL, hall.right - ALLY_WALL);
+        let y = within(target.y - ALLY_OVER, top, hall.floor - 80.0);
         inv.submit::<BossSummonPort>(BossSummon {
             label: "kagero".into(),
             serial: Vec::new(),
@@ -1168,7 +1198,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             burst(inv, at, 60, 420.0, WARD_FIRE, "spark")?;
             burst(inv, at, 24, 300.0, FIRE_CORE, "streak")?;
             shake(inv, SHAKE_TEAR)?;
-            inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.5, card: 0.0 })?;
+        }
+        if b >= at_dispel {
+            // The flash of its ward breaking, dying away.
+            inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: flash_after(b - at_dispel, 0.5), card: 0.0 })?;
         }
         c.binding = if b >= at_dispel + DISPEL_S { None } else { Some(b) };
     }
@@ -1402,7 +1435,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     c.bolt_generation = c.bolt_generation.wrapping_add(1);
                     let out = radius + 60.0;
                     for (slot, x) in [(SLOT_STORM[0], pos.x - out), (SLOT_STORM[2], pos.x + out)] {
-                        let x = x.clamp(hall.left + 40.0, hall.right - 40.0);
+                        let x = within(x, hall.left + 40.0, hall.right - 40.0);
                         bolt_down(inv, slot, c.bolt_generation, x, hall.floor, STORM_HIGH, BOLT_S)?;
                     }
                     play(inv, SFX_STRIKE, pos)?;

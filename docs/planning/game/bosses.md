@@ -650,13 +650,16 @@ The shape now:
    under the vault so you can pass under it.
 3. **The chase goes down and back.** Past the gate a shaft drops under the
    arena; the run goes straight west under the whole castle, ten steps of
-   96 down, 640 clear. It hunts you on your scent, `RUN_GAP` 220 behind;
-   every 2.4 s a lunge at your back or lightning on a mark ahead of you. The
-   run's camera holds you left of the picture (`target_offset_x` 420), so
-   the head behind you is in it.
+   96 down, 640 clear. It hunts you on your scent, `RUN_GAP` 220 behind and
+   `RUN_CLEAR` 120 over your feet; every 2.4 s a lunge at your back or
+   lightning on a mark ahead of you. The drop, the run and the final hall
+   are framed at zoom 1.6 (about 800 across); on the run you are 220 left of
+   the middle and 110 low, so the head behind and over you is in the
+   picture. (The run goes west, so Jon's "further right" is mirrored.)
 4. **Kagero's spell.** The final hall is the room's end farthest from where
    it rose: under the gatehouse. When it has howled over the hall and you
-   are in it, Kagero comes beside you and casts (`cast`): her talismans stick
+   are in it and it has stalked you to within 400, Kagero comes beside you
+   and casts (`cast`): her talismans stick
    to it (`ward_bound`) and its ward breaks (`dispel`, at
    `kagero::DISPEL_AT_S`). She does not cut it; she leaves up her line.
 5. **The fight in the hall** (phase 2, enrage), then its death.
@@ -672,6 +675,19 @@ his lightning crawls over it (`storm_tell`), three marks spark on the floor
 rays, look `strike`). From the transition the howl brings a bolt down on each
 side of it. In the chase its lightning strikes the way ahead of you. The
 blue wisps and `inugami_wisp` are gone.
+
+**Hurt face (Jon, 2026-10-24: "When the character gets hit, he jumps to the
+hurt spritebox ... use part based rendering to only change some of the parts
+to a hurt expression").** A boss drawn from parts (Wolfenstein, the Inugami)
+no longer draws its `Hit` row while its flash runs: it keeps the row it is in
+and wears the `Hit` row's face (`RiggedSpriteAsset::face_as`: the eyes,
+brows, mouth and jaw tracks take the `Hit` frame's parts at the pose's
+places). A baked boss still draws the row. For other rigs the same seam
+serves: a body drawn from parts with named face tracks needs only a row
+whose face is the expression; a hurt face for players and NPCs needs the
+character animator (not the boss path) to set `CharacterAnimator::expression`
+from its hit flash, and rigs whose faces are not separate tracks (one baked
+head part) need their face split into tracks first.
 
 **Other fixes.** The boss bar shows from the end of the intro
 (`BossRenderView::fighting`), not from the wake. Its name is "Inugami

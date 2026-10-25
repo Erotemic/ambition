@@ -301,7 +301,7 @@ const ALLY_WALL: f32 = 220.0;
 const DISPEL_S: f32 = 0.9;
 /// She comes when it has stalked you to within this across (world px): her
 /// spell, its ward breaking and you are in one picture.
-const ALLY_NEAR: f32 = 520.0;
+const ALLY_NEAR: f32 = 400.0;
 /// Her health: she does not stay long enough to fall.
 const ALLY_HEALTH: u32 = 200;
 

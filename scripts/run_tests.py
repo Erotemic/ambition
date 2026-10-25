@@ -856,6 +856,12 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                          "central_hub_complex", "player",
                          "target/composition_boot.png", "320x180",
                          "--warmup", "20"]))
+        # A portal window shows its far side exactly: the same pixels as a
+        # camera there, at the cheapest and the richest tier.
+        jobs.append(Job("acceptance: portal windows are seamless",
+                        [sys.executable, "scripts/check_portal_window_seams.py", "--build",
+                         "--cases", "D,gnu_floor", "--tiers", "potato,high"],
+                        builds=True))
 
     # Exhaustive mode proves each crate's headless-safe feature combination compiles, then runs all
     # gated tests together in one union graph.

@@ -184,7 +184,7 @@ fn portal_view_cone_debug_dump_text(
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
     drawables: &[DrawableProbe],
     cameras: &[(String, isize, bool, RenderLayers)],
-    screen_scale: f32,
+    screen_scale: Vec2,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
     let mut out = String::new();
@@ -287,13 +287,6 @@ fn portal_view_cone_debug_dump_text(
     let _ = writeln!(out, "  debug_dump_portal: {:?}", config.debug_dump_portal);
     let _ = writeln!(out);
     let _ = writeln!(out, "effective_quality_budget:");
-    let _ = writeln!(out, "  portal.max_resolution: {}", quality.max_resolution);
-    let _ = writeln!(
-        out,
-        "  portal.texels_per_world_px: {:.3}",
-        quality.texels_per_world_px
-    );
-    let _ = writeln!(out, "  portal.recursion_depth: {}", quality.recursion_depth);
     let _ = writeln!(
         out,
         "  portal.max_active_captures: {}",
@@ -311,11 +304,6 @@ fn portal_view_cone_debug_dump_text(
     );
     let _ = writeln!(
         out,
-        "  portal.include_parallax: {}",
-        quality.include_parallax
-    );
-    let _ = writeln!(
-        out,
         "  effective_max_resolution: {}",
         effective.max_resolution
     );
@@ -328,11 +316,6 @@ fn portal_view_cone_debug_dump_text(
         out,
         "  effective_recursion_depth: {}",
         effective.recursion_depth
-    );
-    let _ = writeln!(
-        out,
-        "  effective_include_parallax: {}",
-        effective.include_parallax
     );
     let _ = writeln!(out);
 
@@ -418,7 +401,6 @@ fn portal_view_cone_debug_dump_text(
                 screen_scale,
             ),
             recursion_depth: effective.recursion_depth,
-            include_parallax: effective.include_parallax,
         };
         let route = visibility_route_summary(portal, &partner, config, viewer, convention);
         let _ = writeln!(

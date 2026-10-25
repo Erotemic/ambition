@@ -103,6 +103,12 @@ pub fn light_the_world(
             DaylightVeil,
             Sprite { color: target, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() },
             Transform::from_translation(at),
+            // Not on the world layer: a portal capture draws that layer, and
+            // its window, which the veil covers too, was lit two times. The
+            // main cameras draw this layer and no capture does.
+            bevy::camera::visibility::RenderLayers::layer(
+                ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
+            ),
             Name::new("Daylight veil"),
         ));
         return;

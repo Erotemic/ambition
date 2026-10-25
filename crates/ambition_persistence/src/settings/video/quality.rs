@@ -263,14 +263,12 @@ impl TextureResolutionScale {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// How many portal captures a tier takes and how often. A tier does not
+/// change what a window shows (`PortalCaptureQualityBudget`).
 pub struct PortalCaptureBudget {
-    pub max_resolution: u32,
-    pub texels_per_world_px: f32,
-    pub recursion_depth: u32,
     pub max_active_captures: u32,
     pub max_updates_per_frame: u32,
     pub min_refresh_interval_s: f32,
-    pub include_parallax: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -434,18 +432,14 @@ pub struct VisualQualityBudget {
 impl VisualQualityBudget {
     pub fn for_profile(profile: VisualQualityProfile) -> Self {
         match profile {
-            // Potato: strip everything. Smallest portal capture, refreshed at
-            // most ~4×/sec; no recursion, parallax, or shaders; almost no
+            // Potato: strip everything. One portal capture, refreshed at
+            // most ~4×/sec; no parallax, no shaders; almost no
             // particles; `Potato` texture tier (per-sheet 8px floor).
             VisualQualityProfile::Potato => Self {
                 portal: PortalCaptureBudget {
-                    max_resolution: 128,
-                    texels_per_world_px: 0.05,
-                    recursion_depth: 0,
                     max_active_captures: 1,
                     max_updates_per_frame: 1,
                     min_refresh_interval_s: 0.250,
-                    include_parallax: false,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Potato,
@@ -477,13 +471,9 @@ impl VisualQualityBudget {
             },
             VisualQualityProfile::Low => Self {
                 portal: PortalCaptureBudget {
-                    max_resolution: 384,
-                    texels_per_world_px: 0.25,
-                    recursion_depth: 0,
                     max_active_captures: 1,
                     max_updates_per_frame: 1,
                     min_refresh_interval_s: 0.100,
-                    include_parallax: false,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Half,
@@ -515,13 +505,9 @@ impl VisualQualityBudget {
             },
             VisualQualityProfile::Medium => Self {
                 portal: PortalCaptureBudget {
-                    max_resolution: 512,
-                    texels_per_world_px: 0.50,
-                    recursion_depth: 0,
                     max_active_captures: 1,
                     max_updates_per_frame: 1,
                     min_refresh_interval_s: 0.050,
-                    include_parallax: false,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Half,
@@ -553,13 +539,9 @@ impl VisualQualityBudget {
             },
             VisualQualityProfile::High | VisualQualityProfile::Custom => Self {
                 portal: PortalCaptureBudget {
-                    max_resolution: 1024,
-                    texels_per_world_px: 1.0,
-                    recursion_depth: 1,
                     max_active_captures: 2,
                     max_updates_per_frame: 2,
                     min_refresh_interval_s: 0.0,
-                    include_parallax: true,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Full,
@@ -591,13 +573,9 @@ impl VisualQualityBudget {
             },
             VisualQualityProfile::Ultra => Self {
                 portal: PortalCaptureBudget {
-                    max_resolution: 2048,
-                    texels_per_world_px: 1.0,
-                    recursion_depth: 1,
                     max_active_captures: 4,
                     max_updates_per_frame: 4,
                     min_refresh_interval_s: 0.0,
-                    include_parallax: true,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Full,
@@ -631,9 +609,6 @@ impl VisualQualityBudget {
     }
 
     pub fn clamp_all(&mut self) {
-        self.portal.max_resolution = self.portal.max_resolution.clamp(128, 4096);
-        self.portal.texels_per_world_px = self.portal.texels_per_world_px.clamp(0.05, 1.0);
-        self.portal.recursion_depth = self.portal.recursion_depth.min(4);
         self.portal.max_active_captures = self.portal.max_active_captures.clamp(1, 16);
         self.portal.max_updates_per_frame = self.portal.max_updates_per_frame.clamp(1, 16);
         self.portal.min_refresh_interval_s = self.portal.min_refresh_interval_s.clamp(0.0, 1.0);

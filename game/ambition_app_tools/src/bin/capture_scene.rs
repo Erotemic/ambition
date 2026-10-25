@@ -104,6 +104,9 @@ struct SceneCaptureConfig {
     /// on a ladder is photographed with no body that climbs onto it. The mode
     /// stays only while the body touches a climbable region.
     player_climbs: bool,
+    /// One side of a portal window seam check (`--seam PORTAL:window|far`,
+    /// read by `scripts/check_portal_window_seams.py`).
+    seam: Option<SeamCheck>,
     /// Controls the primary player holds from a sim tick on
     /// (`--player-holds NAMES[@TICK]`). No capture key reaches the
     /// simulation, so this is how a pose that needs a held control (a look
@@ -360,6 +363,17 @@ OPTIONS:
                         clock while a shot is read back: shots are --stride
                         ticks apart and a film is the same each run (each
                         shot logs its sim tick)
+    --seam PORTAL:window|far
+                        one side of a portal window seam check
+                        (`scripts/check_portal_window_seams.py`). Both sides
+                        hide the parallax layer in front of the play, which
+                        is not seen through a portal. `window` writes
+                        <OUT>.seam.json beside the shot: the window of PORTAL
+                        in pixels, and the map from each pixel of it to the
+                        pixel of the `far` shot that shows the same place.
+                        `far` turns the windows off and puts the camera where
+                        the view through PORTAL is. PORTAL is a channel (as
+                        `c131`) or a world X,Y (the portal nearest to it).
     --portal-effect off|cones
                         draw portals with body pieces only (`off`), no view
                         windows, or with the windows (`cones`, the default)
@@ -1187,6 +1201,12 @@ fn install_room_capture(app: &mut App) {
         // tick appended the guards again onto the last tick's list.
         app.add_systems(sim, draw_guards.after(ambition_platformer2d::sim_view::rebuild_shield_views));
     }
+    if app.world().resource::<SceneCaptureConfig>().seam.is_some() {
+        app.add_systems(
+            PostUpdate,
+            hide_the_front_parallax.before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
+        );
+    }
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
@@ -1396,6 +1416,7 @@ impl SceneCaptureConfig {
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
         let mut player_climbs = false;
+        let mut seam: Option<SeamCheck> = None;
         let mut player_holds: Vec<(HeldControls, u64)> = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
@@ -1656,6 +1677,18 @@ impl SceneCaptureConfig {
                     shots.push(ShotAt::parse(value)?);
                     2
                 }
+                "--seam" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--seam requires PORTAL:window or PORTAL:far".to_string());
+                    };
+                    let parsed = SeamCheck::parse(value)?;
+                    // The far side is the world itself, with no window.
+                    if parsed.far {
+                        portal_effect_off = true;
+                    }
+                    seam = Some(parsed);
+                    2
+                }
                 "--tick-per-frame" => {
                     tick_per_frame = true;
                     1
@@ -1857,6 +1890,7 @@ impl SceneCaptureConfig {
                 wears: Vec::new(),
                 player_at: Vec::new(),
                 player_climbs: false,
+                seam: None,
                 player_holds: Vec::new(),
                 portal_shots: Vec::new(),
                 shots: Vec::new(),
@@ -1932,6 +1966,7 @@ impl SceneCaptureConfig {
             wears,
             player_at,
             player_climbs,
+            seam,
             player_holds,
             portal_shots,
             shots,
@@ -2501,6 +2536,8 @@ fn apply_capture_snapshot(
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
     host_view: Option<ResMut<ambition_platformer2d::portal_presentation::PortalCameraContinuityHostView>>,
     mut observer_views: Option<ResMut<ambition_platformer2d::portal_presentation::PortalObserverViews>>,
+    portals: Query<&ambition_platformer2d::portal::PlacedPortal>,
+    tuning: Option<Res<ambition_platformer2d::portal::PortalTuning>>,
 ) {
     let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
@@ -2571,7 +2608,8 @@ fn apply_capture_snapshot(
     let x = snapshot.center_world.x - world.0.size.x * 0.5;
     let y = world.0.size.y * 0.5 - snapshot.center_world.y;
     // `camera_follow` sampled the camera before this pin, into the host view
-    // and into each view's own sample. The portal windows read the view's own
+    // and into each view's own sample: its centre and how much of the world
+    // it shows. The portal windows read the view's own
     // sample (`PortalObserverViews`), so pin both. A window drawn for the
     // follow camera's centre shows its far side's backdrop for the wrong eye
     // (29 px off on the c146/c147 corridor, 2026-10-16).
@@ -2581,22 +2619,263 @@ fn apply_capture_snapshot(
             let view = observer_views.of_mut(view_entity);
             if view.initialized {
                 view.current_center_world = snapshot.center_world;
+                view.visible_view = snapshot.visible_view;
             }
         }
     }
     if let Some(mut host_view) = host_view {
         if host_view.initialized {
             host_view.current_center_world = snapshot.center_world;
+            host_view.visible_view = snapshot.visible_view;
         }
     }
 
+    // The far side of a seam check: the camera is where the view through the
+    // portal is. Only the camera moves; the views the windows read keep the
+    // eye's own camera.
+    let (x, y, rotation) = match config.seam.as_ref().filter(|seam| seam.far) {
+        None => (x, y, snapshot.rotation_radians),
+        Some(seam) => {
+            let portals: Vec<_> = portals.iter().cloned().collect();
+            let convention = tuning.as_deref().map(|t| t.convention.map_convention()).unwrap_or_default();
+            let Some(through) = seam.pick(&portals).ok().and_then(|portal| {
+                camera_through(&portals, portal, convention, snapshot.center_world, snapshot.rotation_radians)
+            }) else {
+                return;
+            };
+            let render = world_to_render(world.0.size, through.center);
+            (render.x, render.y, through.rotation)
+        }
+    };
     for (mut transform, mut projection) in &mut cameras {
         if let Projection::Orthographic(orthographic) = &mut *projection {
             orthographic.scale = snapshot.orthographic_scale;
         }
         transform.translation.x = x;
         transform.translation.y = y;
-        transform.rotation = Quat::from_rotation_z(snapshot.rotation_radians);
+        transform.rotation = Quat::from_rotation_z(rotation);
+    }
+}
+
+/// One side of a portal window seam check (`--seam PORTAL:window|far`).
+#[derive(Clone, Debug)]
+struct SeamCheck {
+    /// The portal whose window is checked: a channel name (`c131`), or a
+    /// world `X,Y` (the portal nearest to it).
+    portal: String,
+    /// The far side: the camera is where the view through the portal is, and
+    /// no window is drawn.
+    far: bool,
+}
+
+impl SeamCheck {
+    fn parse(value: &str) -> Result<Self, String> {
+        let (channel, side) = value
+            .rsplit_once(':')
+            .ok_or_else(|| format!("--seam wants PORTAL:window or PORTAL:far, got '{value}'"))?;
+        let far = match side {
+            "window" => false,
+            "far" => true,
+            _ => return Err(format!("--seam side must be window or far, got '{side}'")),
+        };
+        Ok(Self { portal: channel.to_string(), far })
+    }
+
+    /// The portal this check names, in `portals`.
+    fn pick<'a>(
+        &self,
+        portals: &'a [ambition_platformer2d::portal::PlacedPortal],
+    ) -> Result<&'a ambition_platformer2d::portal::PlacedPortal, String> {
+        let found = match parse_vec2(&self.portal) {
+            Some(near) => portals.iter().min_by(|a, b| a.pos.distance(near).total_cmp(&b.pos.distance(near))),
+            None => portals.iter().find(|p| p.channel.name() == self.portal),
+        };
+        found.ok_or_else(|| {
+            let names: Vec<_> = portals.iter().map(|p| p.channel.name()).collect();
+            format!("no portal {} in the room (it has {})", self.portal, names.join(", "))
+        })
+    }
+}
+
+/// A camera's place in the world: its centre (world, y down) and its turn
+/// (render frame, the camera transform's).
+#[derive(Clone, Copy, Debug)]
+struct CameraPlace {
+    center: Vec2,
+    rotation: f32,
+}
+
+/// The image through `portal` of a camera at `center` turned by
+/// `rotation`: where a camera on the far side shows what the window shows.
+/// The centre goes through the pair's map, and the camera's `+x` too. A map
+/// that is a reflection has its `+y` the other way; the pixel map of the
+/// check ([`seam_pixel_map`]) carries that, a camera cannot.
+fn camera_through(
+    portals: &[ambition_platformer2d::portal::PlacedPortal],
+    portal: &ambition_platformer2d::portal::PlacedPortal,
+    convention: ambition_platformer2d::portal::pieces::MapConvention,
+    center: Vec2,
+    rotation: f32,
+) -> Option<CameraPlace> {
+    use ambition_platformer2d::portal::pieces::{map_point, portal_map_vec};
+    let partner = ambition_platformer2d::portal::find_portal(portals, portal.channel.partner())?;
+    let (enter, exit) = (portal.aperture(), partner.aperture());
+    // The camera's `+x` in the world (y down).
+    let x_axis = Vec2::new(rotation.cos(), -rotation.sin());
+    let axis = portal_map_vec(x_axis, enter.frame.normal, exit.frame.normal, convention).normalize_or(Vec2::X);
+    Some(CameraPlace {
+        center: map_point(center, &enter.frame, &exit.frame, convention),
+        rotation: f32::atan2(-axis.y, axis.x),
+    })
+}
+
+/// A world point (y down, the room's corner at the origin) in the render
+/// frame (y up, the room's centre at the origin).
+fn world_to_render(room: Vec2, p: Vec2) -> Vec2 {
+    Vec2::new(p.x - room.x * 0.5, room.y * 0.5 - p.y)
+}
+
+fn render_to_world(room: Vec2, r: Vec2) -> Vec2 {
+    Vec2::new(r.x + room.x * 0.5, room.y * 0.5 - r.y)
+}
+
+/// The pixel of a camera's image at render point `r`, and back.
+struct ShotFrame {
+    center: Vec2,
+    rotation: f32,
+    area: bevy::math::Rect,
+    size: Vec2,
+}
+
+impl ShotFrame {
+    fn pixel(&self, r: Vec2) -> Vec2 {
+        let view = Vec2::from_angle(-self.rotation).rotate(r - self.center);
+        Vec2::new(
+            (view.x - self.area.min.x) / self.area.width() * self.size.x,
+            (self.area.max.y - view.y) / self.area.height() * self.size.y,
+        )
+    }
+
+    fn render(&self, pixel: Vec2) -> Vec2 {
+        let view = Vec2::new(
+            self.area.min.x + pixel.x / self.size.x * self.area.width(),
+            self.area.max.y - pixel.y / self.size.y * self.area.height(),
+        );
+        self.center + Vec2::from_angle(self.rotation).rotate(view)
+    }
+}
+
+/// What the window side of a seam check reads at its shot.
+#[derive(SystemParam)]
+struct SeamProbe<'w, 's> {
+    cones: Query<
+        'w,
+        's,
+        (&'static Name, &'static Mesh2d, &'static GlobalTransform, &'static InheritedVisibility),
+        With<ambition_platformer2d::portal_presentation::PortalConeMesh>,
+    >,
+    meshes: Res<'w, Assets<Mesh>>,
+    cameras: Query<'w, 's, (&'static GlobalTransform, &'static Projection), With<MainCamera>>,
+    portals: Query<'w, 's, &'static ambition_platformer2d::portal::PlacedPortal>,
+    tuning: Option<Res<'w, ambition_platformer2d::portal::PortalTuning>>,
+    rooms: Query<
+        'w,
+        's,
+        &'static ambition_platformer2d::engine_core::RoomGeometry,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >,
+}
+
+/// Write `<OUT>.seam.json` for the window side of a seam check: the window
+/// of the portal in pixels, its aperture, and the affine map from a pixel of
+/// this shot to the pixel of the far shot that shows the same place.
+fn write_seam_window(config: &SceneCaptureConfig, probe: &SeamProbe) -> Result<(), String> {
+    let Some(seam) = config.seam.as_ref().filter(|seam| !seam.far) else {
+        return Ok(());
+    };
+    let room = probe.rooms.iter().next().ok_or("no live room")?.0.size;
+    let (camera, projection) = probe.cameras.iter().next().ok_or("no main camera")?;
+    let Projection::Orthographic(ortho) = projection else {
+        return Err("the main camera is not orthographic".to_string());
+    };
+    let (_, turn, at) = camera.to_scale_rotation_translation();
+    let near = ShotFrame {
+        center: at.truncate(),
+        rotation: turn.to_euler(EulerRot::ZYX).0,
+        area: ortho.area,
+        size: config.size.as_vec2(),
+    };
+    let portals: Vec<_> = probe.portals.iter().cloned().collect();
+    let portal = seam.pick(&portals)?;
+    let window_name = format!("Portal view window ({})", portal.channel.name());
+    let mut window: Vec<[f32; 2]> = Vec::new();
+    for (name, mesh, transform, visible) in &probe.cones {
+        if name.as_str() != window_name || !visible.get() {
+            continue;
+        }
+        let mesh = probe.meshes.get(&mesh.0).ok_or("the window has no mesh")?;
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(positions)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            return Err("the window mesh has no positions".to_string());
+        };
+        window = positions
+            .iter()
+            .map(|p| near.pixel(transform.transform_point(Vec3::from_array(*p)).truncate()).to_array())
+            .collect();
+    }
+    let convention = probe.tuning.as_deref().map(|t| t.convention.map_convention()).unwrap_or_default();
+    let partner = ambition_platformer2d::portal::find_portal(&portals, portal.channel.partner())
+        .ok_or_else(|| format!("portal {} has no partner", portal.channel.name()))?;
+    let (enter, exit) = (portal.aperture(), partner.aperture());
+    let through = camera_through(
+        &portals,
+        portal,
+        convention,
+        render_to_world(room, near.center),
+        near.rotation,
+    )
+    .ok_or("the portal has no view through it")?;
+    let far = ShotFrame {
+        center: world_to_render(room, through.center),
+        rotation: through.rotation,
+        area: ortho.area,
+        size: near.size,
+    };
+    // The map is affine: three pixels fix it.
+    let to_far = |pixel: Vec2| {
+        let world = render_to_world(room, near.render(pixel));
+        let image = ambition_platformer2d::portal::pieces::map_point(world, &enter.frame, &exit.frame, convention);
+        far.pixel(world_to_render(room, image))
+    };
+    let (o, ex, ey) = (to_far(Vec2::ZERO), to_far(Vec2::X), to_far(Vec2::Y));
+    let affine = [ex.x - o.x, ey.x - o.x, o.x, ex.y - o.y, ey.y - o.y, o.y];
+    let tangent = enter.frame.tangent() * enter.half_length;
+    let aperture: Vec<[f32; 2]> = [enter.frame.origin - tangent, enter.frame.origin + tangent]
+        .iter()
+        .map(|end| near.pixel(world_to_render(room, *end)).to_array())
+        .collect();
+    let report = serde_json::json!({
+        "channel": portal.channel.name(),
+        "image": [config.size.x, config.size.y],
+        "window": window,
+        "aperture": aperture,
+        "to_far": affine,
+    });
+    let path = config.output.with_extension("seam.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// A seam check hides the parallax layer in front of the play on both sides:
+/// it is between the eye and the portal, and the window does not show it.
+fn hide_the_front_parallax(
+    mut layers: Query<(&ambition_platformer2d::render::rendering::ParallaxLayerVisual, &mut Visibility)>,
+) {
+    for (layer, mut visibility) in &mut layers {
+        if layer.z >= ambition_platformer2d::render::rendering::FOREGROUND_PARALLAX_Z {
+            visibility.set_if_neq(Visibility::Hidden);
+        }
     }
 }
 
@@ -2834,6 +3113,7 @@ fn request_capture(
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut glass: Glass,
     sim_tick: Option<Res<ambition_platformer2d::time::SimTick>>,
+    seam: SeamProbe,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -2971,6 +3251,13 @@ fn request_capture(
     let Some(target) = target else {
         return;
     };
+    if let Err(why) = write_seam_window(&config, &seam) {
+        eprintln!("capture_scene: --seam: {why}. No image is written.");
+        runtime.failed = true;
+        runtime.requested = true;
+        commands.write_message(AppExit::from_code(2));
+        return;
+    }
     commands
         .spawn(Readback::texture(target.image.clone()))
         .observe(save_readback_to_disk);

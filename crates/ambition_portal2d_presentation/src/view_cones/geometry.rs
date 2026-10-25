@@ -11,7 +11,6 @@ pub(crate) struct RebuildKey {
     pub(crate) world_size: Vec2,
     pub(crate) tex: UVec2,
     pub(crate) recursion_depth: u32,
-    pub(crate) include_parallax: bool,
 }
 
 /// The capture texture dims for a rig: the LONG side covers the exit's
@@ -24,7 +23,7 @@ pub(crate) fn capture_dims(
     world_size: Vec2,
     exit_normal: Vec2,
     capture_frame: Option<CaptureCameraFrame>,
-    screen_scale: f32,
+    screen_scale: Vec2,
 ) -> UVec2 {
     if config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot {
         let source_size = capture_frame
@@ -32,18 +31,16 @@ pub(crate) fn capture_dims(
             .unwrap_or(Vec2::new(800.0, 450.0))
             .max(Vec2::splat(1.0));
         // `texels_per_world_px = 1.0` means "pixel-perfect": the main camera
-        // renders each world pixel at `screen_scale` physical pixels, so the
-        // capture must match that density or the window reads blurrier than
-        // the world around it. `max_resolution` still caps the memory.
-        let density = budget.texels_per_world_px.max(0.05) * screen_scale.max(1.0);
+        // renders each world pixel at `screen_scale` physical pixels on each
+        // axis, and the capture is the view's rect, so its texels are the
+        // view's pixels. A texture of another size is resampled into the
+        // window, and the window reads blurrier than the world around it.
+        // `max_resolution` caps the memory, with one scale for both axes.
+        let density = budget.texels_per_world_px.max(0.05) * screen_scale;
         let max_side = budget.max_resolution.max(256);
-        let width = (source_size.x * density).round() as u32;
-        let height = (source_size.y * density).round() as u32;
-        let scale = (max_side as f32 / width.max(height).max(1) as f32).min(1.0);
-        return UVec2::new(
-            ((width as f32 * scale).round() as u32).clamp(256, max_side),
-            ((height as f32 * scale).round() as u32).clamp(144, max_side),
-        );
+        let size = (source_size * density).round().max(Vec2::ONE);
+        let scale = (max_side as f32 / size.max_element()).min(1.0);
+        return (size * scale).round().max(Vec2::ONE).as_uvec2();
     }
     let density = budget.texels_per_world_px.max(0.05);
     let long = ((world_size.x.max(world_size.y) * density) as u32)

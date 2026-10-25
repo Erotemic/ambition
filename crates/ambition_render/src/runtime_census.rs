@@ -622,15 +622,11 @@ pub fn report_portal_census(
     };
     match budget {
         Some(budget) => eprintln!(
-            "[census] portal t={at:.3} rigs={total} active={live} max_resolution={} \
-             recursion_depth={} max_active_captures={} max_updates_per_frame={} \
-             min_refresh_interval_s={:.3} include_parallax={}",
-            budget.max_resolution,
-            budget.recursion_depth,
+            "[census] portal t={at:.3} rigs={total} active={live} max_active_captures={} \
+             max_updates_per_frame={} min_refresh_interval_s={:.3}",
             budget.max_active_captures,
             budget.max_updates_per_frame,
             budget.min_refresh_interval_s,
-            budget.include_parallax,
         ),
         None => {
             eprintln!("[census] portal t={at:.3} rigs={total} active={live} budget=unavailable")

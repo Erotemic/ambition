@@ -183,13 +183,9 @@ pub fn sync_portal_quality_budget(
     mut portal_budget: ResMut<ambition_portal2d_presentation::PortalCaptureQualityBudget>,
 ) {
     let next = ambition_portal2d_presentation::PortalCaptureQualityBudget {
-        max_resolution: quality.budget.portal.max_resolution,
-        texels_per_world_px: quality.budget.portal.texels_per_world_px,
-        recursion_depth: quality.budget.portal.recursion_depth,
         max_active_captures: quality.budget.portal.max_active_captures,
         max_updates_per_frame: quality.budget.portal.max_updates_per_frame,
         min_refresh_interval_s: quality.budget.portal.min_refresh_interval_s,
-        include_parallax: quality.budget.portal.include_parallax,
     };
     if *portal_budget != next {
         *portal_budget = next;

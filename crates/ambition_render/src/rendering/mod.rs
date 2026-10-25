@@ -206,6 +206,9 @@ pub use parallax::{
     // The marker, so a consumer can ask whether a backdrop exists.
     // `fixtures/external_consumer` uses it.
     ParallaxLayerVisual,
+    // The z of the layer in front of the play. A portal window does not show
+    // it: it is between the eye and the portal.
+    FOREGROUND_PARALLAX_Z,
     // Each live room's parallax memo (V4c).
     PresentedRoomParallax,
 };

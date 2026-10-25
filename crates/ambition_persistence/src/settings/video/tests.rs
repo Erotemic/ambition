@@ -110,9 +110,7 @@ fn flash_intensity_prev_next_round_trip() {
 #[test]
 fn visual_quality_profile_table_matches_android_starting_budget() {
     let low = VisualQualityBudget::for_profile(VisualQualityProfile::Low);
-    assert_eq!(low.portal.max_resolution, 384);
-    assert_eq!(low.portal.recursion_depth, 0);
-    assert!(!low.portal.include_parallax);
+    assert_eq!(low.portal.max_active_captures, 1);
     assert_eq!(low.sprites.resolution_scale, TextureResolutionScale::Half);
     assert_eq!(low.parallax.max_layers, Some(2));
 
@@ -125,10 +123,7 @@ fn visual_quality_profile_table_matches_android_starting_budget() {
 #[test]
 fn potato_profile_strips_everything_to_the_bare_minimum() {
     let potato = VisualQualityBudget::for_profile(VisualQualityProfile::Potato);
-    // Smallest possible portal capture, no recursion / parallax, throttled hard.
-    assert_eq!(potato.portal.max_resolution, 128);
-    assert_eq!(potato.portal.recursion_depth, 0);
-    assert!(!potato.portal.include_parallax);
+    // One portal capture, throttled hard.
     assert!(potato.portal.min_refresh_interval_s > 0.0);
     // Tiniest textures for sprites + backgrounds.
     assert_eq!(
@@ -148,7 +143,7 @@ fn potato_profile_strips_everything_to_the_bare_minimum() {
 
     // Potato is the floor: it is no heavier than Low on the levers that matter.
     let low = VisualQualityBudget::for_profile(VisualQualityProfile::Low);
-    assert!(potato.portal.max_resolution <= low.portal.max_resolution);
+    assert!(potato.portal.min_refresh_interval_s >= low.portal.min_refresh_interval_s);
     assert!(potato.particles.max_particles <= low.particles.max_particles);
 }
 
@@ -175,8 +170,8 @@ fn visual_quality_profile_cycles_through_all_including_potato() {
 fn custom_visual_quality_resolves_to_stored_budget() {
     let mut settings = VisualQualitySettings::default();
     settings.profile = VisualQualityProfile::Custom;
-    settings.custom.portal.max_resolution = 333;
-    assert_eq!(settings.resolved_budget().portal.max_resolution, 333);
+    settings.custom.portal.max_active_captures = 3;
+    assert_eq!(settings.resolved_budget().portal.max_active_captures, 3);
 }
 
 #[test]

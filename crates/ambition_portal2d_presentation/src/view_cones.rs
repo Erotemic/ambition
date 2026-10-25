@@ -97,9 +97,12 @@ fn portal_channel_render_slot(channel: PortalChannel) -> usize {
     }
 }
 
+/// The layers a capture draws. The backdrop is always one of them: a window
+/// shows what is behind its partner, and the far side's backdrop is part of
+/// that at every quality tier. The parallax budget sets which panels the room
+/// has; the capture draws the same panels the main view draws.
 fn capture_render_layers(
     recursion_depth: u32,
-    include_parallax: bool,
     parallax_layer: usize,
     other_windows: &[usize],
     room_band: Option<usize>,
@@ -111,9 +114,7 @@ fn capture_render_layers(
     if let Some(band) = room_band {
         layers = layers.with(band);
     }
-    if include_parallax {
-        layers = layers.with(parallax_layer);
-    }
+    layers = layers.with(parallax_layer);
     // Recursion sees other portals' windows through their per-portal layers.
     // The shared window layer would include this rig's own mesh and feed the
     // capture back into itself.
@@ -312,28 +313,25 @@ impl Default for PortalViewConeMode {
 ///
 /// This resource is deliberately profile-free. The Ambition host resolves
 /// Low/Medium/High into concrete fields once, then copies the portal slice here.
+///
+/// A tier sets how many captures are taken and how often. It does not change
+/// what a window shows: a window is the far side at the density of the view,
+/// with its backdrop, at every tier. A cheaper picture in the window is a seam
+/// (`scripts/check_portal_window_seams.py` measures it).
 #[derive(Resource, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Resource)]
 pub struct PortalCaptureQualityBudget {
-    pub max_resolution: u32,
-    pub texels_per_world_px: f32,
-    pub recursion_depth: u32,
     pub max_active_captures: u32,
     pub max_updates_per_frame: u32,
     pub min_refresh_interval_s: f32,
-    pub include_parallax: bool,
 }
 
 impl Default for PortalCaptureQualityBudget {
     fn default() -> Self {
         Self {
-            max_resolution: 1024,
-            texels_per_world_px: 1.0,
-            recursion_depth: 1,
             max_active_captures: 2,
             max_updates_per_frame: 2,
             min_refresh_interval_s: 0.0,
-            include_parallax: true,
         }
     }
 }
@@ -346,7 +344,6 @@ pub struct EffectivePortalCaptureBudget {
     pub max_active_captures: u32,
     pub max_updates_per_frame: u32,
     pub min_refresh_interval_s: f32,
-    pub include_parallax: bool,
 }
 
 pub fn effective_portal_capture_budget(
@@ -354,13 +351,12 @@ pub fn effective_portal_capture_budget(
     quality: &PortalCaptureQualityBudget,
 ) -> EffectivePortalCaptureBudget {
     EffectivePortalCaptureBudget {
-        max_resolution: config.max_resolution.min(quality.max_resolution),
-        texels_per_world_px: config.texels_per_world_px.min(quality.texels_per_world_px),
-        recursion_depth: config.recursion_depth.min(quality.recursion_depth),
+        max_resolution: config.max_resolution,
+        texels_per_world_px: config.texels_per_world_px,
+        recursion_depth: config.recursion_depth,
         max_active_captures: quality.max_active_captures.max(1),
         max_updates_per_frame: quality.max_updates_per_frame.max(1),
         min_refresh_interval_s: quality.min_refresh_interval_s.max(0.0),
-        include_parallax: quality.include_parallax,
     }
 }
 
@@ -620,10 +616,12 @@ pub struct PortalViewConeConfig {
     /// Hard cap on the capture texture's long side (GPU memory guard; a
     /// 2048×256 RGBA capture is ~2 MB per portal).
     pub max_resolution: u32,
-    /// Portal-window capture recursion. `0` makes capture cameras see only the
-    /// world layer; positive values include other portal windows and preserve
-    /// the current one-frame-lag recursive feedback. Exact multi-pass finite
-    /// depth can later refine this field without changing the dev UI.
+    /// Portal-window capture recursion. `0` (the default) makes capture
+    /// cameras see only the world layer. Positive values include other portal
+    /// windows, with one frame of lag. Such a window is drawn for the eye, not
+    /// for the capture's camera, so the picture in it is not the far side:
+    /// it is not seamless (`scripts/check_portal_window_seams.py`, case D at
+    /// recursion 1). A correct nested window needs a rig for each path.
     pub recursion_depth: u32,
     /// Render z of the window mesh. Defaults to [`crate::PORTAL_WINDOW_Z`]: above
     /// the portal rims and labels (9.0–9.2) and the exit body copy, so the captured
@@ -673,7 +671,7 @@ impl Default for PortalViewConeConfig {
             static_spread: 0.20,
             texels_per_world_px: 1.0,
             max_resolution: 4096,
-            recursion_depth: 1,
+            recursion_depth: 0,
             z: crate::PORTAL_WINDOW_Z,
             // Pure white: the view through a portal is exactly the exit chart.
             // A below-white tint gives a fading recursion tunnel instead.
@@ -734,6 +732,9 @@ pub struct PortalViewRig {
     /// two overlapping panes of a thin-wall pair from swapping draw order with
     /// sub-pixel eye jitter around the material midpoint.
     pane_dominant: bool,
+    /// The window mesh has area. A shut window is written once with none
+    /// ([`shut_window_mesh`]), not each frame.
+    drawn: bool,
 }
 
 impl PortalViewRig {
@@ -804,11 +805,13 @@ pub struct GameplayScreenDensity<'w, 's> {
 }
 
 impl GameplayScreenDensity<'_, '_> {
-    fn texels_per_world(&self, host_view: Option<&PortalCameraContinuityHostView>) -> f32 {
+    /// Per axis: a view whose aspect is not its viewport's has two densities,
+    /// and a capture with one would be resampled on the other axis.
+    fn texels_per_world(&self, host_view: Option<&PortalCameraContinuityHostView>) -> Vec2 {
         let Some(view) =
             host_view.filter(|v| v.initialized && v.visible_view.x >= 1.0 && v.visible_view.y >= 1.0)
         else {
-            return 1.0;
+            return Vec2::ONE;
         };
         let physical = match self.windows.single() {
             Ok(window) => {
@@ -822,12 +825,12 @@ impl GameplayScreenDensity<'_, '_> {
             // No window: the pixels of the target the main camera draws to.
             Err(_) => match self.cameras.iter().find_map(|camera| camera.physical_viewport_size()) {
                 Some(size) => size.as_vec2(),
-                None => return 1.0,
+                None => return Vec2::ONE,
             },
         };
-        let sx = physical.x / view.visible_view.x;
-        let sy = physical.y / view.visible_view.y;
-        sx.max(sy).clamp(1.0, 4.0)
+        // Below 1.0 too: a view zoomed out past one pixel a world unit has
+        // fewer pixels than units, and a capture with more is resampled.
+        (physical / view.visible_view).clamp(Vec2::splat(0.05), Vec2::splat(4.0))
     }
 }
 
@@ -1040,10 +1043,7 @@ pub fn sync_portal_view_cones(
         &mut Camera,
         &mut RenderLayers,
     )>,
-    mut cones: Query<
-        (&mut Transform, &mut Visibility),
-        (With<PortalConeMesh>, Without<PortalViewRig>),
-    >,
+    mut cones: Query<&mut Transform, (With<PortalConeMesh>, Without<PortalViewRig>)>,
     screen_density: GameplayScreenDensity,
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -1155,7 +1155,6 @@ pub fn sync_portal_view_cones(
                 screen_scale,
             ),
             recursion_depth: effective.recursion_depth,
-            include_parallax: effective.include_parallax,
         };
         if rig.rebuild != rebuild {
             retire_rig(&mut commands, entity, &rig);
@@ -1164,7 +1163,6 @@ pub fn sync_portal_view_cones(
         served.push((rig.room, rig.channel));
         *layers = capture_render_layers(
             effective.recursion_depth,
-            effective.include_parallax,
             rig.parallax_layer,
             &windows_a_capture_may_see(all, &portal, &partner, room_band),
             room_band,
@@ -1222,8 +1220,8 @@ pub fn sync_portal_view_cones(
                 u8::from(plan.cut)
             );
             cam.is_active = false;
-            if let Ok((_, mut vis)) = cones.get_mut(rig.cone) {
-                *vis = Visibility::Hidden;
+            if std::mem::take(&mut rig.drawn) {
+                shut_window_mesh(meshes, &rig.mesh);
             }
             continue;
         }
@@ -1299,6 +1297,7 @@ pub fn sync_portal_view_cones(
                 }
                 if let Some(mut mesh) = meshes.get_mut(&rig.mesh) {
                     apply_mesh(&mut mesh, &r);
+                    rig.drawn = true;
                 }
                 if cam.is_active {
                     active_captures += 1;
@@ -1326,16 +1325,15 @@ pub fn sync_portal_view_cones(
                         0.0,
                     )
                     .truncate();
-                if let Ok((mut ctf, mut vis)) = cones.get_mut(rig.cone) {
+                if let Ok(mut ctf) = cones.get_mut(rig.cone) {
                     ctf.translation = r.centroid;
-                    *vis = Visibility::Inherited;
                 }
             }
             None => {
-                // Occluded / behind the surface: stop capturing and hide.
+                // Occluded / behind the surface: stop capturing and draw nothing.
                 cam.is_active = false;
-                if let Ok((_, mut vis)) = cones.get_mut(rig.cone) {
-                    *vis = Visibility::Hidden;
+                if std::mem::take(&mut rig.drawn) {
+                    shut_window_mesh(meshes, &rig.mesh);
                 }
             }
         }
@@ -1372,7 +1370,6 @@ pub fn sync_portal_view_cones(
                 screen_scale,
             ),
             recursion_depth: effective.recursion_depth,
-            include_parallax: effective.include_parallax,
         };
         let image = images.add(Image::new_target_texture(
             rebuild.tex.x,
@@ -1435,22 +1432,18 @@ pub fn sync_portal_view_cones(
             texture: Some(image.clone()),
             ..default()
         });
-        let (cone_tf, cone_vis) = match &render {
-            Some(r) => (
-                Transform::from_translation(r.centroid),
-                Visibility::Inherited,
-            ),
-            None => (
-                Transform::from_translation(Vec3::new(0.0, 0.0, z)),
-                Visibility::Hidden,
-            ),
+        let cone_tf = match &render {
+            Some(r) => Transform::from_translation(r.centroid),
+            None => Transform::from_translation(Vec3::new(0.0, 0.0, z)),
         };
         let cone_entity = commands
             .spawn((
                 Mesh2d(mesh.clone()),
                 MeshMaterial2d(material),
                 cone_tf,
-                cone_vis,
+                // Always visible: a shut window is a mesh with no area
+                // ([`shut_window_mesh`]), never a hidden entity.
+                Visibility::Inherited,
                 PortalConeMesh,
                 portal_window_render_layers(portal.channel),
                 // The window is of this live room: only a camera that frames
@@ -1509,7 +1502,6 @@ pub fn sync_portal_view_cones(
             RenderTarget::Image(ImageRenderTarget::from(image.clone())),
             capture_render_layers(
                 effective.recursion_depth,
-                effective.include_parallax,
                 portal_capture_parallax_layer(portal.channel),
                 &windows_a_capture_may_see(all, portal, &partner, room_band),
                 room_band,
@@ -1545,10 +1537,32 @@ pub fn sync_portal_view_cones(
                 last_capture_update_s: if active { now_s } else { f32::NEG_INFINITY },
                 captured: render.as_ref().filter(|_| active).map(|r| r.capture),
                 pane_dominant,
+                drawn: render.is_some(),
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));
     }
+    }
+}
+
+/// Draw a shut window as a mesh with no area.
+///
+/// The window entity is never hidden. A hidden mesh entity that is shown
+/// again is not drawn on the frame it is shown. A crossing opens the window
+/// of the far end whole, on one frame, so a hidden window was absent for
+/// that frame: the part of a body through the portal and the room behind it
+/// were not drawn at the exit line.
+fn shut_window_mesh(meshes: &mut Assets<Mesh>, mesh: &Handle<Mesh>) {
+    if let Some(mut mesh) = meshes.get_mut(mesh) {
+        let shut = placeholder_mesh();
+        for attribute in [Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_UV_0] {
+            if let Some(values) = shut.attribute(attribute) {
+                mesh.insert_attribute(attribute, values.clone());
+            }
+        }
+        if let Some(indices) = shut.indices() {
+            mesh.insert_indices(indices.clone());
+        }
     }
 }
 
@@ -1564,7 +1578,7 @@ struct RoomEye<'a> {
     host_view: Option<&'a PortalCameraContinuityHostView>,
     clip_min: Vec2,
     clip_max: Vec2,
-    screen_scale: f32,
+    screen_scale: Vec2,
 }
 
 /// The per-portal window layers a capture of `own` may see when recursion is

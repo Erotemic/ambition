@@ -283,7 +283,7 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 [census] camera         t=12.000 entity=64v1 role=main_gameplay active=true target=primary_window size=1920x1080 viewport=full order=0 layers=0 presents_view= name="Main Camera"
 [census] draws          t=12.000 sprites=2140 sprites_visible=311 text2d=18 per_view_projections=0
 [census] render_targets t=12.000 image_targets=2 cpu_bytes=0 largest_dim=512 images_resident=214
-[census] portal         t=12.000 rigs=2 active=2 max_resolution=1024 recursion_depth=1 max_active_captures=2 max_updates_per_frame=2 min_refresh_interval_s=0.000 include_parallax=true
+[census] portal         t=12.000 rigs=2 active=2 max_active_captures=2 max_updates_per_frame=2 min_refresh_interval_s=0.000
 [census] render_pass    t=12.000 path=render/main_opaque_pass_2d/elapsed_cpu value=1.204000 avg=1.180000 suffix=ms
 [census] assets         t=12.000 decoded_images=214 decoded_megapixels=612.4 decoded_bytes=2449600000 images_resident=214
 [census] phases         t=12.000 frames=60 outside=6.50 first=0.04 pre=0.31 state=0.09 fixed=0.88 update=8.10 post=1.20 last=0.40

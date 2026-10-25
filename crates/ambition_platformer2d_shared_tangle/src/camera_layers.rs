@@ -5,7 +5,9 @@ use bevy::prelude::*;
 /// Render layer reserved for the front HUD camera; gameplay remains on layer 0.
 pub const FRONT_HUD_LAYER: usize = 1;
 
-/// Resting render layer for camera-relative parallax in a single-view session.
+/// Resting render layer for camera-relative parallax in a single-view session,
+/// and for the other camera-relative overlays that a main camera draws and a
+/// portal capture does not (the daylight veil).
 ///
 /// Portal captures and multi-view compositions use isolated copies/layers so a
 /// camera never draws another view's camera-relative backdrop.

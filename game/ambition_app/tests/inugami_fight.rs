@@ -212,14 +212,17 @@ const FINAL_HALL_EAST: f32 = 1600.0;
 const FINAL_HALL_FLOOR: f32 = 2624.0;
 
 /// The way out of the throne room the chase takes (`make_specs.py`,
-/// `throne`): across the arena (its floor at 832) and over the east gate's
-/// sill, down the drop at its east end, then west a step down at a time
-/// (`RUN_STEPS` of `RUN_DROP`, each 888 long, the first at 1664) into the
-/// final hall. Points of a body's middle.
+/// `throne`; Jon, 2026-10-25: "right, down, then left"): east across the
+/// arena (its floor at 832) through its east gate and along the way east,
+/// down the drop at its end, then west a step down at a time (`RUN_STEPS`
+/// of `RUN_DROP`, each 888 long, the first at 1664) into the final hall.
+/// Points of a body's middle.
 fn chase_route() -> Vec<ae::Vec2> {
     const W: f32 = 10480.0;
     const STEP: f32 = 888.0;
-    let mut route = vec![ae::Vec2::new(9000.0, 760.0), ae::Vec2::new(10150.0, 760.0), ae::Vec2::new(10150.0, 1640.0)];
+    // The arena and the way east are hopped too, over the gate's sill and
+    // the way's barricade.
+    let mut route = vec![ae::Vec2::new(7000.0, 708.0), ae::Vec2::new(10150.0, 708.0), ae::Vec2::new(10150.0, 1640.0)];
     // A hop over the floor (the body's middle 124 over it): over the run's
     // barricades and rubble, as a runner jumps them. A body carried into one
     // is pushed out of it, and the camera rightly follows that jump.
@@ -310,7 +313,7 @@ fn its_dead_head_lies_still() {
 #[test]
 fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
     let mut sim = arena();
-    sim.teleport_player((8340.0, 792.0));
+    sim.teleport_player((6420.0, 792.0));
     for _ in 0..60 * 11 {
         sim.step(AgentAction::default());
     }

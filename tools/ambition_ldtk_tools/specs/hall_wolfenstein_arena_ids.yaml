@@ -41,6 +41,10 @@ edits:
     fields:
       id: hall_wolfenstein_arena_camera
       name: hall_wolfenstein_arena_camera
+  - target: { identifier: CameraZone, match: { id: castle_godwin_throne_east_camera } }
+    fields:
+      id: hall_wolfenstein_arena_east_camera
+      name: hall_wolfenstein_arena_east_camera
   - target: { identifier: CameraZone, match: { id: castle_godwin_throne_drop_camera } }
     fields:
       id: hall_wolfenstein_arena_drop_camera
@@ -69,9 +73,9 @@ edits:
   - target: { identifier: Switch, match: { id: castle_godwin_drain_lever } }
     fields:
       id: hall_wolfenstein_arena_drain_lever
-  - target: { identifier: LockWall, match: { id: castle_godwin_throne_drain_grille } }
+  - target: { identifier: LockWall, match: { id: castle_godwin_throne_drain_wall } }
     fields:
-      id: hall_wolfenstein_arena_drain_grille
+      id: hall_wolfenstein_arena_drain_wall
       gated_by: world.switch_on hall_wolfenstein_arena_drain_lever
   - target: { identifier: LockWall, match: { id: castle_godwin_throne_lever_cage } }
     fields:

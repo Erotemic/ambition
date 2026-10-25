@@ -648,14 +648,18 @@ The shape now:
    kindle round it (`ward_kindle`); while they burn its conductor guards it
    (`warded`). It crashes through the arena's east gate, then draws back up
    under the vault so you can pass under it.
-3. **The chase goes down and back.** Past the gate a shaft drops under the
-   arena; the run goes straight west under the whole castle, ten steps of
-   96 down, 640 clear. It hunts you on your scent, `RUN_GAP` 220 behind and
+3. **The chase goes right, down, then left** (Jon, 2026-10-25: "yes loop
+   back. so right, down, then left"). Past the gate a way runs east
+   (1920, as high as the arena; on it you are held right of the picture,
+   the head behind you on the left); at its end a shaft drops; then the run
+   goes straight west under it, the arena and the whole castle, ten steps
+   of 96 down, 640 clear. It hunts you on your scent, `RUN_GAP` 220 behind and
    `RUN_CLEAR` 120 over your feet; every 2.4 s a lunge at your back or
    lightning on a mark ahead of you. The drop, the run and the final hall
    are framed at zoom 1.6 (about 800 across); on the run you are 220 left of
    the middle and 110 low, so the head behind and over you is in the
-   picture. (The run goes west, so Jon's "further right" is mirrored.)
+   picture; the drop between the two is framed on you, and the hand-over
+   is eased across it (camera jerk at most 4.7 on the route, measured).
 4. **Kagero's spell.** The final hall is the room's end farthest from where
    it rose: under the gatehouse. When it has howled over the hall and you
    are in it and it has stalked you to within 400, Kagero comes beside you
@@ -664,10 +668,15 @@ The shape now:
    `kagero::DISPEL_AT_S`). She does not cut it; she leaves up her line.
 5. **The fight in the hall** (phase 2, enrage), then its death.
 6. **The way back.** A lever in the hall, caged until it is dead
-   (`boss.cleared`), opens the grille of the old drain
-   (`world.switch_on castle_godwin_drain_lever`); its door goes up to the
-   gatehouse, near the castle's start. From the gatehouse the drain is open
-   from the start, down to the shut grille.
+   (`boss.cleared`), breaks a wall of cracked stone across the old drain
+   (`world.switch_on castle_godwin_drain_lever`; Jon, 2026-10-25: "Do a
+   cracked stone look"); its door goes up to the gatehouse, near the
+   castle's start. In the gatehouse the drain's mouth is a pit in the floor
+   under a block of cracked stone, flush with the floor, that breaks with
+   the same lever. Shut, each is a `LockWall` look (`castle_cracked_wall`,
+   `castle_cracked_floor`); broken through, the breach behind it shows
+   (`castle_drain_breach`). Lock walls now draw over the room's scenery, so
+   a breach behind a shut wall does not show.
 
 **Lightning.** `inu_storm` replaces the pack: the head throws its head back,
 his lightning crawls over it (`storm_tell`), three marks spark on the floor
@@ -700,9 +709,13 @@ death 34, hunt 16, crash and dive 8, and so on); the hitodama are only in the
 the same lengths (rakes, slam, lunge, bound, lash, stab, galvanize, turn).
 Kagero got `cast`.
 
-**Open:** the chase is long (8240 across); the drain's look is the iron
-grille; the hitodama ring still jumps where one ward row hands over to the
-next.
+**Accepted (Jon did not object, 2026-10-25):** Kagero only casts, she does
+not cut; the Inugami's sheet is 10 pages for its smoother rows and its ward
+rows.
+
+**Open:** the hitodama ring still jumps where one ward row hands over to the
+next; a shut wall that breaks slides up into its lintel, as every lock wall
+does, rather than crumbling.
 
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 

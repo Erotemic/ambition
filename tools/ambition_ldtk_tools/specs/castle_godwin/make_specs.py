@@ -52,8 +52,10 @@ SANDBOX_LDTK = default_worlds_dir() / "sandbox.ldtk"
 FOREST_THEME, CASTLE_THEME = "evil_forest", "castle_godwin"
 #: The gatehouse's own music (set in the editor, 2026-10).
 GATEHOUSE_MUSIC = "tritone_decree"
-#: The old drain's door in the gatehouse: under its west gallery.
+#: The old drain's door in the gatehouse: under its west gallery, at the
+#: bottom of a pit in its floor (`GATEHOUSE_GROUND` thick).
 PASSAGE_DOOR_X = 1000
+GATEHOUSE_GROUND = 128
 FOREST_MUSIC, CASTLE_MUSIC = "oppressive_crush", "military_iron_resolve"
 FOREST_BG, CASTLE_BG = "#1A0A0C", "#0E0E14"
 WALL = 16
@@ -76,7 +78,7 @@ MUSTER = "castle_godwin_muster"
 #: Each room: where it is in the world, and its size.
 ROOMS_AT = {
     FOREST: (0, 1760, 720),
-    GATEHOUSE: (2000, 1600, 768),
+    GATEHOUSE: (2000, 1600, 832),
     BARRACKS: (3792, 2560, 768),
     TOWER: (6544, 1024, 1792),
     GREAT_HALL: (7760, 1920, 896),
@@ -291,7 +293,15 @@ def gatehouse():
     a crawler; a raised dais and a gallery."""
     rid = GATEHOUSE
     _, w, h = ROOMS_AT[rid]
-    floor, e = shell(rid)
+    # Its floor is thick: the old drain's mouth is a pit in it.
+    floor, e = shell(rid, ground=GATEHOUSE_GROUND)
+    pit_x, pit_w, pit_d = PASSAGE_DOOR_X - 24, 96, 96
+    e = [x for x in e if '"floor"' not in x]
+    e += [
+        solid("floor_west", 0, floor, pit_x, h - floor),
+        solid("drain_pit_floor", pit_x, floor + pit_d, pit_w, h - floor - pit_d),
+        solid("floor_east", pit_x + pit_w, floor, w - pit_x - pit_w, h - floor),
+    ]
     e += [
         door(f"{rid}_west", "out to the forest", 64, floor, FOREST, f"{FOREST}_castle_door"),
         door(f"{rid}_east", "on to the barracks", w - 112, floor, BARRACKS, f"{BARRACKS}_west"),
@@ -312,11 +322,15 @@ def gatehouse():
         soldier(rid, 2, 980, floor - 160),
         soldier(rid, 1, 1100, floor, HOUND),
         soldier(rid, 1, 1300, floor, CRAWLER),
-        # The old drain down under the castle: at its foot an iron grille
-        # shuts it from the hall where the Inugami dies, until a lever in
-        # that hall opens it. The way back up after the fight (Jon,
-        # 2026-10-24: "you can open a secret passage back").
-        door(f"{rid}_passage", "down the old drain", PASSAGE_DOOR_X, floor, THRONE, f"{THRONE}_passage"),
+        # The old drain down under the castle: its mouth is a pit in the
+        # floor, shut by a block of cracked stone flush with the floor until
+        # the lever in the hall where the Inugami dies breaks it (Jon,
+        # 2026-10-24: "you can open a secret passage back"; 2026-10-25: "Do
+        # a cracked stone look"). Then its door is at the bottom of the pit.
+        door(f"{rid}_passage", "down the old drain", PASSAGE_DOOR_X, floor + pit_d, THRONE, f"{THRONE}_passage"),
+        standing("drain_mouth_rubble", "castle_drain_breach", pit_x + 12, floor + pit_d),
+        lock_wall(f"{rid}_drain_mouth", pit_x, floor, pit_w, pit_d, f"world.switch_on {DRAIN_LEVER}", "the cracked floor over the old drain",
+                  look="castle_cracked_floor"),
     ]
     return rid, castle(rid, e, "Castle Godwin: the gatehouse.", music=GATEHOUSE_MUSIC)
 
@@ -457,16 +471,19 @@ COIL_WEST_X, COIL_EAST_X = 460, 760
 #: topologically under the castle so when the fight is over you are close to
 #: the start of the level and you can open a secret passage back"):
 #:
-#: - the throne room, Wolfenstein's arena, at the east end (`ARENA_X`);
-#: - the drop: the Inugami crashes through the arena's east wall, and you
-#:   fall down a shaft (`SHAFT_W`) under it;
-#: - the run: a straight way west under the arena and the whole castle, a
+#: and then (2026-10-25): "yes loop back. so right, down, then left":
+#:
+#: - the throne room, Wolfenstein's arena, at the east end;
+#: - the way east (`EAST_W`): the Inugami crashes through the arena's east
+#:   wall, and you run east from it along a hall as high as the arena;
+#: - the drop: at its end you fall down a shaft (`SHAFT_W`);
+#: - the run: a straight way west under it, the arena and the whole castle, a
 #:   step down every `RUN_STEP` (`RUN_STEPS` of them), `RUN_CLEAR` high: the
 #:   head flies it after you with room over it, and nothing hangs in its way;
 #: - the hall at its west end (`FINAL_W`), under the gatehouse, where Kagero
 #:   breaks its ward and you finish it. A lever there opens the old drain up
 #:   to the gatehouse.
-THRONE_W, SHAFT_W, FINAL_W = 1920, 640, 1600
+THRONE_W, EAST_W, SHAFT_W, FINAL_W = 1920, 1920, 640, 1600
 RUN_STEPS, RUN_DROP, RUN_CLEAR = 10, 96, 640
 #: The arena: its vault, and the top of its floor (784 under the vault's
 #: underside, as the castle's other halls; Wolfenstein's lightning measures it).
@@ -479,9 +496,9 @@ def camera(name, x, y, w, h, extra=""):
     return f'( type: "CameraZone", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{name}", name: "{name}", mode: "Default"{extra} ) ),'
 
 
-def lock_wall(rid, x, y, w, h, gated_by, name):
+def lock_wall(rid, x, y, w, h, gated_by, name, look="temple_gate_iron"):
     return (f'( type: "LockWall", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{rid}", name: "{name}", '
-            f'gated_by: "{gated_by}", look: "temple_gate_iron" ) ),')
+            f'gated_by: "{gated_by}", look: "{look}" ) ),')
 
 
 def poster(name, kind, x, top):
@@ -496,6 +513,9 @@ def poster(name, kind, x, top):
 #: The lever of the old drain: a mechanism the save keeps
 #: (`world.switch_on`), so the drain stays open.
 DRAIN_LEVER = "castle_godwin_drain_lever"
+#: The cracked wall across it: as wide as its look (`castle_cracked_wall`,
+#: 64 x 160), so the stone is not stretched.
+DRAIN_WALL_W = 64
 
 
 def throne():
@@ -511,17 +531,20 @@ def throne():
     shouldn't be able to move into a chase zone until you damage him enough
     in phase 1"). No soldier stands in the way: the chase is the castle's own.
 
-    - The drop: past the gate a shaft goes down under the arena.
+    - The way east: a hall as high as the arena, the lab's junk to jump.
+    - The drop: at its end a shaft goes down under it.
     - The run: straight west under the castle, a step down at a time; the
       lab's junk to jump, coils, and the regime's posters on its barricades.
     - The hall at the end: where Kagero breaks its ward and you finish it.
-      Its west wall holds the old drain up to the gatehouse, behind a grille
-      that its lever opens; the lever is caged until the Inugami is dead.
+      Its west wall holds the old drain up to the gatehouse, behind a wall of
+      cracked stone that its lever breaks; the lever is caged until the
+      Inugami is dead.
     """
     rid = THRONE
     _, w, h = ROOMS_AT[rid]
-    arena_x = w - SHAFT_W - THRONE_W
-    shaft_x = arena_x + THRONE_W
+    arena_x = w - SHAFT_W - EAST_W - THRONE_W
+    gate_x = arena_x + THRONE_W
+    shaft_x = gate_x + EAST_W
     step = (w - FINAL_W) // RUN_STEPS
     assert FINAL_W + step * RUN_STEPS == w, (w, step)
     lo = ARENA_FLOOR
@@ -538,7 +561,7 @@ def throne():
         f'( type: "PlayerStart", px: [{ax(128)}, {lo - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         # ── The throne room ──
         solid("vault", arena_x, 0, w - arena_x, ARENA_VAULT),
-        solid("arena_floor", arena_x, lo, THRONE_W, ARENA_SLAB),
+        solid("arena_floor", arena_x, lo, THRONE_W + EAST_W, ARENA_SLAB),
         solid("arena_west_wall", arena_x, ARENA_VAULT, WALL, lo - ARENA_VAULT),
         door(f"{rid}_west", "back to the great hall", ax(64), lo, GREAT_HALL, f"{GREAT_HALL}_east"),
         ledge("gallery_west", ax(960), lo - 160, 256),
@@ -558,10 +581,18 @@ def throne():
         # The east end of the throne room: a sill (his fight measures it as
         # his wall) and the iron gate over it, which stands until the head
         # breaks it open.
-        solid("crash_sill", shaft_x - WALL, lo - sill, 2 * WALL, sill),
-        lock_wall(f"{rid}_crash_gate", shaft_x - WALL, ARENA_VAULT, 2 * WALL, lo - sill - ARENA_VAULT,
+        solid("crash_sill", gate_x - WALL, lo - sill, 2 * WALL, sill),
+        lock_wall(f"{rid}_crash_gate", gate_x - WALL, ARENA_VAULT, 2 * WALL, lo - sill - ARENA_VAULT,
                   f"boss.past_first_phase {INUGAMI_ENCOUNTER}", "the east gate of the throne room"),
-        # ── The drop: a shaft down under the arena ──
+        # ── The way east: as high as the arena; nothing over the head, and
+        # nothing on the floor higher than the run's barricades ──
+        standing("east_vat", "castle_specimen_vat", gate_x + 360, lo),
+        solid("east_rubble", gate_x + 640, lo - 40, 96, 40),
+        standing("east_coil", "castle_tesla_coil", gate_x + 980, lo),
+        solid("east_barricade", gate_x + 1300, lo - 80, 112, 80),
+        poster("east_poster", "castle_propaganda_poster_c", gate_x + 1300 + 33, lo - 76),
+        standing("east_table", "castle_operating_table", gate_x + 1560, lo),
+        # ── The drop: a shaft down at its end ──
         solid("shaft_east_wall", w - WALL, ARENA_VAULT, WALL, floors[0] - ARENA_VAULT),
     ]
     # ── The run: west under the castle, a step down at a time ──
@@ -613,11 +644,14 @@ def throne():
         ledge("final_high", FINAL_W // 2 - 160, final_floor - 320, 320),
         standing("final_coil_east", "castle_tesla_coil", FINAL_W - 220, final_floor),
         # The old drain: an opening in the west wall under a stone lintel, its
-        # door at the back, and the grille across it that the lever opens.
+        # door at the back, and a wall of cracked stone across it that the
+        # lever breaks (Jon, 2026-10-25: "Do a cracked stone look"); the
+        # breach behind it shows when it is broken through.
         solid("drain_lintel", lintel_x, final_vault, lintel_w, final_floor - opening - final_vault),
         door(f"{rid}_passage", "up the old drain", lintel_x + 40, final_floor, GATEHOUSE, f"{GATEHOUSE}_passage"),
-        lock_wall(f"{rid}_drain_grille", lintel_x + lintel_w - 2 * WALL, final_floor - opening, 2 * WALL, opening,
-                  f"world.switch_on {DRAIN_LEVER}", "the grille of the old drain"),
+        standing("drain_breach", "castle_drain_breach", lintel_x + lintel_w - DRAIN_WALL_W - 4, final_floor),
+        lock_wall(f"{rid}_drain_wall", lintel_x + lintel_w - DRAIN_WALL_W, final_floor - opening, DRAIN_WALL_W, opening,
+                  f"world.switch_on {DRAIN_LEVER}", "the cracked wall of the old drain", look="castle_cracked_wall"),
         lever(DRAIN_LEVER, "the lever of the old drain", "Pull the lever", 300, final_floor, action="ToggleFlag"),
         # The lever is caged until the Inugami is dead.
         lock_wall(f"{rid}_lever_cage", 284, final_floor - 64, 56, 64, f"boss.cleared {INUGAMI_ENCOUNTER}", "the cage of the lever"),
@@ -625,16 +659,20 @@ def throne():
         poster("final_poster_a", "castle_propaganda_poster_a", lintel_x + 24, final_floor - opening - 96),
         poster("final_poster_b", "castle_wanted_poster", lintel_x + 112, final_floor - opening - 88),
     ]
-    # Each section frames itself. On the run you go west with the head
-    # behind you: the camera keeps you to the left of the picture, so the
-    # head is in it (Jon, 2026-10-24: "the camera should let the player go
-    # much further right, so we can have the inugami head on screen"). A zoom
-    # under 1 is 1, and 1 shows some 490 across: the run is framed as wide
-    # as his arena's fight is (about 800 across), you 220 left of its middle
-    # and low in it, so the head over you is in it too (measured 2026-10-24:
-    # at zoom 1 and 420 you were out of view, and the head's top was cut).
+    # Each section frames itself, so the head behind you is in the picture
+    # (Jon, 2026-10-24: "the camera should let the player go much further
+    # right, so we can have the inugami head on screen"). On the way east you
+    # are held right of the middle, the head on your left; on the run west
+    # you are held left of it, the head on your right. The drop between them
+    # is framed on you: the hand-over from one side to the other is across
+    # it, eased by position. A zoom under 1 is 1, and 1 shows some 490
+    # across: the chase is framed as wide as his arena's fight (about 800
+    # across), you 220 off the middle and low in it, so the head over you is
+    # in it too (measured 2026-10-24: at zoom 1 and 420 you were out of view,
+    # and the head's top was cut).
     cameras = [
         camera(f"{rid}_camera", arena_x, 0, THRONE_W, slab_bottom, ', clamp_mode: "zone_bounds"'),
+        camera(f"{rid}_east_camera", gate_x, 0, EAST_W, slab_bottom, ", zoom: 1.6, target_offset_x: -220.0, target_offset_y: -110.0"),
         camera(f"{rid}_drop_camera", shaft_x, 0, SHAFT_W, floors[0], ", zoom: 1.6, target_offset_y: 120.0"),
         camera(f"{rid}_run_camera", FINAL_W, slab_bottom, shaft_x - FINAL_W, h - slab_bottom, ", zoom: 1.6, target_offset_x: 220.0, target_offset_y: -110.0"),
         # Not clamped to itself: its east side is open to the run, and a

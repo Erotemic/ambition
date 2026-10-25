@@ -123,6 +123,12 @@
     "castle_specimen_vat": (),
     "castle_operating_table": (),
     "castle_iron_throne": (),
+    // The old drain under Castle Godwin: its cracked wall and the cracked
+    // floor over its mouth (`LockWall` looks: each fills its wall's box), and
+    // the breach left when either is broken through.
+    "castle_cracked_wall": (),
+    "castle_cracked_floor": (),
+    "castle_drain_breach": (),
     // Primeval's palm.
     "coconut_palm": (),
     // The mockingbird's shark, which is also a moving platform.

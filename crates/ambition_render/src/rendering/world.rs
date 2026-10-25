@@ -1435,6 +1435,11 @@ fn is_lock_wall_block(name: &str) -> bool {
 /// the room before it go in them.
 const LOCK_WALL_QUIET_FRAMES: u32 = 30;
 
+/// A lock wall is drawn over the room's scenery and under the cast: it is
+/// built world that shuts an opening, and what lies in the opening behind it
+/// (the rubble of a breach) shows only when it opens.
+const LOCK_WALL_Z: f32 = SCENERY_Z_FRONT + 0.02;
+
 /// The authored `look` of the lock wall that the gate solid `block_name` is:
 /// the prop sheet that draws it (a door, a gate).
 ///
@@ -1578,7 +1583,7 @@ pub fn sync_lock_wall_visuals(
                         asset,
                         render,
                     ),
-                    Transform::from_translation(world_to_bevy(&world.0, block.aabb.center(), WORLD_Z_BLOCK + 4.0)),
+                    Transform::from_translation(world_to_bevy(&world.0, block.aabb.center(), LOCK_WALL_Z)),
                     Name::new(format!("LockWall: {}", block.name)),
                     LockWallVisual {
                         block_name: block.name.clone(),
@@ -1612,8 +1617,7 @@ pub fn sync_lock_wall_visuals(
                 Transform::from_translation(world_to_bevy(
                     &world.0,
                     block.aabb.center(),
-                    // Just above the block layer, over any floor/wall art.
-                    WORLD_Z_BLOCK + 4.0,
+                    LOCK_WALL_Z,
                 )),
                 Name::new(format!("LockWall: {}", block.name)),
                 LockWallVisual {

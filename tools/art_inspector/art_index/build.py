@@ -183,7 +183,7 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
             "products": sorted(asset.products),
             "character_id": actor.get("character_id"),
             "tags": actor.get("tags", []),
-            "description": _describe(actor.get("description")) or (layout or {}).get("description"),
+            "description": _describe(actor.get("description")) or _describe((layout or {}).get("description")),
             "lineage": actor.get("lineage"),
             "layout": layout,
             "portraits": portraits,

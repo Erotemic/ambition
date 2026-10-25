@@ -87,6 +87,9 @@ pub fn composite_far_side_bodies(
         // and lag behind a moving body.
         &Transform,
         Option<&crate::PortalTransitView>,
+        // A drawable a pair carries is the carry's to draw.
+        Has<crate::PortalCarried>,
+        Option<&ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom>,
     )>,
 ) {
     pool.begin(|entity| quads.contains(entity));
@@ -125,7 +128,7 @@ pub fn composite_far_side_bodies(
         .get_or_insert_with(|| meshes.add(Rectangle::default()))
         .clone();
 
-    for (entity, candidate, sprite, declared, anchor, transform, transit) in &mut candidates {
+    for (entity, candidate, sprite, declared, anchor, transform, transit, carried, reaches_from) in &mut candidates {
         let min = candidate.drawn_centre - candidate.drawn_half;
         let max = candidate.drawn_centre + candidate.drawn_half;
         // The candidate's own live room: its frame, its panes and its eye.
@@ -143,14 +146,17 @@ pub fn composite_far_side_bodies(
         let panes = panes_by_room.in_room(Some(placement.room));
 
         // The first covering pane in the stable order (see the module note).
-        // Pass the transit flag: a straddling body is already drawn as two
-        // slices by `sync_portal_body_pieces`. `PaneRelation::Transiting` keeps
-        // this system from adding a third copy. Neither system writes
-        // `Visibility`; `source_visibility::resolve_portal_source_visibility`
-        // is the one writer.
+        // Pass the transit flag: a drawable that goes through a pair is drawn
+        // by the carry (`crate::carry`), in front of the entry and out of the
+        // exit. `PaneRelation::Transiting` keeps this system from adding a
+        // third copy. `source_visibility::resolve_portal_source_visibility` is
+        // the one writer of `Visibility`. A drawable that reaches out from the
+        // viewer's side of a pane (a swing from its body) goes into it, and
+        // the carry draws it: it is not a drawable behind the pane.
         let cover = panes.iter().find(|pane| {
+            let reaches_in = reaches_from.is_some_and(|from| !crate::behind_pane(pane, viewer.eye, from.0));
             matches!(
-                crate::pane_relation(pane, viewer.eye, min, max, transit.is_some()),
+                crate::pane_relation(pane, viewer.eye, min, max, transit.is_some() || carried || reaches_in),
                 crate::PaneRelation::FarCovered
             )
         });
@@ -263,6 +269,9 @@ fn restore_hidden(
         // Same query as `composite_far_side_bodies`.
         &Transform,
         Option<&crate::PortalTransitView>,
+        // A drawable a pair carries is the carry's to draw.
+        Has<crate::PortalCarried>,
+        Option<&ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom>,
     )>,
 ) {
     for (entity, ..) in candidates.iter_mut() {
@@ -329,70 +338,6 @@ mod tests {
         let mut sprite = Sprite::from_image(handle);
         sprite.custom_size = Some(Vec2::new(48.0, 48.0));
         sprite
-    }
-
-    /// The handoff frame: far-covered on frame N, transiting on N+1, with both
-    /// production systems in one schedule. The whole sprite must not come back on
-    /// top of its own transit slices. The body moves between frames, as an actor
-    /// walking through the pane does.
-    #[test]
-    fn a_far_covered_body_that_enters_transit_stays_hidden() {
-        let mut app = test_app();
-        // Both reason-staters run ahead of the one writer.
-        app.add_systems(
-            bevy::prelude::Update,
-            crate::visuals::sync_portal_body_pieces
-                .before(crate::source_visibility::resolve_portal_source_visibility),
-        );
-        // The pane, and the partner the transit decomposition needs.
-        app.world_mut().spawn(pane());
-        app.world_mut().spawn(PlacedPortal::fixed(
-            PortalChannel::Authored(PortalChannelColor::Yellow),
-            Vec2::new(532.0, 300.0),
-            Vec2::new(1.0, 0.0),
-            46.0,
-        ));
-        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
-
-        // Frame N: far-covered at the aperture, not yet transiting.
-        let at_pane = Vec2::new(505.0, 300.0);
-        let body = spawn_candidate(&mut app, at_pane, Vec2::new(24.0, 24.0));
-        app.world_mut().entity_mut(body).insert((
-            crate::PortalSceneBody,
-            crate::PortalBodyView {
-                // The transit splitter reads this: centred in the aperture, so the
-                // decomposition has two charts.
-                pos: Vec2::new(498.0, 300.0),
-                size: Vec2::new(24.0, 40.0),
-                facing: 1.0,
-                body: Entity::PLACEHOLDER,
-            },
-        ));
-        app.update();
-        assert_eq!(
-            visibility(&app, body),
-            Visibility::Hidden,
-            "a far-covered body is drawn by its uncovered pieces, not whole"
-        );
-        assert!(
-            app.world().get::<PortalFarSideHidden>(body).is_some(),
-            "and the far-side compositor owns that hide"
-        );
-
-        // Frame N+1: `PortalTransitView` arrives. That is the handoff; it changes
-        // the far-side classification from `FarCovered` to `Transiting`.
-        app.world_mut()
-            .entity_mut(body)
-            .insert(crate::PortalTransitView { straddling: pane().channel });
-        app.update();
-
-        assert_eq!(
-            visibility(&app, body),
-            Visibility::Hidden,
-            "⛔ the whole sprite must NOT come back on the handoff frame: the \
-             transit pieces are the body, and the far-side compositor withdrawing \
-             its own reason must not overrule the reason that replaced it"
-        );
     }
 
     /// `eye` is in front of the pane (low x), so a body at high x is far.
@@ -735,8 +680,8 @@ mod tests {
         assert_eq!(pieces(&mut app), 0);
     }
 
-    /// A transiting body belongs to `sync_portal_body_pieces`, which draws it
-    /// as two clipped slices. Compositing it too would add a third copy. The
+    /// A transiting body belongs to the carry, which draws it as two clipped
+    /// slices. Compositing it too would add a third copy. The
     /// `Visibility` write belongs to [`crate::source_visibility`].
     #[test]
     fn a_transiting_body_is_left_to_the_split_presentation() {

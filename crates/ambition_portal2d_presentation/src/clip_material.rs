@@ -4,18 +4,14 @@
 //!
 //! This is the render-side realization of the Core invariant in
 //! [`ambition_portal2d::pieces`]: a body straddling a portal pair is ONE logical
-//! object with TWO spatial pieces. While a `through` piece exists, the real
-//! sprite is hidden and [`crate::sync_portal_body_pieces`] draws both charts as
-//! sibling mesh quads with this material: the `here` slice clipped to the front
-//! of the entry plane, the `through` slice clipped to the front of the exit
-//! plane (plus the exit aperture span). The portal map is an isometry, so the
-//! slices tile continuously across the seam: nothing pops when the position
-//! snaps at the centroid crossing, and the sunk slice never draws over the far
-//! side of a thin wall.
-//!
-//! The piece builder only states a hide reason (`PortalTransitHidden`);
-//! [`crate::source_visibility::resolve_portal_source_visibility`] writes
-//! `Visibility`.
+//! object with TWO spatial pieces. The carry ([`crate::carry`]) draws what a
+//! pair carries as sibling mesh quads with this material: the `here` slice
+//! clipped to the front of the entry plane, the `through` slice clipped to the
+//! front of the exit plane (plus the exit aperture span). The portal map is an
+//! isometry, so the slices tile continuously across the seam: nothing pops
+//! when the position snaps at the centroid crossing, and the sunk slice never
+//! draws over the far side of a thin wall. The far-side compositor draws a
+//! body's uncovered remainder with it too.
 //!
 //! Clipping runs in the fragment shader against final render-world positions,
 //! so it is exact for any anchor, trim rect, flip, roll, or scale — the
@@ -46,9 +42,12 @@ pub struct PortalClipMaterial {
     /// `(min.x, min.y, max.x, max.y)` normalized.
     #[uniform(0)]
     pub uv_rect: Vec4,
-    /// `(flip_x, flip_y, silhouette, _)`. `flip_x > 0.5` mirrors the frame
-    /// horizontally; `silhouette > 0.5` paints `tint.rgb` masked by the sample's
-    /// alpha and `tint.a` -- the look a declared non-sprite drawable asks for.
+    /// `(flip_x, flip_y, silhouette, premultiplied)`. `flip_x > 0.5` mirrors
+    /// the frame horizontally; `silhouette > 0.5` paints `tint.rgb` masked by
+    /// the sample's alpha and `tint.a` -- the look a declared non-sprite
+    /// drawable asks for; `premultiplied > 0.5`: the texture's colour is
+    /// premultiplied by its alpha (a camera's capture over a clear of
+    /// nothing), and the shader divides it out before it is blended.
     #[uniform(1)]
     pub control: Vec4,
     /// Sprite tint (linear RGBA), multiplied into the sample.
@@ -109,6 +108,8 @@ impl PortalClipMaterial {
 pub struct ClipQuadPool {
     slots: Vec<(Entity, Handle<PortalClipMaterial>)>,
     used: usize,
+    /// Quads made, ever.
+    made: usize,
 }
 
 impl ClipQuadPool {
@@ -145,11 +146,36 @@ impl ClipQuadPool {
                     .spawn((Mesh2d(mesh.clone()), MeshMaterial2d(handle.clone()), transform, Visibility::Inherited, with, Name::new(name)))
                     .id();
                 self.slots.push((entity, handle));
+                self.made += 1;
                 entity
             }
         };
         self.used += 1;
         entity
+    }
+
+    /// Quads made, ever: a quad made on a frame may not be drawn on it.
+    pub fn made(&self) -> usize {
+        self.made
+    }
+
+    /// Make `count` quads before the first frame needs them, hidden, each
+    /// with `with`.
+    pub fn warm(
+        &mut self,
+        commands: &mut Commands,
+        materials: &mut Assets<PortalClipMaterial>,
+        mesh: &Handle<Mesh>,
+        count: usize,
+        with: impl Bundle + Clone,
+    ) {
+        while self.slots.len() < count {
+            let handle = materials.add(PortalClipMaterial::new(Vec4::new(0.0, 0.0, 1.0, 1.0), Vec4::ZERO, Vec4::ZERO, &[], Handle::default()));
+            let entity = commands
+                .spawn((Mesh2d(mesh.clone()), MeshMaterial2d(handle.clone()), Transform::default(), Visibility::Hidden, with.clone(), Name::new("Portal clip quad")))
+                .id();
+            self.slots.push((entity, handle));
+        }
     }
 
     /// End a frame: the quads it did not take are hidden.
@@ -171,10 +197,8 @@ impl Material2d for PortalClipMaterial {
 }
 
 /// Register the embedded shader + material pipeline. Called by
-/// [`crate::PortalPresentationPlugin`] when its `body_pieces` visual is on and
-/// the host runs a real asset/render stack; headless hosts skip it and
-/// [`crate::sync_portal_body_pieces`] falls back to the unclipped sprite copy
-/// (its asset params are `Option`al).
+/// [`crate::PortalPresentationPlugin`] when the host runs a real asset/render
+/// stack; headless hosts skip it and draw nothing.
 pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     // `embedded_asset!` needs the AssetPlugin's registry; a headless test app
     // without assets simply doesn't get the material path.

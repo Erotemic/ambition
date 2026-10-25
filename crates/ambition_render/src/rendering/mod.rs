@@ -84,6 +84,12 @@ pub fn require_world_compositing(app: &mut bevy::app::App) {
         ambition_portal2d_presentation::PortalViewRig,
         bevy::camera::CompositingSpace,
     >(|| WORLD_COMPOSITING);
+    // What a portal pair carries is drawn into its texture as the world draws it.
+    #[cfg(feature = "portal_render")]
+    app.register_required_components_with::<
+        ambition_portal2d_presentation::PortalCarryCamera,
+        bevy::camera::CompositingSpace,
+    >(|| WORLD_COMPOSITING);
 }
 
 pub mod actors;

@@ -132,6 +132,13 @@ struct SceneCaptureConfig {
     /// limbs' pixels alone, so a limb's picture can be measured through a
     /// portal pair (`scripts/check_limb_through_portal.py`).
     limbs_unseen: Option<Vec<String>>,
+    /// The pairs carry what goes through them (`--carry on|off`): off draws
+    /// each drawable whole on its side, to compare a film against
+    /// (`scripts/check_portal_carry.py`).
+    carry: bool,
+    /// Worn gear the primary player puts on, each from a sim tick
+    /// (`--gear ID[@TICK]`): a gear id of the `worn_gear` content.
+    gear: Vec<(String, u64)>,
     /// Advance exactly one sim tick each frame (`--tick-per-frame`), so a
     /// film is the same each run and its shots are a known number of ticks
     /// apart, whatever the time a frame takes to write.
@@ -383,6 +390,12 @@ OPTIONS:
     --portal-effect off|cones
                         draw portals with body pieces only (`off`), no view
                         windows, or with the windows (`cones`, the default)
+    --carry on|off      the portal pairs carry what goes through them (on, the
+                        default), or draw each drawable whole on its side (off,
+                        to compare a film against)
+    --gear ID[@TICK]    the player wears the worn gear ID (a `worn_gear` id, as
+                        `space_helmet`) from sim tick TICK [default: 1]; repeat
+                        for more
     --limbs-unseen all|SLOT[,SLOT]
                         draw no limb (or these limbs, as `hand_right`) of a
                         part-drawn body: its `limb:<slot>` tracks, in the body
@@ -737,6 +750,38 @@ fn ask_bodies_to_wear(
                 .clone(),
         });
         eprintln!("capture_scene: asked the body wearing {wearer} to wear {look} on tick {on_tick}");
+    }
+}
+
+/// `--gear`: the primary player puts on each gear on its tick, as a
+/// conductor's `ambition.boss.wear` does: an equipment row in its exclusive
+/// slot.
+fn put_on_gear(
+    mut commands: Commands,
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut player: Query<
+        (Entity, Option<&mut ambition_platformer2d::characters::equipment::WornEquipment>),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+) {
+    use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
+    for (id, on_tick) in &config.gear {
+        if tick.get() != *on_tick {
+            continue;
+        }
+        let Some((body, worn)) = player.iter_mut().next() else {
+            eprintln!("capture_scene: --gear found no player on tick {on_tick}");
+            continue;
+        };
+        let row = EquipmentRow { id: id.clone(), exclusive_slot: Some("head".into()), ..Default::default() };
+        match worn {
+            Some(mut worn) => worn.equip(row),
+            None => {
+                commands.entity(body).insert(WornEquipment::new(vec![row]));
+            }
+        }
+        eprintln!("capture_scene: the player put on {id} on tick {on_tick}");
     }
 }
 
@@ -1240,6 +1285,9 @@ fn install_room_capture(app: &mut App) {
             selection.active = ambition_platformer2d::portal_presentation::PortalVisualEffect::Off;
         });
     }
+    if !app.world().resource::<SceneCaptureConfig>().carry {
+        app.insert_resource(ambition_platformer2d::portal_presentation::PortalCarrySelection { enabled: false });
+    }
     if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
         use ambition_platformer2d::render::rendering::actors::rigged::{drive_rigged_presentations, follow_limb_twins};
         app.add_systems(
@@ -1256,7 +1304,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, fire_portal_shots, fire_shots, throw_items),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items),
     );
     if !app.world().resource::<SceneCaptureConfig>().player_holds.is_empty() {
         app.add_systems(
@@ -1489,6 +1537,8 @@ impl SceneCaptureConfig {
         let mut items: Vec<ItemAt> = Vec::new();
         let mut portal_effect_off = false;
         let mut limbs_unseen: Option<Vec<String>> = None;
+        let mut carry = true;
+        let mut gear: Vec<(String, u64)> = Vec::new();
         let mut tick_per_frame = false;
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
@@ -1770,6 +1820,25 @@ impl SceneCaptureConfig {
                     tick_per_frame = true;
                     1
                 }
+                "--carry" => {
+                    carry = match args.get(i + 1).map(String::as_str) {
+                        Some("on") => true,
+                        Some("off") => false,
+                        other => return Err(format!("--carry wants on or off, not {other:?}")),
+                    };
+                    2
+                }
+                "--gear" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--gear requires ID[@TICK]".to_string());
+                    };
+                    let (id, tick) = match value.split_once('@') {
+                        Some((id, tick)) => (id, tick.parse::<u64>().map_err(|_| format!("--gear: bad tick in {value}"))?),
+                        None => (value.as_str(), 1),
+                    };
+                    gear.push((id.to_owned(), tick));
+                    2
+                }
                 "--limbs-unseen" => {
                     limbs_unseen = match args.get(i + 1).map(String::as_str) {
                         Some("all") => Some(Vec::new()),
@@ -1984,6 +2053,8 @@ impl SceneCaptureConfig {
                 items: Vec::new(),
                 portal_effect_off: false,
                 limbs_unseen: None,
+                carry: true,
+                gear: Vec::new(),
                 tick_per_frame: false,
                 guards: Vec::new(),
                 body_warp: None,
@@ -2061,6 +2132,8 @@ impl SceneCaptureConfig {
             items,
             portal_effect_off,
             limbs_unseen,
+            carry,
+            gear,
             tick_per_frame,
             guards,
             body_warp,

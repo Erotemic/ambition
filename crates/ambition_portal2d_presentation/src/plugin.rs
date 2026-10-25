@@ -37,11 +37,9 @@ pub struct PortalPresentationPlugin {
     /// sequestered gun helpers for in-flight shot and pickup markers; split
     /// that flag after behavior is stable.
     pub portal_quads: bool,
-    /// The mid-transit body pieces over the host-tagged
-    /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]):
-    /// while the body straddles a pair its sprite draws as two texture-clipped
-    /// charts (here-slice at the entry, emerged slice at the exit), rebuilt
-    /// from the real sprite each frame via [`crate::PortalClipMaterial`].
+    /// What a pair carries ([`crate::carry`]): each drawable that goes through
+    /// a pair (a body in transit, and any drawable that reaches past an entry
+    /// from its front) is drawn in front of the entry and out of the exit.
     pub body_pieces: bool,
     /// Far-side compositing ([`far_side::composite_far_side_bodies`]): a body
     /// standing behind an aperture is redrawn as the part the pane leaves
@@ -133,13 +131,24 @@ impl Plugin for PortalPresentationPlugin {
             );
         }
         if self.body_pieces {
-            // Texture-clipped transit pieces. No-op on hosts without an asset
-            // registry (headless tests); the system then uses its unclipped
-            // sprite-copy fallback.
+            // The carry. A host with no render stack draws nothing, and
+            // carries nothing.
             crate::clip_material::add_portal_clip_material_plugin(app);
+            app.init_resource::<crate::PortalCarryAtlas>();
+            app.init_resource::<crate::PortalCarrySelection>();
+            app.init_resource::<crate::CarryQuadPool>();
+            app.add_systems(First, crate::carry::give_back_carried_layers);
+            // Before the assets' events, the cameras and the propagation: see
+            // `carry`'s module docs.
             app.add_systems(
-                Update,
-                visuals::sync_portal_body_pieces.in_set(PortalPresentationSet),
+                PostUpdate,
+                crate::carry::carry_through_pairs
+                    .run_if(resource_exists::<Assets<Image>>)
+                    .before(bevy::asset::AssetEventSystems)
+                    .before(bevy::camera::CameraUpdateSystems)
+                    .before(bevy::transform::TransformSystems::Propagate)
+                    .before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate)
+                    .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility),
             );
         }
         if self.far_side_compositing {
@@ -160,7 +169,6 @@ impl Plugin for PortalPresentationPlugin {
             Update,
             source_visibility::resolve_portal_source_visibility
                 .in_set(PortalPresentationSet)
-                .after(visuals::sync_portal_body_pieces)
                 .after(far_side::composite_far_side_bodies),
         );
         if self.gun_indicator {

@@ -18,6 +18,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 
 mod camera_continuity;
+mod carry;
 mod compositing;
 mod far_side;
 mod clip_material;
@@ -56,7 +57,7 @@ pub fn portals_are_simulated(app: &App) -> bool {
 }
 pub use far_side::{composite_far_side_bodies, PortalFarSideHidden, PortalFarSidePiece};
 pub use source_visibility::{
-    resolve_portal_source_visibility, PortalDependantHidden, PortalSourceHidden, PortalTransitHidden,
+    resolve_portal_source_visibility, PortalDependantHidden, PortalSourceHidden,
 };
 pub use compositing::{
     behind_pane, current_z_policy_is_correct_for, pane_cover_rect, pane_relation, piece_clip_edges,
@@ -85,8 +86,12 @@ pub use view_cones::{
     PortalViewRig, PortalViewer, PortalViewers, PORTAL_WINDOW_RENDER_LAYER,
 };
 pub use visuals::{
-    sync_portal_body_pieces, sync_portal_disorientation_indicator, sync_portal_visuals,
-    PortalBodyPiece, PortalDisorientIndicator, PortalVisual,
+    sync_portal_disorientation_indicator, sync_portal_visuals, PortalBodyPiece, PortalDisorientIndicator,
+    PortalVisual,
+};
+pub use carry::{
+    carry_through_pairs, give_back_carried_layers, CarriedLayers, CarryQuadPool, PortalCarried,
+    PortalCarryAtlas, PortalCarryCamera, PortalCarrySelection, PortalDrawnWith,
 };
 
 /// Host-observation systems that publish data into this crate's presentation

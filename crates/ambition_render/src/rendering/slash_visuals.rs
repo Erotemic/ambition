@@ -28,6 +28,7 @@ use ambition_vfx::vfx::VfxInRoom;
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
+use ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom;
 
 /// Sheets already resolved this session, keyed by the id a character named.
 ///
@@ -314,6 +315,8 @@ fn spawn_one(
             Name::new("VFX slash"),
             sprite,
             transform,
+            // A portal pair carries the swing from the body that swings it.
+            ReachesFrom(owner_pos),
             SlashVisual {
                 age: 0.0,
                 row_start: row.start,
@@ -357,9 +360,9 @@ pub(crate) fn follow_slash_owner(
         ambition_platformer2d_core::RoomGeometry,
     >,
     owners: Query<&PresentedPose>,
-    mut slashes: Query<(Entity, &SlashVisual, &mut Transform)>,
+    mut slashes: Query<(Entity, &SlashVisual, &mut Transform, &mut ReachesFrom)>,
 ) {
-    for (entity, slash, mut transform) in &mut slashes {
+    for (entity, slash, mut transform, mut reaches_from) in &mut slashes {
         // Placed by the slash's own live room (it is stamped at spawn).
         let Some(world) = world.of(entity) else {
             continue;
@@ -371,6 +374,7 @@ pub(crate) fn follow_slash_owner(
         let target = world_to_bevy(&world.0, pos + slash.local.center(), WORLD_Z_FX + 2.0);
         transform.translation.x = target.x;
         transform.translation.y = target.y;
+        reaches_from.0 = pos;
     }
 }
 

@@ -108,16 +108,39 @@ mod host_adapter {
         }
     }
 
-    /// Bridge the host's player-visual marker → the crate-owned
-    /// [`PortalSceneBody`] seam, so the mid-transit body-piece decomposition
-    /// draws the player's sprite without the presentation crate naming
-    /// [`PlayerVisual`].
+    /// Bridge the host's body visuals → the crate-owned [`PortalSceneBody`]
+    /// seam: a body's own drawable goes through a portal pair while its body
+    /// is in transit, and never by its own geometry (a giant whose arm's near
+    /// line is over its back is not carried). And a part-drawn body's parts
+    /// are drawn with their body (`PortalDrawnWith`). The presentation crate
+    /// names none of these types.
+    #[allow(clippy::type_complexity)]
     pub fn tag_portal_scene_bodies(
         mut commands: Commands,
-        untagged: Query<Entity, (With<PlayerVisual>, Without<PortalSceneBody>)>,
+        untagged: Query<
+            Entity,
+            (
+                Or<(
+                    With<PlayerVisual>,
+                    With<ambition_render::rendering::FeatureVisual>,
+                    With<ambition_render::rendering::projectile_visuals::VisualProjectile>,
+                    With<ambition_render::rendering::GroundItemVisual>,
+                    With<ambition_render::rendering::actors::rigged::LimbTwin>,
+                )>,
+                Without<PortalSceneBody>,
+                Without<ambition_portal2d_presentation::PortalDrawnWith>,
+            ),
+        >,
+        parts: Query<
+            (Entity, &ambition_render::rendering::actors::rigged::RiggedPresentationOf),
+            Without<ambition_portal2d_presentation::PortalDrawnWith>,
+        >,
     ) {
         for entity in &untagged {
-            commands.entity(entity).insert(PortalSceneBody);
+            commands.entity(entity).try_insert(PortalSceneBody);
+        }
+        for (owner, of) in &parts {
+            commands.entity(owner).try_insert(ambition_portal2d_presentation::PortalDrawnWith(of.0));
         }
     }
 
@@ -368,7 +391,13 @@ mod host_adapter {
             let existing_twin = |slot: &str| made.iter().find(|(_, of)| of == slot).map(|(twin, _)| *twin);
             let over = match (by_twin.is_empty(), existing_twin("")) {
                 (_, Some(over)) => Some(over),
-                (false, None) => Some(LimbTwin::spawn_over(&mut commands, visual)),
+                (false, None) => {
+                    let over = LimbTwin::spawn_over(&mut commands, visual);
+                    // The parts over the limb are the host's picture: they go
+                    // through a pair only with the host.
+                    commands.entity(over).insert(ambition_portal2d_presentation::PortalDrawnWith(visual));
+                    Some(over)
+                }
                 (true, None) => None,
             };
             let mut spawned: Vec<&str> = Vec::new();
@@ -1364,18 +1393,20 @@ mod tests {
         );
     }
 
-    /// A body that straddles a portal keeps its own sprite, and the exit copy
-    /// is drawn beside it, through the host's own bridges.
+    /// The player's visual has the facts the carry selects a body by while
+    /// its body straddles a portal, through the host's own bridges: the
+    /// scene-body tag, the pose and the transit. The carry draws a body's
+    /// visual through a pair only while it has the transit fact.
     ///
     /// It lived in `ambition_content`, over a hand copy of these bridges (this
     /// crate is above that one). The copy published no `PortalTransitView`, so
-    /// the piece builder saw no transit and drew nothing, and the test was red
+    /// the carry saw no transit and drew nothing, and the test was red
     /// in the feature job only. Here it runs the shipped bridges.
     #[test]
-    fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
+    fn a_straddling_player_visual_has_the_facts_the_carry_selects_by() {
         use super::host_adapter::tag_portal_scene_bodies;
         use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor, PortalTransit};
-        use ambition_portal2d_presentation::{sync_portal_body_pieces, PortalBodyPiece};
+        use ambition_portal2d_presentation::{PortalSceneBody, PortalTransitView};
         use ambition_render::rendering::PlayerVisual;
         let blue = PortalChannel::Gun(PortalGunColor::BLUE);
         let orange = PortalChannel::Gun(PortalGunColor::ORANGE);
@@ -1389,11 +1420,7 @@ mod tests {
                 Vec::new(),
             )),
         );
-        app.init_resource::<ambition_portal2d_presentation::PortalEffectSelection>();
-        app.add_systems(
-            Update,
-            (tag_portal_scene_bodies, publish_portal_body_views, sync_portal_body_pieces).chain(),
-        );
+        app.add_systems(Update, (tag_portal_scene_bodies, publish_portal_body_views).chain());
         // A floor pair, so a body standing on the blue portal straddles its plane.
         let floor = Vec2::new(0.0, -1.0);
         app.world_mut()
@@ -1413,13 +1440,11 @@ mod tests {
             ))
             .id();
         app.update();
-        assert_eq!(
-            *app.world().get::<Visibility>(player).unwrap(),
-            Visibility::Inherited,
-            "the real character sprite is hidden"
-        );
-        let pieces = app.world_mut().query::<&PortalBodyPiece>().iter(app.world()).count();
-        assert_eq!(pieces, 1, "exit sprite copy only, no masks");
+        app.update();
+        let world = app.world();
+        assert!(world.get::<PortalSceneBody>(player).is_some(), "the player visual is not a scene body");
+        assert_eq!(world.get::<PortalTransitView>(player), Some(&PortalTransitView { straddling: blue }));
+        assert_eq!(world.get::<PortalBodyView>(player).map(|view| view.pos), Some(Vec2::new(200.0, 295.0)));
     }
 
     /// The portal affordances (held gun, disorientation indicator) follow the

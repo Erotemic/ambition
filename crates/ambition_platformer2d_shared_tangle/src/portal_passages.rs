@@ -20,6 +20,14 @@ use crate::lifecycle::LiveRoomInstance;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PortalPieceBudget(pub Option<PieceBudget>);
 
+/// A drawable that reaches out from a point that is not its own centre: a
+/// swing drawn in front of the body that swings it. The point is in engine
+/// world coordinates. A portal pair carries the drawable when it reaches past
+/// the entry from there, as the swing's volume is cut from its owner. Without
+/// it, a drawable reaches out from its own centre.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ReachesFrom(pub Vec2);
+
 #[derive(Resource, Clone, Debug)]
 pub struct PortalPassages {
     convention: MapConvention,

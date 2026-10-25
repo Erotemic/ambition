@@ -27,7 +27,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
-use ambition_sprite_sheet::character::rigged::{is_limb_track, ComposedBodyDemand, PartDraw, RiggedSpriteAsset};
+use ambition_sprite_sheet::character::rigged::{is_limb_track, PartDraw, RiggedSpriteAsset};
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 
 use super::RiggedPresentation;
@@ -189,8 +189,9 @@ impl LimbTwin {
 /// mirror, tint, size, anchor and place, its layers, room, tier and colour,
 /// as the root's animator drew them: after the animators, before the rigged
 /// driver. A limb's twin is drawn in front of its body, and the twin of the
-/// parts over the limbs in front of that. A limb's twin that shows is read
-/// as one image (it is cut by a portal pair), so it is composited.
+/// parts over the limbs in front of that. A twin draws its parts directly: a
+/// portal pair carries them as they are drawn (the portal presentation's
+/// carry), so no image of them is waited for.
 #[allow(clippy::type_complexity)]
 pub fn follow_limb_twins(
     mut commands: Commands,
@@ -202,7 +203,6 @@ pub fn follow_limb_twins(
             &mut Sprite,
             &mut Anchor,
             &mut Transform,
-            &Visibility,
             (
                 Option<&RenderLayers>,
                 Option<&InRoomInstance>,
@@ -227,10 +227,8 @@ pub fn follow_limb_twins(
         ),
         (With<LimbTwins>, Without<LimbTwin>),
     >,
-    demand: Option<ResMut<ComposedBodyDemand>>,
 ) {
-    let mut demand = demand;
-    for (twin, of, animator, mut sprite, mut anchor, mut transform, visibility, (layers, room, tier, shift)) in &mut twins {
+    for (twin, of, animator, mut sprite, mut anchor, mut transform, (layers, room, tier, shift)) in &mut twins {
         let Ok((root_animator, root_sprite, root_anchor, root_transform, (root_layers, root_room, root_tier, root_shift))) =
             roots.get(of.of)
         else {
@@ -297,11 +295,6 @@ pub fn follow_limb_twins(
                 twin.remove::<CharacterColorShift>();
             }
             (None, None) => {}
-        }
-        if !of.is_over() && !matches!(visibility, Visibility::Hidden) {
-            if let Some(demand) = demand.as_mut() {
-                demand.declare(twin.id());
-            }
         }
     }
 }

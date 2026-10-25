@@ -24,13 +24,11 @@ pub fn declare_portal_body_demand(
     frames: ambition_portal2d_presentation::PortalFrames,
     portals: Query<Entity, With<ambition_portal2d_presentation::PlacedPortal>>,
     bodies: Query<
-        (Entity, Option<&crate::rendering::actors::rigged::LimbTwin>),
+        Entity,
         (
             Or<(
                 With<crate::rendering::primitives::FeatureVisual>,
                 With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
-                // A limb's twin is cut on the frame its limb goes in.
-                With<crate::rendering::actors::rigged::LimbTwin>,
             )>,
             Without<bevy::prelude::ChildOf>,
         ),
@@ -38,11 +36,7 @@ pub fn declare_portal_body_demand(
     mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
 ) {
     let rooms: Vec<_> = portals.iter().filter_map(|portal| frames.room_of(portal)).collect();
-    for (body, twin) in &bodies {
-        // The parts over a body's limbs are never cut: not read as one image.
-        if twin.is_some_and(|twin| twin.is_over()) {
-            continue;
-        }
+    for body in &bodies {
         if frames.room_of(body).is_some_and(|room| rooms.contains(&room)) {
             demand.declare(body);
         }

@@ -14,6 +14,7 @@
 //!
 //! The developer debug overlay is separate.
 
+use ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer2d_core::AabbExt;
@@ -87,7 +88,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
         Option<&ambition_sim_view::AttackVfxView>,
     )>,
     existing: Query<(Entity, &UnauthoredVolumeVisual)>,
-    mut transforms: Query<&mut Transform, With<UnauthoredVolumeVisual>>,
+    mut transforms: Query<(&mut Transform, &mut ReachesFrom), With<UnauthoredVolumeVisual>>,
 ) {
     // Despawn stand-ins whose volume is gone. Do this first, so a reused
     // hitbox index within a frame is not mistaken for the same live volume.
@@ -154,17 +155,22 @@ pub(crate) fn draw_unauthored_attack_volumes(
         // presented pose. The debug overlay applies the same delta, so the two
         // agree.
         let to_drawn = presented.map_or(ambition_platformer2d_core::Vec2::ZERO, |p| p.delta());
+        let body = combat_geometry.bodies.iter().find(|body| body.body == strike.owner);
+        // A portal pair carries the swing from its body, as it cuts the
+        // swing's volume (with no body row: from the volume's centre).
+        let from = body.map_or(strike.volume.bounds().center(), |body| body.collision.center()) + to_drawn;
         let already = existing
             .iter()
             .find(|(_, mark)| mark.hitbox == hitbox_entity)
             .map(|(entity, _)| entity);
         // Rebuild the mesh once; move it every frame.
         if let Some(visual) = already {
-            if let Ok(mut transform) = transforms.get_mut(visual) {
+            if let Ok((mut transform, mut reaches_from)) = transforms.get_mut(visual) {
                 let centre = strike.volume.bounds().center() + to_drawn;
                 let at = world_to_bevy(&world.0, centre, WORLD_Z_FX + 1.0);
                 transform.translation.x = at.x;
                 transform.translation.y = at.y;
+                reaches_from.0 = from;
             }
             continue;
         }
@@ -173,17 +179,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
         let centre = volume.bounds().center() + to_drawn;
         // Direction, from the same read-model row: the body's box and its
         // facing. With no body row, use the flat fill.
-        let reach = combat_geometry
-            .bodies
-            .iter()
-            .find(|body| body.body == strike.owner)
-            .and_then(|body| {
-                strike_reach(
-                    body.collision.center(),
-                    volume.bounds().center(),
-                    body.facing,
-                )
-            });
+        let reach = body.and_then(|body| strike_reach(body.collision.center(), volume.bounds().center(), body.facing));
         let Some(mesh) = fan_mesh(volume, volume.bounds().center(), reach) else {
             continue;
         };
@@ -195,6 +191,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
                 MeshMaterial2d(materials.add(ColorMaterial::from_color(SWING_TINT))),
                 Transform::from_translation(world_to_bevy(&world.0, centre, WORLD_Z_FX + 1.0)),
                 Visibility::Visible,
+                ReachesFrom(from),
                 UnauthoredVolumeVisual {
                     hitbox: hitbox_entity,
                 },

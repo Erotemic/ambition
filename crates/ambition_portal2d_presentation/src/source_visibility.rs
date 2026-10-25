@@ -1,16 +1,9 @@
 //! One authority over a portal-presented body's own `Visibility`.
 //!
-//! Two systems in `PortalPresentationSet` need to hide the source body:
-//!
-//! * [`crate::visuals::sync_portal_body_pieces`], when it draws clipped transit
-//!   pieces; and
-//! * [`crate::far_side::composite_far_side_bodies`], for a far-covered body.
-//!
-//! If both write `Visibility`, the later one wins. For example, a body that was
-//! far-covered on frame N and enters `PortalTransit` on frame N+1 would draw
-//! the whole sprite over its own slices. An ordering edge would still leave two
-//! writers. So each system adds a reason (a marker component), and this
-//! resolver is the only writer. A new reason is a new marker.
+//! [`crate::far_side::composite_far_side_bodies`] hides a far-covered body: it
+//! adds a reason (a marker component), and this resolver is the only writer
+//! of the body's `Visibility`. A new reason is a new marker. (What a portal
+//! pair carries is taken off the world's layers, not hidden: `crate::carry`.)
 //!
 //! The resolver reverses only its own hides. `PlayerVisual` bodies have other
 //! visibility writers (for example submerged presentation in `ambition_render`).
@@ -18,11 +11,6 @@
 //! portal reason is left alone.
 
 use bevy::prelude::*;
-
-/// A reason: portal transit presentation has replaced this body with clipped
-/// pieces, so the whole sprite must not also draw.
-#[derive(Component, Debug, Clone, Copy)]
-pub struct PortalTransitHidden;
 
 /// Bookkeeping, not a reason: this module applied the current hide, so the
 /// resolver restores only what it took away.
@@ -80,14 +68,9 @@ pub fn resolve_portal_source_visibility(
             Entity,
             &mut Visibility,
             Has<crate::far_side::PortalFarSideHidden>,
-            Has<PortalTransitHidden>,
             Option<&mut PortalSourceHidden>,
         ),
-        Or<(
-            With<crate::far_side::PortalFarSideHidden>,
-            With<PortalTransitHidden>,
-            With<PortalSourceHidden>,
-        )>,
+        Or<(With<crate::far_side::PortalFarSideHidden>, With<PortalSourceHidden>)>,
     >,
     // A body's other drawables must follow its hide. The hit-flash silhouette is a
     // separate root mesh that mirrors the base sprite, but
@@ -116,10 +99,8 @@ pub fn resolve_portal_source_visibility(
         &mut Visibility,
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
-            // Exclude all three reason markers, or Bevy refuses the system
-            // (B0001): the `bodies` query takes `&mut Visibility` over entities
-            // with any of them.
-            Without<PortalTransitHidden>,
+            // Exclude both markers, or Bevy refuses the system (B0001): the
+            // `bodies` query takes `&mut Visibility` over entities with either.
             Without<crate::far_side::PortalFarSideHidden>,
             Without<PortalSourceHidden>,
         ),
@@ -129,10 +110,8 @@ pub fn resolve_portal_source_visibility(
     // settled in the same pass.
     let mut hidden_bodies: bevy::platform::collections::HashSet<Entity> =
         bevy::platform::collections::HashSet::new();
-    for (entity, mut visibility, far_side, transit, mut ours) in &mut bodies {
-        // Any reason hides. Reasons are not ranked, and a body can hold both
-        // during the handoff frame.
-        let hide = far_side || transit;
+    for (entity, mut visibility, far_side, mut ours) in &mut bodies {
+        let hide = far_side;
         if hide {
             // Reassert every frame, not only on the transition. `sync_visuals`
             // writes `Visible`/`Hidden` for every `FeatureVisual` each frame and

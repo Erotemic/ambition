@@ -37,6 +37,15 @@ pub const RETIRED_ROOM_RENDER_LAYER: usize = 7;
 /// Only those cameras draw it; the field's quad stands far from any world.
 pub const ROOM_FRONT_FIELD_LAYER: usize = 8;
 
+/// Base of the render-layer band of the portal carry cameras: a drawable that
+/// goes through a portal pair is drawn, while it does, on the layer of one
+/// carry camera only, which draws it into a texture that the pair cuts
+/// (`ambition_portal2d_presentation::carry`). Layers 9 to 24: under the
+/// twin-track demo's own layers (26 to 30).
+pub const PORTAL_CARRY_LAYER_BASE: usize = 9;
+/// How many pairs can carry at once: the carry band's size.
+pub const PORTAL_CARRY_LAYERS: usize = 16;
+
 /// Base of the render-layer band reserved for isolated local-view projections.
 ///
 /// Lower ranges are reserved for world/HUD/parallax/portal/overlay layers. The

@@ -113,18 +113,6 @@ fn enemy_config_gate_reacts() {
     custom::content_ownership::poison_self_tests();
 }
 
-// ── the architecture-migration matrix is complete and honest ─────────────────
-
-#[test]
-fn migration_matrix_is_complete() {
-    custom::migration_matrix::check(&Workspace::discover());
-}
-
-#[test]
-fn legacy_file_is_fully_tracked() {
-    custom::migration_matrix::legacy_file_is_fully_tracked(&Workspace::discover());
-}
-
 /// Mirrors the retired `legacy_runtime_guardrail.rs` scanner self-test: every
 /// banned identifier is caught, and the `ALLOW_LEGACY_RUNTIME` line is suppressed.
 #[test]

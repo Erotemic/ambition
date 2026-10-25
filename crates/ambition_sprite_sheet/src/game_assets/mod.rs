@@ -237,6 +237,10 @@ pub enum ParallaxTheme {
     /// mist, farmhouses with tiled roofs, a pagoda, red maples and paper
     /// lanterns. The rooms of the village (`ninja_village.ldtk`) name it.
     NinjaVillage,
+    /// Inside the General's tower (the Iron Bastion): a shaft of poured
+    /// concrete and riveted steel, girders, pipes, caged lamps and the
+    /// faction's olive banners. The room `military_tower` names it.
+    MilitaryTower,
     /// Mary-O's land in the colours of a magical girl: round hills, a far
     /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
     /// Mary-O name it.
@@ -305,6 +309,7 @@ impl ParallaxTheme {
         Self::CastleGodwinThrone,
         Self::PiratePort,
         Self::NinjaVillage,
+        Self::MilitaryTower,
         Self::Starlight,
         Self::Stardune,
         Self::Starless,
@@ -341,6 +346,7 @@ impl ParallaxTheme {
             Self::CastleGodwinThrone => "castle_godwin_throne",
             Self::PiratePort => "pirate_port",
             Self::NinjaVillage => "ninja_village",
+            Self::MilitaryTower => "military_tower",
             Self::Starlight => "starlight",
             Self::Stardune => "stardune",
             Self::Starless => "starless",
@@ -445,6 +451,7 @@ impl ParallaxTheme {
             "castle_godwin_throne" => Some(Self::CastleGodwinThrone),
             "pirate_port" | "port" | "harbour" | "harbor" => Some(Self::PiratePort),
             "ninja_village" | "village" => Some(Self::NinjaVillage),
+            "military_tower" | "iron_bastion" => Some(Self::MilitaryTower),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
             "stardune" | "star_dunes" => Some(Self::Stardune),
             "starless" | "dark_magical_girl" => Some(Self::Starless),

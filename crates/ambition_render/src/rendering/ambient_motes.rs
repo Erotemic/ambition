@@ -117,6 +117,8 @@ impl Default for AmbientMoteStyles {
                 (T::PiratePort, MoteStyle::new(16, -9.0, 2.0, 6.0, 0.2, 1.4, 2.8, 0.42, 0.4, 0.9, 0.3)),
                 // Maple leaves that fall slowly in the village, and turn as they fall.
                 (T::NinjaVillage, MoteStyle::new(14, 5.0, -9.0, 14.0, 0.15, 3.0, 5.0, 0.85, 0.2, 0.6, 0.4)),
+                // Dust in the light of the tower's caged lamps: few, slow, warm.
+                (T::MilitaryTower, MoteStyle::new(12, 1.0, -1.5, 4.0, 0.06, 1.2, 2.6, 0.5, 0.35, 0.4, 0.3)),
                 // Embers of a dark light that go up and flicker.
                 (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
                 // Sparks that go up fast from the fire under the floor.

@@ -50,6 +50,10 @@ asset_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets"
 publish_asset_root="$asset_root"
 sprites_dir="$asset_root/sprites"
 entities_dir="$sprites_dir/entities"
+# Which target made each published file is recorded beside the runtime roots,
+# never in them and never in the staging root the publish installs into
+# (`ambition_sprite2d_renderer/provenance.py`).
+export AMBITION_ART_PROVENANCE_DIR="$repo_root/crates/ambition_platformer2d_actor_monolith/asset_provenance/sprites"
 
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/tool_python.sh"
@@ -1278,6 +1282,21 @@ tackon_targets=(
     village_clan_gatehouse
     village_dojo_entry
     village_dojo_exam
+    # The garrison of the General's tower, made by the character generator
+    # (`data/townsfolk/tower_*.chargen.yaml`), and the inside of its five
+    # floors (`targets/props/military_tower_props.py`).
+    tower_voss
+    tower_dorsey
+    tower_tanaka
+    tower_bankole
+    tower_granger
+    tower_ruiz
+    tower_brandt
+    tower_parade_deck
+    tower_barracks
+    tower_armory
+    tower_signals
+    tower_war_room
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as
@@ -1827,10 +1846,6 @@ fi
 mkdir -p "$cache_dir"
 target_closures_file="$cache_dir/target_closures.tsv"
 export AMBITION_SPRITE_READS_DIR="$target_reads_dir"
-# Which target made each published file is recorded beside the runtime roots,
-# never in them and never in the staging root the publish installs into
-# (`ambition_sprite2d_renderer/provenance.py`).
-export AMBITION_ART_PROVENANCE_DIR="$repo_root/crates/ambition_platformer2d_actor_monolith/asset_provenance/sprites"
 if ! sprite_cache_key_prepare; then
     echo "==> regen FAILED — the renderer could not say which files each target reads" >&2
     echo "    (scripts/lib/sprite_target_closure.py); a key without them is not that target's key" >&2

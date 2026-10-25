@@ -173,6 +173,13 @@
     "port_brig": (),
     "port_dock_clutter": (),
     "port_manifest_page": (scale: 1.4),
+    // The General's tower inside, one floor each (`targets/props/
+    // military_tower_props.py`): drawn in the room's coordinates, deck to deck.
+    "tower_parade_deck": (),
+    "tower_barracks": (),
+    "tower_armory": (),
+    "tower_signals": (),
+    "tower_war_room": (),
     // The Ninja Village's scenery (`targets/props/ninja_village_props.py`).
     "village_shrine_stair": (),
     "village_torii": (),

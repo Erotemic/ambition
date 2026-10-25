@@ -1,0 +1,67 @@
+title: military_tower_context
+---
+// The garrison of the General's tower (the Iron Bastion, `military_tower`),
+// one node per soldier, named `military_tower_<soldier>`. The room is written
+// by `tools/ambition_ldtk_tools/specs/military_tower_area.ron`; the General's
+// own talk is `military_general` in `factions.yarn`. The soldiers are made by
+// the character generator (renderer `data/townsfolk/tower_*.chargen.yaml`).
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: military_tower_voss
+---
+Voss: EYES FRONT. You are standing on my parade deck, and anyone on my parade deck is on parade.
+-> What do you drill here?
+    Voss: Marching. Saluting. Standing still with conviction. Standing still is harder than it looks. Watch Dorsey.
+-> Fall out.
+===
+
+title: military_tower_dorsey
+---
+Dorsey: Halt! Who goes... oh. You. Go on, then. I am mostly here to say halt.
+-> What is through the annex door?
+    Dorsey: The gate annex. The checkpoint opens for clearance only, and clearance comes from the General.
+    Dorsey: I do not know about the maintenance crawlway. I am not allowed to know about the maintenance crawlway.
+-> Carry on, Private.
+===
+
+title: military_tower_tanaka
+---
+Tanaka: Off duty. If this is about the bunk inspection, my corners are regulation. Bankole's corners are a crime.
+-> What do you do on duty?
+    Tanaka: Night watch on the signals floor. Mostly I listen to Ruiz's printer print nothing.
+-> Leave her to it.
+===
+
+title: military_tower_bankole
+---
+Bankole: Corporal Bankole. The beret is not regulation in the barracks. I am testing whether anybody up here outranks me.
+-> And?
+    Bankole: Nobody has come down to check in three weeks. Either I outrank everybody, or the stairs are a ladder. It is the ladder.
+-> As you were.
+===
+
+title: military_tower_granger
+---
+Granger: Quartermaster's counter. Sign for it, return it, or explain it. Mostly people explain it.
+-> What can I draw from the armory?
+    Granger: Nothing without a chit. The chits are upstairs. The forms for the chits are downstairs. Welcome to the army.
+-> Never mind.
+===
+
+title: military_tower_ruiz
+---
+Ruiz: Signals. Every dial of the annex ring prints a line on my tape.
+-> Who dialed today?
+    Ruiz: SENTINEL, twice. Both times it was the General, checking that the printer works. It works.
+-> Back to your tape.
+===
+
+title: military_tower_brandt
+---
+Brandt: Major Brandt, adjutant. The General sees visitors on the hour.
+-> When is the hour?
+    Brandt: Now. It is always the hour. He does not own a watch, and nobody has volunteered to give him one.
+-> Thank you, Major.
+===

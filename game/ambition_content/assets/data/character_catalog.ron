@@ -5899,5 +5899,127 @@
                 hall: ["A blade, a noodle, a gun: the hand does not care. The wrist does.", "Bring it back with both ends attached."],
             ),
         ),
+        // The garrison of the General's tower (the Iron Bastion, `military_tower`):
+        // soldiers made by the character generator (renderer
+        // `data/townsfolk/tower_*.chargen.yaml`); their talk is `military_tower.yarn`.
+        "npc_tower_voss": (
+            display_name: "Drill Sergeant Voss",
+            // The drill sergeant of the parade deck.
+            manifest: "sprites/tower_voss_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "drill", "peaceful"],
+            barks: (
+                idle: ["EYES FRONT.", "Left. Left. Left, right, left."],
+                hall: ["I have drilled generals. Not this one. Nobody drills this one.", "Standing still is a skill. Most people only think they have it."],
+            ),
+        ),
+        "npc_tower_dorsey": (
+            display_name: "Private Dorsey",
+            // The sentry by the hub door.
+            manifest: "sprites/tower_dorsey_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "sentry", "peaceful"],
+            barks: (
+                idle: ["Halt! ...Carry on.", "*stands very still*"],
+                hall: ["Two years on this door. It has never once tried anything.", "I say halt, and then I let everybody through. It is a system."],
+            ),
+        ),
+        "npc_tower_tanaka": (
+            display_name: "Private Tanaka",
+            // Off duty in the barracks.
+            manifest: "sprites/tower_tanaka_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "barracks", "peaceful"],
+            barks: (
+                idle: ["Hospital corners. Look at them.", "*polishes a boot that is already shining*"],
+                hall: ["Night watch on the signals floor is very quiet. That is the point of it.", "Bankole's bunk is a crime scene."],
+            ),
+        ),
+        "npc_tower_bankole": (
+            display_name: "Corporal Bankole",
+            // A corporal in the barracks, in a beret he should not wear there.
+            manifest: "sprites/tower_bankole_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "barracks", "peaceful"],
+            barks: (
+                idle: ["Nobody outranks me on this floor.", "The beret stays."],
+                hall: ["Three weeks and nobody has climbed down to check on us. I call that command.", "The ladder is the real chain of command."],
+            ),
+        ),
+        "npc_tower_granger": (
+            display_name: "Quartermaster Granger",
+            // The quartermaster sergeant of the armory.
+            manifest: "sprites/tower_granger_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "armory", "quartermaster", "peaceful"],
+            barks: (
+                idle: ["Sign for it.", "Chit first."],
+                hall: ["Sign for it, return it, or explain it. Mostly people explain it.", "Every rifle in this rack has a name. The names are numbers."],
+            ),
+        ),
+        "npc_tower_ruiz": (
+            display_name: "Corporal Ruiz",
+            // The signals corporal at the radio desk.
+            manifest: "sprites/tower_ruiz_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "signals", "peaceful"],
+            barks: (
+                idle: ["Copy that.", "*taps the tape printer*"],
+                hall: ["Every dial of the annex ring prints a line on my tape.", "SENTINEL, twice today. Both times it was the General."],
+            ),
+        ),
+        "npc_tower_brandt": (
+            display_name: "Major Brandt",
+            // The General's adjutant in the war room.
+            manifest: "sprites/tower_brandt_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "military_tower", "soldier", "adjutant", "officer", "peaceful"],
+            barks: (
+                idle: ["The General will see you.", "It is always the hour."],
+                hall: ["I keep the General's diary. It has one entry a day: 'Inspected the medals.'", "Adjutant means I am the one who knows where everything is."],
+            ),
+        ),
     },
 )

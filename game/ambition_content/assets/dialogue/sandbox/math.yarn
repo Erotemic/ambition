@@ -26,6 +26,9 @@ Trent: Hey. You new here? I'm Trent.
     Trent: Right. Well, Emmy does food, Walter does the gate records. Try not to mix them up. Walter gets touchy.
 -> Where can I get something to eat?
     Trent: Cafe on the corner. Tell Emmy I sent you. Actually, don't. I still owe her for breakfast.
+-> Who deals with the station?
+    Trent: Canter, at the surveyors' office. He sends the survey equipment.
+    Trent: You'll know it's him. He's usually buried in paperwork.
 -> See you around.
     Trent: Yeah. See you.
 ===
@@ -40,6 +43,9 @@ Walter: Hang on. I haven't put you in the book.
     Walter: Same ink, too. I don't like it.
 -> Maybe somebody's writing home.
     Walter: Then they can sign their name.
+-> Does the station have a gate log too?
+    Walter: Of course. Officer Okafor has a book up there.
+    Walter: I only record what passes through this gate.
 -> I'll come back.
     Walter: Don't leave through the gate without telling me.
 ===
@@ -52,6 +58,9 @@ Busy Beaver: Move back a bit. I need to get this beam straight.
 -> How long until it's done?
     Busy Beaver: Don't know. I ran the test all night. It's still going.
     Busy Beaver: I thought it would've stopped by now.
+-> Why did the bracket crack?
+    Busy Beaver: Haven't worked that out. We've had more traffic, but that doesn't prove anything.
+    Busy Beaver: Don't throw the old bracket away. I still need it.
 -> Need a hand?
     Busy Beaver: Hold that end. No, the other one.
     Busy Beaver: There. Don't move.
@@ -116,6 +125,9 @@ Gottfried Leib-Knives: Stay back. Blade's sharp.
 -> What are the marks on the ground?
     Gottfried Leib-Knives: Where the tip lands at each step. I'm measuring the rate of change.
     Gottfried Leib-Knives: If you want to watch, stand behind me.
+-> Have you heard of Gnu-ton?
+    Gottfried Leib-Knives: He's the one with the gravity works at the station, isn't he?
+    Gottfried Leib-Knives: I heard he fights from a giant's shoulders. I wouldn't know where to stand.
 -> I'll leave you to it.
     Gottfried Leib-Knives: Much obliged.
 ===
@@ -125,6 +137,10 @@ title: hypatia_prime
 Hypatia: Don't lean on the mount. It's loose.
 -> What are you looking for?
     Hypatia: A light near the station. It was there last night. Now I can't find it.
+    Hypatia: It moved, then stopped. I want another look.
+-> Could it be from the gravity works?
+    Hypatia: Maybe. They're close enough.
+    Hypatia: I need to see it again before I start blaming anyone.
 -> Could it be something on the lens?
     Hypatia: Davy keeps asking me that. I've cleaned it.
 -> They say you're a reconstruction.
@@ -155,6 +171,8 @@ title: georg_canter
     -> Why did you write aleph-null in the first place?
         Georg Canter: I thought the customs officer might find it funny.
         Georg Canter: She did not.
+    -> What were the lenses for?
+        Georg Canter: A survey ship. They're mapping a moon without a gate.
     -> What are you working on now?
         Georg Canter: Lists. Give me a list of every infinite string of zeros and ones, and I'll find one you've missed.
     -> I'll let you get on.
@@ -166,6 +184,8 @@ title: georg_canter
         Georg Canter: Tell customs I'm sorry about the quantity box.
     -> Why did you put aleph-null on the form?
         Georg Canter: It was a joke. A rather poor one, apparently.
+    -> Where are the lenses going?
+        Georg Canter: To a survey ship at the station. They need them to map a moon.
     -> What's all this paper?
         Georg Canter: I'm trying to put numbers in a list. The interesting ones won't stay put.
     -> I'll come back.
@@ -177,6 +197,7 @@ title: georg_canter
     -> Is that a shipping form?
         Georg Canter: Twelve survey lenses for the orbital station.
         Georg Canter: I wrote something stupid in the quantity box. They'll probably send it back.
+        Georg Canter: The survey ship's waiting on them.
     -> Don't you have enough numbers already?
         Georg Canter: I haven't even started.
     -> I'll leave you to it.
@@ -194,7 +215,7 @@ Davy Hylbert: Sorry, we're full tonight.
     Davy Hylbert: Don't ask me to do that here. People have unpacked.
 -> Why's the observatory still lit?
     Davy Hylbert: Hypatia's up there. Something moving near the station, she says.
-    Davy Hylbert: She's been at it since yesterday.
+    Davy Hylbert: I brought her dinner yesterday. She'd forgotten to eat.
 -> I'll come another time.
     Davy Hylbert: Right. Sorry.
 ===

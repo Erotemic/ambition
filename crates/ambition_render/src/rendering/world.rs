@@ -1504,6 +1504,7 @@ pub fn sync_lock_wall_visuals(
         Entity,
         &LockWallVisual,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&CharacterAnimator>,
     )>,
 ) {
     use bevy::math::Vec2 as BVec2;
@@ -1518,12 +1519,12 @@ pub fn sync_lock_wall_visuals(
     // time. Two live rooms can hold a wall with one name (two instances of
     // one room).
     type Key = (Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String);
-    let mut existing_by_name: std::collections::HashMap<Key, (Entity, ae::Vec2)> = std::collections::HashMap::new();
+    let mut existing_by_name: std::collections::HashMap<Key, (Entity, ae::Vec2, bool)> = std::collections::HashMap::new();
     // A wall drawn with the tile while its look's sheet loaded is drawn
     // again with its look once the sheet is there: a room built before the
     // sheet came (a body put straight into it) kept the tile for good.
     let mut redrawn: std::collections::HashSet<Key> = std::collections::HashSet::new();
-    for (entity, visual, room) in &existing {
+    for (entity, visual, room, animator) in &existing {
         let key = (room.map(|room| room.0), visual.block_name.clone());
         let look_came = visual
             .awaits_look
@@ -1534,7 +1535,9 @@ pub fn sync_lock_wall_visuals(
             redrawn.insert(key);
             continue;
         }
-        existing_by_name.insert(key, (entity, visual.centre));
+        // A look whose sheet has a `break` row crumbles when it opens.
+        let crumbles = animator.is_some_and(|animator| animator.spec.clip_slot([LOCK_WALL_BREAK_ROW]).is_some());
+        existing_by_name.insert(key, (entity, visual.centre, crumbles));
     }
     // Count the runs each live room has been the same room. A room that is
     // new, or that took the place of another, starts again from none.
@@ -1651,12 +1654,21 @@ pub fn sync_lock_wall_visuals(
     }
 
     // Pass 2: despawn visuals whose gate solid is gone.
-    for (key, (entity, centre)) in &existing_by_name {
+    for (key, (entity, centre, crumbles)) in &existing_by_name {
         if !consumed.contains(key) {
-            // A wall that opens in a room that stays live is seen to open: it
-            // goes up into its lintel, and then its picture goes. A gate is
-            // heard also. A wall that goes with its room goes at once.
+            // A wall that opens in a room that stays live is seen to open: its
+            // look decides how. One with a `break` row crumbles (its row plays
+            // out, and then its picture goes): the way is open from the row's
+            // first frame, which draws it broken. Any other goes up into its
+            // lintel. A gate is heard also. A wall that goes with its room
+            // goes at once.
             if key.0.is_some_and(|room| heard_rooms.contains(&room)) {
+                if *crumbles {
+                    heard(ambition_sfx::ids::WORLD_ROCK_BREAK, *centre);
+                    heard(ambition_sfx::ids::WORLD_SECRET_REVEAL, *centre);
+                    commands.entity(*entity).remove::<LockWallVisual>().insert(LockWallCrumble);
+                    continue;
+                }
                 if key.1.starts_with("gated_lock:") {
                     heard(ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
                 }
@@ -1664,6 +1676,37 @@ pub fn sync_lock_wall_visuals(
                 continue;
             }
             commands.entity(*entity).try_despawn();
+        }
+    }
+}
+
+/// The row of a lock wall's look that it plays when it opens, if its sheet
+/// has one: it breaks apart, and what is left goes with the row's last frame.
+pub const LOCK_WALL_BREAK_ROW: &str = "break";
+
+/// A lock wall whose look crumbles as it opens ([`LOCK_WALL_BREAK_ROW`]).
+#[derive(Component, Clone, Debug)]
+pub struct LockWallCrumble;
+
+/// Play out the `break` row of each lock wall that crumbles, then take its
+/// picture away: the breach the room draws behind it is what is left.
+pub fn crumble_lock_wall_visuals(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut walls: Query<(Entity, &mut Sprite, &mut CharacterAnimator, Option<&mut Anchor>), With<LockWallCrumble>>,
+) {
+    for (entity, mut sprite, mut animator, anchor) in &mut walls {
+        animator.request_clip([LOCK_WALL_BREAK_ROW], ambition_sprite_sheet::character::CharacterAnim::Idle);
+        let _ = super::actors::draw_animator_frame(
+            &mut sprite,
+            &mut animator,
+            anchor.map(|anchor| anchor.into_inner()),
+            time.delta_secs(),
+            false,
+            super::actors::StanceSquash::NONE,
+        );
+        if animator.clip_finished() {
+            commands.entity(entity).try_despawn();
         }
     }
 }

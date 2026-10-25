@@ -615,6 +615,9 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             // A wall that opens or shuts is seen to: its picture slides.
             ambition_platformer2d::render::rendering::slide_lock_wall_visuals
                 .run_if(any_with_component::<ambition_platformer2d::render::rendering::LockWallSlide>),
+            // A wall whose look has a `break` row crumbles.
+            ambition_platformer2d::render::rendering::crumble_lock_wall_visuals
+                .run_if(any_with_component::<ambition_platformer2d::render::rendering::LockWallCrumble>),
         )
             .chain()
             .after(ambition_platformer2d::encounter_features::WaveEncounterDriven)

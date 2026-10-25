@@ -198,6 +198,15 @@ pub fn is_head_track(name: &str) -> bool {
     })
 }
 
+/// Is a track of this name a part of the face's EXPRESSION: what changes when
+/// a body winces (its eyes, brows, mouth, jaw), and not the head it is on? By
+/// the words of the name, as [`is_head_track`].
+pub fn is_expression_track(name: &str) -> bool {
+    name.split(['_', ':', '~']).any(|word| {
+        matches!(word, "eye" | "eyes" | "brow" | "brows" | "mouth" | "jaw" | "lids" | "tongue")
+    })
+}
+
 /// The first word of the name of a track that is a part of a limb body: the
 /// parts of the limb `slot` of a body are its tracks `limb:<slot>` and
 /// `limb:<slot>:<part>` (`limb:hand_left:fist`).
@@ -773,6 +782,36 @@ impl RiggedSpriteAsset {
             scratch.iter().zip(&placed).filter(|(draw, placed)| !**placed && lower(draw)).map(|(draw, _)| *draw).collect();
         out.splice(0..0, behind);
         true
+    }
+
+    /// Give the face of the draws in `out` the expression of frame `index` of
+    /// `row`, and keep their pose: a body hit mid-move winces in the pose it
+    /// has, and does not jump to the pose of its `hit` row (Jon, 2026-10-24:
+    /// "use part based rendering to only change some of the parts to a hurt
+    /// expression, while letting the character retain its pose").
+    ///
+    /// THE RULE. Each draw of `out` on an expression track
+    /// ([`is_expression_track`]) takes the part that the same track draws in
+    /// that frame, and keeps its own place, turn, scale and colour. A track
+    /// the frame does not draw is as it was, and so is every other draw.
+    ///
+    /// `false`, and `out` as it was, when `row` is not a part clip or the
+    /// frame changes no draw of `out`.
+    pub fn face_as(&self, row: &str, index: usize, out: &mut [PartDraw]) -> bool {
+        let Some(face) = self.frame(row, index) else {
+            return false;
+        };
+        let expression = |draw: &PartDraw| {
+            draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_expression_track(name))
+        };
+        let mut changed = false;
+        for draw in out.iter_mut().filter(|draw| expression(draw)) {
+            if let Some(winced) = face.iter().find(|other| other.track == draw.track) {
+                changed |= draw.part != winced.part;
+                draw.part = winced.part;
+            }
+        }
+        changed
     }
 
     /// Turn the head of the draws in `out` as `look_row` turns its head,

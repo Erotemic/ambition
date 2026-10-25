@@ -600,6 +600,10 @@ fn build_boss_pages(
 pub struct BossDrawnCell {
     pub row: usize,
     pub frame: usize,
+    /// While a boss drawn from parts is hit: the frame of its `Hit` row whose
+    /// face it wears over the pose of this cell (a hurt expression that keeps
+    /// the pose). `None` for a boss that is not hit, or not drawn from parts.
+    pub hurt_face: Option<usize>,
 }
 
 /// Render-side boss texture addresser. It does not own the animation cursor:

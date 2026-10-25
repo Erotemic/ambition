@@ -93,6 +93,10 @@ pub struct CharacterAnimator {
     /// turns it at the fraction (`RiggedSpriteAsset::head_turned_as`): a body
     /// that looks up while it walks or runs. `None`: the head of the row.
     pub head_turn: Option<(&'static str, f32)>,
+    /// The face drawn as in this row's frame, over the pose of the row the
+    /// body is drawn in (`RiggedSpriteAsset::face_as`): a hurt expression
+    /// that keeps the pose. `None`: the face of the row.
+    pub expression: Option<(String, usize)>,
 }
 
 /// How long a body that turns round at rest shows its `front` row (s): the
@@ -141,6 +145,7 @@ impl CharacterAnimator {
             faced: None,
             turn_left: 0.0,
             head_turn: None,
+            expression: None,
         }
     }
 

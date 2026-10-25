@@ -152,7 +152,7 @@ pub fn animate_bosses(
         let state: BossAnimState = view.anim;
         let (row, frame) = drawn_cell(animator, view);
         if let Some(mut drawn) = drawn {
-            *drawn = sprites::BossDrawnCell { row, frame };
+            *drawn = sprites::BossDrawnCell { row, frame, hurt_face: hurt_face(&animator.spec, view.hit_flash_secs) };
         }
         let index = animator.flat_index_at(row, frame);
         // Split sheets: select the page for the active frame before setting
@@ -217,7 +217,10 @@ pub fn animate_bosses(
 ///    hit through posed parts ([`ambition_sim_view::BossFrameView::posed_by_rig`])
 ///    does not draw it: its hurt parts stay in the pose of the sim's row, and
 ///    parts drawn in the `Hit` row would not be where a strike lands on them.
-///    Its hit feedback is the flash overlay, in the pose it has.
+///    Its hit feedback is the flash overlay, in the pose it has. A boss drawn
+///    from parts does not draw it either: it keeps its pose and wears the
+///    `Hit` row's face ([`hurt_face`]; Jon, 2026-10-24: the jump to the hurt
+///    row "makes a disjointed movement").
 /// 2. A PINNED row (content's `PinnedRow`: a scholar's tumble), when this
 ///    sheet has one of its names.
 /// 3. The cursor's slot row.
@@ -239,10 +242,18 @@ fn hit_reaction(
     posed_by_rig: bool,
     hit_flash_secs: f32,
 ) -> Option<(sprites::BossAnim, usize)> {
-    if posed_by_rig {
+    if posed_by_rig || spec.parts.is_some() {
         return None;
     }
     spec.hit_reaction_frame(hit_flash_secs)
+}
+
+/// The frame of its `Hit` row whose face a boss drawn from parts wears while
+/// its flash runs, over the pose it has. `None` for a baked boss (it draws
+/// the row: [`hit_reaction`]) and for one that is not hit.
+fn hurt_face(spec: &sprites::BossSheetSpec, hit_flash_secs: f32) -> Option<usize> {
+    spec.parts.as_ref()?;
+    spec.hit_reaction_frame(hit_flash_secs).map(|(_, frame)| frame)
 }
 
 /// A boss sheet drawn from a character's parts ([`sprites::BossSheetSpec::parts`])
@@ -336,6 +347,15 @@ pub fn pose_boss_part_animators(
         if let Some(slot) = animator.spec.clip_slot([name]) {
             animator.show_cell(slot, drawn.frame);
         }
+        // Hit, it wears its `Hit` row's face in the pose it has.
+        let face = drawn.hurt_face.and_then(|frame| {
+            let row = boss.record.rows.get(boss.spec.record_row(sprites::BossAnim::Hit))?;
+            Some((row.animation.as_str(), frame))
+        });
+        let worn = animator.expression.as_ref().map(|(row, frame)| (row.as_str(), *frame));
+        if worn != face {
+            animator.expression = face.map(|(row, frame)| (row.to_owned(), frame));
+        }
     }
 }
 
@@ -372,5 +392,11 @@ mod tests {
             "a boss posed by its rig drew the `Hit` row over the pose its hurt parts have"
         );
         assert_eq!(hit_reaction(&spec, false, 0.0), None, "no flash, no flinch");
+        assert_eq!(hurt_face(&spec, flash), None, "control: a baked boss draws the row, not a face");
+        // A boss drawn from parts keeps its pose and wears the row's face.
+        let parts = BossSheetSpec { parts: Some("toy".into()), ..spec };
+        assert_eq!(hit_reaction(&parts, false, flash), None, "a part-drawn boss jumped to its `Hit` row");
+        assert_eq!(hurt_face(&parts, flash), Some(0), "a part-drawn boss hit wears the `Hit` row's face");
+        assert_eq!(hurt_face(&parts, 0.0), None, "no flash, no hurt face");
     }
 }

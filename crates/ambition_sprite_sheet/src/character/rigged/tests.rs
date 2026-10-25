@@ -799,6 +799,52 @@ fn a_head_turns_up_over_the_walk_as_the_look_up_row_turns_it() {
     assert_eq!(out[1].rotation, 0.1);
 }
 
+/// A body hit mid-move winces in the pose it has: its eyes and its jaw take
+/// the parts the `hit` row draws, where the walk places them; its skull and
+/// its arm are the walk's.
+#[test]
+fn a_hurt_face_keeps_the_pose_it_is_worn_in() {
+    let text = r#"(
+        schema_version: 2,
+        target: "toy",
+        pages: ["toy_parts.png"],
+        frame_size: (64, 64),
+        feet_pixel: (32.0, 60.0),
+        parts: [
+            (name: "arm", page: 0, rect: (0, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "skull", page: 0, rect: (4, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "eyes_open", page: 0, rect: (8, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "jaw_shut", page: 0, rect: (12, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "eyes_wince", page: 0, rect: (16, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "jaw_open", page: 0, rect: (20, 0, 4, 4), pivot: (2.0, 2.0)),
+        ],
+        tracks: ["near_arm_u", "skull", "eyes", "jaw"],
+        clips: {
+            "walk": (frame_duration_s: 0.1, frames: [
+                [(part: 0, at: (6.0, -20.0), rotation: 0.3, scale: (1.0, 1.0), track: 0),
+                 (part: 1, at: (0.0, -30.0), rotation: 0.1, scale: (1.0, 1.0), track: 1),
+                 (part: 2, at: (4.0, -34.0), rotation: 0.1, scale: (1.0, 1.0), track: 2),
+                 (part: 3, at: (5.0, -28.0), rotation: 0.1, scale: (1.0, 1.0), track: 3)],
+            ]),
+            "hit": (frame_duration_s: 0.1, frames: [
+                [(part: 1, at: (-9.0, -26.0), rotation: -0.5, scale: (1.0, 1.0), track: 1),
+                 (part: 4, at: (-5.0, -30.0), rotation: -0.5, scale: (1.0, 1.0), track: 2),
+                 (part: 5, at: (-4.0, -24.0), rotation: -0.5, scale: (1.0, 1.0), track: 3)],
+            ]),
+        },
+    )"#;
+    let asset = RiggedSpriteAsset::from_published_ron(text).expect("a schema-2 flipbook");
+    let mut walk = Vec::new();
+    asset.tween_into("walk", 0, 0.0, &mut walk).unwrap();
+    let mut out = walk.clone();
+    assert!(asset.face_as("hit", 0, &mut out));
+    assert_eq!((out[2].part, out[3].part), (4, 5), "the face is the hit row's");
+    for (worn, walked) in out.iter().zip(&walk) {
+        assert_eq!((worn.at, worn.rotation, worn.scale), (walked.at, walked.rotation, walked.scale), "the pose is the walk's");
+    }
+    assert_eq!((out[0].part, out[1].part), (0, 1), "the arm and the skull are the walk's");
+}
+
 /// The parts of a limb are its `limb:<slot>` tracks: the limb's own, and no
 /// other limb's whose slot starts with the same letters.
 #[test]

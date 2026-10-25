@@ -1485,6 +1485,10 @@ fn frame_draws<'a>(
     if let Some((look_row, fraction)) = animator.head_turn.filter(|(_, fraction)| *fraction > 0.0) {
         flipbook.head_turned_as(look_row, fraction, drawn);
     }
+    // A hurt face over the pose it has.
+    if let Some((face_row, index)) = animator.expression.as_ref() {
+        flipbook.face_as(face_row, *index, drawn);
+    }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);

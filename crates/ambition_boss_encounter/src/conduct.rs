@@ -487,6 +487,9 @@ pub fn strike_with_limbs(
                 },
                 HitboxLifetime { remaining_s: LIMB_STRIKE_LIFETIME_S },
                 HitboxHits::default(),
+                // The limb's own picture is the strike: no stand-in for an
+                // unauthored attack is drawn over the fist.
+                ambition_combat::strike::DepictedByOwner,
                 Name::new("Limb strike"),
             ))
             .id();

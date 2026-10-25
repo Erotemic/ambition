@@ -1697,6 +1697,14 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
     }
     assert!(threaded, "the fist went into the near line and was in the pair");
     assert!(player(&mut sim).1 < before, "the player under the far line was not struck");
+    // The fist is its strike's picture: no stand-in for an unauthored attack
+    // is drawn over it (a red sweep by the fist, carried by no pair).
+    let world = sim.world_mut();
+    let limbs: Vec<Entity> = world.query_filtered::<Entity, With<Limb>>().iter(world).collect();
+    let mut boxes = world.query::<(&ambition_platformer2d::combat::strike::Hitbox, Has<ambition_platformer2d::combat::strike::DepictedByOwner>)>();
+    let limb_boxes: Vec<bool> = boxes.iter(world).filter(|(hitbox, _)| limbs.contains(&hitbox.owner)).map(|(_, drawn)| drawn).collect();
+    assert!(!limb_boxes.is_empty(), "the fist carries its strike");
+    assert!(limb_boxes.iter().all(|drawn| *drawn), "a limb's strike is drawn by the limb: {limb_boxes:?}");
 }
 
 /// The blow of this tick, from his conductor: its exit and whether it landed.

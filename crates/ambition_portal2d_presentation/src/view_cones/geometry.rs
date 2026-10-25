@@ -1018,15 +1018,12 @@ pub(crate) fn compute_cone(
     );
 
     // Proximity-proportional depth and preview distance use the body-edge gap
-    // to the nearer finite aperture, not the aperture's infinite host plane.
-    // Being close in Y while far away laterally should still read as a cone,
-    // not as the doorway half-plane limit.
-    let faced = if v.eye.distance(enter.frame.origin) <= v.eye.distance(exit.frame.origin) {
-        &enter
-    } else {
-        &exit
-    };
-    let edge_distance = body_edge_distance_to_aperture(v, faced);
+    // to this window's own finite aperture, not its infinite host plane: being
+    // close in Y while far away laterally still reads as a cone, not as the
+    // doorway half-plane limit. Its own, not the nearer of the pair: a window
+    // opens for an observer very close to it (Jon 2026-10-25), and standing
+    // at one end of a pair opens no window at the other.
+    let edge_distance = body_edge_distance_to_aperture(v, &enter);
     let proximity_alpha = preview_proximity_alpha(edge_distance, config);
     let target = los_target * proximity_alpha * turned_away;
     if target <= 0.0 {

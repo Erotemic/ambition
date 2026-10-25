@@ -1245,6 +1245,22 @@ fn apertures_do_not_open_to_observers_that_turn_away() {
     }
 }
 
+/// A window opens for an observer very close to its own portal (Jon
+/// 2026-10-25): standing at one end of a pair on a wall, facing the wall,
+/// opens that end's window and not the other's, far over its head.
+#[test]
+fn standing_at_one_end_of_a_pair_opens_no_window_at_the_other() {
+    let world = Vec2::new(2000.0, 1000.0);
+    let config = dynamic_config();
+    let low = placed(PortalGunColor::BLUE.channel(), Vec2::new(500.0, 400.0), Vec2::new(1.0, 0.0));
+    let high = placed(PortalGunColor::ORANGE.channel(), Vec2::new(500.0, 100.0), Vec2::new(1.0, 0.0));
+    let by_the_wall = PortalViewer { present: true, eye: Vec2::new(520.0, 400.0), forward: -Vec2::X, half_size: Vec2::new(12.0, 20.0), ..Default::default() };
+    let at_hand = compute_cone(&low, &high, &config, Some(&by_the_wall), world, MapConvention::Reflection);
+    assert!(at_hand.target > 0.0, "the end at hand: {}", at_hand.target);
+    let far = compute_cone(&high, &low, &config, Some(&by_the_wall), world, MapConvention::Reflection);
+    assert_eq!(far.target, 0.0, "the other end, far overhead: no window");
+}
+
 /// A viewer on the back of a pair (it came at an opening from behind, as up
 /// through a one-way platform) has none of the pair's windows until it is
 /// wholly past the plane; the same viewer on no back has them.

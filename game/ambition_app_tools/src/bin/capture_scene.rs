@@ -126,6 +126,12 @@ struct SceneCaptureConfig {
     /// (`--portal-effect off`), so a body crossing a portal is measured as it
     /// is drawn and not again in a window that sees it.
     portal_effect_off: bool,
+    /// Draw these limbs of a part-drawn body (their `limb:<slot>` tracks)
+    /// nowhere, in the body or in its limbs' twins (`--limbs-unseen`); empty
+    /// for every limb. A film with the limbs and one without differ by the
+    /// limbs' pixels alone, so a limb's picture can be measured through a
+    /// portal pair (`scripts/check_limb_through_portal.py`).
+    limbs_unseen: Option<Vec<String>>,
     /// Advance exactly one sim tick each frame (`--tick-per-frame`), so a
     /// film is the same each run and its shots are a known number of ticks
     /// apart, whatever the time a frame takes to write.
@@ -377,6 +383,12 @@ OPTIONS:
     --portal-effect off|cones
                         draw portals with body pieces only (`off`), no view
                         windows, or with the windows (`cones`, the default)
+    --limbs-unseen all|SLOT[,SLOT]
+                        draw no limb (or these limbs, as `hand_right`) of a
+                        part-drawn body: its `limb:<slot>` tracks, in the body
+                        and in the limb's twin. With --tick-per-frame, a film
+                        with the limbs and one without differ by the limbs'
+                        pixels alone
     --item TICK:X,Y:VX,VY:ID
                         throw held item ID into the world on sim tick TICK at
                         world X,Y with velocity VX,VY (px/s), as a hand
@@ -1163,6 +1175,60 @@ fn fire_portal_shots(
     }
 }
 
+/// `--limbs-unseen`: each part-drawn body draws none of its limbs' parts,
+/// and each limb twin draws nothing, whatever the portal adapter asked.
+fn draw_no_limbs(
+    config: Res<SceneCaptureConfig>,
+    mut commands: Commands,
+    roots: Query<(
+        Entity,
+        &ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentedBy,
+        Option<&ambition_platformer2d::render::rendering::actors::rigged::LimbTwin>,
+        Option<&ambition_platformer2d::render::rendering::actors::rigged::RiggedTrackMask>,
+    )>,
+    presentations: Query<&ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentation>,
+) {
+    use ambition_platformer2d::render::rendering::actors::rigged::RiggedTrackMask;
+    let Some(named) = config.limbs_unseen.as_ref() else {
+        return;
+    };
+    let unseen = |slot: &str| named.is_empty() || named.iter().any(|named| named == slot);
+    for (root, presented, twin, mask) in &roots {
+        let Ok(presentation) = presentations.get(presented.owner()) else {
+            continue;
+        };
+        let mut slots: Vec<String> = presentation
+            .pages
+            .flipbook
+            .tracks
+            .iter()
+            .filter_map(|name| name.strip_prefix("limb:")?.split(':').next().map(str::to_owned))
+            .filter(|slot| unseen(slot))
+            .collect();
+        slots.sort();
+        slots.dedup();
+        let wanted = match twin {
+            // The body draws its parts over the limbs itself (below), and a
+            // twin of an unseen limb draws nothing; any other twin, its limb.
+            Some(twin) if twin.is_over() || unseen(&twin.slot) => RiggedTrackMask::nothing(),
+            Some(_) => continue,
+            None if slots.is_empty() => continue,
+            // The body draws every part but the limbs the portal adapter
+            // sent as twins and the unseen limbs.
+            None => {
+                let mut limbs = mask.filter(|mask| !mask.only).map_or_else(Vec::new, |mask| mask.limbs.clone());
+                limbs.extend(slots);
+                limbs.sort();
+                limbs.dedup();
+                RiggedTrackMask::without(limbs)
+            }
+        };
+        if mask != Some(&wanted) {
+            commands.entity(root).insert(wanted);
+        }
+    }
+}
+
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
     if app.world().resource::<SceneCaptureConfig>().tick_per_frame {
@@ -1173,6 +1239,16 @@ fn install_room_capture(app: &mut App) {
         app.add_systems(Update, |mut selection: ResMut<ambition_platformer2d::portal_presentation::PortalEffectSelection>| {
             selection.active = ambition_platformer2d::portal_presentation::PortalVisualEffect::Off;
         });
+    }
+    if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
+        use ambition_platformer2d::render::rendering::actors::rigged::{drive_rigged_presentations, follow_limb_twins};
+        app.add_systems(
+            Update,
+            draw_no_limbs
+                .after(ambition_platformer2d::portal_presentation::PortalObservationSet)
+                .after(follow_limb_twins)
+                .before(drive_rigged_presentations),
+        );
     }
     let sim = app.sim_schedule();
     // Sim systems: each writes rollback state (health, a body's position, a
@@ -1412,6 +1488,7 @@ impl SceneCaptureConfig {
         let mut shots: Vec<ShotAt> = Vec::new();
         let mut items: Vec<ItemAt> = Vec::new();
         let mut portal_effect_off = false;
+        let mut limbs_unseen: Option<Vec<String>> = None;
         let mut tick_per_frame = false;
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
@@ -1693,6 +1770,16 @@ impl SceneCaptureConfig {
                     tick_per_frame = true;
                     1
                 }
+                "--limbs-unseen" => {
+                    limbs_unseen = match args.get(i + 1).map(String::as_str) {
+                        Some("all") => Some(Vec::new()),
+                        Some(slots) if !slots.starts_with("--") => {
+                            Some(slots.split(',').map(str::to_owned).collect())
+                        }
+                        _ => return Err("--limbs-unseen wants all or SLOT[,SLOT]".to_string()),
+                    };
+                    2
+                }
                 "--portal-effect" => {
                     match args.get(i + 1).map(String::as_str) {
                         Some("off") => portal_effect_off = true,
@@ -1896,6 +1983,7 @@ impl SceneCaptureConfig {
                 shots: Vec::new(),
                 items: Vec::new(),
                 portal_effect_off: false,
+                limbs_unseen: None,
                 tick_per_frame: false,
                 guards: Vec::new(),
                 body_warp: None,
@@ -1972,6 +2060,7 @@ impl SceneCaptureConfig {
             shots,
             items,
             portal_effect_off,
+            limbs_unseen,
             tick_per_frame,
             guards,
             body_warp,

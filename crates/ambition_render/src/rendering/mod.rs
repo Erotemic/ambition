@@ -728,7 +728,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // after the body's frame and look are chosen.
                 actors::rigged::follow_limb_twins
                     .after(passage_visuals::apply_passage_looks)
-                    .after(actors::BossAnimation),
+                    .after(actors::animate_characters)
+                    .after(actors::BossAnimation)
+                    .after(actors::pose_boss_part_animators),
             )
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(session_presentation_is_ready),

@@ -1776,7 +1776,7 @@ fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&An
 mod part_set;
 pub use part_set::{ask_for_parts, forget_parts, PartSetDraws, PartSetRequest, PlacedPart};
 mod limb_twin;
-pub use limb_twin::{follow_limb_twins, limb_tracks_drawn, LimbTwin, LimbTwins, RiggedTrackMask};
+pub use limb_twin::{follow_limb_twins, limb_tracks_drawn, LimbTwin, LimbTwins, RiggedTrackMask, TrackLayer};
 
 #[cfg(test)]
 mod tests;

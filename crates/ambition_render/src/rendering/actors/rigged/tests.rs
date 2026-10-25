@@ -76,7 +76,13 @@ struct Squash(Option<(f32, bool)>);
 /// The stand-in for the game's animator system: every frame it draws the
 /// root's current frame the game's way (page, atlas index, trimmed size and
 /// anchor), which the rigged driver then replaces with the impostor.
-fn animate(squash: Res<Squash>, mut roots: Query<(&mut Sprite, &mut CharacterAnimator, &mut Anchor), Without<RiggedPartSlot>>) {
+/// A limb's twin has no animator of its own: it follows its root
+/// ([`follow_limb_twins`]).
+#[allow(clippy::type_complexity)]
+fn animate(
+    squash: Res<Squash>,
+    mut roots: Query<(&mut Sprite, &mut CharacterAnimator, &mut Anchor), (Without<RiggedPartSlot>, Without<LimbTwin>)>,
+) {
     for (mut sprite, mut animator, mut anchor) in &mut roots {
         let flip = sprite.flip_x;
         draw_held_frame(&mut sprite, &mut animator, &mut anchor, flip);
@@ -1793,4 +1799,51 @@ fn a_frame_drawn_again_unchanged_writes_nothing() {
     assert_eq!(again, FrameWrites::default(), "an unchanged frame reported a write");
     let flipped = draw_animator_frame(&mut sprite, &mut animator, Some(&mut anchor), 0.0, true, StanceSquash::NONE);
     assert!(flipped.sprite, "a new facing did not report a sprite write");
+}
+
+/// A limb sent through a portal pair is drawn by three pictures: the body
+/// under the limb, the limb's twin, and the body over the limb. Together they
+/// draw each part of the frame once, and in the frame's order: the arm is
+/// not lost behind the giant, and an epaulette on its shoulder stays over it.
+#[test]
+fn a_limb_drawn_apart_and_the_body_under_and_over_it_draw_each_part_once_in_order() {
+    let mut flipbook = RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook");
+    flipbook.tracks = ["body", "limb:hand_left:upper", "limb:hand_left:fist", "epaulette", "head"]
+        .map(str::to_owned)
+        .to_vec();
+    let draw = |track: Option<u16>| PartDraw { at: Vec2::ZERO, scale: Vec2::ONE, rotation: 0.0, part: 0, track, color: [255; 4] };
+    let draws: Vec<PartDraw> = [Some(0), Some(1), Some(2), Some(3), Some(4), None].map(draw).to_vec();
+    let tracks = |mask: RiggedTrackMask| mask.keep(&flipbook, &draws).iter().map(|d| d.track).collect::<Vec<_>>();
+    let limbs = vec!["hand_left".to_owned()];
+    let under = tracks(RiggedTrackMask::under(limbs.clone()));
+    let limb = tracks(RiggedTrackMask::only("hand_left"));
+    let over = tracks(RiggedTrackMask::over(limbs.clone()));
+    assert_eq!(under, vec![Some(0)]);
+    assert_eq!(limb, vec![Some(1), Some(2)]);
+    assert_eq!(over, vec![Some(3), Some(4), None]);
+    let all: Vec<_> = under.into_iter().chain(limb).chain(over).collect();
+    assert_eq!(all, draws.iter().map(|d| d.track).collect::<Vec<_>>(), "each part once, in order");
+    // A frame with no part of the limb: the body draws all of it.
+    let no_limb = &draws[..1];
+    assert_eq!(RiggedTrackMask::under(limbs.clone()).keep(&flipbook, no_limb).len(), 1);
+    assert!(RiggedTrackMask::over(limbs).keep(&flipbook, no_limb).is_empty());
+}
+
+/// A limb's twin is composited at its root's size every frame. No animator
+/// writes a twin's size, so a twin that kept its own read its last cell as a
+/// squash and grew each frame (GNU-ton's arm, 2026-10-25: millions of pixels
+/// tall after a few frames, so the arm was drawn nowhere).
+#[test]
+fn a_limb_twin_keeps_its_roots_size_frame_after_frame() {
+    let (mut app, root) = app(true);
+    app.add_systems(Update, follow_limb_twins.after(animate).before(bind_rigged_presentations));
+    let twin = LimbTwin::spawn(&mut app.world_mut().commands(), root, "hand_left");
+    app.world_mut().flush();
+    app.world_mut().entity_mut(twin).insert(Visibility::Inherited);
+    for _ in 0..12 {
+        app.update();
+    }
+    let size = |entity: Entity| app.world().get::<Sprite>(entity).unwrap().custom_size;
+    assert!(size(root).is_some(), "the root draws its cell");
+    assert_eq!(size(twin), size(root), "the twin is drawn at its root's size");
 }

@@ -4,9 +4,9 @@
 // the sprite submodule, the tunnel (`interdimensional_gate_tunnel.png`, which
 // tiles both ways: across is the way round, down is the way in), streamed
 // down a twisting tunnel toward a light at its far end. It draws no art of
-// its own, and shows only inside the membrane's own frame, so it opens,
-// closes and ripples with the authored sheet; the membrane's lip and halo
-// stay the art's.
+// its own, and shows only in the dark of the membrane's own frame (the void
+// of the triangle door), so it opens, closes and turns with the authored
+// sheet; the door's lines, its lip and its halo stay the art's.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::globals
@@ -30,6 +30,9 @@ const INFLOW: f32 = 0.55;
 const TWIST: f32 = 0.12;
 const CORE: vec3<f32> = vec3<f32>(0.75, 0.95, 1.0);
 const CREST: vec3<f32> = vec3<f32>(0.6, 0.95, 1.0);
+// The aperture's radius over the frame's half width (the ring's 39.5 of 96
+// design units): the tunnel is measured from it.
+const APERTURE: f32 = 0.411;
 
 fn tunnel(uv: vec2<f32>) -> vec3<f32> {
     // Sampled at its full size: the wrap at the seam has no derivative to
@@ -47,14 +50,16 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         local_uv.x = 1.0 - local_uv.x;
     }
     let membrane = textureSample(membrane_texture, membrane_sampler, mix(uv_rect.xy, uv_rect.zw, local_uv));
-    // Inside the membrane only: its lip and halo are the art's.
-    let inside = smoothstep(0.8, 0.97, membrane.a);
+    // Inside the membrane only, and only in its dark: the door's lines, its
+    // lip and its halo are the art's.
+    let lum = dot(membrane.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    let inside = smoothstep(0.8, 0.97, membrane.a) * smoothstep(0.12, 0.03, lum);
     if inside <= 0.001 {
         discard;
     }
     let t = globals.time;
     let p = (mesh.uv - vec2<f32>(0.5)) * 2.0;
-    var r = length(p);
+    var r = length(p) / APERTURE;
     // A passage's wave: a ring that runs out from the middle and pushes the
     // tunnel as it goes, in for a body going in, out for one coming out.
     let k = clamp(control.z, 0.0, 1.0);

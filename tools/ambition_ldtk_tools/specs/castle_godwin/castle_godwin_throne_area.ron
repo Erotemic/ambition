@@ -85,7 +85,7 @@
         ( type: "Prop", px: [140, 2589], size: [72, 35], fields: ( name: "drain_breach", kind: "castle_drain_breach" ) ),
         ( type: "LockWall", px: [144, 2464], size: [64, 160], fields: ( id: "castle_godwin_throne_drain_wall", name: "the cracked wall of the old drain", gated_by: "world.switch_on castle_godwin_drain_lever", look: "castle_cracked_wall" ) ),
         ( type: "Switch", px: [300, 2592], size: [24, 32], fields: ( id: "castle_godwin_drain_lever", name: "the lever of the old drain", prompt: "Pull the lever", action: "ToggleFlag", target_encounter: "" ) ),
-        ( type: "LockWall", px: [284, 2560], size: [56, 64], fields: ( id: "castle_godwin_throne_lever_cage", name: "the cage of the lever", gated_by: "boss.cleared castle_godwin.wolfenstein_inugami", look: "temple_gate_iron" ) ),
+        ( type: "LockWall", px: [284, 2560], size: [56, 64], fields: ( id: "castle_godwin_throne_lever_cage", name: "the cage of the lever", gated_by: "boss.cleared castle_godwin.wolfenstein_inugami", look: "castle_cracked_niche" ) ),
         ( type: "Prop", px: [40, 2368], size: [46, 70], fields: ( name: "final_poster_a", kind: "castle_propaganda_poster_a" ) ),
         ( type: "Prop", px: [128, 2376], size: [46, 62], fields: ( name: "final_poster_b", kind: "castle_wanted_poster" ) ),
         ( type: "CameraZone", px: [6000, 0], size: [1920, 1024], fields: ( id: "castle_godwin_throne_camera", name: "castle_godwin_throne_camera", mode: "Default", clamp_mode: "zone_bounds" ) ),

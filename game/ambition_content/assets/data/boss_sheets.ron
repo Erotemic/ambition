@@ -782,45 +782,15 @@
                 frame_count: 9,
                 duration_secs: 0.04,
             )),
+            // turn
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.03,
+            )),
             // ward_kindle
             (Rest, (
                 frame_count: 12,
                 duration_secs: 0.075,
-            )),
-            // ward_idle
-            (Rest, (
-                frame_count: 16,
-                duration_secs: 0.07,
-            )),
-            // ward_hunt
-            (DashEcho, (
-                frame_count: 16,
-                duration_secs: 0.035,
-            )),
-            // ward_crash
-            (Rest, (
-                frame_count: 8,
-                duration_secs: 0.025,
-            )),
-            // ward_howl
-            (SpikeHalo, (
-                frame_count: 20,
-                duration_secs: 0.044,
-            )),
-            // ward_bite_tell
-            (Rest, (
-                frame_count: 12,
-                duration_secs: 0.047,
-            )),
-            // ward_bite
-            (SideSweep, (
-                frame_count: 12,
-                duration_secs: 0.033,
-            )),
-            // ward_bite_miss
-            (Rest, (
-                frame_count: 18,
-                duration_secs: 0.047,
             )),
             // ward_bound
             (Rest, (
@@ -831,6 +801,21 @@
             (Rest, (
                 frame_count: 12,
                 duration_secs: 0.075,
+            )),
+            // ward_ring_kindle
+            (Rest, (
+                frame_count: 26,
+                duration_secs: 0.035,
+            )),
+            // ward_ring
+            (Rest, (
+                frame_count: 32,
+                duration_secs: 0.035,
+            )),
+            // ward_ring_dispel
+            (Rest, (
+                frame_count: 26,
+                duration_secs: 0.035,
             )),
             // unseen
             (Rest, (

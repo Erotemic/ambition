@@ -653,8 +653,10 @@ def throne():
         lock_wall(f"{rid}_drain_wall", lintel_x + lintel_w - DRAIN_WALL_W, final_floor - opening, DRAIN_WALL_W, opening,
                   f"world.switch_on {DRAIN_LEVER}", "the cracked wall of the old drain", look="castle_cracked_wall"),
         lever(DRAIN_LEVER, "the lever of the old drain", "Pull the lever", 300, final_floor, action="ToggleFlag"),
-        # The lever is caged until the Inugami is dead.
-        lock_wall(f"{rid}_lever_cage", 284, final_floor - 64, 56, 64, f"boss.cleared {INUGAMI_ENCOUNTER}", "the cage of the lever"),
+        # The lever is walled into a niche of the drain's cracked stone until
+        # the Inugami is dead; then the stone breaks open.
+        lock_wall(f"{rid}_lever_cage", 284, final_floor - 64, 56, 64, f"boss.cleared {INUGAMI_ENCOUNTER}", "the cage of the lever",
+                  look="castle_cracked_niche"),
         # The regime's posters on the lintel.
         poster("final_poster_a", "castle_propaganda_poster_a", lintel_x + 24, final_floor - opening - 96),
         poster("final_poster_b", "castle_wanted_poster", lintel_x + 112, final_floor - opening - 88),

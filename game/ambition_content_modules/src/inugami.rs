@@ -396,7 +396,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 3);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 4);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -492,6 +492,14 @@ record! {
     /// The run's bolt: its floor, and seconds into its tell.
     55 run_bolt_floor: f32,
     56 run_bolt: Option<f32>,
+    /// The ward's own clock: seconds since it kindled, while it burns and
+    /// while it is blown out. Its spirits circle on it, whatever row the head
+    /// is drawn in (`ward_layer`).
+    57 ward_t: Option<f32>,
+    /// The side it was drawn facing, and seconds into its turn round when it
+    /// turns (`turned`).
+    58 drawn_side: f32,
+    59 turning: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -723,9 +731,8 @@ fn set_scale(c: &mut Conductor, inv: &mut Invocation<'_>, scale: f32) -> Result<
     Ok(())
 }
 
-/// Put it at `pos`, facing `side`, drawn with `row`. Warded, it is drawn
-/// with the row's `ward_` form where its sheet has one (its hitodama round
-/// it), and the row itself where not.
+/// Put it at `pos`, facing `side`, drawn with `row`, and its ward's `layer`
+/// over it (or none).
 #[allow(clippy::too_many_arguments)]
 fn held_at(
     inv: &mut Invocation<'_>,
@@ -733,19 +740,74 @@ fn held_at(
     pos: Vec2,
     side: f32,
     row: (&'static str, f32, bool),
-    warded: bool,
+    layer: Option<(&'static str, f32, bool)>,
     dt: f32,
 ) -> Result<(), Fault> {
     inv.submit::<ConductedPosePort>(ConductedPose {
         pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt.max(1e-4)).into() }),
         side: Some(side),
     })?;
-    let names = if warded && !row.0.starts_with("ward_") {
-        vec![format!("ward_{}", row.0), row.0.into()]
-    } else {
-        vec![row.0.into()]
-    };
-    inv.submit::<DrawnRowPort>(DrawnRow { on: ambition_boss_special_port::DrawnPart::Body, names, elapsed: row.1, looping: row.2 })
+    inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;
+    let (names, elapsed, looping) = layer.map_or((Vec::new(), 0.0, false), |(name, t, looping)| (vec![name.into()], t, looping));
+    inv.submit::<DrawnRowPort>(DrawnRow { on: ambition_boss_special_port::DrawnPart::Layer, names, elapsed, looping })
+}
+
+/// How long its spirits take to go round once (`wolfenstein_inugami`'s
+/// `SPIRIT_TURN_S`), and the beat of the ring: its four spirits are where
+/// they were each quarter turn.
+const RING_TURN_S: f32 = 1.12;
+const RING_BEAT_S: f32 = RING_TURN_S / 4.0;
+
+/// Its ward's spirits, a layer over its row on the ward's own clock: they
+/// catch while it kindles, circle while it burns, and are blown out when
+/// Kagero's spell breaks it. Each ring row starts its spirits where the
+/// last left them, so they circle on through every row the head is drawn
+/// in (Jon, 2026-10-25: the ring "jumping where one warded row hands over
+/// to the next").
+fn ward_layer(c: &Conductor) -> Option<(&'static str, f32, bool)> {
+    let w = c.ward_t?;
+    let at_dispel = crate::kagero::DISPEL_AT_S;
+    if let Some(b) = c.binding.filter(|b| *b >= at_dispel) {
+        // Its spirits were on a beat when she cast (she is called on one):
+        // the row starts them there, and its own clock is past it by as much
+        // as the ward's was.
+        let past_beat = (w - b + at_dispel).rem_euclid(RING_BEAT_S);
+        return Some(("ward_ring_dispel", past_beat + b - at_dispel, false));
+    }
+    match c.rearing {
+        Some(t) if c.rear_crash && t < FLARE_S => Some(("ward_ring_kindle", w, false)),
+        _ if c.warded => Some(("ward_ring", w, true)),
+        _ => None,
+    }
+}
+
+/// How long it takes to turn round (`turn`, 8 x 30 ms).
+const TURN_S: f32 = 0.24;
+
+/// The rows it turns round in: where it floats, hunts or draws up to a move.
+/// Anywhere else (a strike, a crash, its spell) it faces the new way at once.
+fn turns_in(row: &str) -> bool {
+    matches!(row, "idle" | "drift" | "hunt" | "bite_tell" | "dive_tell" | "storm_tell" | "howl_tell" | "leash_tell")
+}
+
+/// `row`, or its turn round when it has just come to face the other way
+/// (Jon, 2026-10-25: it flipped). `facing`: the side it is drawn facing
+/// this tick.
+fn turned(c: &mut Conductor, facing: f32, row: (&'static str, f32, bool), dt: f32) -> (&'static str, f32, bool) {
+    if c.drawn_side != 0.0 && facing != c.drawn_side && turns_in(row.0) {
+        c.turning = Some(0.0);
+    }
+    c.drawn_side = facing;
+    match c.turning {
+        Some(t) if t < TURN_S && turns_in(row.0) => {
+            c.turning = Some(t + dt);
+            ("turn", t, false)
+        }
+        _ => {
+            c.turning = None;
+            row
+        }
+    }
 }
 
 /// Frames `from..to` of a row across `u` (0-1) of a part.
@@ -915,7 +977,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         inv.submit::<BossStagePort>(BossStage { lit: if lived { lit } else { 1.0 }, flash: 0.0, card: 0.0 })?;
         c.dead_for = Some(t);
         c.warded = false;
-        held_at(inv, at, Vec2::new(x, y), side, ("death", t, false), false, dt)?;
+        c.ward_t = None;
+        held_at(inv, at, Vec2::new(x, y), side, ("death", t, false), None, dt)?;
         return c.store(inv);
     }
     c.lived = true;
@@ -1060,6 +1123,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             if c.rear_crash {
                 // Its ward kindles round it: the blue fire that makes you run.
                 c.warded = true;
+                c.ward_t = Some(0.0);
                 inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
                 play(inv, SFX_CATCH, at)?;
             }
@@ -1168,7 +1232,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── Kagero comes to your aid in the final hall: her spell breaks its ward ──
     let near = (at.x - target.x).abs() < ALLY_NEAR;
-    if c.arrived && c.warded && !c.ally_called && c.appear.is_none() && in_final_hall(target.x) && near {
+    // She is called on a beat of the ward's ring, so her spell breaks it with
+    // its spirits where its `ward_ring_dispel` row starts them.
+    let on_beat = c.ward_t.is_none_or(|w| (w + crate::kagero::DISPEL_AT_S).rem_euclid(RING_BEAT_S) < dt);
+    if c.arrived && c.warded && !c.ally_called && c.appear.is_none() && in_final_hall(target.x) && near && on_beat {
         c.ally_called = true;
         c.binding = Some(0.0);
         let toward_it = if at.x < target.x { -1.0 } else { 1.0 };
@@ -1204,9 +1271,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: flash_after(b - at_dispel, 0.5), card: 0.0 })?;
         }
         c.binding = if b >= at_dispel + DISPEL_S { None } else { Some(b) };
+        if c.binding.is_none() {
+            // Blown out: the ward is gone.
+            c.ward_t = None;
+        }
     }
 
-    for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear, &mut c.slack] {
+    for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear, &mut c.slack, &mut c.ward_t] {
         if let Some(t) = timer.as_mut() {
             *t += dt;
         }
@@ -1500,7 +1571,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
     let row = drawn_row(&c, part);
-    held_at(inv, at, pos, side, row, c.warded, dt)?;
+    // The side it is drawn facing is the one it faces now: the side asked
+    // for here is drawn from the next tick (filmed 2026-10-25: started on
+    // the asking tick, the turn's first frame was drawn the old way round).
+    let row = turned(&mut c, inu.side, row, dt);
+    let layer = ward_layer(&c);
+    held_at(inv, at, pos, side, row, layer, dt)?;
     c.store(inv)
 }
 
@@ -1519,7 +1595,7 @@ fn rise(
     let Some(t) = c.intro else {
         // Asleep: it is still his head, on his body.
         set_scale(c, inv, c.rise_scale)?;
-        return held_at(inv, at, from, side, ("unseen", 0.0, true), false, dt);
+        return held_at(inv, at, from, side, ("unseen", 0.0, true), None, dt);
     };
     let start = rise_at(inu);
     let was = t - dt;
@@ -1531,7 +1607,7 @@ fn rise(
     }
     if t < start {
         set_scale(c, inv, c.rise_scale)?;
-        return held_at(inv, at, from, side, ("unseen", 0.0, true), false, dt);
+        return held_at(inv, at, from, side, ("unseen", 0.0, true), None, dt);
     }
     let u = (t - start) / RISE_S;
     let grow = ((u - GROW_FROM) / (GROW_TO - GROW_FROM)).clamp(0.0, 1.0);
@@ -1552,7 +1628,7 @@ fn rise(
     }
     let pos = from - Vec2::new(0.0, RISE_UP * ease(u.min(1.0)));
     let row = if u < 1.0 { span("rise", 0.0, 22.0, 0.08, u) } else { ("idle", t, true) };
-    held_at(inv, at, pos, side, row, false, dt)
+    held_at(inv, at, pos, side, row, None, dt)
 }
 
 /// The row it is drawn with: each phase of a move has its own row; then its

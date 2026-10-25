@@ -676,7 +676,15 @@ The shape now:
    the same lever. Shut, each is a `LockWall` look (`castle_cracked_wall`,
    `castle_cracked_floor`); broken through, the breach behind it shows
    (`castle_drain_breach`). Lock walls now draw over the room's scenery, so
-   a breach behind a shut wall does not show.
+   a breach behind a shut wall does not show. The lever's cage is cracked
+   stone too (`castle_cracked_niche`), broken open when it dies.
+
+**Crumble (Jon, 2026-10-25: "Address all open items").** A lock wall's look
+decides how it opens: a look whose sheet has a `break` row crumbles (its
+blocks part from the row's first frame, fall, settle and fade, and then its
+picture goes; `LockWallCrumble`), any other slides into its lintel. The way
+is open from the first frame, which already draws the wall broken. The
+three cracked looks have `break` rows (14 x 45 ms).
 
 **Lightning.** `inu_storm` replaces the pack: the head throws its head back,
 his lightning crawls over it (`storm_tell`), three marks spark on the floor
@@ -704,18 +712,40 @@ Wolfenstein" (spawn, encounter, catalog, sheet). Posters in the throne room
 are on stone: the run's barricades and the lintel of the drain.
 
 **Art.** Its rows keep their lengths in more frames (idle 24, rise 30,
-death 34, hunt 16, crash and dive 8, and so on); the hitodama are only in the
-`ward_` rows and turn by time. Wolfenstein's short rows got in-betweens at
-the same lengths (rakes, slam, lunge, bound, lash, stab, galvanize, turn).
-Kagero got `cast`.
+death 34, hunt 16, crash and dive 8, and so on). Kagero got `cast`.
+
+**The ward is a layer (2026-10-25).** Its hitodama are no longer drawn in
+copies of the head rows: `ward_ring_kindle`, `ward_ring` (one whole turn,
+loops) and `ward_ring_dispel` draw only the spirits, and the conductor
+pins them over whatever row the head is in (`DrawnPart::Layer`,
+`ambition.presentation.drawn_row` v3) on the ward's own clock
+(`Conductor::ward_t`), so the ring circles on through every hand-over.
+The layer rides the head (its `skull` track, against `idle`'s first frame);
+its `behind` tracks draw under the head; mirrored, it is mirrored about the
+head first, so it keeps its turn when the head turns round. Kagero is
+called on a beat of the ring (a quarter turn), so the ring is where
+`ward_ring_dispel` starts it when her spell breaks it.
+
+**Turn.** Where the head reverses facing on a calm row (float, hunt, a
+tell) it draws `turn` (8 x 30 ms): the head whips round and the fire from
+its neck swings from ahead of it, over it, to behind it.
+
+**Wolfenstein's key poses.** His short rows got in-betweens at the same
+lengths first; then real keys (2026-10-25): each tell ends in a load past
+the cock (`RAKE_LOAD`, `HAMMER_LOAD`, `STAB_LOAD`, `LUNGE_LOAD`,
+`GALV_LOAD`, `LASH_LOAD`) and each strike goes through an arc
+(`RAKE_ARC`, `BACK_ARC`, `HAMMER_ARC`, `STAB_ARC`, `BOUND_PUSH`) and past
+the contact to an overshoot (`RAKE_OVER`, `BACK_OVER`, `HIGH_OVER`,
+`THROWN_OVER`, `LASH_OVER`) before it settles; his skid pitches forward
+past the stop.
 
 **Accepted (Jon did not object, 2026-10-25):** Kagero only casts, she does
 not cut; the Inugami's sheet is 10 pages for its smoother rows and its ward
 rows.
 
-**Open:** the hitodama ring still jumps where one ward row hands over to the
-next; a shut wall that breaks slides up into its lintel, as every lock wall
-does, rather than crumbling.
+**Limits.** The layer is drawn only by a body drawn from parts: a baked
+Inugami (no part flipbook) shows no ring. The ring keeps its radius while
+Kagero's spell holds it (it was pulled in tight in the old `ward_bound`).
 
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 

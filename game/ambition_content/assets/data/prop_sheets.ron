@@ -128,6 +128,7 @@
     // the breach left when either is broken through.
     "castle_cracked_wall": (),
     "castle_cracked_floor": (),
+    "castle_cracked_niche": (),
     "castle_drain_breach": (),
     // Primeval's palm.
     "coconut_palm": (),

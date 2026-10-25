@@ -35,6 +35,9 @@
     start_known: All,
     facilities: [
         (id: "home_gate_station", name: "Home Gate Station", dimension: "home"),
+        // The old gate stack under the hub: its own facility, so the public
+        // gate can dial its rings.
+        (id: "home_gate_stack", name: "Home Gate Stack", dimension: "home"),
         (id: "military_gate_annex", name: "Military Gate Annex", dimension: "home"),
         (id: "math_town_gate_hall", name: "Math Town Gate Hall", dimension: "math"),
         (id: "primeval_trailhead_ring", name: "Primeval Trailhead Ring", dimension: "jungle"),
@@ -58,13 +61,31 @@
             terminal: Some("hub_public_terminal"),
             note: "Public ring. Organic travellers: expect nausea for an hour.",
         ),
+        // Ring 1 of the gate stack: the intro's gate. Its old switch is its
+        // power. Not an important ring: its address is random glyphs.
+        (
+            zone: "intro_portal_zone",
+            name: "Gate stack, ring 1",
+            facility: "home_gate_stack",
+            room: "gate_stack_lower",
+            glyphs: Some([2, 7, 0, 12, 9, 10]),
+            terminal: Some("ring1_terminal"),
+            status: PoweredBy(
+                switch: "intro_portal_switch",
+                reason: "Ring 1 has no power. Toggle the gate power beside it.",
+            ),
+            posted: ["LEGAL"],
+            note: "The first ring. The stack was built around it.",
+        ),
         // Ring 7 of the gate stack is the old Math line, posted on its
-        // terminal. It draws power through the breaker beside it.
+        // terminal. It draws power through the breaker beside it. Its address
+        // is random glyphs.
         (
             zone: "math_gate_home_zone",
             name: "Gate stack, ring 7",
-            facility: "home_gate_station",
+            facility: "home_gate_stack",
             room: "gate_stack_lower",
+            glyphs: Some([6, 10, 2, 2, 14, 14]),
             terminal: Some("ring7_terminal"),
             status: PoweredBy(
                 switch: "math_gate_switch",
@@ -116,7 +137,9 @@
             room: "primeval_rookery",
             address: Some("NEST"),
             hidden: true,
-            note: "Receive only.",
+            terminal: Some("rookery_gate_terminal"),
+            posted: ["LEGAL", "GENESIS"],
+            note: "A survey ring. The birds roost on its dialer.",
         ),
         // ── Evil (Castle Godwin) ──────────────────────────────────────────
         (
@@ -149,7 +172,9 @@
             room: "gnu_ton_works_approach",
             address: Some("TESLA"),
             hidden: true,
-            note: "Receive only. It stands on the tower by GNU-ton's door.",
+            terminal: Some("trail_survey_gate_terminal"),
+            posted: ["LEGAL", "ASCENT"],
+            note: "A survey ring on the tower by GNU-ton's door.",
         ),
         (
             zone: "orbital_station_gate_arrival",

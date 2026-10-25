@@ -25,9 +25,12 @@ What it does (`docs/planning/game/gate-network.md`):
   room's coordinates) does not move: every hub position stays where it was.
 - `overfit_annex_entry` (another room) moves its place in the world file out
   of the wing's way. Its rooms and doors do not change.
-- The intro's gate (`intro_portal_zone`, `gate_stack_lower`) comes out of the
-  hub's door to the gate stack, on the start's platform, so the first walk
-  from the intro leads east past the start to the public gate.
+- Every ring has an address and a terminal (Jon, 2026-10-24). The intro's
+  gate (`intro_portal_zone`, `gate_stack_lower`) is Ring 1 of the gate stack:
+  a dialed ring with its terminal, powered by its old switch. The walk from
+  the intro to the hub is a plain door of the gate stack
+  (`gate_stack_to_hub`), paired with the hub's door to the gate stack. The
+  rookery's ring (NEST) and the trail's survey ring (TESLA) get terminals.
 - Ring 7 of the gate stack (`math_gate_home_zone`) becomes a dialed ring with
   its own terminal; its old switch is now its power breaker.
 - The military gate annex (`military_gate_annex`, its own room and facility)
@@ -55,6 +58,7 @@ from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
 SANDBOX = default_worlds_dir() / "sandbox.ldtk"
 INTRO = default_worlds_dir() / "intro.ldtk"
+SCIENCE = default_worlds_dir() / "science.ldtk"
 
 HUB = "central_hub_main"
 WING = "central_hub_dev_wing"
@@ -95,6 +99,12 @@ DEV_DOORS = [
     ("gnu_ton_handle_hub_door", "to GNU-ton gravity handle", "gnu_ton_orchard", "orchard_hub_door", True),
 ]
 DOOR_X0, DOOR_STEP = 64, 68
+
+
+#: The doors of DEV_DOORS that Jon put back on the main floor (2026-10-24,
+#: in the LDtk editor): the halls of bosses, characters and biomes. The hub
+#: keeps them and the wing does not draw them; the others keep their places.
+HUB_KEEPS = {"hall_of_bosses_door", "hall_of_characters_door", "hall_of_biomes_door"}
 
 
 def wing_door_x(index: int) -> int:
@@ -232,6 +242,8 @@ def wing_spec() -> str:
                          text="DEVELOPER WING: test rooms and old door routes. Not public travel: the public gate is in the hall."),
     ]
     for index, (zone, name, room, far, both) in enumerate(DEV_DOORS):
+        if zone in HUB_KEEPS:
+            continue
         e.append(gates.ron_entity("LoadingZone", wing_door_x(index), WING_FLOOR - 96, 48, 96, id=zone, name=name,
                                   activation="Door", target_room=room, target_zone=far, bidirectional=both))
     body = "\n        ".join(e)
@@ -267,7 +279,7 @@ def holds(level: dict, identifier: str, field: str, value: str) -> bool:
 
 def hub_delete_yaml(hub: dict) -> str:
     """The deletes of what the hub still holds of `targets` below."""
-    targets = [("LoadingZone", "id", zone) for zone, *_ in DEV_DOORS]
+    targets = [("LoadingZone", "id", zone) for zone, *_ in DEV_DOORS if zone not in HUB_KEEPS]
     targets += [
         ("LoadingZone", "id", "east_exit"),
         ("LoadingZone", "id", "evil_gate_home_zone"),
@@ -347,7 +359,14 @@ level_id: gate_stack_lower
 edits:
   - target: {identifier: LoadingZone, match: {id: intro_portal_zone}}
     fields:
-      target_zone: gate_stack_portal
+      name: ring 1
+      target_room: ""
+      target_zone: ""
+      bidirectional: false
+  - target: {identifier: Switch, match: {id: intro_portal_switch}}
+    fields:
+      name: Ring 1 power
+      prompt: Toggle gate power
   - target: {identifier: LoadingZone, match: {id: math_gate_home_zone}}
     fields:
       name: ring 7
@@ -367,6 +386,39 @@ edits:
 def ring7_entities() -> list[tuple]:
     x, floor = RING7_DIALER
     return gates.terminal("Ring 7 (Home)", "ring7_terminal", x, floor)
+
+
+#: Ring 1's terminal, west of the ring past its power switch; the gate
+#: stack's door to the hub, at the west end of the floor.
+STACK_FLOOR = 736
+RING1_DIALER_X = 488
+STACK_DOOR_X = 288
+
+
+def ring1_entities() -> list[tuple]:
+    return gates.terminal("Ring 1 (Home)", "ring1_terminal", RING1_DIALER_X, STACK_FLOOR) + [
+        ("LoadingZone", STACK_DOOR_X, STACK_FLOOR - 96, 48, 96,
+         dict(id="gate_stack_to_hub", name="to central hub", activation="Door",
+              target_room=AREA, target_zone="gate_stack_portal", bidirectional=False)),
+    ]
+
+
+def hub_stack_door_yaml() -> str:
+    return f"""# The hub's door to the gate stack comes out of the stack's own door to the hub.
+level_id: {HUB}
+edits:
+  - target: {{identifier: LoadingZone, match: {{id: gate_stack_portal}}}}
+    fields:
+      target_zone: gate_stack_to_hub
+"""
+
+
+#: Terminals for the receive-only rings, east of each ring on its floor:
+#: (world, level, label, terminal id, dialer x, floor).
+RECEIVER_TERMINALS = [
+    (SANDBOX, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 300, 480),
+    (SCIENCE, "gnu_ton_works_approach", "Trail Survey Gate", "trail_survey_gate_terminal", 972, 352),
+]
 
 
 #: The districts' arrival rooms (`specs/pirate_port`, `specs/ninja_village`):
@@ -433,14 +485,12 @@ def main(argv) -> int:
                           "--start-x", str(place[0]), "--start-y", str(place[1]), "--in-place")
             if code:
                 return code
-    wing = level_of(SANDBOX, WING)
-    if wing and (wing["worldX"], wing["worldY"]) != (WING_X, WING_Y):
-        code, _ = run("level", "delete", WING, "--ldtk", str(SANDBOX), "--in-place", "--no-repair")
-        if code:
+    # The wing is made once. After that it is Jon's to edit in LDtk: a
+    # second run must not replace it (it would wipe his edits).
+    if level_of(SANDBOX, WING) is None:
+        code, out = run("area", "create", str(spec), "--ldtk", str(SANDBOX))
+        if code and "wrote new level" not in out:
             return code
-    code, out = run("area", "create", str(spec), "--ldtk", str(SANDBOX), "--replace-existing")
-    if code and "wrote new level" not in out and "replaced level" not in out:
-        return code
     hub_text = json.dumps(level_of(SANDBOX, HUB))
     if "hub_public_gate_zone" not in hub_text:
         if apply_yaml(gates.as_yaml(HUB, public_gate_entities(), "The public gate of the central hub."),
@@ -460,14 +510,26 @@ def main(argv) -> int:
         if apply_yaml(gates.as_yaml("gate_stack_lower", ring7_entities(), "Ring 7's terminal."),
                       "ring7_terminal.yaml", ["entity", "add"], INTRO):
             return 1
-    code, out = run("area", "create", str(annex), "--ldtk", str(SANDBOX), "--replace-existing")
-    if code and "wrote new level" not in out and "replaced level" not in out:
-        return code
+    if "ring1_terminal" not in json.dumps(level_of(INTRO, "gate_stack_lower")):
+        if apply_yaml(gates.as_yaml("gate_stack_lower", ring1_entities(), "Ring 1's terminal, and the door to the hub."),
+                      "ring1_terminal.yaml", ["entity", "add"], INTRO):
+            return 1
+    if apply_yaml(hub_stack_door_yaml(), "hub_stack_door.yaml", ["entity", "set-field"], SANDBOX):
+        return 1
+    for world, level_id, label, terminal_id, x, floor in RECEIVER_TERMINALS:
+        if terminal_id not in json.dumps(level_of(world, level_id)):
+            if apply_yaml(gates.as_yaml(level_id, gates.terminal(label, terminal_id, x, floor), f"{label}'s terminal."),
+                          f"{terminal_id}.yaml", ["entity", "add"], world):
+                return 1
+    if level_of(SANDBOX, ANNEX) is None:
+        code, out = run("area", "create", str(annex), "--ldtk", str(SANDBOX))
+        if code and "wrote new level" not in out:
+            return code
     if "military_tower_annex_door" not in json.dumps(level_of(SANDBOX, TOWER)):
         if apply_yaml(gates.as_yaml(TOWER, tower_door_entities(), "The tower's door to its gate annex."),
                       "tower_annex_door.yaml", ["entity", "add"], SANDBOX):
             return 1
-    for checked in (SANDBOX, INTRO):
+    for checked in (SANDBOX, INTRO, SCIENCE):
         code, _ = run("validate", str(checked))
         if code:
             return code

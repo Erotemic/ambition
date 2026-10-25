@@ -52,19 +52,20 @@ mod tests {
         }
         assert_eq!(app.world().resource::<AmbitionGatePortals>().0, shipped.keys().cloned().collect::<Vec<_>>());
 
-        let switch = r#"command: Switch("intro_portal_switch"),"#;
+        // The probe gives the intro's ring (a dialed ring) a switch command.
+        let row = "\"intro_portal_zone\": (\n        command: Dialed,";
         let with = |replacement: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/gate_portals.ron" {
                     return text;
                 }
-                assert_eq!(text.matches(switch).count(), 1, "the probe edits one switch");
-                text.replace(switch, replacement)
+                assert_eq!(text.matches(row).count(), 1, "the probe edits one row");
+                text.replace(row, &format!("\"intro_portal_zone\": (\n        command: {replacement},"))
             })
         };
-        let edited = with(r#"command: Switch("another_switch"),"#).expect("an edited row compiles");
+        let edited = with(r#"Switch("another_switch")"#).expect("an edited row compiles");
         assert_eq!(lowered_gate_portals(&edited)["intro_portal_zone"].command.switch_id(), Some("another_switch"));
-        let refused = format!("{:?}", with(r#"command: Switch(""),"#).expect_err("a portal with no switch"));
+        let refused = format!("{:?}", with(r#"Switch("")"#).expect_err("a portal with no switch"));
         assert!(refused.contains("`intro_portal_zone.command` names an empty switch"), "{refused}");
         assert!(refused.contains("gate_portals.ron"), "{refused}");
     }

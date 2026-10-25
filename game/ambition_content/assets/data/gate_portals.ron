@@ -12,7 +12,7 @@
 {
     // The intro's gate, at the end of the intro.
     "intro_portal_zone": (
-        command: Switch("intro_portal_switch"),
+        command: Dialed,
         portal_sprite_name: "Interdimensional Gate Portal",
         ring_sprite_name: "Interdimensional Gate Ring",
     ),

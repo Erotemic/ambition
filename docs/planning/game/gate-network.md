@@ -31,9 +31,11 @@ ring's zone. A dial never moves a body.
    takes the k-th chevron of it, round again past the last
    (`GateNetworkCatalog::spell`; LEGAL is Λ Ε Γ Α Λ₂). A dial must enter
    exactly those chevrons (Jon, 2026-10-24): Λ Ε Γ Α Λ is no address.
-3. **An address reaches one ring.** A ring with no address only sends (Ring
-   7). A **hidden** address is in no directory, and a dial reaches it the same
-   way.
+3. **An address reaches one ring, and every ring has one and a terminal**
+   (Jon, 2026-10-24: "every gate placed needs an address and a gate interface
+   so it can always be used"). An important ring's address is a word; any
+   other ring's is random glyphs (`glyphs`), with its name as its label. A
+   **hidden** address is in no directory, and a dial reaches it the same way.
 4. **Any valid address can always be dialed.** Knowledge never changes what a
    dial does. It changes only what a terminal lists.
 5. **The dial decision** (`resolve_dial`) checks, in this order: the address
@@ -113,20 +115,25 @@ from the start.
 | `SILENT` | `ninja_village_gate_arrival` | `ninja_village_gate_shrine` | the village, the forest, the dojo | yes |
 | `ALDENTE` | `noodly_narthex_gate` | `noodly_narthex` | the Noodly Temple | yes |
 | `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | yes; on foot, the checkpoint wants the clearance or the crawlway |
-| `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes, receive only |
-| `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes, receive only |
-| (none) | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | sends when its breaker is on; `TANGENT` is posted on it |
+| `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes |
+| `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes |
+| glyphs | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | when its breaker is on; `TANGENT` is posted on it |
+| glyphs | `intro_portal_zone` | `gate_stack_lower` (Ring 1, the intro's gate) | the gate stack; its door to the hub | when its power switch is on; `LEGAL` is posted on it |
 
 ## The hub
 
 The central hub's main floor has one public gate (ring, dialer, power
 cabinet, traffic board, bags for organic travellers) east of the start. The
-door to the gate stack stands on the middle platform by the start: the
-intro's gate comes out of it. The doors to test rooms and the old doors to
-other dimensions are in the **developer wing** (`central_hub_dev_wing`), a
-level of the same room east of the main floor, through the old east exit:
-each door keeps its id and target, so tests and far doors still find it.
-`specs/gate_network/make_gates.py` makes all of this.
+door to the gate stack stands on the middle platform by the start, paired
+with the stack's door to the hub (`gate_stack_to_hub`). The gate stack
+(`home_gate_stack`, its own facility, so the public gate dials it) holds
+Ring 1 (the intro's gate) and Ring 7, each with its power switch and its
+terminal. The halls of bosses, characters and biomes have their doors on
+the main floor (Jon put them back); the doors to test rooms and the old doors
+to other dimensions are in the **developer wing** (`central_hub_dev_wing`), a
+level of the same room east of the main floor, through the old east exit.
+`specs/gate_network/make_gates.py` made all of this; it makes the wing and
+the annex once and never replaces them.
 
 ## The military gate
 

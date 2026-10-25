@@ -362,7 +362,7 @@ fn an_opening_ring_takes_nobody_and_an_open_one_takes_the_traveller_once() {
 
 /// Acceptance 4: a source ring answers by its own rules. Ring 7 of the gate
 /// stack has no power until its breaker is thrown and never dials its own
-/// facility; a ring in a link is busy for another.
+/// facility (ring 1 of the stack); a ring in a link is busy for another.
 #[test]
 fn ring_seven_answers_by_its_power_and_its_facility() {
     let mut sim = room("gate_stack_lower");
@@ -371,7 +371,12 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
     ask(&mut sim, RING7, GateTerminalAction::Close);
     press_switch(&mut sim, RING7_BREAKER);
     open_terminal(&mut sim, RING7_TERMINAL, RING7);
-    assert_eq!(dial(&mut sim, RING7, "LEGAL"), "same_facility");
+    // Ring 1 is in ring 7's facility, the gate stack: a walk, not a dial.
+    let ring1 = {
+        let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>();
+        catalog.ring("intro_portal_zone").and_then(|ring| catalog.address_of(ring)).expect("ring 1 has an address")
+    };
+    assert_eq!(dial_chevrons(&mut sim, RING7, &ring1), "same_facility");
     assert_eq!(dial(&mut sim, RING7, "TANGENT"), "link");
     // The Math ring is in ring 7's link: the public gate finds it busy.
     let mut state = network(&mut sim);

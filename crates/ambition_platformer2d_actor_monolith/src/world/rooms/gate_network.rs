@@ -81,13 +81,11 @@ pub fn run_gate_network(
                 match resolve_dial(&catalog, &state, &intent.ring, address, &facts) {
                     Ok(far) => {
                         let (far_room, far_zone) = (far.room.clone(), far.zone.clone());
-                        let word = far.address.clone();
+                        let known = gate_address_known_flag(far.address_key());
                         state.open_link(&intent.ring, &far_room, &far_zone, address);
                         state.report(&intent.ring, address.clone(), Ok(far_zone));
                         // A dial that answers teaches the address.
-                        if let Some(word) = word {
-                            save.data_mut().set_flag(gate_address_known_flag(&word), true);
-                        }
+                        save.data_mut().set_flag(known, true);
                     }
                     Err(refusal) => state.report(&intent.ring, address.clone(), Err(refusal)),
                 }

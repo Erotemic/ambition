@@ -154,22 +154,22 @@ pub struct TerminalModel {
     pub list_cursor: usize,
 }
 
-/// The addresses a terminal lists as known: those written on it first, then
-/// each the traveller knows (`GateNetworkCatalog::knows`: what the save
-/// records, or every address while the catalog starts with all known), in
-/// catalog order. `flag` reads a save flag.
-pub fn known_addresses(
-    catalog: &GateNetworkCatalog,
-    ring: &str,
-    flag: impl Fn(&str) -> bool,
-) -> Vec<String> {
-    let mut listed: Vec<String> = catalog.ring(ring).map(|ring| ring.posted.clone()).unwrap_or_default();
+/// The addresses a terminal lists as known, as chevrons: those written on it
+/// first, then each the traveller knows (`GateNetworkCatalog::knows`: what
+/// the save records, or every address while the catalog starts with all
+/// known), in catalog order, words and glyph addresses alike. `flag` reads a
+/// save flag.
+pub fn known_addresses(catalog: &GateNetworkCatalog, ring: &str, flag: impl Fn(&str) -> bool) -> Vec<Vec<Chevron>> {
+    let mut listed: Vec<Vec<Chevron>> = catalog
+        .ring(ring)
+        .map(|ring| ring.posted.iter().filter_map(|word| catalog.spell(word).ok()).collect())
+        .unwrap_or_default();
     for candidate in &catalog.rings {
-        let Some(address) = candidate.address.as_deref() else {
+        let Some(address) = catalog.address_of(candidate) else {
             continue;
         };
-        if candidate.zone != ring && catalog.knows(address, &flag) && !listed.iter().any(|a| a == address) {
-            listed.push(address.to_string());
+        if candidate.zone != ring && catalog.knows(candidate, &flag) && !listed.contains(&address) {
+            listed.push(address);
         }
     }
     listed
@@ -193,12 +193,8 @@ impl TerminalUi {
 
     /// The list beside the wheel: the known addresses (by word), the recent
     /// ones (by chevrons, a known one only once), then the actions.
-    pub fn list(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[String]) -> Vec<ListRow> {
-        let mut rows: Vec<ListRow> = known
-            .iter()
-            .filter_map(|word| catalog.spell(word).ok())
-            .map(|address| address_row(catalog, address, false))
-            .collect();
+    pub fn list(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[Vec<Chevron>]) -> Vec<ListRow> {
+        let mut rows: Vec<ListRow> = known.iter().map(|address| address_row(catalog, address.clone(), false)).collect();
         for address in &state.recent {
             let listed = rows.iter().any(|row| matches!(row, ListRow::Address { address: a, .. } if a == address));
             if !listed {
@@ -277,7 +273,7 @@ impl TerminalUi {
     }
 
     /// What the terminal shows now.
-    pub fn model(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[String]) -> TerminalModel {
+    pub fn model(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[Vec<Chevron>]) -> TerminalModel {
         let ring_id = self.ring.as_deref().unwrap_or_default();
         let ring = catalog.ring(ring_id);
         let facility = ring
@@ -419,7 +415,7 @@ mod tests {
         state.recent = vec![catalog.spell("GENESIS").unwrap(), wrong.clone()];
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        let rows = ui.list(&catalog, &state, &["GENESIS".to_string()]);
+        let rows = ui.list(&catalog, &state, &[catalog.spell("GENESIS").unwrap()]);
         assert!(matches!(&rows[0], ListRow::Address { word, recent: false, .. } if word == "GENESIS"));
         assert!(matches!(&rows[1], ListRow::Address { address, word, recent: true, .. } if *address == wrong && word.is_empty()), "{rows:?}");
         assert_eq!(rows.last(), Some(&ListRow::Close));
@@ -438,14 +434,15 @@ mod tests {
         let mut catalog = catalog();
         let all = known_addresses(&catalog, "hub_public_gate_zone", |_| false);
         if catalog.start_known == GateStartKnowledge::All {
-            assert_eq!(all.len(), catalog.rings.iter().filter(|r| r.address.is_some()).count() - 1, "{all:?}");
+            assert_eq!(all.len(), catalog.rings.len() - 1, "every other ring is listed: {all:?}");
         }
         catalog.start_known = GateStartKnowledge::Discovered;
+        let spell = |word: &str| catalog.spell(word).unwrap();
         let known = known_addresses(&catalog, "math_gate_return_zone", |_| false);
-        assert_eq!(known, ["LEGAL"]);
+        assert_eq!(known, [spell("LEGAL")]);
         let flag = gate_address_known_flag("GENESIS");
         let known = known_addresses(&catalog, "math_gate_return_zone", |id| id == flag);
-        assert_eq!(known, ["LEGAL", "GENESIS"]);
+        assert_eq!(known, [spell("LEGAL"), spell("GENESIS")]);
         assert!(known_addresses(&catalog, "hub_public_gate_zone", |_| false).is_empty(), "the hub posts nothing");
     }
 

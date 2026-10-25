@@ -14,6 +14,7 @@ runtime architecture and must not become an alternate source of live authority.
 | Generated audio | [`generated-audio-tools.md`](generated-audio-tools.md) | Source spec -> render/audit -> explicit publish/runtime artifact. |
 | Generated visuals | [`generated-visual-tools.md`](generated-visual-tools.md) | Generator target -> review -> explicit install/publish. |
 | ECS inventory | [`ecs-inventory-tool.md`](ecs-inventory-tool.md) | Commit-matched static Bevy localization evidence. |
+| ECS architecture browser | [`../../tools/ecs_architecture_browser/README.md`](../../tools/ecs_architecture_browser/README.md) | Offline HTML view of indexed systems, components, spawn sites, crates, and source evidence. |
 | Optimization/reporting | [`optimization-and-reporting.md`](optimization-and-reporting.md) | Reproducible diagnostic artifacts, not gameplay authority. |
 | Packaged assets | [`packaged-asset-guard.md`](packaged-asset-guard.md) | One composed tree plus byte contract for Android and installed desktop builds. |
 | Combat inspection | [`../../tools/ambition_moveset_inspector/docs/inspector.md`](../../tools/ambition_moveset_inspector/docs/inspector.md) — design and remaining work: [`../planning/moveset-inspector.md`](../planning/moveset-inspector.md) | Runtime-published combat geometry; the tool never resolves a volume itself. |

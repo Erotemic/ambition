@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Ambition · ECS Architecture Browser</title>
+<style>__CSS__</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><span class="brand-symbol">A<span class="brand-point">·</span></span><span><strong>AMBITION</strong><small>Architecture Explorer</small></span></div>
+    <div class="top-search"><span class="search-icon" aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="Search current section or all records…" aria-label="Search current section"><kbd>/</kbd></div>
+    <div class="top-actions"><span id="commit" class="top-version"></span><button id="export" class="ghost small" title="Export the current filtered results as CSV">Export CSV <span aria-hidden="true">↗</span></button></div>
+  </header>
+  <div id="stale" class="stale-banner" hidden></div>
+  <div class="workspace">
+    <nav class="sidebar" aria-label="Explorer sections">
+      <div class="side-heading">EXPLORE</div>
+      <div id="navigation" class="nav-list"></div>
+      <div class="side-footer"><span class="source-dot"></span> SOURCE INVENTORY<br><span id="footer-status">Static · Read-only</span><p>Indexed source is evidence, not a runtime ECS snapshot.</p></div>
+    </nav>
+    <main class="content">
+      <div class="heading-row"><div><div class="overline" id="crumb">REPOSITORY INTELLIGENCE / OVERVIEW</div><h1 id="page-title">ECS architecture</h1><p id="page-subtitle">Inspect composition and dependencies across the Ambition workspace.</p></div></div>
+      <section id="overview" aria-label="Architecture overview">
+        <div id="statcards" class="stats-grid"></div>
+        <div class="section-intro"><div><div class="overline">EXPLORE THE SYSTEM</div><h2>Where the complexity lives</h2><p>Static source metrics. Counts are not measurements of runtime cost.</p></div></div>
+        <div id="charts" class="chart-grid"></div>
+        <div class="info-strip"><span class="info-glyph">i</span><span><strong>What “entity” means here.</strong> Source indexes show spawn sites and component signatures. Live entity instances, archetype populations, schedules and system timings require a separate runtime snapshot.</span></div>
+      </section>
+      <section id="listing" hidden aria-label="Architecture records">
+        <div class="filters-bar"><label>CRATE <select id="crate-filter"><option value="">All crates</option></select></label><label>SORT <select id="sort"></select></label><label id="registered-label" class="toggle"><input type="checkbox" id="registered-only"><span>Linked to registration</span></label><span class="result-count" id="result-count"></span></div>
+        <div class="table-scroller"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+        <div class="pager"><div id="page-status"></div><div class="pager-actions"><button id="prev" class="ghost small">← Previous</button><button id="next" class="ghost small">Next →</button></div></div>
+      </section>
+    </main>
+    <aside id="detail" class="details" hidden aria-label="Selected record details"><div class="detail-heading"><span class="overline">SOURCE DETAIL</span><button id="close-detail" class="ghost icon-close" aria-label="Close details">×</button></div><div id="detail-body"></div></aside>
+  </div>
+</div>
+<script id="ecs-data" type="application/json">__DATA__</script>
+<script>__JS__</script>
+</body>
+</html>

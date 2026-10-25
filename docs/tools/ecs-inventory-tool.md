@@ -77,3 +77,16 @@ python scripts/agent_query.py overview
 
 The generator invokes the appropriate inventory path as part of building the
 commit-matched `.agent` knowledge base.
+
+## Explore the inventory in a browser
+
+The ECS architecture browser consumes these same generated packets. It adds
+static rankings and navigation links. It does not change the ECS inventory
+schema or the runtime.
+
+```bash
+python3 scripts/ecs_browser.py --open
+```
+
+See [`tools/ecs_architecture_browser/README.md`](../../tools/ecs_architecture_browser/README.md).
+The browser warns if the index does not match the source commit.

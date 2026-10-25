@@ -193,3 +193,42 @@ def test_a_character_page_names_its_lineage_from_the_design_history(built, tmp_p
     assert [e["label"] for e in lineage["eras"]] == ["First", "Second"]
     assert not any(e["in_store"] for e in lineage["eras"])
     assert any(f["code"] == "lineage-warning" for f in c["findings"])
+
+
+def test_related_assets_join_forms_lineages_generators_and_specs(tmp_path):
+    """Each relation comes from evidence the index holds: a lineage's
+    targets, a shared catalog id, a name with a form suffix, one generator
+    module, a character-generator spec. Two relations with the same members
+    are one row; a person's species is a type, not a relation."""
+    from art_index import related
+
+    data = tmp_path / "tools" / "ambition_sprite2d_renderer" / "ambition_sprite2d_renderer" / "data"
+    for name, family in [("ann_v2", "cast"), ("bea", "crew"), ("cid", "crew")]:
+        (data / name).mkdir(parents=True)
+        (data / name / f"{name}.chargen.yaml").write_text(f"schema: ambition-chargen-v1\nfamily: {family}\nbase: slim_female\n")
+
+    def row(name, **kw):
+        return {"name": name, "display": name.title(), "generator": f"target:{name}", "tags": [], **kw}
+
+    rows = {
+        "sheet:ann": row("ann", character_id="npc_ann", lineages=[{"lineage": "ann", "name": "Ann", "targets": ["ann", "ann_v2"]}]),
+        "sheet:ann_v2": row("ann_v2", character_id="npc_ann", lineages=[{"lineage": "ann", "name": "Ann", "targets": ["ann", "ann_v2"]}]),
+        "sheet:ann_strike_fx": row("ann_strike_fx"),
+        "sheet:bea": row("bea"),
+        "sheet:cid": row("cid"),
+        "sheet:dot": row("dot"),
+    }
+    gens = {r["generator"]: {"family": "sprite_target", "id": r["name"]} for r in rows.values()}
+    for name in ("bea", "cid"):
+        gens[f"target:{name}"]["module"] = "pkg.townsfolk"
+    related.relate(rows, gens, tmp_path)
+
+    by_title = {g["title"]: g["assets"] for g in rows["sheet:ann_v2"]["related"]}
+    assert by_title["Lineage: Ann · Game character npc_ann"] == ["sheet:ann"]
+    assert by_title["Named alike"] == ["sheet:ann", "sheet:ann_strike_fx"]
+    assert by_title["Chargen base body slim_female"] == ["sheet:bea", "sheet:cid"]
+    assert rows["sheet:ann_v2"]["chargen"] == {"family": "cast", "species": "human", "base": "slim_female"}
+    bea = {g["title"]: g["assets"] for g in rows["sheet:bea"]["related"]}
+    assert bea["Made by townsfolk · Chargen family crew"] == ["sheet:cid"]
+    assert not any("species" in g["title"] for g in rows["sheet:bea"]["related"])
+    assert rows["sheet:dot"]["related"] == []

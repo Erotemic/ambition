@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, thumbs, usage
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage
 from .paths import repo_root, roots
 from .scan import HashCache, scan
 
@@ -106,6 +106,8 @@ def build(
         step("lineages and authorship (design history)")
         for warning in lineage.attach(repo, out, assets, catalog["assets"], targets, log=log):
             catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
+    step("related assets")
+    related.relate(catalog["assets"], catalog["generators"], repo)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
     text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)

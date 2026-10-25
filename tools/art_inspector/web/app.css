@@ -118,4 +118,20 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .legend .chip { margin-right: 4px; }
 .pager { display: flex; gap: 8px; align-items: center; margin-top: 12px; color: var(--muted); }
 .tops { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 16px; }
+.related .relrows { display: flex; flex-wrap: wrap; gap: 4px 28px; }
+.related .relrow { margin-bottom: 10px; min-width: 0; max-width: 100%; }
+.related .relhead { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 13px; margin-bottom: 4px; }
+.related .relhead .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.related details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.mini { flex: 0 0 92px; display: grid; gap: 2px; font-size: 11px; color: var(--fg); text-decoration: none; text-align: center; }
+.mini > div { aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+.mini:hover > div { border-color: var(--accent); }
+.mini img { max-width: 100%; max-height: 100%; }
+.mini span, .mini code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini code { font-size: 10px; color: var(--muted); }
+.mini.more { place-content: center; aspect-ratio: 1; border: 1px dashed var(--rule); border-radius: 4px; color: var(--accent); }
+.thumbs figure.here > div { outline: 2px solid var(--accent); outline-offset: 1px; }
+.relbar { color: var(--fg); }
+kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); border-radius: 3px; background: var(--panel2); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

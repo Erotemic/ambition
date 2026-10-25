@@ -19,7 +19,10 @@
   const PARALLAX = { sky: 0.10, far_backplate: 0.20, near_background: 0.42, foreground_atmosphere: 0.60, foreground: 1.0 };
   const assets = C.assets, products = C.products, gens = C.generators;
   const assetList = Object.values(assets);
-  const state = { q: "", family: new Set(), conf: new Set(), use: "", sort: "name", page: 0, card: 150 };
+  const state = { q: "", family: new Set(), conf: new Set(), tag: new Set(), use: "", rel: "", sort: "name", page: 0, card: 150, lastList: [] };
+  // A sprite target's id -> its asset (a lineage era names its target).
+  const byTarget = {};
+  assetList.forEach((a) => { if ((a.generator || "").startsWith("target:")) byTarget[a.generator.slice(7)] = a.id; });
   let timers = [];
 
   // ---- helpers ------------------------------------------------------------------------
@@ -73,10 +76,14 @@
   // ---- gallery -----------------------------------------------------------------------
   const PAGE = 240;
   function gallery() {
-    const pool = assetList.filter(matches);
+    const pool0 = assetList.filter(matches);
     const count = (key, fn) => { const m = new Map(); pool.forEach((a) => { const k = fn(a); m.set(k, (m.get(k) || 0) + 1); }); return m; };
+    const group = relGroup(state.rel);
+    const pool = group ? pool0.filter((a) => group.ids.has(a.id)) : pool0;
     const families = count("family", (a) => a.family), confs = count("conf", (a) => a.confidence);
+    const tags = new Map(); pool.forEach((a) => (a.tags || []).forEach((t) => tags.set(t, (tags.get(t) || 0) + 1)));
     let list = pool.filter((a) => (!state.family.size || state.family.has(a.family)) && (!state.conf.size || state.conf.has(a.confidence))
+      && (!state.tag.size || [...state.tag].every((t) => (a.tags || []).includes(t)))
       && (!state.use || (state.use === "used" ? used(a) : state.use === "unused" ? !used(a) : a.findings > 0)));
     const sorts = {
       name: (a, b) => a.display.localeCompare(b.display),
@@ -87,17 +94,22 @@
       findings: (a, b) => b.findings - a.findings,
     };
     list.sort(sorts[state.sort] || sorts.name);
+    state.lastList = list.map((a) => a.id);
     const pages = Math.max(1, Math.ceil(list.length / PAGE));
     state.page = Math.min(state.page, pages - 1);
     const shown = list.slice(state.page * PAGE, (state.page + 1) * PAGE);
     const facet = (group, key, n, on) => `<div class="facet${on ? " on" : ""}" data-facet="${group}" data-key="${esc(key)}"><span>${group === "conf" ? chip(key) : esc(key)}</span><span class="n">${fmt(n)}</span></div>`;
     const famHtml = [...families.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => facet("family", k, n, state.family.has(k))).join("");
     const confHtml = CONF.filter((k) => confs.has(k)).map((k) => facet("conf", k, confs.get(k), state.conf.has(k))).join("");
+    const tagList = [...tags.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const tagHtml = tagList.slice(0, 24).concat(tagList.slice(24).filter(([k]) => state.tag.has(k))).map(([k, n]) => facet("tag", k, n, state.tag.has(k))).join("")
+      + (tagList.length > 24 ? `<details><summary class="n">${tagList.length - 24} more</summary>${tagList.slice(24).filter(([k]) => !state.tag.has(k)).map(([k, n]) => facet("tag", k, n, false)).join("")}</details>` : "");
     const useHtml = [["used", "named by the game"], ["unused", "no known use"], ["findings", "has findings"]].map(([k, t]) =>
       `<div class="facet${state.use === k ? " on" : ""}" data-facet="use" data-key="${k}"><span>${t}</span></div>`).join("");
     app.innerHTML = `<div class="layout">
-      <aside class="facets"><div><h3>Family</h3>${famHtml}</div><div><h3>Generator link</h3>${confHtml}</div><div><h3>Use</h3>${useHtml}</div></aside>
+      <aside class="facets"><div><h3>Family</h3>${famHtml}</div><div><h3>Generator link</h3>${confHtml}</div><div><h3>Use</h3>${useHtml}</div>${tagHtml ? `<div><h3>Tag</h3>${tagHtml}</div>` : ""}</aside>
       <div>
+        ${group ? `<div class="bar relbar">Related to ${assetLink(group.asset.id)}: <b>${esc(group.title)}</b> <button id="unrel" type="button" class="copy">show all assets</button></div>` : ""}
         <div class="bar">${fmt(list.length)} of ${fmt(assetList.length)} assets
           <label>sort <select id="sort">${Object.keys(sorts).map((k) => `<option${k === state.sort ? " selected" : ""}>${k}</option>`).join("")}</select></label>
           <label>size <input id="cardsize" type="range" min="100" max="260" value="${state.card}"></label>
@@ -108,9 +120,11 @@
     app.querySelectorAll("[data-facet]").forEach((el) => el.addEventListener("click", () => {
       const { facet: g, key: k } = el.dataset;
       if (g === "use") state.use = state.use === k ? "" : k;
-      else { const set = g === "family" ? state.family : state.conf; set.has(k) ? set.delete(k) : set.add(k); }
+      else { const set = g === "family" ? state.family : g === "tag" ? state.tag : state.conf; set.has(k) ? set.delete(k) : set.add(k); }
       state.page = 0; gallery();
     }));
+    const unrel = app.querySelector("#unrel");
+    if (unrel) unrel.addEventListener("click", () => { state.rel = ""; state.page = 0; location.hash = "#gallery"; });
     app.querySelector("#sort").addEventListener("change", (e) => { state.sort = e.target.value; gallery(); });
     app.querySelector("#cardsize").addEventListener("input", (e) => { state.card = +e.target.value; app.querySelector(".grid").style.setProperty("--card", state.card + "px"); });
     const prev = app.querySelector("#prev"), next = app.querySelector("#next");
@@ -135,7 +149,6 @@
     if (a.portraits) left.push(portraitBox(a));
     if (a.id.startsWith("skin:") || a.id.startsWith("legacy_bg:") || a.id.startsWith("ref:")) left.push(filesGrid(a));
     if (a.parts || a.body_rig) left.push(partsBox(a));
-    (a.lineages || []).forEach((l) => left.push(lineageBox(l)));
     right.push(generatorBox(a, g));
     if (a.authorship) right.push(authorshipBox(a.authorship));
     right.push(usageBox(a));
@@ -143,11 +156,13 @@
     if (finds.length) right.push(`<section class="box"><h2>Findings (${finds.length})</h2>${findingTable(finds)}</section>`);
     right.push(productBox(a));
     app.innerHTML = `<div class="detail">
-      <div class="bar"><a href="#gallery">‹ gallery</a></div>
+      ${navBar(a)}
       <h1>${esc(a.display)}</h1>
       <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${a.character_id ? ` · character <code>${esc(a.character_id)}</code>` : ""}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}</p>
       ${a.description ? `<p class="lede">${esc(a.description)}</p>` : ""}
       ${a.tags && a.tags.length ? `<div class="chips" style="margin-bottom:12px">${a.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
+      ${relatedBox(a)}
+      ${(a.lineages || []).map((l) => lineageBox(l, a)).join("")}
       <div class="cols"><div>${left.join("")}</div><div>${right.join("")}</div></div></div>`;
     wireAnimation(a); wireParallax(a);
   }
@@ -287,6 +302,47 @@
     return html + `</section>`;
   }
 
+  // ---- related assets and the way through them ---------------------------------------
+  // `related` comes from the index (`art_index/related.py`): the other forms of
+  // the character, its lineage, the art made the same way. The type is the family.
+  function relGroup(key) {
+    if (!key) return null;
+    const cut = key.lastIndexOf("|"), a = assets[key.slice(0, cut)], g = a && (a.related || [])[+key.slice(cut + 1)];
+    return g ? { asset: a, title: g.title, ids: new Set([a.id, ...g.assets]) } : null;
+  }
+  function mini(id) {
+    const r = assets[id];
+    // The target id under the name: two forms of one character share a display name.
+    const sub = r.name && r.name.toLowerCase() !== r.display.toLowerCase() ? `<code>${esc(r.name)}</code>` : "";
+    return r ? `<a class="mini" href="#asset/${enc(id)}" title="${esc(r.family + " · " + id)}"><div class="checker">${img(r.cover, r.display)}</div><span>${esc(r.display)}</span>${sub}</a>` : "";
+  }
+  const STRIP = 24;
+  function relatedBox(a) {
+    const groups = (a.related || []).map((g, i) => [g, i]);
+    const row = ([g, i]) => `<div class="relrow"><div class="relhead"><b>${esc(g.title)}</b> <span class="n">${fmt(g.assets.length)}</span>
+        <a href="#gallery?rel=${enc(a.id + "|" + i)}">open in gallery</a></div>
+      <div class="strip">${g.assets.slice(0, STRIP).map(mini).join("")}${g.assets.length > STRIP ? `<a class="mini more" href="#gallery?rel=${enc(a.id + "|" + i)}">+${fmt(g.assets.length - STRIP)} more</a>` : ""}</div></div>`;
+    const near = groups.filter(([g]) => g.kind !== "tag"), tags = groups.filter(([g]) => g.kind === "tag");
+    const type = `<a href="#gallery?family=${enc(a.family)}">every ${esc(a.family)} asset (${fmt(assetList.filter((x) => x.family === a.family).length)})</a>`;
+    const traits = a.chargen ? ` · chargen ${Object.entries(a.chargen).map(([k, v]) => `${esc(k)} <code>${esc(v)}</code>`).join(", ")}` : "";
+    return `<section class="box related"><h2>Related</h2>
+      ${near.length ? `<div class="relrows">${near.map(row).join("")}</div>` : '<p class="empty">No other form, lineage or generator shares this asset.</p>'}
+      ${tags.length ? `<details${near.length ? "" : " open"}><summary>Same tags: ${tags.map(([g]) => esc(g.title.replace(/^Tagged /, ""))).join(", ")}</summary><div class="relrows">${tags.map(row).join("")}</div></details>` : ""}
+      <p class="controls">Same type: ${type}${traits}. <kbd>←</kbd> <kbd>→</kbd> step through the list above.</p></section>`;
+  }
+  // The list that prev and next step through: the gallery's last list when it
+  // holds this asset, else the asset's family by name.
+  function navList(a) {
+    if (state.lastList.includes(a.id)) return { ids: state.lastList, label: state.rel ? "in the related list" : "in the gallery list" };
+    return { ids: assetList.filter((x) => x.family === a.family).sort((x, y) => x.display.localeCompare(y.display)).map((x) => x.id), label: `in ${a.family}` };
+  }
+  function navBar(a) {
+    const nav = navList(a), i = nav.ids.indexOf(a.id), n = nav.ids.length;
+    const prev = nav.ids[(i - 1 + n) % n], next = nav.ids[(i + 1) % n];
+    return `<div class="bar"><a href="#gallery">‹ gallery</a> · <a id="navprev" href="#asset/${enc(prev)}" title="${esc(assets[prev].display)} (←)">‹ prev</a>
+      ${fmt(i + 1)} of ${fmt(n)} ${esc(nav.label)} <a id="navnext" href="#asset/${enc(next)}" title="${esc(assets[next].display)} (→)">next ›</a></div>`;
+  }
+
   // ---- lineage and authorship (the design history) -------------------------------------
   const CONFIDENCE_CHIP = { high: "verified", medium: "declared", low: "inferred", none: "unknown" };
   const confChip = (c) => `<span class="chip c-${CONFIDENCE_CHIP[c] || "info"}" title="authorship confidence">${esc(c)}</span>`;
@@ -295,17 +351,25 @@
     const total = (shares || []).reduce((s, x) => s + x.lines, 0);
     return (shares || []).slice(0, 3).map((x) => `${esc(x.who)} ${pct(x.lines, total)}`).join(", ");
   }
-  function lineageBox(l) {
-    const eras = l.eras.map((e) => {
+  function lineageBox(l, a) {
+    // An era's target is measured (`target`) or declared (an era `id`). The
+    // last era of a target is that target's asset today.
+    const targetOf = (e) => e.target || (e.ids && e.ids.length === 1 ? e.ids[0] : "");
+    const last = {};
+    l.eras.forEach((e, i) => { if (targetOf(e)) last[targetOf(e)] = i; });
+    const eras = l.eras.map((e, i) => {
+      const now = last[targetOf(e)] === i ? byTarget[targetOf(e)] : null;
       const gen = e.generator;
-      const lines = [`<b>${esc(e.label)}</b>`, `${esc((e.date || "").slice(0, 10))} · <code>${esc(e.commit.slice(0, 9))}</code>${e.target ? ` · <code>${esc(e.target)}</code>` : ""}`];
+      const lines = [`<b>${esc(e.label)}</b>`, `${esc((e.date || "").slice(0, 10))} · <code>${esc(e.commit.slice(0, 9))}</code>${targetOf(e) ? ` · <code>${esc(targetOf(e))}</code>` : ""}`];
       if (e.pin) lines.push(`commit: ${esc(e.pin.label)}`);
       if (gen && gen.lines) {
         if (gen.parts.code.length) lines.push(`code: ${shareText(gen.parts.code)}`);
         if (gen.parts.art.length) lines.push(`art: ${shareText(gen.parts.art)}`);
         lines.push(confChip(gen.confidence));
       } else if (!e.in_store) lines.push("not in the history store");
-      return `<figure title="${esc(e.note || "")}"><div class="checker">${e.still ? img(e.still, e.label) : '<span class="controls">no still</span>'}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
+      if (now) lines.push(now === a.id ? '<span class="chip c-info">this asset</span>' : `today: ${assetLink(now)}`);
+      const still = e.still ? img(e.still, e.label) : '<span class="controls">no still</span>';
+      return `<figure title="${esc(e.note || "")}"${now === a.id ? ' class="here"' : ""}><div class="checker">${now && now !== a.id ? `<a href="#asset/${enc(now)}">${still}</a>` : still}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
     }).join("");
     return `<section class="box"><h2>Lineage: ${esc(l.name)} (${l.eras.length} era${l.eras.length === 1 ? "" : "s"})</h2>
       <p class="controls">${esc(l.summary)} · found via ${esc(l.found_via || "")} · targets ${l.targets.map((t) => `<code>${esc(t)}</code>`).join(" ")}</p>
@@ -434,6 +498,14 @@
   // ---- routing ------------------------------------------------------------------------
   function route() {
     stopTimers();
+    const raw = location.hash.slice(1);
+    if (raw.startsWith("gallery?")) {
+      // A link into a filtered gallery: `#gallery?family=character&tag=goblin&rel=<asset>|<group>`.
+      const qs = new URLSearchParams(raw.slice(8));
+      state.family = new Set(qs.getAll("family")); state.tag = new Set(qs.getAll("tag")); state.conf = new Set();
+      state.use = ""; state.rel = qs.get("rel") || ""; state.q = ""; q.value = ""; state.page = 0;
+      history.replaceState(null, "", "#gallery");
+    }
     const h = decodeURIComponent(location.hash.slice(1));
     const [view, ...rest] = h.split("/");
     const id = rest.join("/");
@@ -457,6 +529,11 @@
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement || {}).tagName || "");
+    if (!typing && !e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      const link = document.getElementById(e.key === "ArrowLeft" ? "navprev" : "navnext");
+      if (link) { e.preventDefault(); location.hash = link.getAttribute("href"); }
+    }
     if (e.key === "Escape" && document.activeElement === q) { q.value = ""; state.q = ""; route(); }
   });
   const themeBtn = document.getElementById("theme");

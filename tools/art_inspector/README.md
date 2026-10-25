@@ -27,10 +27,19 @@ about 2 min the first time).
   the regen command, the record and the files the render read), where the
   game uses it (content rows with their line, LDtk placements per level),
   every file with its confidence, and the findings.
+- **Related** (on each asset page): the other forms of the character
+  (its lineage, its catalog id, names with a form suffix such as
+  `alice_v2` or `alice_strike_fx`), the art made by the same generator
+  module, the same character-generator family, species or base body, and
+  the same tags. Each group opens as a filtered gallery. `←` and `→` step
+  through the gallery list the asset came from, or its family by name.
+  The relations are made by `art_index/related.py` from the index; they
+  are a way to navigate, not an authority.
 - **Lineage and authorship** (on a character's asset page): each lineage
   of the design history that claims the character, with its eras (the
   commit, who made it, who wrote the generator's code and art at that
-  commit, and the still when the design-history cache has it), and who wrote
+  commit, and the still when the design-history cache has it; the last era
+  of each target links to that target's asset today), and who wrote
   the lines of the character's generator files now. See
   `tools/ambition_sprite2d_renderer/design_history/README.md`.
 - **Generators**, **Findings** (copy as CSV), **Coverage** (how many files
@@ -66,7 +75,7 @@ never an authority.
 ## Layout
 
 - `art_index/`: the indexer (`scan`, `sheets`, `generators`, `assets`,
-  `usage`, `diagnostics`, `thumbs`, `build`). Pillow and PyYAML;
+  `usage`, `diagnostics`, `thumbs`, `lineage`, `related`, `build`). Pillow and PyYAML;
   `scripts/art_inspector.py` runs it in the sprite renderer's interpreter
   when the current one lacks them.
 - `web/`: the page, plain JavaScript with no libraries.

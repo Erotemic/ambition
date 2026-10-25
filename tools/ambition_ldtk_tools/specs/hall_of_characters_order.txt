@@ -131,6 +131,7 @@ npc_station_wen
 
 [Made by the character generator]
 npc_armsmith_odile
+npc_gator_geisha
 
 [The garrison of the General's tower]
 npc_tower_voss

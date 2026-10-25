@@ -11,7 +11,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::ClockResetRequest;
@@ -218,7 +217,7 @@ pub struct RoomTransitionApplication<'w, 's> {
         's,
         (
             Entity,
-            Option<&'static physics::PhysicsRoomEntity>,
+            Option<&'static ambition_platformer2d_physics_debris::PhysicsRoomEntity>,
             Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         RoomResident,

@@ -112,7 +112,7 @@ pub(super) fn handle_ldtk_hot_reload(
     room_visuals: Query<
         (
             Entity,
-            Option<&ambition_platformer2d::actors::world::physics::PhysicsRoomEntity>,
+            Option<&ambition_platformer2d::world::physics::PhysicsRoomEntity>,
             Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
         ),
         RoomResident,
@@ -503,7 +503,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_visuals: &Query<
         (
             Entity,
-            Option<&ambition_platformer2d::actors::world::physics::PhysicsRoomEntity>,
+            Option<&ambition_platformer2d::world::physics::PhysicsRoomEntity>,
             Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
         ),
         RoomResident,

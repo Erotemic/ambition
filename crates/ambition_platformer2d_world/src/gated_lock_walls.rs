@@ -31,7 +31,7 @@
 //! because condition callbacks receive `&World`; if this grows to many independent
 //! rules, evaluate conditions once and publish outcomes for parallel readers.
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
     ConditionCatalog, ConditionId, ConditionOutcome, PreparedCondition,
@@ -55,7 +55,7 @@ pub struct GatedLockWall {
 /// stays testable without an ECS. That separation is inherited from the content
 /// system this replaces and was the good part of it.
 pub fn authored_gated_lock_walls(
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    room: &crate::rooms::RoomSpec,
 ) -> Vec<GatedLockWall> {
     room.lock_walls
         .iter()
@@ -154,17 +154,17 @@ impl GatedLockWallVerdicts {
 /// off one entity. `Local` is an `ExclusiveSystemParam`, so the state can just
 /// live across frames; `QueryState::iter` updates archetypes itself, so a
 /// cached state still sees entities that appeared since the last run.
-type RoomSetQuery = bevy::ecs::query::QueryState<
-    bevy::prelude::Ref<'static, ambition_platformer2d_world::rooms::RoomSet>,
-    bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+type RoomSetQuery = bevy_ecs::query::QueryState<
+    bevy_ecs::prelude::Ref<'static, crate::rooms::RoomSet>,
+    bevy_ecs::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
 >;
 
 /// Every live room root and the definition it instantiates, built once and
 /// reused for the same reason as [`RoomSetQuery`]. A hidden candidate's root
 /// is not in it.
-type LiveRoomQuery = bevy::ecs::query::QueryState<
-    (Entity, &'static ambition_platformer2d_world::rooms::LiveRoomDefinition),
-    bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+type LiveRoomQuery = bevy_ecs::query::QueryState<
+    (Entity, &'static crate::rooms::LiveRoomDefinition),
+    bevy_ecs::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
 >;
 
 /// Retract the published verdicts rather than leaving the previous room's.
@@ -189,8 +189,8 @@ fn retract_gated_lock_wall_verdicts(world: &mut World) {
 
 pub fn sync_authored_gated_lock_walls(
     world: &mut World,
-    mut rooms: bevy::prelude::Local<Option<RoomSetQuery>>,
-    mut live: bevy::prelude::Local<Option<LiveRoomQuery>>,
+    mut rooms: bevy_ecs::prelude::Local<Option<RoomSetQuery>>,
+    mut live: bevy_ecs::prelude::Local<Option<LiveRoomQuery>>,
 ) {
     // ⭐ THE RETRACTION IS STATED ONCE, AND THE TYPE IS WHAT ENFORCES IT.
     // Four early exits each ran `retract_gated_lock_wall_verdicts(world); return;`
@@ -220,15 +220,15 @@ pub fn sync_authored_gated_lock_walls(
 /// would lose every gated wall it has.
 fn gated_lock_walls_to_publish(
     world: &mut World,
-    rooms: &mut bevy::prelude::Local<Option<RoomSetQuery>>,
-    live: &mut bevy::prelude::Local<Option<LiveRoomQuery>>,
+    rooms: &mut bevy_ecs::prelude::Local<Option<RoomSetQuery>>,
+    live: &mut bevy_ecs::prelude::Local<Option<LiveRoomQuery>>,
 ) -> Option<Vec<(Entity, Vec<CachedWall>)>> {
     // the room set is a COMPONENT on the session root, not a resource — the `SessionWorldRef` a
     // normal system takes is a `Single<Ref<T>, With<SessionRoot>>`. An exclusive system has to
     // ask for it the long way.
     let rooms = rooms.get_or_insert_with(|| RoomSetQuery::new(world));
     let live = live.get_or_insert_with(|| LiveRoomQuery::new(world));
-    let live_rooms: Vec<(Entity, ambition_platformer2d_world::rooms::LiveRoomDefinition)> = live
+    let live_rooms: Vec<(Entity, crate::rooms::LiveRoomDefinition)> = live
         .iter(world)
         .map(|(root, definition)| (root, *definition))
         .collect();
@@ -243,7 +243,7 @@ fn gated_lock_walls_to_publish(
         let Some(set) = rooms.iter(world).next() else {
             return None;
         };
-        let ids: Vec<(Entity, ambition_platformer2d_world::rooms::LiveRoomDefinition, String)> = live_rooms
+        let ids: Vec<(Entity, crate::rooms::LiveRoomDefinition, String)> = live_rooms
             .iter()
             .map(|(root, definition)| (*root, *definition, set.spec(*definition).id.clone()))
             .collect();
@@ -556,7 +556,7 @@ fn prepare_question(
             // find the row in the level. `reason` is the substrate's own words
             // ("takes 2 arguments, got 1", an unknown id) and is quoted rather
             // than re-worded.
-            bevy::log::error!(
+            bevy_log::error!(
                 target: "ambition_platformer2d::gated_lock_walls",
                 "room `{room}` wall `{}` is gated by `{}`, which cannot be prepared: {} \
                  (authored source `{}`). The wall STANDS until this is fixed — a gate \
@@ -614,5 +614,3 @@ fn names_its_own_condition(authored: &str) -> bool {
         .is_some()
 }
 
-#[cfg(test)]
-mod tests;

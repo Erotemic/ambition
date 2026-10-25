@@ -1014,7 +1014,7 @@ pub(crate) fn apply_world_replacement(
         let mut commands = bevy::prelude::Commands::new(&mut queue, world);
         for (entity, is_physics) in &pending.outgoing {
             if *is_physics {
-                ambition_platformer2d_actor_monolith::world::physics::retire_physics_entity(&mut commands, *entity);
+                ambition_platformer2d_physics_debris::retire_physics_entity(&mut commands, *entity);
             } else {
                 // `try_despawn`: the outgoing roster was collected before this
                 // frame's commands flushed, so an entity in it can already have

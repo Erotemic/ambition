@@ -83,7 +83,7 @@ fn player_hand_holds(world: &World, item: Item) -> bool {
 /// Publishes the inventory domain's conditions.
 ///
 /// one plugin for one registration line, matching
-/// [`WorldFactConditionsPlugin`](crate::world_facts::WorldFactConditionsPlugin):
+/// the world-fact plugin in the runtime:
 /// composition adds it, and nothing else in the engine learns that the bag can
 /// be asked about.
 pub struct InventoryConditionsPlugin;

@@ -134,3 +134,8 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
 
 #[cfg(test)]
 mod tests;
+
+pub mod authored_switch_commands;
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

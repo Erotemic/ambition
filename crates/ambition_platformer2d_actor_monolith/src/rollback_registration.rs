@@ -789,30 +789,4 @@ where
     // the item horizon that owns capture, restore and durable adoption.
     crate::items::pickup::minted_horizon::register_checkpoint_rollback_state(registrar);
 
-    registrar
-        .declare_rollback_derived_resource::<crate::world::gated_lock_walls::GatedLockWallCache>(
-        OWNER,
-        "derived.gated_lock_wall_cache",
-        "authored gated walls for the active room; recomputed from the room set and LDtk project",
-    );
-    registrar
-        .declare_rollback_derived_resource::<crate::world::gated_lock_walls::GatedLockWallVerdicts>(
-            OWNER,
-            "derived.gated_lock_wall_verdicts",
-            "why each authored gated wall stands; rebuilt from the walls' verdicts every gate tick",
-        );
-    registrar.declare_rollback_derived_resource::<
-        crate::world::authored_switch_commands::AuthoredSwitchCommands,
-    >(
-        OWNER,
-        "derived.authored_switch_commands",
-        "authored switch verbs prepared for the active room; recomputed from the room set and LDtk project",
-    );
-    registrar.declare_rollback_derived_resource::<
-        crate::world::authored_room_commands::AuthoredRoomCommands,
-    >(
-        OWNER,
-        "derived.authored_room_commands",
-        "each live room's prepared `while_live` line; recomputed from the room set and the command catalog",
-    );
 }

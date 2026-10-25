@@ -545,6 +545,22 @@ session or room-crossing mirror.
 The moved tests use the public body constructor. No production API is widened
 for a test. The remaining kernel graph is a DAG. This cut does not complete D33.
 
+### K8 — World services leave the actor kernel
+
+The world crate owns authored room commands and condition-gated lock walls.
+`ambition_encounter_features` owns authored switch commands. The runtime owns
+world-fact command and condition registration. The combined gate fixtures stay
+in runtime because they join flags, inventory, abilities, encounters, and room
+construction through public APIs. The room-command tests move with their owner.
+No production API is widened for tests.
+
+Derived rollback declarations move to the world and encounter owners. The
+runtime calls both declarations in the existing registration pass. Phase
+membership, gates, ordering, and the active system population stay the same.
+The actor crate's `world` and `world_facts` paths are deleted. The debris
+feature belongs to runtime composition. The display-state forwarding module,
+empty platform module, and duplicate color helper are deleted.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

@@ -42,9 +42,10 @@
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 | [`sim_identity`](src/sim_identity.rs) | Backend-neutral stable simulation identity maintenance. |
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
+| [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_38 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

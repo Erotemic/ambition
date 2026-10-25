@@ -11,7 +11,7 @@ use ambition_platformer2d_shared_tangle::authored_logic::{
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component, LiveRoomInstance, RoomInstanceRoot,
 };
-use ambition_platformer2d_world::rooms::{insert_room_set, RoomSet, RoomSpec};
+use crate::rooms::{insert_room_set, RoomSet, RoomSpec};
 
 /// A verb of a domain the engine does not know, so nothing below passes
 /// because it named something real.

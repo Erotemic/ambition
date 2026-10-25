@@ -587,7 +587,7 @@ fn the_inventory_domain_answers_about_the_live_bag() {
 /// new gated wall must not fail this test.
 #[test]
 fn every_authored_gate_condition_prepares_against_the_composed_catalog() {
-    use ambition_platformer2d::actors::world::gated_lock_walls::prepare_authored_gate;
+    use ambition_platformer2d::world::gated_lock_walls::prepare_authored_gate;
 
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 4);

@@ -47,7 +47,7 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
                 ),
                 // Authored condition → the same overlay field. Registered beside
                 // its sibling ON PURPOSE; see the module doc.
-                ambition_platformer2d_actor_monolith::world::gated_lock_walls::sync_authored_gated_lock_walls,
+                ambition_platformer2d_world::gated_lock_walls::sync_authored_gated_lock_walls,
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_combat::hazards::HazardTickSet)

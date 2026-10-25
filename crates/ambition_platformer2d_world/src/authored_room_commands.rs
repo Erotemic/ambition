@@ -9,7 +9,9 @@
 
 use std::collections::BTreeMap;
 
-use bevy::prelude::*;
+use bevy_app::prelude::*;
+use bevy_log::warn;
+use bevy_ecs::prelude::*;
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredAsk, AuthoredCommandSet, CommandCatalog, PreparedCommand, RunAuthoredCommand,
@@ -40,7 +42,7 @@ impl AuthoredRoomCommands {
 /// room, because the other result is a room that does nothing and says
 /// nothing.
 pub fn prepare_authored_room_commands(
-    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    rooms: crate::rooms::LiveRoomSpecs,
     catalog: Option<Res<CommandCatalog>>,
     mut prepared: ResMut<AuthoredRoomCommands>,
 ) {

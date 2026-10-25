@@ -39,7 +39,7 @@ ldtk_runtime = ["ambition_platformer2d_ldtk/ldtk_runtime", "dep:bevy_asset_loade
 dev_hot_reload = []
 # The Avian debris that this game's breakables and defeated enemies throw,
 # which the provider installs where the App presents.
-physics_debris = ["ambition_platformer2d_actor_monolith/physics_debris"]
+physics_debris = ["ambition_platformer2d/physics_debris"]
 
 [build-dependencies]
 # `build.rs` embeds each source `assets/pack.ron` declares, under

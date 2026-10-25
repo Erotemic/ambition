@@ -26,7 +26,6 @@ pub mod construction_fixtures;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
-pub mod host;
 pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
@@ -38,7 +37,6 @@ pub mod character_runtime;
 pub mod character_sprites;
 /// Swings and shots arbitrated in ONE contest, before either damage road runs.
 pub mod clash;
-pub mod config;
 #[cfg(test)]
 pub mod enemy_projectile;
 pub mod items;
@@ -48,8 +46,6 @@ pub mod participant_seat;
 pub mod projectile;
 pub mod repertoire;
 mod snapshot_impls;
-pub mod world;
-pub mod world_facts;
 
 // Public re-exports double as the external API for bins, tests, and docs.
 /// The live actor cluster view (`ActorMut`, `ActorClusterQueryData`) and the

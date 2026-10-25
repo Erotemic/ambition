@@ -3,7 +3,8 @@
 //! pins is a *cache invalidation* one, and provoking a hot-reload against a live
 //! host is a much worse test than provoking it against three resources.
 
-use super::*;
+use ambition_platformer2d_world::gated_lock_walls::*;
+use bevy::prelude::*;
 
 use ambition_platformer2d_ldtk::{
     ActiveLdtkProject, LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel,
@@ -408,8 +409,8 @@ fn a_wall_may_be_gated_on_an_item_the_player_carries() {
     // this wall must be able to be up at all.
     app.insert_resource(ambition_items::OwnedItems::default());
     app.publish_condition(
-        crate::items::conditions::holds_descriptor(),
-        crate::items::conditions::holds,
+        ambition_platformer2d_actor_monolith::items::conditions::holds_descriptor(),
+        ambition_platformer2d_actor_monolith::items::conditions::holds,
     );
 
     app.update();

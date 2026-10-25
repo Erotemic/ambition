@@ -114,7 +114,6 @@ web_platform = [
 visible = [
     "input",
     "ui",
-    "physics_debris",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
     "bevy/scene",
@@ -270,7 +269,6 @@ ldtk_runtime = [
 ui = ["ambition_conversation/ui"]
 # The Avian debris adapter is `ambition_platformer2d_physics_debris` (2026-10-23);
 # `world::physics` re-exports it.
-physics_debris = ["ambition_platformer2d_physics_debris/physics_debris"]
 input = [
     "dep:leafwing-input-manager",
     "ambition_input/input",
@@ -407,7 +405,6 @@ ambition_persistence = { path = "../ambition_persistence" }
 # sandbox only needs Bevy `AssetPath` formatting; SFX ownership stays with
 # the audio/SFX crates rather than flowing through the catalog crate.
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
-ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }
 bevy = { version = "0.19.1", default-features = false, features = [
     # Minimum surface every sandbox build (visible and headless) needs.
     #

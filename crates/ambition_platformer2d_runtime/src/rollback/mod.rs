@@ -71,7 +71,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_projectiles::register_rollback_state(registrar);
     ambition_extension_host::register_rollback_state(registrar);
     ambition_sim_view::register_rollback_state(registrar);
-    ambition_platformer2d_world::rooms::register_rollback_state(registrar);
+    ambition_platformer2d_world::register_rollback_state(registrar);
+    ambition_encounter_features::register_rollback_state(registrar);
     ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(registrar);
     ambition_platformer2d_world::rooms::register_gate_network_rollback_state(registrar);
 

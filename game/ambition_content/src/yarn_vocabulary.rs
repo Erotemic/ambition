@@ -102,7 +102,7 @@ pub fn refresh_yarn_state_mirror(
 
 // Setting and clearing flags is not a command here. The world-fact domain
 // publishes `world.set_flag(flag, on)` into the command catalog
-// (`ambition_platformer2d_actor_monolith::world_facts`), and dialogue uses
+// (`ambition_platformer2d_runtime::world_facts`), and dialogue uses
 // the generic `<<command "world.set_flag" "<id>" true>>` verb, mirroring
 // `condition("world.flag_set", "<id>")`. See
 // `ambition_conversation::dialog::authored_commands`.

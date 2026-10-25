@@ -235,7 +235,7 @@ fn install_ambition_game(app: &mut App) {
 
 #[cfg(feature = "physics_debris")]
 fn install_physics_debris(app: &mut App) {
-    use ambition_platformer2d_actor_monolith::world::physics;
+    use ambition_platformer2d::world::physics;
     if app.is_plugin_added::<physics::AmbitionPhysicsPlugin>() {
         return;
     }

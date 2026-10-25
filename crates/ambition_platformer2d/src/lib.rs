@@ -1324,6 +1324,8 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
+    pub use ambition_platformer2d_runtime::world_facts as facts;
+    pub use ambition_platformer2d_physics_debris as physics;
     /// A room's damaging volumes, as simulation state.
     pub use ambition_combat::hazard_runtime::HazardFeature;
     /// The derived solids/hazards a room contributes on top of its authored base.
@@ -1347,7 +1349,7 @@ pub mod world {
     pub use ambition_platformer2d_world::prelude;
 
     pub use ambition_platformer2d_world::{
-        collision, debug_label, navigation, placements, platforms, rooms, world_manifest,
+        authored_room_commands, collision, debug_label, gated_lock_walls, navigation, placements, platforms, rooms, world_manifest,
     };
 }
 // Re-exported so a game can name bevy TYPES through `crate::bevy::…`. NOTE:

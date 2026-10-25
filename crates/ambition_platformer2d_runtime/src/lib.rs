@@ -674,11 +674,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // and names no domain — it performs whatever the composed catalog
             // happens to know, which is why it can live here beside the
             // machinery rather than inside whichever domain a level asks for.
-            .add(ambition_platformer2d_actor_monolith::world::authored_switch_commands::AuthoredSwitchCommandPlugin)
+            .add(ambition_encounter_features::authored_switch_commands::AuthoredSwitchCommandPlugin)
             // The second consumer: a room's `while_live` line, asked for on each
             // tick while the room is live.
-            .add(ambition_platformer2d_actor_monolith::world::authored_room_commands::AuthoredRoomCommandPlugin)
-            .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
+            .add(ambition_platformer2d_world::authored_room_commands::AuthoredRoomCommandPlugin)
+            .add(crate::world_facts::WorldFactConditionsPlugin)
             // The inventory domain's provider, added for the same reason and in
             // the same way. it is the THIRD provider and it cost one line of
             // composition — which is the acceptance clause, restated as code.
@@ -829,3 +829,8 @@ pub use session_world::{
 };
 
 const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
+
+#[cfg(test)]
+mod gated_lock_wall_tests;
+
+pub mod world_facts;

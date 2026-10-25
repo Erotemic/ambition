@@ -124,10 +124,22 @@ fn ask(sim: &mut Platformer2dSimHarness, ring: &str, action: GateTerminalAction)
     }
 }
 
-/// Dial `address` at the open terminal of `ring`; the answer's kind
+/// The chevrons the word `word` spells on the network's rings.
+fn spell(sim: &Platformer2dSimHarness, word: &str) -> Vec<u8> {
+    let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>();
+    catalog.spell(word).unwrap_or_else(|letter| panic!("`{word}` has '{letter}', on no chevron"))
+}
+
+/// Dial the word `address` at the open terminal of `ring`; the answer's kind
 /// (`"link"` or the refusal's kind).
 fn dial(sim: &mut Platformer2dSimHarness, ring: &str, address: &str) -> String {
-    ask(sim, ring, GateTerminalAction::Dial(address.to_string()));
+    let chevrons = spell(sim, address);
+    dial_chevrons(sim, ring, &chevrons)
+}
+
+/// Dial the chevrons `address` at the open terminal of `ring`.
+fn dial_chevrons(sim: &mut Platformer2dSimHarness, ring: &str, address: &[u8]) -> String {
+    ask(sim, ring, GateTerminalAction::Dial(address.to_vec()));
     let report = network(sim).reports.get(ring).cloned().expect("the dial is answered");
     match report.outcome {
         Ok(_) => "link".to_string(),
@@ -266,23 +278,25 @@ fn a_hidden_address_is_dialed_like_any_other() {
 }
 
 /// Acceptance 3: each refusal has its own kind and changes nothing: no link,
-/// no knowledge. Repeated symbols match exactly; case does not matter.
+/// no knowledge. A dial matches the exact chevrons: TANGENT with its plain Τ
+/// twice is no address (its second Τ is the ringed one).
 #[test]
 fn each_failed_dial_says_why_and_opens_nothing() {
     let mut sim = room(HUB);
     open_terminal(&mut sim, HUB_TERMINAL, HUB_RING);
+    let mut wrong_tau = spell(&sim, "TANGENT");
+    *wrong_tau.last_mut().unwrap() = wrong_tau[0];
     for (address, kind) in [
-        ("", "empty"),
-        ("TANGENTO", "illegal"),
-        ("TANGENTT", "unknown"),
-        ("TANGEN", "unknown"),
-        ("SAND", "unknown"),
-        ("TESLA", "restricted"),
-        ("LEGAL", "same_facility"),
-        ("SENTINEL", "restricted"),
+        (vec![], "empty"),
+        (vec![10, 15], "illegal"),
+        (spell(&sim, "TANGENTT"), "unknown"),
+        (spell(&sim, "TANGEN"), "unknown"),
+        (wrong_tau, "unknown"),
+        (spell(&sim, "SAND"), "unknown"),
+        (spell(&sim, "LEGAL"), "same_facility"),
     ] {
-        assert_eq!(dial(&mut sim, HUB_RING, address), kind, "`{address}`");
-        assert!(network(&mut sim).links.is_empty(), "`{address}` opened a link");
+        assert_eq!(dial_chevrons(&mut sim, HUB_RING, &address), kind, "`{address:?}`");
+        assert!(network(&mut sim).links.is_empty(), "`{address:?}` opened a link");
     }
     assert!(!save(&mut sim).flag(&gate_address_known_flag("SILENT")), "a refused dial teaches nothing");
     assert_eq!(dial(&mut sim, HUB_RING, "tangent"), "link", "case does not matter");
@@ -347,17 +361,16 @@ fn an_opening_ring_takes_nobody_and_an_open_one_takes_the_traveller_once() {
 }
 
 /// Acceptance 4: a source ring answers by its own rules. Ring 7 of the gate
-/// stack has no power until its breaker is thrown, dials only the Math line,
-/// and never dials its own facility; a ring in a link is busy for another.
+/// stack has no power until its breaker is thrown and never dials its own
+/// facility; a ring in a link is busy for another.
 #[test]
-fn ring_seven_answers_by_its_power_its_reach_and_its_facility() {
+fn ring_seven_answers_by_its_power_and_its_facility() {
     let mut sim = room("gate_stack_lower");
     open_terminal(&mut sim, RING7_TERMINAL, RING7);
     assert_eq!(dial(&mut sim, RING7, "TANGENT"), "offline", "no power yet");
     ask(&mut sim, RING7, GateTerminalAction::Close);
     press_switch(&mut sim, RING7_BREAKER);
     open_terminal(&mut sim, RING7_TERMINAL, RING7);
-    assert_eq!(dial(&mut sim, RING7, "GENESIS"), "restricted", "ring 7 reaches the Math line only");
     assert_eq!(dial(&mut sim, RING7, "LEGAL"), "same_facility");
     assert_eq!(dial(&mut sim, RING7, "TANGENT"), "link");
     // The Math ring is in ring 7's link: the public gate finds it busy.
@@ -369,7 +382,8 @@ fn ring_seven_answers_by_its_power_its_reach_and_its_facility() {
         flag: &|_: &str| false,
         zone_exists: &|_: &str, _: &str| true,
     };
-    let busy = ambition_platformer2d::world::rooms::resolve_dial(&catalog, &state, HUB_RING, "TANGENT", &facts);
+    let tangent = catalog.spell("TANGENT").expect("TANGENT spells");
+    let busy = ambition_platformer2d::world::rooms::resolve_dial(&catalog, &state, HUB_RING, &tangent, &facts);
     assert_eq!(busy.map(|ring| ring.zone.clone()).unwrap_err().kind(), "busy");
 }
 
@@ -435,11 +449,11 @@ fn hold_until(
 
 /// Item 7, the early way: without clearance the annex's checkpoint stops a
 /// standing traveller, and the maintenance crawlway under it takes a
-/// crouching one. The military ring dials the military survey ring (TESLA),
-/// which no civil ring may. Reaching the military ring sets no permit: the
-/// public gate still refuses both military addresses afterwards.
+/// crouching one. The military ring dials its survey ring (TESLA). No faction
+/// refuses a dial (Jon, 2026-10-24): the public gate dials both military
+/// addresses too, and the crawlway grants no clearance.
 #[test]
-fn the_military_gate_is_reached_early_by_the_crawlway_and_grants_no_free_passage() {
+fn the_military_gate_is_reached_early_by_the_crawlway() {
     let mut sim = into_the_annex(Default::default());
     let walk = AgentAction { move_x: 1.0, ..base() };
     let past = |o: &ambition_app::AgentObservation| o.player_pos.0 > CHECKPOINT.1 + 20.0;
@@ -460,22 +474,20 @@ fn the_military_gate_is_reached_early_by_the_crawlway_and_grants_no_free_passage
         sim.step(base());
     }
 
-    // The military ring sends in the military band: TESLA answers it.
     assert_eq!(travel(&mut sim, ANNEX_TERMINAL, ANNEX_RING, "TESLA"), "gnu_ton_works_approach");
     assert!(standing_in(&mut sim, "trail_survey_gate"), "the traveller comes out of the survey ring");
 
-    // The public gate is civil, and the save holds no permit.
     let mut hub = room_with(HUB, save(&mut sim));
     open_terminal(&mut hub, HUB_TERMINAL, HUB_RING);
-    assert_eq!(dial(&mut hub, HUB_RING, "SENTINEL"), "restricted", "the military ring still refuses the public gate");
-    assert_eq!(dial(&mut hub, HUB_RING, "TESLA"), "restricted", "the survey ring still refuses the public gate");
+    assert_eq!(dial(&mut hub, HUB_RING, "SENTINEL"), "link", "no faction refuses the public gate");
+    assert_eq!(dial(&mut hub, HUB_RING, "TESLA"), "link");
 }
 
 /// Item 7, the later way: the clearance (the General gives it once Castle
-/// Godwin's dog is down) lets the public gate dial the military ring, and the
-/// checkpoint stands open for a standing traveller.
+/// Godwin's dog is down) opens the checkpoint for a standing traveller who
+/// came by the public gate.
 #[test]
-fn the_military_clearance_admits_the_public_gate_and_opens_the_checkpoint() {
+fn the_military_clearance_opens_the_checkpoint() {
     let mut cleared = ambition_platformer2d::session::AmbitionGameSaveData::default();
     cleared.set_flag(CLEARANCE, true);
     let mut sim = room_with(HUB, cleared);

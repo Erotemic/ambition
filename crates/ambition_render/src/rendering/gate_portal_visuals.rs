@@ -194,6 +194,105 @@ pub fn sync_portal_ring_animation(
     }
 }
 
+/// The prop kind of the ring's lit glyphs (`interdimensional_gate_glyphs`):
+/// its `lit` row has one frame per chevron, that chevron's glyph ablaze where
+/// the ring draws it, on the ring's own canvas.
+pub const GATE_GLYPHS_PROP_KIND: &str = "gate_glyphs";
+
+/// The chevrons a terminal's user has entered and not yet dialed, by the
+/// ring whose terminal is open. Presentation state a terminal writes: the
+/// ring lights them as they are entered.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct GateDialPreview {
+    pub ring: Option<String>,
+    pub chevrons: Vec<ambition_platformer2d_world::rooms::Chevron>,
+}
+
+/// One lit glyph over a ring: a child of the ring's sprite.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GateRingLitGlyph(pub ambition_platformer2d_world::rooms::Chevron);
+
+/// The chevrons a ring shows lit: those its terminal's user is entering,
+/// else those of the link it sends, else none. A chevron an address uses
+/// twice is lit once.
+pub fn ring_lit_chevrons(
+    zone: &str,
+    preview: Option<&GateDialPreview>,
+    network: Option<&ambition_platformer2d_world::rooms::GateNetworkState>,
+) -> Vec<ambition_platformer2d_world::rooms::Chevron> {
+    let entering = preview.filter(|preview| preview.ring.as_deref() == Some(zone)).map(|preview| &preview.chevrons);
+    let sending = network.and_then(|network| network.route_from(zone)).map(|link| &link.address);
+    let mut lit: Vec<_> = entering.filter(|chevrons| !chevrons.is_empty()).or(sending).cloned().unwrap_or_default();
+    lit.sort_unstable();
+    lit.dedup();
+    lit
+}
+
+/// Light the dialed glyphs on each ring: one child sprite per lit chevron,
+/// drawing that chevron's frame of the `gate_glyphs` sheet over the ring.
+#[allow(clippy::too_many_arguments)]
+pub fn sync_ring_lit_glyphs(
+    mut commands: Commands,
+    portals: Res<GatePortalRegistry>,
+    preview: Option<Res<GateDialPreview>>,
+    network: Option<Res<ambition_platformer2d_world::rooms::GateNetworkState>>,
+    catalog: Option<Res<ambition_platformer2d_world::rooms::GateNetworkCatalog>>,
+    assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
+    rings: Query<(Entity, &PropVisual, Option<&Children>)>,
+    mut glyphs: Query<(&GateRingLitGlyph, &mut Sprite, &mut CharacterAnimator, &mut bevy::sprite::Anchor)>,
+) {
+    let Some(asset) = assets.as_deref().and_then(|assets| assets.characters.prop_asset_for_kind(GATE_GLYPHS_PROP_KIND)) else {
+        return;
+    };
+    // The row has a frame per chevron, in the inscription's order.
+    let Some(count) = catalog.as_deref().map(|catalog| catalog.chevrons()).filter(|count| *count > 0) else {
+        return;
+    };
+    if asset.spec.clip_slot(["lit"]).is_none() {
+        return;
+    }
+    for (zone_id, config) in portals.iter() {
+        let lit = ring_lit_chevrons(zone_id, preview.as_deref(), network.as_deref());
+        for (ring, prop, children) in &rings {
+            if prop.name != config.ring_sprite_name {
+                continue;
+            }
+            let mut shown = Vec::new();
+            for child in children.into_iter().flatten() {
+                let Ok((glyph, mut sprite, mut animator, mut anchor)) = glyphs.get_mut(*child) else {
+                    continue;
+                };
+                if !lit.contains(&glyph.0) {
+                    commands.entity(*child).try_despawn();
+                    continue;
+                }
+                shown.push(glyph.0);
+                animator.request_clip(["lit"], CharacterAnim::Idle);
+                // The middle of chevron k's frame of the row.
+                animator.slave_clip_to(Some((f32::from(glyph.0) + 0.5) / count as f32));
+                let _ = draw_animator_frame(&mut sprite, &mut animator, Some(&mut anchor), 0.0, false, StanceSquash::NONE);
+            }
+            for chevron in lit.iter().filter(|chevron| !shown.contains(chevron)) {
+                let (sprite, anchor, animator) =
+                    super::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
+                let glyph = commands
+                    .spawn((
+                        sprite,
+                        anchor,
+                        animator,
+                        // Over the ring, by less than the membrane's step.
+                        Transform::from_xyz(0.0, 0.0, 0.002),
+                        GateRingLitGlyph(*chevron),
+                        PortalSprite,
+                        Name::new(format!("Gate lit glyph {chevron}")),
+                    ))
+                    .id();
+                commands.entity(ring).add_child(glyph);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -40,7 +40,7 @@ mod tests {
             ("GALACTIC", "orbital_station_gate_dock"),
             ("ALDENTE", "noodly_narthex"),
         ] {
-            let ring = catalog.ring_at(address).unwrap_or_else(|| panic!("no ring answers `{address}`"));
+            let ring = catalog.ring_named(address).unwrap_or_else(|| panic!("no ring answers `{address}`"));
             assert_eq!(ring.room, room, "`{address}`");
             assert!(!ring.hidden, "`{address}` is a public address");
         }
@@ -80,7 +80,7 @@ mod tests {
         assert!(taught.len() >= 3, "the shipped dialogue teaches a few addresses: {taught:?}");
         for (file, address) in &taught {
             assert!(
-                catalog.ring_at(address).is_some() && normalize_address(address) == *address,
+                catalog.ring_named(address).is_some() && normalize_address(address) == *address,
                 "`{file}` teaches `{address}`, which no ring answers"
             );
         }
@@ -101,7 +101,7 @@ mod tests {
             }
             assert!(
                 ring.posted.iter().any(|address| catalog
-                    .ring_at(address)
+                    .ring_named(address)
                     .is_some_and(|home| dimension(&home.zone) == "home" && normalize_address(address) == *address)),
                 "`{}` posts no way home: {:?}",
                 ring.zone,
@@ -129,6 +129,6 @@ mod tests {
         let refused = format!("{:?}", with(r#"address: Some("GENESIS")"#, r#"address: Some("TANGENT")"#).expect_err("two rings, one address"));
         assert!(refused.contains("the address `TANGENT` reaches both"), "{refused}");
         let refused = format!("{:?}", with(r#"address: Some("CITADEL")"#, r#"address: Some("CITADEO")"#).expect_err("a symbol off the chevrons"));
-        assert!(refused.contains("'O', which is not in the alphabet"), "{refused}");
+        assert!(refused.contains("'O', which is on no chevron"), "{refused}");
     }
 }

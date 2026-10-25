@@ -150,6 +150,9 @@
     "gate_transit_bags": (),
     "gate_ring": (sheet: Some("interdimensional_gate_ring"), frame_sample_inset: 2),
     "gate_portal": (sheet: Some("interdimensional_gate_portal"), frame_sample_inset: 2),
+    // A ring's glyphs ablaze, one frame per chevron, laid over the ring as
+    // they are dialed (`gate_portal_visuals::sync_ring_lit_glyphs`).
+    "gate_glyphs": (sheet: Some("interdimensional_gate_glyphs"), frame_sample_inset: 2),
     // The Pirate Port's scenery (`targets/props/pirate_port_props.py`): each
     // piece is drawn in its room's coordinates, over the room's walk lines.
     // The clerk's page is the pickup of the port's problem: drawn a little

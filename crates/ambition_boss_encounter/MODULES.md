@@ -25,6 +25,7 @@
 | [`ids`](src/ids.rs) | Boss encounter id helper: `encounter_id_from_name` slugs an authored boss name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). |
 | [`life_switch`](src/life_switch.rs) | A boss's life, set by a switch (`SwitchAction::BossLife`). |
 | [`pattern`](src/pattern/mod.rs) | The boss pattern's thinking: tick, control flow, validator, seeds and profile. |
+| [`playtest`](src/playtest.rs) | A temporary playtest aid: a player's shot takes a boss to its next phase. |
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
 | [`registry`](src/registry.rs) | `BossEncounterRegistry`: the read-only boss data catalog. |
 | [`retraction`](src/retraction.rs) | BOSS-REPLAY-RETRACTION (Q51, Q56): a replay that makes a boss undefeated again makes it undefeated for every boss family, and the consequences of the defeat go with it. |
@@ -34,7 +35,7 @@
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

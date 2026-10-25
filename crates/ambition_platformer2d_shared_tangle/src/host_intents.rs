@@ -112,7 +112,7 @@ impl<M: Message + Clone> HostIntentWriter<'_, '_, M> {
     /// the intent is logged and dropped rather than applied to a later one.
     pub fn write(&mut self, payload: M) {
         let Some(scope) = self.scope.get() else {
-            warn!(
+            tracing::warn!(
                 target: "ambition_platformer2d::host_intents",
                 "a host intent arrived with no live gameplay session; dropping {}",
                 std::any::type_name::<M>(),
@@ -129,7 +129,7 @@ impl<M: Message + Clone> HostIntentWriter<'_, '_, M> {
 pub fn write_host_intent<M: Message + Clone>(world: &mut World, payload: M) {
     let Some(scope) = crate::lifecycle::live_session_scope(world)
     else {
-        warn!(
+        tracing::warn!(
             target: "ambition_platformer2d::host_intents",
             "a host intent arrived with no live gameplay session; dropping {}",
             std::any::type_name::<M>(),

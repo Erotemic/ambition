@@ -78,16 +78,18 @@ pub fn run_gate_network(
                 let flag = |id: &str| data.flag(id);
                 let zone_exists = |room: &str, zone: &str| rooms.rooms().has_zone(room, zone);
                 let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists };
-                let normalized = ambition_platformer2d_world::rooms::normalize_address(address);
                 match resolve_dial(&catalog, &state, &intent.ring, address, &facts) {
                     Ok(far) => {
                         let (far_room, far_zone) = (far.room.clone(), far.zone.clone());
-                        state.open_link(&intent.ring, &far_room, &far_zone, &normalized);
-                        state.report(&intent.ring, normalized.clone(), Ok(far_zone));
+                        let word = far.address.clone();
+                        state.open_link(&intent.ring, &far_room, &far_zone, address);
+                        state.report(&intent.ring, address.clone(), Ok(far_zone));
                         // A dial that answers teaches the address.
-                        save.data_mut().set_flag(gate_address_known_flag(&normalized), true);
+                        if let Some(word) = word {
+                            save.data_mut().set_flag(gate_address_known_flag(&word), true);
+                        }
                     }
-                    Err(refusal) => state.report(&intent.ring, normalized, Err(refusal)),
+                    Err(refusal) => state.report(&intent.ring, address.clone(), Err(refusal)),
                 }
             }
         }

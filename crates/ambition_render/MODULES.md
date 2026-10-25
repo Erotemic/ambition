@@ -14,6 +14,7 @@
 | [`folded_mesh`](src/folded_mesh.rs) | The one road for a mesh built on the CPU: lightning, lasers, any line or ribbon an effect lays out as triangles. |
 | [`fx`](src/fx.rs) | Procedural visual effects for the sandbox. |
 | [`gameplay_surround`](src/gameplay_surround.rs) | Fills the display area that the gameplay camera does not cover. |
+| [`gate_portal_fx`](src/gate_portal_fx.rs) | The wormhole of a gate, at Ultra. |
 | [`hud`](src/hud.rs) | Always-on player HUD: health, mana, and money meters (visible build). |
 | [`lines`](src/lines/mod.rs) | Line effects: lightning, lasers, any look drawn along a line or round a body. |
 | [`mesh2d_late_meshes`](src/mesh2d_late_meshes.rs) | A 2D mesh whose GPU mesh arrives late is specialized when it arrives. |
@@ -27,7 +28,7 @@
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

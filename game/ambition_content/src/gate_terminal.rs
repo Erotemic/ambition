@@ -3,25 +3,38 @@
 //!
 //! The simulation owns which terminal is open and what each dial answered
 //! (`GateNetworkState`). This module owns the terminal's local state (the
-//! tab, the symbols entered, the cursor) and turns a press into a
-//! [`GateTerminalIntent`], which enters the simulation through the host
-//! intent ledger on a stamped tick. Nothing here moves a body or opens a
-//! ring.
+//! chevrons entered, where the wheel points, the list cursor) and turns a
+//! press into a [`GateTerminalIntent`], which enters the simulation through
+//! the host intent ledger on a stamped tick. Nothing here moves a body or
+//! opens a ring.
+//!
+//! A terminal is a WHEEL of the ring's chevrons, laid out as the ring is
+//! ([`chevron_angle`]: clockwise from the lower left over the top, the first
+//! of the inscription at the lower left), with the ENGAGE press (a solid Δ)
+//! in the slice at the bottom, beside a list of the known and recent
+//! addresses. A gamepad points the stick at a chevron and presses to enter
+//! it; arrow keys and the d-pad step round the wheel; a mouse or a finger
+//! presses a chevron. There is no typing: one chevron of the ring can stand
+//! for one letter twice (Λ, Λ₂, Λ₃), and only the wheel tells them apart.
 //!
 //! The presentation (`presentation::gate_terminal`) draws [`TerminalModel`]
-//! and feeds presses back through [`TerminalUi::activate`] and
-//! [`TerminalUi::navigate`], so keyboard, gamepad, mouse and touch use one
+//! and feeds presses back through [`TerminalUi`], so every device uses one
 //! road. While a terminal is open it takes the seat's input
 //! ([`GATE_TERMINAL_CONTEXT`]), so the body at the terminal stands still.
 
 use ambition_platformer2d::world::rooms::{
-    GateNetworkCatalog, GateNetworkState, GateTerminalAction, GateTerminalIntent,
+    Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalAction, GateTerminalIntent,
 };
 use bevy::prelude::*;
 
-/// The most symbols an address field holds. Longer than every authored
-/// address, so a player can type a wrong long one and read the refusal.
+/// The most chevrons an address field holds. Longer than every authored
+/// address, so a player can enter a wrong long one and read the refusal.
 pub const ADDRESS_FIELD_LEN: usize = 12;
+
+/// The slice of the wheel with no chevron, at the bottom: on the ring the
+/// base it stands in, on a terminal the engage press. The ring's art draws
+/// the same layout (`glyphs.legally_distinct.ARCH_GAP_DEG`).
+pub const ARCH_GAP_DEG: f32 = 96.0;
 
 /// The input context of an open gate terminal: it takes the seat's input
 /// from gameplay, above a dialogue and below the inventory.
@@ -30,40 +43,66 @@ pub const GATE_TERMINAL_CONTEXT: ambition_input::participant::InputContextId =
 /// Its claim priority, between `DIALOGUE` (150) and `INVENTORY` (160).
 pub const GATE_TERMINAL_PRIORITY: i32 = 155;
 
-/// The view a terminal shows.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum TerminalTab {
-    /// The addresses this traveller knows, and those written on this terminal.
-    #[default]
-    Known,
-    /// The addresses the network linked last.
-    Recent,
-    /// The chevron keypad: any address, known or not.
-    Manual,
+/// Where chevron `index` of `count` sits round the wheel: degrees clockwise
+/// from 3 o'clock with y DOWN (screen space), from the lower left over the
+/// top to the lower right, the bottom slice left for the engage press.
+pub fn chevron_angle(index: usize, count: usize) -> f32 {
+    let step = (360.0 - ARCH_GAP_DEG) / (count.max(2) - 1) as f32;
+    90.0 + ARCH_GAP_DEG / 2.0 + index as f32 * step
 }
 
-impl TerminalTab {
-    pub const ALL: [Self; 3] = [Self::Known, Self::Recent, Self::Manual];
+/// One place on the wheel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum WheelSlot {
+    Chevron(Chevron),
+    /// The engage press, in the slice at the bottom: it dials.
+    Engage,
+}
 
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Known => "Known",
-            Self::Recent => "Recent",
-            Self::Manual => "Manual",
+impl WheelSlot {
+    /// The slot at the angle `degrees` (clockwise from 3 o'clock, y down):
+    /// the nearest chevron, or the engage press when the bottom is nearer.
+    pub fn at_angle(degrees: f32, count: usize) -> Self {
+        let off = |target: f32| ((degrees - target).rem_euclid(360.0)).min((target - degrees).rem_euclid(360.0));
+        let mut best = (off(90.0), Self::Engage);
+        for index in 0..count {
+            let distance = off(chevron_angle(index, count));
+            if distance < best.0 {
+                best = (distance, Self::Chevron(index as Chevron));
+            }
         }
+        best.1
+    }
+
+    /// The next slot clockwise (`step` 1) or anticlockwise (-1): round the
+    /// chevrons in order, and through the engage press between the last and
+    /// the first.
+    pub fn stepped(self, step: i32, count: usize) -> Self {
+        let ring = count as i32 + 1;
+        let at = match self {
+            Self::Chevron(chevron) => i32::from(chevron),
+            Self::Engage => count as i32,
+        };
+        let next = (at + step).rem_euclid(ring);
+        if next == count as i32 { Self::Engage } else { Self::Chevron(next as Chevron) }
     }
 }
 
-/// One thing a terminal's cursor can stand on.
+/// Which part of the terminal the menu keys drive.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TerminalFocus {
+    /// The wheel: point and press to enter chevrons.
+    #[default]
+    Wheel,
+    /// The list beside it: known and recent addresses, and the actions.
+    List,
+}
+
+/// One row of the list beside the wheel.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum TerminalCell {
-    Tab(TerminalTab),
-    /// A listed address: a press dials it.
-    Entry { address: String, label: String },
-    /// A chevron symbol: a press adds it to the address field.
-    Symbol(char),
-    Erase,
-    Dial,
+pub enum ListRow {
+    /// An address: a press dials it.
+    Address { address: Vec<Chevron>, word: String, name: String, recent: bool },
     Hangup,
     Close,
 }
@@ -82,11 +121,13 @@ pub enum TerminalEffect {
 pub struct TerminalUi {
     /// The ring the state belongs to. A different ring starts a fresh state.
     pub ring: Option<String>,
-    pub tab: TerminalTab,
-    /// The symbols entered, upper case.
-    pub address: String,
-    /// The cursor: row and column of [`TerminalModel::rows`].
-    pub cursor: (usize, usize),
+    pub focus: TerminalFocus,
+    /// The chevrons entered.
+    pub entered: Vec<Chevron>,
+    /// Where the wheel points.
+    pub pointed: Option<WheelSlot>,
+    /// The row of the list the cursor is on.
+    pub list_cursor: usize,
     /// The report serial this terminal already acted on.
     pub seen_serial: Option<u64>,
 }
@@ -98,33 +139,19 @@ pub struct TerminalModel {
     pub title: String,
     pub facility: String,
     pub note: String,
-    pub address: String,
+    /// How many chevrons the wheel has, and the letter each stands for.
+    pub inscription: Vec<char>,
+    pub entered: Vec<Chevron>,
+    /// The word of the entered chevrons, when a ring has that address.
+    pub entered_word: Option<String>,
     /// The line under the address: the link, the last answer, or a hint.
     pub status: String,
     /// Whether the status line reports a refusal.
     pub refused: bool,
-    pub tab: TerminalTab,
-    pub rows: Vec<Vec<TerminalCell>>,
-    pub cursor: (usize, usize),
-}
-
-/// The Greek letter a chevron draws for an address symbol (the ring's
-/// inscription, ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ).
-pub fn chevron_glyph(symbol: char) -> char {
-    match symbol {
-        'A' => 'Α',
-        'C' => 'Χ',
-        'D' => 'Δ',
-        'E' => 'Ε',
-        'G' => 'Γ',
-        'I' => 'Ι',
-        'L' => 'Λ',
-        'N' => 'Ν',
-        'S' => 'Σ',
-        'T' => 'Τ',
-        'Y' => 'Υ',
-        other => other,
-    }
+    pub focus: TerminalFocus,
+    pub pointed: Option<WheelSlot>,
+    pub list: Vec<ListRow>,
+    pub list_cursor: usize,
 }
 
 /// The addresses a terminal lists as known: those written on it first, then
@@ -148,108 +175,105 @@ pub fn known_addresses(
     listed
 }
 
-fn entry(catalog: &GateNetworkCatalog, address: &str) -> TerminalCell {
-    let label = catalog.ring_at(address).map_or_else(String::new, |ring| ring.name.clone());
-    TerminalCell::Entry { address: address.to_string(), label }
+fn address_row(catalog: &GateNetworkCatalog, address: Vec<Chevron>, recent: bool) -> ListRow {
+    let ring = catalog.ring_at(&address);
+    ListRow::Address {
+        word: ring.and_then(|ring| ring.address.clone()).unwrap_or_default(),
+        name: ring.map_or_else(|| "No ring answered".to_string(), |ring| ring.name.clone()),
+        address,
+        recent,
+    }
 }
 
 impl TerminalUi {
-    /// Start a fresh state for `ring`: the Known tab when it lists anything,
-    /// else the keypad.
-    pub fn open(&mut self, ring: &str, known: usize, seen_serial: Option<u64>) {
-        *self = Self {
-            ring: Some(ring.to_string()),
-            tab: if known > 0 { TerminalTab::Known } else { TerminalTab::Manual },
-            address: String::new(),
-            cursor: (1, 0),
-            seen_serial,
-        };
+    /// Start a fresh state for `ring`, on the wheel, pointing at nothing.
+    pub fn open(&mut self, ring: &str, seen_serial: Option<u64>) {
+        *self = Self { ring: Some(ring.to_string()), seen_serial, ..default() };
     }
 
-    /// The rows the cursor walks for the current tab.
-    pub fn rows(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[String]) -> Vec<Vec<TerminalCell>> {
-        let mut rows = vec![TerminalTab::ALL.iter().map(|tab| TerminalCell::Tab(*tab)).collect()];
-        match self.tab {
-            TerminalTab::Known => rows.extend(known.iter().map(|address| vec![entry(catalog, address)])),
-            TerminalTab::Recent => rows.extend(state.recent.iter().map(|address| vec![entry(catalog, address)])),
-            TerminalTab::Manual => {
-                let symbols: Vec<char> = catalog.alphabet.chars().collect();
-                let half = symbols.len().div_ceil(2);
-                for chunk in symbols.chunks(half.max(1)) {
-                    rows.push(chunk.iter().map(|symbol| TerminalCell::Symbol(*symbol)).collect());
-                }
-                rows.push(vec![TerminalCell::Erase]);
+    /// The list beside the wheel: the known addresses (by word), the recent
+    /// ones (by chevrons, a known one only once), then the actions.
+    pub fn list(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[String]) -> Vec<ListRow> {
+        let mut rows: Vec<ListRow> = known
+            .iter()
+            .filter_map(|word| catalog.spell(word).ok())
+            .map(|address| address_row(catalog, address, false))
+            .collect();
+        for address in &state.recent {
+            let listed = rows.iter().any(|row| matches!(row, ListRow::Address { address: a, .. } if a == address));
+            if !listed {
+                rows.push(address_row(catalog, address.clone(), true));
             }
         }
-        let ring = self.ring.as_deref().unwrap_or_default();
-        let mut actions = vec![TerminalCell::Dial];
-        if state.route_from(ring).is_some() {
-            actions.push(TerminalCell::Hangup);
+        if state.route_from(self.ring.as_deref().unwrap_or_default()).is_some() {
+            rows.push(ListRow::Hangup);
         }
-        actions.push(TerminalCell::Close);
-        rows.push(actions);
+        rows.push(ListRow::Close);
         rows
     }
 
-    /// Move the cursor by one step, kept inside the rows.
-    pub fn navigate(&mut self, rows: &[Vec<TerminalCell>], dx: i32, dy: i32) {
-        if rows.is_empty() {
-            return;
-        }
-        let (row, col) = self.cursor;
-        let row = (row as i32 + dy).clamp(0, rows.len() as i32 - 1) as usize;
-        let width = rows[row].len().max(1);
-        let col = if dy != 0 { col.min(width - 1) } else { (col as i32 + dx).clamp(0, width as i32 - 1) as usize };
-        self.cursor = (row, col);
+    /// Point the wheel at a slot.
+    pub fn point(&mut self, slot: WheelSlot) {
+        self.focus = TerminalFocus::Wheel;
+        self.pointed = Some(slot);
     }
 
-    /// Clamp the cursor after the rows changed under it.
-    pub fn clamp(&mut self, rows: &[Vec<TerminalCell>]) {
-        self.navigate(rows, 0, 0);
+    /// Step the wheel's pointer round by `step`, from the top when it points
+    /// nowhere yet.
+    pub fn step_wheel(&mut self, step: i32, count: usize) {
+        let from = self.pointed.unwrap_or(WheelSlot::at_angle(270.0, count));
+        self.point(if self.pointed.is_some() { from.stepped(step, count) } else { from });
     }
 
-    /// Carry out a press on `cell`. A press of a symbol adds it, again each
-    /// time it is pressed; a listed address dials at once.
-    pub fn activate(&mut self, cell: &TerminalCell) -> TerminalEffect {
-        match cell {
-            TerminalCell::Tab(tab) => {
-                self.tab = *tab;
+    /// Move the list cursor by `step`, kept inside the list.
+    pub fn step_list(&mut self, step: i32, rows: usize) {
+        self.focus = TerminalFocus::List;
+        self.list_cursor = (self.list_cursor as i32 + step).clamp(0, rows.saturating_sub(1) as i32) as usize;
+    }
+
+    /// Carry out a press of a wheel slot: a chevron is entered, again each
+    /// time it is pressed; the engage press dials what was entered.
+    pub fn press_slot(&mut self, slot: WheelSlot) -> TerminalEffect {
+        self.point(slot);
+        match slot {
+            WheelSlot::Chevron(chevron) => {
+                if self.entered.len() < ADDRESS_FIELD_LEN {
+                    self.entered.push(chevron);
+                }
                 TerminalEffect::None
             }
-            TerminalCell::Entry { address, .. } => {
-                self.address = address.clone();
+            WheelSlot::Engage => TerminalEffect::Send(GateTerminalAction::Dial(self.entered.clone())),
+        }
+    }
+
+    /// Carry out a press of a list row: an address is entered and dialed.
+    pub fn press_row(&mut self, row: &ListRow) -> TerminalEffect {
+        match row {
+            ListRow::Address { address, .. } => {
+                self.entered = address.clone();
                 TerminalEffect::Send(GateTerminalAction::Dial(address.clone()))
             }
-            TerminalCell::Symbol(symbol) => {
-                self.type_symbol(*symbol);
-                TerminalEffect::None
-            }
-            TerminalCell::Erase => {
-                self.address.pop();
-                TerminalEffect::None
-            }
-            TerminalCell::Dial => TerminalEffect::Send(GateTerminalAction::Dial(self.address.clone())),
-            TerminalCell::Hangup => TerminalEffect::Send(GateTerminalAction::Hangup),
-            TerminalCell::Close => TerminalEffect::Send(GateTerminalAction::Close),
+            ListRow::Hangup => TerminalEffect::Send(GateTerminalAction::Hangup),
+            ListRow::Close => TerminalEffect::Send(GateTerminalAction::Close),
         }
     }
 
-    /// Add one symbol to the address field. A symbol that is not on the
-    /// chevrons is still added: the dial then names it in its refusal.
-    pub fn type_symbol(&mut self, symbol: char) {
-        if self.address.chars().count() < ADDRESS_FIELD_LEN {
-            self.address.extend(symbol.to_uppercase());
-        }
-    }
-
-    /// The back press: erase the last symbol, or leave the terminal when the
-    /// field is empty.
+    /// The back press: take back the last chevron, or leave the terminal
+    /// when none is entered.
     pub fn back(&mut self) -> TerminalEffect {
-        if self.address.pop().is_some() {
+        if self.entered.pop().is_some() {
             TerminalEffect::None
         } else {
             TerminalEffect::Send(GateTerminalAction::Close)
         }
+    }
+
+    /// Swap what the menu keys drive: the wheel or the list.
+    pub fn swap_focus(&mut self) {
+        self.focus = match self.focus {
+            TerminalFocus::Wheel => TerminalFocus::List,
+            TerminalFocus::List => TerminalFocus::Wheel,
+        };
     }
 
     /// What the terminal shows now.
@@ -260,31 +284,33 @@ impl TerminalUi {
             .and_then(|ring| catalog.facility(&ring.facility))
             .map_or_else(String::new, |facility| facility.name.clone());
         let far_name = |zone: &str| catalog.ring(zone).map_or_else(|| zone.to_string(), |ring| ring.name.clone());
+        let word = |address: &[Chevron]| catalog.word_of(address).map(str::to_string);
         let (status, refused) = if let Some(link) = state.route_from(ring_id) {
-            (
-                format!("LINK OPEN to {} ({}). Walk into the ring.", far_name(&link.far), link.address),
-                false,
-            )
+            (format!("LINK OPEN to {}. Walk into the ring.", far_name(&link.far)), false)
         } else if state.holds_open(ring_id) {
             ("INCOMING: the ring is receiving.".to_string(), false)
         } else if let Some(report) = state.reports.get(ring_id) {
             match &report.outcome {
                 Ok(far) => (format!("The link to {} has closed.", far_name(far)), false),
-                Err(refusal) => (format!("{}: {}", report.address, refusal.message()), true),
+                Err(refusal) => (refusal.message(), true),
             }
         } else {
-            ("Choose an address, or enter one on the chevrons.".to_string(), false)
+            ("Point at a chevron and press to enter it; press \u{0394} to dial.".to_string(), false)
         };
+        let list = self.list(catalog, state, known);
         TerminalModel {
             title: ring.map_or_else(|| ring_id.to_string(), |ring| ring.name.clone()),
             facility,
             note: ring.map_or_else(String::new, |ring| ring.note.clone()),
-            address: self.address.clone(),
+            inscription: catalog.inscription.chars().collect(),
+            entered: self.entered.clone(),
+            entered_word: word(&self.entered),
             status,
             refused,
-            tab: self.tab,
-            rows: self.rows(catalog, state, known),
-            cursor: self.cursor,
+            focus: self.focus,
+            pointed: self.pointed,
+            list_cursor: self.list_cursor.min(list.len().saturating_sub(1)),
+            list,
         }
     }
 }
@@ -344,47 +370,63 @@ mod tests {
         crate::gate_network::lowered_gate_network(crate::pack::shipped())
     }
 
-    /// A repeated symbol is entered each time it is pressed, and the back
-    /// press erases before it leaves.
+    /// The wheel is laid out as the ring: the first chevron at the lower
+    /// left, the middle one (Δ) at the top, the last at the lower right, and
+    /// the engage press at the bottom.
     #[test]
-    fn a_repeated_symbol_is_entered_each_time_and_back_erases_first() {
+    fn the_wheel_is_laid_out_as_the_ring() {
+        let n = catalog().chevrons();
+        assert_eq!(n, 15);
+        assert!((chevron_angle(7, n) - 270.0).abs() < 1e-3, "Δ at 12 o'clock");
+        assert_eq!(WheelSlot::at_angle(270.0, n), WheelSlot::Chevron(7));
+        assert_eq!(WheelSlot::at_angle(90.0, n), WheelSlot::Engage, "straight down is the engage press");
+        assert_eq!(WheelSlot::at_angle(180.0, n), WheelSlot::at_angle(chevron_angle(2, n), n), "left");
+        assert_eq!(WheelSlot::at_angle(chevron_angle(0, n) + 3.0, n), WheelSlot::Chevron(0));
+        assert_eq!(WheelSlot::Chevron(14).stepped(1, n), WheelSlot::Engage);
+        assert_eq!(WheelSlot::Engage.stepped(1, n), WheelSlot::Chevron(0));
+        assert_eq!(WheelSlot::Chevron(0).stepped(-1, n), WheelSlot::Engage);
+    }
+
+    /// A pressed chevron is entered each time, the back press takes the last
+    /// one back before it leaves, and the engage press dials the chevrons.
+    #[test]
+    fn chevrons_are_entered_by_the_wheel_and_engaged_by_the_delta() {
+        let catalog = catalog();
         let mut ui = TerminalUi::default();
-        ui.open("hub_public_gate_zone", 0, None);
-        assert_eq!(ui.tab, TerminalTab::Manual, "nothing known: the keypad");
-        for symbol in ['L', 'E', 'G', 'A', 'L', 'L'] {
-            assert_eq!(ui.activate(&TerminalCell::Symbol(symbol)), TerminalEffect::None);
+        ui.open("hub_public_gate_zone", None);
+        let tangent = catalog.spell("TANGENT").unwrap();
+        for chevron in &tangent {
+            assert_eq!(ui.press_slot(WheelSlot::Chevron(*chevron)), TerminalEffect::None);
         }
-        assert_eq!(ui.address, "LEGALL");
+        ui.press_slot(WheelSlot::Chevron(0));
         assert_eq!(ui.back(), TerminalEffect::None);
-        assert_eq!(ui.activate(&TerminalCell::Dial), TerminalEffect::Send(GateTerminalAction::Dial("LEGAL".into())));
-        for _ in 0..5 {
+        assert_eq!(ui.press_slot(WheelSlot::Engage), TerminalEffect::Send(GateTerminalAction::Dial(tangent.clone())));
+        let model = ui.model(&catalog, &GateNetworkState::default(), &[]);
+        assert_eq!(model.entered_word.as_deref(), Some("TANGENT"));
+        for _ in 0..tangent.len() {
             ui.back();
         }
         assert_eq!(ui.back(), TerminalEffect::Send(GateTerminalAction::Close));
     }
 
-    /// The keypad has each chevron once, and the cursor stays in the rows.
+    /// A listed address dials its chevrons; a recent one that is not known
+    /// is listed by its chevrons; the list ends with leaving.
     #[test]
-    fn the_keypad_is_the_alphabet_and_the_cursor_stays_inside() {
+    fn the_list_dials_known_and_recent_addresses() {
         let catalog = catalog();
-        let state = GateNetworkState::default();
+        let mut state = GateNetworkState::default();
+        let wrong = vec![0, 1, 2, 3, 0];
+        state.recent = vec![catalog.spell("GENESIS").unwrap(), wrong.clone()];
         let mut ui = TerminalUi::default();
-        ui.open("hub_public_gate_zone", 0, None);
-        let rows = ui.rows(&catalog, &state, &[]);
-        let symbols: String = rows
-            .iter()
-            .flatten()
-            .filter_map(|cell| match cell {
-                TerminalCell::Symbol(symbol) => Some(*symbol),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(symbols, catalog.alphabet);
-        for _ in 0..20 {
-            ui.navigate(&rows, 1, 1);
-        }
-        assert_eq!(ui.cursor.0, rows.len() - 1);
-        assert!(ui.cursor.1 < rows[ui.cursor.0].len());
+        ui.open("hub_public_gate_zone", None);
+        let rows = ui.list(&catalog, &state, &["GENESIS".to_string()]);
+        assert!(matches!(&rows[0], ListRow::Address { word, recent: false, .. } if word == "GENESIS"));
+        assert!(matches!(&rows[1], ListRow::Address { address, word, recent: true, .. } if *address == wrong && word.is_empty()), "{rows:?}");
+        assert_eq!(rows.last(), Some(&ListRow::Close));
+        assert_eq!(
+            ui.press_row(&rows[0]),
+            TerminalEffect::Send(GateTerminalAction::Dial(catalog.spell("GENESIS").unwrap()))
+        );
     }
 
     /// Under discovery, a terminal away from home lists its way home with no
@@ -415,13 +457,17 @@ mod tests {
         let catalog = catalog();
         let mut state = GateNetworkState::default();
         let mut ui = TerminalUi::default();
-        ui.open("hub_public_gate_zone", 0, None);
-        state.open_link("hub_public_gate_zone", "math_gate_hall", "math_gate_return_zone", "TANGENT");
+        ui.open("hub_public_gate_zone", None);
+        state.open_link("hub_public_gate_zone", "math_gate_hall", "math_gate_return_zone", &catalog.spell("TANGENT").unwrap());
         let model = ui.model(&catalog, &state, &[]);
         assert!(model.status.starts_with("LINK OPEN to Math Town gate hall"), "{}", model.status);
-        assert!(model.rows.last().unwrap().contains(&TerminalCell::Hangup));
+        assert!(model.list.contains(&ListRow::Hangup));
         state.links.clear();
-        state.report("hub_public_gate_zone", "SILENT".into(), Err(DialRefusal::Offline("The far ring is not yet built.".into())));
+        state.report(
+            "hub_public_gate_zone",
+            catalog.spell("SILENT").unwrap(),
+            Err(DialRefusal::Offline("The far ring is not yet built.".into())),
+        );
         let model = ui.model(&catalog, &state, &[]);
         assert!(model.refused && model.status.contains("OFFLINE"), "{}", model.status);
     }

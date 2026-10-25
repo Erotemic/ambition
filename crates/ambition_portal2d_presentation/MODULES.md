@@ -13,12 +13,13 @@
 | [`far_side`](src/far_side.rs) | Draw a far-side body as the part of it the pane does not cover. |
 | [`glow`](src/glow.rs) | The portal's line of light: where the opening of an aperture is. |
 | [`gun_visuals`](src/gun_visuals.rs) | Compatibility visuals for Ambition's portal-gun workflow. |
+| [`limb_seams`](src/limb_seams.rs) | Where a limb that goes through a portal is cut, and the lines of light that are drawn on those cuts. |
 | [`plugin`](src/plugin.rs) | The drop-in presentation plugin + its schedule label. |
 | [`source_visibility`](src/source_visibility.rs) | One authority over a portal-presented body's own `Visibility`. |
 | [`view_cones`](src/view_cones.rs) | Live through-portal view windows. |
 | [`visuals`](src/visuals.rs) | Default portal-seam visuals: portal labels, mid-transit body-piece decomposition, and the disorientation indicator. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

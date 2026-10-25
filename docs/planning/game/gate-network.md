@@ -18,26 +18,31 @@ ring's zone. A dial never moves a body.
 
 1. **One catalog.** Addresses, facilities and rings are authored in one
    typed file (schema `gate_network`, world capability). The pack refuses a
-   catalog with a duplicate address or ring, an address with a symbol that is
-   not on the chevrons, an unknown facility, band or address in a reach or a
-   posting, or an empty reason (`gate_network_problems`).
+   catalog with a duplicate address or ring, an address with a letter on no
+   chevron, an unknown facility or posted address, or an empty reason
+   (`gate_network_problems`).
    `gate_network_ring_zones` (LDtk validator) and the content tests hold each
    ring to the world files.
-2. **The alphabet** is the ring's inscription, ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ, as the
-   letters `A C D E G I L N S T Y`. A symbol can repeat. Matching is exact
-   after upper-casing and removing spaces.
+2. **The inscription** is the ring's fifteen chevrons, ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ,
+   written as the letters `LEGALLYDISTINCT`. Each chevron is its own glyph
+   (a repeated Λ, Ι or Τ wears a small ring). An address is a sequence of
+   chevrons (a chevron may repeat). The catalog names it by a word, which
+   spells into chevrons by the inscription's rule: the k-th use of a letter
+   takes the k-th chevron of it, round again past the last
+   (`GateNetworkCatalog::spell`; LEGAL is Λ Ε Γ Α Λ₂). A dial must enter
+   exactly those chevrons (Jon, 2026-10-24): Λ Ε Γ Α Λ is no address.
 3. **An address reaches one ring.** A ring with no address only sends (Ring
    7). A **hidden** address is in no directory, and a dial reaches it the same
    way.
 4. **Any valid address can always be dialed.** Knowledge never changes what a
    dial does. It changes only what a terminal lists.
 5. **The dial decision** (`resolve_dial`) checks, in this order: the address
-   is not empty and uses the alphabet; the dialing ring works; a ring answers;
-   that ring is not in the dialing ring's facility; the dialing ring can reach
-   it (`reach`); the far ring admits the dialing ring's band (`admits`); the
-   far ring works and its room is in the world; the far ring is not in another
+   is not empty and each chevron is on the ring; the dialing ring works; a
+   ring answers; that ring is not in the dialing ring's facility; the far
+   ring works and its room is in the world; the far ring is not in another
    link. Each refusal has its own kind and message: `empty`, `illegal`,
-   `unknown`, `same_facility`, `restricted`, `offline`, `busy`.
+   `unknown`, `same_facility`, `offline`, `busy`. **No faction refuses a
+   dial** (Jon, 2026-10-24): there are no bands, permits or reach limits.
 6. **Same facility, same dimension.** Two rings in one facility never dial
    each other: that is a walk. Two facilities in one dimension can: the
    Science dimension's gravity trail (`ASCENT`) and its orbital station
@@ -54,12 +59,7 @@ ring's zone. A dial never moves a body.
 9. **Every terminal away from home posts a way home** (`posted`, here
    `LEGAL`). Its Known view always lists it, so no destination needs a known
    address to leave.
-10. **Bands and permits.** A ring sends in one band (`civil` by default). A
-    ring that `admits` only `military` refuses a civil ring as restricted,
-    unless the save flag of its `permit` is set. Reaching a military ring early
-    lets a traveller use that ring; it sets no permit, so the public gate
-    still refuses the military rings.
-11. **Knowledge** is the save flag `gate.known.<ADDRESS>`. A dial that answers
+10. **Knowledge** is the save flag `gate.known.<ADDRESS>`. A dial that answers
     sets it; a sign, a person or a document sets it with Yarn
     `<<command "world.set_flag" "gate.known.TANGENT" true>>`. The catalog's
     `start_known` decides what a traveller knows before learning anything:
@@ -76,15 +76,25 @@ ring's zone. A dial never moves a body.
 | open terminal, links, reports, recent addresses | `GateNetworkState` (`resource.gate_network_state`) | rollback state, keyed by ring zone ids |
 | a terminal's dial, hangup, close | `GateTerminalIntent` host intent | stamped tick, released into the sim |
 | what the player knows | save flags `gate.known.*` | persisted |
-| the panel's tab, entered symbols, cursor | `TerminalUi` | host presentation |
+| the panel's focus, entered chevrons, pointer, list cursor | `TerminalUi` | host presentation |
+| the chevrons being entered, lit on the ring | `GateDialPreview` | host presentation |
 | a ring's portal phase | `GatePortalPhases`, commanded by `GatePortalCommand::Dialed` | rollback state |
 
 The simulation step is `run_gate_network` (Progression, `WorldSync`, after
 the switch drain, before the portal tick). The terminal panel
-(`presentation::gate_terminal`) reads the shared menu input (keyboard,
-gamepad, touch buttons), the alphabet's letter keys and presses on its own
-buttons, and claims the seat's input (`gate_terminal`, between dialogue and
-inventory) while a terminal is open. The pause menu outranks it.
+(`presentation::gate_terminal`) is a **dial wheel**: the ring's chevrons
+laid out as on the ring (the first at the lower left, Δ at the top), a big
+solid Δ in the bottom slice that engages a dial, the address entered in the
+middle, and the known and recent addresses beside it. A gamepad points its
+stick at a chevron and presses to enter it; the arrow keys and d-pad step
+round the wheel (up: the top, down: the Δ); a mouse or a finger hovers and
+presses. There is no typing: only the wheel tells Λ from Λ₂. Back takes the
+last chevron back, then leaves; the page buttons swap to the list. The panel
+claims the seat's input (`gate_terminal`, between dialogue and inventory)
+while a terminal is open; the pause menu outranks it. The chevrons entered
+light on the ring as they are entered, and a sending ring keeps its link's
+chevrons lit (`gate_portal_visuals::sync_ring_lit_glyphs`, the `lit` row of
+`interdimensional_gate_glyphs`).
 
 ## The address table
 
@@ -102,10 +112,10 @@ from the start.
 | `SAILING` | `pirate_port_gate_arrival` | `pirate_port_gate_plaza` | the port's docks and the cove | yes |
 | `SILENT` | `ninja_village_gate_arrival` | `ninja_village_gate_shrine` | the village, the forest, the dojo | yes |
 | `ALDENTE` | `noodly_narthex_gate` | `noodly_narthex` | the Noodly Temple | yes |
-| `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | restricted until the clearance; on foot by the annex's crawlway |
+| `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | yes; on foot, the checkpoint wants the clearance or the crawlway |
 | `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes, receive only |
-| `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | military band only (the annex ring, or the clearance) |
-| (none) | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | sends `TANGENT` only, when its breaker is on |
+| `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes, receive only |
+| (none) | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | sends when its breaker is on; `TANGENT` is posted on it |
 
 ## The hub
 
@@ -121,20 +131,18 @@ each door keeps its id and target, so tests and far doors still find it.
 ## The military gate
 
 The annex (`military_gate_annex`, its own facility) opens off the ground floor
-of the General's tower (`military_tower`). Its ring answers `SENTINEL` and
-sends in the `military` band, so it dials `TESLA`, which a civil ring may not.
+of the General's tower (`military_tower`). Its ring answers `SENTINEL`. No
+faction refuses a dial, so any ring dials `SENTINEL` and `TESLA` (Jon,
+2026-10-24); what the military guards is the annex itself, on foot.
 
-- **Later, by permission.** The save flag `gate.clearance.military` is the
-  permit of both military rings: the public gate dials them, and the annex's
-  checkpoint (a `LockWall`, `gated_by: world.flag_set gate.clearance.military`)
-  stands open. The General gives it once Castle Godwin's dog is down
-  (`boss_cleared("castle_godwin.wolfenstein")`, `factions.yarn`).
+- **Later, by permission.** The save flag `gate.clearance.military` opens the
+  annex's checkpoint (a `LockWall`, `gated_by: world.flag_set
+  gate.clearance.military`). The General gives it once Castle Godwin's dog is
+  down (`boss_cleared("castle_godwin.wolfenstein")`, `factions.yarn`).
 - **Early, by one fair trick.** The checkpoint stops 32 px above the floor:
   the maintenance crawlway. A standing robot (48) does not fit; a crouching
   one (24) walks under. The wall is 64 thick and reaches the ceiling, so no
   blink or flight crosses it. The General's line names the crawlway.
-- **No free passage.** Using the annex ring sets no permit. The public gate
-  still refuses both military addresses until the clearance.
 
 ## Knowledge sources
 

@@ -2231,7 +2231,9 @@
         // dedicated sheets ship.
         "npc_alice": (
             display_name: "Alice",
-            manifest: "sprites/alice_spritesheet.ron",
+            // The v2 look (chargen body, Jon 10-25); `alice` stays renderable
+            // in her lineage.
+            manifest: "sprites/alice_v2_spritesheet.ron",
             portrait: None,
             tier: MainHall,
             body_kind: Standard,

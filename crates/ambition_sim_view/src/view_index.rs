@@ -466,13 +466,14 @@ pub fn rebuild_feature_view_index(
         );
     }
     for (entity, id, aabb, switch) in &switches {
+        let action = ambition_encounter::switches::SwitchAction::parse(&switch.activation.action);
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: aabb.center,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Switch,
-                visible: true,
+                visible: action.draws_a_switch(),
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
@@ -485,7 +486,7 @@ pub fn rebuild_feature_view_index(
                 fighting: false,
                 // A boss-life switch shows the boss's life (it stores none);
                 // every other switch shows its own persisted state.
-                switch_on: match ambition_encounter::switches::SwitchAction::parse(&switch.activation.action) {
+                switch_on: match action {
                     ambition_encounter::switches::SwitchAction::BossLife => {
                         ambition_encounter::switches::boss_life_switch_on(
                             save.data(),

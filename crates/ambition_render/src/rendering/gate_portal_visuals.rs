@@ -1,4 +1,4 @@
-//! Gate-portal presentation: sprite visibility, animation row, and ring spin,
+//! Gate-portal presentation: sprite visibility, animation row, and ring charge,
 //! driven by the sim's `GatePortalPhases` and keyed by the zone ids in the
 //! authored `GatePortalRegistry`. These render systems match props by the
 //! render-local [`PropVisual::name`].
@@ -139,13 +139,12 @@ pub fn sync_portal_sprite_animation(
     }
 }
 
-/// Spin the gate ring's inscription while the portal opens.
+/// Charge the gate ring while the portal opens.
 ///
-/// The `spin` row is one full turn of the inscription band, drawn from the
-/// opening's progress, so the band makes exactly one turn and stops with Λ at
-/// 12 o'clock on the tick the portal opens. The sprite itself does not rotate:
-/// the stand clamps and the floor shadow are part of it and stay still. At all
-/// other times the ring plays its slow `idle` row.
+/// The `charge` row runs a pulse of light round the plaques, first to last,
+/// drawn from the opening's progress, so it reaches the last plaque on the
+/// tick the portal opens. The sprite itself does not rotate: the ring stands
+/// in its base. At all other times the ring plays its slow `idle` row.
 pub fn sync_portal_ring_animation(
     mut commands: Commands,
     presentation_time: PresentationTime,
@@ -178,7 +177,7 @@ pub fn sync_portal_ring_animation(
                 commands.entity(entity).try_insert(PortalSprite);
             }
             match opening {
-                Some(_) => animator.request_clip(["spin"], CharacterAnim::Walk),
+                Some(_) => animator.request_clip(["charge"], CharacterAnim::Walk),
                 None => animator.request(CharacterAnim::Idle),
             }
             animator.slave_clip_to(opening);
@@ -219,11 +218,11 @@ mod tests {
         }
     }
 
-    /// The ring, and the flat atlas index of each `spin` frame.
+    /// The ring, and the flat atlas index of each `charge` frame.
     fn app_with_a_ring() -> (App, Entity, Vec<usize>) {
         let asset = ring_asset();
-        let slot = asset.spec.clip_slot(["spin"]).expect("the ring has a spin row");
-        let spin: Vec<usize> = (0..30).map(|f| asset.spec.flat_index_at(slot, f)).collect();
+        let slot = asset.spec.clip_slot(["charge"]).expect("the ring has a charge row");
+        let charge: Vec<usize> = (0..30).map(|f| asset.spec.flat_index_at(slot, f)).collect();
         let mut app = App::new();
         app.init_resource::<Time>();
         app.init_resource::<ambition_time::ClockState>();
@@ -253,7 +252,7 @@ mod tests {
                 CharacterAnimator::new(&asset),
             ))
             .id();
-        (app, ring, spin)
+        (app, ring, charge)
     }
 
     fn step(app: &mut App, phase: GatePortalPhase) {
@@ -275,11 +274,11 @@ mod tests {
         (index, world.get::<Transform>(ring).unwrap().rotation)
     }
 
-    /// One opening turns the inscription exactly once, in step with the
-    /// phase, and the sprite (with its stand and shadow) never rotates.
+    /// One opening runs the charge exactly once, in step with the phase,
+    /// and the sprite (the ring in its base) never rotates.
     #[test]
-    fn the_inscription_turns_once_per_opening_and_the_stand_stays_still() {
-        let (mut app, ring, spin) = app_with_a_ring();
+    fn the_ring_charges_once_per_opening_and_never_turns() {
+        let (mut app, ring, charge) = app_with_a_ring();
         for (progress, frame) in [(0.0, 0), (0.25, 7), (0.5, 15), (0.95, 28)] {
             step(
                 &mut app,
@@ -288,12 +287,12 @@ mod tests {
                 },
             );
             let (index, rotation) = drawn(&app, ring);
-            assert_eq!(index, spin[frame], "opening at {progress}: spin frame {frame}");
+            assert_eq!(index, charge[frame], "opening at {progress}: charge frame {frame}");
             assert_eq!(rotation, Quat::IDENTITY, "the sprite turned at {progress}");
         }
         step(&mut app, GatePortalPhase::On);
         let (index, rotation) = drawn(&app, ring);
-        assert!(!spin.contains(&index), "an open portal's ring is back on its idle row");
+        assert!(!charge.contains(&index), "an open portal's ring is back on its idle row");
         assert_eq!(rotation, Quat::IDENTITY);
     }
 

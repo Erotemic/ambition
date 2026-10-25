@@ -170,8 +170,17 @@ world crate's and the content crate's unit tests):
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).
-- Chevron art in the panel from the ring's sheet; the panel draws the Greek
-  glyphs as text now.
+- The dial UI in the gate's own glyphs. The art is ready: each of the ring's
+  fifteen chevrons is its own glyph (`ambition_sprite2d_renderer.glyphs.legally_distinct`:
+  a repeated Λ, Ι or Τ wears a small ring), drawn by the ring sheet, the
+  console's dial and the traffic board. The ring stands in a stepped base that
+  hides its bottom slice, so the plaques run clockwise from the lower left
+  over the top (Δ at 12 o'clock), each glyph's foot toward the centre; it
+  plays `charge` (a pulse round the plaques) while a link opens.
+  `interdimensional_gate_glyphs` has a `lit` row, frame k chevron k ablaze
+  on its plaque: lay it over the ring to light a glyph as it is dialed. The
+  panel still draws the Greek letters as text, and the glyphs are not in the
+  font yet. A terminal's switch draws nothing: the console is its art.
 - More knowledge sources: signs and documents that set `gate.known.*` (the
   addresses on the away terminals are posted already), and the news board.
 - A guard at the checkpoint (no fitting NPC character yet; the sign and the

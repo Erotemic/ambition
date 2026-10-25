@@ -393,6 +393,12 @@ impl GravityFace {
 }
 
 impl SwitchAction {
+    /// Whether the switch is drawn as a switch. A gate terminal is not: the
+    /// console it stands on is its art (Jon, 2026-10-24).
+    pub fn draws_a_switch(&self) -> bool {
+        !matches!(self, Self::GateTerminal)
+    }
+
     /// Classify an authored action string.
     pub fn parse(action: &str) -> Self {
         if action == "FlipGravity" {

@@ -3,16 +3,16 @@
 level_id: gate_stack_lower
 entities:
   - type: Prop
-    px: [1150, 544]
-    size: [192, 192]
+    px: [1102, 448]
+    size: [288, 288]
     fields: {name: "Math Gate Ring (Home)", kind: gate_ring}
   - type: Prop
-    px: [1150, 544]
-    size: [192, 192]
+    px: [1102, 448]
+    size: [288, 288]
     fields: {name: "Math Gate Portal (Home)", kind: gate_portal}
   - type: LoadingZone
-    px: [1198, 544]
-    size: [96, 192]
+    px: [1174, 448]
+    size: [144, 288]
     fields:
       id: math_gate_home_zone
       name: ring 7
@@ -21,7 +21,7 @@ entities:
       target_zone: ""
       bidirectional: false
   - type: Switch
-    px: [1360, 704]
+    px: [1398, 704]
     size: [24, 32]
     fields:
       id: math_gate_switch
@@ -30,20 +30,20 @@ entities:
       action: ResetEncounter
       target_encounter: ""
   - type: DebugLabel
-    px: [1130, 512]
+    px: [1082, 416]
     size: [260, 24]
     fields:
       name: gate_stack_sign_gate_seven
       text: "RING 7: the Math line (power: the breaker)"
       category: Custom
   - type: Prop
-    px: [1400, 680]
+    px: [1430, 680]
     size: [64, 56]
     fields:
       name: "Ring 7 (Home) Dialer"
       kind: "gate_dialer"
   - type: Switch
-    px: [1420, 692]
+    px: [1450, 692]
     size: [24, 32]
     fields:
       id: "ring7_terminal"

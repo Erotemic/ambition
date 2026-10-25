@@ -105,12 +105,13 @@ def edge(zone, name, x, y, h, to_room, to_zone):
 
 def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
     """A gate ring standing on the floor at `x` (its left edge), its portal
-    in it, and the door of the portal: a Door the size of the opening."""
-    top = floor - 192
+    in it, and the door of the portal (`specs/gate_network/gates.py`)."""
+    (_, _, top, _, _, _), _, (_, zx, _, zw, zh, _) = gates.ring("", zone, x, floor, name)
+    r = gates.RING
     return [
-        f'( type: "Prop", px: [{x}, {top}], size: [192, 192], fields: ( name: "{ring}", kind: "gate_ring" ) ),',
-        f'( type: "Prop", px: [{x}, {top}], size: [192, 192], fields: ( name: "{portal}", kind: "gate_portal" ) ),',
-        (f'( type: "LoadingZone", px: [{x + 48}, {top}], size: [96, 192], fields: ( id: "{zone}", name: "{name}", '
+        f'( type: "Prop", px: [{x}, {top}], size: [{r}, {r}], fields: ( name: "{ring}", kind: "gate_ring" ) ),',
+        f'( type: "Prop", px: [{x}, {top}], size: [{r}, {r}], fields: ( name: "{portal}", kind: "gate_portal" ) ),',
+        (f'( type: "LoadingZone", px: [{zx}, {top}], size: [{zw}, {zh}], fields: ( id: "{zone}", name: "{name}", '
          f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: false ) ),'),
     ]
 
@@ -172,7 +173,7 @@ def still(name, x, y, w, h):
 
 #: The gate cradle (`targets/props/gate_cradle.py`): its size in world units,
 #: its plinth, and its stairs. The numbers are the art's.
-CRADLE_W, CRADLE_H = 480, 176
+CRADLE_W, CRADLE_H = 480, 212
 PLINTH_W, PLINTH_H = 288, 48
 STEP_RUN, STEP_RISE = 8, 4
 STEPS = PLINTH_H // STEP_RISE
@@ -207,7 +208,7 @@ def gate_hall():
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         f'( type: "PlayerStart", px: [{cx - 330}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *stand,
-        *gate(MATH_RING, MATH_PORTAL, MATH_ZONE, cx - 96, plinth, "", "", "the gate"),
+        *gate(MATH_RING, MATH_PORTAL, MATH_ZONE, cx - gates.RING // 2, plinth, "", "", "the gate"),
         # The ring's terminal, on the floor east of the cradle.
         *gates.as_ron(gates.terminal("Math Gate (Math)", "math_gate_terminal", cx + 260, floor)),
         # Galleries along the walls, and the ledges up to them.
@@ -558,24 +559,25 @@ def home_gate_yaml() -> str:
     """Ring 7 in `gate_stack_lower`: the ring, its portal, its zone, its
     breaker and its terminal, on the floor east of the old gate."""
     floor = 736
-    x = 1150
-    top = floor - 192
-    terminal = gates.as_yaml("gate_stack_lower", gates.terminal("Ring 7 (Home)", "ring7_terminal", 1400, floor)).split("entities:\n", 1)[1]
+    x = 1102
+    r, zw = gates.RING, gates.ZONE_W
+    top = floor - r
+    terminal = gates.as_yaml("gate_stack_lower", gates.terminal("Ring 7 (Home)", "ring7_terminal", 1430, floor)).split("entities:\n", 1)[1]
     return f"""# Written by specs/math_town/make_specs.py. Change the script, not this file.
 # Ring 7 of the gate station: the Math line.
 level_id: gate_stack_lower
 entities:
   - type: Prop
     px: [{x}, {top}]
-    size: [192, 192]
+    size: [{r}, {r}]
     fields: {{name: "{HOME_RING}", kind: gate_ring}}
   - type: Prop
     px: [{x}, {top}]
-    size: [192, 192]
+    size: [{r}, {r}]
     fields: {{name: "{HOME_PORTAL}", kind: gate_portal}}
   - type: LoadingZone
-    px: [{x + 48}, {top}]
-    size: [96, 192]
+    px: [{x + (r - zw) // 2}, {top}]
+    size: [{zw}, {r}]
     fields:
       id: {HOME_ZONE}
       name: ring 7
@@ -584,7 +586,7 @@ entities:
       target_zone: ""
       bidirectional: false
   - type: Switch
-    px: [{x + 210}, {floor - 32}]
+    px: [{x + 296}, {floor - 32}]
     size: [24, 32]
     fields:
       id: {SWITCH}

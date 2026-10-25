@@ -263,12 +263,12 @@ def narthex():
         f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_to_hub", "to the central hub", 32, floor, "central_hub_complex", HUB_DOOR_ID),
         # The temple's ring and its terminal: the way to the Noodle dimension.
-        *gates.as_ron(gates.ring("Noodly Gate (Narthex)", "noodly_narthex_gate", 96, floor, "the gate")),
-        *gates.as_ron(gates.terminal("Noodly Gate (Narthex)", "noodly_gate_terminal", 300, floor)),
+        *gates.as_ron(gates.ring("Noodly Gate (Narthex)", "noodly_narthex_gate", 80, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Noodly Gate (Narthex)", "noodly_gate_terminal", 380, floor)),
         door(f"{rid}_east", "to the nave", w - WALL - 80, floor, "noodly_nave", "noodly_nave_west"),
         # Ramen-nujan says what the temple is (Jon, 2026-10-12: he is the one
         # at the door, not a sexton).
-        (f'( type: "NpcSpawn", px: [400, {floor - 70}], size: [42, 70], fields: ( character_id: "npc_ramen_nujan", '
+        (f'( type: "NpcSpawn", px: [480, {floor - 70}], size: [42, 70], fields: ( character_id: "npc_ramen_nujan", '
          f'prompt: "Talk", dialogue_id: "noodly_ramen_nujan", brain_override: "stand_still" ) ),'),
         # The alms: a room over the way out, shut by a green door. The player
         # has no green key for a long time.

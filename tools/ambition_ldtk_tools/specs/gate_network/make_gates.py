@@ -113,7 +113,7 @@ def wing_door_x(index: int) -> int:
 
 #: The public gate on the main floor.
 PUBLIC_RING_X = 1296
-PUBLIC_DIALER_X = 1500
+PUBLIC_DIALER_X = 1596
 #: The door to the gate stack stands at the WEST end of the low platform the
 #: hub's start is on (the platform is x 768..1136, the start x 936..964): the
 #: intro's gate comes out of it, and the public gate is east, past the start.
@@ -126,15 +126,15 @@ PUBLIC_DIALER_X = 1500
 #: on the balcony above), on the start's own floor.
 GATE_STACK_DOOR = (786, 832)
 #: The bags for organic travellers, on the wall east of the dialer.
-BAGS_X = 1600
+BAGS_X = 1680
 #: The hub guide moves east of the bags, so a press at the ring or the dialer
 #: is theirs. Their patrol (96 each way) stays on the main floor: west of the
 #: ring the floor opening to the basement begins at 1152, and a guide placed
 #: there walked into it.
-GUIDE_X = 1700
+GUIDE_X = 1740
 
 #: Ring 7 of the gate stack: its dialer east of the ring, by the breaker.
-RING7_DIALER = (1400, 736)
+RING7_DIALER = (1430, 736)
 
 
 #: The military gate annex: its own room, off the General's tower.
@@ -150,8 +150,8 @@ ANNEX_FLOOR = 384
 CHECKPOINT = (448, 64)
 CRAWLWAY = 32
 CLEARANCE = "gate.clearance.military"
-ANNEX_RING_X = 640
-ANNEX_DIALER_X = 848
+ANNEX_RING_X = 632
+ANNEX_DIALER_X = 932
 #: The tower's door to the annex, on the tower's ground floor (y 1248), between
 #: its start and its door to the hub.
 TOWER = "military_tower"
@@ -312,7 +312,7 @@ def hub_upkeep_entities() -> list[tuple]:
     power, its traffic board, and the bags for organic travellers."""
     return [
         ("Prop", PUBLIC_RING_X - 100, FLOOR - 96, 64, 96, dict(name="hub_gate_power_cabinet", kind="gate_power_cabinet")),
-        ("Prop", PUBLIC_RING_X + 16, FLOOR - 376, 160, 96, dict(name="hub_gate_traffic_board", kind="gate_traffic_board")),
+        ("Prop", PUBLIC_RING_X + 124, FLOOR - 464, 160, 96, dict(name="hub_gate_traffic_board", kind="gate_traffic_board")),
         ("Prop", BAGS_X, FLOOR - 48, 32, 48, dict(name="hub_gate_transit_bags", kind="gate_transit_bags")),
         ("DebugLabel", PUBLIC_RING_X - 120, FLOOR - 128, 220, 24,
          dict(name="hub_gate_power_label", category="Custom", text="RING POWER: 4 MW while open")),
@@ -391,7 +391,7 @@ def ring7_entities() -> list[tuple]:
 #: Ring 1's terminal, west of the ring past its power switch; the gate
 #: stack's door to the hub, at the west end of the floor.
 STACK_FLOOR = 736
-RING1_DIALER_X = 488
+RING1_DIALER_X = 456
 STACK_DOOR_X = 288
 
 
@@ -416,14 +416,14 @@ edits:
 #: Terminals for the receive-only rings, east of each ring on its floor:
 #: (world, level, label, terminal id, dialer x, floor).
 RECEIVER_TERMINALS = [
-    (SANDBOX, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 300, 480),
+    (SANDBOX, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 380, 480),
     (SCIENCE, "gnu_ton_works_approach", "Trail Survey Gate", "trail_survey_gate_terminal", 972, 352),
 ]
 
 
 #: The districts' arrival rooms (`specs/pirate_port`, `specs/ninja_village`):
 #: each generator adds its `gate_interface.yaml` after it makes its rooms.
-#: The ring's zone is the arrival; the floor is clear from x 160 to 512.
+#: The ring's zone is the arrival; the floor is clear from x 112 to 512.
 DISTRICT_RINGS = [
     ("pirate_port", "pirate_port_gate_plaza", "Port Gate (Plaza)", "pirate_port_gate_arrival", "pirate_port_gate_terminal"),
     ("ninja_village", "ninja_village_gate_shrine", "Village Gate (Shrine)", "ninja_village_gate_arrival", "ninja_village_gate_terminal"),
@@ -435,7 +435,7 @@ def district_interfaces() -> dict[Path, str]:
     """Each district's `gate_interface.yaml`: its ring and its terminal."""
     out = {}
     for spec_dir, room, label, zone, terminal in DISTRICT_RINGS:
-        entities = gates.ring(label, zone, 160, DISTRICT_FLOOR, "the gate") + gates.terminal(label, terminal, 364, DISTRICT_FLOOR)
+        entities = gates.ring(label, zone, 112, DISTRICT_FLOOR, "the gate") + gates.terminal(label, terminal, 412, DISTRICT_FLOOR)
         out[HERE.parent / spec_dir / "gate_interface.yaml"] = gates.as_yaml(
             room, entities, "Written by specs/gate_network/make_gates.py. Change that script, not this file.\n"
             "The district's gate ring (its zone is the arrival) and its terminal; the district's\n"

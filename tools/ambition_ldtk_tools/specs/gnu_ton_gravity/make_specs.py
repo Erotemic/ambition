@@ -260,8 +260,8 @@ def orchard():
         door("orchard_east_door", "on to the vector well", w - 112, floor, WELL, "well_bottom_door"),
         # The trail's ring (ASCENT, `data/gate_network.ron`) and its terminal,
         # on the west bank between the first tree and the first chasm.
-        *gates.as_ron(gates.ring("Gravity Trail Gate", "orchard_gate", 616, floor, "the gate")),
-        *gates.as_ron(gates.terminal("Gravity Trail Gate", "orchard_gate_terminal", 820, floor)),
+        *gates.as_ron(gates.ring("Gravity Trail Gate", "orchard_gate", 568, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Gravity Trail Gate", "orchard_gate_terminal", 836, floor)),
     ]
     return rid, room(rid, e, "THE ORCHARD: HERE AN APPLE FALLS UP")
 
@@ -467,7 +467,7 @@ def approach():
         # The military survey ring (hidden address TESLA) on the tower's top:
         # receive only, and only from the military band
         # (`docs/planning/game/gate-network.md`).
-        *gates.as_ron(gates.ring("Trail Survey Gate", "trail_survey_gate", column_x + column_w + 16, landing_y, "the survey ring")),
+        *gates.as_ron(gates.ring("Trail Survey Gate", "trail_survey_gate", column_x + column_w - 32, landing_y, "the survey ring")),
         label("approach_survey_sign", column_x + column_w + 16, landing_y - 232, "SURVEY RING (MILITARY): receive only", 300),
     ]
     return rid, room(rid, e, "THE APPROACH: HE STANDS ON THE SHOULDERS OF A GIANT", title_y=landing_y + 64)

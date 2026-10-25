@@ -181,12 +181,12 @@
         (
             type: "Prop",
             px: [
-                620,
-                544,
+                572,
+                448,
             ],
             size: [
-                192,
-                192,
+                288,
+                288,
             ],
             fields: (
                 name: "Interdimensional Gate Ring",
@@ -196,12 +196,12 @@
         (
             type: "Prop",
             px: [
-                620,
-                544,
+                572,
+                448,
             ],
             size: [
-                192,
-                192,
+                288,
+                288,
             ],
             fields: (
                 name: "Interdimensional Gate Portal",
@@ -211,12 +211,12 @@
         (
             type: "LoadingZone",
             px: [
-                668,
-                544,
+                644,
+                448,
             ],
             size: [
-                96,
-                192,
+                144,
+                288,
             ],
             fields: (
                 id: "intro_portal_zone",
@@ -230,7 +230,7 @@
         (
             type: "Switch",
             px: [
-                560,
+                532,
                 704,
             ],
             size: [

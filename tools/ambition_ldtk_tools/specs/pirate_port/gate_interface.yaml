@@ -4,20 +4,20 @@
 level_id: pirate_port_gate_plaza
 entities:
   - type: Prop
-    px: [160, 512]
-    size: [192, 192]
+    px: [112, 416]
+    size: [288, 288]
     fields:
       name: "Port Gate (Plaza) Ring"
       kind: "gate_ring"
   - type: Prop
-    px: [160, 512]
-    size: [192, 192]
+    px: [112, 416]
+    size: [288, 288]
     fields:
       name: "Port Gate (Plaza) Portal"
       kind: "gate_portal"
   - type: LoadingZone
-    px: [208, 512]
-    size: [96, 192]
+    px: [184, 416]
+    size: [144, 288]
     fields:
       id: "pirate_port_gate_arrival"
       name: "the gate"
@@ -26,13 +26,13 @@ entities:
       target_zone: ""
       bidirectional: false
   - type: Prop
-    px: [364, 648]
+    px: [412, 648]
     size: [64, 56]
     fields:
       name: "Port Gate (Plaza) Dialer"
       kind: "gate_dialer"
   - type: Switch
-    px: [384, 660]
+    px: [432, 660]
     size: [24, 32]
     fields:
       id: "pirate_port_gate_terminal"

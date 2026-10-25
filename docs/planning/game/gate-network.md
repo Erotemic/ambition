@@ -31,6 +31,13 @@ ring's zone. A dial never moves a body.
    takes the k-th chevron of it, round again past the last
    (`GateNetworkCatalog::spell`; LEGAL is Λ Ε Γ Α Λ₂). A dial must enter
    exactly those chevrons (Jon, 2026-10-24): Λ Ε Γ Α Λ is no address.
+   **An address has at most 16 chevrons, each used at most 4 times**
+   (`MAX_ADDRESS_LEN`, `MAX_CHEVRON_USES`), so a ring can show it whole:
+   each plaque has a 4x4 position grid, row k the chevron's k-th use, its
+   columns that use's place in 4 bits, most significant first
+   (`position_grid`). The lit ring spells the address, its order too. The
+   pack refuses a longer address; a dial of one is refused `illegal`; the
+   terminal enters no fifth use and no seventeenth chevron.
 3. **An address reaches one ring, and every ring has one and a terminal**
    (Jon, 2026-10-24: "every gate placed needs an address and a gate interface
    so it can always be used"). An important ring's address is a word; any
@@ -96,7 +103,10 @@ claims the seat's input (`gate_terminal`, between dialogue and inventory)
 while a terminal is open; the pause menu outranks it. The chevrons entered
 light on the ring as they are entered, and a sending ring keeps its link's
 chevrons lit (`gate_portal_visuals::sync_ring_lit_glyphs`, the `lit` row of
-`interdimensional_gate_glyphs`).
+`interdimensional_gate_glyphs`), with each one's position grid (its `bit`
+and `used` rows: a set bit bright, a used row's clear bit dim). Each wheel
+plaque draws the same grid. A ring is 288 x 288 world units (2026-10-24, so
+the grids read; its sheets are 384 px frames over 192 design units).
 
 ## The address table
 

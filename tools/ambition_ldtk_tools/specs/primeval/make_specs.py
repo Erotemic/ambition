@@ -185,8 +185,8 @@ def trailhead():
         door(f"{rid}_to_hub", "to the central hub", WALL, floor, "central_hub_complex", "primeval_hub_door"),
         # The trailhead's ring (GENESIS, `data/gate_network.ron`) and its
         # terminal: the public way in and the way home.
-        *gates.as_ron(gates.ring("Primeval Gate (Trailhead)", "primeval_trailhead_gate", 96, floor, "the gate")),
-        *gates.as_ron(gates.terminal("Primeval Gate (Trailhead)", "primeval_gate_terminal", 300, floor)),
+        *gates.as_ron(gates.ring("Primeval Gate (Trailhead)", "primeval_trailhead_gate", 80, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Primeval Gate (Trailhead)", "primeval_gate_terminal", 380, floor)),
         palm(rid, 1, 400, floor),
         coconut(rid, 1, 470, floor),
         ledge("perch_a", 620, floor - 80, 160),
@@ -250,7 +250,7 @@ def rookery():
         door(f"{rid}_west", "back to the run", WALL, floor, "primeval_run", "primeval_run_east"),
         # An old survey ring by the door: a hidden address (NEST) that only
         # receives. The way out is the trail, down to the trailhead's ring.
-        *gates.as_ron(gates.ring("Rookery Survey Gate", "primeval_rookery_gate", 96, floor, "the old survey ring")),
+        *gates.as_ron(gates.ring("Rookery Survey Gate", "primeval_rookery_gate", 80, floor, "the old survey ring")),
         # Two swallows and one coconut by the door: the first thing the room
         # shows is a bird that picks it up.
         palm(rid, 1, 420, floor),

@@ -9,8 +9,8 @@ portal is commanded by the network (`gate_portals.ron`, `Dialed`). The
 terminal is a `GateTerminal` switch on the face of a dialer pedestal (the
 `gate_dialer` prop): a press opens the terminal panel.
 
-Sizes, in world units: the ring and its portal are 192 x 192 and stand on the
-floor; the zone is the middle 96 x 192 of the ring. The dialer is 64 x 56;
+Sizes, in world units: the ring and its portal are 288 x 288 and stand on the
+floor; the zone is the middle 144 x 288 of the ring. The dialer is 64 x 56;
 its switch is 24 x 32 on its face, low enough that a standing body touches
 it.
 """
@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import json
 
-RING = 192
-ZONE_W = 96
+RING = 288
+ZONE_W = 144
 DIALER_W, DIALER_H = 64, 56
 SWITCH_W, SWITCH_H = 24, 32
 

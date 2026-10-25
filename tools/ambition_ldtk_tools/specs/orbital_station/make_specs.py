@@ -264,8 +264,8 @@ def gate_dock():
         # network's catalog does.
         # The ring (GALACTIC, `data/gate_network.ron`): its zone is the
         # arrival. Its terminal stands beside it, and LEGAL is written on it.
-        *gates.as_ron(gates.ring("Orbital Gate (Dock)", ARRIVAL, 160, floor, "the gate")),
-        *gates.as_ron(gates.terminal("Orbital Gate (Dock)", "orbital_station_gate_terminal", 364, floor)),
+        *gates.as_ron(gates.ring("Orbital Gate (Dock)", ARRIVAL, 112, floor, "the gate")),
+        *gates.as_ron(gates.terminal("Orbital Gate (Dock)", "orbital_station_gate_terminal", 412, floor)),
         start(rid, 460, floor),
         label("dock_ring_floor", 160, 400, "THE RING: KEEP THIS DECK CLEAR", 440),
         # Freight: the track from the ring, a stack waiting for the hauler.

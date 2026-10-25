@@ -23,7 +23,9 @@
 //! on the ring (`GateDialPreview`).
 
 use ambition_platformer2d::render::rendering::gate_portal_visuals::GateDialPreview;
-use ambition_platformer2d::world::rooms::{Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalIntent};
+use ambition_platformer2d::world::rooms::{
+    position_grid, Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalIntent, GRID_BITS,
+};
 use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::prelude::*;
@@ -44,6 +46,10 @@ const WHEEL: f32 = 440.0;
 const WHEEL_R: f32 = 172.0;
 const BAND: f32 = 70.0;
 const CHEVRON_BOX: f32 = 54.0;
+/// A chevron's plaque along its ray: its glyph and its position grid.
+const PLAQUE_TALL: f32 = 80.0;
+/// A cell of a plaque's position grid.
+const GRID_CELL: f32 = 5.0;
 /// How far the stick must lean to point.
 const STICK_POINTS: f32 = 0.55;
 
@@ -56,6 +62,7 @@ const PLAQUE_POINTED: Color = Color::srgb(0.10, 0.27, 0.32);
 /// A chevron of the address entered: lit, as the ring lights it.
 const PLAQUE_LIT: Color = Color::srgb(0.16, 0.45, 0.52);
 const FACE: Color = Color::srgb(0.05, 0.08, 0.10);
+const GRID_EMPTY: Color = Color::srgb(0.03, 0.05, 0.06);
 const CYAN: Color = Color::srgb(0.50, 0.95, 1.0);
 const CYAN_DIM: Color = Color::srgb(0.30, 0.62, 0.70);
 const INK: Color = Color::srgb(0.90, 0.96, 0.98);
@@ -455,21 +462,29 @@ fn spawn_wheel(
                     let word = model.entered_word.clone().unwrap_or_default();
                     middle.spawn((Text::new(word), font(15.0, UiFontWeight::Semibold), TextColor(CYAN)));
                 });
-            // The chevrons, each foot toward the middle, as on the ring.
+            // The chevrons, each foot toward the middle, as on the ring: its
+            // plaque stands on its ray, the glyph inward and its position
+            // grid outward, lit as the ring will light it.
             for index in 0..count {
                 let angle = chevron_angle(index, count);
                 let (x, y) = (c + WHEEL_R * angle.to_radians().cos(), c + WHEEL_R * angle.to_radians().sin());
-                let slot = WheelSlot::Chevron(index as Chevron);
+                let chevron = index as Chevron;
+                let slot = WheelSlot::Chevron(chevron);
                 let pointed = model.pointed == Some(slot) && wheel_focus;
-                let lit = model.entered.contains(&(index as Chevron));
+                let uses = model.entered.iter().filter(|used| **used == chevron).count();
+                let lit = uses > 0;
+                let grid = position_grid(&model.entered, chevron);
                 wheel
                     .spawn((
                         Button,
                         Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(3.0),
                             border: UiRect::all(Val::Px(2.0)),
                             border_radius: BorderRadius::all(Val::Px(8.0)),
-                            ..placed(x, y, CHEVRON_BOX, CHEVRON_BOX)
+                            ..placed(x, y, CHEVRON_BOX, PLAQUE_TALL)
                         },
+                        UiTransform::from_rotation(Rot2::degrees(angle + 90.0)),
                         BackgroundColor(if lit {
                             PLAQUE_LIT
                         } else if pointed {
@@ -482,7 +497,32 @@ fn spawn_wheel(
                         Name::new(format!("Gate dial chevron {index}")),
                     ))
                     .with_children(|button| {
-                        button.spawn(glyphs.node(index as Chevron, 40.0, if pointed || lit { INK } else { CYAN }, angle + 90.0));
+                        button
+                            .spawn(Node {
+                                display: Display::Grid,
+                                grid_template_columns: RepeatedGridTrack::px(GRID_BITS as u16, GRID_CELL),
+                                row_gap: Val::Px(2.0),
+                                column_gap: Val::Px(2.0),
+                                ..default()
+                            })
+                            .with_children(|cells| {
+                                for (row, bits) in grid.iter().enumerate() {
+                                    for set in bits {
+                                        let tint = if row >= uses {
+                                            GRID_EMPTY
+                                        } else if *set {
+                                            INK
+                                        } else {
+                                            CYAN_DIM
+                                        };
+                                        cells.spawn((
+                                            Node { width: Val::Px(GRID_CELL), height: Val::Px(GRID_CELL), ..default() },
+                                            BackgroundColor(tint),
+                                        ));
+                                    }
+                                }
+                            });
+                        button.spawn(glyphs.node(chevron, 34.0, if pointed || lit { INK } else { CYAN }, 0.0));
                     });
             }
             // The engage press, in the slice at the bottom.

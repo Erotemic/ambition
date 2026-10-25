@@ -23,13 +23,13 @@
 //! ([`GATE_TERMINAL_CONTEXT`]), so the body at the terminal stands still.
 
 use ambition_platformer2d::world::rooms::{
-    Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalAction, GateTerminalIntent,
+    address_fits, Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalAction, GateTerminalIntent,
 };
 use bevy::prelude::*;
 
-/// The most chevrons an address field holds. Longer than every authored
-/// address, so a player can enter a wrong long one and read the refusal.
-pub const ADDRESS_FIELD_LEN: usize = 12;
+/// The most chevrons an address field holds: the longest address a ring's
+/// position grids can spell (`MAX_ADDRESS_LEN`).
+pub const ADDRESS_FIELD_LEN: usize = ambition_platformer2d::world::rooms::MAX_ADDRESS_LEN;
 
 /// The slice of the wheel with no chevron, at the bottom: on the ring the
 /// base it stands in, on a terminal the engage press. The ring's art draws
@@ -228,13 +228,16 @@ impl TerminalUi {
     }
 
     /// Carry out a press of a wheel slot: a chevron is entered, again each
-    /// time it is pressed; the engage press dials what was entered.
+    /// time it is pressed, while the address keeps the limits (`address_fits`:
+    /// a fifth use of a chevron has no row on its plaque); the engage press
+    /// dials what was entered.
     pub fn press_slot(&mut self, slot: WheelSlot) -> TerminalEffect {
         self.point(slot);
         match slot {
             WheelSlot::Chevron(chevron) => {
-                if self.entered.len() < ADDRESS_FIELD_LEN {
-                    self.entered.push(chevron);
+                self.entered.push(chevron);
+                if !address_fits(&self.entered) {
+                    self.entered.pop();
                 }
                 TerminalEffect::None
             }
@@ -403,6 +406,22 @@ mod tests {
             ui.back();
         }
         assert_eq!(ui.back(), TerminalEffect::Send(GateTerminalAction::Close));
+    }
+
+    /// The field keeps the ring's limits: a fifth use of a chevron and a
+    /// seventeenth chevron are not entered.
+    #[test]
+    fn the_field_keeps_the_rings_limits() {
+        let mut ui = TerminalUi::default();
+        ui.open("hub_public_gate_zone", None);
+        for _ in 0..5 {
+            ui.press_slot(WheelSlot::Chevron(3));
+        }
+        assert_eq!(ui.entered, [3, 3, 3, 3]);
+        for chevron in 0..14 {
+            ui.press_slot(WheelSlot::Chevron(chevron));
+        }
+        assert_eq!(ui.entered.len(), ADDRESS_FIELD_LEN);
     }
 
     /// A listed address dials its chevrons; a recent one that is not known

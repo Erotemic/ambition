@@ -115,6 +115,9 @@ tools/ambition_sprite2d_renderer/.parity-baseline/
 .agent/README.md
 .agent/index/
 .agent/dirstats*
+# The generated offline pages (`scripts/art_inspector.py`, `scripts/ecs_browser.py`).
+.agent/art_inspector/
+.agent/ecs_browser/
 
 
 # Generated sprite metadata. Existing tracked files require `git rm --cached`
@@ -180,6 +183,9 @@ crates/ambition_platformer2d_actor_monolith/assets/sprites_potato
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x/
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x/
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato/
+# Which generator made each generated art file: written by the publishes,
+# read by the art inspector (`tools/art_inspector`). Not a runtime root.
+crates/ambition_platformer2d_actor_monolith/asset_provenance/
 
 # Agent/worktree scratch (must never be committed)
 .worktrees/

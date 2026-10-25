@@ -119,6 +119,9 @@ MIRRORED_TREES = (
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x",
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x",
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato",
+    # Which generator made each file of the trees above (the art inspector's
+    # provenance records): they describe the same bytes, so they travel with them.
+    "crates/ambition_platformer2d_actor_monolith/asset_provenance",
     # Content-side generated art lives outside the monolith and must be mirrored
     # with the rest of the generated asset tree.
     # The vanity card's part sheet, produced by scripts/regen/sprites.sh. The old

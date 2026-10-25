@@ -1128,6 +1128,7 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
         return [Job("detached repo developer tools", argv)]
 
     ldtk = REPO / "tools" / "ambition_ldtk_tools"
+    inspector = REPO / "tools" / "art_inspector"
     return [
         Job("detached repo developer tools", argv),
         Job(
@@ -1137,6 +1138,16 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
                 "-m", "pytest", "tests", "-q", *PYTEST_TIMING_ARGS,
             ],
             cwd=str(ldtk),
+        ),
+        # The art inspector's indexer needs Pillow and PyYAML: the sprite
+        # renderer's interpreter has both.
+        Job(
+            "art inspector tests",
+            [
+                tool_python(REPO / "tools" / "ambition_sprite2d_renderer", "AMBITION_SPRITE_PYTHON"),
+                "-m", "pytest", "tests", "-q", *PYTEST_TIMING_ARGS,
+            ],
+            cwd=str(inspector),
         ),
     ]
 

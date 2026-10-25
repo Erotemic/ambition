@@ -1827,6 +1827,10 @@ fi
 mkdir -p "$cache_dir"
 target_closures_file="$cache_dir/target_closures.tsv"
 export AMBITION_SPRITE_READS_DIR="$target_reads_dir"
+# Which target made each published file is recorded beside the runtime roots,
+# never in them and never in the staging root the publish installs into
+# (`ambition_sprite2d_renderer/provenance.py`).
+export AMBITION_ART_PROVENANCE_DIR="$repo_root/crates/ambition_platformer2d_actor_monolith/asset_provenance/sprites"
 if ! sprite_cache_key_prepare; then
     echo "==> regen FAILED — the renderer could not say which files each target reads" >&2
     echo "    (scripts/lib/sprite_target_closure.py); a key without them is not that target's key" >&2
@@ -2202,6 +2206,11 @@ else
     echo "  NOT replaced: a phase failed (see the verdict); the next run continues $staging_root" >&2
 fi
 use_publish_root "$asset_root"
+# A target this run skipped as current keeps the record of the run that
+# rendered it; one with no record gets one from its cache digests.
+if ! (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer.provenance backfill --families sprites); then
+    echo "  [warn] the provenance records were not backfilled; the art inspector shows those files as declared, not verified" >&2
+fi
 
 # --- Hall-of-Characters sprite census ------------------------------------
 # Quick check of which catalog entries the Hall will render vs fall

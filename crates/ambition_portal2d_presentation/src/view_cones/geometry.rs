@@ -109,13 +109,6 @@ impl CaptureCameraFrame {
         ]
     }
 
-    /// How far world point `s` lies outside it (world px; zero inside).
-    pub(crate) fn overhang(&self, s: Vec2) -> f32 {
-        let d = s - self.center;
-        let local = Vec2::new(d.dot(self.axis).abs(), d.dot(self.down()).abs());
-        (local - self.size * 0.5).max(Vec2::ZERO).max_element()
-    }
-
     /// The axis-aligned bounds of the rect it frames, as `(min, max)`.
     pub(crate) fn bounds(&self) -> (Vec2, Vec2) {
         let half = self.axis.abs() * self.size.x * 0.5 + self.down().abs() * self.size.y * 0.5;

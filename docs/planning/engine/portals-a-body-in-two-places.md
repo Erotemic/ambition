@@ -515,6 +515,13 @@ that cut a portal.
   to by riding the limb (`LimbStrike`).
 - A shot that crosses a pair ends its step just past the plane, and the rest
   of that step is its next one's (a delay of less than a tick, not a skip).
+- An open window is captured every frame, at every tier: a body half through
+  a pair is drawn in two parts at the far line, its carried part this frame
+  and its other part in the window, and an older window picture is a step
+  between them (Jon 2026-10-25, "a serious problem": 3-17 px at Low, which
+  captured each window every 100 ms). A tier caps how many windows are open
+  (`max_active_captures`), never how old one is. Guard:
+  `scripts/check_portal_seam_over_time.py`.
 
 ## One road for every drawable: the carry (2026-10-25)
 

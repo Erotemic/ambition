@@ -184,8 +184,6 @@ pub fn sync_portal_quality_budget(
 ) {
     let next = ambition_portal2d_presentation::PortalCaptureQualityBudget {
         max_active_captures: quality.budget.portal.max_active_captures,
-        max_updates_per_frame: quality.budget.portal.max_updates_per_frame,
-        min_refresh_interval_s: quality.budget.portal.min_refresh_interval_s,
     };
     if *portal_budget != next {
         *portal_budget = next;

@@ -263,12 +263,12 @@ impl TextureResolutionScale {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-/// How many portal captures a tier takes and how often. A tier does not
-/// change what a window shows (`PortalCaptureQualityBudget`).
+/// How many portal windows a tier captures at once. A tier does not change
+/// what a window shows, nor how old it is: an open window is captured every
+/// frame (`PortalCaptureQualityBudget`). A settings file that still names the
+/// parses: unknown fields are ignored.
 pub struct PortalCaptureBudget {
     pub max_active_captures: u32,
-    pub max_updates_per_frame: u32,
-    pub min_refresh_interval_s: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -432,14 +432,12 @@ pub struct VisualQualityBudget {
 impl VisualQualityBudget {
     pub fn for_profile(profile: VisualQualityProfile) -> Self {
         match profile {
-            // Potato: strip everything. One portal capture, refreshed at
-            // most ~4×/sec; no parallax, no shaders; almost no
+            // Potato: strip everything. One portal window at a time; no
+            // parallax, no shaders; almost no
             // particles; `Potato` texture tier (per-sheet 8px floor).
             VisualQualityProfile::Potato => Self {
                 portal: PortalCaptureBudget {
                     max_active_captures: 1,
-                    max_updates_per_frame: 1,
-                    min_refresh_interval_s: 0.250,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Potato,
@@ -472,8 +470,6 @@ impl VisualQualityBudget {
             VisualQualityProfile::Low => Self {
                 portal: PortalCaptureBudget {
                     max_active_captures: 1,
-                    max_updates_per_frame: 1,
-                    min_refresh_interval_s: 0.100,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Half,
@@ -506,8 +502,6 @@ impl VisualQualityBudget {
             VisualQualityProfile::Medium => Self {
                 portal: PortalCaptureBudget {
                     max_active_captures: 1,
-                    max_updates_per_frame: 1,
-                    min_refresh_interval_s: 0.050,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Half,
@@ -540,8 +534,6 @@ impl VisualQualityBudget {
             VisualQualityProfile::High | VisualQualityProfile::Custom => Self {
                 portal: PortalCaptureBudget {
                     max_active_captures: 2,
-                    max_updates_per_frame: 2,
-                    min_refresh_interval_s: 0.0,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Full,
@@ -574,8 +566,6 @@ impl VisualQualityBudget {
             VisualQualityProfile::Ultra => Self {
                 portal: PortalCaptureBudget {
                     max_active_captures: 4,
-                    max_updates_per_frame: 4,
-                    min_refresh_interval_s: 0.0,
                 },
                 sprites: SpriteTextureBudget {
                     resolution_scale: TextureResolutionScale::Full,
@@ -610,8 +600,6 @@ impl VisualQualityBudget {
 
     pub fn clamp_all(&mut self) {
         self.portal.max_active_captures = self.portal.max_active_captures.clamp(1, 16);
-        self.portal.max_updates_per_frame = self.portal.max_updates_per_frame.clamp(1, 16);
-        self.portal.min_refresh_interval_s = self.portal.min_refresh_interval_s.clamp(0.0, 1.0);
         self.backgrounds.max_texture_resolution =
             self.backgrounds.max_texture_resolution.clamp(256, 8192);
         if let Some(max_layers) = &mut self.parallax.max_layers {

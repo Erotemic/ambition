@@ -839,11 +839,7 @@ def build_summary(bundle: Bundle) -> str:
             f'{"t":>9} {"rigs":>5} {"active":>7}  budget',
         ]
         for row in portals[:: max(1, len(portals) // 12)]:
-            budget = (
-                f"res<={row.get('max_resolution', '?')} depth={row.get('recursion_depth', '?')} "
-                f"captures<={row.get('max_active_captures', '?')} "
-                f"updates/frame<={row.get('max_updates_per_frame', '?')}"
-            )
+            budget = f"captures<={row.get('max_active_captures', '?')}"
             lines.append(
                 f"{number(row, 't'):9.1f} {number(row, 'rigs'):5.0f} {number(row, 'active'):7.0f}  {budget}"
             )

@@ -294,16 +294,6 @@ fn portal_view_cone_debug_dump_text(
     );
     let _ = writeln!(
         out,
-        "  portal.max_updates_per_frame: {}",
-        quality.max_updates_per_frame
-    );
-    let _ = writeln!(
-        out,
-        "  portal.min_refresh_interval_s: {:.3}",
-        quality.min_refresh_interval_s
-    );
-    let _ = writeln!(
-        out,
         "  effective_max_resolution: {}",
         effective.max_resolution
     );

@@ -35,7 +35,7 @@ fn cone_uvs_are_flip_free_in_world_space() {
 
 /// A capture turned with the portal map frames the turned rect itself: its
 /// corners are the texture's corners, its `+x` along `axis` and its texture
-/// down a quarter turn on. A point outside it overhangs by its distance out.
+/// down a quarter turn on.
 #[test]
 fn a_turned_capture_maps_its_own_corners_to_the_texture_corners() {
     let axis = Vec2::new(30f32.to_radians().cos(), 30f32.to_radians().sin());
@@ -47,8 +47,6 @@ fn a_turned_capture_maps_its_own_corners_to_the_texture_corners() {
     assert!(close(frame.uv(corner(1.0, -1.0)), [1.0, 0.0]));
     assert!(close(frame.uv(corner(1.0, 1.0)), [1.0, 1.0]));
     assert!(close(frame.uv(corner(-1.0, 1.0)), [0.0, 1.0]));
-    assert!(frame.overhang(corner(0.5, 0.5)) == 0.0);
-    assert!((frame.overhang(frame.center + axis * 50.0) - 10.0).abs() < 1e-4);
 }
 
 /// The UVs cover the unit square's bounds, rotated per the view map — pinned

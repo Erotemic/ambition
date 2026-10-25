@@ -321,18 +321,16 @@ impl Default for PortalViewConeMode {
 #[derive(Resource, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Resource)]
 pub struct PortalCaptureQualityBudget {
+    /// How many windows are captured at once. An open window is captured
+    /// every frame: a window that shows an older picture than the world beside
+    /// it is a seam (Jon 2026-10-25: a body half through a pair, whose carried
+    /// part is drawn this frame, met an older picture of its other part).
     pub max_active_captures: u32,
-    pub max_updates_per_frame: u32,
-    pub min_refresh_interval_s: f32,
 }
 
 impl Default for PortalCaptureQualityBudget {
     fn default() -> Self {
-        Self {
-            max_active_captures: 2,
-            max_updates_per_frame: 2,
-            min_refresh_interval_s: 0.0,
-        }
+        Self { max_active_captures: 2 }
     }
 }
 
@@ -342,8 +340,6 @@ pub struct EffectivePortalCaptureBudget {
     pub texels_per_world_px: f32,
     pub recursion_depth: u32,
     pub max_active_captures: u32,
-    pub max_updates_per_frame: u32,
-    pub min_refresh_interval_s: f32,
 }
 
 pub fn effective_portal_capture_budget(
@@ -355,8 +351,6 @@ pub fn effective_portal_capture_budget(
         texels_per_world_px: config.texels_per_world_px,
         recursion_depth: config.recursion_depth,
         max_active_captures: quality.max_active_captures.max(1),
-        max_updates_per_frame: quality.max_updates_per_frame.max(1),
-        min_refresh_interval_s: quality.min_refresh_interval_s.max(0.0),
     }
 }
 
@@ -724,7 +718,6 @@ pub struct PortalViewRig {
     _image: Handle<Image>,
     mesh: Handle<Mesh>,
     cone: Entity,
-    last_capture_update_s: f32,
     /// The capture its texture holds, where it was taken: what the window
     /// samples until the next one. `None` before the first.
     captured: Option<geometry::CaptureCameraFrame>,
@@ -839,10 +832,10 @@ impl GameplayScreenDensity<'_, '_> {
 const PORTAL_SEAM_REACH: f32 = 64.0;
 
 /// A portal is "at the seam" when the viewer is within its reach of the
-/// aperture. Such a portal (and, on a thin wall, its partner) always refreshes
-/// its capture, bypassing the slot cap and refresh interval on every quality
-/// tier. A stale window at the opening being crossed is the most visible
-/// flicker. Away from portals the ordinary budget applies.
+/// aperture. Such a portal (and, on a thin wall, its partner) is always
+/// captured, past the tier's cap on windows: a window missing at the opening
+/// being crossed is the most visible flicker. Away from portals the ordinary
+/// budget applies.
 fn portal_at_seam(viewer: Option<&PortalViewer>, portal_pos: Vec2) -> bool {
     viewer
         .filter(|v| v.present)
@@ -950,11 +943,6 @@ fn polygon_area(poly: &[Vec2]) -> f32 {
 fn polygon_mean(poly: &[Vec2]) -> Vec2 {
     poly.iter().copied().sum::<Vec2>() / poly.len().max(1) as f32
 }
-
-/// How much of a held capture may fall outside the window before the capture
-/// is due early: a sliver at the view's edge, as a fraction of the capture's
-/// shorter side.
-const STALE_CAPTURE_SLACK: f32 = 0.02;
 
 fn portal_capture_camera_frame(
     config: &PortalViewConeConfig,
@@ -1102,7 +1090,6 @@ pub fn sync_portal_view_cones(
     }
     let now_s = time.elapsed_secs();
     let mut active_captures = 0u32;
-    let mut updates_this_frame = 0u32;
 
     // The blend each window had, before this frame changes it: a window that
     // takes its viewer from its partner goes on from the partner's blend, and
@@ -1266,24 +1253,13 @@ pub fn sync_portal_view_cones(
         }
         match render {
             Some(mut r) => {
-                // The portal (or its partner) you are crossing always refreshes,
-                // bypassing the slot cap + refresh interval, so the seam never
-                // shows a stale window mid-crossing on a throttled tier.
+                // An open window is captured every frame (see
+                // `PortalCaptureQualityBudget`), as far as the tier has
+                // captures; the portal (or its partner) you are crossing
+                // always is, past the cap.
                 let at_seam =
                     portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
-                // The capture the texture holds no longer covers the window
-                // (the portals or the view moved since it was taken), beyond
-                // a sliver at the view's edge: it is due before its interval.
-                let slack = r.capture.size.min_element() * STALE_CAPTURE_SLACK;
-                let uncovered = rig.captured.is_none_or(|held| {
-                    r.mapped_source_vertices.iter().any(|m| held.overhang(*m) > slack)
-                });
-                let refresh_due = at_seam
-                    || uncovered
-                    || now_s - rig.last_capture_update_s >= effective.min_refresh_interval_s;
-                let has_active_slot = active_captures < effective.max_active_captures;
-                let has_update_slot = updates_this_frame < effective.max_updates_per_frame;
-                cam.is_active = refresh_due && (at_seam || (has_active_slot && has_update_slot));
+                cam.is_active = at_seam || active_captures < effective.max_active_captures;
                 // The window samples the capture its texture holds: the one
                 // taken now, or the last one, where it was taken. So a
                 // capture that waits is an older picture in its place, not
@@ -1301,8 +1277,6 @@ pub fn sync_portal_view_cones(
                 }
                 if cam.is_active {
                     active_captures += 1;
-                    updates_this_frame += 1;
-                    rig.last_capture_update_s = now_s;
                     rig.captured = Some(r.capture);
                     cam_tf.translation = frame.to_render(r.capture.center, 0.0);
                     cam_tf.rotation = r.capture.render_rotation();
@@ -1478,13 +1452,9 @@ pub fn sync_portal_view_cones(
         // Same seam priority as the update pass: a freshly-spawned rig for the
         // pair you are crossing captures immediately, never waiting on a slot.
         let at_seam = portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
-        let active = requested_active
-            && (at_seam
-                || (active_captures < effective.max_active_captures
-                    && updates_this_frame < effective.max_updates_per_frame));
+        let active = requested_active && (at_seam || active_captures < effective.max_active_captures);
         if active {
             active_captures += 1;
-            updates_this_frame += 1;
         }
         commands.spawn((
             Camera2d,
@@ -1534,7 +1504,6 @@ pub fn sync_portal_view_cones(
                 _image: image,
                 mesh,
                 cone: cone_entity,
-                last_capture_update_s: if active { now_s } else { f32::NEG_INFINITY },
                 captured: render.as_ref().filter(|_| active).map(|r| r.capture),
                 pane_dominant,
                 drawn: render.is_some(),

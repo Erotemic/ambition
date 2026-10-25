@@ -123,8 +123,8 @@ fn visual_quality_profile_table_matches_android_starting_budget() {
 #[test]
 fn potato_profile_strips_everything_to_the_bare_minimum() {
     let potato = VisualQualityBudget::for_profile(VisualQualityProfile::Potato);
-    // One portal capture, throttled hard.
-    assert!(potato.portal.min_refresh_interval_s > 0.0);
+    // One portal window at a time.
+    assert_eq!(potato.portal.max_active_captures, 1);
     // Tiniest textures for sprites + backgrounds.
     assert_eq!(
         potato.sprites.resolution_scale,
@@ -143,7 +143,7 @@ fn potato_profile_strips_everything_to_the_bare_minimum() {
 
     // Potato is the floor: it is no heavier than Low on the levers that matter.
     let low = VisualQualityBudget::for_profile(VisualQualityProfile::Low);
-    assert!(potato.portal.min_refresh_interval_s >= low.portal.min_refresh_interval_s);
+    assert!(potato.portal.max_active_captures <= low.portal.max_active_captures);
     assert!(potato.particles.max_particles <= low.particles.max_particles);
 }
 

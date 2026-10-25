@@ -19,6 +19,9 @@ Sato: Good morning. The ring is swept. The leaves are not. They never will be.
     Sato: Couriers, pilgrims, merchants. Some bow to the ring. Most of them are only dizzy.
 -> Is the ring sacred?
     Sato: It is old, it is useful, and people are grateful for it. Here that is close enough. I sweep round it as I sweep round the stones.
+-> Do you know Kagero?
+    Sato: The one with the white scarf? Only by reputation. Hayashi says she works alone.
+    Sato: People mention her when they talk about the castle. They usually lower their voices.
 -> Good morning.
 ===
 
@@ -29,6 +32,9 @@ Kenji: Do not sit too near. I came through the ring an hour ago and the ground i
     Kenji: Every time. The letters arrive perfectly. The courier arrives green.
 -> Why not take the mountain road?
     Kenji: Four days. The village wants its post today. My stomach has filed a complaint with the post office.
+-> Anything worrying in the post?
+    Kenji: Three letters sent toward the castle side came back unopened. Same handwriting on the back of every one.
+    Kenji: The woman who wrote them asked me to try again tomorrow. I said I would.
 -> Feel better.
 ===
 
@@ -39,6 +45,11 @@ Ume: Welcome. Tea for the tired, and for the gate-sick at half price. You do not
     Ume: It is quicker than the street, and the dojo marks you for it. After the rice is in, the whole village is up there.
 -> Tell me about the dojo.
     Ume: Sensei Hayashi runs a rank exam on the hour. Daichi has failed it eleven times. He is very proud of the number.
+-> Can anyone get a room here?
+    Ume: I've got two upstairs. One family paid ahead and left before daylight. The little one forgot her shoes.
+    Ume: If they come back, they're under the bed. I'm leaving them there.
+-> Do the students eat here?
+    Ume: Daichi eats like he's won the exam. Ren eats standing up. Hayashi brings his own rice and borrows my salt.
 -> Thank you.
 ===
 
@@ -49,6 +60,9 @@ Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still 
     Daichi: Part one, the dummies. Part two, the examiner. Part three, the forms. I have never seen part three.
 -> Why do you shout the moves?
     Daichi: How else will anyone know it was a move? A move nobody hears is just exercise.
+-> Have you seen Kagero fight?
+    Daichi: No. Ren says she hunts spirits and never announces her moves.
+    Daichi: I practiced fighting without shouting yesterday. I fell off a roof. Nobody came to watch.
 -> Good luck.
     Daichi: I do not need luck! I need the exam to be on a Tuesday.
 ===
@@ -59,6 +73,8 @@ title: ninja_village_hayashi
 Sensei Hayashi: The new rank wears well. Do not let it make you slow.
 -> What comes after this rank?
     Sensei Hayashi: The next one. It has more forms.
+-> What do the ranks mean outside the village?
+    Sensei Hayashi: Not much. Wear yours here. Beyond the gate, you'll have to introduce yourself.
 -> Thank you, Sensei.
 <<elseif condition("encounter.cleared", "ninja_village.rank_exam")>>
 Sensei Hayashi: The dummies are broken and the examiner is resting. That is a pass.
@@ -73,6 +89,8 @@ Sensei Hayashi: Welcome to the village dojo. You came to take the rank exam. Eve
     Sensei Hayashi: Walk onto the exam floor. Part one: break the dummies. Part two: the examiner. If you lose, ring the bell and begin again. There is no shame in the bell.
 -> Can a robot take it?
     Sensei Hayashi: The form says "applicant". It does not say "person". I checked.
+-> Does Kagero train here?
+    Sensei Hayashi: No. I've seen what she does with a paper talisman. I wouldn't know where to begin teaching it.
 -> Later.
 <<endif>>
 ===
@@ -85,12 +103,16 @@ Ren: So you passed. Then it is decided: from today you are my rival. I have the 
     Ren: Good. Next week I will choose a new rival. Do not take it personally. Take it seriously.
 -> I don't want a rival.
     Ren: Nobody wants one. That is why the form exists.
+-> Why did you pick me?
+    Ren: You went through the dummies without stopping to bow to them. I would have stopped. It annoyed me.
 <<else>>
 Ren: You want to take the exam? Fine. Do not expect me to cheer. I only cheer for rivals.
 -> How do I become your rival?
     Ren: Pass the exam. Then I will declare it. There is a form.
 -> Any advice?
     Ren: The examiner waits for you to swing first. So do I.
+-> Why do you want a rival?
+    Ren: Daichi cheers when I land a hit. I'd rather somebody hit me back.
 -> Later.
 <<endif>>
 ===

@@ -18,6 +18,9 @@ title: pirate_port_ines
 Ines: Page eleven, back in the book. The goat is logged, the limes are logged, and you are logged as "helpful".
 -> What came through today?
     Ines: Two crates of lamp oil, a mapmaker with a nosebleed, and a letter for "whoever is in charge". I filed it under me.
+-> Has anyone asked for the passenger list?
+    Ines: A broker sent a letter asking for the names of everyone arriving from Castle Godwin's side. Didn't say who he worked for.
+    Ines: I asked him to come in person. Haven't seen him.
 -> Carry on.
 <<elseif condition("world.flag_set", "pirate_port_manifest_found")>>
 Ines: Is that page eleven? From the crow's nest? You climbed the Persistence for a page of my log?
@@ -33,6 +36,9 @@ Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge
     Ines: The brig is at the end of the pier. Mind the gaps in the boards. The harbour keeps what it gets.
 -> What do you log?
     Ines: Everything the ring brings. Crates, letters, a goat last week. The ring does not care what it carries. I do.
+-> What happens when the gate gets busy?
+    Ines: Passenger traffic goes first. I get the warehouse after the last sick traveller has found a bench.
+    Ines: There were three fishing crews waiting for rope on Tuesday. One went out without it.
 -> Carry on.
 <<endif>>
 ===
@@ -44,6 +50,9 @@ Tomas: Do not mind me. I am waiting for my stomach. It is still in the other dim
     Tomas: For people, yes. Three seconds of nothing, then the floor arrives all at once. You are a machine. You probably felt a draught.
 -> Where are you going?
     Tomas: To sell lamp oil to pirates. The ring made it a short trip. Nobody said it would make it a long recovery.
+-> Does everyone come through the ring now?
+    Tomas: My brother still sails. He can eat lunch underway, for one thing.
+    Tomas: I've got invoices to deliver on the station tomorrow. I may sleep here tonight.
 -> Feel better.
 ===
 
@@ -58,6 +67,10 @@ Agnes: Rope, tar, biscuits, remedies. Forty years on this street. The ring chang
 -> Buy Spare Battery — 12g <<if can_afford(12)>>
     <<buy_item "sparebattery" 12>>
     Agnes: Came through the ring last week. Fresh from somewhere.
+-> Who buys all this rope now?
+    Agnes: Fishermen. Dock crews. Station mechanics came down for a coil last week. Took two hours explaining which way their pulley turns.
+-> Do you have anything for a sick traveller?
+    Agnes: Ginger, water, a chair by the door. That'll be three coppers. The chair's free.
 -> Just looking.
 ===
 
@@ -68,6 +81,9 @@ Jory: Mind the boards. There are two gaps in the pier and the harbour is deeper 
     Jory: Whatever this sea gives. Now the market sells fish from three seas, through the ring. Mine still taste of this one.
 -> What is up the brig's mast?
     Jory: The crow's nest of the Persistence. Gulls, rope and, today, a piece of paper. Ines will want that.
+-> Has the ring changed fishing?
+    Jory: I can sell a catch on three worlds before supper. Used to be I knew every buyer by his hat.
+    Jory: Agnes says I should charge more. I know what my neighbours can pay.
 -> Carry on.
 ===
 
@@ -78,6 +94,11 @@ Bram: Harbour master. The docks are mine, the cove is the crews', and the sky ov
     Bram: The pirate cove. Mind your manners there. The crews keep a lookout above it, where the skyship raiders gather. They do not like visitors.
 -> Does the ring bother you?
     Bram: A ship takes a week to bring what the ring brings in a breath. I still trust the ship. The ship never felt sick.
+-> Is the cove safe?
+    Bram: Depends who you ask. The Admiral pays his mooring fees. His raiders are less reliable.
+    Bram: I send Jory in to collect. Nobody wants to start a fight with an old fisherman.
+-> Do cargo ships still earn their keep?
+    Bram: Small ones do. Long hauls are harder. Freight buyers want the gate price, then they want the ship price when the ring goes down.
 -> Carry on.
 ===
 
@@ -88,6 +109,11 @@ Wren: Welcome to The Drowned Compass. We never tell you where you are, which is 
     Wren: Grog, chowder, and a tea for the gate-sick that is mostly ginger and hope.
 -> Who is the big one?
     Wren: Bess, from the cove. She pays, she sings, and nobody asks about the cannon port in her blade.
+-> What's everyone arguing about?
+    Wren: Bram raised the dock fees. Jory says he isn't paying. Bram says Jory never pays.
+    Wren: They'll be in here after sunset to sort it out over supper.
+-> Has Bess always come here?
+    Wren: Since she was small enough to sit on the counter. Last night she bought the whole room supper. She wouldn't say why.
 -> Carry on.
 ===
 
@@ -98,5 +124,10 @@ Broadside Bess: Shore leave. A table, a chowder, and nobody to board. Do not rui
     Broadside Bess: The cove is home. The port is where the money is. The sky is where the trouble is.
 -> Have you been through the ring?
     Broadside Bess: Once. I came out the other side and fired a broadside at the floor. On purpose. Probably.
+-> Why work with ninjas?
+    Broadside Bess: Bird stole the ninja chief's fancy footwork. Stole our songs too. Admiral and Shadow Oni made a deal.
+    Broadside Bess: Been told to keep my mouth shut while we share a roof. I've managed half a day.
+-> What did the bird take from you?
+    Broadside Bess: Old recordings. Annet's mother singing, before she lost her voice. They're in that chest. Bring it back if you find it.
 -> Enjoy the chowder.
 ===

@@ -19,6 +19,8 @@ title: station_okafor
     Officer Okafor: Lane's open. Crate 0447 went on the Remainder at shift change.
     -> Anything else held?
         Officer Okafor: Always. Not today's problem. Hamid wanted someone in the spur; your pass is on the hatch.
+    -> Who sees your passenger lists?
+        Officer Okafor: Customs. There was a request to sort them by home dimension and send them to another office. No signature on it. I sent it back.
     -> ⟨step away⟩
 <<elseif condition("world.flag_set", "orbital_manifest_signed")>>
     Officer Okafor: A signature from the Math town. "Twelve lenses. Finite." He underlined finite.
@@ -39,6 +41,8 @@ title: station_okafor
         Officer Okafor: Surveyor's Office, Math town. Bring me a number I can stamp.
     -> Why so careful?
         Officer Okafor: Seed stock, spores, mail with ideas in it. The ring moves anything. Somebody has to look first.
+    -> Who reads the arrival records?
+        Officer Okafor: My shift and the checkpoint. Had a request from an office I'd never heard of. They can come down here and show me a badge.
     -> ⟨step away⟩
 <<endif>>
 ===
@@ -49,6 +53,8 @@ title: station_reyes
     Captain Reyes: 0447 is aboard. We burn for the survey moon at shift change. Thanks for fetching a number.
     -> Why does the moon need lenses?
         Captain Reyes: To map it. Then someone will want a ring there, and I will be out of work. Good.
+    -> Have you flown near the gravity works?
+        Captain Reyes: Once. Survey instruments gave me two horizons. I steered by the stars and stayed well clear.
     -> ⟨step away⟩
 <<else>>
     Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
@@ -56,6 +62,9 @@ title: station_reyes
         Captain Reyes: Whatever the ring brings that has to go where no ring is. Moons, mines, the slow places.
     -> Why not put a ring on the moon?
         Captain Reyes: A ring eats a reactor and a crew. A hauler eats patience. Patience is cheaper.
+    -> What's the work out beyond the rings?
+        Captain Reyes: Two weeks out, two back. We bring batteries, food, water. They send us rocks in labeled bags.
+        Captain Reyes: It's a decent job, when customs lets us do it.
     -> ⟨step away⟩
 <<endif>>
 ===
@@ -67,6 +76,11 @@ Bo Lindqvist: Ring throughput is down a third since they doubled the passenger s
     Bo Lindqvist: They complain louder than crates. Also they get sick in the ring, so they want it over fast.
 -> Need a hand?
     Bo Lindqvist: Not unless you can lift a container. ...You can? Huh. Union says no.
+-> Can freight go another way?
+    Bo Lindqvist: Send it by ship. I've priced it. Three weeks for a box that used to take a morning.
+    Bo Lindqvist: Captain Reyes is already booked solid.
+-> What happens to the extra power?
+    Bo Lindqvist: They sell the passenger slots. My loaders still have to move the freight when the ring finally clears.
 -> ⟨step away⟩
 ===
 
@@ -76,6 +90,8 @@ title: station_rahimi
     Hamid Rahimi: Power is back in the spur. The crawlers went quiet when the breaker closed. I owe you.
     -> What broke them?
         Hamid Rahimi: Their orders. "Repair anything damaged." The storm damaged everything. They kept cutting.
+    -> Is the rest of the station all right?
+        Hamid Rahimi: Better than yesterday. The gravity-works people want their instruments back now. They can collect them themselves.
     -> ⟨step away⟩
 <<elseif condition("world.flag_set", "orbital_spur_pass")>>
     Hamid Rahimi: Okafor logged your pass. The spur took a storm last cycle. Breaker's tripped at the far end.
@@ -88,6 +104,9 @@ title: station_rahimi
         Hamid Rahimi: The old spur. Damaged. Shut until customs signs off on someone with a pass and no lungs.
     -> How much power does the ring take?
         Hamid Rahimi: Opening it, all of it. Holding it, half. That is why we schedule.
+    -> Have you worked at Gnu-ton's place?
+        Hamid Rahimi: Inspected a power feed once. Spent an hour holding onto my tools. They've got floors facing every direction.
+        Hamid Rahimi: If you go out there, take a good grip on whatever you bring.
     -> ⟨step away⟩
 <<endif>>
 ===
@@ -99,6 +118,9 @@ Gus Pell: First time through the ring? People come up those stairs green. Cracke
     Gus Pell: A robot. Lucky. Some folks lose a day to it. Some just lose breakfast.
 -> What's cooking?
     Gus Pell: Greens from the racks, and whatever came through the gate this morning. Today, beans.
+-> Who lives here?
+    Gus Pell: Mechanics, pilots, customs, a botanist who talks to the lettuce. Most stay for a few months.
+    Gus Pell: Some go home every night now. I still set their place at breakfast by accident.
 -> ⟨step away⟩
 ===
 
@@ -109,6 +131,12 @@ Wen Liang: I tuned this station's first stable ring. The first link held three s
     Wen Liang: Power got cheap. Everybody wants a gate now. Not everybody wants to pay for one.
 -> Do you miss the work?
     Wen Liang: I miss the quiet. Look down instead. That never gets old.
+-> Ever worked with Gnu-ton?
+    Wen Liang: He sent me a plan for a gravity test. I asked where the shutoff was. He sent me a longer plan.
+    Wen Liang: I've still got it on my desk.
+-> How many dimensions are there?
+    Wen Liang: The registries list seventeen known dimensions. Math Town sent over a question about two of the entries.
+    Wen Liang: I sent measurements back. Now they've asked for more.
 -> ⟨step away⟩
 ===
 
@@ -117,5 +145,9 @@ title: station_neil
 Neil onGras Turfson: Well, actually, that blue line on the edge is all the air they have. Thinner than paint on a ball.
 -> It looks fragile.
     Neil onGras Turfson: It is. Look at it long enough and you will want to go down and touch some grass.
+-> Do you ever go down there?
+    Neil onGras Turfson: Every leave. I take my shoes off on the first bit of grass I see. Last time it rained on me and I stayed outside till they called.
+-> What's beyond this orbit?
+    Neil onGras Turfson: Remainder goes out surveying. I work the observation window. You should ask the captain where she's been.
 -> ⟨step away⟩
 ===

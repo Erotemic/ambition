@@ -14,6 +14,9 @@ title: alice_intro_stub
     Alice: Put the official map away. Patrols use the same one.
     -> Take the note.
         <<jump alice_intro_stub__1>>
+    -> Why are the patrols using your map?
+        Alice: Someone asked us to mark the passages under the gate stack. Said it was for repairs.
+        Alice: Bob checked the name on the request. There wasn't one.
     -> ⟨step back⟩
 <<endif>>
 ===
@@ -33,6 +36,9 @@ title: alice_after_bob_survey__1
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
 Alice: Keep Bob's pencil marks. The printed routes are watched; his aren't.
+-> Did you hear about the basement raid?
+    Alice: I heard them arguing over a street number. By morning the room was empty.
+    Alice: Give me Bob's notes. I'll see which of the other addresses they were supposed to visit.
 -> ⟨step through⟩
 ===
 
@@ -57,6 +63,9 @@ title: bob_intro_stub
 title: bob_intro_stub__1
 ---
 Bob: Take this back to Alice. Tell her somebody's watching the low route now.
+-> What did you find?
+    Bob: Two copies of the same patrol map. One has a door marked a block north.
+    Bob: The ink's fresh on both. I put a circle round it for Alice.
 -> ⟨pocket the survey⟩
 ===
 
@@ -164,6 +173,8 @@ Gate Janitor: Mind the wet patch. Maintenance has this corridor today, so half t
     <<jump gate_janitor_ripple__2>>
 -> What do you actually do?
     <<jump gate_janitor_ripple__3>>
+-> Who gets priority on a busy gate?
+    <<jump gate_janitor_ripple__priority>>
 -> ⟨move on⟩
 ===
 
@@ -201,6 +212,8 @@ Manifest Clerk: Name? ...No entry. Spell it again. Slower.
     <<jump manifest_kiosk_wrong_list__1>>
 -> Who was the actual target?
     <<jump manifest_kiosk_wrong_list__2>>
+-> Who else has the manifest?
+    <<jump manifest_kiosk_wrong_list__copies>>
 -> ⟨step away⟩
 ===
 
@@ -256,6 +269,9 @@ title: oiler_intro
     Oiler: Stabilizer's yours. Knee should stop kicking sideways now. Don't drop it in the drain.
     -> What's below?
         <<jump oiler_post_stabilizer__1>>
+    -> Who else can fix my joints?
+        Oiler: Faith Knoss. Folks call her Fia. She's helping with the gate lifts today.
+        Oiler: If the stabilizer starts grinding, bring it to either of us.
     -> ⟨move on⟩
 <<else>>
     Oiler: Well. You're bigger than the rats. Came through that pipe, did you?
@@ -265,6 +281,9 @@ title: oiler_intro
         <<jump oiler_intro__2>>
     -> Why help me?
         <<jump oiler_intro__3>>
+    -> Did you hear the raid?
+        Oiler: Boots all over the service stairs. One of them was yelling that the room number was wrong.
+        Oiler: I shut my workshop door. Come back later if you want me to look at that knee.
     -> ⟨keep walking⟩
 <<endif>>
 ===
@@ -305,4 +324,22 @@ title: oiler_post_stabilizer__1
 <<portrait_clip "talking">>
 Oiler: Cartographers are below. Follow the drain until you see chalk all over the walls. Tell them Oiler sent you.
 -> ⟨descend⟩
+===
+
+title: gate_janitor_ripple__priority
+---
+Gate Janitor: Medical, if the dispatcher reads the red tag. Military, when they come down and tell him to move aside.
+Gate Janitor: I watched a box of spare boots go through while a man waited with medicine for his kid. I told him to file a complaint. He laughed at me.
+-> Ask another question.
+    <<jump gate_janitor_ripple>>
+-> ⟨move on⟩
+===
+
+title: manifest_kiosk_wrong_list__copies
+---
+Manifest Clerk: We keep one copy here and one at the checkpoint. I corrected the basement address on ours.
+Manifest Clerk: The checkpoint sent it back marked DENIED. That's all I can show you.
+-> Ask another question.
+    <<jump manifest_kiosk_wrong_list>>
+-> ⟨step away⟩
 ===

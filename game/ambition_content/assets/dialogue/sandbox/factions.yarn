@@ -5,6 +5,8 @@ Fretjaw: No real fights in the cantina. Break a chair, buy two. Fretjaw hates pa
     <<jump goblin_cantina_chieftain__1>>
 -> Why a training pit?
     <<jump goblin_cantina_chieftain__2>>
+-> Been any trouble with the gate patrols?
+    <<jump goblin_cantina_chieftain__gate>>
 -> Walk away.
 ===
 
@@ -33,19 +35,21 @@ General: AT EASE, RECRUIT. You are in the Iron Bastion. Parade deck below, offic
     <<jump military_general__2>>
 -> Ask about the gate annex.
     <<jump military_general__gate>>
+-> Who's requesting gate access?
+    <<jump military_general__petitions>>
 -> Salute and withdraw.
 ===
 
 title: military_general__gate
 ---
 <<if condition("world.flag_set", "gate.clearance.military")>>
-    General: Your clearance stands. SENTINEL is the annex, and its checkpoint is open to you. The log reads every dial. So do I.
+    General: Your clearance stands. SENTINEL is the annex, and the annex dials what the public ring may not. The log reads every dial. So do I.
 <<elseif boss_cleared("castle_godwin.wolfenstein")>>
     General: You put down the dog of Castle Godwin. That is a military result, and a military result earns military clearance. The checkpoint downstairs will open for you, and the annex ring answers SENTINEL from any public ring.
     <<command "world.set_flag" "gate.clearance.military" true>>
     <<command "world.set_flag" "gate.known.SENTINEL" true>>
 <<else>>
-    General: The annex off the parade deck holds our ring. Logged use, and a checkpoint that opens for clearance only. Earn a military result and we will talk about clearance.
+    General: The annex off the parade deck holds our ring. Priority band, logged use, clearance only. Earn a military result and we will talk about clearance.
     General: And keep out of the maintenance crawlway. It is for maintenance, and for nobody who crouches.
 <<endif>>
 -> Ask another question.
@@ -76,6 +80,8 @@ Captain Pulse: Tie off there, drifter. The stones drift about half a beat every 
     <<jump pulse_voyager_captain__1>>
 -> Why park up in the sky?
     <<jump pulse_voyager_captain__2>>
+-> Do you carry freight between dimensions?
+    <<jump pulse_voyager_captain__freight>>
 -> Cast off.
 ===
 
@@ -119,4 +125,31 @@ Chadwick III: The boardroom faces up because vision is a direction. Looking down
 -> Ask another question.
     <<jump tech_bros_disruptor>>
 -> Touch grass.
+===
+
+title: military_general__petitions
+---
+General: The castle submits another request for our passenger records every month. One page this time, six pages last time.
+General: Haven't signed it. The office that wants it can send somebody up here and explain themselves.
+-> Ask another question.
+    <<jump military_general>>
+-> Salute and withdraw.
+===
+
+title: goblin_cantina_chieftain__gate
+---
+Fretjaw: Some checkpoint officer asked for names of all goblins who came through the ring. Fretjaw told him to buy drinks first.
+Fretjaw: He left without paying. Got no names, either.
+-> Ask another question.
+    <<jump goblin_cantina_chieftain>>
+-> Walk away.
+===
+
+title: pulse_voyager_captain__freight
+---
+Captain Pulse: Small loads, when the weather lets us. The orbital station pays better, but the gate won't take this whole hull.
+Captain Pulse: Last trip I sent the crates ahead. Customs held them until I turned up to sign.
+-> Ask another question.
+    <<jump pulse_voyager_captain>>
+-> Cast off.
 ===

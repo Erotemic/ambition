@@ -6,6 +6,8 @@ title: pirate_admiral
         <<jump pirate_admiral_after_treasure__1>>
     -> Anything else?
         <<jump pirate_admiral_after_treasure__2>>
+    -> What happened to the ninja deal?
+        <<jump pirate_admiral_after_treasure__ninja>>
     -> Carry on, Admiral.
 <<else>>
     Admiral: Ahoy, landstrider. Ye caught us at low tide and lower tempers. Mockingbird took the iron chest straight off the bar and flew away with it. Aye, I know how that sounds.
@@ -15,6 +17,8 @@ title: pirate_admiral
         <<jump pirate_admiral__2>>
     -> Why don't your raiders handle it?
         <<jump pirate_admiral__3>>
+    -> What's your deal with the ninjas?
+        <<jump pirate_admiral__ninja>>
     -> I'll bring it down.
 <<endif>>
 ===
@@ -196,6 +200,8 @@ Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bas
     <<jump pirate_quartermaster__1>>
 -> What's above decks?
     <<jump pirate_quartermaster__2>>
+-> Does Ines check your manifest?
+    <<jump pirate_quartermaster__port>>
 -> ⟨step aside⟩
 ===
 
@@ -230,6 +236,8 @@ title: pirate_raider
         <<jump pirate_raider__1>>
     -> Got any tips for the bird?
         <<jump pirate_raider__2>>
+    -> What happened at the port?
+        <<jump pirate_raider__port>>
     -> Carry on.
 <<endif>>
 ===
@@ -300,4 +308,40 @@ Parrot: "The treasure was the priors we updated along the way." ...I don't know 
 -> Ask another question.
     <<jump parrot_cove>>
 -> Squawk back and leave.
+===
+
+title: pirate_admiral__ninja
+---
+Admiral: Shadow Oni wants the bird dead. Fine by me. Ninjas take the east thermals; we take the decks.
+Admiral: Bess has orders to keep her cannon pointed west. She's complained about it all morning.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> I'll bring it down.
+===
+
+title: pirate_admiral_after_treasure__ninja
+---
+Admiral: Sent Shadow Oni a letter. Told him the bird was down, and he could have his rooftops back.
+Admiral: His messenger brought me a note that just said "Good." Bess hung it above the bar.
+-> Ask another question.
+    <<jump pirate_admiral>>
+-> Carry on, Admiral.
+===
+
+title: pirate_quartermaster__port
+---
+Quartermaster: Ines? Aye. She's got a line for every barrel we dock, an' she'll come down here with a ruler if she thinks we've shorted her.
+Quartermaster: Our last lot of powder went through the ring. Two casks arrived damp. I don't know who to yell at.
+-> Aught else, master?
+    <<jump pirate_quartermaster>>
+-> ⟨step aside⟩
+===
+
+title: pirate_raider__port
+---
+Raider: Bram won't let us tie up at the good pier since I took the guardrail off. Needed the wood.
+Raider: I put it back, mostly. He's still cross.
+-> Ask another question.
+    <<jump pirate_raider>>
+-> Carry on.
 ===

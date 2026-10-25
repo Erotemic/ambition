@@ -5,6 +5,8 @@ Duelist: Quiet. The Leader is meditating. Slam the door and I have to kill you. 
     <<jump ninja_duelist__1>>
 -> Any tips for the bird?
     <<jump ninja_duelist__2>>
+-> Have you heard of Kagero?
+    Duelist: The woman with the white scarf. Shadow Oni has never given her orders. Doubt she'd take any.
 -> Carry on.
 ===
 
@@ -33,6 +35,8 @@ Shadow Oni: You came in without invitation. I have not decided whether that was 
     <<jump ninja_leader__2>>
 -> Where does the dojo stand on the cove?
     <<jump ninja_leader__3>>
+-> Does Kagero belong to your dojo?
+    <<jump ninja_leader__kagero>>
 -> Open the arena door.
 ===
 
@@ -67,6 +71,9 @@ Ninja Heavy: The Leader opens the far door. The heavy one closes it. Speak.
     <<jump ninja_heavy__1>>
 -> Any advice for the bird?
     <<jump ninja_heavy__2>>
+-> Why train with the pirates?
+    Ninja Heavy: I went to watch Bess load a cannon. She shouted at the powder until someone lit it.
+    Ninja Heavy: Her crew lived. I learned something.
 -> Carry on.
 ===
 
@@ -84,4 +91,13 @@ Ninja Heavy: It can copy a voice. It can not copy a weight. Strike when it laugh
 -> Ask another question.
     <<jump ninja_heavy>>
 -> Carry on.
+===
+
+title: ninja_leader__kagero
+---
+Shadow Oni: Kagero went after the spirits at Castle Godwin. I offered her two of my people. She declined.
+Shadow Oni: We sent bandages anyway. No idea if she took them.
+-> Ask another question.
+    <<jump ninja_leader>>
+-> Open the arena door.
 ===

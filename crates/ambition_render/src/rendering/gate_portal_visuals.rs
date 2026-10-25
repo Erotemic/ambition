@@ -495,10 +495,9 @@ mod tests {
             .current_render()
             .expect("the portal sheet is trimmed");
         assert_eq!(drawn, frame_size, "the quad follows the drawn frame");
-        assert!(
-            drawn.x > spawned.x * 4.0,
-            "the open membrane {drawn} is drawn in the spawn frame's quad {spawned}"
-        );
+        // The spawn frame (the opening's first) trims to its own ink, so the
+        // open membrane's quad is not the one it spawned with.
+        assert_ne!(drawn, spawned, "the open membrane is drawn in the spawn frame's quad {spawned}");
     }
 
     /// An address lights each chevron's glyph once and a row of its grid

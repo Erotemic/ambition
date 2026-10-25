@@ -21,7 +21,12 @@
 //! - **smash-charge pulse**: amber that pulses faster and brighter as the
 //!   held charge fills.
 //!
-//! Priority: impact, parry, damage flash, blink, charge. A landed hit is the
+//! - **gate transit** (Ultra only): a body leaping into a gate, or coming
+//!   out of one, turns to cyan light in scanlines and dissolves into it, or
+//!   condenses out of it. Its amount is the passage's `transit`.
+//!
+//! Priority: transit, impact, parry, damage flash, blink, charge. A body in a
+//! gate's light can be struck by nothing, and the light is the whole picture. A landed hit is the
 //! loudest fact and lasts a few frames; the damage flash is its tail. A parry
 //! negates the strike, so it rarely collides with an impact; if a second strike
 //! lands inside the parry beat, being struck wins. Intangibility outranks the
@@ -79,6 +84,8 @@ const BLINK_PEAK_INTENSITY: f32 = 0.55;
 const FLASH_TINT: Vec3 = Vec3::new(1.0, 1.0, 1.0);
 const BLINK_TINT: Vec3 = Vec3::new(0.62, 0.86, 1.0);
 const CHARGE_TINT: Vec3 = Vec3::new(1.0, 0.71, 0.28);
+/// The gate's light, the cyan of its glyphs.
+const TRANSIT_TINT: Vec3 = Vec3::new(0.56, 0.96, 1.0);
 
 /// The smash-charge pulse, in cycles per sim tick at zero and full charge.
 /// At 60 Hz: about 2 Hz when the hold latches, about 10 Hz when loaded.
@@ -148,8 +155,10 @@ pub struct HitFlashMaterial {
     /// `(min.x, min.y, max.x, max.y)` normalized.
     #[uniform(0)]
     pub uv_rect: Vec4,
-    /// `(intensity, flip_x, _, _)`. `intensity` is the shader's
-    /// gate: 0.0 → discard everything; 1.0 → full white silhouette.
+    /// `(intensity, flip_x, transit, seconds)`. `intensity` is the shader's
+    /// gate: 0.0 → discard everything; 1.0 → full white silhouette. A
+    /// `transit` above 0 draws the gate cue instead of a flat silhouette, on
+    /// the clock `seconds`.
     #[uniform(1)]
     pub control: Vec4,
     #[texture(2)]
@@ -318,6 +327,8 @@ pub fn sync_hit_flash_overlays(
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
     poses: Query<&ambition_sim_view::BodyPoseView>,
+    passage_looks: Query<&ambition_sim_view::PassageLookView>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     sources: Query<
         (
             Entity,
@@ -368,7 +379,7 @@ pub fn sync_hit_flash_overlays(
 
         // One dispatch for player, NPC, enemy, and boss. Each has different
         // storage, but all reach the same shader uniform through this lookup.
-        let facts = overlay_facts_for_source(
+        let mut facts = overlay_facts_for_source(
             source_entity,
             feature,
             player,
@@ -377,10 +388,12 @@ pub fn sync_hit_flash_overlays(
             &poses,
             defense_policy.0,
         );
+        facts.transit = transit_fact(source_entity, feature, &anim_frames, &passage_looks, quality.as_deref());
         let source_visibility = source_visibility.and_then(|visibility| {
             (!portal_alone_hides(portal_hid_source, &visibility)).then_some(*visibility)
         });
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility);
+        let transit = if tint == TRANSIT_TINT { facts.transit } else { 0.0 };
 
         let Ok((
             mut overlay_transform,
@@ -420,7 +433,10 @@ pub fn sync_hit_flash_overlays(
         // re-upload every idle overlay every frame, which is costly in
         // `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>`. Same rule as
         // `converge_character_residency_to_active_quality`.
-        let control = Vec4::new(intensity, flip, 0.0, 0.0);
+        // The transit cue's clock: sim ticks, wrapped, so a capture and a
+        // replay draw the same scanlines.
+        let seconds = if transit > 0.0 { (tick.0 % CHARGE_PHASE_WRAP) as f32 / 60.0 } else { 0.0 };
+        let control = Vec4::new(intensity, flip, transit, seconds);
         let tint = tint.extend(1.0);
         let unchanged = materials.get(&material_handle.0).is_some_and(|material| {
             material.uv_rect == uv_rect
@@ -474,6 +490,8 @@ pub fn declare_hit_flash_demand(
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
     poses: Query<&ambition_sim_view::BodyPoseView>,
+    passage_looks: Query<&ambition_sim_view::PassageLookView>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     sources: Query<
         (
             Entity,
@@ -487,7 +505,7 @@ pub fn declare_hit_flash_demand(
     mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
 ) {
     for (source_entity, feature, player, source_visibility, portal_hid_source) in &sources {
-        let facts = overlay_facts_for_source(
+        let mut facts = overlay_facts_for_source(
             source_entity,
             feature,
             player,
@@ -496,6 +514,7 @@ pub fn declare_hit_flash_demand(
             &poses,
             defense_policy.0,
         );
+        facts.transit = transit_fact(source_entity, feature, &anim_frames, &passage_looks, quality.as_deref());
         let source_visibility = source_visibility.and_then(|visibility| {
             (!portal_alone_hides(portal_hid_source, &visibility)).then_some(*visibility)
         });
@@ -570,6 +589,29 @@ pub struct OverlayFacts {
     /// it here from a move name or Startup progress: a tapped smash and a held
     /// one share both.
     pub move_charge: Option<f32>,
+    /// How far into a gate's light the body is (`PassageLookView::transit`),
+    /// `0.0` out of one or below Ultra ([`transit_fact`]).
+    pub transit: f32,
+}
+
+/// The gate-transit fact of one source: its passage's `transit`, from the
+/// view on a player body's own entity or an actor's frame. `0.0` unless the
+/// device draws showcase materials: below Ultra the passage's own fade is
+/// the whole look.
+fn transit_fact(
+    source_entity: Entity,
+    feature: Option<&FeatureVisual>,
+    anim_frames: &ambition_sim_view::ActorAnimIndex,
+    passage_looks: &Query<&ambition_sim_view::PassageLookView>,
+    quality: Option<&crate::quality::ResolvedVisualQuality>,
+) -> f32 {
+    if !quality.is_some_and(|quality| quality.budget.shaders.allow_showcase_materials) {
+        return 0.0;
+    }
+    let look = passage_looks.get(source_entity).ok().copied().or_else(|| {
+        feature.and_then(|feature| anim_frames.get(feature.id.as_str())).and_then(|frame| frame.passage_look)
+    });
+    look.map_or(0.0, |look| look.transit.clamp(0.0, 1.0))
 }
 
 /// Unified overlay-fact dispatch.
@@ -636,6 +678,7 @@ fn overlay_facts_from_pose(
         hit_strength: pose.hit_strength,
         iframe_blink: shared_iframe_blink(pose.unhittable, pose.defense_cues, policy),
         move_charge: pose.move_charge,
+        transit: 0.0,
     }
 }
 
@@ -649,6 +692,7 @@ fn overlay_facts_from_feature(
         hit_strength: view.hit_strength,
         iframe_blink: shared_iframe_blink(view.unhittable, view.defense_cues, policy),
         move_charge: None,
+        transit: 0.0,
     }
 }
 
@@ -672,6 +716,11 @@ fn overlay_look(
 ) -> (f32, Vec3) {
     if matches!(source_visibility, Some(Visibility::Hidden)) {
         return (0.0, FLASH_TINT);
+    }
+    // In a gate's light: nothing strikes it, and the light is the picture.
+    // Up fast as it meets the surface; the shader dissolves it as it goes on.
+    if facts.transit > 0.0 {
+        return ((facts.transit * 2.5).min(1.0), TRANSIT_TINT);
     }
     // Impact first: it lasts exactly the hitlag of the connect.
     let impact = impact_intensity(facts.hit_strength);
@@ -941,6 +990,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: true,
             move_charge: None,
+            transit: 0.0,
         };
         // Every tick of the blink cycle, including its peak.
         for tick in 0..BLINK_PERIOD_TICKS * 2 {
@@ -955,6 +1005,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: true,
             move_charge: None,
+            transit: 0.0,
         };
         let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
         assert_eq!(tint, BLINK_TINT);
@@ -1034,6 +1085,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: false,
             move_charge: Some(1.0),
+            transit: 0.0,
         };
         let mid = (CHARGE_PHASE_WRAP / 7) as u64;
         assert_eq!(overlay_look(charging, mid, None).1, CHARGE_TINT);
@@ -1055,6 +1107,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: true,
             move_charge: Some(1.0),
+            transit: 0.0,
         };
         assert_eq!(overlay_look(struck_while_charging, mid, None).1, FLASH_TINT);
     }
@@ -1102,6 +1155,7 @@ mod tests {
             hit_strength: 0.8,
             iframe_blink: true,
             move_charge: Some(0.5),
+            transit: 0.0,
         };
         let tick = 17;
         assert_eq!(
@@ -1124,6 +1178,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: true,
             move_charge: Some(0.5),
+            transit: 0.0,
         };
         assert_eq!(
             overlay_look(blinking, tick, None).0,
@@ -1154,6 +1209,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: true,
             move_charge: None,
+            transit: 0.0,
         };
         let (intensity, tint) = overlay_look(parried, 0, None);
         assert_eq!(tint, PARRY_TINT, "the parry outranks the i-frame blink");
@@ -1184,6 +1240,7 @@ mod tests {
             hit_strength: 0.6,
             iframe_blink: false,
             move_charge: None,
+            transit: 0.0,
         };
         assert_eq!(overlay_look(struck_mid_parry, 0, None).1, IMPACT_TINT);
     }
@@ -1199,6 +1256,7 @@ mod tests {
             // driven by `parrying()` would fire on.
             iframe_blink: true,
             move_charge: None,
+            transit: 0.0,
         };
         for tick in 0..BLINK_PERIOD_TICKS * 3 {
             assert_eq!(
@@ -1216,6 +1274,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: false,
             move_charge: None,
+            transit: 0.0,
         }
     }
 
@@ -1226,6 +1285,7 @@ mod tests {
             hit_strength: 0.0,
             iframe_blink: true,
             move_charge: None,
+            transit: 0.0,
         }
     }
 }

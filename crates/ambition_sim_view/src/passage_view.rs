@@ -17,12 +17,14 @@ use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms
 use crate::{ActorAnimIndex, BodyPoseView, ClipRequest};
 
 /// How a body in a passage is drawn: about its feet, `scale` of its size,
-/// `alpha` of it showing, `shade` of the way to black.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+/// `alpha` of it showing, `shade` of the way to black, `transit` of the way
+/// into a gate's light (a cue the body overlay may draw).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PassageLookView {
     pub scale: f32,
     pub alpha: f32,
     pub shade: f32,
+    pub transit: f32,
 }
 
 /// The doors and gates passages are going through this tick.
@@ -107,7 +109,7 @@ pub fn rebuild_passage_views(
                     pose.anim = anim;
                     pose.clip = ClipRequest::from_chain(chain);
                 }
-                let view = PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade };
+                let view = PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade, transit: look.transit };
                 let actor = feature.zip(actors.as_deref_mut()).and_then(|(id, actors)| actors.frame_mut(id.as_str()));
                 if let Some(frame) = actor {
                     let (chain, anim) = row_of(look.pose);
@@ -231,7 +233,7 @@ mod tests {
             (
                 CharacterAnim::LadderClimb,
                 Some("turn_away"),
-                Some(PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade })
+                Some(PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade, transit: look.transit })
             ),
             "the actor frame draws the passage's row and look"
         );

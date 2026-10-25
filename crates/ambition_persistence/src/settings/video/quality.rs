@@ -316,6 +316,11 @@ pub struct ParallaxBudget {
 pub struct ShaderBudget {
     pub screen_shader_scale: f32,
     pub allow_expensive_materials: bool,
+    /// Materials only the top tier pays for: polish over art that already
+    /// stands on its own (the gate's wormhole, a body dissolving into a
+    /// gate). Ultra only. Absent from an older saved budget: off.
+    #[serde(default)]
+    pub allow_showcase_materials: bool,
 }
 
 impl ShaderBudget {
@@ -459,6 +464,7 @@ impl VisualQualityBudget {
                 shaders: ShaderBudget {
                     screen_shader_scale: 0.0,
                     allow_expensive_materials: false,
+                    allow_showcase_materials: false,
                 },
                 particles: ParticleBudget {
                     max_particles: 16,
@@ -496,6 +502,7 @@ impl VisualQualityBudget {
                 shaders: ShaderBudget {
                     screen_shader_scale: 0.5,
                     allow_expensive_materials: false,
+                    allow_showcase_materials: false,
                 },
                 particles: ParticleBudget {
                     max_particles: 128,
@@ -533,6 +540,7 @@ impl VisualQualityBudget {
                 shaders: ShaderBudget {
                     screen_shader_scale: 0.75,
                     allow_expensive_materials: true,
+                    allow_showcase_materials: false,
                 },
                 particles: ParticleBudget {
                     max_particles: 256,
@@ -570,6 +578,7 @@ impl VisualQualityBudget {
                 shaders: ShaderBudget {
                     screen_shader_scale: 1.0,
                     allow_expensive_materials: true,
+                    allow_showcase_materials: false,
                 },
                 particles: ParticleBudget {
                     max_particles: 512,
@@ -607,6 +616,7 @@ impl VisualQualityBudget {
                 shaders: ShaderBudget {
                     screen_shader_scale: 1.0,
                     allow_expensive_materials: true,
+                    allow_showcase_materials: true,
                 },
                 particles: ParticleBudget {
                     max_particles: 1024,

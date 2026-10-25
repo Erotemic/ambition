@@ -35,5 +35,6 @@ pub mod ui_fonts;
 /// The field of the void: a whole-screen pass that takes the colour out of
 /// the picture near each visual with a `VoidAura`.
 pub mod bubble_shield_fx;
+pub mod gate_portal_fx;
 pub mod spirit_field;
 pub mod void_field;

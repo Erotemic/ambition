@@ -1286,7 +1286,7 @@ fn a_body_its_passage_fades_is_composited() {
         );
         app.world_mut().entity_mut(root).insert((
             crate::rendering::primitives::PlayerVisual,
-            ambition_sim_view::PassageLookView { scale: 0.9, alpha, shade: 0.2 },
+            ambition_sim_view::PassageLookView { scale: 0.9, alpha, shade: 0.2, transit: 0.0 },
         ));
         settle(&mut app);
         let owner = owner(&app, root);

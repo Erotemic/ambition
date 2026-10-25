@@ -2,7 +2,7 @@ use super::*;
 use ambition_platformer2d_core as ae;
 use ambition_sim_view::{ActorAnimFrame, ActorAnimIndex, FeatureView, FeatureViewIndex, PassageLookView};
 
-const LOOK: PassageLookView = PassageLookView { scale: 0.5, alpha: 0.4, shade: 0.5 };
+const LOOK: PassageLookView = PassageLookView { scale: 0.5, alpha: 0.4, shade: 0.5, transit: 0.0 };
 
 fn actor_view(height: f32) -> FeatureView {
     FeatureView {

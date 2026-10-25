@@ -180,7 +180,15 @@ world crate's and the content crate's unit tests):
   `interdimensional_gate_glyphs` has a `lit` row, frame k chevron k ablaze
   on its plaque: lay it over the ring to light a glyph as it is dialed. The
   panel still draws the Greek letters as text, and the glyphs are not in the
-  font yet. A terminal's switch draws nothing: the console is its art.
+  font yet. A terminal's switch draws nothing: the console is its art. The
+  console's dial has the ring's layout (`arch_angle`), with a big solid Δ,
+  the press that engages a dial, in the slice the base takes on the ring.
+- At Ultra (`ShaderBudget::allow_showcase_materials`) a membrane has a
+  wormhole layer (`ambition_render::gate_portal_fx`: the authored tunnel
+  picture streamed down a twisting tunnel, a wave through it per passage),
+  and a body in a gate's light dissolves into it or condenses out of it (the
+  body overlay's transit cue, from the passage look's `transit`). Below Ultra
+  the authored membrane and the passage's fade are the whole look.
 - More knowledge sources: signs and documents that set `gate.known.*` (the
   addresses on the away terminals are posted already), and the news board.
 - A guard at the checkpoint (no fitting NPC character yet; the sign and the

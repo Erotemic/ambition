@@ -211,7 +211,7 @@ pub use parallax::{
 };
 pub use primitives::{
     EntityArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
-    PlayerVisual, PropClip, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
+    PlayerVisual, PortalSprite, PropClip, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
 };
 // Game-supplied art map for walk-into world items: the renderer owns the
 // seam, and each game fills it with its own pickup images.
@@ -545,6 +545,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // flash is (not there).
         #[cfg(not(target_os = "android"))]
         app.add_plugins(crate::bubble_shield_fx::BubbleShieldFxPlugin);
+        // The wormhole of a gate: a shader, at Ultra only.
+        #[cfg(not(target_os = "android"))]
+        app.add_plugins(crate::gate_portal_fx::GatePortalFxPlugin);
         // Every mesh built on the CPU is drawn through the portals by the one
         // writer; line effects (rays' looks, lightning decorations) are its
         // first producers.

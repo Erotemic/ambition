@@ -148,6 +148,9 @@ pub struct PassageLook {
     pub alpha: f32,
     /// How far into shadow it is (0 = lit, 1 = black).
     pub shade: f32,
+    /// How far into a gate's light it is (0 = solid, 1 = all light): rising
+    /// as it leaps into the surface, falling as it comes out. 0 at a door.
+    pub transit: f32,
 }
 
 /// The pose a passage draws the body in.
@@ -398,9 +401,11 @@ impl ZonePassage {
             return None;
         }
         let t = self.elapsed;
-        let look = |pose, scale, alpha, shade| PassageLook { pose, scale, alpha, shade };
+        let look = |pose, scale, alpha, shade| PassageLook { pose, scale, alpha, shade, transit: 0.0 };
         Some(match (self.kind, self.stage) {
-            (_, PassageStage::Entering) if self.recorded => look(PassagePose::BackTo, 0.2, 0.0, 1.0),
+            (_, PassageStage::Entering) if self.recorded => {
+                PassageLook { transit: if self.kind == PassageKind::Gate { 1.0 } else { 0.0 }, ..look(PassagePose::BackTo, 0.2, 0.0, 1.0) }
+            }
             (PassageKind::Door, PassageStage::Entering) => {
                 if t < DOOR_OPEN_S {
                     look(PassagePose::TurnAway, 1.0, 1.0, 0.0)
@@ -425,16 +430,18 @@ impl ZonePassage {
                     // Smaller with depth; through the surface, gone.
                     let k = ((t - set) / GATE_LEAP_S).clamp(0.0, 1.0);
                     let gone = ((k - 0.75) / 0.25).clamp(0.0, 1.0);
-                    look(PassagePose::BackTo, 1.0 - 0.85 * smooth(k).powf(1.4), 1.0 - gone, 0.0)
+                    let transit = smooth((k - 0.35) / 0.65);
+                    PassageLook { transit, ..look(PassagePose::BackTo, 1.0 - 0.85 * smooth(k).powf(1.4), 1.0 - gone, 0.0) }
                 }
             }
             (PassageKind::Gate, PassageStage::Exiting) => {
                 if t < GATE_EMERGE_DELAY_S {
-                    look(PassagePose::Jump, 0.2, 0.0, 0.0)
+                    PassageLook { transit: 1.0, ..look(PassagePose::Jump, 0.2, 0.0, 0.0) }
                 } else {
                     let k = ((t - GATE_EMERGE_DELAY_S) / GATE_ARC_S).clamp(0.0, 1.0);
                     let pose = if k < 0.4 { PassagePose::Jump } else { PassagePose::Fall };
-                    look(pose, 0.2 + 0.8 * smooth(k * 1.3), (0.3 + k * 3.0).min(1.0), 0.0)
+                    let transit = 1.0 - smooth(k / 0.65);
+                    PassageLook { transit, ..look(pose, 0.2 + 0.8 * smooth(k * 1.3), (0.3 + k * 3.0).min(1.0), 0.0) }
                 }
             }
         })

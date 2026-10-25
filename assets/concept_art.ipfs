@@ -1,11 +1,11 @@
 type: ipfs-sidecar
-cid: bafybeidczkamrjiggoo6bgghoquscldaemrvwyt67vdegxbz6z6osjlkwy
+cid: bafybeifvnqvblny57zbvqdwlvmpsg3hwyaj6sr7tvznozmpauwef3ppq7u
 rel_path: concept_art
-size: 75.45 MiB
-num_items: 36
+size: 178.58 MiB
+num_items: 122
 add_config:
-  path: concept_art/
-  name:
+  path: concept_art
+  name: null
   recursive: true
   progress: true
   cid_version: 1
@@ -13,5 +13,15 @@ add_config:
   only_hash: false
   pin: true
   sidecar: true
-add_datetime: 2026-05-02T162220-5
-add_duration: 12.524260101024993
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-10-25T105820-5
+add_duration: 30.282884481945075
+local_quickstat:
+  kind: dir
+  bytes: 187252759
+  mtime: 1792525592.1875417
+  nfiles: 105
+pin_name: pkg:github/Erotemic/ambition#assets/concept_art
+pin_name_source: generated

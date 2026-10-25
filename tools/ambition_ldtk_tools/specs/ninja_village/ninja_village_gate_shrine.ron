@@ -21,6 +21,7 @@
         ( type: "Solid", px: [1584, 0], size: [16, 352], fields: ( name: "east_wall_high" ) ),
         ( type: "Solid", px: [1584, 464], size: [16, 144], fields: ( name: "east_wall_mid" ) ),
         ( type: "PlayerStart", px: [322, 658], size: [28, 46], fields: ( name: "ninja_village_gate_shrine_spawn" ) ),
+        ( type: "NpcSpawn", px: [532, 640], size: [32, 64], fields: ( character_id: "npc_village_nagisa", prompt: "Talk", dialogue_id: "ninja_village_nagisa", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [624, 640], size: [32, 64], fields: ( character_id: "npc_village_sato", prompt: "Talk", dialogue_id: "ninja_village_sato", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [784, 640], size: [32, 64], fields: ( character_id: "npc_village_kenji", prompt: "Talk", dialogue_id: "ninja_village_kenji", brain_override: "stand_still" ) ),
         ( type: "DebugLabel", px: [146, 404], size: [380, 24], fields: ( name: "shrine_sign_gate", text: "SILENT: the gate shrine. Bow if you like.", category: "Custom" ) ),

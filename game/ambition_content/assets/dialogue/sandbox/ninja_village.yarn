@@ -25,6 +25,22 @@ Sato: Good morning. The ring is swept. The leaves are not. They never will be.
 -> Good morning.
 ===
 
+title: ninja_village_nagisa
+---
+Nagisa: *tok, tok* Welcome through the SILENT gate. I am Nagisa. I keep it.
+-> What does a gatekeeper do?
+    Nagisa: I listen to the ring. Everything that crosses makes a sound. Couriers sound like a sigh. Trouble sounds like nothing at all.
+    Nagisa: Sato keeps the stones clean. I keep the ring honest.
+-> Why is the gate called SILENT?
+    Nagisa: A ninja village does not announce itself. Its address should not either.
+-> What brings an alligator to a mountain village?
+    Nagisa: A river, once. Then the gate. A gate wants someone patient at the door, and nobody waits like a gator.
+-> Has anything strange come through?
+    Nagisa: Kenji's letters to the castle side. They go out, and the ring brings them back unopened.
+    Nagisa: A gate does not refuse the post. Someone on the other side refuses it for the gate.
+-> Thank you.
+===
+
 title: ninja_village_kenji
 ---
 Kenji: Do not sit too near. I came through the ring an hour ago and the ground is still deciding.
@@ -50,20 +66,6 @@ Ume: Welcome. Tea for the tired, and for the gate-sick at half price. You do not
     Ume: If they come back, they're under the bed. I'm leaving them there.
 -> Do the students eat here?
     Ume: Daichi eats like he's won the exam. Ren eats standing up. Hayashi brings his own rice and borrows my salt.
--> Thank you.
-===
-
-title: ninja_village_gator_geisha
----
-Gator Geisha: *her fan stops* A traveller. Ume says your kind come in through the ring and leave through the tea.
--> What brings an alligator to a mountain village?
-    Gator Geisha: A river, once. Then the gate. Now Ume's tea house, three evenings a week.
-    Gator Geisha: The mountain water is cold. I keep my tail by the brazier.
--> You perform at the tea house?
-    Gator Geisha: Shamisen, and a little dance. The geta keep my hem dry, and the students at a polite distance.
--> Do the ninja ever sneak up on you?
-    Gator Geisha: Daichi tried once. I heard him three roofs away.
-    Gator Geisha: I always hear them, dear. I am a predator in a very nice kimono.
 -> Thank you.
 ===
 

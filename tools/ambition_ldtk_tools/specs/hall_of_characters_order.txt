@@ -115,6 +115,7 @@ npc_port_jory
 npc_port_bram
 npc_port_wren
 npc_village_sato
+npc_village_nagisa
 npc_village_kenji
 npc_village_ume
 npc_village_daichi
@@ -131,7 +132,6 @@ npc_station_wen
 
 [Made by the character generator]
 npc_armsmith_odile
-npc_gator_geisha
 
 [The garrison of the General's tower]
 npc_tower_voss

@@ -43,13 +43,13 @@ fn the_ninja_village_is_walked_round_its_loop_and_its_exam_is_passed() {
     let mut app = a_session_in(SHRINE);
 
     talk(&mut app, "npc_village_sato", "Do many come through the gate?");
+    talk(&mut app, "npc_village_nagisa", "What does a gatekeeper do?");
     talk(&mut app, "npc_village_kenji", "Is the gate always like this?");
 
     // The low road, and the dojo on the way.
     go(&mut app, STREET, Some("shrine_east_low"));
     talk(&mut app, "npc_village_daichi", "What is the rank exam?");
     talk(&mut app, "npc_village_ume", "Why do people run on the roofs?");
-    talk(&mut app, "npc_gator_geisha", "What brings an alligator to a mountain village?");
     go(&mut app, DOJO, None);
     talk(&mut app, "npc_village_hayashi", "How does the exam work?");
     talk(&mut app, "npc_village_ren", "How do I become your rival?");

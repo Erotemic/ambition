@@ -5901,11 +5901,13 @@
                 hall: ["A blade, a noodle, a gun: the hand does not care. The wrist does.", "Bring it back with both ends attached."],
             ),
         ),
-        // An albino alligator geisha (renderer `data/townsfolk/gator_geisha.chargen.yaml`),
-        // published with the whole clip union, like Odile.
-        "npc_gator_geisha": (
-            display_name: "Gator Geisha",
-            manifest: "sprites/gator_geisha_spritesheet.ron",
+        // Nagisa the Gatekeeper, keeper of the Ninja Village's dimension gate:
+        // an albino alligator geisha (renderer `data/townsfolk/village_nagisa.chargen.yaml`),
+        // published with the whole clip union, like Odile. She stands by the
+        // ring in the gate shrine; her talk is `ninja_village.yarn`.
+        "npc_village_nagisa": (
+            display_name: "Nagisa the Gatekeeper",
+            manifest: "sprites/village_nagisa_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             // 168 cm, and 9 cm of geta.
@@ -5915,10 +5917,10 @@
             // A swing of her own, so a hand she is played with can take up and
             // use what lies on the ground; her brain never starts a fight.
             default_action_set: "striker_swipe",
-            tags: ["townsfolk", "geisha"],
+            tags: ["townsfolk", "ninja_village", "gatekeeper"],
             barks: (
-                idle: ["*tok, tok* go the geta.", "Smile with the eyes. Never with the teeth."],
-                hall: ["They painted my face white. It was white already.", "Tall geta keep the hem out of the swamp."],
+                idle: ["*tok, tok* go the geta, once round the ring.", "The gate is open. My eyes are too."],
+                hall: ["They painted my face white. It was white already.", "I keep the SILENT gate. It is quiet because I am listening."],
             ),
         ),
         // The garrison of the General's tower (the Iron Bastion, `military_tower`):

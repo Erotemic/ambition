@@ -12,8 +12,8 @@ The design is in `README.md` here. In short:
 
 - `ninja_village_gate_shrine`: the shrine where the ring stands (Agent GATE
   places the ring and its terminal on the clear floor at the west end). Its
-  keeper sweeps; a courier is sick from the crossing. A stone stair goes up
-  to the torii terrace.
+  keeper sweeps; Nagisa the Gatekeeper keeps the ring; a courier is sick
+  from the crossing. A stone stair goes up to the torii terrace.
 - `ninja_village_street`: the main street, the tea house, and the houses
   whose roofs are a road of their own. The dojo's door.
 - `ninja_village_dojo`: the village dojo and its rank exam (an encounter).
@@ -102,6 +102,9 @@ def shrine():
         # The arrival is the zone of the gate ring (`gate_interface.yaml`, written
         # by specs/gate_network/make_gates.py), added after the rooms are made.
         start(rid, 336, floor),
+        # Nagisa the Gatekeeper keeps the gate itself (Jon, 2026-10-25); Sato
+        # keeps the shrine. She stands east of the ring's clear floor.
+        resident("npc_village_nagisa", "ninja_village_nagisa", 548, floor),
         resident("npc_village_sato", "ninja_village_sato", 640, floor),
         resident("npc_village_kenji", "ninja_village_kenji", 800, floor),
         sign("shrine_sign_gate", 336, floor - 300, "SILENT: the gate shrine. Bow if you like.", 380),
@@ -149,8 +152,6 @@ def street():
         *[ledge(name, x0, y, x1 - x0) for name, x0, x1, y in ROOFS],
         resident("npc_village_daichi", "ninja_village_daichi", 760, ground),
         resident("npc_village_ume", "ninja_village_ume", 1280, ground),
-        # The tea house's entertainer: an albino alligator geisha (Jon, 2026-10-25).
-        resident("npc_gator_geisha", "ninja_village_gator_geisha", 1480, ground),
         sign("tea_house_sign", 1280, ground - 200, "UME'S TEA HOUSE: gate-sick half price", 360),
         door("street_dojo_door", "into the dojo", 1736, ground, DOJO, "dojo_door"),
         sign("dojo_sign", 1760, ground - 180, "VILLAGE DOJO: rank exams on the hour", 340),

@@ -604,6 +604,9 @@ pub struct BossDrawnCell {
     /// face it wears over the pose of this cell (a hurt expression that keeps
     /// the pose). `None` for a boss that is not hit, or not drawn from parts.
     pub hurt_face: Option<usize>,
+    /// The record `(row, frame)` of the layer drawn over this cell, for a boss
+    /// drawn from parts whose content pins one (`PinnedRow::layer`).
+    pub layer: Option<(usize, usize)>,
 }
 
 /// Render-side boss texture addresser. It does not own the animation cursor:

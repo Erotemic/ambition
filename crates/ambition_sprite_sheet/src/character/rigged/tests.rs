@@ -845,6 +845,55 @@ fn a_hurt_face_keeps_the_pose_it_is_worn_in() {
     assert_eq!((out[0].part, out[1].part), (0, 1), "the arm and the skull are the walk's");
 }
 
+/// A layer rides the head through any row: authored about the head at rest
+/// (`idle`'s first frame), its draws move with the skull; its `behind` draws
+/// go under the body and the rest over it. Drawn mirrored, it is mirrored
+/// about the skull first, so it keeps its turn. Control: unmirrored, a draw
+/// keeps its authored offset from the skull.
+#[test]
+fn a_layer_rides_the_head_and_keeps_its_turn() {
+    let text = r#"(
+        schema_version: 2,
+        target: "toy",
+        pages: ["toy_parts.png"],
+        frame_size: (64, 64),
+        feet_pixel: (32.0, 60.0),
+        parts: [
+            (name: "skull", page: 0, rect: (0, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "spirit", page: 0, rect: (4, 0, 4, 4), pivot: (2.0, 2.0)),
+        ],
+        tracks: ["skull", "spirit_0_behind", "spirit_1"],
+        clips: {
+            "idle": (frame_duration_s: 0.1, frames: [
+                [(part: 0, at: (0.0, -30.0), rotation: 0.0, scale: (1.0, 1.0), track: 0)],
+            ]),
+            "bite": (frame_duration_s: 0.1, frames: [
+                [(part: 0, at: (10.0, -26.0), rotation: 0.4, scale: (1.0, 1.0), track: 0)],
+            ]),
+            "ring": (frame_duration_s: 0.1, frames: [
+                [(part: 1, at: (-12.0, -32.0), rotation: 0.5, scale: (1.0, 1.0), track: 1),
+                 (part: 1, at: (12.0, -28.0), rotation: 2.0, scale: (1.0, 1.0), track: 2)],
+            ]),
+        },
+    )"#;
+    let asset = RiggedSpriteAsset::from_published_ron(text).expect("a schema-2 flipbook");
+    let mut out = Vec::new();
+    asset.tween_into("bite", 0, 0.0, &mut out).unwrap();
+    assert!(asset.layer_over("ring", 0, false, &mut out));
+    let tracks: Vec<_> = out.iter().map(|draw| draw.track).collect();
+    assert_eq!(tracks, [Some(1), Some(0), Some(2)], "behind, the body, in front");
+    assert_eq!(out[0].at, Vec2::new(-2.0, -28.0), "moved as the skull moved from rest");
+    assert_eq!((out[2].at, out[2].rotation), (Vec2::new(22.0, -24.0), 2.0));
+    let mut mirrored = Vec::new();
+    asset.tween_into("bite", 0, 0.0, &mut mirrored).unwrap();
+    asset.layer_over("ring", 0, true, &mut mirrored);
+    // Mirrored about the skull (x = 10), turned to its mirror: the body's
+    // mirror then draws it as authored about the turned head.
+    assert_eq!(mirrored[0].at, Vec2::new(22.0, -28.0));
+    assert!((mirrored[2].rotation - (std::f32::consts::PI - 2.0)).abs() < 1.0e-6);
+    assert_eq!(mirrored[1], out[1], "the body is as it was");
+}
+
 /// The parts of a limb are its `limb:<slot>` tracks: the limb's own, and no
 /// other limb's whose slot starts with the same letters.
 #[test]

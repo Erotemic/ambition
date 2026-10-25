@@ -443,8 +443,9 @@ impl Port for BossStagePort {
 ///   time).
 /// * **Owner** — `ambition_boss_encounter::conduct` (`PinnedRow`).
 /// * **Scope** — the body the invocation ran for, the mount it rides, or a
-///   limb of that mount's rig ([`DrawnPart`]). A part that is not there is
-///   refused with a warning.
+///   limb of that mount's rig ([`DrawnPart`]); or a layer over the body's
+///   row (v3: `PinnedRow::layer`, drawn by a body drawn from parts). A part
+///   that is not there is refused with a warning.
 /// * **Time** — `boss_conduct`.
 pub struct DrawnRowPort;
 
@@ -457,6 +458,9 @@ pub enum DrawnPart {
     Mount,
     /// The limb in this slot of that mount's rig.
     Limb(String),
+    /// A row drawn OVER the body's row, on its own clock: a ward that circles
+    /// it through every row it is drawn in. No names: no layer. (v3)
+    Layer,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -482,7 +486,7 @@ impl DrawnRow {
 }
 
 impl Port for DrawnRowPort {
-    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 2);
+    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = DrawnRow;
 
@@ -494,6 +498,7 @@ impl Port for DrawnRowPort {
                 wire::put_u8(out, 2);
                 wire::put_str(out, slot);
             }
+            DrawnPart::Layer => wire::put_u8(out, 3),
         }
         wire::put_u32(out, v.names.len() as u32);
         for name in &v.names {
@@ -508,6 +513,7 @@ impl Port for DrawnRowPort {
             0 => DrawnPart::Body,
             1 => DrawnPart::Mount,
             2 => DrawnPart::Limb(r.str()?.to_owned()),
+            3 => DrawnPart::Layer,
             other => return Err(WireError::BadTag(other)),
         };
         let count = r.read_len()?;
@@ -1107,7 +1113,7 @@ mod tests {
                 assert_eq!(round::<ConductedPosePort>(&v), v);
             }
         }
-        for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into())] {
+        for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into()), DrawnPart::Layer] {
             for names in [Vec::new(), vec!["hit".to_string(), "rest".to_string()]] {
                 let v = DrawnRow { on: on.clone(), names, elapsed: 0.25, looping: true };
                 assert_eq!(round::<DrawnRowPort>(&v), v);

@@ -207,6 +207,13 @@ pub fn is_expression_track(name: &str) -> bool {
     })
 }
 
+/// Is a track of this name the one a layer row rides
+/// ([`RiggedSpriteAsset::layer_over`]): the head itself, or the skull of a
+/// body that is a head (the Inugami)?
+pub fn is_layer_anchor_track(name: &str) -> bool {
+    is_head_pivot_track(name) || name == "skull"
+}
+
 /// The first word of the name of a track that is a part of a limb body: the
 /// parts of the limb `slot` of a body are its tracks `limb:<slot>` and
 /// `limb:<slot>:<part>` (`limb:hand_left:fist`).
@@ -812,6 +819,58 @@ impl RiggedSpriteAsset {
             }
         }
         changed
+    }
+
+    /// Draw frame `index` of the layer row `row` over the draws in `out`: a
+    /// ward that circles a body on a clock of its own, whatever row the body
+    /// is drawn in.
+    ///
+    /// THE RULE. A layer row is authored about the body at rest (the first
+    /// frame of its `idle` row). Each of its draws is moved by what the
+    /// body's anchor ([`is_layer_anchor_track`]) moved between that rest frame
+    /// and `out`, so the layer goes where the head goes. A draw on a track
+    /// with the word `behind` in its name goes behind every draw of `out`, in
+    /// its order; every other goes in front of them all.
+    ///
+    /// `mirrored`: the body is drawn mirrored. The layer is mirrored about
+    /// the anchor first, so that drawn it is as authored about the turned
+    /// head: a ring that circles one way goes on circling that way when the
+    /// body turns round, and does not jump to its mirror image. (A part of
+    /// it is drawn mirrored about its own axis; a ward's flames are.)
+    ///
+    /// `false`, and `out` as it was, when `row` is not a part clip.
+    pub fn layer_over(&self, row: &str, index: usize, mirrored: bool, out: &mut Vec<PartDraw>) -> bool {
+        let Some(layer) = self.frame(row, index) else {
+            return false;
+        };
+        let anchor = |draws: &[PartDraw]| {
+            draws
+                .iter()
+                .find(|draw| draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_layer_anchor_track(name)))
+                .map(|draw| draw.at)
+        };
+        let now = anchor(out);
+        let moved = match (now, self.frame("idle", 0).and_then(anchor)) {
+            (Some(now), Some(rest)) => now - rest,
+            _ => Vec2::ZERO,
+        };
+        let axis = now.map_or(0.0, |now| now.x);
+        let behind = |draw: &PartDraw| {
+            draw.track
+                .and_then(|track| self.tracks.get(usize::from(track)))
+                .is_some_and(|name| name.split(['_', ':', '~']).any(|word| word == "behind"))
+        };
+        let placed = |draw: &PartDraw| {
+            let at = draw.at + moved;
+            match mirrored {
+                true => PartDraw { at: Vec2::new(2.0 * axis - at.x, at.y), rotation: std::f32::consts::PI - draw.rotation, ..*draw },
+                false => PartDraw { at, ..*draw },
+            }
+        };
+        let back: Vec<PartDraw> = layer.iter().filter(|draw| behind(draw)).map(placed).collect();
+        out.splice(0..0, back);
+        out.extend(layer.iter().filter(|draw| !behind(draw)).map(placed));
+        true
     }
 
     /// Turn the head of the draws in `out` as `look_row` turns its head,

@@ -811,6 +811,7 @@ pub fn draw_rows(
             DrawnPart::Body => Some(submitted.scope),
             DrawnPart::Mount => riders.get(submitted.scope).ok().map(|riding| riding.mount),
             DrawnPart::Limb(slot) => ridden_limb(submitted.scope, slot, &riders, &rigs),
+            DrawnPart::Layer => Some(submitted.scope),
         };
         let Some((part, Ok(row))) = part.map(|part| (part, rows.get_mut(part))) else {
             warn!(
@@ -820,6 +821,19 @@ pub fn draw_rows(
             continue;
         };
         let names: Vec<&str> = drawn.names.iter().map(String::as_str).collect();
+        // A layer is drawn over the body's row and leaves its pin as it is.
+        if drawn.on == DrawnPart::Layer {
+            match row {
+                Some(mut row) => row.pin_layer(&names, drawn.elapsed, drawn.looping),
+                None if !names.is_empty() => {
+                    let mut row = ambition_sprite_sheet::character::PinnedRow::default();
+                    row.pin_layer(&names, drawn.elapsed, drawn.looping);
+                    commands.entity(part).try_insert(row);
+                }
+                None => {}
+            }
+            continue;
+        }
         match (row, names.is_empty()) {
             (Some(mut row), false) => row.pin(&names, drawn.elapsed, drawn.looping),
             (Some(mut row), true) => row.clear(),

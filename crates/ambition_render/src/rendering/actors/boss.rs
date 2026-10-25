@@ -152,7 +152,13 @@ pub fn animate_bosses(
         let state: BossAnimState = view.anim;
         let (row, frame) = drawn_cell(animator, view);
         if let Some(mut drawn) = drawn {
-            *drawn = sprites::BossDrawnCell { row, frame, hurt_face: hurt_face(&animator.spec, view.hit_flash_secs) };
+            // A layer content pins over the body's row, on its own clock.
+            let layer = view
+                .pinned
+                .as_ref()
+                .and_then(|pin| pin.layer.as_ref())
+                .and_then(|layer| animator.pinned_cell(layer.rows.iter().map(String::as_str), layer.elapsed, layer.looping));
+            *drawn = sprites::BossDrawnCell { row, frame, hurt_face: hurt_face(&animator.spec, view.hit_flash_secs), layer };
         }
         let index = animator.flat_index_at(row, frame);
         // Split sheets: select the page for the active frame before setting
@@ -333,9 +339,9 @@ pub fn bind_boss_part_animators(
 /// the old size reads the taller root as a stance squash and stretches the
 /// parts in height alone (Wolfenstein's serum, 2026-10-19).
 pub fn pose_boss_part_animators(
-    mut bosses: Query<(&BossAnimator, &sprites::BossDrawnCell, &mut CharacterAnimator), With<FeatureVisual>>,
+    mut bosses: Query<(&BossAnimator, &sprites::BossDrawnCell, &mut CharacterAnimator, &Sprite), With<FeatureVisual>>,
 ) {
-    for (boss, drawn, mut animator) in &mut bosses {
+    for (boss, drawn, mut animator, sprite) in &mut bosses {
         if let Some(basis) = boss.render_basis {
             if animator.render_basis.is_some_and(|parts| parts.render_size != basis.render_size) {
                 animator.render_basis = Some(basis);
@@ -355,6 +361,12 @@ pub fn pose_boss_part_animators(
         let worn = animator.expression.as_ref().map(|(row, frame)| (row.as_str(), *frame));
         if worn != face {
             animator.expression = face.map(|(row, frame)| (row.to_owned(), frame));
+        }
+        // Its layer (a ward), over whatever row it is drawn in.
+        let layer = drawn.layer.and_then(|(row, frame)| Some((boss.record.rows.get(row)?.animation.as_str(), frame, sprite.flip_x)));
+        let worn = animator.layer.as_ref().map(|(row, frame, mirrored)| (row.as_str(), *frame, *mirrored));
+        if worn != layer {
+            animator.layer = layer.map(|(row, frame, mirrored)| (row.to_owned(), frame, mirrored));
         }
     }
 }

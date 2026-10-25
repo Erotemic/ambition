@@ -97,6 +97,11 @@ pub struct CharacterAnimator {
     /// body is drawn in (`RiggedSpriteAsset::face_as`): a hurt expression
     /// that keeps the pose. `None`: the face of the row.
     pub expression: Option<(String, usize)>,
+    /// A row drawn over the row the body is drawn in, at this frame
+    /// (`RiggedSpriteAsset::layer_over`): a ward that keeps its own clock;
+    /// and whether the body is drawn mirrored, which the layer undoes so it
+    /// keeps its turn when the body turns round. `None`: no layer.
+    pub layer: Option<(String, usize, bool)>,
 }
 
 /// How long a body that turns round at rest shows its `front` row (s): the
@@ -146,6 +151,7 @@ impl CharacterAnimator {
             turn_left: 0.0,
             head_turn: None,
             expression: None,
+            layer: None,
         }
     }
 

@@ -606,7 +606,7 @@ pub fn rebuild_boss_frame_index(
             id.as_str(),
             BossFrameView {
                 anim,
-                pinned: pinned.filter(|pin| pin.is_pinned()).cloned(),
+                pinned: pinned.filter(|pin| pin.is_pinned() || pin.layer.is_some()).cloned(),
                 cursor_anim,
                 cursor_frame,
                 hit_flash_secs: if health.alive() {

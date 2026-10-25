@@ -1489,6 +1489,10 @@ fn frame_draws<'a>(
     if let Some((face_row, index)) = animator.expression.as_ref() {
         flipbook.face_as(face_row, *index, drawn);
     }
+    // A layer over the row, on its own clock (a ward round a head).
+    if let Some((layer_row, index, mirrored)) = animator.layer.as_ref() {
+        flipbook.layer_over(layer_row, *index, *mirrored, drawn);
+    }
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);

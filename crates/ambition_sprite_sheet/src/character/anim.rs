@@ -458,9 +458,32 @@ pub struct PinnedRow {
     /// this, and not the row, whether the pin is still its own: a conductor
     /// can pin the same row with its own clock.
     pub writer: Option<&'static str>,
+    /// A row drawn OVER the pinned one, on a clock of its own
+    /// ([`PinnedLayer`]); kept when the row is pinned again or cleared.
+    pub layer: Option<PinnedLayer>,
+}
+
+/// A named row a part-drawn body wears over the row it is drawn in, with its
+/// own clock: a ward of spirits that circles a head through every row the
+/// head is drawn in, and does not start again when the row changes (Jon,
+/// 2026-10-25, the Inugami's flame ring "jumping where one warded row hands
+/// over to the next").
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PinnedLayer {
+    /// Preference order: the first the body's sheet has is drawn.
+    pub rows: Vec<String>,
+    /// Seconds into the layer's row.
+    pub elapsed: f32,
+    pub looping: bool,
 }
 
 impl PinnedRow {
+    /// Draw the first of `rows` the sheet has over the body's row, `elapsed`
+    /// seconds in; with no rows, draw none.
+    pub fn pin_layer(&mut self, rows: &[&str], elapsed: f32, looping: bool) {
+        self.layer = (!rows.is_empty()).then(|| PinnedLayer { rows: rows.iter().map(|r| (*r).to_string()).collect(), elapsed, looping });
+    }
+
     pub fn pin(&mut self, rows: &[&str], elapsed: f32, looping: bool) {
         self.rows.clear();
         self.rows.extend(rows.iter().map(|r| (*r).to_string()));

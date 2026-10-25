@@ -1,266 +1,200 @@
 title: math_context
 ---
-// Math Town dialogue. Keep node titles aligned with the town placements.
+// Math Town dialogue. Node titles are referenced by town placements.
 // Canter's freight-manifest choice must set orbital_manifest_signed.
-// This node has no placement.
+// This context node is not placed in the world.
 ===
 
 title: erdish
 ---
 Erdish: My mind is open.
--> The cafe has a door.
-    Erdish: I saw it. The window was nearer.
-    Erdish: Emmy says I have to use the door when I leave. She's drawn a diagram.
--> What are you doing at this table?
-    Erdish: Emmy let me have one sheet of paper. I needed somewhere to put the other eleven.
-    Erdish: She has taken away my chalk.
--> Are you always like this?
-    Erdish: You sound like the man whose attic I visited.
-    Erdish: He had an excellent collection of old maps. Very poor hospitality.
--> Goodbye.
+-> What are you looking at?
+    Erdish: The grain in this table. Follow it long enough and you get to the window.
+    Erdish: Almost.
+-> Did you climb in through the window?
+    Erdish: Yes. Emmy says I mustn't do it again.
+-> Are you waiting for someone?
+    Erdish: I had a question for you. I've forgotten what it was.
+    Erdish: I'll find you when it comes back.
+-> Leave him alone.
 ===
 
 title: trent
 ---
-Trent: Haven't seen you on Euclid Street. I'm Trent. Do you want an introduction, or are you managing?
--> Who should I meet?
-    Trent: Emmy if you're hungry. Walter if you have paperwork. Peggy if you like an argument you can't win by shouting.
-    Trent: I'd visit Emmy first. Walter has a form for visitors and he's running short of ink.
--> Why do you introduce strangers?
-    Trent: My first day here, I asked for the observatory and got directions to the sewer.
-    Trent: Three people waved as I climbed down. I know all three now.
--> Can I trust you?
-    Trent: You can ask Emmy what I owe her. She'll tell you the number down to the penny.
-    Trent: Then you decide.
--> Do you know Erdish?
-    Trent: Everyone knows Erdish. That's half the problem.
-    Trent: If he says he's been invited, ask by whom.
--> I'll find my own way.
-    Trent: Fair enough. Watch the stair above the gate. The last step is taller than it looks.
+Trent: Hey. You new here? I'm Trent.
+-> Just got in.
+    Trent: Right. Well, Emmy does food, Walter does the gate records. Try not to mix them up. Walter gets touchy.
+-> Where can I get something to eat?
+    Trent: Cafe on the corner. Tell Emmy I sent you. Actually, don't. I still owe her for breakfast.
+-> See you around.
+    Trent: Yeah. See you.
 ===
 
 title: walter
 ---
-Walter: Stop by the ledger, please. Every arrival gets a line. I have an entry here that says "came through the window."
--> That was Erdish.
-    Walter: Of course it was. I made a separate column for him and he has already filled it.
--> What are you guarding against?
-    Walter: An unsigned message came through with the freight yesterday. "Weather is fine." No sender. No destination.
-    Walter: I sent it back. This morning I got another one: "Weather is still fine."
--> Could it be an ordinary letter?
-    Walter: Certainly. I would love an ordinary letter. I checked the ink, the seals, even the fold.
-    Walter: It's probably somebody laughing at me. That possibility has not improved my mood.
--> Is the gate safe?
-    Walter: The ring's engineers sign off on the machinery. I sign off on who came through it.
-    Walter: As far as I can tell, you arrived with your own head attached. Put your name here.
--> I'll leave you to the ledger.
-    Walter: Good. There are two pages I haven't mistrusted yet.
+Walter: Hang on. I haven't put you in the book.
+-> What book?
+    Walter: Gate arrivals. Name, time, destination. Nothing complicated.
+-> Is something wrong?
+    Walter: Two unsigned notes came through this week. Both said, "Weather is fine."
+    Walter: Same ink, too. I don't like it.
+-> Maybe somebody's writing home.
+    Walter: Then they can sign their name.
+-> I'll come back.
+    Walter: Don't leave through the gate without telling me.
 ===
 
 title: busy_beaver
 ---
-Busy Beaver: Careful by that scaffold. I told the gate crew I'd finish the cradle before lunch.
--> Is it almost finished?
-    Busy Beaver: That depends on which lunch you mean.
-    Busy Beaver: The foreman came back with a clock. I told him a clock doesn't tell you when a machine will stop.
--> What's holding you up?
-    Busy Beaver: Every time I test one arrangement, I find another arrangement that runs longer.
-    Busy Beaver: Come back tomorrow. I may have an answer, or a taller scaffold.
--> Could you just stop testing?
-    Busy Beaver: I could. Would you trust a gate cradle I stopped testing because I was hungry?
-    Busy Beaver: ...Don't answer that. I am hungry.
--> Why do they call you Busy Beaver?
-    Busy Beaver: They tried "Project Completion Estimate" for a while. It made everyone cross.
-    Busy Beaver: Beaver will do.
--> I'll stay clear.
-    Busy Beaver: Good. If anyone asks, I was on my break when you arrived.
+Busy Beaver: Move back a bit. I need to get this beam straight.
+-> What's it for?
+    Busy Beaver: Gate cradle. The old bracket cracked, and now nothing lines up.
+-> How long until it's done?
+    Busy Beaver: Don't know. I ran the test all night. It's still going.
+    Busy Beaver: I thought it would've stopped by now.
+-> Need a hand?
+    Busy Beaver: Hold that end. No, the other one.
+    Busy Beaver: There. Don't move.
+-> I'll get out of the way.
+    Busy Beaver: Good. Thanks.
 ===
 
 title: peggy
 ---
-Peggy: Victor has set me another test. He wants the way through the terraces. I intend to keep it to myself.
--> How can he tell you know it?
-    Peggy: I go behind the wall where he can't see me. Then he chooses which end I should come back from.
-    Peggy: I can do either. Someone guessing the way would have trouble doing that twenty-seven times.
--> Couldn't you get lucky?
-    Peggy: For one round, sure. He knows that. It's why I've been at this since breakfast.
-    Peggy: You should see him count on his fingers when he thinks I'm looking away.
--> Why keep the route secret?
-    Peggy: Erdish is asking everyone about it. Last month he appeared in someone's pantry to ask where the stairs went.
-    Peggy: I don't want him learning the pantry route.
--> Do you ever tell Victor anything true?
-    Peggy: Every answer. He's free to check them. He just doesn't get the map.
-    Peggy: He gets annoyed when I say that. Go ask him.
--> Good luck with your test.
-    Peggy: Thanks. Tell Victor I said that too. He won't believe you.
+Peggy: You're blocking the west door. Can you stand over there?
+-> What are you doing?
+    Peggy: Victor picks a door. I go behind the wall, then come out where he tells me.
+    Peggy: He doesn't get to see how I do it.
+-> Why won't you show him the passage?
+    Peggy: Because then he'd know it. That's not what we're testing.
+-> I'll move.
+    Peggy: Thanks. West door, Victor! I heard you.
 ===
 
 title: victor
 ---
-Victor: Twenty-seven correct answers. I asked Peggy to return from the east passage seventeen times. She did. Then the west.
--> Are you convinced?
-    Victor: That she knows a route through? Yes. I'd wager on it.
-    Victor: That I know the route now? Not a chance. My notes are a list of my own questions.
--> Why so many tests?
-    Victor: A guess can work once. I thought I could catch her guessing.
-    Victor: After the twelfth round she offered me a chair. After the twentieth she brought me tea.
--> Couldn't she be tricking you?
-    Victor: She could have an accomplice. Or a tunnel I haven't found. I wrote both down.
-    Victor: She calls that being thorough. Usually with her eyes closed.
--> Do you two get along?
-    Victor: We've argued for years. This is the first argument with a scorecard.
--> I'll let you concentrate.
-    Victor: If Peggy asks, I'm not tired. I'm checking the west passage again.
+Victor: Twenty-seven. She's managed it twenty-seven times.
+-> So she knows a way through.
+    Victor: I believe she does. I still want another few rounds.
+-> Why not follow her?
+    Victor: She won't let me. I can hardly blame her.
+-> I'll leave you to it.
+    Victor: West door again, Peggy.
 ===
 
 title: data_lovelace
 ---
-Data Lovelace: Don't lean on the card stack, please. If I drop it, I'll spend the evening sorting the holes.
--> What does the engine do?
-    Data Lovelace: It takes the cards, follows the operations, and gives me columns of numbers.
-    Data Lovelace: Right now I'm trying to make a pattern of flowers for the loom. The petals keep coming out square.
--> Why use cards?
-    Data Lovelace: The loom already understands them. I showed the machinist my arithmetic and he fetched a box of needles.
-    Data Lovelace: I'd prefer he had fetched a better engine, but we work with what we have.
--> Can it make something you didn't expect?
-    Data Lovelace: It has. Yesterday I used the wrong card and got a lovely pattern of little windows.
-    Data Lovelace: I kept the pattern. I corrected the card.
--> Do the others help?
-    Data Lovelace: Emmy checks my calculations. Busy Beaver says he'll build me a faster motor.
-    Data Lovelace: He's been saying that for a year. I rather like the old motor now.
--> I'll leave your cards alone.
-    Data Lovelace: Thank you. The pile on the left is in order. The pile on the right is having a difficult day.
+Data Lovelace: Sorry, could you keep clear of the cards? I've got them in order.
+-> What are they for?
+    Data Lovelace: Instructions for the engine. It does the numbers, then the loom weaves the result.
+-> What are you making?
+    Data Lovelace: Flowers. Supposed to be flowers, anyway. It keeps weaving little squares.
+    Data Lovelace: I think I've got two rows backward.
+-> Couldn't you draw the flowers yourself?
+    Data Lovelace: I can draw one. I need the loom to make fifty.
+-> Sorry. I'll leave them alone.
+    Data Lovelace: Thank you.
 ===
 
 title: olivia
 ---
-Olivia: One question at a time, please. People come back angry when they ask two things and hear only the first answer.
+Olivia: Yes?
+-> Are you the oracle?
+    Olivia: People call me that.
 -> Can the gate take me home?
-    Olivia: If you know the address. I've never seen your home, so you'll have to be more precise than that.
-    Olivia: Walter keeps the destination register by the gate.
--> What should I ask you?
-    Olivia: You've just asked me. Shall we try again?
--> Do you know what happens tomorrow?
-    Olivia: I know the observatory is opening at dawn. Hypatia booked the telescope.
-    Olivia: I know less about whether the clouds will cooperate.
--> Why do people call you an oracle?
-    Olivia: Someone asked me whether a locked door could open. I said yes. He spent a week waiting beside it.
-    Olivia: His wife eventually fetched a key.
--> I think that's all.
-    Olivia: Good. I can put the tea back on.
+    Olivia: Where's home?
+    Olivia: If you don't know the address, I can't give you the route.
+-> Never mind.
+    Olivia: All right.
 ===
 
 title: leib_knives
 ---
-Gottfried Leib-Knives: Watch your sleeve. This blade is sharpened, and you nearly walked straight into it.
--> Are you practicing on the street?
-    Gottfried Leib-Knives: The fencing hall is shut. Someone dropped a proof on the floor and nobody will step across it.
-    Gottfried Leib-Knives: I asked them to move the paper. They asked me to refute it first.
--> What's with all the symbols?
-    Gottfried Leib-Knives: I'm measuring how quickly a distance changes. If my opponent closes in twice as fast, I get half as long to react.
-    Gottfried Leib-Knives: You can test the arithmetic with your feet. Keep your hands away from the point.
--> Can you show me a move?
-    Gottfried Leib-Knives: Take one step back. There. A longer reach buys a little time.
-    Gottfried Leib-Knives: Don't copy my stance. You have different knees.
--> Does anyone beat you?
-    Gottfried Leib-Knives: Peggy did. She insisted I choose my opening before she chose where to stand.
-    Gottfried Leib-Knives: Victor said her victory was statistically significant. I dislike them both this week.
--> I'll give you room.
-    Gottfried Leib-Knives: Sensible. That corner's safer.
+Gottfried Leib-Knives: Stay back. Blade's sharp.
+-> Who are you fighting?
+    Gottfried Leib-Knives: Nobody. My partner went home. I'm practicing my distance.
+-> What are the marks on the ground?
+    Gottfried Leib-Knives: Where the tip lands at each step. I'm measuring the rate of change.
+    Gottfried Leib-Knives: If you want to watch, stand behind me.
+-> I'll leave you to it.
+    Gottfried Leib-Knives: Much obliged.
 ===
 
 title: hypatia_prime
 ---
-Hypatia: A little to the left, please. The telescope mounting is loose, and I don't trust anyone leaning on it.
--> What are you watching?
-    Hypatia: A point of light beside the orbital station. Last night it passed behind the moon.
-    Hypatia: Davy called it a speck on the lens. I've cleaned the lens six times.
--> Did you build this telescope?
-    Hypatia: I rebuilt most of it. The drawings survived in three different copies, each missing a different page.
-    Hypatia: The lens was the easy part. Somebody had used the brass rings for curtain weights.
--> Aren't you a reconstruction?
-    Hypatia: Yes. The first thing I asked for was a proper workspace.
-    Hypatia: People keep asking whether I remember things that nobody wrote down. I wish I did.
--> Why study the old diagrams?
-    Hypatia: Two copies put the same star in different places. One of the scribes got the date wrong.
-    Hypatia: If I can find the original measurements, I'll know which one.
--> I'll stay out of the way.
-    Hypatia: You can stay. Just don't touch that screw. It's the only one that fits.
+Hypatia: Don't lean on the mount. It's loose.
+-> What are you looking for?
+    Hypatia: A light near the station. It was there last night. Now I can't find it.
+-> Could it be something on the lens?
+    Hypatia: Davy keeps asking me that. I've cleaned it.
+-> They say you're a reconstruction.
+    Hypatia: They say it to my face, too.
+    Hypatia: I've got the notebooks. I don't have everything she knew.
+-> I'll let you work.
+    Hypatia: Mm.
 ===
 
 title: emmy_noether_cafe
 ---
-Emmy Ethereal: Welcome to the Convergent Series. The table near the window is free. Erdish has occupied three others with paper.
--> What do you recommend?
-    Emmy Ethereal: Tea. The coffee is coming once I find out which of Erdish's cups is mine.
-    Emmy Ethereal: He started writing on the saucers. I have stopped lending him saucers.
--> What's everyone arguing about?
-    Emmy Ethereal: Canter wants to count the biscuits. Davy says I should always make room for one more customer.
-    Emmy Ethereal: I have twelve biscuits. Both of them are welcome to look at the tray.
--> Why is there a theorem on the menu?
-    Emmy Ethereal: Someone asked what I was working on. I wrote a line on the board. It attracted six mathematicians and nobody ordered lunch.
-    Emmy Ethereal: If the laws stay the same as time passes, energy is conserved. In the calculation, at least.
--> Is Erdish causing trouble?
-    Emmy Ethereal: He came through the window again. He can reach the door from where he's sitting.
-    Emmy Ethereal: I've drawn him a map. He says he's improving it.
+Emmy Ethereal: Sit wherever you like. Except there. Erdish has taken over that table.
+-> Can I get some coffee?
+    Emmy Ethereal: In a minute. Kettle's still on.
+-> What's the writing on the board?
+    Emmy Ethereal: A proof I was working on last night. Haven't had time to rub it out.
+    Emmy Ethereal: The short version? If the rules don't change with time, you get conservation of energy.
+-> Does Erdish always come in through the window?
+    Emmy Ethereal: Only when I forget to lock it.
 -> I'll find a seat.
-    Emmy Ethereal: Thank you. Tell me if the table wobbles. That much I can fix.
+    Emmy Ethereal: If you want lunch, order before I close the kitchen.
 ===
 
 title: georg_canter
 ---
 <<if condition("world.flag_set", "orbital_manifest_signed")>>
-    Georg Canter: Twelve lenses. I counted them myself. Customs has my signature and, I hope, no further questions.
-    -> Why did you write aleph-null?
-        Georg Canter: The form had a box large enough for a joke. I regret underestimating the customs officer.
-        Georg Canter: I sent an apology. She returned it for lacking a reference number.
-    -> Do you really study infinity?
-        Georg Canter: Yes. If you have an afternoon, bring me a list of all the infinite strings of zeros and ones.
-        Georg Canter: I'll show you one you missed.
-    -> I'll get back to the station.
+    Georg Canter: I've signed it. Twelve lenses. Three copies. I hope that's the end of it.
+    -> Why did you write aleph-null in the first place?
+        Georg Canter: I thought the customs officer might find it funny.
+        Georg Canter: She did not.
+    -> What are you working on now?
+        Georg Canter: Lists. Give me a list of every infinite string of zeros and ones, and I'll find one you've missed.
+    -> I'll let you get on.
 <<elseif condition("world.flag_set", "orbital_consignment_query")>>
-    Georg Canter: Ah. Customs is asking about crate 0447. I wondered how long they'd let that manifest sit.
-    -> Please sign a finite count.
+    Georg Canter: Ah. The station sent you about crate 0447, didn't they?
+    -> They need you to sign for twelve lenses.
         <<command "world.set_flag" "orbital_manifest_signed" true>>
-        Georg Canter: Twelve survey lenses. No extras under the packing foam. Here, signed.
-        Georg Canter: Tell Officer Okafor I'm sorry. She deserved a number she could use.
-    -> Why did the manifest say aleph-null?
-        Georg Canter: There were twelve lenses and a great deal of foam. I was making a joke about counting.
-        Georg Canter: The gate clerk did not laugh. I can hardly blame her.
-    -> What are all those lists for?
-        Georg Canter: People insisted that every number could be put on a numbered list. I've been arguing with them for years.
-        Georg Canter: Do you want to see the page where the argument failed?
-    -> I'll return later.
+        Georg Canter: Yes, fine. Twelve. There, I've signed it.
+        Georg Canter: Tell customs I'm sorry about the quantity box.
+    -> Why did you put aleph-null on the form?
+        Georg Canter: It was a joke. A rather poor one, apparently.
+    -> What's all this paper?
+        Georg Canter: I'm trying to put numbers in a list. The interesting ones won't stay put.
+    -> I'll come back.
 <<else>>
-    Georg Canter: Please mind the stacks. The office lent me one cabinet. I'm afraid I'm using four.
-    -> What do you count here?
-        Georg Canter: Survey lenses, building plots, the steps to the gate. Things that will fit in a ledger.
-        Georg Canter: On the other desk I've been trying to list numbers that refuse to fit.
-    -> Can't you list every number?
-        Georg Canter: Start with every possible infinite string of zeros and ones. Put them in a numbered list.
-        Georg Canter: I can change the first bit of the first entry, the second of the second, and so on. You missed that new string.
-    -> Is that a freight manifest?
-        Georg Canter: Yes. The orbital station ordered twelve lenses. I've sent them a joke in the quantity box.
-        Georg Canter: I expect to hear from customs.
+    Georg Canter: Careful with that stack. I've numbered every page.
+    -> What are you counting?
+        Georg Canter: Mostly I'm trying to show what you can't count this way.
+        Georg Canter: An endless list still can't hold every infinite string of zeros and ones.
+    -> Is that a shipping form?
+        Georg Canter: Twelve survey lenses for the orbital station.
+        Georg Canter: I wrote something stupid in the quantity box. They'll probably send it back.
+    -> Don't you have enough numbers already?
+        Georg Canter: I haven't even started.
     -> I'll leave you to it.
 <<endif>>
 ===
 
 title: davy_hylbert
 ---
-Davy Hylbert: Our observatory guest book is full. I can still fit you in. The caretaker is going to object.
--> How, if every room is taken?
-    Davy Hylbert: In a hotel with rooms numbered forever, move guest one to room two, guest two to room three, and so on.
-    Davy Hylbert: Room one is free. I have the plan on the back of a receipt. The caretaker wants actual keys.
--> What if a whole crowd arrives?
-    Davy Hylbert: An endless crowd? Move each old guest from room n to room twice n. The odd-numbered rooms open up.
-    Davy Hylbert: It works beautifully on paper. Last time I tried it here, people refused to leave their beds.
--> Does the observatory really have infinite rooms?
-    Davy Hylbert: Twelve. And one cot behind the telescope.
-    Davy Hylbert: I can offer you the cot, though Hypatia will be working until dawn.
--> What is Hypatia looking for?
-    Davy Hylbert: Something moving past the moon. I told her it was dirt on the glass.
-    Davy Hylbert: She's cleaned it six times. I'd better go and have another look.
--> I'll come back another night.
-    Davy Hylbert: Sensible. I might have settled the room numbers by then.
+Davy Hylbert: Sorry, we're full tonight.
+-> I thought you always had room.
+    Davy Hylbert: In the infinite hotel, yes. This one's got twelve rooms.
+    Davy Hylbert: I might have a cot. Depends if Hypatia needs it.
+-> How does the infinite hotel work?
+    Davy Hylbert: Move everyone from room one to two, two to three, and so on. First room's free.
+    Davy Hylbert: Don't ask me to do that here. People have unpacked.
+-> Why's the observatory still lit?
+    Davy Hylbert: Hypatia's up there. Something moving near the station, she says.
+    Davy Hylbert: She's been at it since yesterday.
+-> I'll come another time.
+    Davy Hylbert: Right. Sorry.
 ===

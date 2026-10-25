@@ -67,7 +67,13 @@ pub const LOOK_UP_CLIP: &str = "idle_look_up";
 /// and running (its head only, over the walk: Jon, 2026-10-22, "if you press
 /// up while moving it tilts the robots head up").
 fn looks_up_in(anim: CharacterAnim) -> bool {
-    matches!(anim, CharacterAnim::Idle | CharacterAnim::Walk | CharacterAnim::Run)
+    anim == CharacterAnim::Idle || strides(anim)
+}
+
+/// The poses of a body that goes along its ground on its feet: a walk, a run
+/// and a sprint.
+fn strides(anim: CharacterAnim) -> bool {
+    matches!(anim, CharacterAnim::Walk | CharacterAnim::Run | CharacterAnim::Sprint)
 }
 
 /// How far a body climbs in one cycle of its climb row (px).
@@ -101,7 +107,7 @@ const TURNAROUND_CLIP: &str = "turnaround";
 
 /// The poses a turn is drawn from and in: on the ground, under no move.
 fn turns_on_the_ground(anim: CharacterAnim) -> bool {
-    matches!(anim, CharacterAnim::Idle | CharacterAnim::Walk | CharacterAnim::Run)
+    anim == CharacterAnim::Idle || strides(anim)
 }
 
 /// How far up the stick is held for a body that stands to look up. Below the
@@ -450,6 +456,9 @@ pub fn rebuild_body_pose_views(
                 Option<&BodyHealth>,
                 Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
                 Option<&ambition_projectiles::PlayerProjectileState>,
+                // The movement policy, for the body's own top speed (the
+                // sprint row).
+                Option<&ambition_platformer2d_core::MotionModel>,
             ),
             // ⛔ A THIRD GROUP BECAUSE BEVY'S QUERY TUPLE LIMIT IS FIFTEEN, not
             // sixteen — the group above reached sixteen and stopped being a
@@ -539,6 +548,7 @@ pub fn rebuild_body_pose_views(
             health,
             roll,
             projectile_state,
+            model,
         ),
         (
             anim_override,
@@ -594,6 +604,7 @@ pub fn rebuild_body_pose_views(
                     },
                     |f| f.basis(),
                 ),
+                model.map_or(0.0, ambition_platformer2d_core::MotionModel::commanded_top_speed),
             ),
             _ => CharacterAnim::Idle,
         };
@@ -615,6 +626,7 @@ pub fn rebuild_body_pose_views(
                     legs,
                     CharacterAnim::Walk
                         | CharacterAnim::Run
+                        | CharacterAnim::Sprint
                         | CharacterAnim::Jump
                         | CharacterAnim::Fall
                         | CharacterAnim::Fly
@@ -714,7 +726,7 @@ pub fn rebuild_body_pose_views(
             Some(before)
                 if free
                     && anim == CharacterAnim::Idle
-                    && matches!(before.anim, CharacterAnim::Walk | CharacterAnim::Run) =>
+                    && strides(before.anim) =>
             {
                 0.0
             }
@@ -768,7 +780,7 @@ pub fn rebuild_body_pose_views(
             turn_secs,
             look_up,
             // Not through a turn: the turn's row goes round through the front.
-            head_up: if free && !turning && matches!(anim, CharacterAnim::Walk | CharacterAnim::Run) { look_up } else { 0.0 },
+            head_up: if free && !turning && strides(anim) { look_up } else { 0.0 },
             crouch,
             crawl,
             stop_secs,

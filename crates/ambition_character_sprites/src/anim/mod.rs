@@ -17,6 +17,15 @@ pub const PLAYER_IDLE_BELOW: f32 = 12.0;
 pub const WALL_SLIDE_ABOVE: f32 = 40.0;
 /// Below this speed along its run axis an actor's sprite shows its Idle row.
 pub const ACTOR_IDLE_BELOW: f32 = 8.0;
+/// A body in the run gait at or above this fraction of its OWN top speed
+/// (`MotionModel::commanded_top_speed`) shows its `sprint` row. A picture
+/// choice only: the gait the simulation and the hurt geometry read stays
+/// `Running`. A sheet with no `sprint` row draws its `run` row
+/// (`CharacterAnim::Sprint` falls back to `Run`).
+///
+/// Below `1.0` so that a body whose speed comes near its top speed on a slope,
+/// or that has not yet closed the last of the gap, still shows it.
+pub const SPRINT_FRAC: f32 = 0.9;
 
 use ambition_characters::actor::body::BodyAnimFacts;
 use ambition_combat::components::MeleeSwing;
@@ -173,6 +182,10 @@ pub struct BodyAnimView {
     /// always running. A gait is speed against THIS body's own top speed, which
     /// is what `MovementTuning::run_commit_frac` asks and the kernel publishes.
     pub running: bool,
+    /// Grounded: this body's speed as a fraction of its own top speed. A run
+    /// at or above [`SPRINT_FRAC`] is a sprint. `0.0` when the top speed is
+    /// not known, which never sprints.
+    pub top_speed_frac: f32,
     /// Aerial: `speed > fly_above`  Fly, else Idle (hover).
     pub fly_above: f32,
 }
@@ -529,7 +542,15 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
         ) {
             ambition_combat::hurtbox_resolution::Gait::Standing => Idle,
             ambition_combat::hurtbox_resolution::Gait::Walking => Walk,
-            ambition_combat::hurtbox_resolution::Gait::Running => Run,
+            // The same gait, refined for the picture only: the hurt geometry
+            // and the rig clip read it as `Running`.
+            ambition_combat::hurtbox_resolution::Gait::Running => {
+                if v.top_speed_frac >= SPRINT_FRAC {
+                    Sprint
+                } else {
+                    Run
+                }
+            }
             ambition_combat::hurtbox_resolution::Gait::Skidding => Skid,
         },
     }
@@ -580,6 +601,9 @@ fn compact_from_mode(mode: ambition_platformer2d_core::player_state::BodyMode) -
 /// metric + speed thresholds. `speed` is seeded with the grounded metric
 /// (the run component along the body's own `side` axis); an aerial adapter
 /// overrides it with total speed.
+///
+/// `top_speed` is the body's own top speed
+/// (`MotionModel::commanded_top_speed`), or `0.0` when the body has no model.
 pub fn body_view_from_body(
     kinematics: &ae::BodyKinematics,
     ground: &ae::BodyGroundState,
@@ -590,6 +614,7 @@ pub fn body_view_from_body(
     abilities: &ae::BodyAbilities,
     shield: &ae::BodyShieldState,
     frame: ae::AccelerationFrame,
+    top_speed: f32,
 ) -> BodyAnimView {
     use ambition_platformer2d_core::player_state::BodyMode;
     // THE THREE READS BELOW ARE FRAME-RELATIVE, AND EACH WAS A WORLD-AXIS
@@ -646,6 +671,9 @@ pub fn body_view_from_body(
         // sliding straight down its own wall must stay Idle, not walk in place.
         speed: along_run.abs(),
         running: facts.running,
+        // Total speed, not the run-axis metric: a running body moves along
+        // its ground, and on a slope or a loop the run axis foreshortens it.
+        top_speed_frac: if top_speed > 0.0 { kinematics.vel.length() / top_speed } else { 0.0 },
         ..Default::default()
     }
 }
@@ -665,6 +693,7 @@ pub fn pick_player_anim(
     abilities: &ae::BodyAbilities,
     shield: &ae::BodyShieldState,
     frame: ae::AccelerationFrame,
+    top_speed: f32,
 ) -> CharacterAnim {
     // Movement/ability fields come from the shared cluster builder (identical to
     // every actor); the player overlays its combat-cluster hit read, its own
@@ -680,6 +709,7 @@ pub fn pick_player_anim(
         abilities,
         shield,
         frame,
+        top_speed,
     );
     // The player is ALIVE again by the time anything draws it — the respawn is
     // immediate — so its death cannot be read off liveness the way an actor's is.
@@ -806,6 +836,7 @@ pub fn pick_actor_anim(
     swing: Option<&MeleeSwing>,
     state: ActorAnimState,
     frame: ae::AccelerationFrame,
+    top_speed: f32,
 ) -> CharacterAnim {
     let mut v = body_view_from_body(
         kinematics,
@@ -817,6 +848,7 @@ pub fn pick_actor_anim(
         abilities,
         shield,
         frame,
+        top_speed,
     );
     v.dead = !state.alive;
     v.hit = state.hit_flash;

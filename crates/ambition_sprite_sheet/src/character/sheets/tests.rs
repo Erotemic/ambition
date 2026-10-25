@@ -1096,3 +1096,52 @@ fn the_animator_keeps_the_pose_a_body_asked_for_and_for_how_long() {
     animator.request_clip(["sit_down"], CharacterAnim::BlinkIn);
     assert_eq!(animator.asked().0, CharacterAnim::BlinkIn);
 }
+
+/// A sheet with no `sprint` row draws a sprint as its run, and the run goes
+/// on through the change without a restart: a body that comes up to its top
+/// speed looks the same as before the row existed. A sheet that draws the
+/// row shows it.
+#[test]
+fn a_sprint_draws_the_run_on_a_sheet_without_a_sprint_row() {
+    let animator_of = |rows: &str| {
+        let record: SheetRecord = ron::from_str(&format!(
+            r#"(target: "sprint_fixture", image: "sprint.png", label_width: 0, frame_width: 16, frame_height: 16, rows: [
+                (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1),
+                (animation: "walk", row_index: 1, frame_count: 4, duration_ms: 100, duration_secs: 0.1),
+                {rows}
+            ])"#
+        ))
+        .expect("the fixture sheet parses");
+        let asset = CharacterSpriteAsset {
+            texture: Default::default(),
+            layout: Default::default(),
+            spec: spec_from_record(&record, &SheetTuning::new(1.0, 1)),
+            pages: Vec::new(),
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+        CharacterAnimator::new(&asset)
+    };
+    let run = r#"(animation: "run", row_index: 2, frame_count: 4, duration_ms: 100, duration_secs: 0.1),"#;
+
+    let mut plain = animator_of(run);
+    assert_eq!(plain.spec.resolve_anim(CharacterAnim::Sprint), CharacterAnim::Run);
+    plain.request(CharacterAnim::Run);
+    plain.tick(0.25);
+    let before = (plain.frame, plain.elapsed);
+    plain.request(CharacterAnim::Sprint);
+    assert_eq!(plain.current, CharacterAnim::Run);
+    assert_eq!((plain.frame, plain.elapsed), before, "the run started again when the body sprinted");
+
+    // With neither row, a sprint goes down the same ladder as a run.
+    let walker = animator_of("");
+    assert_eq!(walker.spec.resolve_anim(CharacterAnim::Sprint), CharacterAnim::Walk);
+
+    let drawn = animator_of(&format!(
+        r#"{run}
+           (animation: "sprint", row_index: 3, frame_count: 4, duration_ms: 50, duration_secs: 0.05),"#
+    ));
+    assert_eq!(drawn.spec.resolve_anim(CharacterAnim::Sprint), CharacterAnim::Sprint);
+    assert_eq!(drawn.spec.resolve_anim(CharacterAnim::Run), CharacterAnim::Run);
+}

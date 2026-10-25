@@ -179,6 +179,9 @@ pub enum CharacterAnim {
     /// the time on the wall. Generator row `wall_land`; falls back to
     /// [`Self::WallGrab`].
     WallLand = 64,
+    /// A run at the body's top speed: the legs go round faster than a run
+    /// can show (generator row `sprint`). Falls back to [`Self::Run`].
+    Sprint = 65,
 }
 
 impl CharacterAnim {
@@ -200,6 +203,7 @@ impl CharacterAnim {
             "idle" | "opening" | "rest" | "front_idle" | "side_idle" => Self::Idle,
             "walk" | "stable" | "spin" | "side_walk" => Self::Walk,
             "run" | "closing" => Self::Run,
+            "sprint" => Self::Sprint,
             "jump" => Self::Jump,
             "fall" => Self::Fall,
             // `jab` is the quick poke; it shares the generic `Slash` read.
@@ -286,6 +290,7 @@ impl CharacterAnim {
             // Ground locomotion.
             Walk => Idle,
             Run => Walk,
+            Sprint => Run,
             Crouch => Idle,
             CrouchWalk => Crouch,
             // Through `crouch_walk`: sheets that author only one author this one.

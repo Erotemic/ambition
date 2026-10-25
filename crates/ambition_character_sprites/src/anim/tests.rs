@@ -27,6 +27,9 @@ struct PickClusters {
     /// every pre-existing case reads exactly as it did before the frame became
     /// an input; a rotated-gravity case sets it.
     frame: ae::AccelerationFrame,
+    /// The body's own top speed. `0.0` (not known) never sprints, so every
+    /// case that does not set it reads as it did before the sprint row.
+    top_speed: f32,
 }
 
 impl PickClusters {
@@ -41,6 +44,7 @@ impl PickClusters {
             abilities: Default::default(),
             shield: Default::default(),
             frame: ae::AccelerationFrame::new(ae::Vec2::new(0.0, 1.0)),
+            top_speed: 0.0,
         }
     }
 }
@@ -80,6 +84,7 @@ fn pick(
         &c.abilities,
         &c.shield,
         c.frame,
+        c.top_speed,
     )
 }
 
@@ -505,6 +510,7 @@ fn pick_actor(
         swing,
         state,
         c.frame,
+        c.top_speed,
     )
 }
 
@@ -963,4 +969,34 @@ fn a_shattered_guard_outranks_the_guard_it_no_longer_has() {
         CharacterAnim::Block,
         "an unbroken guard stopped drawing itself"
     );
+}
+
+/// A run near the body's OWN top speed is a sprint, for the player and for
+/// every actor: a fast and a slow body both sprint at their own top speed, and
+/// neither sprints well under it. The sprint refines the run gait only, so a
+/// walk at the same speed and a body with no known top speed are unchanged.
+#[test]
+fn a_run_near_the_bodys_own_top_speed_is_a_sprint() {
+    let down = ae::Vec2::new(0.0, 1.0);
+    for top_speed in [300.0, 1200.0] {
+        let (anim, combat, blink_cam, mut c) = pick_inputs();
+        c.ground.on_ground = true;
+        c.facts.running = true;
+        c.top_speed = top_speed;
+        let both = |c: &PickClusters| (pick(&anim, &combat, &blink_cam, None, c), pick_actor(c, None, actor_state()));
+
+        c.kinematics = walking_in_gravity(down, top_speed);
+        assert_eq!(both(&c), (CharacterAnim::Sprint, CharacterAnim::Sprint), "top speed {top_speed}");
+
+        c.kinematics = walking_in_gravity(down, top_speed * 0.6);
+        assert_eq!(both(&c), (CharacterAnim::Run, CharacterAnim::Run), "top speed {top_speed}");
+
+        c.kinematics = walking_in_gravity(down, top_speed);
+        c.facts.running = false;
+        assert_eq!(both(&c), (CharacterAnim::Walk, CharacterAnim::Walk), "top speed {top_speed}");
+
+        c.facts.running = true;
+        c.top_speed = 0.0;
+        assert_eq!(both(&c), (CharacterAnim::Run, CharacterAnim::Run), "top speed {top_speed}");
+    }
 }

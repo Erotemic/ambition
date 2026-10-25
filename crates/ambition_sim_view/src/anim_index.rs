@@ -47,6 +47,8 @@ pub struct ActorSpriteData {
     pub env_contact: &'static ambition_platformer2d_core::BodyEnvironmentContact,
     pub abilities: &'static ambition_platformer2d_core::BodyAbilities,
     pub shield: &'static ambition_platformer2d_core::BodyShieldState,
+    /// The movement policy, for the body's own top speed (the sprint row).
+    pub model: Option<&'static ae::MotionModel>,
     /// Movement-driven presentation overlays (wall-jump / dash-startup / landing /
     /// shoot poses), shared with the player. `Option` so an actor spawned without
     /// the component (a legacy / bespoke path) still animates its base ladder —
@@ -370,6 +372,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
                 |f| f.basis(),
             ),
+            a.model.map_or(0.0, ae::MotionModel::commanded_top_speed),
         );
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).

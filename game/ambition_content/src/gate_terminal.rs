@@ -128,9 +128,19 @@ pub struct TerminalUi {
     pub pointed: Option<WheelSlot>,
     /// The row of the list the cursor is on.
     pub list_cursor: usize,
+    /// The first row of the list shown: the list shows [`LIST_ROWS`] rows at
+    /// a time. The cursor's steps keep the cursor inside it; a mouse wheel or
+    /// a drag moves it without moving the cursor.
+    pub list_window: usize,
+    /// The row the pointer is over. Presentation only (Q70): a hover is drawn,
+    /// and never moves the cursor; a press selects.
+    pub list_hover: Option<usize>,
     /// The report serial this terminal already acted on.
     pub seen_serial: Option<u64>,
 }
+
+/// How many rows of the list the terminal shows at once.
+pub const LIST_ROWS: usize = 8;
 
 /// What a terminal shows, built from the catalog, the network's state, the
 /// save and [`TerminalUi`]. Pure data, so a test reads it without a window.
@@ -152,6 +162,9 @@ pub struct TerminalModel {
     pub pointed: Option<WheelSlot>,
     pub list: Vec<ListRow>,
     pub list_cursor: usize,
+    /// The first row shown, and the row the pointer is over.
+    pub list_window: usize,
+    pub list_hover: Option<usize>,
 }
 
 /// The addresses a terminal lists as known, as chevrons: those written on it
@@ -221,10 +234,19 @@ impl TerminalUi {
         self.point(if self.pointed.is_some() { from.stepped(step, count) } else { from });
     }
 
-    /// Move the list cursor by `step`, kept inside the list.
+    /// Move the list cursor by `step`, kept inside the list, and the window
+    /// as little as it must to show it.
     pub fn step_list(&mut self, step: i32, rows: usize) {
         self.focus = TerminalFocus::List;
         self.list_cursor = (self.list_cursor as i32 + step).clamp(0, rows.saturating_sub(1) as i32) as usize;
+        self.list_window = ambition_ui_nav::scroll_into_view(self.list_window, self.list_cursor, rows, LIST_ROWS);
+    }
+
+    /// Move the window of the list by `steps` rows (a mouse wheel, a drag),
+    /// leaving the cursor where it is.
+    pub fn scroll_list(&mut self, steps: i32, rows: usize) {
+        let last = rows.saturating_sub(LIST_ROWS) as i32;
+        self.list_window = (self.list_window as i32 + steps).clamp(0, last) as usize;
     }
 
     /// Carry out a press of a wheel slot: a chevron is entered, again each
@@ -309,6 +331,8 @@ impl TerminalUi {
             focus: self.focus,
             pointed: self.pointed,
             list_cursor: self.list_cursor.min(list.len().saturating_sub(1)),
+            list_window: self.list_window.min(list.len().saturating_sub(LIST_ROWS)),
+            list_hover: self.list_hover.filter(|row| *row < list.len()),
             list,
         }
     }
@@ -486,5 +510,30 @@ mod tests {
         );
         let model = ui.model(&catalog, &state, &[]);
         assert!(model.refused && model.status.contains("OFFLINE"), "{}", model.status);
+    }
+
+    /// A long list shows a window of [`LIST_ROWS`] rows. The cursor's steps
+    /// carry the window only as far as they must; a wheel moves the window
+    /// and leaves the cursor; a hover moves neither (Q70).
+    #[test]
+    fn a_long_list_scrolls_a_window_that_follows_the_cursor() {
+        let rows = LIST_ROWS + 6;
+        let mut ui = TerminalUi::default();
+        for _ in 0..LIST_ROWS - 1 {
+            ui.step_list(1, rows);
+        }
+        assert_eq!((ui.list_cursor, ui.list_window), (LIST_ROWS - 1, 0), "the last shown row: no scroll yet");
+        ui.step_list(1, rows);
+        assert_eq!((ui.list_cursor, ui.list_window), (LIST_ROWS, 1), "one step past the window moves it one row");
+        ui.scroll_list(-5, rows);
+        assert_eq!((ui.list_cursor, ui.list_window), (LIST_ROWS, 0), "a wheel moves the window, not the cursor");
+        ui.scroll_list(100, rows);
+        assert_eq!(ui.list_window, rows - LIST_ROWS, "the window stops at the last row");
+        ui.scroll_list(-100, rows);
+        assert_eq!((ui.list_cursor, ui.list_window), (LIST_ROWS, 0), "the cursor is now below the window");
+        ui.list_hover = Some(2);
+        ui.step_list(1, rows);
+        assert_eq!(ui.list_cursor, LIST_ROWS + 1, "a hover does not take the cursor: the arrow moves it from where it was");
+        assert_eq!(ui.list_window, 2, "and the window comes back to it, to its near edge");
     }
 }

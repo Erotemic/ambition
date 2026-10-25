@@ -31,7 +31,7 @@ use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::prelude::*;
 
 use crate::gate_terminal::{
-    chevron_angle, intent, known_addresses, ListRow, TerminalEffect, TerminalFocus, TerminalModel, TerminalUi,
+    chevron_angle, intent, known_addresses, ListRow, TerminalEffect, TerminalFocus, TerminalModel, TerminalUi, LIST_ROWS,
     WheelSlot, GATE_TERMINAL_CONTEXT,
 };
 
@@ -70,6 +70,8 @@ const DIM_INK: Color = Color::srgb(0.54, 0.64, 0.68);
 const REFUSED: Color = Color::srgb(1.0, 0.45, 0.40);
 const ROW: Color = Color::srgb(0.10, 0.15, 0.19);
 const ROW_SELECTED: Color = Color::srgb(0.13, 0.30, 0.36);
+/// A row under the pointer: lighter than a row, never the cursor's colour.
+const ROW_HOVERED: Color = Color::srgb(0.14, 0.20, 0.25);
 
 /// The panel's root. Rebuilt whole when the model changes.
 #[derive(Component)]
@@ -160,8 +162,15 @@ fn drive_gate_terminal(
     gamepads: Query<&Gamepad>,
     wheel: Query<(&Interaction, &WheelButton), Changed<Interaction>>,
     list: Query<(&Interaction, &ListButton), Changed<Interaction>>,
+    mut pointer_moves: MessageReader<bevy::window::CursorMoved>,
+    mut scrolls: MessageReader<bevy::input::mouse::MouseWheel>,
     mut intents: HostIntentWriter<GateTerminalIntent>,
 ) {
+    // A rebuilt panel puts a new button under a still pointer, and its
+    // `Interaction` changes to `Hovered` although nothing moved: only a
+    // pointer that moved this frame points the wheel.
+    let pointer_moved = pointer_moves.read().count() > 0;
+    let scrolled: i32 = scrolls.read().map(|wheel| -wheel.y.signum() as i32).sum();
     let (Some(catalog), Some(state)) = (catalog, state) else {
         return;
     };
@@ -195,28 +204,39 @@ fn drive_gate_terminal(
         let rows = ui.list(&catalog, &state, &known);
         let count = catalog.chevrons();
         let mut effects = Vec::new();
-        // Mouse and touch: a hover points, a press presses.
+        // Mouse and touch: on the wheel a moving pointer points and a press
+        // presses. On the list a hover is drawn and never moves the cursor
+        // (Q70: it would undo every arrow key, since the list is rebuilt
+        // under the pointer); a press selects and activates.
         for (interaction, button) in &wheel {
             match interaction {
-                Interaction::Hovered => ui.point(button.0),
+                Interaction::Hovered if pointer_moved => ui.point(button.0),
                 Interaction::Pressed => effects.push(ui.press_slot(button.0)),
-                Interaction::None => {}
+                _ => {}
             }
         }
         for (interaction, button) in &list {
             if let Some(row) = rows.get(button.0) {
                 match interaction {
-                    Interaction::Hovered => {
-                        ui.focus = TerminalFocus::List;
-                        ui.list_cursor = button.0;
-                    }
+                    Interaction::Hovered => ui.list_hover = Some(button.0),
                     Interaction::Pressed => {
+                        ui.focus = TerminalFocus::List;
                         ui.list_cursor = button.0;
                         effects.push(ui.press_row(row));
                     }
-                    Interaction::None => {}
+                    Interaction::None => {
+                        if ui.list_hover == Some(button.0) {
+                            ui.list_hover = None;
+                        }
+                    }
                 }
             }
+        }
+        // A mouse wheel or a drag over the screen scrolls the list's window,
+        // not its cursor.
+        let drag = menu.as_deref().map_or(0, |menu| -(menu.drag_scroll_y.round() as i32));
+        if scrolled + drag != 0 {
+            ui.scroll_list(scrolled + drag, rows.len());
         }
         // The stick points the wheel while the wheel has the focus.
         let leaning = ui.focus == TerminalFocus::Wheel && {
@@ -560,7 +580,7 @@ fn spawn_side(
                 max_height: Val::Px(WHEEL + 120.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(5.0),
-                overflow: Overflow::scroll_y(),
+                overflow: Overflow::clip_y(),
                 ..default()
             },
             Name::new("Gate dial side"),
@@ -577,8 +597,19 @@ fn spawn_side(
                 font(16.0, UiFontWeight::Semibold),
                 TextColor(if model.refused { REFUSED } else { INK }),
             ));
+            let shown = model.list_window..(model.list_window + LIST_ROWS).min(model.list.len());
+            let more = |count: usize, up: bool| {
+                (
+                    Text::new(format!("{} {count} more", if up { "\u{25B2}" } else { "\u{25BC}" })),
+                    font(12.0, UiFontWeight::Semibold),
+                    TextColor(DIM_INK),
+                )
+            };
+            if shown.start > 0 {
+                side.spawn(more(shown.start, true));
+            }
             let mut heading = None;
-            for (index, row) in model.list.iter().enumerate() {
+            for (index, row) in model.list.iter().enumerate().skip(shown.start).take(shown.len()) {
                 let this = match row {
                     ListRow::Address { recent: false, .. } => "KNOWN DESTINATIONS",
                     ListRow::Address { recent: true, .. } => "RECENT ADDRESSES",
@@ -596,6 +627,7 @@ fn spawn_side(
                     }
                 }
                 let selected = model.focus == TerminalFocus::List && model.list_cursor == index;
+                let hovered = model.list_hover == Some(index);
                 side.spawn((
                     Button,
                     Node {
@@ -608,7 +640,13 @@ fn spawn_side(
                         border_radius: BorderRadius::all(Val::Px(4.0)),
                         ..default()
                     },
-                    BackgroundColor(if selected { ROW_SELECTED } else { ROW }),
+                    BackgroundColor(if selected {
+                        ROW_SELECTED
+                    } else if hovered {
+                        ROW_HOVERED
+                    } else {
+                        ROW
+                    }),
                     BorderColor::all(if selected { CYAN } else { Color::NONE }),
                     ListButton(index),
                     Name::new(format!("Gate dial row {index}")),
@@ -631,6 +669,9 @@ fn spawn_side(
                         line.spawn((Text::new("Leave"), font(15.0, UiFontWeight::Semibold), TextColor(INK)));
                     }
                 });
+            }
+            if shown.end < model.list.len() {
+                side.spawn(more(model.list.len() - shown.end, false));
             }
             side.spawn((
                 Text::new("Point at a chevron, press to enter it  ·  \u{0394} dials  ·  Back erases, then leaves  ·  Page: the list"),

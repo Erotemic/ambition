@@ -108,6 +108,7 @@ def build(
             catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
     step("related assets")
     related.relate(catalog["assets"], catalog["generators"], repo)
+    related.generations(catalog["assets"])
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
     text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)
@@ -119,6 +120,15 @@ def build(
         shutil.copyfile(WEB / name, out / name)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog
+
+
+def _describe(value: Any) -> str | None:
+    """An actor's description as text: a structured authoring description
+    (`parody_of`, `concept`, ...) gives its concept and whom it parodies."""
+    if isinstance(value, dict):
+        text = value.get("concept") or value.get("summary") or ""
+        return f"{text} (A parody of {value['parody_of']}.)" if value.get("parody_of") else text or None
+    return value
 
 
 def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, found) -> dict[str, Any]:
@@ -173,7 +183,7 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
             "products": sorted(asset.products),
             "character_id": actor.get("character_id"),
             "tags": actor.get("tags", []),
-            "description": actor.get("description") or (layout or {}).get("description"),
+            "description": _describe(actor.get("description")) or (layout or {}).get("description"),
             "lineage": actor.get("lineage"),
             "layout": layout,
             "portraits": portraits,

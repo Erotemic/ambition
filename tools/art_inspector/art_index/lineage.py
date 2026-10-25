@@ -58,6 +58,14 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
 
     store = store_mod.default_store()
     has_store = bool(store_mod.git(store, "for-each-ref", "refs/active", check=False).strip()) if store.exists() else False
+    if has_store:
+        # The eras of the last few weeks are commits of the active checkouts:
+        # bring the store's active refs up to them (a local fetch).
+        try:
+            store_mod.fetch(store, active_ambition=repo if (repo / ".git").exists() else None,
+                            active_renderer=renderer if (renderer / ".git").exists() else None)
+        except Exception as ex:  # noqa: BLE001 - an older store still shows the older eras
+            warnings.append(f"design history: could not refresh the history store: {ex}")
     local = renderer if (renderer / ".git").exists() else None
     if not has_store:
         warnings.append("design history: no history store; eras before the active renderer show no authorship "

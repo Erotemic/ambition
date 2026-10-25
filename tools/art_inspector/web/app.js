@@ -85,8 +85,10 @@
     let list = pool.filter((a) => (!state.family.size || state.family.has(a.family)) && (!state.conf.size || state.conf.has(a.confidence))
       && (!state.tag.size || [...state.tag].every((t) => (a.tags || []).includes(t)))
       && (!state.use || (state.use === "used" ? used(a) : state.use === "unused" ? !used(a) : a.findings > 0)));
+    // Of two sheets of one character, the one the game draws comes first.
+    const older = (a) => (a.generation && a.generation.state !== "current" ? 1 : 0);
     const sorts = {
-      name: (a, b) => a.display.localeCompare(b.display),
+      name: (a, b) => a.display.localeCompare(b.display) || older(a) - older(b),
       frames: (a, b) => b.frames - a.frames,
       animations: (a, b) => b.animations - a.animations,
       bytes: (a, b) => b.bytes - a.bytes,
@@ -134,7 +136,13 @@
   function card(a) {
     const counts = a.animations ? `${a.animations} anim · ${fmt(a.frames)} fr` : `${a.products.length} file${a.products.length > 1 ? "s" : ""}`;
     return `<a class="card" href="#asset/${enc(a.id)}"><div class="img checker">${img(a.cover, a.display)}</div>
-      <div class="meta"><div class="nm">${esc(a.display)}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}</div></div></a>`;
+      <div class="meta"><div class="nm">${esc(a.display)}${a.generation ? ` <code class="gen">${esc(a.name)}</code>` : ""}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}${generationChip(a)}</div></div></a>`;
+  }
+  function generationChip(a) {
+    if (!a.generation) return "";
+    return a.generation.state === "current" ? ' <span class="chip c-verified" title="the catalog row draws this sheet">in the game</span>'
+      : a.generation.state === "older" ? ' <span class="chip c-info" title="another generation of this character is the one the game draws">older generation</span>'
+      : ' <span class="chip c-info" title="the catalog row draws another sheet of this character">another sheet</span>';
   }
 
   // ---- asset detail ------------------------------------------------------------------
@@ -158,7 +166,8 @@
     app.innerHTML = `<div class="detail">
       ${navBar(a)}
       <h1>${esc(a.display)}</h1>
-      <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${a.character_id ? ` · character <code>${esc(a.character_id)}</code>` : ""}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}</p>
+      <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${a.character_id ? ` · character <code>${esc(a.character_id)}</code>` : ""}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}${generationChip(a)}</p>
+      ${a.generation && a.generation.state !== "current" ? `<p class="lede">${a.generation.state === "older" ? "An older generation" : "Another sheet"} of <code>${esc(a.generation.character_id)}</code>: the game draws ${assetLink(a.generation.current, (assets[a.generation.current] || {}).name)} for it.</p>` : ""}
       ${a.description ? `<p class="lede">${esc(a.description)}</p>` : ""}
       ${a.tags && a.tags.length ? `<div class="chips" style="margin-bottom:12px">${a.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
       ${relatedBox(a)}
@@ -314,7 +323,8 @@
     const r = assets[id];
     // The target id under the name: two forms of one character share a display name.
     const sub = r.name && r.name.toLowerCase() !== r.display.toLowerCase() ? `<code>${esc(r.name)}</code>` : "";
-    return r ? `<a class="mini" href="#asset/${enc(id)}" title="${esc(r.family + " · " + id)}"><div class="checker">${img(r.cover, r.display)}</div><span>${esc(r.display)}</span>${sub}</a>` : "";
+    const now = r && r.generation && r.generation.state === "current" ? " (in the game)" : r && r.generation ? " (older)" : "";
+    return r ? `<a class="mini" href="#asset/${enc(id)}" title="${esc(r.family + " · " + id + now)}"><div class="checker">${img(r.cover, r.display)}</div><span>${esc(r.display)}</span>${sub}</a>` : "";
   }
   const STRIP = 24;
   function relatedBox(a) {
@@ -326,7 +336,7 @@
     const type = `<a href="#gallery?family=${enc(a.family)}">every ${esc(a.family)} asset (${fmt(assetList.filter((x) => x.family === a.family).length)})</a>`;
     const traits = a.chargen ? ` · chargen ${Object.entries(a.chargen).map(([k, v]) => `${esc(k)} <code>${esc(v)}</code>`).join(", ")}` : "";
     return `<section class="box related"><h2>Related</h2>
-      ${near.length ? `<div class="relrows">${near.map(row).join("")}</div>` : '<p class="empty">No other form, lineage or generator shares this asset.</p>'}
+      ${near.length ? `<div class="relrows">${near.map(row).join("")}</div>` : `<p class="empty">No other sheet shares a form, a game character, a generator or a chargen trait with this one${(a.lineages || []).length ? "; its own lineage is below" : ""}.</p>`}
       ${tags.length ? `<details${near.length ? "" : " open"}><summary>Same tags: ${tags.map(([g]) => esc(g.title.replace(/^Tagged /, ""))).join(", ")}</summary><div class="relrows">${tags.map(row).join("")}</div></details>` : ""}
       <p class="controls">Same type: ${type}${traits}. <kbd>←</kbd> <kbd>→</kbd> step through the list above.</p></section>`;
   }

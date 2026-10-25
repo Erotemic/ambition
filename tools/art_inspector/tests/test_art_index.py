@@ -232,3 +232,23 @@ def test_related_assets_join_forms_lineages_generators_and_specs(tmp_path):
     assert bea["Made by townsfolk · Chargen family crew"] == ["sheet:cid"]
     assert not any("species" in g["title"] for g in rows["sheet:bea"]["related"])
     assert rows["sheet:dot"]["related"] == []
+
+
+def test_the_sheet_the_catalog_draws_is_the_current_generation():
+    """Two sheets name one character (a redesign beside the first design):
+    the one the catalog row's manifest names is current, the other an older
+    generation; a sheet of another name is another sheet, not a generation."""
+    from art_index import related
+
+    use = [{"path": "game/x/assets/data/character_catalog.ron", "row": "npc_carl"}]
+    rows = {
+        "sheet:carl": {"name": "carl", "character_id": "npc_carl", "uses": []},
+        "sheet:carl_v2": {"name": "carl_v2", "character_id": "npc_carl", "uses": use},
+        "sheet:carl_sauce": {"name": "carl_sauce", "character_id": "npc_carl", "uses": []},
+        "sheet:solo": {"name": "solo", "character_id": "npc_solo", "uses": []},
+    }
+    related.generations(rows)
+    assert rows["sheet:carl_v2"]["generation"]["state"] == "current"
+    assert rows["sheet:carl"]["generation"] == {"state": "older", "character_id": "npc_carl", "current": "sheet:carl_v2"}
+    assert rows["sheet:carl_sauce"]["generation"]["state"] == "other"
+    assert "generation" not in rows["sheet:solo"]

@@ -10,7 +10,7 @@
     bg_color: "#0E0E14",
     biome: "castle_godwin",
     parallax_theme: "castle_godwin",
-    music_track: "military_iron_resolve",
+    music_track: "tritone_decree",
     entities: [
         ( type: "PlayerStart", px: [128, 658], size: [28, 46], fields: ( name: "castle_godwin_gatehouse_spawn" ) ),
         ( type: "Solid", px: [0, 704], size: [1600, 64], fields: ( name: "floor" ) ),
@@ -33,6 +33,7 @@
         ( type: "EnemySpawn", px: [980, 472], size: [32, 72], fields: ( name: "castle_godwin_gatehouse_soldier_2", brain: "combatant", character_id: "npc_fascist_enforcer", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1100, 654], size: [52, 50], fields: ( name: "castle_godwin_gatehouse_hound_1", brain: "combatant", character_id: "npc_evil_attack_hound", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1300, 670], size: [48, 34], fields: ( name: "castle_godwin_gatehouse_crawler_1", brain: "combatant", character_id: "npc_searchlight_crawler", respawn: "OnRoomReenter" ) ),
+        ( type: "LoadingZone", px: [1000, 608], size: [48, 96], fields: ( id: "castle_godwin_gatehouse_passage", name: "down the old drain", activation: "Door", target_room: "castle_godwin_throne", target_zone: "castle_godwin_throne_passage", bidirectional: true ) ),
         ( type: "CameraZone", px: [0, 0], size: [1600, 768], fields: ( id: "castle_godwin_gatehouse_camera", name: "castle_godwin_gatehouse_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "castle_godwin_gatehouse_label", text: "Castle Godwin: the gatehouse.", category: "Custom" ) ),
     ],

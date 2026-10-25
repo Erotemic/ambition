@@ -50,6 +50,10 @@ EVIL_LDTK = default_worlds_dir() / "evil.ldtk"
 SANDBOX_LDTK = default_worlds_dir() / "sandbox.ldtk"
 
 FOREST_THEME, CASTLE_THEME = "evil_forest", "castle_godwin"
+#: The gatehouse's own music (set in the editor, 2026-10).
+GATEHOUSE_MUSIC = "tritone_decree"
+#: The old drain's door in the gatehouse: under its west gallery.
+PASSAGE_DOOR_X = 1000
 FOREST_MUSIC, CASTLE_MUSIC = "oppressive_crush", "military_iron_resolve"
 FOREST_BG, CASTLE_BG = "#1A0A0C", "#0E0E14"
 WALL = 16
@@ -76,10 +80,16 @@ ROOMS_AT = {
     BARRACKS: (3792, 2560, 768),
     TOWER: (6544, 1024, 1792),
     GREAT_HALL: (7760, 1920, 896),
-    # The throne room, and east of it the long gallery the Inugami chases you
-    # down, and the hall at its end where you finish it (Jon, 2026-10-20).
-    THRONE: (9920, 9600, 2304),
+    # The throne room under the great hall's east end, and the way the
+    # Inugami chases you out of it: down a drop, then west under the whole
+    # castle to the hall under the gatehouse, where you finish it (Jon,
+    # 2026-10-24). Under the castle's other rooms, so it starts at the
+    # gatehouse's left.
+    THRONE: (2000, 10480, 2688),
 }
+#: How far down the world a room is: 0 unless given. The throne room is
+#: under the tower's foot (1792), so it overlaps no room.
+ROOMS_Y = {THRONE: 1856}
 
 #: The boss of the castle: Wolfenstein, the monster of the regime with the head
 #: of a mad wolf. Its pattern is `wolfenstein_boss` (`data/boss_profiles.ron`);
@@ -90,8 +100,9 @@ BOSS_BOX = (84, 140)
 #: The Inugami (Jon, 2026-10-20): his head, risen as a red spirit when he
 #: falls. A boss of its own (`wolfenstein_inugami`), which sleeps until his
 #: placement is cleared (its `wakes_after` names his BossSpawn) and rises
-#: from his body; where it is placed only says where it waits.
-INUGAMI_NAME, INUGAMI_BRAIN, INUGAMI_ENCOUNTER = "Inugami", "PhaseScript:wolfenstein_inugami", "castle_godwin.wolfenstein_inugami"
+#: from his body; where it is placed only says where it waits. Its name is
+#: his (Jon, 2026-10-24: "name should be 'Inugami Wolfenstein'").
+INUGAMI_NAME, INUGAMI_BRAIN, INUGAMI_ENCOUNTER = "Inugami Wolfenstein", "PhaseScript:wolfenstein_inugami", "castle_godwin.wolfenstein_inugami"
 INUGAMI_BOX = (176, 212)
 
 #: The soldier of the regime, and his box (183 cm).
@@ -189,6 +200,7 @@ def room(rid, entities, label_text, theme, music, bg, cameras=None):
     """A room's spec. `cameras`: its camera zones; one over the whole room
     when none are given."""
     world_x, w, h = ROOMS_AT[rid]
+    world_y = ROOMS_Y.get(rid, 0)
     cameras = cameras or [f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),']
     body = "\n        ".join(entities + cameras + [
         label(f"{rid}_label", 70, 40, label_text, 900),
@@ -198,7 +210,7 @@ def room(rid, entities, label_text, theme, music, bg, cameras=None):
     id: "{rid}",
     level_id: "{rid}",
     world_x: {world_x},
-    world_y: 0,
+    world_y: {world_y},
     px_wid: {w},
     px_hei: {h},
     fill_collision: "empty",
@@ -214,8 +226,8 @@ def room(rid, entities, label_text, theme, music, bg, cameras=None):
 """
 
 
-def castle(rid, entities, label_text, theme=CASTLE_THEME):
-    return room(rid, entities, label_text, theme, CASTLE_MUSIC, CASTLE_BG)
+def castle(rid, entities, label_text, theme=CASTLE_THEME, music=CASTLE_MUSIC):
+    return room(rid, entities, label_text, theme, music, CASTLE_BG)
 
 
 def shell(rid, ground=64, ceiling=48):
@@ -249,8 +261,8 @@ def forest():
         solid("west_wall", 0, 0, WALL, floor),
         solid("east_wall", w - WALL, 0, WALL, floor),
         f'( type: "PlayerStart", px: [360, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        *gates.as_ron(gates.ring(EVIL_GATE, EVIL_ZONE, 112, floor, "the gate")),
-        *gates.as_ron(gates.terminal(EVIL_GATE, EVIL_TERMINAL, 316, floor)),
+        *gates.as_ron(gates.ring(EVIL_GATE, EVIL_ZONE, 64, floor, "the gate")),
+        *gates.as_ron(gates.terminal(EVIL_GATE, EVIL_TERMINAL, 364, floor)),
         # Scenery, furthest back first: the castle's front, the thorns, the sign.
         standing("castle_godwin_front", "castle_godwin_entrance", entrance_x, floor),
         standing("thorns_gate", "evil_thorn_bush", 430, floor),
@@ -300,8 +312,13 @@ def gatehouse():
         soldier(rid, 2, 980, floor - 160),
         soldier(rid, 1, 1100, floor, HOUND),
         soldier(rid, 1, 1300, floor, CRAWLER),
+        # The old drain down under the castle: at its foot an iron grille
+        # shuts it from the hall where the Inugami dies, until a lever in
+        # that hall opens it. The way back up after the fight (Jon,
+        # 2026-10-24: "you can open a secret passage back").
+        door(f"{rid}_passage", "down the old drain", PASSAGE_DOOR_X, floor, THRONE, f"{THRONE}_passage"),
     ]
-    return rid, castle(rid, e, "Castle Godwin: the gatehouse.")
+    return rid, castle(rid, e, "Castle Godwin: the gatehouse.", music=GATEHOUSE_MUSIC)
 
 
 def barracks():
@@ -429,28 +446,56 @@ def great_hall():
 THRONE_MUSIC = "oppressive_crush"
 
 #: The throne stands near the door you come in by (Jon, 2026-10-18): the
-#: left of its frame, and the coils at its sides.
+#: left of its frame, and the coils at its sides, from the arena's left.
 THRONE_X = 560
 COIL_WEST_X, COIL_EAST_X = 460, 760
 
 
-#: The throne room and the way the Inugami chases you out of it (Jon,
-#: 2026-10-20: the chase goes "through level geometry ... new geometry that is
-#: part of the castle"; "we can make the castle bigger and better"). One room,
-#: because a boss lives in its room: the throne room; east of it the long lab
-#: gallery; the stair tower you climb; the battlements under the sky; and the
-#: hall at the end where you finish it (`FINAL_W` wide, the last of the room).
-#: Each section's left edge and its floor (the top of its floor).
-THRONE_W, GALLERY_W, TOWER_W, WALK_W, FINAL_W = 1920, 2560, 960, 2560, 1600
-LOW_FLOOR, HIGH_FLOOR = 2240, 880
-#: The throne room and the gallery are as tall as the castle's other halls.
-LOW_VAULT = LOW_FLOOR - 784
-#: The top of the stair tower, and of the sky over the battlements and hall.
-TOWER_VAULT, SKY = 400, 96
+#: The throne room and the way the Inugami chases you out of it. One room,
+#: because a boss lives in its room (Jon, 2026-10-24: "let's make it a
+#: straight level that goes down instead of up. And have it sort of loop back
+#: topologically under the castle so when the fight is over you are close to
+#: the start of the level and you can open a secret passage back"):
+#:
+#: - the throne room, Wolfenstein's arena, at the east end (`ARENA_X`);
+#: - the drop: the Inugami crashes through the arena's east wall, and you
+#:   fall down a shaft (`SHAFT_W`) under it;
+#: - the run: a straight way west under the arena and the whole castle, a
+#:   step down every `RUN_STEP` (`RUN_STEPS` of them), `RUN_CLEAR` high: the
+#:   head flies it after you with room over it, and nothing hangs in its way;
+#: - the hall at its west end (`FINAL_W`), under the gatehouse, where Kagero
+#:   breaks its ward and you finish it. A lever there opens the old drain up
+#:   to the gatehouse.
+THRONE_W, SHAFT_W, FINAL_W = 1920, 640, 1600
+RUN_STEPS, RUN_DROP, RUN_CLEAR = 10, 96, 640
+#: The arena: its vault, and the top of its floor (784 under the vault's
+#: underside, as the castle's other halls; Wolfenstein's lightning measures it).
+ARENA_VAULT, ARENA_FLOOR = 48, 832
+#: The arena's floor is this thick over the run.
+ARENA_SLAB = 192
 
 
 def camera(name, x, y, w, h, extra=""):
     return f'( type: "CameraZone", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{name}", name: "{name}", mode: "Default"{extra} ) ),'
+
+
+def lock_wall(rid, x, y, w, h, gated_by, name):
+    return (f'( type: "LockWall", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{rid}", name: "{name}", '
+            f'gated_by: "{gated_by}", look: "temple_gate_iron" ) ),')
+
+
+def poster(name, kind, x, top):
+    """A poster, the left of its art at `x` and its top at `top`: on
+    stone (Jon, 2026-10-24: "The poster should probably be on solid wall ...
+    Right now they float in the air")."""
+    bx, by, bw, bh = body_box(kind)
+    return (f'( type: "Prop", px: [{x}, {top}], size: [{round(bw / PROP_PX)}, {round(bh / PROP_PX)}], '
+            f'fields: ( name: "{name}", kind: "{kind}" ) ),')
+
+
+#: The lever of the old drain: a mechanism the save keeps
+#: (`world.switch_on`), so the drain stays open.
+DRAIN_LEVER = "castle_godwin_drain_lever"
 
 
 def throne():
@@ -460,128 +505,138 @@ def throne():
     the throne into the room, where the fight is: a flat floor, two low
     galleries to jump to over his sweeps, and a high one.
 
-    East of it, behind an iron gate over a sill, the castle goes on: the
-    gate opens when the Inugami is past its first phase
-    (`boss.past_first_phase`), and it chases you out (Jon, 2026-10-22: "You
+    The arena's east wall is an iron gate over a sill: it opens when the
+    Inugami is past its first phase (`boss.past_first_phase`): the head
+    crashes through it, and it chases you out (Jon, 2026-10-22: "You
     shouldn't be able to move into a chase zone until you damage him enough
     in phase 1"). No soldier stands in the way: the chase is the castle's own.
 
-    - The lab gallery: rubble and the lab's furniture to jump, ledges to get
-      above its dives.
-    - The stair tower: you climb it ledge over ledge, the head under you.
-    - The battlements: the castle's roof under the sky, a broken walkway with
-      a catwalk under its gaps, the head over the parapet.
-    - The hall at the end of the battlements: where you finish it.
+    - The drop: past the gate a shaft goes down under the arena.
+    - The run: straight west under the castle, a step down at a time; the
+      lab's junk to jump, coils, and the regime's posters on its barricades.
+    - The hall at the end: where Kagero breaks its ward and you finish it.
+      Its west wall holds the old drain up to the gatehouse, behind a grille
+      that its lever opens; the lever is caged until the Inugami is dead.
     """
     rid = THRONE
     _, w, h = ROOMS_AT[rid]
-    gallery_x = THRONE_W
-    tower_x = gallery_x + GALLERY_W
-    walk_x = tower_x + TOWER_W
-    final_x = walk_x + WALK_W
-    assert final_x + FINAL_W == w, (final_x, FINAL_W, w)
-    lo, hi = LOW_FLOOR, HIGH_FLOOR
+    arena_x = w - SHAFT_W - THRONE_W
+    shaft_x = arena_x + THRONE_W
+    step = (w - FINAL_W) // RUN_STEPS
+    assert FINAL_W + step * RUN_STEPS == w, (w, step)
+    lo = ARENA_FLOOR
+    slab_bottom = lo + ARENA_SLAB
+    run_floor0 = slab_bottom + RUN_CLEAR
+    floors = [run_floor0 + RUN_DROP * k for k in range(RUN_STEPS)]
+    final_floor = floors[-1] + RUN_DROP
+    final_vault = final_floor - (ARENA_FLOOR - ARENA_VAULT)
+    assert final_floor + 64 == h, (final_floor, h)
     bw, bh = BOSS_BOX
     sill = 40
+    ax = lambda x: arena_x + x  # noqa: E731
     e = [
-        f'( type: "PlayerStart", px: [128, {lo - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-        # The masonry: the floor under everything low; over the throne room
-        # and the gallery; under the battlements and the hall.
-        solid("floor", 0, lo, tower_x + TOWER_W, h - lo),
-        solid("masonry_over_halls", 0, 0, tower_x, LOW_VAULT),
-        solid("masonry_under_roof", walk_x, hi, w - walk_x, h - hi),
-        solid("west_wall", 0, LOW_VAULT, WALL, lo - LOW_VAULT),
+        f'( type: "PlayerStart", px: [{ax(128)}, {lo - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         # ── The throne room ──
-        door(f"{rid}_west", "back to the great hall", 64, lo, GREAT_HALL, f"{GREAT_HALL}_east"),
-        ledge("gallery_west", 960, lo - 160, 256),
-        ledge("gallery_east", THRONE_W - 480, lo - 160, 256),
-        ledge("high_gallery", 1240, lo - 320, 320),
-        standing("coil_throne_west", "castle_tesla_coil", COIL_WEST_X, lo),
-        standing("iron_throne", "castle_iron_throne", THRONE_X, lo),
-        standing("coil_throne_east", "castle_tesla_coil", COIL_EAST_X, lo),
-        standing("wanted_throne", "castle_wanted_poster", THRONE_W - 300, lo - 150),
+        solid("vault", arena_x, 0, w - arena_x, ARENA_VAULT),
+        solid("arena_floor", arena_x, lo, THRONE_W, ARENA_SLAB),
+        solid("arena_west_wall", arena_x, ARENA_VAULT, WALL, lo - ARENA_VAULT),
+        door(f"{rid}_west", "back to the great hall", ax(64), lo, GREAT_HALL, f"{GREAT_HALL}_east"),
+        ledge("gallery_west", ax(960), lo - 160, 256),
+        ledge("gallery_east", ax(THRONE_W - 480), lo - 160, 256),
+        ledge("high_gallery", ax(1240), lo - 320, 320),
+        standing("coil_throne_west", "castle_tesla_coil", ax(COIL_WEST_X), lo),
+        standing("iron_throne", "castle_iron_throne", ax(THRONE_X), lo),
+        standing("coil_throne_east", "castle_tesla_coil", ax(COIL_EAST_X), lo),
         # He starts on his throne, dead: his box on the floor in front of
         # its middle; his conductor lifts him into the seat.
-        (f'( type: "BossSpawn", ref: "wolfenstein", px: [{throne_middle(THRONE_X) - bw // 2}, {lo - bh}], size: [{bw}, {bh}], '
+        (f'( type: "BossSpawn", ref: "wolfenstein", px: [{throne_middle(ax(THRONE_X)) - bw // 2}, {lo - bh}], size: [{bw}, {bh}], '
          f'fields: ( name: "{BOSS_NAME}", brain: "{BOSS_BRAIN}", encounter_id: "{BOSS_ENCOUNTER}" ) ),'),
         # His head, which rises from him when he falls.
-        (f'( type: "BossSpawn", px: [{throne_middle(THRONE_X) - INUGAMI_BOX[0] // 2}, {lo - bh - INUGAMI_BOX[1] - 40}], '
+        (f'( type: "BossSpawn", px: [{throne_middle(ax(THRONE_X)) - INUGAMI_BOX[0] // 2}, {lo - bh - INUGAMI_BOX[1] - 40}], '
          f'size: [{INUGAMI_BOX[0]}, {INUGAMI_BOX[1]}], fields: ( name: "{INUGAMI_NAME}", brain: "{INUGAMI_BRAIN}", '
          f'encounter_id: "{INUGAMI_ENCOUNTER}", wakes_after: "wolfenstein" ) ),'),
         # The east end of the throne room: a sill (his fight measures it as
         # his wall) and the iron gate over it, which stands until the head
-        # rises and breaks it open.
-        solid("gallery_sill", gallery_x - WALL, lo - sill, 2 * WALL, sill),
-        (f'( type: "LockWall", px: [{gallery_x - WALL}, {LOW_VAULT}], size: [{2 * WALL}, {lo - sill - LOW_VAULT}], fields: ( id: "{rid}_gallery_gate", '
-         f'name: "the gate of the long gallery", gated_by: "boss.past_first_phase {INUGAMI_ENCOUNTER}", look: "temple_gate_iron" ) ),'),
-        # ── The lab gallery ──
-        solid("rubble_a", gallery_x + 420, lo - 48, 96, 48),
-        standing("gallery_vat_a", "castle_specimen_vat", gallery_x + 660, lo),
-        ledge("gallery_ledge_a", gallery_x + 860, lo - 176, 288),
-        standing("gallery_table", "castle_operating_table", gallery_x + 1100, lo),
-        solid("rubble_b", gallery_x + 1400, lo - 64, 128, 64),
-        standing("gallery_poster_a", "castle_propaganda_poster_c", gallery_x + 1640, lo - 300),
-        solid("gallery_step", gallery_x + 1800, lo - 32, 520, 32),
-        standing("gallery_vat_b", "castle_specimen_vat", gallery_x + 1940, lo - 32),
-        ledge("gallery_ledge_b", gallery_x + 2060, lo - 208, 288),
-        # ── The stair tower: in at the bottom from the gallery, out at the top
-        # onto the battlements ──
-        solid("tower_vault", tower_x, TOWER_VAULT - 48, TOWER_W, 48),
-        solid("tower_west_wall", tower_x - WALL, TOWER_VAULT, WALL, LOW_VAULT - TOWER_VAULT),
-        # Its door onto the battlements is 336 high: the Inugami (212 tall)
-        # flies through it after you (Jon, 2026-10-22: "Widen the route").
-        solid("tower_east_wall", tower_x + TOWER_W, TOWER_VAULT, WALL, hi - 336 - TOWER_VAULT),
-        solid("tower_east_base", tower_x + TOWER_W, hi, WALL, lo - hi),
+        # breaks it open.
+        solid("crash_sill", shaft_x - WALL, lo - sill, 2 * WALL, sill),
+        lock_wall(f"{rid}_crash_gate", shaft_x - WALL, ARENA_VAULT, 2 * WALL, lo - sill - ARENA_VAULT,
+                  f"boss.past_first_phase {INUGAMI_ENCOUNTER}", "the east gate of the throne room"),
+        # ── The drop: a shaft down under the arena ──
+        solid("shaft_east_wall", w - WALL, ARENA_VAULT, WALL, floors[0] - ARENA_VAULT),
     ]
-    # The stair: ledges from side to side, each a jump over the last.
-    rises = (lo - hi) // 176
-    for k in range(1, rises + 1):
-        y = lo - 176 * k
-        x = tower_x + (64 if k % 2 else TOWER_W - 64 - 352)
-        e.append(ledge(f"tower_stair_{k}", x, y, 352))
+    # ── The run: west under the castle, a step down at a time ──
+    for k, floor in enumerate(floors):
+        x1 = w - step * k
+        x0 = x1 - step
+        e.append(solid(f"run_floor_{k}", x0, floor, step, h - floor))
+        ceiling = floor - RUN_CLEAR
+        # Its vault: the castle's masonry over it, or the arena's floor; the
+        # shaft is open over its first step.
+        if x0 < arena_x:
+            e.append(solid(f"run_vault_{k}", x0, 0, min(x1, arena_x) - x0, ceiling))
+        if x1 > arena_x and ceiling > slab_bottom:
+            e.append(solid(f"run_vault_{k}_under_arena", max(x0, arena_x), slab_bottom, min(x1, shaft_x) - max(x0, arena_x),
+                           ceiling - slab_bottom))
+    # What the run passes, by its step and how far along the step from its
+    # east end: barricades of the regime with its posters on them, the lab's
+    # junk, and its coils (the castle's lightning: Jon, 2026-10-24).
+    def on_step(k, along):
+        return w - step * k - along
+
+    barricade_h, barricade_w = 80, 112
+    run_posters = ["castle_propaganda_poster_a", "castle_wanted_poster", "castle_propaganda_poster_b", "castle_propaganda_poster_c"]
+    for n, k in enumerate((2, 4, 6, 8)):
+        x = on_step(k, 520)
+        e.append(solid(f"run_barricade_{n}", x, floors[k] - barricade_h, barricade_w, barricade_h))
+        kind = run_posters[n]
+        _, _, pw, ph = body_box(kind)
+        pw, ph = round(pw / PROP_PX), round(ph / PROP_PX)
+        e.append(poster(f"run_poster_{n}", kind, x + (barricade_w - pw) // 2, floors[k] - barricade_h + max(4, (barricade_h - ph) // 2)))
+    for n, k in enumerate((1, 3, 5, 7, 9)):
+        e.append(standing(f"run_coil_{n}", "castle_tesla_coil", on_step(k, 300), floors[k]))
     e += [
-        standing("tower_coil", "castle_tesla_coil", tower_x + TOWER_W // 2 - 28, lo),
-        standing("tower_poster", "castle_propaganda_poster_b", tower_x + TOWER_W // 2 - 40, lo - 900),
-        # The landing at the top, out to the battlements.
-        solid("tower_landing", tower_x + TOWER_W - 352, hi, 352, 32),
-        # ── The battlements: the roof of the castle, under the sky ──
-        solid("parapet_low", walk_x + 200, hi - 32, 64, 32),
-        solid("parapet_mid", walk_x + 1120, hi - 32, 64, 32),
-        standing("walk_searchlight_a", "castle_searchlight", walk_x + 560, hi),
-        # A gap in the walkway, with a catwalk under it and a way back up.
-        solid("walk_gap_catwalk", walk_x + 760, hi + 240, 400, 32),
-        ledge("walk_gap_step", walk_x + 1000, hi + 112, 160),
-        ledge("walk_ledge_a", walk_x + 1360, hi - 176, 288),
-        solid("parapet_high", walk_x + 1760, hi - 48, 96, 48),
-        standing("walk_searchlight_b", "castle_searchlight", walk_x + 2040, hi),
-        ledge("walk_ledge_b", walk_x + 2180, hi - 208, 256),
-        # ── The hall at the end: where you finish it ──
-        solid("final_east_wall", w - WALL, SKY, WALL, hi - SKY),
-        solid("final_vault", final_x, SKY - 48, FINAL_W, 48),
-        standing("final_coil_west", "castle_tesla_coil", final_x + 120, hi),
-        ledge("final_gallery_west", final_x + 260, hi - 160, 256),
-        ledge("final_gallery_east", w - 516, hi - 160, 256),
-        ledge("final_high", final_x + FINAL_W // 2 - 160, hi - 320, 320),
-        standing("final_coil_east", "castle_tesla_coil", w - 180, hi),
-        standing("final_poster", "castle_propaganda_poster_a", final_x + FINAL_W // 2 - 40, hi - 420),
+        solid("run_rubble_a", on_step(1, 700), floors[1] - 40, 96, 40),
+        standing("run_vat", "castle_specimen_vat", on_step(3, 660), floors[3]),
+        standing("run_table", "castle_operating_table", on_step(5, 700), floors[5]),
+        solid("run_rubble_b", on_step(7, 720), floors[7] - 48, 128, 48),
+        standing("run_searchlight", "castle_searchlight", on_step(9, 640), floors[9]),
     ]
-    # Cut the gap out of the battlements' masonry: the walkway is two pieces.
-    e = [x for x in e if '"masonry_under_roof"' not in x]
+    # ── The hall at the end: where you finish it ──
+    lintel_x, lintel_w, opening = WALL, 192, 160
     e += [
-        solid("roof_west", walk_x, hi, 760, h - hi),
-        solid("roof_east", walk_x + 1160, hi, w - walk_x - 1160, h - hi),
-        solid("roof_gap_floor", walk_x + 760, hi + 272, 400, h - hi - 272),
+        solid("final_floor", 0, final_floor, FINAL_W, h - final_floor),
+        solid("final_vault", 0, 0, FINAL_W, final_vault),
+        solid("final_west_wall", 0, final_vault, WALL, final_floor - final_vault),
+        standing("final_coil_west", "castle_tesla_coil", 380, final_floor),
+        ledge("final_gallery_west", 300, final_floor - 160, 256),
+        ledge("final_gallery_east", FINAL_W - 516, final_floor - 160, 256),
+        ledge("final_high", FINAL_W // 2 - 160, final_floor - 320, 320),
+        standing("final_coil_east", "castle_tesla_coil", FINAL_W - 220, final_floor),
+        # The old drain: an opening in the west wall under a stone lintel, its
+        # door at the back, and the grille across it that the lever opens.
+        solid("drain_lintel", lintel_x, final_vault, lintel_w, final_floor - opening - final_vault),
+        door(f"{rid}_passage", "up the old drain", lintel_x + 40, final_floor, GATEHOUSE, f"{GATEHOUSE}_passage"),
+        lock_wall(f"{rid}_drain_grille", lintel_x + lintel_w - 2 * WALL, final_floor - opening, 2 * WALL, opening,
+                  f"world.switch_on {DRAIN_LEVER}", "the grille of the old drain"),
+        lever(DRAIN_LEVER, "the lever of the old drain", "Pull the lever", 300, final_floor, action="ToggleFlag"),
+        # The lever is caged until the Inugami is dead.
+        lock_wall(f"{rid}_lever_cage", 284, final_floor - 64, 56, 64, f"boss.cleared {INUGAMI_ENCOUNTER}", "the cage of the lever"),
+        # The regime's posters on the lintel.
+        poster("final_poster_a", "castle_propaganda_poster_a", lintel_x + 24, final_floor - opening - 96),
+        poster("final_poster_b", "castle_wanted_poster", lintel_x + 112, final_floor - opening - 88),
     ]
-    # Each section frames itself; the long ones look ahead of you (you run
-    # east, and up the tower).
+    # Each section frames itself. On the run you go west with the head
+    # behind you: the camera keeps you to the left of the picture, so the
+    # head is in it (Jon, 2026-10-24: "the camera should let the player go
+    # much further right, so we can have the inugami head on screen").
     cameras = [
-        camera(f"{rid}_camera", 0, LOW_VAULT, THRONE_W, h - LOW_VAULT, ', clamp_mode: "zone_bounds"'),
-        camera(f"{rid}_gallery_camera", gallery_x, LOW_VAULT, GALLERY_W, h - LOW_VAULT, ", zoom: 0.85, target_offset_x: 160.0"),
-        camera(f"{rid}_tower_camera", tower_x, TOWER_VAULT - 48, TOWER_W, h - TOWER_VAULT + 48, ', zoom: 0.9, target_offset_y: -120.0, clamp_mode: "zone_bounds"'),
-        camera(f"{rid}_walk_camera", walk_x, 0, WALK_W, hi + 400, ", zoom: 0.85, target_offset_x: 160.0"),
-        camera(f"{rid}_final_camera", final_x, 0, FINAL_W, hi + 64, ', clamp_mode: "zone_bounds"'),
+        camera(f"{rid}_camera", arena_x, 0, THRONE_W, slab_bottom, ', clamp_mode: "zone_bounds"'),
+        camera(f"{rid}_drop_camera", shaft_x, 0, SHAFT_W, floors[0], ", zoom: 0.85, target_offset_y: 160.0"),
+        camera(f"{rid}_run_camera", FINAL_W, slab_bottom, shaft_x - FINAL_W, h - slab_bottom, ", zoom: 0.8, target_offset_x: 420.0"),
+        camera(f"{rid}_final_camera", 0, final_vault - 48, FINAL_W, h - final_vault + 48, ', clamp_mode: "zone_bounds"'),
     ]
-    text = room(rid, e, "Castle Godwin: the throne room of Wolfenstein, and the way out of it.", "castle_godwin_throne", THRONE_MUSIC, CASTLE_BG, cameras)
+    text = room(rid, e, "Castle Godwin: the throne room of Wolfenstein, and the way out of it under the castle.", "castle_godwin_throne",
+                THRONE_MUSIC, CASTLE_BG, cameras)
     return rid, text
 
 

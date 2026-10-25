@@ -2,7 +2,7 @@
 # made with
 #
 #   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools level clone \
-#       castle_godwin_throne hall_wolfenstein_arena --world-x 9920 --world-y 2608 \
+#       castle_godwin_throne hall_wolfenstein_arena --world-x 2000 --world-y 4800 \
 #       --ldtk game/ambition_map_assets/ambition_content/worlds/evil.ldtk --in-place
 #
 # then these edits make its ids its own: its door goes back to the hall, and
@@ -31,7 +31,7 @@ edits:
   - target: { identifier: BossSpawn, match: { name: Wolfenstein } }
     fields:
       encounter_id: hall.wolfenstein
-  - target: { identifier: BossSpawn, match: { name: Inugami } }
+  - target: { identifier: BossSpawn, match: { name: Inugami Wolfenstein } }
     fields:
       encounter_id: hall.wolfenstein_inugami
   - target: { identifier: PlayerStart }
@@ -41,26 +41,42 @@ edits:
     fields:
       id: hall_wolfenstein_arena_camera
       name: hall_wolfenstein_arena_camera
-  - target: { identifier: CameraZone, match: { id: castle_godwin_throne_gallery_camera } }
+  - target: { identifier: CameraZone, match: { id: castle_godwin_throne_drop_camera } }
     fields:
-      id: hall_wolfenstein_arena_gallery_camera
-      name: hall_wolfenstein_arena_gallery_camera
-  - target: { identifier: CameraZone, match: { id: castle_godwin_throne_tower_camera } }
+      id: hall_wolfenstein_arena_drop_camera
+      name: hall_wolfenstein_arena_drop_camera
+  - target: { identifier: CameraZone, match: { id: castle_godwin_throne_run_camera } }
     fields:
-      id: hall_wolfenstein_arena_tower_camera
-      name: hall_wolfenstein_arena_tower_camera
-  - target: { identifier: CameraZone, match: { id: castle_godwin_throne_walk_camera } }
-    fields:
-      id: hall_wolfenstein_arena_walk_camera
-      name: hall_wolfenstein_arena_walk_camera
+      id: hall_wolfenstein_arena_run_camera
+      name: hall_wolfenstein_arena_run_camera
   - target: { identifier: CameraZone, match: { id: castle_godwin_throne_final_camera } }
     fields:
       id: hall_wolfenstein_arena_final_camera
       name: hall_wolfenstein_arena_final_camera
-  - target: { identifier: LockWall, match: { id: castle_godwin_throne_gallery_gate } }
+  - target: { identifier: LockWall, match: { id: castle_godwin_throne_crash_gate } }
     fields:
-      id: hall_wolfenstein_arena_gallery_gate
+      id: hall_wolfenstein_arena_crash_gate
       gated_by: boss.past_first_phase hall.wolfenstein_inugami
+  # The old drain goes back to the hall, one way: the hall's door comes in
+  # at the throne room.
+  - target: { identifier: LoadingZone, match: { id: castle_godwin_throne_passage } }
+    fields:
+      id: hall_wolfenstein_arena_exit
+      name: back to the hall of bosses
+      target_room: hall_of_bosses
+      target_zone: hall_to_wolfenstein_portal
+      bidirectional: false
+  - target: { identifier: Switch, match: { id: castle_godwin_drain_lever } }
+    fields:
+      id: hall_wolfenstein_arena_drain_lever
+  - target: { identifier: LockWall, match: { id: castle_godwin_throne_drain_grille } }
+    fields:
+      id: hall_wolfenstein_arena_drain_grille
+      gated_by: world.switch_on hall_wolfenstein_arena_drain_lever
+  - target: { identifier: LockWall, match: { id: castle_godwin_throne_lever_cage } }
+    fields:
+      id: hall_wolfenstein_arena_lever_cage
+      gated_by: boss.cleared hall.wolfenstein_inugami
   - target: { identifier: DebugLabel }
     fields:
       name: hall_wolfenstein_arena_label

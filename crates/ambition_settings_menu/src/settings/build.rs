@@ -11,7 +11,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        GameplayViewShape, VisualQualityProfile, VsyncMode,
+        GameplayViewShape, PortalWindowLook, VisualQualityProfile, VsyncMode,
     };
 
     let v = &settings.video;
@@ -92,6 +92,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     i,
                     n,
                     "Limit or disable screen-flash effects.",
+                )
+            },
+            {
+                let (i, n) = enum_index(&PortalWindowLook::ALL, v.portal_windows);
+                cycle(
+                    SettingsOptionId::PortalWindows,
+                    "Portal Windows",
+                    v.portal_windows.label(),
+                    i,
+                    n,
+                    "Seamless portal windows, or tinted ones that stand out from the world.",
                 )
             },
             {

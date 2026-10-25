@@ -75,6 +75,7 @@ pub enum SettingsOptionId {
     CameraFraming,
     ViewShape,
     Flashes,
+    PortalWindows,
     Colorblind,
     ShowFps,
     FramePacing,
@@ -162,7 +163,7 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 61] = [
+    pub const ALL: [Self; 62] = [
         Self::AcceptLocalJoins,
         Self::AimFrameMode,
         Self::Assist,
@@ -191,6 +192,7 @@ impl SettingsOptionId {
         Self::PauseInputUnfocused,
         Self::PlayerDamage,
         Self::PortalReverseFacing,
+        Self::PortalWindows,
         Self::QuestHud,
         Self::ResetControlFiltering,
         Self::RightStickDeadzone,

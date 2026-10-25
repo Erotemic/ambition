@@ -123,7 +123,7 @@ fn video_screen_is_the_curated_subset() {
     // one-global-profile→budget selector from the visual-quality-profiles feature)
     // leads the basic rows.
     assert_eq!(
-        &ids[..9],
+        &ids[..10],
         &[
             SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
@@ -132,6 +132,7 @@ fn video_screen_is_the_curated_subset() {
             SettingsOptionId::CameraFraming,
             SettingsOptionId::ViewShape,
             SettingsOptionId::Flashes,
+            SettingsOptionId::PortalWindows,
             SettingsOptionId::Colorblind,
             SettingsOptionId::ShowFps,
         ]
@@ -164,6 +165,7 @@ fn shaders_screen_reaches_every_shader_option() {
                     | SettingsOptionId::CameraFraming
                     | SettingsOptionId::ViewShape
                     | SettingsOptionId::Flashes
+                    | SettingsOptionId::PortalWindows
                     | SettingsOptionId::Colorblind
                     | SettingsOptionId::ShowFps
                     | SettingsOptionId::FramePacing
@@ -200,10 +202,10 @@ fn shaders_screen_reaches_every_shader_option() {
         ]
     );
     // Each shader option carries a live slider value label (e.g. "0%") so the
-    // cube renders the same control the grid does. (The leading 11 basic Video
-    // rows — 8 basic + FramePacing + Vsync + VisualQuality — are cycles/toggles, so
+    // cube renders the same control the grid does. (The leading 12 basic Video
+    // rows — 9 basic + FramePacing + Vsync + VisualQuality — are cycles/toggles, so
     // only the shader tail is checked.)
-    for o in options.iter().skip(11) {
+    for o in options.iter().skip(12) {
         assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
     }
 }

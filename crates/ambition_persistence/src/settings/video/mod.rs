@@ -22,6 +22,48 @@ fn cycle_prev<T: Copy + PartialEq, const N: usize>(all: &[T; N], current: T, fal
     all[(idx + all.len() - 1) % all.len()]
 }
 
+/// How a portal's window looks: seamless (the far side exactly as a camera
+/// there sees it), or tinted, so that a window is told from the world around
+/// it. Presentation only: what a window shows and what goes through a portal
+/// are the same in each.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PortalWindowLook {
+    #[default]
+    Seamless,
+    TintedBlue,
+    TintedGold,
+}
+
+impl PortalWindowLook {
+    pub const ALL: [Self; 3] = [Self::Seamless, Self::TintedBlue, Self::TintedGold];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Seamless => "seamless",
+            Self::TintedBlue => "tinted blue",
+            Self::TintedGold => "tinted gold",
+        }
+    }
+
+    /// The window's tint as linear-light RGB multipliers: white for
+    /// seamless.
+    pub fn tint(self) -> [f32; 3] {
+        match self {
+            Self::Seamless => [1.0, 1.0, 1.0],
+            Self::TintedBlue => [0.72, 0.86, 1.0],
+            Self::TintedGold => [1.0, 0.88, 0.62],
+        }
+    }
+
+    pub fn next(self) -> Self {
+        cycle_next(&Self::ALL, self, 0)
+    }
+
+    pub fn prev(self) -> Self {
+        cycle_prev(&Self::ALL, self, 0)
+    }
+}
+
 /// Whether full-screen flash effects are shown at full strength,
 /// reduced, or disabled. Read by camera flash and VFX systems.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -727,6 +769,8 @@ pub struct VideoSettings {
     #[serde(default)]
     pub flashes: FlashIntensity,
     #[serde(default)]
+    pub portal_windows: PortalWindowLook,
+    #[serde(default)]
     pub colorblind: ColorblindMode,
     /// Whether the FPS / frame-time overlay is shown. ON by default
     /// on every platform — useful for diagnosing perf issues across
@@ -763,6 +807,7 @@ impl Default for VideoSettings {
             camera_framing: CameraFramingPreset::default(),
             view_shape: GameplayViewShape::default(),
             flashes: FlashIntensity::default(),
+            portal_windows: PortalWindowLook::default(),
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),
             frame_cap: FramePaceCap::default(),

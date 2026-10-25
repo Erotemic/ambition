@@ -178,6 +178,10 @@ struct SceneCaptureConfig {
     /// (`CameraZoomPreset`). A wider view shows what a default capture can
     /// not, like the second image in a row of portal images.
     camera_zoom: Option<ambition_platformer2d::persistence::settings::video::CameraZoomPreset>,
+    /// The look of the portal windows (`--portal-windows`): seamless unless
+    /// asked, whatever the user's own settings say, so a seam check measures
+    /// a seamless window.
+    portal_windows: ambition_platformer2d::persistence::settings::video::PortalWindowLook,
     /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
     ///
     /// Without this flag a capture cannot show post-process. The effects are
@@ -431,6 +435,10 @@ OPTIONS:
                         the fog in front of the sky of the two-state room look
                         (`RoomLookDepth`): how much, from 0 to 1, and how much
                         it is in patches, from 0 to 1. The default is 0.22,0.5.
+    --portal-windows seamless|tinted-blue|tinted-gold
+                        the look of the portal windows (the player's
+                        `Video > Portal Windows`); seamless by default,
+                        whatever the user's settings say
     --camera-zoom NAME  how much of the world the camera shows: duel (the
                         default, 568 by 320 units), tight, combat, arena,
                         cinematic or debug (1600 by 900)
@@ -591,6 +599,17 @@ fn force_look_depth(
     let wanted = ambition_content::presentation::room_look::RoomLookDepth { fog, fog_patches };
     if *depth != wanted {
         *depth = wanted;
+    }
+}
+
+/// `--portal-windows`: write the window look of the user settings, every
+/// frame, as `force_camera_zoom` does.
+fn force_portal_windows(
+    config: Res<SceneCaptureConfig>,
+    mut settings: ResMut<ambition_platformer2d::persistence::settings::UserSettings>,
+) {
+    if settings.video.portal_windows != config.portal_windows {
+        settings.video.portal_windows = config.portal_windows;
     }
 }
 
@@ -1340,6 +1359,7 @@ fn install_room_capture(app: &mut App) {
             force_screen_effects,
             force_look_depth,
             force_camera_zoom,
+            force_portal_windows,
             // Before every presentation system that reads the camera: with no
             // order, a serial executor ran the motes and the daylight veil
             // against the camera before this pin, and drew them off the frame.
@@ -1516,6 +1536,7 @@ impl SceneCaptureConfig {
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut look_depth: Option<[f32; 2]> = None;
         let mut camera_zoom = None;
+        let mut portal_windows = ambition_platformer2d::persistence::settings::video::PortalWindowLook::Seamless;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
         let mut frames: usize = 1;
@@ -1587,6 +1608,18 @@ impl SceneCaptureConfig {
                     look_depth = Some(<[f32; 2]>::try_from(numbers).map_err(|_| {
                         "--look-depth wants two numbers: FOG,PATCHES (e.g. 0.22,0.5)".to_string()
                     })?);
+                    2
+                }
+                "--portal-windows" => {
+                    use ambition_platformer2d::persistence::settings::video::PortalWindowLook as Look;
+                    portal_windows = match args.get(i + 1).map(String::as_str) {
+                        Some("seamless") => Look::Seamless,
+                        Some("tinted-blue") => Look::TintedBlue,
+                        Some("tinted-gold") => Look::TintedGold,
+                        other => {
+                            return Err(format!("--portal-windows wants seamless, tinted-blue or tinted-gold, not {other:?}"))
+                        }
+                    };
                     2
                 }
                 "--camera-zoom" => {
@@ -2065,6 +2098,7 @@ impl SceneCaptureConfig {
                 boss_blows: Vec::new(),
                 look_depth,
                 camera_zoom,
+                portal_windows,
                 screen_effects,
                 press,
                 press_during,
@@ -2114,6 +2148,7 @@ impl SceneCaptureConfig {
             boss_blows,
             look_depth,
             camera_zoom,
+            portal_windows,
             screen_effects,
             follow_player,
             player_beside,

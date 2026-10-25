@@ -1173,6 +1173,22 @@ mod host_adapter {
     /// - `load_portal_gun_art` at startup (asset PATHS are Ambition content).
     pub struct PortalObservationPlugin;
 
+    /// The player's portal window look (`Video > Portal Windows`) is the
+    /// windows' tint: white, seamless, unless the player asks for a tint.
+    pub fn sync_portal_window_look(
+        settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+        config: Option<ResMut<ambition_portal2d_presentation::PortalViewConeConfig>>,
+    ) {
+        let (Some(settings), Some(mut config)) = (settings, config) else {
+            return;
+        };
+        let [r, g, b] = settings.video.portal_windows.tint();
+        let tint = Color::linear_rgb(r, g, b);
+        if config.tint != tint {
+            config.tint = tint;
+        }
+    }
+
     /// Run condition of the portal observation publishers: a portal stands or
     /// a body carries a transit latch, now or on the last frame. Without either
     /// they publish empty answers (no viewer, no transiting body), and the one
@@ -1205,6 +1221,12 @@ mod host_adapter {
             app.add_plugins(ambition_platformer2d_runtime::host_intents::HostIntentPlugin::<
                 ambition_portal2d::TogglePortalGunsActive,
             >::default());
+            app.add_systems(
+                Update,
+                sync_portal_window_look.run_if(|settings: Option<Res<ambition_persistence::settings::UserSettings>>| {
+                    settings.is_some_and(|settings| settings.is_changed())
+                }),
+            );
             app.add_systems(Startup, load_portal_gun_art).add_systems(
                 Update,
                 (

@@ -945,3 +945,174 @@ I'm proudly making a game with AI, even if it invites backlash. Because I want t
 I think the backlash is stemming from a vocal uninformed minority.
 
 The tricky part is that there are real problems with LLMs, and by saying words like "proudly" and "uninformed", that doesn't do enough justice to those real issues. But I think I need to first state the counter-case firmly before I dive into the real nuance. There are real problems around energy usage, power centralization, the proliferation of competent workers following the orders of bad-faith actors, the flood of low-effort content, and more. I'm hoping to explore these ideas in my game. 
+
+
+---
+
+We need critiques that might be steelman arguments against my point of view. Something to sympathize with people who are struggling or who have their livelihood jeopardized, people - I suppose like myself - who have had their skills devalued.  I feel this strongly because my ability to code used to set me apart. But that is no longer a distinguishing factor. Fortunately, I have very good design sense, and at least for now, that seems stable. But maybe it won't be forever. For artists and graphic designers. Whooph, they are in a world of hurt. Sure they do have compositional abilities better than most, but their craft their mechanical skill set was really really important and extremely valuable, and now, it's been automated. That really sucks for them, especially because there isn't a safety net, but even if their was, if your idea of what you were going to do for the rest of your life was upended, that would drive some people mad.
+
+
+I suppose it might help to enumerate the real problems with AI:
+
+* Environmental cost - real, although maybe exaggerated by critics.
+* Power centralization - the people with the models have an enormous outsized influence and control over information
+* Intellectual abdication - people choose to give up the ability to think for themselves - although this was a problem before AI.
+* Homogenization - The Artificial Hivemind has a real potential to dampen the diversity of ideas.
+* Displacement - Skills that people invested in and thought would be value have lost much of their value.
+* Domination / misalignment - There is some potential for misaligned models to work towards perverse objectives, this is the existential skynet problem.
+
+
+On a separate note, I do want this game to feel like an intense unapologetic
+fever dream. It's got to be WAY out there.
+
+Maybe you've got a dimension gate, that has entered a new place, and just a
+slice of life detail is how eating raspberries where you had to go out and pick
+them, used to be the only way to enjoy them, and now via intergate travel its
+possible to ship raspberries and buy pre-picked batches and batches of them,
+something was lost via abundance.
+
+---
+
+
+So maybe the 17 dimension I have laid out need to change, or I need to add new
+dimensions, or something in order to get all of the places I need to make the
+world feel both vast, and as if it could expand, because what we are going to
+do is build a "expanding video game", and the product is free, what you do is
+pay for the development.
+
+The impacted people, where do they live. We need multiple dimensions with
+people, not just complete fever dream, although that needs to be there. Maybe, 
+
+Well, the pirate and ninja dimension can have seafearing towns, and the ninja
+dimension has Japanese ninja-themed influence, potentially shonen parodies.
+
+Dimensions should have variation I suppose, what matters is if they are
+connected. I think there should be some space travel themes too. Some
+dimensions have planets, others sit on abstract topological surfaces.
+
+I think we have all the gates travel different places. There may be a hub with
+more than one gate, but we should avoid letting them travel to each other.
+Maybe we allow for a custom address option, which is a way a player can
+speedrun the game, you learn gate addresses, and when they do you get them in
+your menu, but you can always just press random buttons and see what happens.
+
+If possible they should be puns or jokes with the letters we have in the
+chevrons on the gate which are: legally distinct. Too bad we can spell out
+"evil" with those letters.
+
+We do need a space station. Multiple gates  in the same hub are for mass travel
+and supply chains, they are logistical areas. Gates are bottlenecks. They don't
+always work, there is often a cost to traversing them for biological
+characters. 17 dimensions doesn't mean 17 gates. 
+
+Perhaps the military guards a gate that is accessible with a trick early in the
+game, but otherwise unavailable.  But what we do is make the hub a LOT easier
+to manage. Instead of having crazy amounts of doors, we have one gate, and we
+can go to math town, (should make primeval trail a gate as well as other
+non-test areas, they can stay doors), evil dimension, maybe the start of
+gnuton's gravity trail.
+
+
+A hyperbolic argument chamber would be funny (parody of hyperbolic time chamber). 
+Some joke about it being a sinch would be good too.
+
+
+gnuton should probably live in the science dimension, cast out from the math
+dimension maybe? But that's why he is in space. Not sure if he should have a
+planet or not? 
+
+I also wonder if the mockingbird fight is how you get to space? But the burning
+flying sharks are from the pirate dimension, so maybe that dimension has space
+and planets too.
+
+I think I've stated something like this before but the idea I like is that 
+some dimensions exist entirely on a manifold (i.e. the math dimension is on
+some abstract shape, where a torus is glued to some other larger complex shape,
+not sure what it is yet).
+
+The science dimension has planets - maybe in the future there is a 3d science
+dimension.
+
+There needs to be a sealion character. 
+
+We need to do something about the backdrop for the pirate level showing under
+the water. We likely need an opaque near field background in the water, or
+another background that renders over when viewed from the water. Right now the
+backdrop for the pirate village looks bad.
+
+I want to stylize the delta as a solid triangle. A triangle can be a symbol in
+the game. The number 3 is very evocative. Let's play with it. We can make
+polygon pickups be currency or resources.
+
+I want a character that references the adventure time character that wanted
+triangles or something, or had its triangle stolen.
+
+
+2 player mode should be one of those opt-into by composition things in the
+architecture. 
+
+Here's a thought: because this game is making so many references, it is in a
+sense communicating my lived experiences. The motifs I use in the game, are
+things that have impacted my own life. The composition of the existing, and
+then the adding of something new. That's the style of art I'm interested in. 
+Standing on the shoulder of billions - often unsung - of giants.
+
+
+Maybe robots primary purpose in this world is to take shipments though
+dimension gates. We can also treat big dimension gate hubs as airports -
+biologicals getting sick going through them, but they do anyway for the travel
+sometimes - and if you do it enough you do get used to it. It's only about the
+radiation of a banana.
+
+
+And I need to remember to tell an agent: We need to minimize doors, unless they
+are going into interiors. We need most transitions between rooms to be loading
+zone based on sides of rooms. E.g. math town gate terminal to the Euclid
+Street.
+
+
+I need a better inventory system.
+
+Right now, we aren't really using the inventory screen. And I want to start
+using it better, and build a plan.  I want to have the player be able to select
+mutually exclusive capabilities of the robot, e.g. fireball projectile or laser
+projectile, 
+
+My favored Marth / Knight style kit. Vs some other directional attack kit.
+(e.g. similar to hornet crests).
+
+
+I wonder if mathematicians can debate if the doors change the topology or not.
+
+Still problems with wolfenstein:
+
+* boss bar comes up to early
+
+* name should be "Inugami Wolfenstein" 
+
+* default inugami should not have ghost fire around its head, we should add
+  them only during the chase where the wolf is effectively invincible. They are
+  what force you to run.
+
+* The ninja is who dispels the flames and lets you fight once you reach the end
+  of the hall.
+
+* You are not given much distance from the boss in the chase, the camera should let the player go much further right, so we can have the inugami head on screen.
+
+* The head is still very bad at navigating the zone, let's make it a straight level that goes down instead of up. And have it sort of loop back topologically under the castle so when the fight is over you are close to the start of the level and you can open a secret passage back.
+
+* Animations are not smooth enough.
+
+* The poster should probably be on solid wall in that level Right now they
+  float in the air.
+
+* Lightning should still be a theme in the inugami fight.
+
+* The ninja uses a spell to dispel the blue flames protecting the boss.
+
+
+We need a way to mark if a name was human approved or llm generated. The name
+"Voss" is so LLMy. We should also mark if it was LLM generated separately, it
+could be LLM generated and human approved, or human generated and approved by
+someone else. But I need a quick way to say: rerandomize all the llm generated
+names I didn't approve.

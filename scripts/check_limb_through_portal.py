@@ -18,10 +18,12 @@ that a window sees).
 
 A case fails when, at any frame:
 
-- the limb's area is less than `MIN_OF_MEDIAN` of its median over the film
-  (the limb vanished, or the part of it in the pair was not drawn), or
+- the limb's area is less than `MIN_OF_MEDIAN` of its median before the
+  first blow (the limb vanished, or the part of it in the pair was not
+  drawn), or
 - it changed from the frame before by more than `MAX_STEP` times (the limb
-  jumped, or a piece was drawn stretched or in the wrong place), or
+  jumped, or a piece was drawn stretched or in the wrong place; windows
+  off only), or
 - no frame of the film had the limb in a pair (the film missed the blow).
 
     tools/ambition_ldtk_tools/.venv/bin/python scripts/check_limb_through_portal.py [--build] [--tiers low,high] [--out DIR]
@@ -73,13 +75,18 @@ class Case:
     frames: int
     # `--portal-effect`: `off` (pieces only) or `cones` (with windows).
     effect: str = "off"
+    # The most the limb's area may change in a tick. With windows a limb
+    # that goes in is seen again in the window of the other end, so its
+    # area doubles in a tick by right: that case checks only that the limb
+    # is drawn.
+    max_step: float | None = MAX_STEP
 
 
 CASES = [
     Case("hammer", "GNU-ton's first blows, the player on the floor", "gnu_ton_arena", (900, 900), (400, 1200),
          "hand_left", 280, 360),
     Case("hammer_windows", "the same, with the portal windows", "gnu_ton_arena", (900, 900), (400, 1200),
-         "hand_left", 280, 180, "cones"),
+         "hand_left", 280, 180, "cones", None),
 ]
 TIERS = ("low", "high")
 
@@ -143,15 +150,21 @@ def measure(case: Case, folder: Path) -> dict:
         mask = np.abs(x - y).max(axis=2) > DIFFERS
         areas.append(int(mask.sum()))
         masks.append(mask)
-    median = float(np.median(areas))
     cut = sorted(cut_ticks)
+    # The limb's area as its body draws it before the first blow's cut: what
+    # it is measured against. (A limb that vanished for most of the film
+    # would make the film's own median nothing.)
+    before = [area for tick, area in zip(ticks, areas) if not cut or tick < cut[0]]
+    median = float(np.median(before or areas))
     bad: list[dict] = []
     for i, area in enumerate(areas):
         if area < MIN_OF_MEDIAN * median:
             bad.append({"frame": i, "tick": ticks[i], "area": area, "why": "the limb is not drawn"})
-        elif i > 0 and max(area, 1) / max(areas[i - 1], 1) > MAX_STEP:
+        elif case.max_step is None:
+            continue
+        elif i > 0 and max(area, 1) / max(areas[i - 1], 1) > case.max_step:
             bad.append({"frame": i, "tick": ticks[i], "area": area, "why": f"grew from {areas[i - 1]}"})
-        elif i > 0 and max(areas[i - 1], 1) / max(area, 1) > MAX_STEP:
+        elif i > 0 and max(areas[i - 1], 1) / max(area, 1) > case.max_step:
             bad.append({"frame": i, "tick": ticks[i], "area": area, "why": f"shrank from {areas[i - 1]}"})
     for b in bad[:12]:
         i = b["frame"]
@@ -163,7 +176,9 @@ def measure(case: Case, folder: Path) -> dict:
     (folder / "areas.json").write_text(json.dumps({"ticks": ticks, "areas": areas, "cut_ticks": cut}))
     ok = not bad and bool(cut) and median > 0
     why = None
-    if not cut:
+    if median <= 0:
+        why = "the limb is not drawn before the blow: the film does not show it"
+    elif not cut:
         why = "no body was drawn cut by a pair: the film missed the blow"
     elif bad:
         why = f"{len(bad)} frames: " + "; ".join(f"tick {b['tick']} {b['why']} ({b['area']} px)" for b in bad[:6])

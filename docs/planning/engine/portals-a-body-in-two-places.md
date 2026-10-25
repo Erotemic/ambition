@@ -102,8 +102,8 @@ Does:
 - Damage: the fist's box (`LimbStrike`, `FollowOwner` of the fist) is cut by the pair
   (`apply_hitbox_damage` over `PortalPassages::pieces`); it hurts under the far line
   and not in the giant (test `the_punch_hurts_under_the_far_line_through_the_pair`).
-- Drawing: the giant's whole picture is cut by the pair (here: in front, deeper than
-  the fist, beside the opening; through: under the opening to the fist's depth).
+- Drawing: the arm's own parts go through the pair, as the limb's twin; the
+  rest of the giant stays (below, "Drawing a limb through a pair").
 - A body under the far line half through the pair is hit at both ends (combat stage 4).
 
 Does not:
@@ -117,6 +117,44 @@ Since G1-G5 (2026-10-17): a second pair in the arm's way cuts it too (side by
 side always; one after another where the game's `PortalGeometry` composes
 them), the drawing has a piece through each, and a player's strike through a
 pair reaches the giant (feature hits take the pieces).
+
+## Drawing a limb through a pair (2026-10-25)
+
+Jon: "his arm just disappears when he punches through the portal". MEASURED
+on film (`capture_scene`, `gnu_ton_arena`, the first hammer, one tick a
+frame): the arm was drawn nowhere from tick 321 to 424, the whole time the
+fist was in the floor; for the two frames it went in; and between, it was a
+bar from the near line to the floor. Fixed in `950467e64`:
+
+- A limb's twin (`rigged::LimbTwin`) takes its root's sprite size with its
+  animator. No animator writes a twin, and the rigged driver read the cell
+  size it wrote the frame before as a stance squash: the twin was 2,119,969
+  px tall after 12 frames, so its pieces were drawn off the screen.
+- The twin is made before its limb goes in: each limb of a host in a room
+  with a portal has its twin, hidden, composited by the room rule of
+  `declare_portal_body_demand`. Made on the frame the limb went in, the
+  limb was drawn by nothing for the frames the twin took to be drawn.
+- The twin is cut with no depth: it is the limb only, so all of it past the
+  plane goes through. `PortalHostReach` stays for a host cut as one picture.
+- Three pictures keep the frame's draw order: the host draws the parts
+  under the limb, the twin the limb, the over twin (`LimbTwin::spawn_over`)
+  the parts over it, uncut (`TrackLayer`). At one depth the twin and the
+  host took turns on top and the upper arm flickered behind the giant.
+- The twin follows its root after `animate_characters` and
+  `pose_boss_part_animators` (it drew the frame before).
+
+Guard: `scripts/check_limb_through_portal.py` films the fight twice, with
+the limb and with it drawn nowhere (`capture_scene --limbs-unseen SLOT`),
+and fails when the limb's area in a tick is under 35% of its area before
+the blow, or (windows off) changes more than 1.8 times in a tick. On the
+old code: 109 bad frames (106 with windows). Now: continuous at `low` and
+`high`, windows off and on. Tests:
+`a_limb_twin_keeps_its_roots_size_frame_after_frame`,
+`a_limb_drawn_apart_and_the_body_under_and_over_it_draw_each_part_once_in_order`.
+
+⛔ A drawable made from another (a twin, an overlay) gets EVERY fact the
+first one's writers give it each frame, after them. And a picture a cut
+needs is made before the cut, not on the frame of the cut.
 
 ## A limb's cut is a published fact (2026-10-24)
 
@@ -455,7 +493,39 @@ that cut a portal.
 
 ## Open
 
-None. Closed since 2026-10-16: a shot's step ends at the crossing and its
+**Which drawables a pair cuts (2026-10-25).** The cut of a picture
+(`sync_portal_body_pieces`) is given to a drawable by a host adapter of its
+kind (`publish_portal_body_views`, `publish_transiting_feature_bodies`,
+`publish_threaded_host_pictures`, `publish_transiting_drawn_bodies`). A kind
+with no adapter is drawn whole on its side of the pair. Jon (2026-10-17): it
+must not be possible to add a drawable that does not work with portals.
+
+| drawable | cut by the pair, drawn on both sides? | how known |
+|---|---|---|
+| the player's body | yes | MEASURED (`portal_seam_lab.py` 2026-10-25, pairs A and D: no frame vanished, least drawn 0.96) |
+| an actor's sprite (`FeatureVisual` of a body in transit) | yes | REASONED (same cut; test `a_body_that_is_not_the_player_is_cut_while_it_is_in_transit` checks the facts, not pixels) |
+| a part-drawn body (composited in a portal room) | yes, as one picture | MEASURED for GNU-ton's limb (above); a whole part-drawn body REASONED |
+| a limb of a part-drawn body (`LimbTwin`) | yes | MEASURED (above) |
+| a thrown item, a shot | yes | MEASURED (the same run, pairs A, B, D: no frame vanished, least drawn 0.90) |
+| worn gear (`worn_gear_visuals`) | no: a sprite of its own | REASONED |
+| a held or wielded item (`item_visuals`, `wielded_item_visuals`) | no | REASONED |
+| the hit flash silhouette (a mesh over the body) | no (known gap in `visuals.rs`) | REASONED |
+| a limb trail (`limb_trail.rs`) | no | REASONED |
+| a light line on a limb | not a portal drawable: it is laid on the published cut | REASONED |
+| a slash, an effect sheet, particles, dust, lightning meshes | no | REASONED |
+
+Proposal for Jon (not built): one road for every drawable. A pair draws
+what is behind its entry plane inside its opening out of its exit, by a
+capture of that slab (as a window captures the far side), and the entry's
+pane hides it on the near side. Then any sprite, mesh, particle or trail is
+cut by geometry, with no adapter per kind, and the per-kind cut (the
+adapters, `LimbTwin`, `PortalHostReach`) is deleted. Cost: one more capture
+per pair that has something in its slab. Open questions: a drawable that
+overlaps a mid-air opening and is not going through (the giant's back at
+its near line) must not be carried; the sim knows what goes through (a
+transit, a limb in a pair), the slab does not.
+
+Closed since 2026-10-16: a shot's step ends at the crossing and its
 next step sweeps the far side whole, walls and bodies (`5ff8fdd00`); feature
 hits take the pieces (G2); the glue carries water, upright ladders, turned
 solids exactly and turned one-way platforms as lines (`029a03a02`,

@@ -14,7 +14,7 @@ Run them from `tools/ambition_ldtk_tools`.
 | room | what it is | who lives there |
 | --- | --- | --- |
 | `ninja_village_gate_shrine` | the gate shrine; a stone stair up to the torii terrace | Sato (shrine keeper), Kenji (gate-sick courier) |
-| `ninja_village_street` | the main street, the tea house, the roofs as a road | Daichi (wants to pass the exam), Ume (tea house) |
+| `ninja_village_street` | the main street, the tea house, the roofs as a road | Daichi (wants to pass the exam), Ume (tea house), the Gator Geisha (entertains at the tea house) |
 | `ninja_village_dojo` | the village dojo and its rank exam | Sensei Hayashi (teacher), Ren (top student and rival) |
 | `ninja_village_forest` | the cedar forest; the door to the Shadow Dojo | |
 

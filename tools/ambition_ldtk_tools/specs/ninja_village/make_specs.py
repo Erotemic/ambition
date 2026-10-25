@@ -149,6 +149,8 @@ def street():
         *[ledge(name, x0, y, x1 - x0) for name, x0, x1, y in ROOFS],
         resident("npc_village_daichi", "ninja_village_daichi", 760, ground),
         resident("npc_village_ume", "ninja_village_ume", 1280, ground),
+        # The tea house's entertainer: an albino alligator geisha (Jon, 2026-10-25).
+        resident("npc_gator_geisha", "ninja_village_gator_geisha", 1480, ground),
         sign("tea_house_sign", 1280, ground - 200, "UME'S TEA HOUSE: gate-sick half price", 360),
         door("street_dojo_door", "into the dojo", 1736, ground, DOJO, "dojo_door"),
         sign("dojo_sign", 1760, ground - 180, "VILLAGE DOJO: rank exams on the hour", 340),

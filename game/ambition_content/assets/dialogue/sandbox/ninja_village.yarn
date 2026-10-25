@@ -53,6 +53,20 @@ Ume: Welcome. Tea for the tired, and for the gate-sick at half price. You do not
 -> Thank you.
 ===
 
+title: ninja_village_gator_geisha
+---
+Gator Geisha: *her fan stops* A traveller. Ume says your kind come in through the ring and leave through the tea.
+-> What brings an alligator to a mountain village?
+    Gator Geisha: A river, once. Then the gate. Now Ume's tea house, three evenings a week.
+    Gator Geisha: The mountain water is cold. I keep my tail by the brazier.
+-> You perform at the tea house?
+    Gator Geisha: Shamisen, and a little dance. The geta keep my hem dry, and the students at a polite distance.
+-> Do the ninja ever sneak up on you?
+    Gator Geisha: Daichi tried once. I heard him three roofs away.
+    Gator Geisha: I always hear them, dear. I am a predator in a very nice kimono.
+-> Thank you.
+===
+
 title: ninja_village_daichi
 ---
 Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still learning the name of the second part.

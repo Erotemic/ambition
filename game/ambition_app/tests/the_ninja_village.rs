@@ -49,6 +49,7 @@ fn the_ninja_village_is_walked_round_its_loop_and_its_exam_is_passed() {
     go(&mut app, STREET, Some("shrine_east_low"));
     talk(&mut app, "npc_village_daichi", "What is the rank exam?");
     talk(&mut app, "npc_village_ume", "Why do people run on the roofs?");
+    talk(&mut app, "npc_gator_geisha", "What brings an alligator to a mountain village?");
     go(&mut app, DOJO, None);
     talk(&mut app, "npc_village_hayashi", "How does the exam work?");
     talk(&mut app, "npc_village_ren", "How do I become your rival?");

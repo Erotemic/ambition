@@ -1,21 +1,24 @@
 //! Ambition's gate terminal: the dial a traveller uses.
 //!
-//! Draws [`TerminalModel`] as a Bevy UI panel: on the left the WHEEL, the
-//! ring's fifteen glyphs round a bronze ring laid out as the ring is (the
-//! first at the lower left, Δ at the top), the engage press (a big solid Δ)
-//! in the slice at the bottom, and the address entered in the middle; on the
-//! right the ring's name, the status line, and the known and recent
-//! addresses (Jon's concept, 2026-10-24).
+//! Draws [`TerminalModel`] as a Bevy UI panel. The terminal opens on its
+//! LIST: the ring's name, the status line, and the known and recent
+//! addresses, a tap or a press dialing one. The WHEEL is a view behind the
+//! list's "Dial an address" row (Jon, 2026-10-25: the dial "should be
+//! secondary"): the ring's fifteen glyphs round a bronze ring laid out as the
+//! ring is (the first at the lower left, Δ at the top), the engage press (a
+//! big solid Δ) in the slice at the bottom, and the address entered in the
+//! middle (Jon's concept, 2026-10-24).
 //!
 //! Input, one road for every device:
 //!
-//! - a gamepad points its left stick at a chevron (or down at the Δ) and
-//!   presses select to enter it; back takes the last chevron back, then
-//!   leaves; the page buttons swap to the list and back;
-//! - the arrow keys and the d-pad step round the wheel (left and right), jump
-//!   to the top (up) or to the Δ (down);
-//! - a mouse or a finger points by hovering and presses a chevron, the Δ or a
-//!   row of the list.
+//! - in the list, up and down move the cursor, select dials, back leaves; a
+//!   mouse or a finger taps a row (a tap dials, a drag scrolls the list, a
+//!   mouse wheel scrolls it); the list shows as many rows as the screen holds;
+//! - in the dial view, a gamepad points its left stick at a chevron (or down
+//!   at the Δ) and presses select to enter it; the arrow keys and the d-pad
+//!   step round the wheel; a moving mouse or a finger points and presses;
+//!   back takes the last chevron back, then returns to the list;
+//! - the page buttons swap between the list and the dial view.
 //!
 //! There is no typing: a letter can stand on several chevrons (Λ, Λ₂, Λ₃), and
 //! only the wheel tells them apart. While the pause menu or another surface
@@ -31,7 +34,7 @@ use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::prelude::*;
 
 use crate::gate_terminal::{
-    chevron_angle, intent, known_addresses, ListRow, TerminalEffect, TerminalFocus, TerminalModel, TerminalUi, LIST_ROWS,
+    chevron_angle, intent, known_addresses, ListRow, TerminalEffect, TerminalFocus, TerminalModel, TerminalUi,
     WheelSlot, GATE_TERMINAL_CONTEXT,
 };
 
@@ -84,6 +87,21 @@ struct WheelButton(WheelSlot);
 /// A row of the list, as a button, by its place in the list.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 struct ListButton(usize);
+
+/// The dial view's way back to the list, for a finger.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+struct DialBackButton;
+
+/// A row's height and the gap under it: a finger's target.
+const ROW_TALL: f32 = 52.0;
+const ROW_PITCH: f32 = ROW_TALL + 6.0;
+/// The list panel's height besides its rows: the title and status, the
+/// "more" marks, the hint, and the paddings; and on a short screen (a phone
+/// held sideways), where the heading is one line and the hint is left out.
+const LIST_CHROME: f32 = 230.0;
+const COMPACT_CHROME: f32 = 120.0;
+/// A screen shorter than this draws the compact list.
+const COMPACT_BELOW: f32 = 560.0;
 
 /// The model the panel shows now, to rebuild only on a change.
 #[derive(Resource, Default)]
@@ -147,6 +165,17 @@ fn stick_angle(gamepads: &Query<&Gamepad>) -> Option<f32> {
         .map(|stick| (-stick.y).atan2(stick.x).to_degrees())
 }
 
+/// The pointer's state for one frame: where it is, what came up, how it
+/// moved and scrolled.
+#[derive(bevy::ecs::system::SystemParam)]
+struct PointerInputs<'w, 's> {
+    windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,
+    touches: Option<Res<'w, bevy::input::touch::Touches>>,
+    mouse_buttons: Option<Res<'w, ButtonInput<MouseButton>>>,
+    moves: MessageReader<'w, 's, bevy::window::CursorMoved>,
+    scrolls: MessageReader<'w, 's, bevy::input::mouse::MouseWheel>,
+}
+
 /// Read every input road into the terminal's state, and send what a press
 /// asks. The menu frame is only read: while the terminal owns the seat no
 /// other surface acts on it, so there is nothing to consume.
@@ -162,15 +191,18 @@ fn drive_gate_terminal(
     gamepads: Query<&Gamepad>,
     wheel: Query<(&Interaction, &WheelButton), Changed<Interaction>>,
     list: Query<(&Interaction, &ListButton), Changed<Interaction>>,
-    mut pointer_moves: MessageReader<bevy::window::CursorMoved>,
-    mut scrolls: MessageReader<bevy::input::mouse::MouseWheel>,
+    dial_back: Query<&Interaction, (Changed<Interaction>, With<DialBackButton>)>,
+    roots: Query<&ComputedNode, With<GateTerminalRoot>>,
+    mut pointer: PointerInputs,
     mut intents: HostIntentWriter<GateTerminalIntent>,
 ) {
     // A rebuilt panel puts a new button under a still pointer, and its
     // `Interaction` changes to `Hovered` although nothing moved: only a
     // pointer that moved this frame points the wheel.
-    let pointer_moved = pointer_moves.read().count() > 0;
-    let scrolled: i32 = scrolls.read().map(|wheel| -wheel.y.signum() as i32).sum();
+    let pointer_moved = pointer.moves.read().count() > 0;
+    let scrolled: i32 = pointer.scrolls.read().map(|wheel| -wheel.y.signum() as i32).sum();
+    let windows = &pointer.windows;
+    let (touches, mouse_buttons) = (pointer.touches.as_deref(), pointer.mouse_buttons.as_deref());
     let (Some(catalog), Some(state)) = (catalog, state) else {
         return;
     };
@@ -215,21 +247,74 @@ fn drive_gate_terminal(
                 _ => {}
             }
         }
+        // As many rows as the screen holds: a phone shows fewer, and scrolls.
+        // The screen is the size the panel's root was laid out at (not the
+        // window's, which an offscreen target or a UI scale does not share).
+        if let Some(height) = roots.iter().next().map(|root| root.size().y * root.inverse_scale_factor()) {
+            let compact = height < COMPACT_BELOW;
+            let chrome = if compact { COMPACT_CHROME } else { LIST_CHROME };
+            let fit = (((height - chrome) / ROW_PITCH).floor() as usize).clamp(2, 12);
+            if ui.list_rows != fit || ui.compact != compact {
+                ui.list_rows = fit;
+                ui.compact = compact;
+                ui.list_window = ambition_ui_nav::scroll_into_view(ui.list_window, ui.list_cursor, rows.len(), fit);
+            }
+        }
+        // A row activates when the pointer comes up on the row it went down
+        // on, unless it travelled (a finger scrolling the list): the shared
+        // press guard of the menus' flat lists (`ambition_ui_nav::RowPress`).
+        let cursor = windows.single().ok().and_then(Window::cursor_position);
+        let position = ambition_ui_nav::pointer_position(touches, cursor);
+        let pointer_up = ambition_ui_nav::pointer_up(touches, mouse_buttons);
+        if ui.row_press.is_armed() {
+            ui.row_press.moved(position);
+        }
+        let mut tapped = None;
         for (interaction, button) in &list {
-            if let Some(row) = rows.get(button.0) {
-                match interaction {
-                    Interaction::Hovered => ui.list_hover = Some(button.0),
-                    Interaction::Pressed => {
-                        ui.focus = TerminalFocus::List;
-                        ui.list_cursor = button.0;
-                        effects.push(ui.press_row(row));
-                    }
-                    Interaction::None => {
-                        if ui.list_hover == Some(button.0) {
-                            ui.list_hover = None;
-                        }
+            let index = button.0;
+            if index >= rows.len() {
+                continue;
+            }
+            match interaction {
+                Interaction::Hovered => {
+                    ui.list_hover = Some(index);
+                    // A mouse released over the row it pressed reports `Hovered`.
+                    if pointer_up.came_up() && ui.row_press.release(index, position) == Some(index) {
+                        tapped = Some(index);
                     }
                 }
+                Interaction::Pressed => {
+                    ui.row_press.press(index, position);
+                    // A whole tap can fit in one frame.
+                    if pointer_up.came_up() {
+                        ui.row_press.clear();
+                        tapped = Some(index);
+                    }
+                }
+                // `None` is a finger lifting AND a pointer leaving the row: only
+                // a touch that came up this frame is a release.
+                Interaction::None => {
+                    if ui.list_hover == Some(index) {
+                        ui.list_hover = None;
+                    }
+                    if pointer_up != ambition_ui_nav::PointerUp::Touch {
+                        if ui.row_press.armed() == Some(&index) {
+                            ui.row_press.left(index);
+                        }
+                    } else if ui.row_press.release(index, position) == Some(index) {
+                        tapped = Some(index);
+                    }
+                }
+            }
+        }
+        if let Some(row) = tapped.and_then(|index| rows.get(index).cloned()) {
+            ui.focus = TerminalFocus::List;
+            ui.list_cursor = tapped.unwrap_or_default();
+            effects.push(ui.press_row(&row));
+        }
+        for interaction in &dial_back {
+            if *interaction == Interaction::Pressed {
+                ui.focus = TerminalFocus::List;
             }
         }
         // A mouse wheel or a drag over the screen scrolls the list's window,
@@ -276,9 +361,6 @@ fn drive_gate_terminal(
                         if step != 0 {
                             ui.step_list(step, rows.len());
                         }
-                        if menu.left {
-                            ui.focus = TerminalFocus::Wheel;
-                        }
                         if menu.select {
                             if let Some(row) = rows.get(ui.list_cursor).cloned() {
                                 effects.push(ui.press_row(&row));
@@ -312,7 +394,7 @@ fn draw_gate_terminal(
     save: Option<Res<ambition_platformer2d::persistence::save::AmbitionGameSave>>,
     ui: Res<TerminalUi>,
     mut shown: ResMut<ShownTerminal>,
-    roots: Query<Entity, With<GateTerminalRoot>>,
+    roots: Query<(Entity, &ComputedNode), With<GateTerminalRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
     icons: Option<ResMut<GlyphIcons>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -328,7 +410,9 @@ fn draw_gate_terminal(
     if shown.0 == model {
         return;
     }
-    for root in &roots {
+    // The height the last panel was laid out at, to fit the wheel.
+    let height = roots.iter().next().map_or(f32::MAX, |(_, root)| root.size().y * root.inverse_scale_factor());
+    for (root, _) in &roots {
         commands.entity(root).despawn();
     }
     shown.0 = model.clone();
@@ -357,7 +441,7 @@ fn draw_gate_terminal(
                 right: Val::Px(0.0),
                 top: Val::Px(0.0),
                 bottom: Val::Px(0.0),
-                padding: UiRect::all(Val::Px(12.0)),
+                padding: UiRect::all(Val::Px(if model.compact { 4.0 } else { 12.0 })),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -370,14 +454,15 @@ fn draw_gate_terminal(
         .with_children(|root| {
             root.spawn((
                 Node {
-                    max_width: Val::Px(1060.0),
+                    max_width: Val::Percent(100.0),
                     max_height: Val::Percent(100.0),
-                    padding: UiRect::all(Val::Px(18.0)),
+                    // A misfit clips the bottom, never the heading.
+                    overflow: Overflow::clip(),
+                    padding: UiRect::all(Val::Px(if model.compact { 8.0 } else { 14.0 })),
                     flex_direction: FlexDirection::Row,
-                    flex_wrap: FlexWrap::Wrap,
+                    align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    column_gap: Val::Px(24.0),
-                    row_gap: Val::Px(12.0),
+                    column_gap: Val::Px(20.0),
                     border: UiRect::all(Val::Px(4.0)),
                     border_radius: BorderRadius::all(Val::Px(8.0)),
                     ..default()
@@ -386,9 +471,15 @@ fn draw_gate_terminal(
                 BorderColor::all(PANEL_EDGE),
                 Name::new("Gate Terminal Panel"),
             ))
-            .with_children(|panel| {
-                spawn_wheel(panel, &model, &glyphs, &font);
-                spawn_side(panel, &model, &glyphs, &font);
+            .with_children(|panel| match model.focus {
+                TerminalFocus::List => spawn_list(panel, &model, &glyphs, &font),
+                TerminalFocus::Wheel => {
+                    // The wheel shrinks to fit a short screen (a phone held
+                    // sideways); its layout stays the ring's.
+                    let scale = ((height - 60.0) / WHEEL).clamp(0.4, 1.0);
+                    spawn_wheel(panel, &model, &glyphs, &font, scale);
+                    spawn_dial_side(panel, &model, &font);
+                }
             });
         });
 }
@@ -431,12 +522,29 @@ fn spawn_wheel(
     model: &TerminalModel,
     glyphs: &Glyphs,
     font: &impl Fn(f32, UiFontWeight) -> TextFont,
+    scale: f32,
 ) {
     let count = model.inscription.len();
     let c = WHEEL / 2.0;
     let wheel_focus = model.focus == TerminalFocus::Wheel;
+    // Laid out at full size inside a box of the scaled size, then scaled: a
+    // transform does not change layout, so the box keeps the panel's size right.
     panel
-        .spawn((Node { width: Val::Px(WHEEL), height: Val::Px(WHEEL), flex_shrink: 0.0, ..default() }, Name::new("Gate dial wheel")))
+        .spawn((Node { width: Val::Px(WHEEL * scale), height: Val::Px(WHEEL * scale), flex_shrink: 0.0, ..default() }, Name::new("Gate dial wheel box")))
+        .with_children(|holder| {
+            holder
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px((WHEEL * scale - WHEEL) / 2.0),
+                top: Val::Px((WHEEL * scale - WHEEL) / 2.0),
+                width: Val::Px(WHEEL),
+                height: Val::Px(WHEEL),
+                ..default()
+            },
+            UiTransform::from_scale(Vec2::splat(scale)),
+            Name::new("Gate dial wheel"),
+        ))
         .with_children(|wheel| {
             // The bronze ring, and the dark face inside it.
             let outer = WHEEL_R + BAND / 2.0;
@@ -565,9 +673,12 @@ fn spawn_wheel(
                     button.spawn(glyphs.node(delta, 70.0, if pointed { INK } else { CYAN }, 0.0));
                 });
         });
+        });
 }
 
-fn spawn_side(
+/// The terminal's main view: the ring, the status, and the destinations,
+/// as many rows as the screen holds, big enough for a finger.
+fn spawn_list(
     panel: &mut ChildSpawnerCommands,
     model: &TerminalModel,
     glyphs: &Glyphs,
@@ -575,57 +686,27 @@ fn spawn_side(
 ) {
     panel
         .spawn((
-            Node {
-                width: Val::Px(500.0),
-                max_height: Val::Px(WHEEL + 120.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(5.0),
-                overflow: Overflow::clip_y(),
-                ..default()
-            },
-            Name::new("Gate dial side"),
+            Node { width: Val::Px(620.0), max_width: Val::Percent(100.0), flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), ..default() },
+            Name::new("Gate terminal list"),
         ))
         .with_children(|side| {
-            side.spawn((Text::new(model.title.clone()), font(22.0, UiFontWeight::Semibold), TextColor(CYAN)));
-            side.spawn((
-                Text::new(format!("{} — {}", model.facility, model.note)),
-                font(13.0, UiFontWeight::Regular),
-                TextColor(DIM_INK),
-            ));
-            side.spawn((
-                Text::new(model.status.clone()),
-                font(16.0, UiFontWeight::Semibold),
-                TextColor(if model.refused { REFUSED } else { INK }),
-            ));
-            let shown = model.list_window..(model.list_window + LIST_ROWS).min(model.list.len());
+            if model.compact {
+                spawn_compact_heading(side, model, font);
+            } else {
+                spawn_heading(side, model, font);
+            }
+            let shown = model.list_window..(model.list_window + model.list_rows).min(model.list.len());
             let more = |count: usize, up: bool| {
                 (
                     Text::new(format!("{} {count} more", if up { "\u{25B2}" } else { "\u{25BC}" })),
-                    font(12.0, UiFontWeight::Semibold),
+                    font(13.0, UiFontWeight::Semibold),
                     TextColor(DIM_INK),
                 )
             };
             if shown.start > 0 {
                 side.spawn(more(shown.start, true));
             }
-            let mut heading = None;
             for (index, row) in model.list.iter().enumerate().skip(shown.start).take(shown.len()) {
-                let this = match row {
-                    ListRow::Address { recent: false, .. } => "KNOWN DESTINATIONS",
-                    ListRow::Address { recent: true, .. } => "RECENT ADDRESSES",
-                    ListRow::Hangup | ListRow::Close => "",
-                };
-                if heading != Some(this) {
-                    heading = Some(this);
-                    if !this.is_empty() {
-                        side.spawn((
-                            Text::new(this),
-                            font(13.0, UiFontWeight::Semibold),
-                            TextColor(DIM_INK),
-                            Node { margin: UiRect::top(Val::Px(8.0)), ..default() },
-                        ));
-                    }
-                }
                 let selected = model.focus == TerminalFocus::List && model.list_cursor == index;
                 let hovered = model.list_hover == Some(index);
                 side.spawn((
@@ -633,11 +714,11 @@ fn spawn_side(
                     Node {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
-                        column_gap: Val::Px(10.0),
-                        padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
-                        min_height: Val::Px(32.0),
+                        column_gap: Val::Px(12.0),
+                        padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                        min_height: Val::Px(ROW_TALL),
                         border: UiRect::all(Val::Px(2.0)),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        border_radius: BorderRadius::all(Val::Px(6.0)),
                         ..default()
                     },
                     BackgroundColor(if selected {
@@ -652,32 +733,110 @@ fn spawn_side(
                     Name::new(format!("Gate dial row {index}")),
                 ))
                 .with_children(|line| match row {
-                    ListRow::Address { address, word, name, .. } => {
-                        line.spawn(Node { flex_direction: FlexDirection::Row, column_gap: Val::Px(1.0), min_width: Val::Px(210.0), ..default() })
-                            .with_children(|chevrons| {
+                    ListRow::Address { address, word, name, recent } => {
+                        line.spawn((
+                            Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, ..default() },
+                        ))
+                        .with_children(|text| {
+                            text.spawn((Text::new(name.clone()), font(19.0, UiFontWeight::Semibold), TextColor(INK)));
+                            let detail = match (word.is_empty(), recent) {
+                                (true, true) => "recent".to_string(),
+                                (true, false) => String::new(),
+                                (false, true) => format!("{word}  ·  recent"),
+                                (false, false) => word.clone(),
+                            };
+                            if !detail.is_empty() {
+                                text.spawn((Text::new(detail), font(13.0, UiFontWeight::Regular), TextColor(DIM_INK)));
+                            }
+                        });
+                        line.spawn(Node { flex_direction: FlexDirection::Row, column_gap: Val::Px(1.0), ..default() }).with_children(
+                            |chevrons| {
                                 for chevron in address {
-                                    chevrons.spawn(glyphs.node(*chevron, 24.0, CYAN, 0.0));
+                                    chevrons.spawn(glyphs.node(*chevron, 20.0, CYAN_DIM, 0.0));
                                 }
-                            });
-                        let label = if word.is_empty() { name.clone() } else { format!("{name}  ·  {word}") };
-                        line.spawn((Text::new(label), font(15.0, UiFontWeight::Regular), TextColor(INK)));
+                            },
+                        );
+                    }
+                    ListRow::Dial => {
+                        line.spawn((Text::new("Dial an address\u{2026}"), font(17.0, UiFontWeight::Regular), TextColor(CYAN)));
                     }
                     ListRow::Hangup => {
-                        line.spawn((Text::new("Hang up"), font(15.0, UiFontWeight::Semibold), TextColor(INK)));
+                        line.spawn((Text::new("Hang up"), font(17.0, UiFontWeight::Semibold), TextColor(INK)));
                     }
                     ListRow::Close => {
-                        line.spawn((Text::new("Leave"), font(15.0, UiFontWeight::Semibold), TextColor(INK)));
+                        line.spawn((Text::new("Leave"), font(17.0, UiFontWeight::Semibold), TextColor(INK)));
                     }
                 });
             }
             if shown.end < model.list.len() {
                 side.spawn(more(model.list.len() - shown.end, false));
             }
+            if model.compact {
+                return;
+            }
             side.spawn((
-                Text::new("Point at a chevron, press to enter it  ·  \u{0394} dials  ·  Back erases, then leaves  ·  Page: the list"),
+                Text::new("Tap or press a destination to dial it  \u{00B7}  drag or scroll for more  \u{00B7}  Back leaves"),
                 font(12.0, UiFontWeight::Regular),
                 TextColor(DIM_INK),
-                Node { margin: UiRect::top(Val::Px(8.0)), ..default() },
+            ));
+        });
+}
+
+/// The ring's name, its facility, and the status line.
+fn spawn_heading(side: &mut ChildSpawnerCommands, model: &TerminalModel, font: &impl Fn(f32, UiFontWeight) -> TextFont) {
+    side.spawn((Text::new(model.title.clone()), font(22.0, UiFontWeight::Semibold), TextColor(CYAN)));
+    side.spawn((Text::new(format!("{} \u{2014} {}", model.facility, model.note)), font(13.0, UiFontWeight::Regular), TextColor(DIM_INK)));
+    side.spawn((
+        Text::new(model.status.clone()),
+        font(16.0, UiFontWeight::Semibold),
+        TextColor(if model.refused { REFUSED } else { INK }),
+    ));
+}
+
+/// The heading of a short screen, on one line: the ring's name and the status.
+fn spawn_compact_heading(side: &mut ChildSpawnerCommands, model: &TerminalModel, font: &impl Fn(f32, UiFontWeight) -> TextFont) {
+    side.spawn(Node { flex_direction: FlexDirection::Row, column_gap: Val::Px(12.0), align_items: AlignItems::Baseline, ..default() })
+        .with_children(|line| {
+            line.spawn((Text::new(model.title.clone()), font(19.0, UiFontWeight::Semibold), TextColor(CYAN)));
+            line.spawn((
+                Text::new(model.status.clone()),
+                font(14.0, UiFontWeight::Semibold),
+                TextColor(if model.refused { REFUSED } else { INK }),
+            ));
+        });
+}
+
+/// Beside the wheel: the heading, the way back to the list, and the hint.
+fn spawn_dial_side(panel: &mut ChildSpawnerCommands, model: &TerminalModel, font: &impl Fn(f32, UiFontWeight) -> TextFont) {
+    panel
+        .spawn((
+            Node { width: Val::Px(300.0), flex_shrink: 1.0, flex_direction: FlexDirection::Column, row_gap: Val::Px(8.0), ..default() },
+            Name::new("Gate dial side"),
+        ))
+        .with_children(|side| {
+            spawn_heading(side, model, font);
+            side.spawn((
+                Button,
+                Node {
+                    align_items: AlignItems::Center,
+                    padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                    min_height: Val::Px(ROW_TALL),
+                    border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                    ..default()
+                },
+                BackgroundColor(ROW),
+                BorderColor::all(CYAN_DIM),
+                DialBackButton,
+                Name::new("Gate dial back to the list"),
+            ))
+            .with_children(|button| {
+                button.spawn((Text::new("\u{25C0}  Back to the list"), font(17.0, UiFontWeight::Semibold), TextColor(INK)));
+            });
+            side.spawn((
+                Text::new("Back erases a chevron, then returns to the list"),
+                font(12.0, UiFontWeight::Regular),
+                TextColor(DIM_INK),
             ));
         });
 }

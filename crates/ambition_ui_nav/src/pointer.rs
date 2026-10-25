@@ -3,6 +3,9 @@
 //! `MenuTapMode` (from `ambition_input::settings`) to a Bevy `Interaction` to
 //! decide hover-vs-select-vs-activate.
 
+use bevy::input::mouse::MouseButton;
+use bevy::input::touch::Touches;
+use bevy::input::ButtonInput;
 use bevy::prelude::{Interaction, Vec2};
 
 use ambition_input::settings::{MenuPointerPress, MenuTapMode};
@@ -171,6 +174,69 @@ impl<T: Clone + PartialEq> PressArm<T> {
     pub fn clear(&mut self) {
         *self = Self::default();
     }
+}
+
+/// Whether a pointer actually came UP this frame, and which one.
+///
+/// Bevy's `Interaction` carries no release event, so every activation rule
+/// has to ask the live input state instead. The two answers are not
+/// interchangeable: a mouse release over the row it pressed arrives as
+/// `Hovered`, a finger lift arrives as `None`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PointerUp {
+    /// A finger came up this frame and none is left down.
+    Touch,
+    /// A mouse button was released this frame.
+    Mouse,
+    /// Whatever moved this row, it was not a pointer coming up.
+    Nothing,
+    /// Neither backend is present to ask.
+    Unknown,
+}
+
+impl PointerUp {
+    /// Did a pointer come up — treating "cannot say" as yes.
+    ///
+    /// This is the direction [`PressArm::origin`] already argues for: *no
+    /// position is not evidence of a drag*. An `Interaction::None` arm must
+    /// NOT use this: there "cannot say" resolves the other way, since no
+    /// `Touches` means no finger can have lifted, so the only pointer that
+    /// could have produced `None` is a mouse leaving the row.
+    pub fn came_up(self) -> bool {
+        !matches!(self, Self::Nothing)
+    }
+}
+
+/// Classify the frame's release edge from the live input resources. Both
+/// arguments are `None` when the backend is absent, which is a different
+/// answer from "present and quiet" (see [`PointerUp::came_up`]).
+pub fn pointer_up(touches: Option<&Touches>, mouse_buttons: Option<&ButtonInput<MouseButton>>) -> PointerUp {
+    // The lift must be the LAST finger up. Bevy's own focus system forces
+    // every pressed node to `None` on any `any_just_released()` frame, so with a
+    // second finger still down that `None` says nothing about the row's own
+    // finger. Requiring the screen to be empty keeps a multi-touch frame from
+    // activating a row nobody released.
+    let touch_lifted =
+        touches.map(|touches| touches.iter_just_released().next().is_some() && touches.iter().next().is_none());
+    let mouse_released = mouse_buttons.map(|buttons| buttons.get_just_released().next().is_some());
+    if touch_lifted == Some(true) {
+        PointerUp::Touch
+    } else if mouse_released == Some(true) {
+        PointerUp::Mouse
+    } else if touch_lifted.is_none() && mouse_released.is_none() {
+        PointerUp::Unknown
+    } else {
+        PointerUp::Nothing
+    }
+}
+
+/// Where the pointer is, for [`PressArm`]'s drag test. A touch device never
+/// writes the window cursor, so a finger's position comes first, including the
+/// finger lifted this frame (Bevy has already removed it from `pressed`).
+pub fn pointer_position(touches: Option<&Touches>, cursor: Option<Vec2>) -> Option<Vec2> {
+    touches
+        .and_then(|touches| touches.iter().next().or_else(|| touches.iter_just_released().next()).map(|touch| touch.position()))
+        .or(cursor)
 }
 
 /// Semantic result of a pointer interaction with a selectable UI row.

@@ -88,13 +88,16 @@ impl WheelSlot {
     }
 }
 
-/// Which part of the terminal the menu keys drive.
+/// What the terminal shows, and what the menu keys drive. The list is the
+/// terminal (Jon, 2026-10-25: the dial "should be secondary, you are almost
+/// never going to use it"); the wheel is a view behind its "Dial an
+/// address" row, and Back returns from it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum TerminalFocus {
-    /// The wheel: point and press to enter chevrons.
-    #[default]
+    /// The dial view: point and press to enter chevrons.
     Wheel,
-    /// The list beside it: known and recent addresses, and the actions.
+    /// The list: known and recent addresses, and the actions.
+    #[default]
     List,
 }
 
@@ -103,6 +106,8 @@ pub enum TerminalFocus {
 pub enum ListRow {
     /// An address: a press dials it.
     Address { address: Vec<Chevron>, word: String, name: String, recent: bool },
+    /// Open the dial view, to enter an address chevron by chevron.
+    Dial,
     Hangup,
     Close,
 }
@@ -117,7 +122,7 @@ pub enum TerminalEffect {
 }
 
 /// The terminal's local state, for the ring whose terminal is open.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct TerminalUi {
     /// The ring the state belongs to. A different ring starts a fresh state.
     pub ring: Option<String>,
@@ -135,11 +140,21 @@ pub struct TerminalUi {
     /// The row the pointer is over. Presentation only (Q70): a hover is drawn,
     /// and never moves the cursor; a press selects.
     pub list_hover: Option<usize>,
+    /// How many rows fit on the screen (0: [`LIST_ROWS`]); the presentation
+    /// sets it from the screen's height, so a phone shows fewer.
+    pub list_rows: usize,
+    /// A short screen (a phone held sideways): the presentation draws the
+    /// list with a one-line heading and no hint.
+    pub compact: bool,
+    /// A press on a row, armed until the pointer comes up on it: a tap
+    /// activates, a drag (a finger scrolling the list) does not.
+    pub row_press: ambition_ui_nav::RowPress,
     /// The report serial this terminal already acted on.
     pub seen_serial: Option<u64>,
 }
 
-/// How many rows of the list the terminal shows at once.
+/// How many rows of the list the terminal shows at once, when the
+/// presentation has not measured the screen.
 pub const LIST_ROWS: usize = 8;
 
 /// What a terminal shows, built from the catalog, the network's state, the
@@ -162,9 +177,11 @@ pub struct TerminalModel {
     pub pointed: Option<WheelSlot>,
     pub list: Vec<ListRow>,
     pub list_cursor: usize,
-    /// The first row shown, and the row the pointer is over.
+    /// The first row shown, how many are shown, and the row the pointer is over.
     pub list_window: usize,
+    pub list_rows: usize,
     pub list_hover: Option<usize>,
+    pub compact: bool,
 }
 
 /// The addresses a terminal lists as known, as chevrons: those written on it
@@ -204,7 +221,7 @@ impl TerminalUi {
         *self = Self { ring: Some(ring.to_string()), seen_serial, ..default() };
     }
 
-    /// The list beside the wheel: the known addresses (by word), the recent
+    /// The list: the known addresses (by word), the recent
     /// ones (by chevrons, a known one only once), then the actions.
     pub fn list(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[Vec<Chevron>]) -> Vec<ListRow> {
         let mut rows: Vec<ListRow> = known.iter().map(|address| address_row(catalog, address.clone(), false)).collect();
@@ -214,6 +231,7 @@ impl TerminalUi {
                 rows.push(address_row(catalog, address.clone(), true));
             }
         }
+        rows.push(ListRow::Dial);
         if state.route_from(self.ring.as_deref().unwrap_or_default()).is_some() {
             rows.push(ListRow::Hangup);
         }
@@ -239,13 +257,18 @@ impl TerminalUi {
     pub fn step_list(&mut self, step: i32, rows: usize) {
         self.focus = TerminalFocus::List;
         self.list_cursor = (self.list_cursor as i32 + step).clamp(0, rows.saturating_sub(1) as i32) as usize;
-        self.list_window = ambition_ui_nav::scroll_into_view(self.list_window, self.list_cursor, rows, LIST_ROWS);
+        self.list_window = ambition_ui_nav::scroll_into_view(self.list_window, self.list_cursor, rows, self.shown_rows());
+    }
+
+    /// How many rows the list shows at once.
+    pub fn shown_rows(&self) -> usize {
+        if self.list_rows == 0 { LIST_ROWS } else { self.list_rows }
     }
 
     /// Move the window of the list by `steps` rows (a mouse wheel, a drag),
     /// leaving the cursor where it is.
     pub fn scroll_list(&mut self, steps: i32, rows: usize) {
-        let last = rows.saturating_sub(LIST_ROWS) as i32;
+        let last = rows.saturating_sub(self.shown_rows()) as i32;
         self.list_window = (self.list_window as i32 + steps).clamp(0, last) as usize;
     }
 
@@ -274,18 +297,27 @@ impl TerminalUi {
                 self.entered = address.clone();
                 TerminalEffect::Send(GateTerminalAction::Dial(address.clone()))
             }
+            ListRow::Dial => {
+                self.entered.clear();
+                self.focus = TerminalFocus::Wheel;
+                TerminalEffect::None
+            }
             ListRow::Hangup => TerminalEffect::Send(GateTerminalAction::Hangup),
             ListRow::Close => TerminalEffect::Send(GateTerminalAction::Close),
         }
     }
 
-    /// The back press: take back the last chevron, or leave the terminal
-    /// when none is entered.
+    /// The back press. In the dial view: take back the last chevron, then
+    /// return to the list. In the list: leave the terminal.
     pub fn back(&mut self) -> TerminalEffect {
-        if self.entered.pop().is_some() {
-            TerminalEffect::None
-        } else {
-            TerminalEffect::Send(GateTerminalAction::Close)
+        match self.focus {
+            TerminalFocus::Wheel => {
+                if self.entered.pop().is_none() {
+                    self.focus = TerminalFocus::List;
+                }
+                TerminalEffect::None
+            }
+            TerminalFocus::List => TerminalEffect::Send(GateTerminalAction::Close),
         }
     }
 
@@ -315,6 +347,8 @@ impl TerminalUi {
                 Ok(far) => (format!("The link to {} has closed.", far_name(far)), false),
                 Err(refusal) => (refusal.message(), true),
             }
+        } else if self.focus == TerminalFocus::List {
+            ("Choose a destination.".to_string(), false)
         } else {
             ("Point at a chevron and press to enter it; press \u{0394} to dial.".to_string(), false)
         };
@@ -331,8 +365,10 @@ impl TerminalUi {
             focus: self.focus,
             pointed: self.pointed,
             list_cursor: self.list_cursor.min(list.len().saturating_sub(1)),
-            list_window: self.list_window.min(list.len().saturating_sub(LIST_ROWS)),
+            list_window: self.list_window.min(list.len().saturating_sub(self.shown_rows())),
+            list_rows: self.shown_rows(),
             list_hover: self.list_hover.filter(|row| *row < list.len()),
+            compact: self.compact,
             list,
         }
     }
@@ -429,7 +465,9 @@ mod tests {
         for _ in 0..tangent.len() {
             ui.back();
         }
-        assert_eq!(ui.back(), TerminalEffect::Send(GateTerminalAction::Close));
+        assert_eq!(ui.back(), TerminalEffect::None, "an empty dial returns to the list");
+        assert_eq!(ui.focus, TerminalFocus::List);
+        assert_eq!(ui.back(), TerminalEffect::Send(GateTerminalAction::Close), "and the list's back leaves");
     }
 
     /// The field keeps the ring's limits: a fifth use of a chevron and a
@@ -462,6 +500,7 @@ mod tests {
         assert!(matches!(&rows[0], ListRow::Address { word, recent: false, .. } if word == "GENESIS"));
         assert!(matches!(&rows[1], ListRow::Address { address, word, recent: true, .. } if *address == wrong && word.is_empty()), "{rows:?}");
         assert_eq!(rows.last(), Some(&ListRow::Close));
+        assert_eq!(rows[rows.len() - 2], ListRow::Dial, "the dial is a row of the list, after the addresses");
         assert_eq!(
             ui.press_row(&rows[0]),
             TerminalEffect::Send(GateTerminalAction::Dial(catalog.spell("GENESIS").unwrap()))
@@ -535,5 +574,25 @@ mod tests {
         ui.step_list(1, rows);
         assert_eq!(ui.list_cursor, LIST_ROWS + 1, "a hover does not take the cursor: the arrow moves it from where it was");
         assert_eq!(ui.list_window, 2, "and the window comes back to it, to its near edge");
+    }
+
+    /// The terminal opens on its list; the dial is a row of it, and an empty
+    /// dial's back returns to the list (Jon, 2026-10-25: the dial is
+    /// secondary).
+    #[test]
+    fn the_terminal_opens_on_the_list_and_the_dial_is_behind_a_row() {
+        let catalog = catalog();
+        let mut ui = TerminalUi::default();
+        ui.open("hub_public_gate_zone", None);
+        assert_eq!(ui.focus, TerminalFocus::List);
+        let rows = ui.list(&catalog, &GateNetworkState::default(), &[]);
+        let dial = rows.iter().position(|row| *row == ListRow::Dial).expect("a dial row");
+        assert_eq!(ui.press_row(&rows[dial]), TerminalEffect::None);
+        assert_eq!(ui.focus, TerminalFocus::Wheel);
+        ui.press_slot(WheelSlot::Chevron(3));
+        assert_eq!(ui.back(), TerminalEffect::None, "back erases first");
+        assert_eq!(ui.focus, TerminalFocus::Wheel);
+        assert_eq!(ui.back(), TerminalEffect::None, "then returns to the list");
+        assert_eq!(ui.focus, TerminalFocus::List);
     }
 }

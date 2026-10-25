@@ -275,26 +275,68 @@ pub fn draw_combat_geometry_view(
                 body.collision.translated(delta),
                 collision_color,
             );
-            for hurtbox in &body.hurtboxes {
-                draw_hitbox_volume(
-                    gizmos,
-                    world,
-                    &hurtbox.translated(delta),
-                    cyan(),
-                    developer_tools,
-                );
+            // Where combat reaches them: a body half through a portal pair is
+            // hurt at both ends.
+            match &body.hurt_pieces {
+                Some(pieces) => {
+                    for piece in pieces {
+                        draw_volume_piece(gizmos, world, piece, delta, cyan(), developer_tools);
+                    }
+                }
+                None => {
+                    for hurtbox in &body.hurtboxes {
+                        draw_hitbox_volume(
+                            gizmos,
+                            world,
+                            &hurtbox.translated(delta),
+                            cyan(),
+                            developer_tools,
+                        );
+                    }
+                }
             }
         }
     }
     if developer_tools.show_combat_preview || developer_tools.show_feature_hitboxes {
         for strike in &combat.strikes {
-            let volume = presented_strike_volume(strike, delta_for(strike.owner));
-            draw_hitbox_volume(gizmos, world, &volume, red(), developer_tools);
+            // Where combat resolves it: a strike into a portal pair hurts at
+            // its far end, mapped through the pair.
+            match &strike.pieces {
+                Some(pieces) => {
+                    let delta = if strike.anchored_to_body { delta_for(strike.owner) } else { ae::Vec2::ZERO };
+                    for piece in pieces {
+                        draw_volume_piece(gizmos, world, piece, delta, red(), developer_tools);
+                    }
+                }
+                None => {
+                    let volume = presented_strike_volume(strike, delta_for(strike.owner));
+                    draw_hitbox_volume(gizmos, world, &volume, red(), developer_tools);
+                }
+            }
         }
         for body in &combat.bodies {
             draw_combat_tuning_readout(gizmos, world, body, delta_for(body.body));
         }
     }
+}
+
+/// One piece of a volume a portal pair cut: the part of it that is there, in
+/// the place it is, moved by the owner's presentation `delta` carried through
+/// the pairs the piece went through.
+fn draw_volume_piece(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    piece: &ae::frame::thread::VolumePiece,
+    delta: ae::Vec2,
+    color: Color,
+    developer_tools: &DeveloperTools,
+) {
+    let Some(region) = piece.region() else {
+        return;
+    };
+    let delta = piece.carry_dir(delta);
+    let region: Vec<ae::Vec2> = region.into_iter().map(|p| p + delta).collect();
+    draw_hitbox_volume(gizmos, world, &ae::CombatVolume::convex(region), color, developer_tools);
 }
 
 /// The tuning readout: what a designer reads instead of a log.
@@ -988,6 +1030,7 @@ mod presented_strike_tests {
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::splat(10.0),
             )),
+            pieces: None,
             strike: bevy::prelude::Entity::from_raw_u32(1).unwrap(),
             owner: bevy::prelude::Entity::from_raw_u32(2).unwrap(),
             damage: 4,
@@ -1135,6 +1178,7 @@ mod shown_room_tests {
             body,
             collision: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)),
             hurtboxes: Vec::new(),
+            hurt_pieces: None,
             hurtbox_source: ambition_sim_view::HurtboxSource::BodyFallback,
             damage_taken: 0,
             facing: 1.0,

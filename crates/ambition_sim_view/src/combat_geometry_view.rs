@@ -89,6 +89,11 @@ pub struct CombatBodyGeometryView {
     pub body: bevy::prelude::Entity,
     pub collision: ae::Aabb,
     pub hurtboxes: Vec<ae::CombatVolume>,
+    /// Where [`Self::hurtboxes`] are when a portal pair cuts this body (it is
+    /// half through one): their pieces, each mapped through its pairs, as
+    /// combat reaches them (`ambition_combat::hitbox::hurt_pieces_of`).
+    /// `None`: no pair cuts it, and the hurtboxes are where they are.
+    pub hurt_pieces: Option<Vec<ae::frame::thread::VolumePiece>>,
     /// Which of the runtime's three damageable-volume states produced
     /// [`Self::hurtboxes`]. An empty list means two different things —
     /// deliberately intangible, or a body this view could not resolve — and an
@@ -132,6 +137,11 @@ pub struct CombatBodyGeometryView {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CombatStrikeGeometryView {
     pub volume: ae::CombatVolume,
+    /// Where [`Self::volume`] is when a portal pair cuts it (it reaches into
+    /// one): its pieces, each mapped through its pairs, as combat resolves
+    /// them (`ambition_combat::hitbox::strike_pieces`). `None`: no pair cuts
+    /// it, and the volume is where it is.
+    pub pieces: Option<Vec<ae::frame::thread::VolumePiece>>,
     /// The live strike entity, so an observer can tie a per-strike visual to
     /// the volume that owns it and retire the visual when the strike ends.
     ///
@@ -246,18 +256,31 @@ pub fn rebuild_combat_geometry_view(
     )>,
     owner_boxes: Query<&CenteredAabb>,
     owner_kinematics: Query<&ae::BodyKinematics>,
+    // Where a volume is when a portal pair cuts it: the pieces combat
+    // resolves by. Absent in a composition with no portals.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    passages: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
     mut view: ResMut<CombatGeometryView>,
 ) {
+    let passages = passages.as_deref();
+    // A cut that left one whole piece is no cut.
+    let cut = |pieces: Vec<ae::frame::thread::VolumePiece>| {
+        (pieces.len() > 1 || pieces.iter().any(|piece| piece.is_carried() || !piece.bounds.is_empty())).then_some(pieces)
+    };
     view.bodies.clear();
     view.strikes.clear();
 
     for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
         let collision = aabb.aabb();
         let (hurtboxes, hurtbox_source) = effective_hurtboxes(collision, damageable);
+        let hurt_pieces = passages.and_then(|passages| {
+            cut(ambition_combat::hitbox::hurt_pieces_of(body, aabb.center, hurtboxes.clone(), Some(passages), rooms.of(body)))
+        });
         view.bodies.push(CombatBodyGeometryView {
             body,
             collision,
             hurtboxes,
+            hurt_pieces,
             hurtbox_source,
             damage_taken: health.map(|h| h.damage_taken()).unwrap_or(0),
             facing: kin.map(|k| k.facing).unwrap_or(1.0),
@@ -298,8 +321,11 @@ pub fn rebuild_combat_geometry_view(
         let Some(owner_pos) = owner_pos else {
             continue;
         };
+        let room = rooms.stamped(strike).or_else(|| rooms.of(hitbox.owner));
+        let pieces = passages.and_then(|passages| cut(ambition_combat::hitbox::strike_pieces(Some(passages), hitbox, owner_pos, room)));
         view.strikes.push(CombatStrikeGeometryView {
             volume: hitbox.world_volume(owner_pos),
+            pieces,
             strike,
             owner: hitbox.owner,
             damage: hitbox.damage,

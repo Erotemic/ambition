@@ -131,6 +131,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .mini span, .mini code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini code { font-size: 10px; color: var(--muted); }
 .mini.more { place-content: center; aspect-ratio: 1; border: 1px dashed var(--rule); border-radius: 4px; color: var(--accent); }
+.thumbs figure.holistic > div { outline: 2px solid var(--ok); outline-offset: 1px; }
 .thumbs figure.here > div { outline: 2px solid var(--accent); outline-offset: 1px; }
 .relbar { color: var(--fg); }
 kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); border-radius: 3px; background: var(--panel2); }

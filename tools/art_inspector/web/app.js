@@ -367,6 +367,7 @@
         if (gen.parts.art.length) lines.push(`art: ${shareText(gen.parts.art)}`);
         lines.push(confChip(gen.confidence));
       } else if (!e.in_store) lines.push("not in the history store");
+      if (e.drawn_by) lines.push(`drawn by: ${esc(e.drawn_by.join(", "))}`);
       if (now) lines.push(now === a.id ? '<span class="chip c-info">this asset</span>' : `today: ${assetLink(now)}`);
       const still = e.still ? img(e.still, e.label) : '<span class="controls">no still</span>';
       return `<figure title="${esc(e.note || "")}"${now === a.id ? ' class="here"' : ""}><div class="checker">${now && now !== a.id ? `<a href="#asset/${enc(now)}">${still}</a>` : still}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
@@ -374,7 +375,22 @@
     return `<section class="box"><h2>Lineage: ${esc(l.name)} (${l.eras.length} era${l.eras.length === 1 ? "" : "s"})</h2>
       <p class="controls">${esc(l.summary)} · found via ${esc(l.found_via || "")} · targets ${l.targets.map((t) => `<code>${esc(t)}</code>`).join(" ")}</p>
       <div class="thumbs">${eras}</div>
+      ${(l.tracks || []).map(trackBox).join("")}
       <p class="controls">An era is a commit (<code>design_history/lineages.yaml</code>). "commit" names who made the commit that pins the era; "code" and "art" are the lines of its generator files at that commit, by author (git blame). <code>python -m design_history build ${esc(l.lineage)}</code> draws the stills.</p></section>`;
+  }
+  // The survey's variations of one track (`design_history/variations.yaml`):
+  // the holistic looks, and every variation behind a toggle.
+  function variationFig(v) {
+    const lines = [`${esc(v.date.slice(0, 10))} · <code>${esc(v.commit.slice(0, 9))}</code>`, esc(v.by)];
+    if (v.change !== null && v.change !== undefined) lines.push(`change ${v.change}`);
+    return `<figure title="${esc(v.subject)}"${v.holistic ? ' class="holistic"' : ""}><div class="checker">${v.still ? img(v.still, v.subject) : '<span class="controls">no still</span>'}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
+  }
+  function trackBox(tr) {
+    const all = tr.variations || [], whole = all.filter((v) => v.holistic);
+    return `<h2 style="margin-top:12px">Looks of <code>${esc(tr.track)}</code>: ${whole.length} holistic of ${all.length} variation${all.length === 1 ? "" : "s"}</h2>
+      <p class="controls">${fmt(tr.candidates)} commits drawn${tr.failed ? `, ${fmt(tr.failed)} could not draw it` : ""}. A holistic look ends a burst of work and is not a redraw of the look before it.</p>
+      <div class="thumbs">${whole.map(variationFig).join("") || '<p class="empty">none</p>'}</div>
+      ${all.length > whole.length ? `<details><summary>every variation (${all.length})</summary><div class="thumbs">${all.map(variationFig).join("")}</div></details>` : ""}`;
   }
   function authorshipBox(w) {
     const rows = [];

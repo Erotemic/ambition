@@ -34,9 +34,10 @@ def _design_history(repo: Path):
     import design_history.characters as characters  # noqa: PLC0415
     import design_history.stills as stills  # noqa: PLC0415
     import design_history.store as store  # noqa: PLC0415
+    import design_history.variations as variations  # noqa: PLC0415
     import design_history.view as view  # noqa: PLC0415
 
-    return (authorship, characters, stills, store, view), renderer
+    return (authorship, characters, stills, store, view, variations), renderer
 
 
 def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict], targets: dict[str, Any],
@@ -47,7 +48,7 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
     modules, renderer = _design_history(repo)
     if modules is None:
         return ["design history unavailable: tools/ambition_sprite2d_renderer/design_history is absent"]
-    authorship_mod, characters, stills, store_mod, view = modules
+    authorship_mod, characters, stills, store_mod, view, variations_mod = modules
     import yaml  # noqa: PLC0415
 
     warnings: list[str] = []
@@ -77,6 +78,14 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
 
     views: dict[str, dict] = {}
     still_dir = out / "lineage"
+    surveyed = variations_mod.load()
+
+    def copy_still(src: Path) -> str:
+        still_dir.mkdir(parents=True, exist_ok=True)
+        dest = still_dir / src.name
+        if not dest.exists() or dest.stat().st_size != src.stat().st_size:
+            shutil.copyfile(src, dest)
+        return f"lineage/{dest.name}"
 
     def lineage(name: str) -> dict:
         if name not in views:
@@ -85,11 +94,16 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
             for era in record["eras"]:
                 src = era.get("still")
                 if src:
-                    still_dir.mkdir(parents=True, exist_ok=True)
-                    dest = still_dir / Path(src).name
-                    if not dest.exists() or dest.stat().st_size != Path(src).stat().st_size:
-                        shutil.copyfile(src, dest)
-                    era["still"] = f"lineage/{dest.name}"
+                    era["still"] = copy_still(Path(src))
+            # Every variation the survey drew (`variations.yaml`), by track.
+            tracks = []
+            for track, row in ((surveyed.get(name) or {}).get("tracks") or {}).items():
+                looks = []
+                for v in row.get("variations") or []:
+                    png = stills.cached_still(cache, v["commit"], row["ids"], lineages[name].get("pick"))
+                    looks.append(dict(v, still=copy_still(png) if png else None))
+                tracks.append({"track": track, "candidates": row.get("candidates"), "failed": row.get("failed"), "variations": looks})
+            record["tracks"] = tracks
             views[name] = record
         return views[name]
 

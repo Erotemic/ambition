@@ -497,7 +497,7 @@ fn a_durable_session_record_comes_back_with_its_save_and_a_transient_one_does_no
     );
 
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+        .write_message(ambition_platformer2d::session::reset::NewGameRequested);
     sim.step_n(AgentAction::default(), 240);
     assert_eq!(session_value(&mut sim, &LIFETIME), None, "a New Game starts the kept record from nothing");
     assert!(

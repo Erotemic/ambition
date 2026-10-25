@@ -29,7 +29,7 @@ import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-OWNER = "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+OWNER = "crates/ambition_platformer2d_session/src/teardown.rs"
 BUNDLE = "SessionScopedResources"
 
 FIELD = re.compile(r"^\s{4}(\w+):\s*ResMut<'w,\s*(.+?)>,\s*$", re.M)

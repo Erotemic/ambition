@@ -274,7 +274,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         "id": "world-construction-does-not-read-the-ability-editor",
         "paths": [
             "crates/ambition_platformer2d_provider/",
-            "crates/ambition_platformer2d_actor_monolith/src/session/",
+            "crates/ambition_platformer2d_session/src/",
             "game/ambition_demo_mary_o/src/",
             "game/ambition_demo_sanic/src/",
         ],
@@ -544,7 +544,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # would not change what it does. The VALUE still has exactly one
             # writer (activation). A fourth writer that PUBLISHES rather than
             # clears is still the graduation this contract is watching for.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+            ":(exclude)crates/ambition_platformer2d_session/src/teardown.rs",
         ],
         "patterns": [
             r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch)",

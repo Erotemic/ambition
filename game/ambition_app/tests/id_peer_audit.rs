@@ -221,9 +221,9 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     //
     // `a_checkpoint_operation_key_projects_the_sequence_and_not_the_session_scope`
     // (`actor_monolith::session::checkpoint::tests`) holds the function body.
-    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionStartupResume",
-    "ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore",
-    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes",
+    "ambition_platformer2d_session::checkpoint::SessionStartupResume",
+    "ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore",
+    "ambition_platformer2d_session::checkpoint::SessionCheckpointOutcomes",
     // `SessionMatchOrdinal::peer_stable_checksum` projects the count of matches
     // the session has activated, excluding its `SessionScopeId` owner tag.
     // `the_peer_projection_ignores_the_local_session_id_once_a_match_has_activated`

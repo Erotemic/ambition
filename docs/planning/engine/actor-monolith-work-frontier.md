@@ -69,7 +69,7 @@ the touched invariant.
 
 **State:** closed. **Owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md).
-Restoration lives in `session::checkpoint`; healing and capture stay in
+Restoration lives in `ambition_platformer2d_session::checkpoint`; healing and capture stay in
 `shrine`. Domain reducers read one admitted operation; a refused reset changes
 no occurrence, custody or owned-item state. The P2P road stays inert below
 `commit_confirmed_lifecycle`'s `LocalSyncTest` gate. A coordinated peer-level
@@ -113,7 +113,7 @@ one generic breakable crate.
 ## A3. Move authored placement lowering to the construction boundary
 
 **State:** the lowering context lives in
-`crates/ambition_platformer2d_actor_monolith/src/construction/placements.rs`.
+`crates/ambition_platformer2d_construction/src/placements.rs`.
 `ambition_platformer2d_world` names no actor crate and `LoweringCtx<C>` is
 generic. The character catalog and authored sheets ride on
 `ActorConstructionContext`. Keep immutable room and placement records and the

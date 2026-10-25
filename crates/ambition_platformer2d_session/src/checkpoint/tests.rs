@@ -8,6 +8,26 @@ use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 
 use ambition_shrine::{heal_save_shrine_system, HealShrine};
 
+
+fn checkpoint_body(
+    scratch: ambition_platformer2d_core::BodyClusterScratch,
+    health: ambition_characters::actor::Health,
+) -> impl Bundle {
+    let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
+    (
+        ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+            scratch,
+            health,
+            "checkpoint-fixture",
+            None,
+            &mut ranged,
+        ),
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::body::PrimaryBody,
+    )
+}
+
 /// Give the fixture's session root the whole checkpoint coordinator, as the
 /// plugin's required-components registration does in a composed app.
 fn install_checkpoint_state(world: &mut World) {
@@ -139,15 +159,15 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         .resource_mut::<ActiveSessionScope>()
         .begin();
     ambition_platformer2d_world::rooms::insert_room_set(next.world_mut(), room_set("shrine_room"));
-    next.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    next.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     install_checkpoint_state(next.world_mut());
     next.add_systems(Update, restore_checkpoint_on_session_start);
     // The REAL player bundle, at the room's authored spawn — the body the
     // construction path produces, with every cluster the transit authority reads.
     let resumed = next
         .world_mut()
-        .spawn((crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::home_body_scratch(
+        .spawn((checkpoint_body(
+            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
                 ambition_platformer2d_core::Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -199,13 +219,13 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     );
     // The slot a transition is recorded into: production initializes it in sim-core resources,
     // so a fixture running this system owes it too.
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
     let body = app
         .world_mut()
-        .spawn((crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::home_body_scratch(
+        .spawn((checkpoint_body(
+            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
                 ambition_platformer2d_core::Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -272,7 +292,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     ));
     // The slot a transition is recorded into: production initializes it in sim-core resources,
     // so a fixture running this system owes it too.
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
     app.update();
@@ -280,9 +300,9 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     // It wrote a `RoomTransitionRequested` around a synthetic door; the message is gone and so
     // is the invented zone. The intent names its room by AUTHORED ID, which is also what made
     // the index lookup here deletable.
-    fn recorded(app: &App) -> Option<crate::session::lifecycle_commit::PendingIntent> {
+    fn recorded(app: &App) -> Option<crate::lifecycle_commit::PendingIntent> {
         app.world()
-            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
             .pending
             .clone()
     }
@@ -295,7 +315,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     };
     // A shrine warp is a CROSSING by a body, never the bodyless
     // `ReconstituteRoom` that v146 added — it names a subject and an arrival.
-    let crate::session::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind
+    let crate::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind
     else {
         panic!("the shrine recorded a bodyless room reconstitution, not a warp");
     };
@@ -314,7 +334,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
 
     // Clearing the slot is what makes the question askable at all.
     app.world_mut()
-        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
         .take();
     app.update();
     app.update();
@@ -340,7 +360,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         ActiveSessionScope,
     };
-    use crate::session::lifecycle_commit::{
+    use crate::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
 
@@ -487,7 +507,7 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         ActiveSessionScope,
     };
-    use crate::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit};
+    use crate::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit};
 
     let mut app = App::new();
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
@@ -575,7 +595,7 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
 #[test]
 fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
     use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
-    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+    use crate::lifecycle_commit::PendingLifecycleCommit;
 
     // (the resume state, a crossing was recorded, where each primary body is)
     fn resume(checkpoint_room: &str, primaries: u8) -> (Option<StartupResume>, bool, Vec<(f32, f32)>) {
@@ -614,8 +634,8 @@ fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
         for _ in 0..primaries {
             // The full body, as the same-room branch moves it.
             app.world_mut()
-                .spawn(crate::avatar::PlayerSimulationBundle::from_scratch(
-                    crate::avatar::home_body_scratch(Vec2::new(32.0, 400.0), ae::AbilitySet::sandbox_all()),
+                .spawn(checkpoint_body(
+                    ambition_platformer2d_actor_monolith::avatar::home_body_scratch(Vec2::new(32.0, 400.0), ae::AbilitySet::sandbox_all()),
                     ambition_characters::actor::Health::new(20),
                 ));
         }
@@ -711,7 +731,7 @@ fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
             Vec::new(),
         ),
     );
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
 
     // ⚠ THE CHANNELS ARE THE HOST'S, not this offer's, and that is unchanged by
     // A1b: `runtime::CheckpointHorizonPlugin` registers the reset horizon's
@@ -728,8 +748,8 @@ fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
 
     let body = app
         .world_mut()
-        .spawn((crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::home_body_scratch(
+        .spawn((checkpoint_body(
+            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
                 Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -783,7 +803,8 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
     let mut app = App::new();
     app.add_plugins((
         LifecycleCheckpointHorizonPlugin,
-        crate::ActorCheckpointHorizonPlugin,
+        crate::checkpoint::SessionCheckpointHorizonPlugin,
+        ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
     ));
     let sim = app.sim_schedule();
     let schedules = app.world().resource::<Schedules>();
@@ -841,8 +862,8 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
 fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs() {
     use ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs;
 
-    use crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
+    use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
+    use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
 
     let crossing = |room: &str| {
         LifecycleIntent::Transition(RoomTransitionIntent {
@@ -946,8 +967,8 @@ fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
     held.accept(super::AcceptedRestore {
         key: new,
         frame: 0,
-        intent: crate::session::lifecycle_commit::LifecycleIntent::ReconstituteRoom(
-            crate::session::lifecycle_commit::RoomReconstitutionIntent {
+        intent: crate::lifecycle_commit::LifecycleIntent::ReconstituteRoom(
+            crate::lifecycle_commit::RoomReconstitutionIntent {
                 target_room: "here".into(),
             },
         ),
@@ -1000,7 +1021,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-    use crate::session::lifecycle_commit::{
+    use crate::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
 
@@ -1134,7 +1155,7 @@ fn an_operation_answered_before_its_intent_leaves_keeps_its_one_answer() {
     use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, LifecycleCheckpointHorizonPlugin, ResetToCheckpoint};
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+    use crate::lifecycle_commit::PendingLifecycleCommit;
 
     let mut app = App::new();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
@@ -1199,8 +1220,8 @@ fn an_operation_answered_before_its_intent_leaves_keeps_its_one_answer() {
 fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_builds() {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use crate::items::pickup::minted_horizon::MintedItemBaseline;
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
+    use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline;
+    use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
 
     fn crossing() -> RoomTransitionIntent {
         RoomTransitionIntent {
@@ -1229,7 +1250,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
                 occurrences: Default::default(),
                 custody: Default::default(),
             }),
-            item: Some(crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+            item: Some(ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: MintedItemBaseline::default(),
                 owned: Default::default(),
                 grants: Default::default(),
@@ -1330,7 +1351,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             "the intent's SHAPE — a bodyless rebuild is not a crossing",
             AcceptedRestore {
                 intent: LifecycleIntent::ReconstituteRoom(
-                    crate::session::lifecycle_commit::RoomReconstitutionIntent {
+                    crate::lifecycle_commit::RoomReconstitutionIntent {
                         target_room: "east".into(),
                     },
                 ),
@@ -1379,7 +1400,7 @@ fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
         RoomInstanceRoot,
     };
 
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
 
     // `None`: committed. With `bobs_room_live`, `bobs` is live beside the
     // activation room `elsewhere`.
@@ -1473,7 +1494,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
     };
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
 
     let mut app = App::new();
     app.add_plugins(LifecycleCheckpointHorizonPlugin);
@@ -1585,7 +1606,7 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
         ActiveSessionScope,
     };
 
-    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+    use crate::lifecycle_commit::PendingLifecycleCommit;
 
     let mut app = App::new();
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
@@ -1681,7 +1702,7 @@ fn a_startup_resume_whose_operation_is_retracted_asks_again() {
         ActiveSessionScope,
     };
 
-    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+    use crate::lifecycle_commit::PendingLifecycleCommit;
 
     let mut app = App::new();
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
@@ -1762,7 +1783,7 @@ fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+    use crate::lifecycle_commit::PendingLifecycleCommit;
 
     let mut app = App::new();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
@@ -1841,7 +1862,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
     };
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
 
     let banked = SimId::placement("the_reward");
     let rightful = SimId::player_slot(0);
@@ -1970,7 +1991,7 @@ fn a_session_that_can_reset_with(
             Vec::new(),
         ),
     );
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     app.add_message::<ResetToCheckpoint>();
     app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
     app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
@@ -2021,7 +2042,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
     };
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
 
     let here = SimId::placement("authored_in_the_room_being_rebuilt");
     let elsewhere = SimId::placement("authored_next_door");
@@ -2179,7 +2200,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
 
         app.world_mut().write_message(ResetToCheckpoint);
         if new_game {
-            app.world_mut().write_message(crate::session::reset::NewGameRequested);
+            app.world_mut().write_message(crate::reset::NewGameRequested);
         }
         app.world_mut().run_schedule(sim);
         let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
@@ -2368,10 +2389,10 @@ fn world_with_an_abandoned_operation(
     noted: &AcceptedRestore,
 ) -> bevy::prelude::World {
     let mut world = bevy::prelude::World::new();
-    world.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    world.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     install_checkpoint_state(&mut world);
     assert!(world
-        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
         .record(accepted.frame, accepted.intent.clone())
         .admitted());
     held_mut::<super::AcceptedCheckpointRestore>(&mut world)
@@ -2390,8 +2411,8 @@ fn an_operation_at(
     AcceptedRestore {
         key: counter.admit(sequence_scope).expect("a fresh counter mints"),
         frame,
-        intent: crate::session::lifecycle_commit::LifecycleIntent::Transition(
-            crate::session::lifecycle_commit::RoomTransitionIntent {
+        intent: crate::lifecycle_commit::LifecycleIntent::Transition(
+            crate::lifecycle_commit::RoomTransitionIntent {
                 subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
                 target_room: target_room.into(),
                 arrival: Vec2::ZERO,
@@ -2442,7 +2463,7 @@ fn an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed() {
     );
     assert!(
         world
-            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
             .peek()
             .is_some(),
         "the lifecycle intent was spent on a frame a rewind can revisit"
@@ -2519,7 +2540,7 @@ fn a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key() {
     );
     assert!(
         world
-            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
             .peek()
             .is_some(),
         "the replayed operation's lifecycle intent was spent by another \

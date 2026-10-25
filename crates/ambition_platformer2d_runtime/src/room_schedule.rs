@@ -6,7 +6,7 @@
 //! `sandbox_reset::admit_room_replay` and rebuilt by the transition road like
 //! any other room change; what runs here is the one sweep that road cannot make
 //! — the previous attempt's session-scoped residue. See
-//! `ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt`.
+//! `ambition_platformer2d_session::rooms::retire_the_previous_attempt`.
 
 use bevy::prelude::*;
 
@@ -27,15 +27,15 @@ impl Plugin for RoomTransitionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::rooms::detect_room_transition_system
+                ambition_platformer2d_session::rooms::detect_room_transition_system
                     .in_set(GameplayGated)
                     .in_set(RoomTransitionSet::Detect),
                 // A passage starts at detection and places its body after it.
-                ambition_platformer2d_actor_monolith::rooms::passage::run_zone_passages
+                ambition_platformer2d_session::rooms::passage::run_zone_passages
                     .in_set(GameplayGated)
                     .in_set(RoomTransitionSet::Detect)
-                    .after(ambition_platformer2d_actor_monolith::rooms::detect_room_transition_system),
-                ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt
+                    .after(ambition_platformer2d_session::rooms::detect_room_transition_system),
+                ambition_platformer2d_session::rooms::retire_the_previous_attempt
                     .run_if(ambition_combat::events::a_replay_is_admitted)
                     .in_set(RoomTransitionSet::Reset),
             ),
@@ -44,7 +44,7 @@ impl Plugin for RoomTransitionSchedulePlugin {
         // before the content room resets, as in the simulation.
         app.add_systems(
             ambition_combat::events::RestoreConsequences,
-            ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt
+            ambition_platformer2d_session::rooms::retire_the_previous_attempt
                 .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
                 .before(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomResetSet),
         );

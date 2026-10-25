@@ -74,6 +74,7 @@
     "ambition_platformer2d_provider",
     "ambition_platformer2d_publication",
     "ambition_platformer2d_runtime",
+    "ambition_platformer2d_session",
     "ambition_platformer2d_shared_tangle",
     "ambition_platformer2d_trace",
     "ambition_platformer2d_world",
@@ -94,7 +95,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "closure_size": 63,
+  "closure_size": 64,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",
@@ -221,5 +222,6 @@
   "publication_entered_the_closure_2026_10_22": "DECLARED GROWTH IN NAMES, A CARVE IN CODE (K4, 2026-10-22): `ambition_platformer2d_publication` is the room publication coordinator (prepare a hidden candidate room, check its construction receipt, publish or refuse it as one operation), moved out of the actor monolith's `publication` module into a crate ABOVE it. The monolith does not name it; the runtime's room transition and the provider's first room do, and the facade exports it as `publication`, so the sentinel links the code it linked before, in one more node. NOT in `never_asked_for`: every game publishes its rooms, a movement-only one included. NOT in either reachable sub-list: it is not reachable through the monolith, and the runtime needs it, so no facade manifest change removes it. 59 -> 60.",
   "trace_recorder_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the publication row's shape: `ambition_platformer2d_trace` is the gameplay trace recorder (the per-frame player and body recorders, OOB and teleport detection, the F8 hotkey and the dump flush), moved out of the actor monolith's `dev::trace` module (2026-10-23). The monolith does not name it; the runtime installs it with the engine, so the sentinel links the code it linked before, in one more node. NOT in `never_asked_for`, as its format crate `ambition_gameplay_trace` is not: every game records its frames. NOT in either reachable sub-list: it is not reachable through the monolith, and the runtime needs it. 60 -> 61.",
   "physics_debris_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the shrine row's shape: `ambition_platformer2d_physics_debris` is the Avian debris adapter (the avian install paused while no debris exists, each live room's floor, debris bursts, lifetimes and safe retirement), moved out of the actor monolith's `world::physics` (2026-10-23), which now re-exports it. The monolith names it unconditionally (room transitions retire its bodies; without `physics_debris` only the marker and a no-op retirement remain, and avian is not linked), so every consumer of the monolith links it. The sentinel links the code it linked before, in one more node. In `never_asked_for`: a movement-only game did not ask for debris physics. 61 -> 62, never-asked-for 26 -> 27.",
-  "construction_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the shrine row's shape: `ambition_platformer2d_construction` is actor construction planning (placements and staged actors lowered into one checked plan, its recipes and relations), moved out of the actor monolith's `construction` module (K3 named it a leaf that could become its own owner once K4 landed; 2026-10-23). The monolith names it (its features lower placements into it and build its plans), so every consumer of the monolith links it. The sentinel links the code it linked before, in one more node. In `never_asked_for`, beside `ambition_platformer2d_actor_spawn`, whose actors it plans: a movement-only game did not ask for authored actors, chests and shrines. 62 -> 63, never-asked-for 27 -> 28."
+  "construction_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the shrine row's shape: `ambition_platformer2d_construction` is actor construction planning (placements and staged actors lowered into one checked plan, its recipes and relations), moved out of the actor monolith's `construction` module (K3 named it a leaf that could become its own owner once K4 landed; 2026-10-23). The monolith names it (its features lower placements into it and build its plans), so every consumer of the monolith links it. The sentinel links the code it linked before, in one more node. In `never_asked_for`, beside `ambition_platformer2d_actor_spawn`, whose actors it plans: a movement-only game did not ask for authored actors, chests and shrines. 62 -> 63, never-asked-for 27 -> 28.",
+  "session_entered_the_closure_2026_10_25": "Session lifecycle and room-crossing policy moved from the actor kernel to ambition_platformer2d_session. The runtime and publication coordinator call it above the kernel. This adds one package and no scheduled system."
 }

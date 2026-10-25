@@ -22,63 +22,16 @@ Measure the intra-crate module graph with:
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-**Re-measured after K3 (2026-10-21):** the largest component has
-**eight** top-level modules: `abilities`, `avatar`, `character_runtime`,
-`features`, `items`, `projectile`, `session`, `world`. `body_whereabouts`
-left it with K1. `construction` left it with K3. (K1 and K2 removed its
-session edge, but it still reached `world` through the crate-root re-export
-`crate::rooms`, which the instrument did not resolve until K3.)
-`construction` now has no out-edge in the monolith. **After K4 step 1 and
-the K5 asset slice (2026-10-21):** the component has nine modules, the
-eight above and `publication` (see K4); the `assets` and
-`character_sprites` cycle is gone (see K5). **After K4 step 2
-(2026-10-21):** eight again, the same eight as after K3; `publication` left
-it, because no module in it names `publication` now. **After K5's room
-sweep (2026-10-22): seven**, `world` left it: its one `features -> world`
-reference was the room reference sweep, which moved to the world crate (see
-K5). **After K5's rules reading (2026-10-22): four**, `abilities`,
-`features`, `items`, `session`: the per-room rules reading moved beside the
-rule declarations (see K5), which took `avatar -> session` to zero and
-`avatar`, `character_runtime` and `projectile` out of the cycle. No single
-edge splits the four; the instrument reports a knot that needs a
-coordinated cut (`items <-> session` is A7's).
-**Leaf moves, 2026-10-23/24 (24h run):** modules with no out-edge in the
-monolith moved to the crate that owns their subject, each with its callers
-repathed and no alias: gravity zones and the body causal recorders to the
-runtime, `body_whereabouts` to construction (`whereabouts`), `actor_clusters`
-to `ambition_body_seed` (`clusters`), `body_conditions` to
-`ambition_abilities`, and `game_assets` to the umbrella's `game_assets`. The
-knot is unchanged (four modules). The monolith has 58,758 production lines.
-Leaves that stay, and why: `world_facts` (the destination owning both
-persistence and combat's flag message would need a new crate edge),
-`character_sprites` and `assets` (woven into `character_runtime`; moving
-down meets a `sprite_sheet` / `characters` cycle), `clash` (deliberately
-kept), `control` (A4: do not split accepted control).
-The
-monolith has about 73,600 production source lines; `features` accounts for
-about 26,700 of them. Size alone is not a carve reason.
+The module graph is a DAG after the October 24 vocabulary and ability cuts.
+The session lifecycle and room-crossing policy now have a separate owner,
+`ambition_platformer2d_session`, above the actor kernel. Publication and runtime
+call that owner directly. The actor kernel has no production dependency on it.
 
-| Directed edge | Qualified references | Meaning and likely action |
-| --- | ---: | --- |
-| `body_whereabouts -> session` | 0 | Moved with K1 (custody adapter in the runtime transition) |
-| `construction -> session` | 0 | Moved with K2 (the selector is the room transaction's) |
-| `construction -> world` | 0 | Moved with K3 (`HeldItemId` is the held-item registry's) |
-| `avatar -> session` | 0 | Moved with K5's rules reading: the per-room rules reading is `ambition_combat::governing_rules`, beside `scoped_rules` |
-| `character_runtime -> avatar` | 1 | Match activation reads initial-body policy; **MOVE_ADAPTER** with match/session setup |
-| `items -> session` | 4 | Item setup and persistence reach lifecycle policy; **MOVE_ADAPTER** after A7 writer audit |
-| `session -> items` | 20 | Restoration coordinates item state; **KEEP_DIRECT** while item domain owns the restored values |
-| `features -> projectile` | 2 | Perception reads `ProjectileAllegiance`; a brain-driven shot is born by `clear_of_the_feet`; **KEEP_DIRECT** |
-| `projectile -> features` | 0 | Moved with K5's A2 slice: the swept contact pair and the shot-birth rule are projectile's |
-| `projectile -> avatar` | 3 | A parry heals the player (`PlayerHealRequested`); **KEEP_DIRECT** |
-| `features -> world` | 0 | Moved with K5's room sweep: `RoomBindings` checks a `RoomSpec`, so it is the world crate's |
-| `world -> features` | 4 | Door reach and the spawned-this-attempt marker; publication's 5 left with K4 step 1 |
-| `world -> session` | 6 | Door systems record lifecycle intents and read room rules; publication's checkpoint reads left with K4 step 1 |
-| `session -> world` | 0 | Became `session -> publication` (7) with K4 step 1, and 0 with step 2; see K4 |
-| `assets <-> character_sprites` | 0 / 3 | Broken with K5: the catalog-row projection moved to its consumer, and `game_assets` left `assets` |
-
-The counts come from `scripts/measure_kernel_module_graph.py`. Its cut
-list is a **graph what-if**: it does not prove that the resulting crates
-can compile, and one real cut can affect other paths not counted here.
+The remaining work is responsibility separation. Move item integration,
+character activation and asset materialization, projectile contact execution,
+and world-object behavior to their owners. Keep accepted control, body custody,
+body motion, and action execution together. A dependency on a lower domain is
+valid when the kernel needs that domain's facts.
 
 The instrument counts textual `crate::<module>` paths inside one crate. It
 misses many imported names, cross-crate dependencies, shared writers, message
@@ -170,6 +123,7 @@ Separate two kinds of integration work:
 | --- | --- | --- |
 | `ambition_platformer2d_runtime` (exists) | Profile selection, installation, public phase ordering, schedule policy | Body algorithms and every feature transaction |
 | `ambition_platformer2d_integration` (candidate) | Cross-domain simulation adapters and coordinated room-publication operations | General service lookup, named game content, domain state machines |
+| `ambition_platformer2d_session` | Session construction, checkpoint admission, restoration, retirement, and room-crossing policy | Body algorithms, item transition rules, or publication receipts |
 | Actor/body kernel | Accepted control, body custody, movement and action execution | Host load covers, checkpoint routing, content publishing |
 | Construction, world, session, item and combat domains | Each domain's facts, transitions, validation and rollback state | Knowledge of the higher integration crate |
 | Game providers and hosts | Selected content and device/presentation work | Engine-domain algorithms |
@@ -194,7 +148,7 @@ registration in the same phase.
 ## Dependency-first extraction sequence
 
 These are **design packets**, not a new priority queue. AP14 in
-[the execution queue](../queue.md#ap14--semantic-actor-monolith-scc-decomposition-continuous-deferred-2026-10-09)
+[the execution queue](../queue.md#ap14--actor-kernel-decomposition)
 selects when the work proceeds. The A-packet
 [catalog](actor-monolith-work-frontier.md) owns the existing behavior proofs.
 
@@ -433,18 +387,12 @@ top-level module above both. `character_sprites -> assets` (the catalog
 ids) is the remaining, downward edge. No system or resource moved;
 `PropSheets`' rollback exemption follows its new type path.
 
-**Done 2026-10-21 — A2's contact helpers.** `projectile -> features` was
-four references to helpers only the projectile road calls: the swept pair
-`projectile_reaches_breakable` and `projectile_reaches_boss` with their
-`FeatureContact` order (`features/ecs/damage_predicates.rs`), and
-`clear_of_the_feet`, the rule that a shot is born clear of its shooter's
-feet line. The pair is now `projectile/feature_contact.rs`, with its tests;
-the rule is `projectile/shot_birth.rs`, and the brain-driven fire road in
-`features` calls it there (`features -> projectile` 1 → 2, the KEEP_DIRECT
-direction). `target_is_ignored`, which only damage reads, stayed in
-`features/ecs/damage`. No system, resource or message moved. The
-component is still eight: `projectile -> avatar` (3, a parry heal) holds
-`projectile` in it, and that is a correct write, not a misplaced helper.
+**Done — A2 contact helpers.** The swept contact pair and its ordering are
+`crates/ambition_platformer2d_actor_monolith/src/projectile/feature_contact.rs`.
+The shot-birth rule is
+`ambition_combat::shot_birth::clear_of_the_feet`. Both projectile and brain
+callers use the shared rule. `target_is_ignored` stays with damage resolution.
+No system, resource, or message moved.
 
 **Done 2026-10-22 — the rules reading.** `avatar -> session` was the
 body control gate reading `session::governing_rules::RulesOf`: which rules
@@ -583,6 +531,19 @@ the only installer and nothing else in the monolith named the module (its one
 edge, `ContentRoomResetSet`, the runtime names from above). The zone types and
 systems stay in `shared_tangle::gravity`. No system moved schedule or set.
 Monolith production lines 61,303 → 60,612.
+
+### K7 — Session lifecycle leaves the actor kernel
+
+Checkpoint admission, restore, reset, session construction and teardown, and
+room-crossing policy are `ambition_platformer2d_session`. The runtime installs
+its checkpoint offer beside the item-domain offer. The combined actor wrapper
+is deleted. The session owns its snapshot codec and rollback declaration;
+schema keys, field order, phase membership, and gates stay the same. Callers use
+the session crate or the facade's `session` surface. The actor crate exports no
+session or room-crossing mirror.
+
+The moved tests use the public body constructor. No production API is widened
+for a test. The remaining kernel graph is a DAG. This cut does not complete D33.
 
 ### Migration acceptance for each packet
 

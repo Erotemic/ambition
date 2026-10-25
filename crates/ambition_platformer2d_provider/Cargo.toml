@@ -15,6 +15,7 @@ default = []
 audio = ["ambition_audio/kira"]
 
 [dependencies]
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # Declaring an edge to unbind a laundered one is right; leaving it after the last consumer goes is a
 # lie the graph tells. If this crate ever needs the backend again, add the line back WITH the use.

@@ -21,6 +21,7 @@ input = ["ambition_platformer2d_actor_monolith/input"]
 portal = ["ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_abilities = { path = "../ambition_abilities" }
 # The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
 # crate for views instead of querying the sim heart).

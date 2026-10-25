@@ -7,6 +7,7 @@ authors.workspace = true
 description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app."
 
 [dependencies]
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # Optional LDtk runtime support. The `ldtk_runtime` feature is required for
 # `LdtkRuntimeIndex` / `LdtkRuntimeSpinePlugin`; movement-only games leave this
@@ -118,7 +119,7 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
-portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_trace/portal"]
+portal = ["ambition_platformer2d_session/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_trace/portal"]
 # The WORLD MAP's simulation half. Default-OFF, and it was not optional at all
 # until 2026-09-09: this crate installed `MapStatePlugin` and
 # `install_map_simulation_systems` unconditionally, so `ambition_menu` was in

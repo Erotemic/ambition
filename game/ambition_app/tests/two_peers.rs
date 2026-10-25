@@ -652,7 +652,7 @@ impl CrossingOnOnePeer {
 
 fn pending_recorded_on(sim: &Platformer2dSimHarness) -> Option<i32> {
     sim.world()
-        .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .pending
         .as_ref()
         .map(|intent| intent.frame)

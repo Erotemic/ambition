@@ -139,7 +139,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     app.update();
 
     let home = player_pos(&mut app).expect("she is still in the world");
@@ -178,7 +178,7 @@ fn one_replay_request_is_processed_exactly_once() {
     );
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..4 {
         app.update();
     }
@@ -448,7 +448,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
         .resource::<SpentPowerBlocks>()
         .is_spent(live_room(app.world()), &question.0)
         || {
-            use ambition_platformer2d::actors::session::reset::AttemptScoped;
+            use ambition_platformer2d::session::reset::AttemptScoped;
             app.world().resource::<SpentPowerBlocks>().attempts().iter().any(|(room, _)| room == room_before)
         };
     let home = player_pos(&mut app).expect("she is still in the world");

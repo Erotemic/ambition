@@ -48,6 +48,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_encounter::register_rollback_state(registrar);
     ambition_combat::register_rollback_state(registrar);
     ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
+    ambition_platformer2d_session::register_rollback_state(registrar);
     ambition_mount::register_rollback_state(registrar);
     ambition_characters::register_rollback_state(registrar);
     // ⭐ THE FLOOR DECLARES ITS OWN NOW, and the precedent that settled it is the

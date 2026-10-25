@@ -142,7 +142,7 @@ pub fn restart_heavy_object_cycle_on_activation(
 }
 
 /// Convert a dialogue-authored replay choice into the engine's generic
-/// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
+/// [`RoomReplayRequested`](ambition_platformer2d_session::reset::RoomReplayRequested)
 /// once the conversation is over. `AmbitionBossContentPlugin` registers it in
 /// the engine's `ContentDialogueFollowupSet` slot, so the host never names this
 /// system. The conversation authority decides when the conversation is over.
@@ -170,7 +170,7 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     mut chosen: MessageReader<CutRopeRoomReplayRequested>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
     mut replay_requests: MessageWriter<
-        ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
+        ambition_platformer2d_session::reset::RoomReplayRequested,
     >,
 ) {
     if chosen.read().next().is_some() {
@@ -181,7 +181,7 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     }
     pending.requested = false;
     replay_requests
-        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::refight());
+        .write(ambition_platformer2d_session::reset::RoomReplayRequested::refight());
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.

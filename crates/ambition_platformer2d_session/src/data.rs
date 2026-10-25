@@ -19,11 +19,11 @@ use ambition_audio::spec::{MusicRegistry, SfxRegistry};
 #[cfg(test)]
 use std::collections::HashSet;
 
-// ⛔ THE DEFAULTS ASSET MOVED TO `crate::assets::gameplay_defaults`, and that
+// ⛔ THE DEFAULTS ASSET MOVED TO `ambition_platformer2d_actor_monolith::assets::gameplay_defaults`, and that
 // single `use` in `assets/loading.rs` was the whole of the `assets -> session`
 // edge — the one that held `assets` and `character_sprites` inside the kernel's
 // 15-module cycle. Imported here now, in the correct direction.
-use crate::assets::gameplay_defaults::{Platformer2dGameplayDefaults, PLATFORMER_DEFAULTS_ASSET};
+use ambition_platformer2d_actor_monolith::assets::gameplay_defaults::{Platformer2dGameplayDefaults, PLATFORMER_DEFAULTS_ASSET};
 
 
 // Authored audio is App-local now (R3.2: the engine ships no tracks and no
@@ -54,7 +54,7 @@ pub(crate) fn fixture_sfx_registry() -> &'static SfxRegistry {
 static TEST_FIXTURE_MUSIC_REGISTRY: std::sync::LazyLock<MusicRegistry> =
     std::sync::LazyLock::new(|| {
         ron::from_str(include_str!(
-            "../../../../game/ambition_content/assets/audio/music_registry.ron"
+            "../../../game/ambition_content/assets/audio/music_registry.ron"
         ))
         .expect("ambition_content music_registry.ron should parse")
     });
@@ -63,7 +63,7 @@ static TEST_FIXTURE_MUSIC_REGISTRY: std::sync::LazyLock<MusicRegistry> =
 static TEST_FIXTURE_SFX_REGISTRY: std::sync::LazyLock<SfxRegistry> =
     std::sync::LazyLock::new(|| {
         ron::from_str(include_str!(
-            "../../../../game/ambition_content/assets/audio/sfx_registry.ron"
+            "../../../game/ambition_content/assets/audio/sfx_registry.ron"
         ))
         .expect("ambition_content sfx_registry.ron should parse")
     });
@@ -76,20 +76,20 @@ pub struct Platformer2dGameplayDefaultsHandle(pub Handle<Platformer2dGameplayDef
 /// reload events under `bevy_dev_hot_reload`).
 ///
 /// Resolves the path through the active
-/// [`crate::assets::platformer_assets::Platformer2dAssetCatalog`] when one is
+/// [`ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog`] when one is
 /// installed. The catalog entry
-/// [`crate::assets::platformer_assets::ids::sandbox_data`] is required, so the
+/// [`ambition_platformer2d_actor_monolith::assets::platformer_assets::ids::sandbox_data`] is required, so the
 /// catalog never returns `Disabled` outside of `NoAssets`/`Headless`.
 /// Falls back to the raw asset-path constant when no catalog resource
 /// is present (visible-only init order / tests).
 pub fn load_data_asset_handle(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    catalog: Option<Res<crate::assets::platformer_assets::Platformer2dAssetCatalog>>,
+    catalog: Option<Res<ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog>>,
 ) {
     let path = catalog
         .as_ref()
-        .and_then(|c| c.path_for(&crate::assets::platformer_assets::ids::sandbox_data()))
+        .and_then(|c| c.path_for(&ambition_platformer2d_actor_monolith::assets::platformer_assets::ids::sandbox_data()))
         .unwrap_or_else(|| PLATFORMER_DEFAULTS_ASSET.to_string());
     commands.insert_resource(Platformer2dGameplayDefaultsHandle(asset_server.load(path)));
 }

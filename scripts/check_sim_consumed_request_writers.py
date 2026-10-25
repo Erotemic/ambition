@@ -141,7 +141,7 @@ SUBJECTS: dict[str, tuple[str, dict[str, str]]] = {
                 "PRODUCER, a helper `update_boss_encounters` calls, so it inherits that "
                 "system's schedule and has no registration of its own (read 2026-09-17)"
             ),
-            "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs::struct SessionScopedResources": (
+            "crates/ambition_platformer2d_session/src/teardown.rs::struct SessionScopedResources": (
                 "SESSION EDGE, not a per-frame producer: teardown CLEARS the queue so "
                 "one session's trigger cannot start in the next. A different boundary "
                 "from the rollback one (read 2026-09-17)"

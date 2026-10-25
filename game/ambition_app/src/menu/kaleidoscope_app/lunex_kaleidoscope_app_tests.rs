@@ -69,7 +69,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
-    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
     // announced to nobody. Registered in each harness because every one of
@@ -920,7 +920,7 @@ fn real_input_cube_app(
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::input::MenuInputState>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
-    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
     // announced to nobody. Registered in each harness because every one of

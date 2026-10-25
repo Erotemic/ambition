@@ -1,13 +1,4 @@
-//! Ambition-game session lifecycle: startup setup ([`setup`]), full
-//! reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue.
-//! Coarse `GameMode` state and camera layer markers now live in
-//! `ambition_platformer2d_shared_tangle`.
-//!
-//! Name overlap warning: this is the in-crate session runtime, NOT the
-//! separate `ambition_platformer2d_shared_tangle` crate (re-exported here as
-//! `crate::platformer_runtime`), which holds content-free engine
-//! primitives. This module is sim-side session glue that `app/` (the
-//! schedule wiring) calls into.
+//! Session construction, admitted lifecycle operations, restoration, and retirement.
 
 /// Returning a session to its checkpoint: the startup resume and the
 /// death/retry reset. Carved out of `shrine` in A1b — a shrine owns an
@@ -28,3 +19,10 @@ pub mod setup;
 pub mod teardown;
 
 pub use teardown::{reset_session_scoped_resources_on_retire, SessionTeardownPlugin};
+
+pub mod rooms;
+mod snapshot_impls;
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;
+#[cfg(test)]
+mod item_schedule_tests;

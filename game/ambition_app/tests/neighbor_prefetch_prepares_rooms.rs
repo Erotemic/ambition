@@ -255,10 +255,10 @@ fn a_checkpoint_outlook_refuses_a_plan_prepared_without_one() {
 /// smallest population a checkpoint can disagree with the live world about, and
 /// enough to give every room a non-default outlook.
 fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
-    use ambition_platformer2d::actors::session::checkpoint::{
+    use ambition_platformer2d::session::checkpoint::{
         AcceptedCheckpointRestore, AcceptedRestore, SessionCheckpointOperations,
     };
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
     use ambition_platformer2d::platformer::lifecycle::{
@@ -415,10 +415,10 @@ fn a_restore_with_no_lifecycle_half_rebuilds_its_room_from_the_live_ledger() {
 /// lifecycle half is `None`. With `relocated`, the LIVE ledger first says the
 /// item lies in another room. Answers whether the rebuilt room holds the item.
 fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
-    use ambition_platformer2d::actors::session::checkpoint::{
+    use ambition_platformer2d::session::checkpoint::{
         AcceptedCheckpointRestore, AcceptedRestore, SessionCheckpointOperations,
     };
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
     use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
@@ -617,7 +617,7 @@ pub(crate) fn cross(
     slot: PlayerSlot,
     target: &str,
 ) -> bool {
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
     use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;

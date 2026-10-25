@@ -84,7 +84,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
         // plugin is composed only by shell hosts, which also install
         // `SessionScopePlugin`, so `SessionScopeSet::Cleanup` and
         // `SessionScopeRetired` are available.
-        app.add_plugins(ambition_platformer2d_actor_monolith::session::SessionTeardownPlugin);
+        app.add_plugins(ambition_platformer2d_session::SessionTeardownPlugin);
         // ⛔ THE ONE REGISTERED EVALUATOR, reused for every candidate's hold id —
         // `ShellActivationGates` maps a hold to an evaluator, and keeping the
         // answer in one place while the BLOCK stays transaction-specific is the
@@ -2417,7 +2417,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// built from the wrong durable horizon, and the paragraph above was not
     /// true of it. `CandidateSave` gives the save of the candidate's own
     /// experience.
-    save: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateSave<'w>,
+    save: ambition_platformer2d_session::durable_horizon::CandidateSave<'w>,
     /// What each experience puts into its own session. See
     /// [`crate::session_contents`].
     session_contents: Res<'w, crate::SessionContentsCatalog>,
@@ -2683,10 +2683,10 @@ impl PlatformerSessionBuilder<'_, '_> {
                 boss_catalog: &mechanical.bosses,
             },
         );
-        let built = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
+        let built = ambition_platformer2d_session::setup::simulation_world(
             &mut self.commands,
             SessionSpawnScope::candidate(scope),
-            ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
+            ambition_platformer2d_session::setup::SimulationSetup {
                 world: &geometry,
                 tuning: &self.tuning,
                 initial_body: &initial_body,
@@ -2785,11 +2785,11 @@ pub struct PreparedCandidateSession {
     /// The candidate's DURABLE horizon — its occurrence ledger and the two
     /// checkpoint baselines — installed at adoption and at no other moment.
     /// See `CandidateDurableHorizon`.
-    horizon: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon,
+    horizon: ambition_platformer2d_session::durable_horizon::CandidateDurableHorizon,
     /// The save value `horizon` was read from. The gate compares it with the
     /// save at the activation: a candidate whose save changed is stale. See
     /// `PreparedFromSave`.
-    prepared_from: ambition_platformer2d_actor_monolith::session::durable_horizon::PreparedFromSave,
+    prepared_from: ambition_platformer2d_session::durable_horizon::PreparedFromSave,
     /// The bag that the experience of this candidate declares for its
     /// sessions, installed at adoption. See `StartingBag`.
     starting_bag: ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag,
@@ -3133,7 +3133,7 @@ mod tests {
 
         // ── 5. STALE: the save changed after the candidate was built. The
         //       candidate is discarded and the route is asked again.
-        use ambition_platformer2d_actor_monolith::session::durable_horizon::{
+        use ambition_platformer2d_session::durable_horizon::{
             AmbitionGameSave, PreparedFromSave,
         };
         let live = AmbitionGameSave::default();

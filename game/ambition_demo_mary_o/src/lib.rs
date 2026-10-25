@@ -1697,7 +1697,7 @@ impl Plugin for MaryORulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::FeatureWorldOverlayContributions);
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
-        use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
+        use ambition_platformer2d::session::reset::install_attempt_scoped;
         // Each rule is in her `RulesScopeSet`, whose one condition is asked
         // once a run: a condition on each system was asked once a system
         // (findings F34, P18).

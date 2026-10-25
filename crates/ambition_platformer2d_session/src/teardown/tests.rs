@@ -5,7 +5,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 
 use super::*;
-use crate::control::possession::PossessionState;
+use ambition_platformer2d_actor_monolith::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 
@@ -37,7 +37,7 @@ fn app_with_populated_mirrors() -> App {
     // session root's (C03) and need no reset.
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     // ⛔ THE OWNER. `reset_session_scoped_resources_on_retire` refuses a
     // retirement belonging to a scope that is not the live one — see its body.
     // At its default NO scope is current, which is a quit-to-title and is the
@@ -54,7 +54,7 @@ fn app_with_populated_mirrors() -> App {
     // behind an agreeing checksum.
     app.init_resource::<ambition_match::StocksMatchSettled>();
     app.init_resource::<ambition_match::SuddenDeathEntered>();
-    app.init_resource::<crate::character_runtime::live_match_clock::LiveMatchTicks>();
+    app.init_resource::<ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks>();
     app.init_resource::<ambition_match::seating::SessionMatchOrdinal>();
     app.add_systems(
         Update,

@@ -34,10 +34,10 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     // intent names its destination by authored id, so the room is asserted by NAME rather than
     // by index.
     fn capture(
-        pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+        pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
         mut out: ResMut<Captured>,
     ) {
-        if let Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+        if let Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) =
             pending.pending.as_ref().map(|intent| &intent.kind)
         {
             out.0 = Some(transition.target_room.clone());
@@ -88,7 +88,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     app.init_resource::<ambition_time::WorldTime>();
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -141,7 +141,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     // hang race: before the filter, a corpse could immediately refill the sticky
     // lifecycle slot that death had just cleared.
     app.world_mut()
-        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
         .take();
     app.world_mut().resource_mut::<Captured>().0 = None;
     app.world_mut()
@@ -178,10 +178,10 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     // intent names its destination by authored id, so the room is asserted by NAME rather than
     // by index.
     fn capture(
-        pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+        pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
         mut out: ResMut<Captured>,
     ) {
-        if let Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+        if let Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) =
             pending.pending.as_ref().map(|intent| &intent.kind)
         {
             out.0 = Some(transition.target_room.clone());
@@ -235,7 +235,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     app.init_resource::<Captured>();
     // A 60 fps frame; the body crosses the whole zone within it.
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -329,10 +329,10 @@ fn room_crossed_to(
     // intent names its destination by authored id, so the room is asserted by NAME rather than
     // by index.
     fn capture(
-        pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+        pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
         mut out: ResMut<Captured>,
     ) {
-        if let Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+        if let Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) =
             pending.pending.as_ref().map(|intent| &intent.kind)
         {
             out.0 = Some(transition.target_room.clone());
@@ -379,7 +379,7 @@ fn room_crossed_to(
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -1222,8 +1222,8 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
     // record from an EARLIER phase of the same tick. It names a DIFFERENT body
     // and arrival, so `record`'s idempotence cannot be mistaken for a refusal
     // that was honoured.
-    let incumbent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
-        crate::session::lifecycle_commit::RoomTransitionIntent {
+    let incumbent = crate::lifecycle_commit::LifecycleIntent::Transition(
+        crate::lifecycle_commit::RoomTransitionIntent {
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("somebody_else"), None),
             target_room: "b".into(),
             arrival: ae::Vec2::new(7.0, 9.0),
@@ -1283,7 +1283,7 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
 /// buffer at all.
 fn app_with_a_door(
     body_in_the_zone: bool,
-    incumbent: Option<crate::session::lifecycle_commit::LifecycleIntent>,
+    incumbent: Option<crate::lifecycle_commit::LifecycleIntent>,
 ) -> bevy::prelude::App {
     use ambition_characters::control::SlotInteractionState;
     use ambition_platformer2d_core::BodyKinematics;
@@ -1331,11 +1331,11 @@ fn app_with_a_door(
         app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<ambition_time::WorldTime>();
-        app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
         if let Some(kind) = incumbent {
             let admitted = app
                 .world_mut()
-                .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+                .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
                 .record(0, kind);
             assert!(
                 admitted.admitted(),
@@ -1384,9 +1384,9 @@ fn app_with_a_door(
 /// What is waiting in the one earliest-sticky lifecycle slot.
 fn pending_intent(
     app: &bevy::prelude::App,
-) -> Option<crate::session::lifecycle_commit::LifecycleIntent> {
+) -> Option<crate::lifecycle_commit::LifecycleIntent> {
     app.world()
-        .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
         .peek()
         .map(|intent| intent.kind.clone())
 }
@@ -1610,7 +1610,7 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
         app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<ambition_time::WorldTime>();
-        app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_systems(Update, detect_room_transition_system);
         let body = app
@@ -1629,7 +1629,7 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
         app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
         app.update();
         match pending_intent(&app) {
-            Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) => {
+            Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) => {
                 Some(transition.target_room)
             }
             _ => None,

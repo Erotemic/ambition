@@ -430,7 +430,7 @@ fn a_replay_lets_the_rope_be_cut_again() {
     // spent beat. The replay road rebuilds the room, its behemoth and its
     // fight.
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     for _ in 0..60 {
         sim.step(AgentAction::default());

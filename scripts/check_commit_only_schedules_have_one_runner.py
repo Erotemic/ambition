@@ -59,7 +59,7 @@ REPO = Path(__file__).resolve().parent.parent
 #: "two, and only these two" without becoming a list nobody re-derives.
 COMMIT_ONLY: dict[str, tuple[str, str]] = {
     "CheckpointDomainApply": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "the common commit executor — the eager host's exclusive runner and the "
         "confirmed host's commit tail. `CheckpointRestoreInputs` is installed only "
         "for this schedule's duration and removed on every success and failure "
@@ -67,7 +67,7 @@ COMMIT_ONLY: dict[str, tuple[str, str]] = {
         "to an empty baseline",
     ),
     "RestoreConsequences": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "`run_restore_consequences`, which `verify_and_publish` calls when its "
         "verdict publishes the room of an accepted restore. The replay it answers "
         "is the one pinned in that operation, and `CommittedRestoreReplay` exists "

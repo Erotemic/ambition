@@ -31,7 +31,7 @@ use ambition_characters::control::{claim_control_hold, release_control_hold, Con
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 
-use crate::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
+use crate::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
 
 /// The rule that a room's doors and gates play their passage. A game declares
 /// it for its own rooms' scope, so another game's rooms in the same host keep
@@ -824,7 +824,7 @@ mod tests {
         }
         let other = LifecycleIntent::Transition(RoomTransitionIntent { target_room: "another room".into(), ..crossing });
         app.world_mut().resource_mut::<PendingLifecycleCommit>().pending =
-            Some(crate::session::lifecycle_commit::PendingIntent { frame: 7, kind: other.clone() });
+            Some(crate::lifecycle_commit::PendingIntent { frame: 7, kind: other.clone() });
         for _ in 0..(CROSSING_GIVE_UP_S * 60.0).ceil() as usize + 1 {
             app.update();
         }

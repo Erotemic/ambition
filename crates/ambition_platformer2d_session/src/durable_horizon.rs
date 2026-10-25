@@ -157,7 +157,7 @@ pub struct CandidateDurableHorizon {
     /// deciding whether candidate B's world can be CONSTRUCTED comes from B's
     /// horizon. `OwnedItemsBaseline`, the wallet and the rest do not participate
     /// in candidate room construction and are not pulled in here.
-    minted: crate::items::pickup::minted_horizon::MintedItemBaseline,
+    minted: ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
     /// What the save says about the bodies of the first room (dead, provoked,
     /// cleared). The third value that construction reads from a save. It is
     /// not installed: the first room commit reads it and no resource holds it.
@@ -178,7 +178,7 @@ impl CandidateDurableHorizon {
         Self {
             occurrences,
             custody,
-            minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save),
+            minted: ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::minted_baseline_from_save(save),
             fates: ambition_platformer2d_construction::PersistedFates::from_save(save),
         }
     }
@@ -191,7 +191,7 @@ impl CandidateDurableHorizon {
     }
 
     /// What the candidate's construction reads to rebuild a runtime mint.
-    pub fn minted(&self) -> &crate::items::pickup::minted_horizon::MintedItemBaseline {
+    pub fn minted(&self) -> &ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline {
         &self.minted
     }
 
@@ -236,7 +236,7 @@ impl CandidateDurableHorizon {
 pub struct CandidateCheckpointBaselines {
     occurrences: AuthoredOccurrences,
     custody: BTreeMap<SimId, SimId>,
-    minted: crate::items::pickup::minted_horizon::MintedItemBaseline,
+    minted: ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
 }
 
 impl CandidateCheckpointBaselines {
@@ -260,7 +260,7 @@ impl CandidateCheckpointBaselines {
             baseline.adopt(custody);
         }
         if let Some(mut baseline) = session_world_component_mut_at::<
-            crate::items::pickup::minted_horizon::MintedItemBaseline,
+            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
         >(world, root)
         {
             *baseline = minted;
@@ -417,7 +417,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
                 .run_if(|conversation: Option<Res<ambition_conversation::ActiveConversation>>| {
                     conversation.is_some_and(|conversation| conversation.is_live())
                 })
-                .after(crate::features::interact_ecs_actors_and_switches),
+                .after(ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches),
         )
             .chain()
             .in_set(DurableHorizonSet::SessionMirror),

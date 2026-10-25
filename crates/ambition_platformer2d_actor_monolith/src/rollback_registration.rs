@@ -223,11 +223,7 @@ where
         "the one-time pickups consumed and the authored chests opened since the last checkpoint, with their room and whose horizons own each (Q151)",
         crate::features::ecs::pickups::ConsumedSinceCheckpoint::checksum,
     );
-    registrar
-        .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
-            OWNER,
-            "resource.pending_lifecycle_commit",
-        );
+
     registrar.rollback_resource_clone_entity_set::<crate::control::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
@@ -317,15 +313,6 @@ where
                 ^ (u64::from(hold.slot.0) << 56)
                 ^ (mode << 60)
         },
-    );
-    // A passage through a door or a gate: the scene, its clock, and the
-    // crossing it records when the going-in ends. A rewind into it must
-    // resume it, and one before the press must not keep a passage the
-    // resimulation has not started. The holds are derived from it.
-    registrar.rollback_component_clone_probed::<crate::rooms::passage::ZonePassage>(
-        OWNER,
-        "actor.zone_passage",
-        crate::rooms::passage::ZonePassage::checksum,
     );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
@@ -720,10 +707,7 @@ where
         OWNER,
         "message.spawn_actor_request",
     );
-    registrar.clear_message_on_rollback::<crate::session::reset::NewGameRequested>(
-        OWNER,
-        "message.new_game_requested",
-    );
+
     registrar.clear_message_on_rollback::<ambition_damage::WalletShieldSpent>(
         OWNER,
         "message.wallet_shield_spent",
@@ -736,85 +720,13 @@ where
         OWNER,
         "message.trail_continuity_break",
     );
-    registrar.clear_message_on_rollback::<crate::session::reset::RoomReplayRequested>(
-        OWNER,
-        "message.room_replay_requested",
-    );
+
     // Save application is a rollback-relevant latch because the state it guards
     // rewinds even though the literal Update systems that set it do not resimulate.
     registrar.rollback_resource_clone::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>(
         OWNER,
         "resource.save_restored",
     );
-    // ⭐ THE CHECKPOINT COORDINATOR LIVES ON THE SESSION ROOT (C03, 2026-10-07):
-    // the five rows below are COMPONENT registrations on the root, beside
-    // `root.room_set`, and their KEYS ARE UNCHANGED. A key is a wire identity, so
-    // the names keep their `resource.` prefix; what moved is the storage.
-    // ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM.
-    // `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, and a
-    // `Local` does not rewind: a rollback crossing the frame it routed on would
-    // resimulate with the memory already past the crossing, so one timeline asks
-    // for the crossing and the other believes it already did.
-    //
-    // ⭐ PROBED BY WHICH GENERATION, not by presence. A restore that brought
-    // back the wrong generation makes one timeline re-ask for a crossing the
-    // other already spent, and a presence probe sees none of that.
-    // ⛔⛔ A REQUEST THAT OUTLIVES ITS FRAME MUST REWIND WITH THE WORLD. The
-    // reset channel is cleared on rollback, so before this bit existed a
-    // rewound timeline simply lost the request. Now it is remembered until the
-    // slot admits it — which means a rewind past the frame it arrived on has to
-    // take it back, or one timeline restores a checkpoint the other never asked
-    // for.
-    // ⛔⛔ THE ACCEPTED OPERATION SPANS FRAMES BY DESIGN — it is pinned when the
-    // slot says yes and read by room preparation several frames later — so a
-    // rewind that crossed the admission must take it back, or the load prepares
-    // a room from a population the resimulated timeline never selected.
-    // ⛔⛔ THE OPERATION COUNTER REWINDS WITH THE WORLD, and it must not be reset
-    // at a room rebase. A rewound timeline that re-admits gets the SAME key for
-    // the same admission, which is what makes a host-side load that names a key
-    // still correct after a resimulation; a counter that drifted between
-    // timelines would authorize a load for an operation the other never made.
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionCheckpointOperations>(
-        OWNER,
-        "resource.session_checkpoint_operations",
-        "how many checkpoint restores this session has admitted",
-        crate::session::checkpoint::SessionCheckpointOperations::checksum,
-    );
-    // ⛔ THE TERMINAL ANSWER OUTLIVES THE OPERATION, and the startup road reads
-    // it several frames later to learn that its own crossing finished. A rewind
-    // that brought back a `Committed` the other timeline had not published would
-    // let one side believe a restore landed that the other never made.
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionCheckpointOutcomes>(
-        OWNER,
-        "resource.session_checkpoint_outcomes",
-        "the terminal outcome of the last answered checkpoint operation",
-        crate::session::checkpoint::SessionCheckpointOutcomes::checksum,
-    );
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
-        OWNER,
-        "resource.accepted_checkpoint_restore",
-        "which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication",
-        crate::session::checkpoint::AcceptedCheckpointRestore::checksum,
-    );
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(
-        OWNER,
-        "resource.outstanding_checkpoint_request",
-        "whether the session is still owed a checkpoint restore",
-        crate::session::checkpoint::OutstandingCheckpointRequest::checksum,
-    );
-    // ⛔ THE KEY MOVED WITH THE MEANING, and that is deliberate. A1b kept
-    // `resource.checkpoint_resume_progress` across a pure module move, because a
-    // renamed key would have made a relocation look like a format change. This
-    // is the opposite case: the VALUE changed from two per-generation latches to
-    // a state machine naming an admitted operation, so keeping the old name
-    // would let two peers agree on a key whose contents mean different things.
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionStartupResume>(
-        OWNER,
-        "resource.session_startup_resume",
-        "which session generation startup resolution reached, and which operation it routed",
-        crate::session::checkpoint::SessionStartupResume::checksum,
-    );
-
     // ⛔⛔ EVENT-CREATED AUTHORITATIVE STATE, AND THAT IS WHY IT WAS MISSING. The
     // boot census can only see components that exist in the INITIAL world; every
     // component below is inserted later, by an ability firing, so nothing

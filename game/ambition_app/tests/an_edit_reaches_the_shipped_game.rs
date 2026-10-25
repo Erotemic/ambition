@@ -1571,7 +1571,7 @@ fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
             },
         );
         app.world_mut()
-            .run_system_once(ambition_platformer2d::actors::session::join::seat_a_joining_participant)
+            .run_system_once(ambition_platformer2d::session::join::seat_a_joining_participant)
             .expect("the join system runs");
         // No handle writes slot 1 in this composition, so the press would
         // stay in the slot.

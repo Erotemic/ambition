@@ -28,7 +28,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::session::reset::PerLiveRoom;
+use ambition_platformer2d::session::reset::PerLiveRoom;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
 use ambition_platformer2d::platformer::markers::PlayerEntity;
@@ -377,7 +377,7 @@ pub fn contribute_broken_monitors_to_overlay(
 /// replays the room in place, and an in-place replay does not emit
 /// `RoomLoaded`. It does seat a new live room, and the state of the room it
 /// replaces goes with that room.
-impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonitors {
+impl ambition_platformer2d::session::reset::AttemptScoped for SpentMonitors {
     type Attempt = Vec<String>;
 
     fn attempts(&self) -> &PerLiveRoom<Self::Attempt> {
@@ -631,7 +631,7 @@ mod tests {
         app.insert_resource(both);
         app.add_systems(
             Update,
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
+            ambition_platformer2d::session::reset::rearm_attempt_scoped::<SpentMonitors>,
         );
         app.update();
         assert!(

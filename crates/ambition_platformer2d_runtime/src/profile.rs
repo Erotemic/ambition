@@ -311,7 +311,7 @@ pub const SUPPORTED_PROFILES: [EngineProfile; 9] = [
 /// parameters validate is what a witness can do without staging either event.
 pub fn session_edge_params_validate(world: &mut World) -> Result<(), String> {
     use bevy::ecs::system::SystemState;
-    let mut teardown = SystemState::<ambition_platformer2d_actor_monolith::session::teardown::SessionScopedResources>::new(world);
+    let mut teardown = SystemState::<ambition_platformer2d_session::teardown::SessionScopedResources>::new(world);
     teardown
         .get_mut(world)
         .map(|_| ())

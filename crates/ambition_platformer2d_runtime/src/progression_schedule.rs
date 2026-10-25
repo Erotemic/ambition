@@ -80,7 +80,7 @@ impl Plugin for ProgressionSchedulePlugin {
             sim,
             // Portal lifecycle: advance every registered portal's phase from its
             // switch state + per-phase timers.
-            ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system
+            ambition_platformer2d_session::rooms::tick_portal_phases_system
                 .in_set(ProgressionSet::WorldSync),
         );
         // The terminal's requests: the channel is the host-intent ledger's
@@ -93,10 +93,10 @@ impl Plugin for ProgressionSchedulePlugin {
         // reads the links), so a dial boots its ring on the tick it is made.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::rooms::gate_network::run_gate_network
-                .run_if(ambition_platformer2d_actor_monolith::rooms::gate_network::the_gate_network_has_work)
+            ambition_platformer2d_session::rooms::gate_network::run_gate_network
+                .run_if(ambition_platformer2d_session::rooms::gate_network::the_gate_network_has_work)
                 .after(ambition_encounter::switches::SwitchActivationDrained)
-                .before(ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system)
+                .before(ambition_platformer2d_session::rooms::tick_portal_phases_system)
                 .in_set(ProgressionSet::WorldSync),
         );
         // ⭐ THE MAP OWNS ITS SIMULATION HALF, completing the split its input/view half

@@ -467,7 +467,7 @@ fn replay_the_room(sim: &mut Platformer2dSimHarness, live: &BTreeSet<Entity>) ->
     replay_the_room_because(
         sim,
         live,
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     )
 }
 
@@ -482,7 +482,7 @@ fn replay_the_room(sim: &mut Platformer2dSimHarness, live: &BTreeSet<Entity>) ->
 fn replay_the_room_because(
     sim: &mut Platformer2dSimHarness,
     live: &BTreeSet<Entity>,
-    request: ambition_platformer2d::actors::session::reset::RoomReplayRequested,
+    request: ambition_platformer2d::session::reset::RoomReplayRequested,
 ) -> BTreeSet<Entity> {
     sim.world_mut().write_message(request);
     settle_after_construction(sim, live)
@@ -872,7 +872,7 @@ fn an_object_in_your_hands_survives_a_replay_and_is_not_re_authored() {
     // population is the one object now in the body's hands — which is exactly
     // what a correct replay does not rebuild. The wait would never end.
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     for _ in 0..30 {
         sim.step(base());
@@ -1377,7 +1377,7 @@ fn relocatable_occurrence_in(
 /// taken.
 #[test]
 fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
 
@@ -1407,7 +1407,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
     sim.world_mut()
         .resource_mut::<PendingLifecycleCommit>()
         .pending = Some(
-        ambition_platformer2d::actors::session::lifecycle_commit::PendingIntent {
+        ambition_platformer2d::session::lifecycle_commit::PendingIntent {
             frame: 0,
             kind: LifecycleIntent::Transition(RoomTransitionIntent {
                 subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
@@ -1423,7 +1423,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
     );
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     for _ in 0..8 {
         sim.step(base());
@@ -1521,7 +1521,7 @@ fn a_replay_follows_the_body_you_are_actually_driving() {
     sim.step(base());
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     for _ in 0..20 {
         sim.step(base());
@@ -1911,7 +1911,7 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
 /// chosen from three options instead of two.
 #[test]
 fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
-    use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
+    use ambition_platformer2d::session::reset::RoomReplayRequested;
     use ambition_platformer2d::boss_encounter::BossConfig;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::platformer::authored_logic::{

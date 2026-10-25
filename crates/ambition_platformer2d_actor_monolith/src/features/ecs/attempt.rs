@@ -5,7 +5,7 @@
 //! [`SpawnedThisAttempt`].
 //!
 //! The same-room reset itself is not here any more. It is
-//! [`crate::rooms::reconstitute_the_active_room`], which rebuilds the room
+//! the session reconstruction coordinator, which rebuilds the room
 //! through the canonical construction plan instead of mutating survivors back
 //! toward a presumed spawn state through a hand-kept list.
 

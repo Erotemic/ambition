@@ -104,7 +104,7 @@ fn walk_through_the_door_losing_her_slot(sim: &mut Platformer2dSimHarness, targe
     sim.teleport_player((center.x, center.y));
     let pending = |sim: &Platformer2dSimHarness| {
         sim.world()
-            .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+            .resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
             .pending
             .is_some()
     };
@@ -2152,7 +2152,7 @@ fn the_traces_record_each_body_in_its_own_live_room() {
 /// census prints the same answer.
 #[test]
 fn a_departing_player_releases_only_their_own_claim() {
-    use ambition_platformer2d::actors::rooms::{live_room_claims_in, RoomClaim};
+    use ambition_platformer2d::session::rooms::{live_room_claims_in, RoomClaim};
     use ambition_platformer2d::characters::control::PlayerSlot;
     let (mut sim, first) = alice_leaves_bob(Some(PlayerSlot(1)));
     let (alice, bob) = {
@@ -2260,7 +2260,7 @@ fn alice_walks_off_hurt_in_the_hub(sim: &mut Platformer2dSimHarness) -> bevy::pr
 fn a_replay_beside_another_live_room_replays_the_players_own_room() {
     let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     let spawn = alice_walks_off_hurt_in_the_hub(&mut sim);
-    sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    sim.world_mut().write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..30 {
         sim.step(base());
     }
@@ -2285,7 +2285,7 @@ fn a_checkpoint_reset_beside_another_live_room_is_served_in_the_players_own_room
     for _ in 0..30 {
         sim.step(base());
     }
-    let owed = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>(sim.world_mut())
+    let owed = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::OutstandingCheckpointRequest>(sim.world_mut())
         .expect("the live session root carries the checkpoint coordinator")
         .0;
     assert_eq!(owed, None, "the session is still owed the checkpoint reset");
@@ -2331,7 +2331,7 @@ fn a_replay_of_the_cut_rope_arena_beside_another_live_room_hangs_the_next_heavy_
     );
     assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live beside Alice's");
     let before = *sim.world_mut().resource::<CutRopeHeavyObjectCycle>();
-    sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    sim.world_mut().write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..30 {
         sim.step(base());
     }
@@ -2530,7 +2530,7 @@ fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
             for (room, _) in &live {
                 gravity.turn(Some(*room), up);
             }
-            world.write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+            world.write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
         }
         let mut clock_reset = false;
         let mut admitted = false;
@@ -2628,7 +2628,7 @@ fn seat_waits(sim: &Platformer2dSimHarness, seat: usize) -> bool {
 /// Whether a crossing is accepted and waits to commit.
 fn a_crossing_is_pending(sim: &Platformer2dSimHarness) -> bool {
     sim.world()
-        .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .pending
         .is_some()
 }
@@ -3548,7 +3548,7 @@ fn the_reset_effects_of_a_replay_are_drawn_in_the_players_own_live_room() {
     let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     alice_walks_off_hurt_in_the_hub(&mut sim);
     let before = where_they_are(&mut sim).0.expect("Alice is in a live room");
-    sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    sim.world_mut().write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     // (the room a reset effect was written for, Alice's room on that tick)
     let mut rows: Vec<(Option<LiveRoomInstance>, Option<LiveRoomInstance>)> = Vec::new();
     for _ in 0..30 {
@@ -3670,7 +3670,7 @@ fn one_room_after(reset: fn(&mut Platformer2dSimHarness)) -> (Vec<(LiveRoomInsta
 fn a_reset_beside_a_player_in_the_same_room_rebuilds_the_one_live_room() {
     let second = LiveRoomInstance::ACTIVATION.next();
     let replay = one_room_after(|sim| {
-        sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        sim.world_mut().write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     });
     let checkpoint = one_room_after(|sim| {
         sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);

@@ -17,7 +17,7 @@ use crate::boss_lifecycle::{boss_alive, boss_cleared, force_kill_boss, kill_boss
 /// Ask for a replay of the controlled body's room and let it settle.
 fn replay(sim: &mut Platformer2dSimHarness) {
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }
@@ -395,7 +395,7 @@ fn cut_rope_after_a_refused_request(try_again: bool) -> (bool, bool) {
 /// [`cut_rope_after_a_refused_request`], with the pending slot taken only when
 /// `slot_taken` is set.
 fn cut_rope_after_a_request(slot_taken: bool, try_again: bool) -> (bool, bool) {
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomReconstitutionIntent,
     };
     const ROOM: &str = "you_have_to_cut_the_rope";
@@ -703,7 +703,7 @@ fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
     die(&mut sim);
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
@@ -923,7 +923,7 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
         Ending::Death => crate::death_restores_the_checkpoint::die(&mut sim),
         Ending::NewGame => {
             sim.world_mut()
-                .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+                .write_message(ambition_platformer2d::session::reset::NewGameRequested);
             for _ in 0..240 {
                 sim.step(crate::common::base());
             }
@@ -1175,7 +1175,7 @@ fn alice_loots_bobs_chest_of_then_dies(
     crate::death_restores_the_checkpoint::die(&mut sim);
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );

@@ -178,7 +178,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>()
             // Track B: the rollback-registered slot a lifecycle op records into
             // under a rollback host, committed on a confirmed frame.
-            .init_resource::<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>()
+            .init_resource::<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>()
             // The always-available input seam (RL/headless writes it
             // programmatically; the windowed host's bridge fills it from
             // devices).

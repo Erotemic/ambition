@@ -37,7 +37,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
-use crate::control::possession::PossessionState;
+use ambition_platformer2d_actor_monolith::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 use ambition_persistence::quest::QuestRegistry;
@@ -69,11 +69,11 @@ pub struct SessionScopedResources<'w> {
     /// The one-time pickups consumed since the last checkpoint, with their
     /// owners. The next session's file is its baseline.
     consumed_since_checkpoint:
-        Option<ResMut<'w, crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
+        Option<ResMut<'w, ambition_platformer2d_actor_monolith::features::ecs::pickups::ConsumedSinceCheckpoint>>,
     /// The grants of the mints collected since the last checkpoint. The next
     /// session's file is its baseline, so a retraction there must take back
     /// none of this session's.
-    reward_grants: Option<ResMut<'w, crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+    reward_grants: Option<ResMut<'w, ambition_platformer2d_actor_monolith::items::pickup::RewardGrantsSinceCheckpoint>>,
     /// The bag spends since the last checkpoint, for the same reason.
     bag_spends: Option<ResMut<'w, ambition_held_items::BagSpendsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
@@ -128,7 +128,7 @@ pub struct SessionScopedResources<'w> {
     /// `frame` is a frame index from the DEAD session. Because `record` keeps
     /// the EARLIEST intent, that residue does not merely fire late: it REFUSES
     /// the next session's first lifecycle intent.
-    pending_lifecycle: ResMut<'w, crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    pending_lifecycle: ResMut<'w, crate::lifecycle_commit::PendingLifecycleCommit>,
     /// ⛔⛤ **THE ROOM'S AMBIENT GRAVITY, ADDED 2026-09-13 AFTER A REVIEW FOUND IT
     /// CROSSING SESSIONS.** `BaseGravity` is canonical ROLLBACK state and a
     /// MECHANIC — gravity-flip switches write it — and its only reset roads were
@@ -222,7 +222,7 @@ pub struct SessionScopedResources<'w> {
     /// review of 2026-09-16.
     settled: ResMut<'w, ambition_match::StocksMatchSettled>,
     sudden_death: ResMut<'w, ambition_match::SuddenDeathEntered>,
-    live_match_ticks: ResMut<'w, crate::character_runtime::live_match_clock::LiveMatchTicks>,
+    live_match_ticks: ResMut<'w, ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks>,
     /// ⭐ AND THE MINT ITSELF, WHICH USED TO RESET LAZILY INSIDE `take`. A mint
     /// that notices the session changed at the moment it is next ASKED still
     /// holds the previous session's count until then, so two peers with different
@@ -446,7 +446,7 @@ fn reset(resources: SessionScopedResources) {
     *save_restored = ambition_platformer2d_shared_tangle::lifecycle::SaveRestored::default();
     *occurrences = ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
-    *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
+    *pending_lifecycle = crate::lifecycle_commit::PendingLifecycleCommit::default();
     *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
     if let Some(active_cutscene) = active_cutscene.as_deref_mut() {
         *active_cutscene = ambition_cutscene::ActiveCutscene::default();
@@ -463,7 +463,7 @@ fn reset(resources: SessionScopedResources) {
     *settled = ambition_match::StocksMatchSettled::default();
     *sudden_death = ambition_match::SuddenDeathEntered::default();
     *live_match_ticks =
-        crate::character_runtime::live_match_clock::LiveMatchTicks::default();
+        ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks::default();
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
     if let Some(mut tick) = sim_tick {
         *tick = ambition_time::SimTick::default();

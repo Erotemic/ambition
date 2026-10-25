@@ -9,7 +9,7 @@
 //! on. Splitting the reset out of that module is the whole reason it could not move earlier.
 //!
 //! Why it had to move.
-//! [`ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested`] is the engine's
+//! [`ambition_platformer2d_session::reset::RoomReplayRequested`] is the engine's
 //! generic "replay the active room" request, and content emits it from three places today (Mary-O's
 //! flag completion and timeout, Sanic's act clear, Ambition's cut-rope "try again"). So in the
 //! shipped standalone Mary-O and Sanic binaries the message was written into a registered channel
@@ -104,7 +104,7 @@ pub fn reset_sandbox(
     // is what produced the defect — `reset()` clears the snap, so a placer that
     // forgot the second line eased the camera across the whole room.
     if let Some(blink_cam) = blink_cam {
-        blink_cam.reset_to_spawn(ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME);
+        blink_cam.reset_to_spawn(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
     }
     let reset_to = clusters.kinematics.pos;
     sfx.write(SfxMessage::Reset { pos: reset_to });
@@ -161,18 +161,18 @@ pub struct RoomReplayConsequences;
 /// the room is the sole live room's, and there is none while two are live.
 pub fn admit_room_replay(
     mut requests: MessageReader<
-        ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
+        ambition_platformer2d_session::reset::RoomReplayRequested,
     >,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     identities: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut pending: ResMut<
-        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+        ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
     >,
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut admitted: MessageWriter<RoomReplayAdmitted>,
 ) {
-    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+    use ambition_platformer2d_session::lifecycle_commit::{
         LifecycleIntent, RoomReconstitutionIntent, RoomTransitionIntent,
     };
 
@@ -385,7 +385,7 @@ pub fn return_the_replay_subject_to_spawn(
 pub fn bring_a_fallen_seat_back_beside_the_primary(
     mut commands: Commands,
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
-    mut pending: ResMut<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>,
+    mut pending: ResMut<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -465,8 +465,8 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
                     // again on the next tick, and the seat waits out of play.
                     let _ = pending.record(
                         boundary.as_deref().map_or(0, |boundary| boundary.current),
-                        ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(
-                            ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent {
+                        ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::Transition(
+                            ambition_platformer2d_session::lifecycle_commit::RoomTransitionIntent {
                                 subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                                     sim_id.clone(),
                                     Some(room.0),
@@ -793,12 +793,12 @@ mod subjectless_replay_tests {
     #[test]
     fn a_subjectless_replay_records_a_reconstitution_and_owns_the_slot() {
         let mut app = App::new();
-        app.add_message::<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>();
+        app.add_message::<ambition_platformer2d_session::reset::RoomReplayRequested>();
         app.add_message::<RoomReplayAdmitted>();
         app.init_resource::<ActiveSessionScope>();
         app.world_mut().resource_mut::<ActiveSessionScope>().begin();
         app.init_resource::<
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+            ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
         >();
         ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), room_set("central"));
         // ⛔ NO `ControlledSubject` RESOURCE AT ALL — the composition this arm is
@@ -806,7 +806,7 @@ mod subjectless_replay_tests {
         // omitting it also proves the `Option<Res<..>>` reaches it.
         app.add_systems(Update, admit_room_replay);
         app.world_mut().write_message(
-            ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::manual(),
+            ambition_platformer2d_session::reset::RoomReplayRequested::manual(),
         );
         app.update();
 
@@ -826,14 +826,14 @@ mod subjectless_replay_tests {
         );
 
         let pending = app.world().resource::<
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+            ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
         >();
         let recorded = pending.peek().map(|pending| pending.kind.clone());
         assert_eq!(
             recorded,
             Some(
-                ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::ReconstituteRoom(
-                    ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomReconstitutionIntent {
+                ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::ReconstituteRoom(
+                    ambition_platformer2d_session::lifecycle_commit::RoomReconstitutionIntent {
                         target_room: "central".to_string(),
                     },
                 )

@@ -15,7 +15,7 @@
 
 use ambition_demo_mary_o::snake::SnakeShell;
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
+use ambition_platformer2d::session::reset::RoomReplayRequested;
 use bevy::prelude::*;
 
 fn boot() -> App {

@@ -12,7 +12,7 @@ use ambition_combat::death_rules::{DeathInterlude, DeathRules, LevelReset, OutOf
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-use crate::session::reset::RoomReplayRequested;
+use crate::reset::RoomReplayRequested;
 use ambition_combat::death_rules::ActorDiedMessage;
 
 #[cfg(test)]
@@ -42,7 +42,7 @@ pub fn open_death_interlude(
         (With<PlayerEntity>, Without<OutOfPlay>),
     >,
     confirmed_boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
-    mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
 ) {
     // Drained unconditionally so a death reported during a load cannot be
     // re-read later and charged to the next attempt — the same rule every other

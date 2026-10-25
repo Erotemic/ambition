@@ -76,7 +76,7 @@ fn a_replay_request_returns_the_hosted_body_to_spawn() {
     );
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     sim.step(base());
 
@@ -122,7 +122,7 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
     );
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     sim.step(base());
 

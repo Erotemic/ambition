@@ -185,11 +185,11 @@ fn every_live_music_track_resolves_under_web_served_assets() {
     let character_catalog =
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(include_str!(
-                "../../../../../game/ambition_content/assets/data/character_catalog.ron"
+                "../../../../game/ambition_content/assets/data/character_catalog.ron"
             )),
         );
     let boss_catalog = ambition_boss_encounter::BossCatalog::default();
-    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+    let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_platformer2d_asset_catalog(
         &config,
         &character_catalog,
         &boss_catalog,
@@ -199,7 +199,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
 
     let mut missing: Vec<String> = Vec::new();
     for track in &music.tracks {
-        let id = crate::assets::platformer_assets::ids::music_track(&track.id);
+        let id = ambition_platformer2d_actor_monolith::assets::platformer_assets::ids::music_track(&track.id);
         let path = catalog.path_for(&id);
         if path.is_none() {
             missing.push(track.id.clone());

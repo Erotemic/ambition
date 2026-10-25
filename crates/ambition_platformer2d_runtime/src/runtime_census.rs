@@ -68,7 +68,7 @@ pub fn report_room_census(
     let Some(at) = census.due() else {
         return;
     };
-    let claims = ambition_platformer2d_actor_monolith::rooms::live_room_claims(
+    let claims = ambition_platformer2d_session::rooms::live_room_claims(
         rooms.iter().map(|(live, ..)| *live),
         drivers
             .iter()
@@ -96,9 +96,9 @@ pub fn report_room_census(
 /// ⚠ DERIVED from [`live_room_claims`], which is the rule the crossing reads
 /// (`another_player_stays`). It is printed, never consulted.
 ///
-/// [`live_room_claims`]: ambition_platformer2d_actor_monolith::rooms::live_room_claims
+/// [`live_room_claims`]: ambition_platformer2d_session::rooms::live_room_claims
 pub fn room_holders_segment(
-    claims: &[(LiveRoomInstance, Vec<ambition_platformer2d_actor_monolith::rooms::RoomClaim>)],
+    claims: &[(LiveRoomInstance, Vec<ambition_platformer2d_session::rooms::RoomClaim>)],
 ) -> String {
     let rooms: Vec<String> = claims
         .iter()

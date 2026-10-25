@@ -14,7 +14,7 @@
 //! the startup resume's progress state and installed the resume itself, which
 //! made a composition's ability to resume a session depend on it having held
 //! items.
-//! [`SessionCheckpointHorizonPlugin`](crate::session::checkpoint::SessionCheckpointHorizonPlugin)
+//! [`SessionCheckpointHorizonPlugin`](crate::checkpoint::SessionCheckpointHorizonPlugin)
 //! owns both now.
 
 use bevy::prelude::*;
@@ -131,7 +131,7 @@ pub fn restore_checkpoint_on_session_start(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
-    mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    mut pending: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut bodies: Query<
         (
@@ -163,8 +163,8 @@ pub fn restore_checkpoint_on_session_start(
     baselines: (
         Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
         Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::OwnedItemsBaseline>>,
     ),
 ) {
     let Some(room_set) = room_set.as_ref() else {
@@ -260,8 +260,8 @@ pub fn restore_checkpoint_on_session_start(
             return;
         }
         let frame = boundary.map_or(0, |boundary| boundary.current);
-        let intent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
-            crate::session::lifecycle_commit::RoomTransitionIntent {
+        let intent = crate::lifecycle_commit::LifecycleIntent::Transition(
+            crate::lifecycle_commit::RoomTransitionIntent {
                 subject,
                 target_room: checkpoint.room_id.clone(),
                 arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
@@ -297,7 +297,7 @@ pub fn restore_checkpoint_on_session_start(
             intent,
             lifecycle: pin_lifecycle_inputs(occurrences, custody),
             item: minted.zip(owned).map(|(minted, owned)| {
-                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: (**minted).clone(),
                     owned: (**owned).clone(),
                     grants: Default::default(),
@@ -394,13 +394,13 @@ pub fn resume_at_checkpoint_on_reset(
     mut resets: bevy::prelude::MessageReader<
         ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint,
     >,
-    mut new_games: bevy::prelude::MessageReader<crate::session::reset::NewGameRequested>,
+    mut new_games: bevy::prelude::MessageReader<crate::reset::NewGameRequested>,
     mut outstanding: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<OutstandingCheckpointRequest>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // The subject's own live room (OW1 Cut A). The sole live room was read,
     // so while two rooms were live a death was owed and never served.
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
-    mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    mut pending: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
         (
@@ -431,18 +431,18 @@ pub fn resume_at_checkpoint_on_reset(
     baselines: (
         Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
         Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::OwnedItemsBaseline>>,
         // What a new game's starter bag is made of (which items stack).
         ambition_items::ItemCatalogRead<'_>,
         // The one-time pickups consumed since the checkpoint, with their owners.
-        Option<Res<crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
+        Option<Res<ambition_platformer2d_actor_monolith::features::ecs::pickups::ConsumedSinceCheckpoint>>,
         // What the rewards since the checkpoint gave, and the defeats they
         // came from: the restore keeps those of a defeat it keeps (Q151).
-        Option<Res<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+        Option<Res<ambition_platformer2d_actor_monolith::items::pickup::RewardGrantsSinceCheckpoint>>,
         Option<Res<ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
         // The bag this composition begins with: what a New Game gives.
-        Option<Res<crate::items::starting_bag::StartingBag>>,
+        Option<Res<ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag>>,
     ),
     // The quantities that throws made into objects since the checkpoint, the
     // objects, the bodies that hold them and their rooms, and the live ledger:
@@ -575,8 +575,8 @@ pub fn resume_at_checkpoint_on_reset(
     let frame = boundary.map_or(0, |boundary| boundary.current);
     // Built once and kept: the accepted operation NAMES the intent it owns, so
     // a later preparation can tell this reconstruction from an ordinary door.
-    let intent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
-        crate::session::lifecycle_commit::RoomTransitionIntent {
+    let intent = crate::lifecycle_commit::LifecycleIntent::Transition(
+        crate::lifecycle_commit::RoomTransitionIntent {
             subject: subject.clone(),
             target_room,
             arrival,
@@ -657,13 +657,13 @@ pub fn resume_at_checkpoint_on_reset(
                 }
             }),
             minted.zip(owned).map(|_| {
-                let mut owned = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
+                let mut owned = ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::OwnedItemsBaseline::default();
                 // A new game begins with the bag this composition began with
                 // (`StartingBag`). It was the Ambition starter set, which a
                 // composition that begins with an empty bag does not have. A
                 // composition with no starting bag has an empty one.
                 owned.adopt(starting.as_ref().map(|starting| starting.bag().clone()).unwrap_or_default());
-                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: Default::default(),
                     owned,
                     grants: Default::default(),
@@ -773,7 +773,7 @@ pub fn resume_at_checkpoint_on_reset(
         // body's, so it keeps the coins that body collected.
         let item = minted.zip(owned).map(|(minted, owned)| {
             let mut owned = (**owned).clone();
-            let mut kept_grants = crate::items::pickup::RewardGrantsSinceCheckpoint::default();
+            let mut kept_grants = ambition_platformer2d_actor_monolith::items::pickup::RewardGrantsSinceCheckpoint::default();
             let mut kept_spends = ambition_held_items::BagSpendsSinceCheckpoint::default();
             if let (Some(grants), Some(defeats)) = (grants.as_ref(), defeats.as_ref()) {
                 let (mut bosses, mut placements) =
@@ -840,7 +840,7 @@ pub fn resume_at_checkpoint_on_reset(
                     owned.adopt(bag);
                 }
             }
-            crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: (**minted).clone(),
                 owned,
                 grants: kept_grants,
@@ -1049,7 +1049,7 @@ pub struct AcceptedRestore {
     /// indistinguishable from a door by its shape — so the accepted operation
     /// names the intent it owns rather than letting preparation guess from the
     /// destination.
-    pub intent: crate::session::lifecycle_commit::LifecycleIntent,
+    pub intent: crate::lifecycle_commit::LifecycleIntent,
     /// The lifecycle domain's half: the occurrence population this operation
     /// reconstructs and the custody relation it restores, as they stood when the
     /// slot accepted it. `None` in a composition with no lifecycle horizon.
@@ -1066,7 +1066,7 @@ pub struct AcceptedRestore {
     ///
     /// ⚠ THE MINTS TRAVEL WITH THE LEDGER for the reason `OccurrenceContinuity`
     /// states: the memory without the means to act on it deletes the object.
-    pub item: Option<crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>,
+    pub item: Option<ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>,
     /// This restore begins a new run: the commit also runs each domain's
     /// fresh-run reducer, and the pinned values become the checkpoint.
     pub fresh: bool,
@@ -1104,7 +1104,7 @@ impl AcceptedCheckpointRestore {
     /// names [`AcceptedRestore::key`] instead: see [`Self::inputs_for_key`].
     pub fn inputs_for(
         &self,
-        intent: &crate::session::lifecycle_commit::LifecycleIntent,
+        intent: &crate::lifecycle_commit::LifecycleIntent,
     ) -> Option<&AcceptedRestore> {
         self.0.as_ref().filter(|accepted| &accepted.intent == intent)
     }
@@ -1271,13 +1271,13 @@ pub fn prospective_commit_fates(
     world: &bevy::prelude::World,
     key: CheckpointOperationKey,
 ) -> ambition_platformer2d_construction::PersistedFates {
-    use crate::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
+    use ambition_platformer2d_actor_monolith::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
     let facts = ambition_platformer2d_construction::PersistedFates::of_world(world);
     let accepted = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
         .and_then(|accepted| accepted.inputs_for_key(key));
     if accepted.is_some_and(|accepted| accepted.fresh) {
         return facts
-            .with_save_edited(|save| *save = crate::session::reset::fresh_run_save())
+            .with_save_edited(|save| *save = crate::reset::fresh_run_save())
             .with_scheduled_returns(Default::default());
     }
     let Some(replay) = accepted.and_then(|accepted| accepted.replay.clone()) else {
@@ -1351,7 +1351,7 @@ pub fn run_restore_consequences(world: &mut bevy::prelude::World, key: Checkpoin
 /// later unrelated transition match a stale intent by value.
 pub fn retire_accepted_checkpoint_restore(
     mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
-    pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
     mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes>,
 ) {
     let still_pending = accepted.accepted().is_some_and(|accepted| {
@@ -1484,7 +1484,7 @@ pub fn apply_committed_checkpoint_restore(
     // restore by anything that later runs that schedule.
     world.remove_resource::<CheckpointRestoreInputs>();
     world
-        .remove_resource::<crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>();
+        .remove_resource::<ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>();
     world.remove_resource::<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>();
     // ⭐ THE STRUCTURAL WORK THE CUSTODY RESTORE QUEUED. It materializes
     // occurrences the checkpoint remembers in a hand; a caller that returned
@@ -1559,7 +1559,7 @@ pub fn apply_committed_checkpoint_restore(
 pub fn cancel_accepted_checkpoint_restore(
     accepted: &mut AcceptedCheckpointRestore,
     outcomes: &mut SessionCheckpointOutcomes,
-    pending: &mut crate::session::lifecycle_commit::PendingLifecycleCommit,
+    pending: &mut crate::lifecycle_commit::PendingLifecycleCommit,
     key: CheckpointOperationKey,
     reason: RestoreCancellation,
 ) -> bool {
@@ -1697,10 +1697,10 @@ pub fn terminalize_abandoned_checkpoint_restore(
     let Some(root) = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world) else {
         return AbandonmentVerdict::Stale;
     };
-    if !world.contains_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>() {
+    if !world.contains_resource::<crate::lifecycle_commit::PendingLifecycleCommit>() {
         return AbandonmentVerdict::Stale;
     }
-    world.resource_scope(|world, mut pending: Mut<crate::session::lifecycle_commit::PendingLifecycleCommit>| {
+    world.resource_scope(|world, mut pending: Mut<crate::lifecycle_commit::PendingLifecycleCommit>| {
         let Ok(mut root) = world.get_entity_mut(root) else {
             return AbandonmentVerdict::Stale;
         };
@@ -2313,7 +2313,7 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         require_checkpoint_state_on_session_root(app);
         // The admission reads the New Game intent; the ledger that releases it
         // is `NewGameResetPlugin`'s.
-        app.add_message::<crate::session::reset::NewGameRequested>();
+        app.add_message::<crate::reset::NewGameRequested>();
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
         // runs from the commit executor, so `CheckpointRestore` now contains the
         // session's admission and the retirement that follows the slot — and

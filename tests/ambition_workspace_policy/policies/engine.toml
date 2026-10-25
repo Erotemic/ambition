@@ -1978,7 +1978,7 @@ watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "F1-era actor compatibility facades removed"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/session/camera_layers.rs", "crates/ambition_platformer2d_actor_monolith/src/session/game_mode.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
+paths = ["crates/ambition_platformer2d_session/src/camera_layers.rs", "crates/ambition_platformer2d_session/src/game_mode.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
 
 [[policy]]
 id = "engine.f2-actor-lib-no-facades"

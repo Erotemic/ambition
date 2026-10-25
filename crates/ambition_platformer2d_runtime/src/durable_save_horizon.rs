@@ -17,7 +17,7 @@ pub struct DurableSaveHorizonPlugin;
 
 impl Plugin for DurableSaveHorizonPlugin {
     fn build(&self, app: &mut App) {
-        ambition_platformer2d_actor_monolith::session::durable_horizon::install_durable_save_horizon(
+        ambition_platformer2d_session::durable_horizon::install_durable_save_horizon(
             app,
         );
         ambition_platformer2d_actor_monolith::items::persist::install_item_durable_horizon(app);

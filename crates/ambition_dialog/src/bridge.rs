@@ -158,7 +158,7 @@ fn dispatch_pending_dialog_requests(
         publish_dialogue_context(&mut runner, &pending.context);
         // Do not count the visit here. This system is outside rollback, so a rewind
         // would lose the increment. The visit is counted by
-        // `ambition_platformer2d_actor_monolith::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
+        // `ambition_platformer2d_session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
         // on the tick `ActiveConversation` says the conversation opened.
         if !runner.node_exists(&dialogue_id) {
             warn!(

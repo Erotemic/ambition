@@ -178,7 +178,7 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
-    pub use ambition_platformer2d_actor_monolith::session::setup::{
+    pub use ambition_platformer2d_session::setup::{
         simulation_world, SimulationSetup,
     };
     // The first room is published before the session's bodies are built.
@@ -571,7 +571,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // items/shots, marks, shrines, gravity switches, gun-swords.
             .add(ambition_sim_view::SimViewPlugin)
             // Sandbox reset schedule.
-            .add(ambition_platformer2d_actor_monolith::session::reset::NewGameResetPlugin)
+            .add(ambition_platformer2d_session::reset::NewGameResetPlugin)
             // Deterministic sim traces.
             .add(ambition_platformer2d_trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
@@ -827,3 +827,5 @@ pub use session_world::{
     PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld,
     PreparedPlatformerSource,
 };
+
+const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;

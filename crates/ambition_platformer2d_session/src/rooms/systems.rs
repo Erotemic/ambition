@@ -122,8 +122,8 @@ pub fn detect_room_transition_system(
     // Track B: under a rollback host, defer the transition instead of engaging the
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
-    mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
-    talkable: crate::features::ecs::TalkableBodies,
+    mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
+    talkable: ambition_platformer2d_actor_monolith::features::ecs::TalkableBodies,
     // A room whose game plays passages: a door or a gate starts one, and the
     // passage records the crossing when its going-in ends (`passage`).
     passage_rules: ambition_combat::governing_rules::RulesOf<super::passage::ZonePassageRules>,
@@ -140,7 +140,7 @@ pub fn detect_room_transition_system(
         if sim_state.holds(index) {
             continue;
         }
-        let Some(subject_entity) = crate::control::body_driving_seat(&drivers, seat) else {
+        let Some(subject_entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat) else {
             continue;
         };
         let Ok((kin, sweep, driver, frame, in_passage)) = bodies.get(subject_entity) else {
@@ -231,9 +231,9 @@ pub fn detect_room_transition_system(
         // interaction phase.
         if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
             let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
-            let reach = crate::features::ecs::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity));
+            let reach = ambition_platformer2d_actor_monolith::features::ecs::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity));
             if talkable.nearest_in_reach(subject_entity, &reach).is_some_and(|talk| {
-                !crate::features::ecs::InteractReach::a_door_keeps_the_press(Some(door), talk)
+                !ambition_platformer2d_actor_monolith::features::ecs::InteractReach::a_door_keeps_the_press(Some(door), talk)
             }) {
                 continue;
             }
@@ -304,7 +304,7 @@ pub fn detect_room_transition_system(
                 );
                 continue;
             };
-            let crossing = crate::session::lifecycle_commit::RoomTransitionIntent {
+            let crossing = crate::lifecycle_commit::RoomTransitionIntent {
                 subject: subject.clone(),
                 target_room: target_spec.id.clone(),
                 arrival: zone.arrival,
@@ -368,8 +368,8 @@ pub fn detect_room_transition_system(
             // so the intent is confirmed the instant it is recorded, which is what
             // `ConfirmedRoomTransitionIntent` reads it as.
             boundary.map_or(0, |boundary| boundary.current),
-            crate::session::lifecycle_commit::LifecycleIntent::Transition(
-                crate::session::lifecycle_commit::RoomTransitionIntent {
+            crate::lifecycle_commit::LifecycleIntent::Transition(
+                crate::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room: target_spec.id.clone(),
                     arrival: zone.arrival,

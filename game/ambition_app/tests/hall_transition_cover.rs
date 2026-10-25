@@ -180,11 +180,11 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,
@@ -684,11 +684,11 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,
@@ -922,11 +922,11 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room: target_room.clone(),
                     arrival,

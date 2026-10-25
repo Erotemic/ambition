@@ -22,7 +22,7 @@
 //! records a lifecycle intent to re-enter the ACTIVE room, and the
 //! room-transition road prepares, authorizes, commits and rebases it — the same
 //! road a door takes, and the same road a checkpoint resume already takes
-//! (`crate::session::checkpoint::resume_at_checkpoint_on_reset`). So the retention rules are
+//! (`crate::checkpoint::resume_at_checkpoint_on_reset`). So the retention rules are
 //! not restated here either: a transition retires `RoomResident` (room scope,
 //! minus whatever is in somebody's hands) and prepares against what the world
 //! remembers, which is exactly what a replay wants.
@@ -55,7 +55,7 @@ use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
 /// sees it. Each arm is a deliberate statement that the thing belongs to the
 /// run rather than to the room or to the player:
 ///
-/// - [`SpawnedThisAttempt`](crate::features::ecs::SpawnedThisAttempt) — loot the
+/// - [`SpawnedThisAttempt`](ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt) — loot the
 ///   attempt dropped. A weapon dropped in a room and found again on the way
 ///   back is intended; a weapon dropped in the fight being un-fought is not.
 /// - `PostBossNpc` — the celebrant a defeated boss leaves behind. The boss is
@@ -64,7 +64,7 @@ use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
 ///   whoever fired it.
 type AttemptResidue = (
     Or<(
-        With<crate::features::ecs::SpawnedThisAttempt>,
+        With<ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt>,
         With<ambition_combat::components::PostBossNpc>,
         With<ambition_projectiles::LiveProjectile>,
     )>,

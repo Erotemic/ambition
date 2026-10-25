@@ -7,6 +7,7 @@ authors.workspace = true
 description = "GGRS rollback backend for the Ambition platformer runtime."
 
 [dependencies]
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

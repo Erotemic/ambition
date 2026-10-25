@@ -42,7 +42,7 @@ fn boundary_present(sim: &Platformer2dSimHarness) -> bool {
 /// transaction while rollback is active.
 fn deferred_intent_pending(sim: &Platformer2dSimHarness) -> bool {
     sim.world()
-        .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .get_resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .is_some_and(|state| state.pending.is_some())
 }
 
@@ -321,11 +321,11 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
     let avatar_before = primary_pos(&mut sim);
 
     let _ = sim.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,

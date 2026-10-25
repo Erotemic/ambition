@@ -1,7 +1,7 @@
 //! A session's first room: published into a session root that may still be a
 //! hidden candidate, before any body of the session is built.
 //!
-//! Session setup (`ambition_platformer2d_actor_monolith::session::setup`) builds the home body after this; the
+//! Session setup (`ambition_platformer2d_session::setup`) builds the home body after this; the
 //! caller that activates the session runs both and decides from the receipt.
 
 use bevy::prelude::*;

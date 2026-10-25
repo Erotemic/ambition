@@ -8746,7 +8746,7 @@ fn visit_mary_o(app: &mut App) -> MaryOVisit {
     let after_the_pole = mary_o_reading(app);
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..30 {
         app.update();
     }

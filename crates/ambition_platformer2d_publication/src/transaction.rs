@@ -90,7 +90,7 @@ pub enum CommitFactsSource {
     /// The world at the commit, as the consequences of this checkpoint
     /// restore will leave it (`session::checkpoint::prospective_commit_fates`).
     /// Those consequences run only when the room's publication is accepted.
-    AfterTheRestore(ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey),
+    AfterTheRestore(ambition_platformer2d_session::checkpoint::CheckpointOperationKey),
 }
 
 /// The lifetime of a publication receipt.
@@ -419,7 +419,7 @@ pub(crate) struct PendingWorldReplacement {
     /// The checkpoint restore this publication is, if it is one. When the
     /// verdict accepts the room, its consequences run before anything of the
     /// old room is retired (`session::checkpoint::run_restore_consequences`).
-    restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+    restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
     /// The verdict waits for the owner of a sequence of publications. A room
     /// that passes its check promotes nothing until the owner commits it
     /// ([`commit_held_publication`]) or refuses it
@@ -607,7 +607,7 @@ impl PendingWorldReplacement {
     }
 
     /// This publication is checkpoint restore `restore`.
-    pub(crate) fn restoring(mut self, restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>) -> Self {
+    pub(crate) fn restoring(mut self, restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>) -> Self {
         self.restore = restore;
         self
     }
@@ -1792,7 +1792,7 @@ fn promote_and_finalize(
         .get::<PendingWorldReplacement>(publication.0)
         .and_then(|pending| pending.restore);
     if let Some(key) = restore {
-        ambition_platformer2d_actor_monolith::session::checkpoint::run_restore_consequences(world, key);
+        ambition_platformer2d_session::checkpoint::run_restore_consequences(world, key);
     }
     let admitted: usize = transactions
         .iter()

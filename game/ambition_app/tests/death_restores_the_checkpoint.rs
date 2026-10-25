@@ -85,7 +85,7 @@ fn assert_the_restore_committed(sim: &mut Platformer2dSimHarness) {
     let outcome = format!(
         "{:?}",
         ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes,
+            ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
         >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
@@ -1316,7 +1316,7 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
 /// releases the slot it is admitted, and the restore lands in full.
 #[test]
 fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
     use ambition_platformer2d::item::{ItemGrantRequested, OwnedItems};
@@ -1942,11 +1942,11 @@ fn the_bag_after_a_new_game(
         sim.world_mut().insert_resource(StartingBag::of(bag));
     }
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+        .write_message(ambition_platformer2d::session::reset::NewGameRequested);
     sim.step_n(base(), 240);
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
@@ -2371,7 +2371,7 @@ fn a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers() {
 /// the live ledger just before the death.
 #[test]
 fn a_death_keeps_the_mint_mark_of_what_it_keeps_in_another_players_room() {
-    use ambition_platformer2d::actors::session::checkpoint::AcceptedCheckpointRestore;
+    use ambition_platformer2d::session::checkpoint::AcceptedCheckpointRestore;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
     let (mut sim, javelin) = throw_after_a_checkpoint(MINTED_ITEM, "switch_lab", false);
     let before = {

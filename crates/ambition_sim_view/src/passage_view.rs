@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::rooms::passage::{PassagePose, ZonePassage};
+use ambition_platformer2d_session::rooms::passage::{PassagePose, ZonePassage};
 use ambition_sprite_sheet::character::CharacterAnim;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
@@ -139,7 +139,7 @@ pub fn rebuild_passage_views(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_actor_monolith::rooms::passage::{PassageKind, PassageStage};
+    use ambition_platformer2d_session::rooms::passage::{PassageKind, PassageStage};
     use ambition_platformer2d_core as ae;
 
     fn idle() -> crate::ActorAnimFrame {

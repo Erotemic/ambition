@@ -109,7 +109,7 @@ pub const CINDER_BEACON_SPRITE: &str = "super_mary_o_cinder_beacon";
 /// a block spent in one is armed in the other. [`RoomPowerBlocks`] is one
 /// room's half.
 #[derive(Resource, Default, Clone)]
-pub struct SpentPowerBlocks(ambition_platformer2d::actors::session::reset::PerLiveRoom<RoomPowerBlocks>);
+pub struct SpentPowerBlocks(ambition_platformer2d::session::reset::PerLiveRoom<RoomPowerBlocks>);
 
 impl SpentPowerBlocks {
     /// A checksum over WHICH blocks are spent in which room,
@@ -1094,14 +1094,14 @@ pub fn dress_power_blocks(
 
 /// Spent power blocks are per-attempt: a replay is a new live room, and its
 /// blocks are armed.
-impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentPowerBlocks {
+impl ambition_platformer2d::session::reset::AttemptScoped for SpentPowerBlocks {
     type Attempt = RoomPowerBlocks;
 
-    fn attempts(&self) -> &ambition_platformer2d::actors::session::reset::PerLiveRoom<RoomPowerBlocks> {
+    fn attempts(&self) -> &ambition_platformer2d::session::reset::PerLiveRoom<RoomPowerBlocks> {
         &self.0
     }
 
-    fn attempts_mut(&mut self) -> &mut ambition_platformer2d::actors::session::reset::PerLiveRoom<RoomPowerBlocks> {
+    fn attempts_mut(&mut self) -> &mut ambition_platformer2d::session::reset::PerLiveRoom<RoomPowerBlocks> {
         &mut self.0
     }
 }

@@ -19,7 +19,7 @@ use bevy::prelude::{App, Commands, Entity, Query, Update};
 fn app_with_the_death_beat() -> App {
     let mut app = App::new();
     app.add_message::<ActorDiedMessage>();
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, open_death_interlude);
     app
 }
@@ -119,7 +119,7 @@ fn app_with_two_games_death_rules() -> (App, ambition_combat::governing_rules::t
     let mut app = App::new();
     app.add_message::<ActorDiedMessage>()
         .add_message::<RoomReplayRequested>();
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
     app.declare_rules(RulesScope::UntaggedRooms, DeathRules::replay_level_after(1.5));
     app.declare_rules(
         RulesScope::Mode("smash"),

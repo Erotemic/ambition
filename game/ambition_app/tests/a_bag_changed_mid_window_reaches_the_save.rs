@@ -1001,7 +1001,7 @@ fn sim_recording_the_restore_order() -> Platformer2dSimHarness {
             app.add_systems(
                 bevy::prelude::Update,
                 sample_ggrs_after_the_latch.after(
-                    ambition_platformer2d::actors::session::durable_horizon::complete_durable_restore,
+                    ambition_platformer2d::session::durable_horizon::complete_durable_restore,
                 ),
             );
             Ok(())
@@ -1688,7 +1688,7 @@ fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
                 open_a_conversation_on_known_ticks
                     .in_set(ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate)
                     .before(
-                        ambition_platformer2d::actors::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
+                        ambition_platformer2d::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
                     ),
             );
             Ok(())
@@ -2199,7 +2199,7 @@ fn seed_both_baselines_then_start_a_new_game(
         ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
     >,
     mut new_games: bevy::prelude::MessageWriter<
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     >,
 ) {
     use ambition_platformer2d::platformer::lifecycle::{
@@ -2220,7 +2220,7 @@ fn seed_both_baselines_then_start_a_new_game(
         );
         custody_baseline.adopt(held);
     } else if tick.0 == NEW_GAME_AT {
-        new_games.write(ambition_platformer2d::actors::session::reset::NewGameRequested);
+        new_games.write(ambition_platformer2d::session::reset::NewGameRequested);
     }
 }
 
@@ -2278,7 +2278,7 @@ fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
             app.add_systems(
                 bevy::prelude::Update,
                 record_the_latch_every_frame.before(
-                    ambition_platformer2d::actors::session::durable_horizon::adopt_occurrence_checkpoint_from_save,
+                    ambition_platformer2d::session::durable_horizon::adopt_occurrence_checkpoint_from_save,
                 ),
             );
             Ok(())
@@ -2467,7 +2467,7 @@ fn sim_recording_the_latch_inside_the_schedule(
                 app.add_systems(
                     bevy::prelude::Update,
                     sample_ggrs_after_the_latch.after(
-                        ambition_platformer2d::actors::session::durable_horizon::complete_durable_restore,
+                        ambition_platformer2d::session::durable_horizon::complete_durable_restore,
                     ),
                 );
             }
@@ -2541,7 +2541,7 @@ fn sim_opening_a_conversation_on_the_first_tick(
                     // Before the counter, as an edge: see the note in
                     // `a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`.
                     open_a_conversation_on_the_very_first_tick.before(
-                        ambition_platformer2d::actors::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
+                        ambition_platformer2d::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
                     ),
                 )
                     .in_set(
@@ -2553,7 +2553,7 @@ fn sim_opening_a_conversation_on_the_first_tick(
                 app.add_systems(
                     bevy::prelude::Update,
                     sample_ggrs_after_the_latch.after(
-                        ambition_platformer2d::actors::session::durable_horizon::complete_durable_restore,
+                        ambition_platformer2d::session::durable_horizon::complete_durable_restore,
                     ),
                 );
             }
@@ -2720,11 +2720,11 @@ const IN_SIM_NEW_GAME_AT: u64 = 30;
 fn request_a_new_game_from_inside_the_sim(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut new_games: bevy::prelude::MessageWriter<
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     >,
 ) {
     if tick.0 == IN_SIM_NEW_GAME_AT {
-        new_games.write(ambition_platformer2d::actors::session::reset::NewGameRequested);
+        new_games.write(ambition_platformer2d::session::reset::NewGameRequested);
     }
 }
 
@@ -2821,7 +2821,7 @@ fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
     }
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         outside.world_mut(),
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     );
     for _ in 0..200 {
         outside.step(AgentAction::default());

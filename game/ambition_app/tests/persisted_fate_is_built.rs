@@ -66,7 +66,7 @@ fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
         .data_mut()
         .set_flag(flag.clone(), true);
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
 
     let mut rebuilt_frames = 0;
@@ -167,7 +167,7 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
     );
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     let mut rebuilt = None;
     for _ in 0..60 {
@@ -401,7 +401,7 @@ fn a_room_rebuilt_after_a_persisted_on_rest_death_builds_that_body_dead() {
         .data_mut()
         .set_flag(flag.clone(), true);
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
 
     let mut rebuilt_frames = 0;

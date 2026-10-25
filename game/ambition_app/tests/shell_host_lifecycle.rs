@@ -2606,7 +2606,7 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
             "premise: the old session starts on the first prop"
         );
         app.world_mut().write_message(
-            ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+            ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
         );
         for _ in 0..60 {
             app.update();
@@ -4001,7 +4001,7 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
 /// is not what this asks.
 #[test]
 fn a_block_broken_in_one_session_is_whole_in_the_next() {
-    use ambition_platformer2d::actors::session::reset::AttemptScoped;
+    use ambition_platformer2d::session::reset::AttemptScoped;
     use ambition_platformer2d::engine_core::RoomGeometry;
     use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
     use ambition_platformer2d::session::sole_live_room_component;

@@ -15,8 +15,8 @@ use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness, Timest
 use ambition_platformer2d::actors::avatar::{
     HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
 };
-use ambition_platformer2d::actors::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
-use ambition_platformer2d::actors::session::setup::{spawn_home_body, HomeBody};
+use ambition_platformer2d::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
+use ambition_platformer2d::session::setup::{spawn_home_body, HomeBody};
 use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::engine_core::{BodyKinematics, RoomGeometry};

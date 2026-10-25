@@ -646,7 +646,7 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     reset: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
         'w,
         's,
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     >,
     // Selecting a rebind row ARMS this; the capture system reads it.
     rebind_capture: ResMut<'w, RebindCapture>,
@@ -788,7 +788,7 @@ impl SystemMenuParams<'_, '_> {
 
     pub(crate) fn request_reset(&mut self) {
         self.reset
-            .write(ambition_platformer2d::actors::session::reset::NewGameRequested);
+            .write(ambition_platformer2d::session::reset::NewGameRequested);
     }
 
     /// Reset every persisted settings/dev resource back to defaults — the same

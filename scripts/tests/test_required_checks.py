@@ -255,7 +255,7 @@ def test_the_demo_host_rule_requires_the_four_demo_apps() -> None:
     for path in (
         "crates/ambition_platformer2d_rollback_ggrs/src/lib.rs",
         "crates/ambition_combat/src/rollback_registration.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
     ):
         required = required_checks.requirements_for(path, {})

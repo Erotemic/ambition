@@ -39,7 +39,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+use ambition_platformer2d_session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
 use ambition_platformer2d_publication::RoomConstructionPlan;
@@ -291,7 +291,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // with no end. That is a named remainder of the peer barrier, not a
     // decision that it is right.
     if matches!(committer, Committer::Alone { .. }) {
-        let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
+        let _ = ambition_platformer2d_session::checkpoint::terminalize_abandoned_checkpoint_restore(
             world,
             Some(boundary.confirmed),
         );
@@ -475,7 +475,7 @@ enum AuthorizedPlan {
     /// second by resemblance later.
     Ready(
         std::sync::Arc<RoomConstructionPlan>,
-        Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+        Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
     ),
     Wait,
 }
@@ -487,7 +487,7 @@ enum AuthorizedPlan {
 /// transaction rather than cancelling the still-pending crossing.
 fn authorized_plan(
     world: &mut World,
-    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
+    intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
 ) -> AuthorizedPlan {
     // Everything the active transaction is compared against, copied out FIRST:
     // the checks below query the world, and a live borrow of the load state
@@ -633,7 +633,7 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
 /// symmetry looking right rather than being right.
 fn retire_cancelled_room_transition(
     world: &mut World,
-    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
+    intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
 ) {
     let Some(barrier) = world
         .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
@@ -683,7 +683,7 @@ fn execute_lifecycle_commit(
     // the variants that open no transaction.
     authorized: Option<(
         std::sync::Arc<RoomConstructionPlan>,
-        Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+        Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
     )>,
 ) -> CommitOutcome {
     match (kind, authorized) {
@@ -721,7 +721,7 @@ fn commit_transition(
     // to one room with one subject compare equal, and a commit that re-asked
     // could apply a later operation's snapshot to this one's room.
     checkpoint_operation: Option<
-        ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey,
+        ambition_platformer2d_session::checkpoint::CheckpointOperationKey,
     >,
     // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
     // — see the resolution below, which keeps those two apart.
@@ -763,7 +763,7 @@ fn commit_transition(
     // here.
     // A fresh checkpoint operation (a New Game) is a whole-session restart.
     let restart = checkpoint_operation
-        .zip(ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>(world))
+        .zip(ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore>(world))
         .and_then(|(key, accepted)| accepted.inputs_for_key(key))
         .is_some_and(|accepted| accepted.fresh);
     let mut state: bevy::ecs::system::SystemState<
@@ -863,7 +863,7 @@ fn commit_transition(
     // ⭐ THE SAME FUNCTION THE EAGER HOST CALLS. The two hosts differ in what
     // authorizes the commit, never in what the commit does.
     if let Some(key) = checkpoint_operation {
-        ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
+        ambition_platformer2d_session::checkpoint::apply_committed_checkpoint_restore(
             world, key,
         );
     }
@@ -882,7 +882,7 @@ mod tests {
     /// If that body no longer exists, the crossing is cancelled; another body is
     /// never substituted. The assertion exercises the shared resolver used by
     /// both transition hosts.
-    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
+    use ambition_platformer2d_session::lifecycle_commit::RoomTransitionIntent;
     use ambition_platformer2d_runtime::room_transition::{
         ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
     };
@@ -986,7 +986,7 @@ mod tests {
     /// The bodyless shape: a room rebuilt with nobody in it (v146).
     fn rebuild_of(target_room: &str) -> LifecycleIntent {
         LifecycleIntent::ReconstituteRoom(
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomReconstitutionIntent {
+            ambition_platformer2d_session::lifecycle_commit::RoomReconstitutionIntent {
                 target_room: target_room.to_string(),
             },
         )

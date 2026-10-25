@@ -43,11 +43,11 @@ pub struct SimulationSetup<'a> {
     /// from a prepared roster, and a privileged avatar beside that cast is an
     /// actor nobody owns — the camera follows it and input drives it while the
     /// fighter the player chose stands somewhere else.
-    pub initial_body: &'a crate::avatar::InitialBodyPolicy,
+    pub initial_body: &'a ambition_platformer2d_actor_monolith::avatar::InitialBodyPolicy,
     /// What the home body holds, when there is one.
-    pub home_body_resources: &'a crate::avatar::HomeBodyResources,
+    pub home_body_resources: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyResources,
     /// What the experience grants and permits the home body.
-    pub home_body_abilities: &'a crate::avatar::HomeBodyAbilities,
+    pub home_body_abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
     /// The prepared cast, when this composition registered one.
     ///
     /// `None` is the ordinary case for a composition that registers no
@@ -107,7 +107,7 @@ pub fn simulation_world(
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
     ));
 
-    let crate::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
+    let ambition_platformer2d_actor_monolith::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
         return SimulationWorld { player: None };
     };
 
@@ -162,15 +162,15 @@ pub struct HomeBody<'a> {
     pub world: &'a RoomGeometry,
     pub tuning: &'a ae::ActiveMovementTuning,
     /// The character the body wears. Empty is the default of the provider.
-    pub character: &'a crate::avatar::StartingCharacter,
+    pub character: &'a ambition_platformer2d_actor_monolith::avatar::StartingCharacter,
     /// Provider-selected default used only when `character` is empty.
     pub default_character_id: &'a str,
     /// The prepared cast, when this composition registered one.
     pub prepared_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     /// What the home body holds.
-    pub resources: &'a crate::avatar::HomeBodyResources,
+    pub resources: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyResources,
     /// What the experience grants and permits the home body.
-    pub abilities: &'a crate::avatar::HomeBodyAbilities,
+    pub abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
 }
 
 /// Build the home body of one seat, owned by the session of `session_scope`.
@@ -248,7 +248,7 @@ pub fn spawn_home_body(
             .and_then(|registry| registry.get(worn_id))
             .and_then(|prepared| prepared.abilities),
     );
-    let mut initial_scratch = crate::avatar::home_body_scratch(at, base_abilities);
+    let mut initial_scratch = ambition_platformer2d_actor_monolith::avatar::home_body_scratch(at, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,
@@ -306,7 +306,7 @@ pub fn spawn_home_body(
     // applied — so building the host-code kit here instead left the default
     // character's authored repertoire unapplied, with the derive told it was
     // current.
-    let player_bundle = crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
+    let player_bundle = ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
         seat,
         initial_scratch,
         player_health,
@@ -347,7 +347,7 @@ pub fn spawn_home_body(
     // overlay resolved it and the bundle holds no answer of its own. And the
     // applied-template stamp, with an EMPTY displacement: nothing was taken
     // from a body that was BUILT as this character.
-    crate::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
+    ambition_platformer2d_actor_monolith::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
     // What the body holds, from the same prepared bank a reset returns it to
     // the start of. Absent is the answer for an experience that declared none.
     if let Some(bank) = resources.bank() {
@@ -398,7 +398,7 @@ pub fn spawn_home_body(
                 ambition_characters::repertoire::Hand::Empty,
             );
         }
-        None => crate::avatar::apply_worn_motion_model(
+        None => ambition_platformer2d_actor_monolith::avatar::apply_worn_motion_model(
             prepared_characters,
             commands,
             player,

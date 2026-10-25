@@ -165,7 +165,7 @@ fn a_heart_regrows_in_its_live_room_and_a_plain_one_does_not() {
 fn a_replay_rebuilds_a_collected_heart_whole() {
     let (mut sim, _) = harvested_room();
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     settle(&mut sim, 30);
     assert_eq!(
@@ -378,7 +378,7 @@ fn one_time_heart_after_a_death_elsewhere(by_bob: bool) -> (Option<(bool, Option
     // stops play, which would also leave the heart gone.
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
@@ -477,7 +477,7 @@ fn a_coin_taken_after_the_checkpoint_then(
         crate::death_restores_the_checkpoint::die(&mut sim);
         let outcome = format!(
             "{:?}",
-            ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+            ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
                 .latest()
         );

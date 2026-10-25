@@ -37,7 +37,7 @@ const WAIVED: &[(&str, &str)] = &[
     // the retraction happens at a commit boundary, which is where every other
     // write to the lifecycle slot happens. See the type's own doc.
     (
-        "ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation",
+        "ambition_platformer2d_session::checkpoint::AbandonedCheckpointOperation",
         "a host-side note, on the session root, that a room preparation failed: asset residency and construction preflight are not simulated and two peers need not agree, so snapshotting it would checksum a non-deterministic value and restoring it would resurrect an abandoned operation",
     ),
     // ⛔⛤ THE SESSION'S CONTENT GENERATION, WHICH MOVED ONTO ITS ROOT ON

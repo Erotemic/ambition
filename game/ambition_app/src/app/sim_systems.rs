@@ -49,7 +49,7 @@ pub fn apply_player_reset_input_system(
     mut slots: ResMut<ambition_platformer2d::sim::SlotControls>,
     latches: Option<Res<ambition_platformer2d::sim::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d::platformer::schedule::SimulationReplayState>>,
-    mut replay: MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
+    mut replay: MessageWriter<ambition_platformer2d::session::reset::RoomReplayRequested>,
 ) {
     let pressed = ambition_platformer2d::actors::control::seat_frame_this_tick(
         latches.as_deref(),
@@ -72,5 +72,5 @@ pub fn apply_player_reset_input_system(
         PlayerSlot::PRIMARY,
         |frame| frame.reset_pressed = false,
     );
-    replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    replay.write(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
 }

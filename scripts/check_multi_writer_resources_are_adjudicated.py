@@ -260,9 +260,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/gate_network.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
+        "crates/ambition_platformer2d_session/src/rooms/gate_network.rs",
         "crates/ambition_platformer2d_runtime/src/cutscene.rs",
         "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "crates/ambition_shrine/src/lib.rs",
@@ -291,7 +291,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/interact.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/arena.rs",
         "game/ambition_content/src/quest.rs",
     ),
@@ -349,7 +349,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
     ),
     "SimTick": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/lib.rs",
     ),
     "UserSettings": (
@@ -372,11 +372,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_persistence/src/save.rs",
     ),
     "PendingLifecycleCommit": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/death.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/passage.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/death.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+        "crates/ambition_platformer2d_session/src/rooms/passage.rs",
+        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_departure.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
@@ -390,8 +390,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/quest.rs",
         "game/ambition_content/src/quest.rs",
     ),
@@ -406,7 +406,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "BaseGravity": (
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
         "crates/ambition_sim_harness/src/runtime.rs",
@@ -432,8 +432,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/body_mode/mechanics/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/acting.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
@@ -441,29 +441,29 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_conversation/src/opening.rs",
         "crates/ambition_conversation/src/rules.rs",
         "crates/ambition_conversation/src/ui_bridge.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
     ),
     "BossDefeatsSinceCheckpoint": (
         "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "ConsumedSinceCheckpoint": (
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "BagSpendsSinceCheckpoint": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "RewardGrantsSinceCheckpoint": (
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
@@ -472,8 +472,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/errand.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
     ),
     "CaptureProgress": (
@@ -588,8 +588,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "BossEncounterRegistry": (
         "crates/ambition_boss_encounter/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "CharacterLoadStates": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
@@ -607,7 +607,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "CutsceneTriggerQueue": (
         "crates/ambition_boss_encounter/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/cutscene.rs",
         "game/ambition_demo_mary_o/src/castle_end.rs",
     ),
@@ -638,7 +638,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "PossessionState": (
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "PreparedSessionRegistry": (
         "crates/ambition_game_shell/src/plugin.rs",
@@ -666,7 +666,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "ActiveCutscene": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/cutscene.rs",
     ),
     "ActiveGameplaySession": (
@@ -678,31 +678,31 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/player_tick.rs",
     ),
     "ClockState": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/sim_clock/time_control/mod.rs",
         "crates/ambition_time/src/time_control/mod.rs",
     ),
     "DayClock": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/day.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "RequestedClockScale": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/time_control/mod.rs",
     ),
     "WorldTime": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/lib.rs",
     ),
     "GatePortalPhases": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
     ),
     "GateNetworkState": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/gate_network.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+        "crates/ambition_platformer2d_session/src/rooms/gate_network.rs",
+        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
     ),
     "CutRopeHeavyObjectCycle": (
         "game/ambition_content/src/bosses/cut_rope/arena.rs",
@@ -719,10 +719,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ControlledSubject": (
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "CutsceneSkipHold": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/cutscene.rs",
     ),
     "DefaultMusicStarted": (
@@ -745,7 +745,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_combat/src/impact_hitstop/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/death_beat.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "InventoryUiState": (
         "game/ambition_app/src/menu/grid_backend.rs",
@@ -769,7 +769,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "LiveMatchTicks": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "LocalSeatTopology": (
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
@@ -805,7 +805,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_sim_view/src/presented_pose.rs",
     ),
     "ProjectileSeqCounter": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_projectiles/src/materialize.rs",
     ),
     "RadioStationState": (
@@ -826,11 +826,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SaveOwner": (
         "crates/ambition_game_shell/src/session.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
     ),
     "SaveRestored": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "ScrollbarDragState": (
         "crates/ambition_menu/src/render/bevy_ui/mod.rs",
@@ -854,7 +854,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SessionMatchOrdinal": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "SfxPlaybackState": (
         "crates/ambition_audio/src/bank_asset.rs",
@@ -886,11 +886,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "StocksMatchSettled": (
         "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "SuddenDeathEntered": (
         "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "VersusMatch": (
         "game/ambition_app/src/app/versus.rs",
@@ -3256,13 +3256,13 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_boss_encounter/src/systems.rs:23`) only populates "
         "when `:27` finds `specs_loaded` false, and sets it true at `:35` "
         "and `:54` — a change-latch that re-arms only after a wipe. `reset` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs:444`) "
+        "(`crates/ambition_platformer2d_session/src/teardown.rs:444`) "
         "is the SINGLE shared function both `:353` (session activation) and "
         "`:429` (session retire) call to set `*boss_registry = "
         "BossEncounterRegistry::default()` (`:493`) — one function with two "
         "temporally disjoint call sites, not two authorities. "
         "`begin_fresh_run` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs`) "
+        "(`crates/ambition_platformer2d_session/src/reset/mod.rs`) "
         "does the same whole-resource reset on the New Game commit, after the "
         "room transaction verified (re-read 2026-09-29). Resetting to Default twice is idempotent, "
         "and the populate latch re-runs regardless of which wipe fired last, "
@@ -3791,7 +3791,7 @@ ADJUDICATED: dict[str, str] = {
 #: `EncounterMusicRequest` left the guard green. The file set is the owner.
 SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
     "AbandonedCheckpointOperation": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
     ),
     "EncounterMusicRequest": (
@@ -3799,7 +3799,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_platformer2d_audio/src/plugin.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         # The theme of the cosmic form: a claim of the priority tier, as her
         # death and her flag make (2026-10-11).
@@ -3819,17 +3819,17 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
     ),
     "CustodyBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/custody_horizon.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
     ),
     "MintedItemBaseline": (
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
     ),
     "OccurrenceBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
     ),
@@ -4045,7 +4045,7 @@ MIN_SESSION_WORLD_TYPES = 4
 #: absolution: a resource written by the reset AND by two in-session systems has
 #: a question the reset says nothing about.
 SESSION_SCOPE_RESET = (
-    "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+    "crates/ambition_platformer2d_session/src/teardown.rs"
 )
 
 #: ⭐⛤ **THE VERDICTS THAT SAY "ONE IN-SESSION OWNER", AS A CHECKED FACT RATHER

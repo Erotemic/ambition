@@ -95,24 +95,27 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     let h = head(&mut sim);
     assert!(h.alive && h.phase == BossEncounterPhase::Dormant, "it woke while he lives: {h:?}");
     // Its name is not over him while he lives: that would give it away.
-    assert!(!plates(&mut sim).iter().any(|label| label == "Inugami"), "its plate shows while he lives: {:?}", plates(&mut sim));
+    assert!(!plates(&mut sim).iter().any(|label| label == NAME), "its plate shows while he lives: {:?}", plates(&mut sim));
 
     kill(&mut sim, WOLFENSTEIN_ID);
     step_until(&mut sim, 30, "it to wake when he is cleared", |sim| head(sim).phase != BossEncounterPhase::Dormant);
     let floor = head(&mut sim).view.and_then(|v| v.hall).expect("it measured the room").floor;
-    assert!(!plates(&mut sim).iter().any(|label| label == "Inugami"), "its plate shows before its title: {:?}", plates(&mut sim));
+    assert!(!plates(&mut sim).iter().any(|label| label == NAME), "its plate shows before its title: {:?}", plates(&mut sim));
     step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
     let h = head(&mut sim);
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 < floor - 20.0, "it does not float over the floor: {h:?}");
 
     step_until(&mut sim, 60 * 10, "its first move", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
-    assert!(plates(&mut sim).iter().any(|label| label == "Inugami"), "it fights with no plate: {:?}", plates(&mut sim));
+    assert!(plates(&mut sim).iter().any(|label| label == NAME), "it fights with no plate: {:?}", plates(&mut sim));
+    // No ward in its first phase: it is hit as any boss (Jon, 2026-10-24).
+    assert!(head(&mut sim).view.is_some_and(|v| !v.warded) && !guarded(&mut sim), "it is warded in its first phase");
 
     // Hurt it past its transition: it hunts you to the final hall. It stays
     // with you while you are not there, and it comes into the hall when you do.
     // It flies there: no tick moves it further than a fast flight does (it
     // was put in the final hall on the tick of its transition, and flew back).
     wound(&mut sim, INUGAMI_ID, 0.45);
+    step_until(&mut sim, 60, "its ward to kindle", |sim| head(sim).view.is_some_and(|v| v.warded));
     let mut last = head(&mut sim).kin.pos;
     let mut jump = (0.0_f32, 0usize);
     for k in 0..60 * 4 {
@@ -125,24 +128,22 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     }
     assert!(jump.0 < MOST_IN_A_TICK, "it jumped {} px in one tick ({} ticks after its wound)", jump.0, jump.1);
     let h = head(&mut sim);
-    assert!(h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_X, "it did not stay on you: {h:?}");
-    // You run the route to the final hall (carried along it at a run), and it
-    // hunts you there on its own wings, along your scent: no sweep, no
-    // teleport, and nowhere it is held (Jon, 2026-10-22: "there is a spot that
-    // the head cant actually pass on the way to the final arena").
+    assert!(h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_EAST, "it did not stay on you: {h:?}");
+    assert!(guarded(&mut sim), "its ward turns no blow in the chase");
+    // You run the route to the final hall (carried along it at a run): out
+    // of the arena's east gate, down the drop, and west under the castle a
+    // step down at a time. It hunts you there on its own wings, along your
+    // scent: no sweep, no teleport, and nowhere it is held (Jon, 2026-10-22:
+    // "there is a spot that the head cant actually pass on the way to the
+    // final arena").
     let body = {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
         q.single(world).expect("the player")
     };
-    let route = [
-        ae::Vec2::new(1700.0, 2130.0),
-        ae::Vec2::new(4960.0, 2130.0),
-        ae::Vec2::new(4960.0, 840.0),
-        ae::Vec2::new(FINAL_HALL_X + 800.0, 840.0),
-    ];
+    let route = chase_route();
     let mut last = head(&mut sim).kin.pos;
-    let mut jump = 0.0_f32;
+    let mut jump = (0.0_f32, last, last);
     for leg in route.windows(2) {
         let (a, b) = (leg[0], leg[1]);
         let ticks = ((b - a).length() / 260.0 * 60.0).ceil() as usize;
@@ -155,27 +156,28 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
             }
             sim.step(AgentAction::default());
             let now = head(&mut sim).kin.pos;
-            jump = jump.max((now - last).length());
+            if (now - last).length() > jump.0 {
+                jump = ((now - last).length(), last, now);
+            }
             last = now;
         }
     }
-    assert!(jump < MOST_IN_A_TICK, "it jumped {jump} px in one tick on its run");
+    assert!(jump.0 < MOST_IN_A_TICK, "it jumped {} px in one tick on its run, from {} to {}", jump.0, jump.1, jump.2);
     step_until(&mut sim, 60 * 15, "it to come into the final hall after you", |sim| {
         let h = head(sim);
-        h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x > FINAL_HALL_X && h.view.is_some_and(|v| v.performing.is_some())
+        h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_EAST && h.view.is_some_and(|v| !v.running)
     });
+    assert!(guarded(&mut sim), "its ward is down before Kagero breaks it");
 
-    // You stand in the final hall with it, and at its next window Kagero
-    // comes to your aid: she cuts it, and is gone up her line.
+    // You stand in the final hall with it: Kagero comes to your aid, her
+    // spell breaks its ward (she does not cut it), and she is gone up her
+    // line. Then it fights, and your blows land.
     let before = health(&mut sim, INUGAMI_ID);
-    step_until(&mut sim, 60 * 30, "Kagero to come", |sim| kagero(sim).is_some());
-    step_until(&mut sim, 60 * 4, "Kagero to cut it", |sim| health(sim, INUGAMI_ID) < before);
+    step_until(&mut sim, 60 * 4, "Kagero to come", |sim| kagero(sim).is_some());
+    step_until(&mut sim, 60 * 4, "her spell to break its ward", |sim| head(sim).view.is_some_and(|v| !v.warded) && !guarded(sim));
     step_until(&mut sim, 60 * 4, "Kagero to leave", |sim| kagero(sim).is_none());
-    assert!(head(&mut sim).view.is_some_and(|v| v.ally_called));
-    let cut = before - health(&mut sim, INUGAMI_ID);
-    // Three cuts, one blow each (2 + 2 + 3): a box that lived on cut it on
-    // every tick.
-    assert!((3..=7).contains(&cut), "her cuts took {cut} from it");
+    assert_eq!(health(&mut sim, INUGAMI_ID), before, "she cut it: the fight is yours");
+    step_until(&mut sim, 60 * 10, "it to fight in the hall", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
     for _ in 0..60 * 3 {
         sim.step(AgentAction::default());
     }
@@ -200,16 +202,50 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 > FINAL_HALL_FLOOR - 30.0, "his head did not drop to the hall's floor: {h:?}");
 }
 
-/// Where the throne room's final hall starts: the last 1600 of its 9600
+/// Its name, as its plate shows it (Jon, 2026-10-24).
+const NAME: &str = "Inugami Wolfenstein";
+
+/// The east end of the throne room's final hall, at the west end of the room
 /// (`specs/castle_godwin/make_specs.py`, `FINAL_W`).
-const FINAL_HALL_X: f32 = 8000.0;
-/// The top of the final hall's floor (`HIGH_FLOOR`).
-const FINAL_HALL_FLOOR: f32 = 880.0;
+const FINAL_HALL_EAST: f32 = 1600.0;
+/// The top of the final hall's floor.
+const FINAL_HALL_FLOOR: f32 = 2624.0;
+
+/// The way out of the throne room the chase takes (`make_specs.py`,
+/// `throne`): across the arena (its floor at 832) and over the east gate's
+/// sill, down the drop at its east end, then west a step down at a time
+/// (`RUN_STEPS` of `RUN_DROP`, each 888 long, the first at 1664) into the
+/// final hall. Points of a body's middle.
+fn chase_route() -> Vec<ae::Vec2> {
+    const W: f32 = 10480.0;
+    const STEP: f32 = 888.0;
+    let mut route = vec![ae::Vec2::new(9000.0, 760.0), ae::Vec2::new(10150.0, 760.0), ae::Vec2::new(10150.0, 1640.0)];
+    // A hop over the floor (the body's middle 124 over it): over the run's
+    // barricades and rubble, as a runner jumps them. A body carried into one
+    // is pushed out of it, and the camera rightly follows that jump.
+    for k in 0..10 {
+        let floor = 1664.0 + 96.0 * k as f32 - 124.0;
+        let west = W - STEP * (k + 1) as f32;
+        route.push(ae::Vec2::new(west - 30.0, floor));
+        route.push(ae::Vec2::new(west - 60.0, floor + 96.0));
+    }
+    route.push(ae::Vec2::new(800.0, FINAL_HALL_FLOOR - 24.0));
+    route
+}
+
+/// Its conductor guards it (its ward): blows clang off.
+fn guarded(sim: &mut Platformer2dSimHarness) -> bool {
+    let entity = boss_entity(sim, INUGAMI_ID);
+    sim.world_mut().get::<BossEncounter>(entity).expect("an encounter").guarded
+}
+
+/// The most the head flies in one tick: its lunge at your back darts up to
+/// 560 px in 0.35 s, eased out, so it starts at twice that pace (39 px a
+/// tick, measured 2026-10-24); its fastest run (`RUN_SPEED` times its catch
+/// up, 594 px/s) is 10. A teleport is hundreds.
+const MOST_IN_A_TICK: f32 = 56.0;
 
 /// Wound the boss `id` to `fraction` of its health.
-/// The most the head flies in one tick: its fastest run (`RUN_SPEED` times
-/// its catch up, 594 px/s) is 10 px a tick.
-const MOST_IN_A_TICK: f32 = 24.0;
 
 fn wound(sim: &mut Platformer2dSimHarness, id: &str, fraction: f32) {
     let entity = boss_entity(sim, id);
@@ -274,7 +310,7 @@ fn its_dead_head_lies_still() {
 #[test]
 fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
     let mut sim = arena();
-    sim.teleport_player((420.0, 2200.0));
+    sim.teleport_player((8340.0, 792.0));
     for _ in 0..60 * 11 {
         sim.step(AgentAction::default());
     }
@@ -285,7 +321,7 @@ fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
     // do not take him out of its way).
     let aim = |sim: &mut Platformer2dSimHarness| {
         let at = sim.world_mut().get::<ae::BodyKinematics>(wolf).unwrap().pos;
-        sim.teleport_player((at.x - 160.0, 2200.0));
+        sim.teleport_player((at.x - 160.0, 792.0));
         sim.step(AgentAction { move_x: 1.0, ..AgentAction::default() });
     };
     aim(&mut sim);
@@ -310,8 +346,8 @@ fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
     assert!(before - hp(&mut sim) >= 8, "a full charge from 160 px took {} from him", before - hp(&mut sim));
 }
 
-/// The camera on the chase's route, from the throne room through the gallery,
-/// up the stair tower, along the battlements and into the final hall: the
+/// The camera on the chase's route, from the throne room down the drop and
+/// west under the castle into the final hall: the
 /// player is carried along it at a run's pace, and the camera's centre is read
 /// each tick (Jon, 2026-10-22: "the cameras have weird issues with going into
 /// an out of arenas").
@@ -329,12 +365,7 @@ fn the_camera_follows_the_chase_route_without_a_whip() {
     }
     // Over the gallery's steps and rubble: a body carried into a step is
     // pushed out of it, and the camera rightly follows that jump.
-    let route = [
-        ae::Vec2::new(900.0, 2130.0),
-        ae::Vec2::new(4700.0, 2130.0),
-        ae::Vec2::new(4700.0, 820.0),
-        ae::Vec2::new(9200.0, 820.0),
-    ];
+    let route = chase_route();
     const PACE: f32 = 300.0;
     let body = {
         let world = sim.world_mut();
@@ -377,11 +408,14 @@ fn the_camera_follows_the_chase_route_without_a_whip() {
             jerk = (change, i + 2);
         }
     }
-    // Measured 3.99, where the throne room's clamp stops the camera at its
-    // edge. Before zones were mixed across their edges the camera went from
-    // still to 38 units a tick on leaving the arena.
+    // Measured 3.99 on the old route, where the throne room's clamp stops
+    // the camera at its edge; 8.0 on this one, where the carried body turns
+    // from west to straight down at the run's last step, as the final hall's
+    // zone takes the camera from the run's (2026-10-24). Before zones were
+    // mixed across their edges the camera went from still to 38 units a tick
+    // on leaving the arena.
     assert!(
-        jerk.0 < 5.0,
+        jerk.0 < 10.0,
         "the camera's step changed by {:.1} units in one tick at {:?}",
         jerk.0,
         rows[jerk.1].0

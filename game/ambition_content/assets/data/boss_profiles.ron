@@ -2059,7 +2059,7 @@
         attacks: [
             Special("inu_bite"),
             Special("inu_dive"),
-            Special("inu_pack"),
+            Special("inu_storm"),
             Special("inu_howl"),
             Special("inu_leash"),
             Special("inu_gutter"),
@@ -2084,9 +2084,9 @@
                         Rest(duration: 0.7),
                     ]),
                     (weight: 2.5, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("inu_pack"), duration: 0.8,
-                            telegraph: Some((pose: Some("pack_tell"), cue: Some("boss.trex.growl_rise_b")))),
-                        Strike(profile: Special("inu_pack"), duration: 0.8),
+                        Telegraph(profile: Special("inu_storm"), duration: 0.8,
+                            telegraph: Some((pose: Some("storm_tell"), cue: Some("boss.wolfenstein.zap")))),
+                        Strike(profile: Special("inu_storm"), duration: 0.4),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 2.5, when: Some(PlayerNear), steps: [
@@ -2122,9 +2122,9 @@
                         Rest(duration: 0.7),
                     ]),
                     (weight: 2.0, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("inu_pack"), duration: 0.8,
-                            telegraph: Some((pose: Some("pack_tell"), cue: Some("boss.trex.growl_rise_b")))),
-                        Strike(profile: Special("inu_pack"), duration: 0.8),
+                        Telegraph(profile: Special("inu_storm"), duration: 0.8,
+                            telegraph: Some((pose: Some("storm_tell"), cue: Some("boss.wolfenstein.zap")))),
+                        Strike(profile: Special("inu_storm"), duration: 0.4),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 1.5, when: Some(PlayerAbove), steps: [
@@ -2172,7 +2172,7 @@
                 Rest(duration: 1.8),
             ]),
             // PHASE 2 (from the transition): shorter tells, two lunges in a chain,
-            // a pack of four, and the howl calls the pack back along the floor.
+            // and lightning answers the howl on each side of it.
             phase2: (steps: [
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerNear), steps: [
@@ -2186,9 +2186,9 @@
                         Rest(duration: 0.7),
                     ]),
                     (weight: 2.5, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("inu_pack"), duration: 0.7,
-                            telegraph: Some((pose: Some("pack_tell"), cue: Some("boss.trex.growl_rise_b")))),
-                        Strike(profile: Special("inu_pack"), duration: 1.15),
+                        Telegraph(profile: Special("inu_storm"), duration: 0.7,
+                            telegraph: Some((pose: Some("storm_tell"), cue: Some("boss.wolfenstein.zap")))),
+                        Strike(profile: Special("inu_storm"), duration: 0.4),
                         Rest(duration: 0.5),
                     ]),
                     (weight: 2.5, when: Some(PlayerNear), steps: [
@@ -2244,9 +2244,9 @@
                         Rest(duration: 1.3),
                     ]),
                     (weight: 2.0, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("inu_pack"), duration: 0.7,
-                            telegraph: Some((pose: Some("pack_tell"), cue: Some("boss.trex.growl_rise_b")))),
-                        Strike(profile: Special("inu_pack"), duration: 1.15),
+                        Telegraph(profile: Special("inu_storm"), duration: 0.7,
+                            telegraph: Some((pose: Some("storm_tell"), cue: Some("boss.wolfenstein.zap")))),
+                        Strike(profile: Special("inu_storm"), duration: 0.4),
                         Rest(duration: 0.5),
                     ]),
                     (weight: 2.0, when: Some(PlayerFar), steps: [
@@ -2281,9 +2281,9 @@
                         Rest(duration: 1.3),
                     ]),
                     (weight: 2.5, when: Some(PlayerFar), steps: [
-                        Telegraph(profile: Special("inu_pack"), duration: 0.6,
-                            telegraph: Some((pose: Some("pack_tell"), cue: Some("boss.trex.growl_rise_b")))),
-                        Strike(profile: Special("inu_pack"), duration: 1.15),
+                        Telegraph(profile: Special("inu_storm"), duration: 0.6,
+                            telegraph: Some((pose: Some("storm_tell"), cue: Some("boss.wolfenstein.zap")))),
+                        Strike(profile: Special("inu_storm"), duration: 0.4),
                         Rest(duration: 0.3),
                         Telegraph(profile: Special("inu_dive"), duration: 0.6,
                             telegraph: Some((pose: Some("dive_tell"), cue: Some("boss.trex.growl_rise_a")))),
@@ -2323,9 +2323,9 @@
                             telegraph: Some((pose: Some("bite_tell"), cue: Some("boss.trex.growl_snarl_a")))),
                         Strike(profile: Special("inu_bite"), duration: 0.45),
                         Rest(duration: 0.3),
-                        Telegraph(profile: Special("inu_pack"), duration: 0.6,
-                            telegraph: Some((pose: Some("pack_tell"), cue: Some("boss.trex.growl_rise_b")))),
-                        Strike(profile: Special("inu_pack"), duration: 1.15),
+                        Telegraph(profile: Special("inu_storm"), duration: 0.6,
+                            telegraph: Some((pose: Some("storm_tell"), cue: Some("boss.wolfenstein.zap")))),
+                        Strike(profile: Special("inu_storm"), duration: 0.4),
                         Rest(duration: 0.3),
                     ]),
                     (weight: 2.0, when: Some(PlayerAbove), steps: [

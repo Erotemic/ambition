@@ -314,26 +314,6 @@
             scale: 0.6,
         )),
     ),
-    // A wolf wisp of the Inugami's pack: blue ghost fire that runs the floor
-    // (Jon, 2026-10-20: "the spirits around the head should be blue"; the
-    // cold fire's art, until the wisp is drawn).
-    "inugami_wisp": (
-        source: Sheet(
-            target: "shot_kit",
-            animation: "coldfire",
-            animate: true,
-        ),
-        size: BodyWidth(
-            scale: 1.9,
-        ),
-        rotation: VelocityAligned,
-        debug_tint: (0.36, 0.72, 1.0, 1.0),
-        label: "inugami_wisp",
-        expiry_vfx: Some((
-            fx: "classic_burst",
-            scale: 0.6,
-        )),
-    ),
     // The Mockingbird's fireball: hotter and redder than the player's,
     // bursting where it ends.
     "mockingbird_fireball": (

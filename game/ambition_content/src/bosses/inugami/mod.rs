@@ -38,6 +38,10 @@ pub struct InugamiView {
     pub woke: bool,
     /// It has called Kagero to your aid.
     pub ally_called: bool,
+    /// Its ward of blue fire is lit: no blow hurts it.
+    pub warded: bool,
+    /// It hunts you to the final hall.
+    pub running: bool,
 }
 
 /// The conductor's record on `head`, as a view. `None` before the module
@@ -54,5 +58,7 @@ pub fn conductor_of(world: &World, head: Entity) -> Option<InugamiView> {
         intro: c.intro,
         woke: c.woke(),
         ally_called: c.ally_called(),
+        warded: c.warded(),
+        running: c.running(),
     })
 }

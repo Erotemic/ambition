@@ -14,7 +14,8 @@
 // iron toccata a bit sooner", then "When it tears off").
 (
     id: "wolfenstein_inugami",
-    name: "Inugami",
+    // His name, as the wolf's (Jon, 2026-10-24).
+    name: "Inugami Wolfenstein",
     max_hp: 48,
     phase1_to_transition_hp: 0.5,
     phase2_to_enrage_hp: 0.2,

@@ -626,6 +626,68 @@ from a tell into its strike. The proposal was:
 **Slices, in order:** (1) the shape, music and route (rulings, no taste
 call); (2) the identity, after Jon's yes; (3) the art, after Jon's yes.
 
+### Rework 2 (Jon, 2026-10-24) — built
+
+Jon, after playing it: "boss bar comes up to early", "name should be
+'Inugami Wolfenstein'", "default inugami should not have ghost fire around
+its head, we should add them only during the chase where the wolf is
+effectively invincible. They are what force you to run", "The ninja is who
+dispels the flames and lets you fight once you reach the end of the hall",
+"the camera should let the player go much further right, so we can have the
+inugami head on screen", "let's make it a straight level that goes down
+instead of up. And have it sort of loop back topologically under the castle
+so when the fight is over you are close to the start of the level and you
+can open a secret passage back", "Animations are not smooth enough", "The
+poster should probably be on solid wall", "Lightning should still be a theme
+in the inugami fight", "The ninja uses a spell to dispel the blue flames".
+
+The shape now:
+
+1. **Phase 1 in the throne room**, no ward: it is hit as any boss.
+2. **The ward and the crash.** At its transition the four blue hitodama
+   kindle round it (`ward_kindle`); while they burn its conductor guards it
+   (`warded`). It crashes through the arena's east gate, then draws back up
+   under the vault so you can pass under it.
+3. **The chase goes down and back.** Past the gate a shaft drops under the
+   arena; the run goes straight west under the whole castle, ten steps of
+   96 down, 640 clear. It hunts you on your scent, `RUN_GAP` 220 behind;
+   every 2.4 s a lunge at your back or lightning on a mark ahead of you. The
+   run's camera holds you left of the picture (`target_offset_x` 420), so
+   the head behind you is in it.
+4. **Kagero's spell.** The final hall is the room's end farthest from where
+   it rose: under the gatehouse. When it has howled over the hall and you
+   are in it, Kagero comes beside you and casts (`cast`): her talismans stick
+   to it (`ward_bound`) and its ward breaks (`dispel`, at
+   `kagero::DISPEL_AT_S`). She does not cut it; she leaves up her line.
+5. **The fight in the hall** (phase 2, enrage), then its death.
+6. **The way back.** A lever in the hall, caged until it is dead
+   (`boss.cleared`), opens the grille of the old drain
+   (`world.switch_on castle_godwin_drain_lever`); its door goes up to the
+   gatehouse, near the castle's start. From the gatehouse the drain is open
+   from the start, down to the shut grille.
+
+**Lightning.** `inu_storm` replaces the pack: the head throws its head back,
+his lightning crawls over it (`storm_tell`), three marks spark on the floor
+(under you and 240 each side), and bolts strike them from the vault (held
+rays, look `strike`). From the transition the howl brings a bolt down on each
+side of it. In the chase its lightning strikes the way ahead of you. The
+blue wisps and `inugami_wisp` are gone.
+
+**Other fixes.** The boss bar shows from the end of the intro
+(`BossRenderView::fighting`), not from the wake. Its name is "Inugami
+Wolfenstein" (spawn, encounter, catalog, sheet). Posters in the throne room
+are on stone: the run's barricades and the lintel of the drain.
+
+**Art.** Its rows keep their lengths in more frames (idle 24, rise 30,
+death 34, hunt 16, crash and dive 8, and so on); the hitodama are only in the
+`ward_` rows and turn by time. Wolfenstein's short rows got in-betweens at
+the same lengths (rakes, slam, lunge, bound, lash, stab, galvanize, turn).
+Kagero got `cast`.
+
+**Open:** the chase is long (8240 across); the drain's look is the iron
+grille; the hitodama ring still jumps where one ward row hands over to the
+next.
+
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged

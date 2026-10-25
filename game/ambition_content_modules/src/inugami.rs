@@ -27,10 +27,12 @@
 //! - The pounce (`inu_dive`): it climbs over you, points its nose down and
 //!   drops; a shock runs the floor both ways, and its teeth are in the floor:
 //!   the long window.
-//! - The pack (`inu_pack`): its blue hitodama drop to the floor and run at you
-//!   as wolf wisps, one at a time along the floor: jump each.
+//! - The storm (`inu_storm`): it was his head, and his lightning is still in
+//!   it (Jon, 2026-10-24: "Lightning should still be a theme in the inugami
+//!   fight"). It throws its head back, three marks spark on the floor (one
+//!   under you, one each side), and lightning strikes each from the vault.
 //! - The howl: it throws its head back, and a ring pushes you off it. From
-//!   the transition on the howl calls the pack back along the floor.
+//!   the transition on, lightning answers the howl on each side of it.
 //! - The broken leash (`inu_leash`, its signature): the stitches at its neck
 //!   burn and a ghost chain unrolls; its tip cracks along the floor from
 //!   behind it to in front of it: jump it as it passes you. Then the chain
@@ -38,9 +40,13 @@
 //! - The gutter: its fire is spent once in a long cycle. It sinks to the
 //!   floor and lies there, dim, until its next tell kindles it again.
 //!
-//! Once you have been in the final hall with it a while, Kagero comes to
-//! your aid: it summons her on your side, on its far side from you, and her
-//! own module performs her visit (`crate::kagero`).
+//! ⭐ THE WARD AND THE CHASE (Jon, 2026-10-24). It has no ghost fire round
+//! it in its first phase: it is hit as any boss. At its transition the blue
+//! hitodama kindle round it (`warded`): while they burn it cannot be hurt,
+//! and they are what make you run. It crashes through the arena's wall and
+//! hunts you down the drop and west under the castle to the final hall, the
+//! room's end farthest from where it rose. There Kagero comes to your aid
+//! (`crate::kagero`): her spell breaks the ward, and you fight it there.
 //!
 //! When it dies the fire goes out of it, the spirit leaves as a wisp, and
 //! his own head drops to the floor.
@@ -55,14 +61,13 @@ use ambition_boss_special_port::{
     BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, RidingHitbox, RidingHitboxPort,
-    RidingKnockback,
+    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, HeldRay,
+    HeldRayPort, Lightning, LightningPort, RidingHitbox, RidingHitboxPort, RidingKnockback, Spot,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
     ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
 };
-use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
 use bevy_math::Vec2;
 
 use crate::wolfenstein;
@@ -150,34 +155,40 @@ const WALL: f32 = 16.0;
 
 /// It dives from this high over you (world units), or the top of the room.
 const DIVE_HIGH: f32 = 440.0;
-/// THE FINAL HALL: the last `FINAL_W` of its room the way it chases you,
-/// where the fight is finished (phase 2 and the enrage).
+/// THE FINAL HALL: the `FINAL_W` at the end of its room farthest from where
+/// it rose, where the fight is finished (phase 2 and the enrage).
 const FINAL_W: f32 = 1600.0;
-/// Its transition: its fire flares and it howls for `FLARE_S`, then it
-/// crashes through the arena's wall on the way out (Jon, 2026-10-22: "maybe
-/// when he enrages he crashes into a wall so you can do the run and chase").
-/// It goes at the wall at `CRASH_SPEED`, and the wall breaks when the
-/// encounter's second phase starts (the wall's `boss.past_first_phase`).
-const FLARE_S: f32 = 0.5;
+/// Its transition: it howls and its ward kindles round it for `FLARE_S`,
+/// then it crashes through the arena's wall on the way out (Jon, 2026-10-22:
+/// "maybe when he enrages he crashes into a wall so you can do the run and
+/// chase"): the wall of its arena farther from where it rose. It goes at the
+/// wall at `CRASH_SPEED`, and the wall breaks when the encounter's second
+/// phase starts (the wall's `boss.past_first_phase`). Then it draws back off
+/// the wall, `RECOIL` and up to the vault, so you can get under it to the gap.
+const FLARE_S: f32 = 0.9;
 const CRASH_SPEED: f32 = 1300.0;
+const RECOIL: f32 = 320.0;
+const RECOIL_SPEED: f32 = 520.0;
 /// THE RUN. When you have hurt it enough (its transition), it hunts you to
 /// the final hall (Jon, 2026-10-21: "There is also no chase sequence, when you
 /// beat him after the first part (24/48 health) he just kinda disappears and
 /// I have to fly to the other section of the castle to find him"). It was a
 /// vanish and a return in the hall; now it comes after you, `RUN_GAP` behind
 /// and `RUN_OVER` above you, at `RUN_SPEED` (faster when it is `RUN_FAR`
-/// behind): stand and its burning head reaches you. Its blows are turned and
-/// its pattern waits while it runs. On your heels, every `RUN_BEAT_S` it
-/// lunges at your back (gather, dart past, skid: turn and hit it in the skid)
-/// or sends a wisp of its pack along the floor after you, in turn. It comes
-/// into the final hall on its own wings.
-const RUN_GAP: f32 = 90.0;
+/// behind): stand and its burning head reaches you. Its ward turns every blow
+/// and its pattern waits while it runs. On your heels, every `RUN_BEAT_S` it
+/// lunges at your back (gather, dart past, skid) or calls lightning down on
+/// the way ahead of you, in turn. It comes into the final hall on its own
+/// wings. `RUN_GAP` is wide (Jon, 2026-10-24: "You are not given much
+/// distance from the boss in the chase").
+const RUN_GAP: f32 = 220.0;
 const RUN_OVER: f32 = 40.0;
 /// It hunts over the floor, its bottom this far over your feet: a head of
 /// its size that kept to your height dragged along the floor and was held
-/// on a 48 px step at the throne room's door and under the battlements'
-/// floor at the top of the tower (measured, 2026-10-22).
-const RUN_CLEAR: f32 = 64.0;
+/// on a 48 px step at the throne room's door (measured, 2026-10-22), and at
+/// 64 over your feet it was held on the run's 80 px barricades (measured,
+/// 2026-10-24). The run is 640 clear.
+const RUN_CLEAR: f32 = 120.0;
 const RUN_SPEED: f32 = 270.0;
 const RUN_CATCH_UP: f32 = 2.2;
 const RUN_FAR: f32 = 520.0;
@@ -187,6 +198,12 @@ const RUN_GATHER_S: f32 = 0.45;
 const RUN_DART_S: f32 = 0.35;
 /// It howls over the final hall for this long when it comes into it.
 const ARRIVE_S: f32 = 1.1;
+/// Its lightning on the run: a mark this far ahead of you the way you run,
+/// sparking for `RUN_BOLT_TELL_S`, then a strike out of the air from
+/// `RUN_BOLT_HIGH` over your feet down to the floor.
+const RUN_BOLT_AHEAD: f32 = 300.0;
+const RUN_BOLT_TELL_S: f32 = 0.7;
+const RUN_BOLT_HIGH: f32 = 460.0;
 /// THE SCENT. It hunts you along where you went, not in a straight line at
 /// you: a straight line held it 10 s in the stair tower's top corner, under
 /// the battlements' floor (measured, 2026-10-22). It is a hunting dog. A point
@@ -214,19 +231,17 @@ const PULL_S: f32 = 0.42;
 /// How deep its teeth go into the floor, head pixels.
 const SINK_PX: f32 = 6.0;
 
-/// THE PACK, in place of the onibi (Jon, 2026-10-22: "the spirit fires are
-/// hard to reason about"): wolf wisps that run along the floor at you, one
-/// every `PACK_GAP` of the strike, `PACK` of them (`PACK_FRENZIED` from the
-/// transition). Each is jumped.
-const WISP_VISUAL: &str = "inugami_wisp";
-const WISP_DAMAGE: i32 = 1;
-const WISP_HALF: Vec2 = Vec2::new(26.0, 16.0);
-const WISP_SPEED: f32 = 330.0;
-const WISP_SPEED_FRENZIED: f32 = 390.0;
-const WISP_LIFE: f32 = 4.0;
-const PACK_GAP: f32 = 0.35;
-const PACK: u32 = 3;
-const PACK_FRENZIED: u32 = 4;
+/// THE STORM, in place of the pack (Jon, 2026-10-24: no ghost fire round it
+/// but in the chase, and lightning stays the fight's theme): three marks on
+/// the floor, one under you and one `MARK_SPREAD` each side, spark through
+/// its tell; then lightning strikes each from `STORM_HIGH` over the floor (a
+/// ray down to the floor, `BOLT_WIDTH` wide) for `BOLT_S`.
+const MARK_SPREAD: f32 = 240.0;
+const STORM_HIGH: f32 = 760.0;
+const BOLT_WIDTH: f32 = 48.0;
+const BOLT_DAMAGE: i32 = 2;
+const BOLT_KNOCKBACK: f32 = 1.4;
+const BOLT_S: f32 = 0.3;
 
 /// THE BROKEN LEASH, its signature: a ghost chain from its neck, its tip
 /// `LEASH_REACH` of its body heights out, cracks along the floor from behind
@@ -246,9 +261,12 @@ const SHOCK_HALF: Vec2 = Vec2::new(22.0, 16.0);
 const SHOCK_DAMAGE: i32 = 1;
 const SHOCK_KNOCKBACK: f32 = 1.1;
 const SHOCK_LIFETIME_S: f32 = 4.0;
-/// Held damage box slots: the two shocks, the leash's tip.
+/// Held damage box and ray slots: the two shocks, the leash's tip, the
+/// storm's three bolts, the run's bolt.
 const SLOT_SHOCK: [u32; 2] = [0, 1];
 const SLOT_LEASH: u32 = 2;
+const SLOT_STORM: [u32; 3] = [3, 4, 5];
+const SLOT_RUN_BOLT: u32 = 6;
 
 const HOWL_DAMAGE: i32 = 1;
 const HOWL_KNOCKBACK: f32 = 2.2;
@@ -270,22 +288,28 @@ const SHAKE_DIVE: f32 = 9.0;
 const SHAKE_HOWL: f32 = 5.0;
 const SHAKE_TEAR: f32 = 6.0;
 
-/// Kagero comes to your aid at the first window it opens after you have been
-/// in the final hall with it this long, s (`crate::kagero`). She comes on its far side from you, this
-/// far out past its box (world px), and no nearer a wall of the hall than
-/// `ALLY_WALL`: her first line is drawn over her, in view.
-const ALLY_AFTER_S: f32 = 3.0;
-const ALLY_OUT: f32 = 90.0;
+/// Kagero comes to your aid when it has howled over the final hall and you
+/// are in it (Jon, 2026-10-24: "The ninja is who dispels the flames and lets
+/// you fight once you reach the end of the hall"; `crate::kagero`). She comes
+/// beside you, `ALLY_BESIDE` toward it, `ALLY_OVER` over your middle, and no
+/// nearer a wall of the hall than `ALLY_WALL`: her lines are drawn over her,
+/// in view. Her spell holds it from when she comes; it breaks its ward at
+/// `kagero::DISPEL_AT_S` and shakes itself free over `DISPEL_S`.
+const ALLY_BESIDE: f32 = 70.0;
+const ALLY_OVER: f32 = 30.0;
 const ALLY_WALL: f32 = 220.0;
+const DISPEL_S: f32 = 0.9;
 /// Her health: she does not stay long enough to fall.
 const ALLY_HEALTH: u32 = 200;
 
 /// Its fire, and dust.
 const FIRE: [f32; 4] = [1.0, 0.36, 0.34, 1.0];
 const FIRE_CORE: [f32; 4] = [1.0, 0.88, 0.84, 1.0];
-/// Its hitodama and its pack are blue: cold fire about the red head (Jon,
-/// 2026-10-20).
-const WISP_FIRE: [f32; 4] = [0.45, 0.75, 1.0, 1.0];
+/// Its hitodama are blue: cold fire about the red head (Jon, 2026-10-20).
+const WARD_FIRE: [f32; 4] = [0.45, 0.75, 1.0, 1.0];
+/// Its lightning: his own colours.
+const SPARK: [f32; 4] = [1.0, 0.93, 0.72, 1.0];
+const ARC: [f32; 4] = [0.66, 0.84, 1.0, 1.0];
 const DUST: [f32; 4] = [0.74, 0.70, 0.66, 1.0];
 
 /// Its howl, a described one (the SFX renderer's `howl` mode), at three
@@ -296,9 +320,9 @@ const SFX_HOWLS: [(f32, &str); 3] =
     [(1.08, "boss.inugami.howl"), (1.22, "boss.inugami.howl_large"), (f32::INFINITY, "boss.inugami.howl_giant")];
 
 /// Every cue it plays: each must have a recipe, or it plays silence.
-pub const SOUNDS: [&str; 13] = [
-    SFX_HOWLS[0].1, SFX_HOWLS[1].1, SFX_HOWLS[2].1, SFX_BITE, SFX_DART, SFX_SLAM, SFX_FLING, SFX_WHIP, SFX_GUTTER,
-    SFX_CATCH, SFX_STING, SFX_SHOCK, SFX_PANT,
+pub const SOUNDS: [&str; 15] = [
+    SFX_HOWLS[0].1, SFX_HOWLS[1].1, SFX_HOWLS[2].1, SFX_BITE, SFX_DART, SFX_SLAM, SFX_WHIP, SFX_GUTTER,
+    SFX_CATCH, SFX_STING, SFX_SHOCK, SFX_PANT, SFX_ZAP, SFX_STRIKE, SFX_WARD_BREAK,
 ];
 
 /// The theremin of his march, as the seam round his neck pops: the cue that
@@ -315,7 +339,11 @@ pub fn howl_cue(scale: f32) -> &'static str {
 const SFX_BITE: &str = "boss.trex.chomp";
 const SFX_DART: &str = "enemy.burning_flying_shark.flame_flyby";
 const SFX_SLAM: &str = "boss.trex.stomp";
-const SFX_FLING: &str = "projectile.fireball.shoot";
+/// His lightning: a mark that sparks zaps, a bolt that lands strikes.
+const SFX_ZAP: &str = "boss.wolfenstein.zap";
+const SFX_STRIKE: &str = "boss.wolfenstein.strike";
+/// Its ward breaks under her spell.
+const SFX_WARD_BREAK: &str = "vfx.generic_world.ice_shatter";
 const SFX_WHIP: &str = "boss.trex.tail_whip";
 const SFX_SHOCK: &str = "vfx.explosion.shockwave";
 const SFX_PANT: &str = "boss.trex.growl_chuff_a";
@@ -329,20 +357,21 @@ pub enum Move {
     Bite,
     /// The pounce.
     Dive,
-    Pack,
+    /// Lightning on three marks.
+    Storm,
     Howl,
     Leash,
     Gutter,
 }
 
 impl Move {
-    pub const ALL: [Move; 6] = [Move::Bite, Move::Dive, Move::Pack, Move::Howl, Move::Leash, Move::Gutter];
+    pub const ALL: [Move; 6] = [Move::Bite, Move::Dive, Move::Storm, Move::Howl, Move::Leash, Move::Gutter];
 
     pub fn key(self) -> &'static str {
         match self {
             Move::Bite => "inu_bite",
             Move::Dive => "inu_dive",
-            Move::Pack => "inu_pack",
+            Move::Storm => "inu_storm",
             Move::Howl => "inu_howl",
             Move::Leash => "inu_leash",
             Move::Gutter => "inu_gutter",
@@ -364,7 +393,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 2);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 3);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -415,9 +444,7 @@ record! {
     32 dying_scale: f32,
     /// Its howl when it comes into the final hall: seconds into it.
     33 appear: Option<f32>,
-    /// Kagero: seconds you have been in the final hall with it, and whether
-    /// it has called her (once).
-    34 ally_wait: Option<f32>,
+    /// Kagero: whether it has called her (once).
     35 ally_called: bool,
     /// The run to the final hall after its transition: seconds into it.
     36 run: Option<f32>,
@@ -429,8 +456,9 @@ record! {
     /// Your scent while it hunts you: where your feet were, a point every
     /// `SCENT_STEP`, oldest first. It flies along it (`hunt_goal`).
     39 scent: Vec<[f32; 2]> [max SCENT_MAX],
-    /// The wisps of the pack it has sent in this strike.
-    40 pack_sent: u32,
+    /// Where the run's bolt will strike, while it sparks: its x, its floor and
+    /// seconds into its tell.
+    40 run_bolt_x: f32,
     /// Its leash fallen slack, it pants: seconds into it.
     41 slack: Option<f32>,
     /// The pounce's shocks rolling the floor (their x), and the floor's line.
@@ -441,8 +469,26 @@ record! {
     45 box_generation: u32,
     /// Its lunge in the run: seconds into it (gather, dart, skid).
     46 lunge: Option<f32>,
-    /// The beats of its run: lunges and wisps, in turn.
+    /// The beats of its run: lunges and bolts, in turn.
     47 run_beats: u32,
+    /// The way you run (-1 or 1), from your scent: it hunts on that side of
+    /// you.
+    48 run_dir: f32,
+    /// Its ward of blue fire is lit: no blow hurts it.
+    49 warded: bool,
+    /// Kagero's spell holds it: seconds since she came.
+    50 binding: Option<f32>,
+    /// The storm's marks on the floor (their x), and the floor's line.
+    51 marks: Vec<f32> [max 3],
+    52 marks_floor: f32,
+    /// The generation of its held rays (a new storm, a new run bolt).
+    53 bolt_generation: u32,
+    /// This transition crashes out of the arena (the first; a later one only
+    /// rears where it is).
+    54 rear_crash: bool,
+    /// The run's bolt: its floor, and seconds into its tell.
+    55 run_bolt_floor: f32,
+    56 run_bolt: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -493,6 +539,17 @@ impl Conductor {
         self.slack.is_some()
     }
 
+    /// Its ward of blue fire is lit (no blow hurts it), for tests and
+    /// inspectors.
+    pub fn warded(&self) -> bool {
+        self.warded
+    }
+
+    /// It hunts you to the final hall, for tests and inspectors.
+    pub fn running(&self) -> bool {
+        self.run.is_some()
+    }
+
     fn part(&self) -> Option<Part> {
         Move::of_code(self.part_move).map(|mv| Part { mv, striking: self.part_striking, t: self.part_t, dur: self.part_dur })
     }
@@ -528,7 +585,8 @@ pub fn module() -> ModuleDescriptor {
                 CameraShakePort::KEY,
                 RidingHitboxPort::KEY,
                 HeldDamageBoxPort::KEY,
-                ProjectileSpawnPort::KEY,
+                HeldRayPort::KEY,
+                LightningPort::KEY,
                 BodySoundPort::KEY,
                 BossGuardPort::KEY,
                 BossScalePort::KEY,
@@ -589,24 +647,44 @@ fn riding(
     })
 }
 
-/// A wisp of its pack: on the floor at `x` (its line `floor`), running
-/// along it the way `dir` says.
-fn wisp(inv: &mut Invocation<'_>, x: f32, floor: f32, dir: f32, speed: f32) -> Result<(), Fault> {
-    let origin = Vec2::new(x, floor - WISP_HALF.y - 2.0);
-    burst(inv, origin, 10, 160.0, WISP_FIRE, "spark")?;
-    inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
-        origin,
-        dir: Vec2::new(if dir < 0.0 { -1.0 } else { 1.0 }, 0.0),
-        speed,
-        damage: WISP_DAMAGE,
-        max_lifetime: WISP_LIFE,
-        half_extent: WISP_HALF,
-        gravity: 0.0,
-        visual_id: WISP_VISUAL.to_string(),
-        bounces: 0,
-        bounce_on_world_contact: false,
-        splash_half_extent: 0.0,
-        boomerang_return_s: None,
+/// Lightning out of the air at `x`, from `high` over the floor's line
+/// `floor` down to the floor: a ray in `slot` that hurts for `life`, drawn as
+/// a strike, and the sparks where it lands.
+fn bolt_down(inv: &mut Invocation<'_>, slot: u32, generation: u32, x: f32, floor: f32, high: f32, life: f32) -> Result<(), Fault> {
+    inv.submit::<HeldRayPort>(HeldRay {
+        slot,
+        generation,
+        from: Spot::World([x, floor - high]),
+        toward: [0.0, 1.0],
+        reach: high + 8.0,
+        width: BOLT_WIDTH,
+        damage: BOLT_DAMAGE,
+        knockback: BOLT_KNOCKBACK,
+        lifetime_s: life,
+        look: "strike".into(),
+    })?;
+    burst(inv, Vec2::new(x, floor - 4.0), 14, 300.0, SPARK, "spark")
+}
+
+/// A mark on the floor where its lightning will strike: sparks, and an arc
+/// that does not hurt from over it.
+fn mark(inv: &mut Invocation<'_>, x: f32, floor: f32, k: u32, ticks: u32) -> Result<(), Fault> {
+    if ticks % 3 == k % 3 {
+        let across = ((ticks / 3 + k * 5) % 5) as f32 / 4.0 * 2.0 - 1.0;
+        burst(inv, Vec2::new(x + across * BOLT_WIDTH * 0.5, floor - 3.0), 3, 90.0, ARC, "spark")?;
+    }
+    Ok(())
+}
+
+/// A strike that shows and does not hurt: from `from` to `to`.
+fn arc(inv: &mut Invocation<'_>, key: &str, from: Vec2, to: Vec2, hold: f32) -> Result<(), Fault> {
+    inv.submit::<LightningPort>(Lightning {
+        key: key.into(),
+        from: Spot::World(from.into()),
+        to: Spot::World(to.into()),
+        look: "spark_gap".into(),
+        glow: None,
+        hold_s: hold,
     })
 }
 
@@ -620,13 +698,29 @@ fn set_scale(c: &mut Conductor, inv: &mut Invocation<'_>, scale: f32) -> Result<
     Ok(())
 }
 
-/// Put it at `pos`, facing `side`, drawn with `row`.
-fn held_at(inv: &mut Invocation<'_>, at: Vec2, pos: Vec2, side: f32, row: (&'static str, f32, bool), dt: f32) -> Result<(), Fault> {
+/// Put it at `pos`, facing `side`, drawn with `row`. Warded, it is drawn
+/// with the row's `ward_` form where its sheet has one (its hitodama round
+/// it), and the row itself where not.
+#[allow(clippy::too_many_arguments)]
+fn held_at(
+    inv: &mut Invocation<'_>,
+    at: Vec2,
+    pos: Vec2,
+    side: f32,
+    row: (&'static str, f32, bool),
+    warded: bool,
+    dt: f32,
+) -> Result<(), Fault> {
     inv.submit::<ConductedPosePort>(ConductedPose {
         pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt.max(1e-4)).into() }),
         side: Some(side),
     })?;
-    inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))
+    let names = if warded && !row.0.starts_with("ward_") {
+        vec![format!("ward_{}", row.0), row.0.into()]
+    } else {
+        vec![row.0.into()]
+    };
+    inv.submit::<DrawnRowPort>(DrawnRow { on: ambition_boss_special_port::DrawnPart::Body, names, elapsed: row.1, looping: row.2 })
 }
 
 /// Frames `from..to` of a row across `u` (0-1) of a part.
@@ -693,41 +787,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // walls, or the final hall's once the chase is over.
     let floor = inu.hall.map_or(c.hall_floor, |hall| hall.floor);
     let room_w = inu.room.map_or(c.hall_right + WALL, |room| room[0]);
-    let east = if c.rise_x < room_w * 0.5 { 1.0 } else { -1.0 };
-    let (final_lo, final_hi) = if east > 0.0 { (room_w - FINAL_W, room_w - WALL) } else { (WALL, FINAL_W) };
-    // The run crosses the room; then the hall holds it. ⛔ Not "it is
-    // frenzied and not running": it is frenzied from the first tick of its
-    // transition, before its run, and the hall's bounds put it 7000 px down
-    // the castle on that tick (Jon, 2026-10-22: "The head still teleports to
-    // the other side").
-    let in_final = c.arrived;
-    let (lo, hi) = if in_final { (final_lo, final_hi) } else { (WALL, room_w - WALL) };
-    let hall = Hall { floor, left: lo, right: hi };
-    let built = Head::of_height(inu.size[1] / c.scale.max(0.1));
-    let half = Vec2::new(inu.size[0], inu.size[1]) * 0.5;
-    // Chasing you it flies the whole room, up the tower too; in the final
-    // hall it keeps under the hall's sky.
-    let top = if in_final { (hall.floor - CEILING).max(48.0) } else { 48.0 } + half.y;
-    let ground = hall.floor - h.lying_low();
-    c.clock += dt;
-    c.ticks = c.ticks.wrapping_add(1);
     let at = Vec2::from(inu.position);
     let mut side = inu.side;
-    let target = inu.target.map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
-    let clamp = |p: Vec2| {
-        Vec2::new(
-            p.x.clamp(hall.left + half.x + 8.0, hall.right - half.x - 8.0),
-            p.y.clamp(top, hall.floor - half.y - 8.0),
-        )
-    };
-    let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
-    // The arena's wall on its way out, as it is measured under it now (the
-    // gate stands in it until the second phase): it crashes into it, its face
-    // against the wall.
-    let walls = inu.hall.map_or((hall.left, hall.right), |w| (w.left, w.right));
-    let crash_at = |at: Vec2| Vec2::new(if east > 0.0 { walls.1 - half.x } else { walls.0 + half.x }, at.y);
-    // Your feet, under the box it tracks.
-    let feet = inu.target_body.as_ref().map_or(target.y + 24.0, |b| b.position[1] + b.size[1] * 0.5);
+    let built = Head::of_height(inu.size[1] / c.scale.max(0.1));
     // Where it rises from: his head, at his head's size, followed until it
     // tears off; or where it was placed, at its own size.
     let before_rise = !c.woke && c.intro.is_none_or(|t| t < rise_at(&inu));
@@ -742,7 +804,42 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
     let rise_from = Vec2::new(c.rise_x, c.rise_y);
-
+    // The final hall: the end of its room farthest from where it rose.
+    let toward_final = if c.rise_x < room_w * 0.5 { 1.0 } else { -1.0 };
+    let (final_lo, final_hi) = if toward_final > 0.0 { (room_w - FINAL_W, room_w - WALL) } else { (WALL, FINAL_W) };
+    let in_final_hall = |x: f32| x >= final_lo && x <= final_hi;
+    // The run crosses the room; then the hall holds it. ⛔ Not "it is
+    // frenzied and not running": it is frenzied from the first tick of its
+    // transition, before its run, and the hall's bounds put it 7000 px down
+    // the castle on that tick (Jon, 2026-10-22: "The head still teleports to
+    // the other side").
+    let in_final = c.arrived;
+    let (lo, hi) = if in_final { (final_lo, final_hi) } else { (WALL, room_w - WALL) };
+    let hall = Hall { floor, left: lo, right: hi };
+    let half = Vec2::new(inu.size[0], inu.size[1]) * 0.5;
+    // Chasing you it flies the whole room, up the tower too; in the final
+    // hall it keeps under the hall's sky.
+    let top = if in_final { (hall.floor - CEILING).max(48.0) } else { 48.0 } + half.y;
+    let ground = hall.floor - h.lying_low();
+    c.clock += dt;
+    c.ticks = c.ticks.wrapping_add(1);
+    let target = inu.target.map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
+    let clamp = |p: Vec2| {
+        Vec2::new(
+            p.x.clamp(hall.left + half.x + 8.0, hall.right - half.x - 8.0),
+            p.y.clamp(top, hall.floor - half.y - 8.0),
+        )
+    };
+    let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
+    // The arena's wall on its way out, as it is measured under it now (the
+    // gate stands in it until the second phase): the one farther from where
+    // it rose. It crashes into it, its face against the wall.
+    let walls = inu.hall.map_or((hall.left, hall.right), |w| (w.left, w.right));
+    let crash_dir = if walls.1 - c.rise_x > c.rise_x - walls.0 { 1.0 } else { -1.0 };
+    let crash_wall = if crash_dir > 0.0 { walls.1 } else { walls.0 };
+    let crash_at = |at: Vec2| Vec2::new(crash_wall - crash_dir * half.x, at.y);
+    // Your feet, under the box it tracks.
+    let feet = inu.target_body.as_ref().map_or(target.y + 24.0, |b| b.position[1] + b.size[1] * 0.5);
     // ── Dead: the fire goes out of it, the spirit leaves, his head drops ──
     if !inu.alive {
         let lived = c.lived;
@@ -792,7 +889,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let lit = SPIRIT_LIT + (1.0 - SPIRIT_LIT) * ease((t - DEATH_LEAVES_U * DEATH_S) / 2.0);
         inv.submit::<BossStagePort>(BossStage { lit: if lived { lit } else { 1.0 }, flash: 0.0, card: 0.0 })?;
         c.dead_for = Some(t);
-        held_at(inv, at, Vec2::new(x, y), side, ("death", t, false), dt)?;
+        c.warded = false;
+        held_at(inv, at, Vec2::new(x, y), side, ("death", t, false), false, dt)?;
         return c.store(inv);
     }
     c.lived = true;
@@ -813,9 +911,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── Which part of which move is live ──
-    // While it runs you to the hall and sweeps into it, its pattern waits.
+    // While it runs you to the hall, howls over it and waits there warded
+    // for Kagero, and while her spell holds it, its pattern waits. (Its
+    // pattern let in between them started a pounce that her spell cut off,
+    // and the pounce's window put it 196 px down in one tick: measured
+    // 2026-10-24.)
     let live = match (inu.active.as_ref(), inu.telegraph.as_ref()) {
-        _ if c.run.is_some() || c.appear.is_some() => None,
+        _ if c.run.is_some() || c.appear.is_some() || c.binding.is_some() || (c.arrived && c.warded) => None,
         (Some(active), _) if Move::from_key(&active.key).is_some() => Move::from_key(&active.key).map(|mv| (mv, true, active.remaining)),
         (_, Some(tell)) => Move::from_key(&tell.key).map(|mv| (mv, false, tell.remaining)),
         _ => None,
@@ -850,6 +952,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         c.to_x = over.x;
                         c.to_y = over.y;
                     }
+                    if mv == Move::Storm {
+                        // One mark under you, one each side.
+                        let x = target.x.clamp(hall.left + 40.0, hall.right - 40.0);
+                        c.marks = [x - MARK_SPREAD, x, x + MARK_SPREAD]
+                            .into_iter()
+                            .map(|m| m.clamp(hall.left + 40.0, hall.right - 40.0))
+                            .collect();
+                        c.marks_floor = hall.floor;
+                    }
                     // Its tell's own sound is its pattern's (`telegraph.cue`).
                 } else {
                     match mv {
@@ -866,8 +977,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             c.to_x = at.x;
                             c.to_y = hall.floor - h.jaws_down().0.y - h.jaws_down().1.y + h.len(SINK_PX);
                         }
-                        Move::Pack => {
-                            c.pack_sent = 0;
+                        Move::Storm => {
+                            c.bolt_generation = c.bolt_generation.wrapping_add(1);
                         }
                         Move::Leash => {
                             // A new whip: its tip is a new held box.
@@ -905,39 +1016,54 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     c.set_part(part);
     c.last_remaining = live.map_or(0.0, |(_, _, remaining)| remaining);
 
-    // ── Between phases: its fire flares, and it howls ──
+    // ── Between phases: it howls; the first time its ward kindles ──
     if inu.between_phases {
         if c.rearing.is_none() {
             side = face(at.x);
             c.miss = None;
             c.buried = None;
             c.guttered = None;
+            c.slack = None;
+            // The first transition crashes out of the arena; a later one
+            // only rears where it is.
+            c.rear_crash = !c.frenzied;
             c.frenzied = true;
             play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 40, 360.0, FIRE, "spark")?;
             shake(inv, SHAKE_HOWL)?;
             inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.4, card: 0.0 })?;
+            if c.rear_crash {
+                // Its ward kindles round it: the blue fire that makes you run.
+                c.warded = true;
+                inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
+                play(inv, SFX_CATCH, at)?;
+            }
         }
         let t = c.rearing.map_or(0.0, |t| t + dt);
+        if c.rear_crash && c.ticks % 4 == 0 && t < FLARE_S {
+            burst(inv, at, 4, 220.0, WARD_FIRE, "spark")?;
+        }
         if t >= FLARE_S && t - dt < FLARE_S {
             burst(inv, at, 30, 320.0, FIRE_CORE, "spark")?;
         }
         // It meets the arena's wall: stone and fire, and a slam.
-        if t >= FLARE_S && !c.crashed && (crash_at(at) - at).x.abs() < 2.0 {
+        if c.rear_crash && t >= FLARE_S && !c.crashed && (crash_at(at) - at).x.abs() < 2.0 {
             c.crashed = true;
-            let face = Vec2::new(at.x + east * half.x, at.y);
+            let face = Vec2::new(at.x + crash_dir * half.x, at.y);
             play(inv, SFX_SLAM, face)?;
             burst(inv, face, 40, 380.0, DUST, "dust")?;
-            burst(inv, face, 24, 300.0, FIRE, "spark")?;
+            burst(inv, face, 24, 300.0, WARD_FIRE, "spark")?;
             shake(inv, SHAKE_DIVE * 1.5)?;
         }
         c.rearing = Some(t);
     } else if c.rearing.take().is_some() {
-        // The wall is down (the second phase): through the gap after you.
-        // It comes after you: the run to the final hall.
         inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.0, card: 0.0 })?;
-        inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
-        c.run = Some(0.0);
+        if c.rear_crash {
+            // The wall is down (the second phase): it hunts you through the
+            // gap, the way it crashed.
+            c.run = Some(0.0);
+            c.run_dir = crash_dir;
+        }
     }
 
     // ── The run: it hunts you to the final hall ──
@@ -950,22 +1076,27 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if head_home {
             // In the hall: it howls over it, and the fight goes on there.
             c.run = None;
+            c.lunge = None;
+            c.run_bolt = None;
             c.arrived = true;
             c.appear = Some(0.0);
             play(inv, howl_cue(c.scale), at)?;
-            burst(inv, at, 30, 320.0, FIRE, "spark")?;
+            burst(inv, at, 30, 320.0, WARD_FIRE, "spark")?;
         } else {
             // On your heels, a beat every `RUN_BEAT_S`: a lunge at your back,
-            // or a wisp after you along your floor, in turn.
+            // or lightning on the way ahead of you, in turn.
             let on_heels = c.scent.len() <= 2 && (target - at).length() < RUN_FAR;
-            if c.lunge.is_none() && on_heels && (t / RUN_BEAT_S).floor() != ((t - dt) / RUN_BEAT_S).floor() {
+            let beat = (t / RUN_BEAT_S).floor() != ((t - dt) / RUN_BEAT_S).floor();
+            if c.lunge.is_none() && c.run_bolt.is_none() && on_heels && beat {
                 if c.run_beats % 2 == 0 {
                     c.lunge = Some(0.0);
                     c.from_x = at.x;
                     c.from_y = at.y;
                 } else {
-                    wisp(inv, at.x, feet, east, WISP_SPEED_FRENZIED)?;
-                    play(inv, SFX_FLING, at)?;
+                    c.run_bolt = Some(0.0);
+                    c.run_bolt_x = target.x + c.run_dir * RUN_BOLT_AHEAD;
+                    c.run_bolt_floor = feet;
+                    play(inv, SFX_ZAP, Vec2::new(c.run_bolt_x, feet))?;
                 }
                 c.run_beats = c.run_beats.wrapping_add(1);
             }
@@ -975,7 +1106,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 if l >= RUN_GATHER_S && was < RUN_GATHER_S {
                     // It darts past where you are now.
                     let from = Vec2::new(c.from_x, c.from_y);
-                    let aim = (target - from).normalize_or(Vec2::X * east);
+                    let aim = (target - from).normalize_or(Vec2::X * c.run_dir);
                     let to = clamp(from + aim * ((target - from).length() + 120.0).min(BITE_REACH));
                     c.to_x = to.x;
                     c.to_y = to.y;
@@ -983,48 +1114,63 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     play(inv, SFX_DART, at)?;
                     play(inv, SFX_BITE, at)?;
                 }
-                if l >= RUN_GATHER_S + RUN_DART_S && was < RUN_GATHER_S + RUN_DART_S {
-                    // It skids past you, open: turn and hit it.
-                    inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+                // Its ward stays lit through the skid: in the chase nothing
+                // hurts it, and you run.
+                c.lunge = if l >= RUN_GATHER_S + RUN_DART_S + MISS_S { None } else { Some(l) };
+            }
+            if let Some(b) = c.run_bolt {
+                let b = b + dt;
+                if b < RUN_BOLT_TELL_S {
+                    mark(inv, c.run_bolt_x, c.run_bolt_floor, 0, c.ticks)?;
+                } else if b - dt < RUN_BOLT_TELL_S {
+                    c.bolt_generation = c.bolt_generation.wrapping_add(1);
+                    bolt_down(inv, SLOT_RUN_BOLT, c.bolt_generation, c.run_bolt_x, c.run_bolt_floor, RUN_BOLT_HIGH, BOLT_S)?;
+                    play(inv, SFX_STRIKE, Vec2::new(c.run_bolt_x, c.run_bolt_floor))?;
+                    shake(inv, SHAKE_HOWL)?;
                 }
-                if l >= RUN_GATHER_S + RUN_DART_S + MISS_S {
-                    inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
-                    c.lunge = None;
-                } else {
-                    c.lunge = Some(l);
-                }
+                c.run_bolt = if b >= RUN_BOLT_TELL_S + BOLT_S { None } else { Some(b) };
+            }
+            if c.ticks % 6 == 0 {
+                burst(inv, at, 3, 200.0, WARD_FIRE, "spark")?;
             }
             c.run = Some(t);
         }
     }
 
-    // ── Kagero comes to your aid, once, in the final hall ──
-    if c.arrived && !c.ally_called && !inu.between_phases && c.appear.is_none() {
-        if target.x >= final_lo && target.x <= final_hi {
-            c.ally_wait = Some(c.ally_wait.map_or(0.0, |t| t + dt));
+    // ── Kagero comes to your aid in the final hall: her spell breaks its ward ──
+    if c.arrived && c.warded && !c.ally_called && c.appear.is_none() && in_final_hall(target.x) {
+        c.ally_called = true;
+        c.binding = Some(0.0);
+        let toward_it = if at.x < target.x { -1.0 } else { 1.0 };
+        let x = (target.x + toward_it * ALLY_BESIDE).clamp(hall.left + ALLY_WALL, hall.right - ALLY_WALL);
+        let y = (target.y - ALLY_OVER).clamp(top, hall.floor - 80.0);
+        inv.submit::<BossSummonPort>(BossSummon {
+            label: "kagero".into(),
+            serial: Vec::new(),
+            position: [x, y],
+            half_size: crate::kagero::HALF_SIZE,
+            character_id: crate::kagero::KAGERO_ID.into(),
+            health: Some(ALLY_HEALTH),
+            keeps_contact_damage: false,
+            side: SummonSide::Player,
+            holds: vec![crate::kagero::VISIT.into()],
+        })?;
+    }
+    if let Some(b) = c.binding {
+        let b = b + dt;
+        let at_dispel = crate::kagero::DISPEL_AT_S;
+        if b >= at_dispel && b - dt < at_dispel {
+            // The ward breaks: its blows land from here.
+            c.warded = false;
+            inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+            play(inv, SFX_WARD_BREAK, at)?;
+            play(inv, SFX_GUTTER, at)?;
+            burst(inv, at, 60, 420.0, WARD_FIRE, "spark")?;
+            burst(inv, at, 24, 300.0, FIRE_CORE, "streak")?;
+            shake(inv, SHAKE_TEAR)?;
+            inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: 0.5, card: 0.0 })?;
         }
-        // She comes when it opens a window (its teeth in the floor, its fire
-        // spent, its leash slack): her cuts land while it cannot guard.
-        let window_opens = c.buried.is_some_and(|t| t <= 0.0)
-            || c.guttered.is_some_and(|t| t <= 0.0)
-            || c.slack.is_some_and(|t| t <= 0.0);
-        if c.ally_wait.is_some_and(|t| t >= ALLY_AFTER_S) && window_opens {
-            c.ally_called = true;
-            let out = -face(at.x) * (half.x + ALLY_OUT);
-            let x = (at.x + out).clamp(hall.left + ALLY_WALL, hall.right - ALLY_WALL);
-            let y = at.y.clamp(top, hall.floor - 80.0);
-            inv.submit::<BossSummonPort>(BossSummon {
-                label: "kagero".into(),
-                serial: Vec::new(),
-                position: [x, y],
-                half_size: crate::kagero::HALF_SIZE,
-                character_id: crate::kagero::KAGERO_ID.into(),
-                health: Some(ALLY_HEALTH),
-                keeps_contact_damage: false,
-                side: SummonSide::Player,
-                holds: vec![crate::kagero::VISIT.into()],
-            })?;
-        }
+        c.binding = if b >= at_dispel + DISPEL_S { None } else { Some(b) };
     }
 
     for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear, &mut c.slack] {
@@ -1036,12 +1182,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.rekindle = None;
     }
     if c.appear.is_some_and(|t| t >= ARRIVE_S) {
-        // Over the hall: its blows land again, and it howls the fight on.
+        // It has howled over the hall: it waits there for you, warded.
         c.appear = None;
-        c.arrived = true;
-        inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
         shake(inv, SHAKE_HOWL)?;
-        burst(inv, at, 40, 360.0, FIRE, "spark")?;
+        burst(inv, at, 40, 360.0, WARD_FIRE, "spark")?;
     }
     if c.miss.is_some_and(|t| t >= MISS_S) {
         c.miss = None;
@@ -1114,22 +1258,33 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             at + along * (MISS_DRIFT / MISS_S) * (1.0 - t / MISS_S).max(0.0) * dt
         }
         None if c.rearing.is_some() => {
-            // It flares where it is, then goes at the wall.
-            side = east;
-            if c.rearing.is_some_and(|t| t < FLARE_S) {
-                at
+            // It flares where it is, then goes at the wall; off it, it draws
+            // back up under the vault, so you can get under it to the gap. A
+            // later transition only rears where it is.
+            let (goal, speed) = if !c.rear_crash || c.rearing.is_some_and(|t| t < FLARE_S) {
+                (at, 0.0)
+            } else if !c.crashed {
+                side = crash_dir;
+                (crash_at(at), CRASH_SPEED)
             } else {
-                let goal = crash_at(at);
-                let step = goal - at;
-                let stride = CRASH_SPEED * dt;
-                if step.length() > stride { at + step.normalize() * stride } else { goal }
-            }
+                side = crash_dir;
+                (Vec2::new(crash_wall - crash_dir * (half.x + RECOIL), top + h.len(8.0)), RECOIL_SPEED)
+            };
+            let step = goal - at;
+            let stride = speed * dt;
+            if step.length() > stride { at + step.normalize() * stride } else { goal }
         }
-        None if c.appear.is_some() => at,
+        None if c.appear.is_some() || c.binding.is_some() => at,
         None if c.run.is_some() => {
             // Your scent: where your feet were, and the head over them.
             let over = |p: Vec2| Vec2::new(p.x, p.y - RUN_CLEAR - half.y);
             if c.scent.last().is_none_or(|last| Vec2::from(*last).distance(Vec2::new(target.x, feet)) >= SCENT_STEP) {
+                // The way you run: it hunts on the side you came from.
+                if let Some(last) = c.scent.last() {
+                    if (target.x - last[0]).abs() > 8.0 {
+                        c.run_dir = (target.x - last[0]).signum();
+                    }
+                }
                 if c.scent.len() >= SCENT_MAX as usize {
                     c.scent.remove(0);
                 }
@@ -1140,7 +1295,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 c.scent.remove(0);
             }
             // On your heels it closes behind you; else it runs your scent.
-            let behind = Vec2::new(target.x - east * RUN_GAP, (target.y - RUN_OVER).min(feet - RUN_CLEAR - half.y) + bob);
+            let behind = Vec2::new(target.x - c.run_dir * RUN_GAP, (target.y - RUN_OVER).min(feet - RUN_CLEAR - half.y) + bob);
             let heels = c.scent.len() <= 2;
             let goal = if heels { behind } else { over(Vec2::from(c.scent[0])) };
             side = if goal.x < at.x { -1.0 } else { 1.0 };
@@ -1150,7 +1305,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let to = Vec2::new(c.to_x, c.to_y);
                 let dart = (l - RUN_GATHER_S) / RUN_DART_S;
                 return_pos = Some(if l < RUN_GATHER_S {
-                    from - Vec2::new(east * h.len(6.0) * ease(l / RUN_GATHER_S), 0.0)
+                    from - Vec2::new(c.run_dir * h.len(6.0) * ease(l / RUN_GATHER_S), 0.0)
                 } else if dart < 1.0 {
                     side = if to.x < from.x { -1.0 } else { 1.0 };
                     from + (to - from) * ease_out(dart)
@@ -1190,15 +1345,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 riding(inv, h.jaws_down(), side, None, DIVE_DAMAGE, DIVE_KNOCKBACK, part.dur + 0.1, "inu_dive")?;
                 play(inv, SFX_DART, pos)?;
             }
-            Move::Pack => {
-                // One wisp every `PACK_GAP`, along its floor at you.
-                let count = if c.frenzied { PACK_FRENZIED } else { PACK };
-                let speed = if c.frenzied { WISP_SPEED_FRENZIED } else { WISP_SPEED };
-                if c.pack_sent < count && part.t >= c.pack_sent as f32 * PACK_GAP {
-                    let dir = if target.x < pos.x { -1.0 } else { 1.0 };
-                    wisp(inv, pos.x + dir * half.x * 0.5, hall.floor, dir, speed)?;
-                    play(inv, SFX_FLING, pos)?;
-                    c.pack_sent += 1;
+            Move::Storm => {
+                // Lightning strikes each of its marks from over the floor.
+                if part.t < BOLT_S {
+                    for (k, x) in c.marks.clone().into_iter().enumerate() {
+                        bolt_down(inv, SLOT_STORM[k.min(2)], c.bolt_generation, x, c.marks_floor, STORM_HIGH, BOLT_S - part.t)?;
+                    }
+                }
+                if onset {
+                    play(inv, SFX_STRIKE, Vec2::new(target.x, c.marks_floor))?;
+                    shake(inv, SHAKE_DIVE)?;
                 }
             }
             Move::Leash => {
@@ -1240,11 +1396,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 play(inv, howl_cue(c.scale), pos)?;
                 shake(inv, SHAKE_HOWL)?;
                 burst(inv, pos, 30, 360.0, FIRE_CORE, "spark")?;
-                // From the transition the howl calls the pack back: a wisp
-                // each way along the floor.
+                // From the transition lightning answers the howl, a bolt each
+                // side of it.
                 if c.frenzied {
-                    wisp(inv, pos.x - half.x * 0.5, hall.floor, -1.0, WISP_SPEED)?;
-                    wisp(inv, pos.x + half.x * 0.5, hall.floor, 1.0, WISP_SPEED)?;
+                    c.bolt_generation = c.bolt_generation.wrapping_add(1);
+                    let out = radius + 60.0;
+                    for (slot, x) in [(SLOT_STORM[0], pos.x - out), (SLOT_STORM[2], pos.x + out)] {
+                        let x = x.clamp(hall.left + 40.0, hall.right - 40.0);
+                        bolt_down(inv, slot, c.bolt_generation, x, hall.floor, STORM_HIGH, BOLT_S)?;
+                    }
+                    play(inv, SFX_STRIKE, pos)?;
                 }
             }
             Move::Gutter if onset => {
@@ -1294,8 +1455,19 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         })?;
     }
 
+    // Its storm's tell: the marks spark, and his lightning crawls over it.
+    if let Some(Part { mv: Move::Storm, striking: false, .. }) = part {
+        for (k, x) in c.marks.clone().into_iter().enumerate() {
+            mark(inv, x, c.marks_floor, k as u32, c.ticks)?;
+        }
+        if c.ticks % 5 == 0 {
+            let ear = |x: f32, y: f32| pos + Vec2::new(h.art(x, y).x * side, h.art(x, y).y);
+            arc(inv, "storm_ears", ear(-10.0, -34.0), ear(12.0, -30.0), 0.1)?;
+            play(inv, SFX_ZAP, pos)?;
+        }
+    }
     let row = drawn_row(&c, part);
-    held_at(inv, at, pos, side, row, dt)?;
+    held_at(inv, at, pos, side, row, c.warded, dt)?;
     c.store(inv)
 }
 
@@ -1314,7 +1486,7 @@ fn rise(
     let Some(t) = c.intro else {
         // Asleep: it is still his head, on his body.
         set_scale(c, inv, c.rise_scale)?;
-        return held_at(inv, at, from, side, ("unseen", 0.0, true), dt);
+        return held_at(inv, at, from, side, ("unseen", 0.0, true), false, dt);
     };
     let start = rise_at(inu);
     let was = t - dt;
@@ -1326,7 +1498,7 @@ fn rise(
     }
     if t < start {
         set_scale(c, inv, c.rise_scale)?;
-        return held_at(inv, at, from, side, ("unseen", 0.0, true), dt);
+        return held_at(inv, at, from, side, ("unseen", 0.0, true), false, dt);
     }
     let u = (t - start) / RISE_S;
     let grow = ((u - GROW_FROM) / (GROW_TO - GROW_FROM)).clamp(0.0, 1.0);
@@ -1347,7 +1519,7 @@ fn rise(
     }
     let pos = from - Vec2::new(0.0, RISE_UP * ease(u.min(1.0)));
     let row = if u < 1.0 { span("rise", 0.0, 22.0, 0.08, u) } else { ("idle", t, true) };
-    held_at(inv, at, pos, side, row, dt)
+    held_at(inv, at, pos, side, row, false, dt)
 }
 
 /// The row it is drawn with: each phase of a move has its own row; then its
@@ -1358,9 +1530,18 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
     if let Some(t) = c.rekindle {
         return span("rekindle", 0.0, 6.0, 0.06, t / REKINDLE_S);
     }
+    if let Some(t) = c.binding {
+        // Her spell holds it, then its ward breaks.
+        let at = crate::kagero::DISPEL_AT_S;
+        return if t < at { ("ward_bound", t, true) } else { span("dispel", 0.0, 12.0, 0.075, (t - at) / DISPEL_S) };
+    }
     if let Some(t) = c.rearing {
-        // It flares and howls, then goes at the wall jaws first.
-        return if t < FLARE_S { ("howl", t, false) } else { ("crash", t - FLARE_S, true) };
+        // It howls as its ward kindles, then goes at the wall jaws first.
+        return match (c.rear_crash, t < FLARE_S) {
+            (true, true) => span("ward_kindle", 0.0, 12.0, 0.075, t / FLARE_S),
+            (true, false) => ("crash", t - FLARE_S, true),
+            (false, _) => ("howl", t, false),
+        };
     }
     if let Some(t) = c.appear {
         // It howls over the hall it came into.
@@ -1385,9 +1566,8 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
         Some(p @ Part { mv: Move::Bite, .. }) => span("bite", 0.0, 8.0, 0.05, u(p)),
         Some(p @ Part { mv: Move::Dive, striking: false, .. }) => tell("dive_tell", 8.0, 0.08, u(p)),
         Some(Part { mv: Move::Dive, t, .. }) => ("dive", t, true),
-        Some(p @ Part { mv: Move::Pack, striking: false, .. }) => span("pack_tell", 0.0, 10.0, 0.08, u(p)),
-        // A bark a wisp: its row is `PACK_GAP` long, and loops.
-        Some(Part { mv: Move::Pack, t, .. }) => ("pack", t, true),
+        Some(p @ Part { mv: Move::Storm, striking: false, .. }) => tell("storm_tell", 10.0, 0.08, u(p)),
+        Some(Part { mv: Move::Storm, t, .. }) => ("howl", t, false),
         Some(p @ Part { mv: Move::Leash, striking: false, .. }) => span("leash_tell", 0.0, 10.0, 0.08, u(p)),
         Some(p @ Part { mv: Move::Leash, .. }) => span("leash_whip", 0.0, 10.0, 0.06, u(p)),
         Some(p @ Part { mv: Move::Howl, striking: false, .. }) => tell("howl_tell", 6.0, 0.08, u(p)),

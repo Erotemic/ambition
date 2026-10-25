@@ -84,7 +84,7 @@
         ( type: "CameraZone", px: [7920, 0], size: [1920, 1024], fields: ( id: "castle_godwin_throne_camera", name: "castle_godwin_throne_camera", mode: "Default", clamp_mode: "zone_bounds" ) ),
         ( type: "CameraZone", px: [9840, 0], size: [640, 1664], fields: ( id: "castle_godwin_throne_drop_camera", name: "castle_godwin_throne_drop_camera", mode: "Default", zoom: 0.85, target_offset_y: 160.0 ) ),
         ( type: "CameraZone", px: [1600, 1024], size: [8240, 1664], fields: ( id: "castle_godwin_throne_run_camera", name: "castle_godwin_throne_run_camera", mode: "Default", zoom: 0.8, target_offset_x: 420.0 ) ),
-        ( type: "CameraZone", px: [0, 1792], size: [1600, 896], fields: ( id: "castle_godwin_throne_final_camera", name: "castle_godwin_throne_final_camera", mode: "Default", clamp_mode: "zone_bounds" ) ),
+        ( type: "CameraZone", px: [0, 1792], size: [1600, 896], fields: ( id: "castle_godwin_throne_final_camera", name: "castle_godwin_throne_final_camera", mode: "Default", clamp_mode: "room_bounds" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "castle_godwin_throne_label", text: "Castle Godwin: the throne room of Wolfenstein, and the way out of it under the castle.", category: "Custom" ) ),
     ],
     connect_to: [],

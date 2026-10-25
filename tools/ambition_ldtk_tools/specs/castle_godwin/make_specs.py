@@ -633,7 +633,9 @@ def throne():
         camera(f"{rid}_camera", arena_x, 0, THRONE_W, slab_bottom, ', clamp_mode: "zone_bounds"'),
         camera(f"{rid}_drop_camera", shaft_x, 0, SHAFT_W, floors[0], ", zoom: 0.85, target_offset_y: 160.0"),
         camera(f"{rid}_run_camera", FINAL_W, slab_bottom, shaft_x - FINAL_W, h - slab_bottom, ", zoom: 0.8, target_offset_x: 420.0"),
-        camera(f"{rid}_final_camera", 0, final_vault - 48, FINAL_W, h - final_vault + 48, ', clamp_mode: "zone_bounds"'),
+        # Not clamped to itself: its east side is open to the run, and a
+        # camera that came in at the run's offset was stopped at its edge.
+        camera(f"{rid}_final_camera", 0, final_vault - 48, FINAL_W, h - final_vault + 48, ', clamp_mode: "room_bounds"'),
     ]
     text = room(rid, e, "Castle Godwin: the throne room of Wolfenstein, and the way out of it under the castle.", "castle_godwin_throne",
                 THRONE_MUSIC, CASTLE_BG, cameras)

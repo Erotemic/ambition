@@ -23,7 +23,6 @@
             "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
             "noodle_lash",          // the FSM: one noodle whipped out at ledge height, toward you
             "inu_leash", // the Inugami: a ghost chain from its neck, its tip cracks the floor from behind it to in front of it
-            "inu_pack", // the Inugami: its wolf wisps run the floor at you, one at a time
         ],
         recipes: [
             (

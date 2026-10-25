@@ -5,28 +5,34 @@
 //! (using flyline maybe). It should not be the Shadow Oni Leader, a different
 //! ninja. We can have some story play in with that."
 //!
+//! Then (2026-10-24): "The ninja is who dispels the flames and lets you fight
+//! once you reach the end of the hall", and "The ninja uses a spell to dispel
+//! the blue flames protecting the boss."
+//!
 //! Kagero hunts the spirits the regime makes. She followed the inugami into
-//! Castle Godwin. The Inugami's conductor calls her once
-//! (`crate::inugami`): it summons her on your side, beside the head, and she
-//! holds [`VISIT`] from birth. This module performs her visit, a tick at a
-//! time ([`visit_tick_of`]):
+//! Castle Godwin. The Inugami's conductor calls her once, when it has hunted
+//! you into its final hall (`crate::inugami`): it summons her on your side,
+//! beside you, and she holds [`VISIT`] from birth. This module performs her
+//! visit, a tick at a time ([`visit_tick_of`]):
 //!
 //! 1. She comes out of her smoke (`blink_in`), and speaks.
-//! 2. She goes at the head (`dash`).
-//! 3. She cuts three times, one string (`slash`, `slash_up`, `cleave`). Each
-//!    cut is a strike of her own (`ambition.combat.body_strike`): the damage
-//!    is real, and lands as yours does.
-//! 4. Her line drops from the sky, she catches it and is reeled up and away
+//! 2. She casts (`cast`): her hands make the seal, and she throws her paper
+//!    talismans (ofuda) at the head. They fly to it and stick, and at
+//!    [`DISPEL_AT_S`] its ward of blue fire breaks. The head's conductor keeps
+//!    that time itself: it is held from her birth and breaks its ward then.
+//! 3. Her line drops from the sky, she catches it and is reeled up and away
 //!    (`hang`; the line is `ambition.feedback.body_line`), and she speaks.
-//! 5. She is dismissed when she is high, or when her time is out.
+//! 4. She is dismissed when she is high, or when her time is out.
+//!
+//! She does not cut it: the fight is yours.
 //!
 //! "Off screen" is not a fact the simulation may read: peers with different
 //! windows would desync. She leaves by height and by time.
 
 use ambition_boss_special_port::{DrawnRow, DrawnRowPort};
 use ambition_combat_port::{
-    BodyLine, BodyLinePort, BodySound, BodySoundPort, BodyStrike, BodyStrikePort, Burst, BurstPort, Dismiss, DismissPort,
-    FoesPort, HoldCourse, HoldCoursePort, Place, SpeechBubble, SpeechBubblePort, StatusTickPort,
+    BodyLine, BodyLinePort, BodySound, BodySoundPort, Burst, BurstPort, Dismiss, DismissPort, FoesPort, HoldCourse,
+    HoldCoursePort, Place, SpeechBubble, SpeechBubblePort, StatusTickPort,
 };
 use ambition_extension_sdk::{
     phases::TECHNIQUE_EXECUTION, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
@@ -48,35 +54,22 @@ pub const HALF_SIZE: [f32; 2] = [14.0, 30.0];
 const ARRIVE_S: f32 = 6.0 * 0.062;
 /// Her smoke, her sound and her first line come this long after her birth.
 const CUE_AFTER_S: f32 = 0.05;
-/// The longest she goes at it before she cuts where she is.
-const DASH_MAX_S: f32 = 0.7;
-const CUTS: [(&str, f32); 3] = [("slash", 8.0 * 0.040), ("slash_up", 8.0 * 0.040), ("cleave", 9.0 * 0.046)];
-/// Where in its row each cut goes through (the frame the blade passes).
-const CUT_AT_U: f32 = 0.45;
+/// Her spell (`cast`, 16 x 75 ms): the seal, then she throws at
+/// `THROW_AT_S` into it, and her talismans fly to the head for `FLY_S`.
+const CAST_S: f32 = 16.0 * 0.075;
+const THROW_AT_S: f32 = 0.6;
+const FLY_S: f32 = 0.3;
+/// The head's ward breaks this long after her birth: when her talismans
+/// reach it.
+pub const DISPEL_AT_S: f32 = ARRIVE_S + THROW_AT_S + FLY_S;
+/// She keeps her place as she casts, turned to the head: this slow toward it.
+const DRIFT: f32 = 12.0;
 /// The line drops for this long before it reels her.
 const CATCH_S: f32 = 0.18;
 /// The longest she is reeled before she is dismissed.
 const REEL_S: f32 = 1.6;
-
-/// How fast she goes at it, px/s.
-const DASH_SPEED: f32 = 1100.0;
-/// She cuts from this far from the head's middle: the head is big.
-const STANDOFF: f32 = 130.0;
-/// How fast she keeps her place by it while she cuts, px/s at most.
-const KEEP_SPEED: f32 = 320.0;
-/// The least she goes toward it across while she cuts, px/s.
-const DRIFT: f32 = 24.0;
-/// Her cut: forward of her middle along her facing, half extents, damage.
-const CUT_FORWARD: [f32; 2] = [52.0, -4.0];
-const CUT_HALF: [f32; 2] = [62.0, 54.0];
-const CUT_DAMAGE: [i32; 3] = [2, 2, 3];
-const CUT_KNOCKBACK: f32 = 0.0;
-/// Her cut is one blow: its box meets what it meets on the tick she cuts and
-/// is gone (half a tick). A strike from a module has no move to remember whom
-/// it hit, and a boss takes a module's strike on every tick that its box
-/// lives (measured 2026-10-22: a 0.08 s box cut the Inugami 5 times, 10 of
-/// its health a cut).
-const CUT_LIFE_S: f32 = 0.5 / 60.0;
+/// How many talismans she throws.
+const OFUDA: u32 = 5;
 
 /// Where her line hangs from: up and away from the head.
 const LINE_UP: f32 = 1400.0;
@@ -88,33 +81,34 @@ const REEL_TO: [f32; 2] = [520.0, -1700.0];
 const GONE_Y: f32 = 40.0;
 
 const SMOKE: [f32; 4] = [0.78, 0.79, 0.86, 1.0];
-const STEEL: [f32; 4] = [0.92, 0.95, 1.0, 1.0];
+/// Her talismans: white paper.
+const PAPER: [f32; 4] = [0.98, 0.96, 0.88, 1.0];
 
 const SFX_ARRIVE: &str = "vfx.ninja_shadow_oni_leader.blink_arrive";
-const SFX_CUT: &str = "enemy.shadow_oni.slash";
-const SFX_CUT_HIT: &str = "player.robot.slash.impact.flesh.deep";
+const SFX_THROW: &str = "enemy.shadow_oni.slash";
 const SFX_LINE: &str = "vfx.pirate_admiral.grapple_cast";
 const SFX_CATCH: &str = "vfx.pirate_admiral.grapple_catch";
 
 /// Every cue she plays: each must have a recipe, or it plays silence.
-pub const SOUNDS: [&str; 5] = [SFX_ARRIVE, SFX_CUT, SFX_CUT_HIT, SFX_LINE, SFX_CATCH];
+pub const SOUNDS: [&str; 4] = [SFX_ARRIVE, SFX_THROW, SFX_LINE, SFX_CATCH];
 
 /// What she says when she comes, and when she goes. The ninjas call the
 /// robot by its noise (`docs/brainstorms/llm_brainstorm.md`: "noisy one",
 /// "ripple-foot").
 pub const LINE_ARRIVE: &str = "Noisy one. Even the dead heard you.";
+pub const LINE_CAST: &str = "Burn out, borrowed fire!";
 pub const LINE_LEAVE: &str = "It was a dog once. Set it free, ripple-foot.";
 
 record! {
     /// Her visit, so far.
-    pub struct Visit = SchemaKey::new(crate::PROVIDER, "kagero.visit", 1);
+    pub struct Visit = SchemaKey::new(crate::PROVIDER, "kagero.visit", 2);
     /// Gameplay seconds since she came.
     1 age: f32,
     /// The beat she is in ([`Beat`]) and the seconds she has been in it.
     2 beat: u32,
     3 beat_t: f32,
-    /// How many of her cuts have gone through.
-    4 cut: u32,
+    /// She has thrown her talismans.
+    4 thrown: bool,
     /// The way from the head to her line (-1 or 1), and her line's anchor.
     5 away: f32,
     6 line_x: f32,
@@ -125,9 +119,7 @@ record! {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Beat {
     Arrive,
-    Dash,
-    /// The cut of this index, `0..3`.
-    Cut(u32),
+    Cast,
     Catch,
     Reel,
 }
@@ -136,19 +128,17 @@ impl Beat {
     fn code(self) -> u32 {
         match self {
             Beat::Arrive => 0,
-            Beat::Dash => 1,
-            Beat::Cut(k) => 2 + k,
-            Beat::Catch => 5,
-            Beat::Reel => 6,
+            Beat::Cast => 1,
+            Beat::Catch => 2,
+            Beat::Reel => 3,
         }
     }
 
     fn of_code(code: u32) -> Beat {
         match code {
             0 => Beat::Arrive,
-            1 => Beat::Dash,
-            2..=4 => Beat::Cut(code - 2),
-            5 => Beat::Catch,
+            1 => Beat::Cast,
+            2 => Beat::Catch,
             _ => Beat::Reel,
         }
     }
@@ -183,7 +173,6 @@ pub fn module() -> ModuleDescriptor {
             requests: vec![
                 HoldCoursePort::KEY,
                 DrawnRowPort::KEY,
-                BodyStrikePort::KEY,
                 BodyLinePort::KEY,
                 BodySoundPort::KEY,
                 BurstPort::KEY,
@@ -191,7 +180,7 @@ pub fn module() -> ModuleDescriptor {
                 DismissPort::KEY,
             ],
             after: Vec::new(),
-            limits: Limits { max_requests: 12 },
+            limits: Limits { max_requests: 16 },
             on_idle: IdlePolicy::Invoke,
             run: EntryCode::Native(visit),
         }],
@@ -204,7 +193,10 @@ pub struct VisitTick {
     pub course: [f32; 2],
     /// Her row and how far into it she is (s).
     pub row: (&'static str, f32),
-    pub strike: Option<i32>,
+    /// Her talismans in flight to the head: where they are now.
+    pub ofuda: Option<[f32; 2]>,
+    /// They have reached it: the ward breaks.
+    pub ofuda_hit: bool,
     /// Her line's anchor, while she holds it.
     pub line: Option<[f32; 2]>,
     pub sounds: Vec<&'static str>,
@@ -226,15 +218,6 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
     let first = was < CUE_AFTER_S && v.age >= CUE_AFTER_S;
     let mut out = VisitTick::default();
     let toward = head.map_or(Vec2::ZERO, |h| (h - at).normalize_or_zero());
-    // Her place by the head while she cuts: on her side of it, a little
-    // toward it across, so she faces it (a body faces the way it goes).
-    let keep = |head: Vec2| {
-        let to_head = if at.x < head.x { 1.0 } else { -1.0 };
-        let goal = Vec2::new(head.x - to_head * STANDOFF, head.y + 10.0);
-        let across = ((goal.x - at.x) * 8.0).clamp(-KEEP_SPEED, KEEP_SPEED);
-        let across = if across * to_head < DRIFT { to_head * DRIFT } else { across };
-        Vec2::new(across, ((goal.y - at.y) * 8.0).clamp(-KEEP_SPEED, KEEP_SPEED))
-    };
     match v.beat_now() {
         Beat::Arrive => {
             if first {
@@ -243,39 +226,31 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
                 out.smoke = true;
             }
             out.row = ("blink_in", v.beat_t);
+            out.course = (toward * DRIFT).into();
             if v.beat_t >= ARRIVE_S {
-                v.enter(Beat::Dash);
+                v.enter(Beat::Cast);
             }
         }
-        Beat::Dash => {
-            out.row = ("dash", v.beat_t);
-            let near = head.is_none_or(|h| (h - at).length() <= STANDOFF + 20.0);
-            if near || v.beat_t >= DASH_MAX_S {
-                v.enter(Beat::Cut(0));
-            } else {
-                out.course = (toward * DASH_SPEED).into();
+        Beat::Cast => {
+            out.row = ("cast", v.beat_t);
+            out.course = (toward * DRIFT).into();
+            if !v.thrown && v.beat_t >= THROW_AT_S {
+                v.thrown = true;
+                out.sounds.push(SFX_THROW);
+                out.says = Some(LINE_CAST);
             }
-        }
-        Beat::Cut(k) => {
-            let (row, len) = CUTS[k as usize];
-            out.row = (row, v.beat_t);
-            out.course = head.map_or(Vec2::ZERO, keep).into();
-            if v.cut == k && v.beat_t >= CUT_AT_U * len {
-                v.cut += 1;
-                out.strike = Some(CUT_DAMAGE[k as usize]);
-                out.sounds.push(SFX_CUT);
+            let flown = (v.beat_t - THROW_AT_S) / FLY_S;
+            if let (Some(h), true) = (head, (0.0..1.0).contains(&flown)) {
+                out.ofuda = Some(at.lerp(h, flown).into());
             }
-            if v.beat_t >= len {
-                if k + 1 < CUTS.len() as u32 {
-                    v.enter(Beat::Cut(k + 1));
-                } else {
-                    v.away = head.map_or(1.0, |h| if at.x < h.x { -1.0 } else { 1.0 });
-                    v.line_x = at.x + v.away * LINE_AWAY;
-                    v.line_y = at.y - LINE_UP;
-                    out.sounds.push(SFX_LINE);
-                    out.says = Some(LINE_LEAVE);
-                    v.enter(Beat::Catch);
-                }
+            out.ofuda_hit = v.beat_t >= THROW_AT_S + FLY_S && v.beat_t - dt < THROW_AT_S + FLY_S;
+            if v.beat_t >= CAST_S {
+                v.away = head.map_or(1.0, |h| if at.x < h.x { -1.0 } else { 1.0 });
+                v.line_x = at.x + v.away * LINE_AWAY;
+                v.line_y = at.y - LINE_UP;
+                out.sounds.push(SFX_LINE);
+                out.says = Some(LINE_LEAVE);
+                v.enter(Beat::Catch);
             }
         }
         Beat::Catch => {
@@ -315,16 +290,12 @@ fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     inv.submit::<HoldCoursePort>(HoldCourse { velocity: Some(tick.course) })?;
     inv.submit::<DrawnRowPort>(DrawnRow::body(tick.row.0, tick.row.1, false))?;
-    if let Some(damage) = tick.strike {
-        inv.submit::<BodyStrikePort>(BodyStrike {
-            forward: CUT_FORWARD,
-            half_extent: CUT_HALF,
-            damage,
-            knockback: CUT_KNOCKBACK,
-            lifetime_s: CUT_LIFE_S,
-            hit_sound: Some(SFX_CUT_HIT.into()),
-        })?;
-        inv.submit::<BurstPort>(Burst { at: at.into(), count: 10, speed: 260.0, color: STEEL, kind: "streak".into() })?;
+    if let Some(ofuda) = tick.ofuda {
+        // Her talismans in flight: paper in a line to the head.
+        inv.submit::<BurstPort>(Burst { at: ofuda, count: OFUDA, speed: 60.0, color: PAPER, kind: "streak".into() })?;
+    }
+    if let (true, Some(h)) = (tick.ofuda_hit, head) {
+        inv.submit::<BurstPort>(Burst { at: h.into(), count: 30, speed: 280.0, color: PAPER, kind: "streak".into() })?;
     }
     inv.submit::<BodyLinePort>(BodyLine { anchor: tick.line })?;
     for cue in tick.sounds {
@@ -345,19 +316,21 @@ mod tests {
 
     const DT: f32 = 1.0 / 60.0;
 
-    /// She comes, goes at the head, cuts three times, takes her line, and
-    /// is gone: the whole visit, against a head that keeps still.
+    /// She comes, casts her spell at the head (her talismans reach it at
+    /// `DISPEL_AT_S`), takes her line, and is gone: the whole visit.
     #[test]
-    fn her_visit_cuts_three_times_and_she_leaves_up_her_line() {
+    fn her_visit_casts_once_and_she_leaves_up_her_line() {
         let head = Vec2::new(800.0, 500.0);
-        let mut at = Vec2::new(400.0, 520.0);
+        let mut at = Vec2::new(700.0, 520.0);
         let mut v = Visit::default();
-        let mut damage = Vec::new();
+        let mut hits = Vec::new();
         let mut said = Vec::new();
         let mut gone_after = None;
         for k in 0..600 {
             let tick = visit_tick_of(&mut v, at, Some(head), DT);
-            damage.extend(tick.strike);
+            if tick.ofuda_hit {
+                hits.push(v.age);
+            }
             said.extend(tick.says);
             if tick.dismissed {
                 gone_after = Some(k as f32 * DT);
@@ -365,29 +338,11 @@ mod tests {
             }
             at += Vec2::from(tick.course) * DT;
         }
-        assert_eq!(damage, CUT_DAMAGE.to_vec(), "her cuts");
-        assert_eq!(said, vec![LINE_ARRIVE, LINE_LEAVE]);
+        assert_eq!(hits.len(), 1, "her talismans reach it once: {hits:?}");
+        assert!((hits[0] - DISPEL_AT_S).abs() < 2.0 * DT, "they reach it at {}, not {DISPEL_AT_S}", hits[0]);
+        assert_eq!(said, vec![LINE_ARRIVE, LINE_CAST, LINE_LEAVE]);
         let gone = gone_after.expect("she never left");
         assert!(gone < 4.0, "her visit took {gone} s");
         assert!(at.y < head.y - 400.0, "she did not go up her line: {at:?}");
-    }
-
-    /// She cuts from her side of the head, close enough for her cut to
-    /// reach it.
-    #[test]
-    fn she_cuts_close_to_the_head() {
-        let head = Vec2::new(800.0, 500.0);
-        let mut at = Vec2::new(1300.0, 480.0);
-        let mut v = Visit::default();
-        for _ in 0..600 {
-            let tick = visit_tick_of(&mut v, at, Some(head), DT);
-            if tick.strike.is_some() {
-                assert!(at.x > head.x, "she crossed the head");
-                assert!((at - head).length() < STANDOFF + 40.0, "she cut from {at:?}");
-                return;
-            }
-            at += Vec2::from(tick.course) * DT;
-        }
-        panic!("she never cut");
     }
 }

@@ -495,16 +495,16 @@
                 duration_secs: 0.052,
             )),
             (DashEcho, (
-                frame_count: 12,
-                duration_secs: 0.057,
+                frame_count: 16,
+                duration_secs: 0.043,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.1,
+                frame_count: 10,
+                duration_secs: 0.06,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.1,
+                frame_count: 10,
+                duration_secs: 0.06,
             )),
             (Rest, (
                 frame_count: 8,
@@ -515,12 +515,12 @@
                 duration_secs: 0.055,
             )),
             (SideSweep, (
-                frame_count: 6,
-                duration_secs: 0.05,
+                frame_count: 9,
+                duration_secs: 0.033,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.05,
+                frame_count: 9,
+                duration_secs: 0.033,
             )),
             (Rest, (
                 frame_count: 8,
@@ -535,8 +535,8 @@
                 duration_secs: 0.07,
             )),
             (FloorSlam, (
-                frame_count: 6,
-                duration_secs: 0.05,
+                frame_count: 9,
+                duration_secs: 0.033,
             )),
             (Rest, (
                 frame_count: 8,
@@ -551,32 +551,32 @@
                 duration_secs: 0.06,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.06,
+                frame_count: 9,
+                duration_secs: 0.04,
             )),
             (Rest, (
                 frame_count: 12,
                 duration_secs: 0.035,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.06,
+                frame_count: 9,
+                duration_secs: 0.04,
             )),
             (Rest, (
-                frame_count: 4,
-                duration_secs: 0.07,
+                frame_count: 7,
+                duration_secs: 0.04,
             )),
             (Rest, (
-                frame_count: 4,
-                duration_secs: 0.06,
+                frame_count: 8,
+                duration_secs: 0.03,
             )),
             (Rest, (
                 frame_count: 12,
                 duration_secs: 0.09,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.1,
+                frame_count: 12,
+                duration_secs: 0.067,
             )),
             (Rest, (
                 frame_count: 12,
@@ -591,36 +591,36 @@
                 duration_secs: 0.06,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.06,
+                frame_count: 12,
+                duration_secs: 0.04,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.08,
+                frame_count: 12,
+                duration_secs: 0.053,
             )),
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.06,
+                frame_count: 9,
+                duration_secs: 0.04,
             )),
             (Rest, (
                 frame_count: 16,
                 duration_secs: 0.11,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.05,
+                frame_count: 12,
+                duration_secs: 0.033,
             )),
             (Rest, (
                 frame_count: 14,
                 duration_secs: 0.07,
             )),
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.05,
+                frame_count: 12,
+                duration_secs: 0.033,
             )),
             (Hit, (
-                frame_count: 6,
-                duration_secs: 0.06,
+                frame_count: 9,
+                duration_secs: 0.04,
             )),
             (Death, (
                 frame_count: 28,
@@ -669,123 +669,168 @@
         rows: [
             // idle
             (Rest, (
-                frame_count: 16,
-                duration_secs: 0.07,
+                frame_count: 24,
+                duration_secs: 0.047,
             )),
             // drift
             (DashEcho, (
-                frame_count: 8,
-                duration_secs: 0.08,
+                frame_count: 12,
+                duration_secs: 0.053,
             )),
             // rise
             (Rest, (
-                frame_count: 22,
-                duration_secs: 0.08,
+                frame_count: 30,
+                duration_secs: 0.059,
             )),
             // hit
             (Hit, (
-                frame_count: 6,
-                duration_secs: 0.06,
+                frame_count: 9,
+                duration_secs: 0.04,
             )),
             // death
             (Death, (
-                frame_count: 26,
-                duration_secs: 0.09,
+                frame_count: 34,
+                duration_secs: 0.069,
             )),
             // bite_tell
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.07,
+                frame_count: 12,
+                duration_secs: 0.047,
             )),
             // bite
             (SideSweep, (
-                frame_count: 8,
-                duration_secs: 0.05,
+                frame_count: 12,
+                duration_secs: 0.033,
             )),
             // bite_miss
             (Rest, (
-                frame_count: 12,
-                duration_secs: 0.07,
+                frame_count: 18,
+                duration_secs: 0.047,
             )),
             // dive_tell
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.08,
+                frame_count: 12,
+                duration_secs: 0.053,
             )),
             // dive
             (FloorSlam, (
-                frame_count: 4,
-                duration_secs: 0.05,
+                frame_count: 8,
+                duration_secs: 0.025,
             )),
             // buried
             (Rest, (
-                frame_count: 12,
-                duration_secs: 0.07,
+                frame_count: 16,
+                duration_secs: 0.052,
             )),
             // pull_free
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.07,
+                frame_count: 10,
+                duration_secs: 0.042,
             )),
             // howl_tell
             (Rest, (
-                frame_count: 6,
-                duration_secs: 0.08,
+                frame_count: 10,
+                duration_secs: 0.048,
             )),
             // howl
             (SpikeHalo, (
-                frame_count: 16,
-                duration_secs: 0.055,
+                frame_count: 20,
+                duration_secs: 0.044,
+            )),
+            // storm_tell
+            (Rest, (
+                frame_count: 14,
+                duration_secs: 0.057,
             )),
             // hunt
             (DashEcho, (
-                frame_count: 8,
-                duration_secs: 0.07,
+                frame_count: 16,
+                duration_secs: 0.035,
             )),
             // crash
             (Rest, (
-                frame_count: 4,
-                duration_secs: 0.05,
-            )),
-            // pack_tell
-            (Rest, (
-                frame_count: 10,
-                duration_secs: 0.08,
-            )),
-            // pack
-            (Rest, (
-                frame_count: 7,
-                duration_secs: 0.05,
+                frame_count: 8,
+                duration_secs: 0.025,
             )),
             // leash_tell
             (Rest, (
-                frame_count: 10,
-                duration_secs: 0.08,
+                frame_count: 14,
+                duration_secs: 0.057,
             )),
             // leash_whip
             (Rest, (
-                frame_count: 10,
-                duration_secs: 0.06,
+                frame_count: 14,
+                duration_secs: 0.043,
             )),
             // leash_slack
             (Rest, (
-                frame_count: 10,
-                duration_secs: 0.1,
+                frame_count: 14,
+                duration_secs: 0.071,
             )),
             // gutter
             (Rest, (
-                frame_count: 10,
-                duration_secs: 0.08,
+                frame_count: 14,
+                duration_secs: 0.057,
             )),
             // guttered
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.12,
+                frame_count: 12,
+                duration_secs: 0.08,
             )),
             // rekindle
             (Rest, (
-                frame_count: 6,
+                frame_count: 9,
+                duration_secs: 0.04,
+            )),
+            // ward_kindle
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.075,
+            )),
+            // ward_idle
+            (Rest, (
+                frame_count: 16,
+                duration_secs: 0.07,
+            )),
+            // ward_hunt
+            (DashEcho, (
+                frame_count: 16,
+                duration_secs: 0.035,
+            )),
+            // ward_crash
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.025,
+            )),
+            // ward_howl
+            (SpikeHalo, (
+                frame_count: 20,
+                duration_secs: 0.044,
+            )),
+            // ward_bite_tell
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.047,
+            )),
+            // ward_bite
+            (SideSweep, (
+                frame_count: 12,
+                duration_secs: 0.033,
+            )),
+            // ward_bite_miss
+            (Rest, (
+                frame_count: 18,
+                duration_secs: 0.047,
+            )),
+            // ward_bound
+            (Rest, (
+                frame_count: 10,
                 duration_secs: 0.06,
+            )),
+            // dispel
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.075,
             )),
             // unseen
             (Rest, (

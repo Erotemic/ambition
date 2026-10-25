@@ -5206,7 +5206,7 @@
         // a look of Wolfenstein, not a second character: the Hall's stand is
         // his.
         "npc_wolfenstein_inugami": (
-            display_name: "Inugami",
+            display_name: "Inugami Wolfenstein",
             manifest: "sprites/wolfenstein_inugami_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,

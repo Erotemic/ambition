@@ -1519,8 +1519,22 @@ pub fn sync_lock_wall_visuals(
     // one room).
     type Key = (Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String);
     let mut existing_by_name: std::collections::HashMap<Key, (Entity, ae::Vec2)> = std::collections::HashMap::new();
+    // A wall drawn with the tile while its look's sheet loaded is drawn
+    // again with its look once the sheet is there: a room built before the
+    // sheet came (a body put straight into it) kept the tile for good.
+    let mut redrawn: std::collections::HashSet<Key> = std::collections::HashSet::new();
     for (entity, visual, room) in &existing {
-        existing_by_name.insert((room.map(|room| room.0), visual.block_name.clone()), (entity, visual.centre));
+        let key = (room.map(|room| room.0), visual.block_name.clone());
+        let look_came = visual
+            .awaits_look
+            .as_deref()
+            .is_some_and(|look| assets.as_deref().is_some_and(|assets| assets.characters.prop_asset_for_kind(look).is_some()));
+        if look_came {
+            commands.entity(entity).try_despawn();
+            redrawn.insert(key);
+            continue;
+        }
+        existing_by_name.insert(key, (entity, visual.centre));
     }
     // Count the runs each live room has been the same room. A room that is
     // new, or that took the place of another, starts again from none.
@@ -1558,21 +1572,21 @@ pub fn sync_lock_wall_visuals(
             consumed.insert(key);
             continue;
         }
-        // A gate that shuts in a room that was live already is heard.
-        if block.name.starts_with("gated_lock:") && heard_rooms.contains(&room) {
+        // A gate that shuts in a room that was live already is heard; one
+        // drawn again with its look is not a gate that shuts.
+        let shuts = !redrawn.contains(&key) && heard_rooms.contains(&room);
+        if block.name.starts_with("gated_lock:") && shuts {
             heard(ambition_sfx::ids::WORLD_GATE_FALL, block.aabb.center());
         }
         let size = block.aabb.half_size() * 2.0;
         let render = BVec2::new(size.x, size.y);
         // A wall that names a look is drawn with that sheet, which fills the
         // box of the wall. A look with no sheet loaded draws the tile.
-        let look = specs
-            .as_ref()
-            .and_then(|specs| {
-                let (_, definition) = specs.live_rooms().find(|(live, _)| *live == room)?;
-                lock_wall_look(specs.rooms().spec(definition), &block.name)
-            })
-            .and_then(|kind| assets.as_deref()?.characters.prop_asset_for_kind(kind));
+        let look_kind = specs.as_ref().and_then(|specs| {
+            let (_, definition) = specs.live_rooms().find(|(live, _)| *live == room)?;
+            lock_wall_look(specs.rooms().spec(definition), &block.name)
+        });
+        let look = look_kind.and_then(|kind| assets.as_deref()?.characters.prop_asset_for_kind(kind));
         if let Some(asset) = look {
             let mut wall = commands.spawn_session_scoped(
                 session_scope.in_room(Some(room)),
@@ -1588,11 +1602,12 @@ pub fn sync_lock_wall_visuals(
                     LockWallVisual {
                         block_name: block.name.clone(),
                         centre: block.aabb.center(),
+                        awaits_look: None,
                     },
                     RoomVisual,
                 ),
             );
-            if heard_rooms.contains(&room) {
+            if shuts {
                 wall.insert(LockWallSlide::shuts());
             }
             consumed.insert(key);
@@ -1623,12 +1638,13 @@ pub fn sync_lock_wall_visuals(
                 LockWallVisual {
                     block_name: block.name.clone(),
                     centre: block.aabb.center(),
+                    awaits_look: look_kind.map(str::to_owned),
                 },
                 BoundEntitySprite::new(game_assets::EntitySprite::LockWallTile),
                 RoomVisual,
             ),
         );
-        if heard_rooms.contains(&room) {
+        if shuts {
             wall.insert(LockWallSlide::shuts());
         }
         consumed.insert(key);

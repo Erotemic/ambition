@@ -53,6 +53,10 @@ pub struct LockWallVisual {
     pub block_name: String,
     /// The middle of the wall in its room: where the sound of it is.
     pub centre: ambition_platformer2d_core::Vec2,
+    /// The look the wall names, while it is drawn with the tile because that
+    /// look's sheet was not loaded yet: it is drawn again with its look when
+    /// the sheet comes.
+    pub awaits_look: Option<String>,
 }
 
 /// Marker with an authored block visual's name, so a mid-run removal of that

@@ -315,12 +315,6 @@ fn stop_the_conductor(sim: &mut Platformer2dSimHarness) {
     world.entity_mut(scholar).remove::<BossEncounter>();
 }
 
-/// The height of the drawn line of `line` at `x` (`None` past its ends).
-fn line_y(line: [ae::Vec2; 2], x: f32) -> Option<f32> {
-    let [a, b] = line;
-    (a.x..=b.x).contains(&x).then(|| a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x).max(1e-3))
-}
-
 fn on_floor(kin: &ae::BodyKinematics, floor: f32) -> bool {
     (kin.pos.y + kin.size.y * 0.5 - floor).abs() < 1.0
 }

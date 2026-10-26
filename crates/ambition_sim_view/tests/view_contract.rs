@@ -13,7 +13,7 @@ use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sim_view::{FeatureViewIndex, rebuild_feature_view_index};
 use ambition_world_items::containers::ChestFeature;
-use bevy::prelude::{App, Commands, Entity, IntoScheduleConfigs, Query, Update, With};
+use bevy::prelude::{App, Update};
 
 fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
     let sources = ambition_boss_encounter::ambition_encounter_sources();

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v383
+ggrs-rollback-schema-v384
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -237,6 +237,7 @@ entity:falling_hazard	required-rollback	FallingHazard	component presence automat
 entity:feature_sim_entity	required-rollback	FeatureSimEntity	component presence automatically installs bevy_ggrs::Rollback
 entity:fighter_eliminated	component-canonical	FighterEliminated	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+entity:force_zone	required-rollback	ForceZone	component presence automatically installs bevy_ggrs::Rollback
 entity:ground_item	required-rollback	GroundItem	component presence automatically installs bevy_ggrs::Rollback
 entity:heal_shrine	required-rollback	HealShrine	component presence automatically installs bevy_ggrs::Rollback
 entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
@@ -279,6 +280,7 @@ feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; val
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.world_time_schedule	component-clone-custom-checksum	WorldTimeSchedule	bevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)
+frame_env.force_zone	component-canonical	ForceZone	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

@@ -217,6 +217,7 @@ mod resolved_combat_tuning;
 mod rollback_contact;
 mod rollback_coverage;
 mod rollback_exit_oracle;
+mod rollback_force_zones;
 mod rollback_full_reset;
 mod rollback_lifecycle_reset;
 mod rollback_match_activation;

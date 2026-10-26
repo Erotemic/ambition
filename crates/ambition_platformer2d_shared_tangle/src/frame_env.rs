@@ -71,6 +71,7 @@ impl ResolvedMotionFrame {
 /// counterexample that keeps basis and acceleration independent: lateral force
 /// never rotates a body's frame, and a zero-gravity body inside a force zone
 /// still knows which way its feet point.
+/// Its bounds, acceleration and lifetime are rollback state.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ForceZone {
     /// World-space region (engine coords) the force covers.
@@ -88,7 +89,7 @@ pub struct ForceZones {
     /// `(region, acceleration, live room)`: a force zone acts only on the
     /// bodies of its own live room, by the rule gravity zones use
     /// ([`crate::gravity::zone_acts_in`]).
-    pub zones: Vec<(
+    zones: Vec<(
         ambition_platformer2d_core::Aabb,
         Vec2,
         Option<crate::lifecycle::LiveRoomInstance>,
@@ -130,6 +131,10 @@ pub fn collect_force_zones(
     snapshot
         .zones
         .extend(zones.iter().map(|(entity, z)| (z.aabb, z.accel, live.of(entity))));
+    // Entity order can change on restore. Keep one order for force addition.
+    snapshot.zones.sort_unstable_by(|a, b| {
+        a.1.x.total_cmp(&b.1.x).then_with(|| a.1.y.total_cmp(&b.1.y))
+    });
 }
 
 /// The frame resolution phase: publishes every integrated body's
@@ -302,6 +307,32 @@ mod tests {
         assert_eq!(frame.external_acceleration(), Vec2::new(200.0, -100.0));
         assert_eq!(frame.acceleration(), Vec2::new(200.0, -100.0));
         assert_eq!(frame.down(), Vec2::new(0.0, 1.0));
+    }
+
+    #[test]
+    fn overlapping_force_zones_do_not_depend_on_spawn_order() {
+        let forces = [
+            Vec2::new(100_000_000.0, -100_000_000.0),
+            Vec2::new(-100_000_000.0, 100_000_000.0),
+            Vec2::new(1.0, 2.0),
+        ];
+        let resolve = |order: [usize; 3]| {
+            let mut app = env_app();
+            let region = Aabb::new(Vec2::ZERO, Vec2::splat(50.0));
+            for index in order {
+                app.world_mut().spawn(ForceZone {
+                    aabb: region,
+                    accel: forces[index],
+                });
+            }
+            app.update();
+            resolve_in(&mut app, Aabb::new(Vec2::ZERO, Vec2::splat(10.0)), 0.0)
+                .external_acceleration()
+        };
+        let expected = resolve([0, 1, 2]);
+        for order in [[0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] {
+            assert_eq!(resolve(order), expected, "force-zone spawn order {order:?}");
+        }
     }
 
     #[test]

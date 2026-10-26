@@ -323,9 +323,8 @@ pub struct PortalBodyView {
     pub size: Vec2,
     /// Facing sign: `>= 0.0` faces +x. Only the sign is read.
     pub facing: f32,
-    /// The sim body the visual draws (the visual itself, when it is its own
-    /// body). What the piece builder keeps its frame-to-frame state by: a
-    /// visual may be made again each frame (a ground item's is).
+    /// The simulation body whose portal policy applies to this visual.
+    /// It can differ from the visual entity.
     pub body: Entity,
 }
 

@@ -544,13 +544,17 @@ cutter, its fallback copy and `PortalTransitHidden` are deleted.
   a swing, from its body). No kind opts in.
 - A drawable drawn as part of another (`PortalDrawnWith`: a rigged body's
   parts, the over twin) and each child go with that one.
+- Resolve each body's geometry budget before batching. Members share a carry
+  only when their budgets and cut rules agree. Other drawables keep the room's
+  budget. A host picture carried by a limb keeps that limb's restricted reach.
 - **Drawing is by geometry.** Each pair that carries has a capture camera
   (layer `PORTAL_CARRY_LAYER_BASE` + slot). Its drawables are on that layer
   only for the frame (given back in `First`). The texture is drawn back cut
   by `frame::thread::partition`: in front of the entry where it is, the
   rest out of the exit. Two slots (side = the view's largest side, rounded
   up to a power of two, 256 to 2048) and ten quads are made when a live
-  room first has a portal.
+  room first has a portal. The source keeps its world layers until its camera
+  can capture it and its pieces are ready.
 - ⛔ It runs in `PostUpdate` before the assets' events, the cameras and the
   propagation, so it reads a drawable's `Transform`, and computes a
   sprite's bounds itself (its `Aabb` is computed later: one frame old, and

@@ -23,8 +23,9 @@
 //! * A drawable that is part of another's picture ([`PortalDrawnWith`], and
 //!   each child) goes with that one.
 //!
-//! Each pair a drawable goes through has a carry camera. While a drawable
-//! goes through, it is taken off the world's layers and put on that camera's
+//! Each pair a drawable goes through has a carry camera. The source stays on
+//! its world layers while the capture or its pieces are prepared. Once ready,
+//! it is taken off the world's layers and put on that camera's
 //! layer only ([`CarriedLayers`], given back at the start of the next frame),
 //! and the camera draws it into a texture. That texture is drawn back into
 //! the world cut by the pair: its part in front of the entry where it is, and
@@ -89,8 +90,7 @@ pub struct PortalCarryCamera {
 }
 
 /// The carry cameras and their textures. Made when a live room first has a
-/// portal, before anything goes through: a target made on the frame it is
-/// first needed is not drawn on that frame.
+/// portal. Sources keep their world layers until the capture is ready.
 #[derive(Resource, Default)]
 pub struct PortalCarryAtlas {
     slots: Vec<CarrySlot>,
@@ -160,8 +160,10 @@ struct Carry {
     root: Vec2,
     /// It reaches from `root` (a swing): it is cut by the wedge from there.
     reaching: bool,
-    /// The body whose policy cuts it, when a body goes through.
-    body: Option<Entity>,
+    /// Every member uses this geometry policy.
+    budget: PieceBudget,
+    /// A body's root can also anchor a drawable that reaches from it.
+    has_body: bool,
     /// A host's picture goes in only as deep as its limb (`PortalHostReach`).
     reach: Option<f32>,
     /// The drawables it carries (each with its family).
@@ -375,13 +377,22 @@ pub fn carry_through_pairs(
             if *shown == Visibility::Hidden {
                 continue;
             }
+            let reach = reach.map(|reach| reach.0);
+            let budget = match reach {
+                Some(_) => Some(PieceBudget::SINGLE_HOP),
+                None => passages.as_deref().map_or(Some(PieceBudget::SINGLE_HOP), |passages| {
+                    passages.budget_for(Some(view.body), Some(placement.room))
+                }),
+            };
+            let Some(budget) = budget else {
+                continue;
+            };
             let (min, max) = aabb.map_or((view.pos - view.size * 0.5, view.pos + view.size * 0.5), |aabb| {
                 engine_bounds(&placement.frame, aabb, at)
             });
-            let reach = reach.map(|reach| reach.0);
             let carry = carries
                 .iter_mut()
-                .find(|c| c.room == placement.room && c.link == link.key && c.reach.is_none() && reach.is_none());
+                .find(|c| c.room == placement.room && c.link == link.key && c.budget == budget && c.reach.is_none() && reach.is_none());
             match carry {
                 Some(carry) => {
                     carry.drawables.push(visual);
@@ -395,7 +406,8 @@ pub fn carry_through_pairs(
                     link: link.key,
                     root: view.pos,
                     reaching: false,
-                    body: Some(view.body),
+                    budget,
+                    has_body: true,
                     reach,
                     drawables: vec![visual],
                     min,
@@ -460,8 +472,9 @@ pub fn carry_through_pairs(
             let shares = |c: &Carry| {
                 c.room == placement.room
                     && c.link == link
+                    && c.budget == budget
                     && c.reach.is_none()
-                    && if reaching { c.root.distance(root) <= ROOT_SLACK && (c.reaching || c.body.is_some()) } else { !c.reaching }
+                    && if reaching { c.root.distance(root) <= ROOT_SLACK && (c.reaching || c.has_body) } else { !c.reaching }
             };
             match carries.iter_mut().find(|c| shares(c)) {
                 Some(carry) => {
@@ -480,7 +493,8 @@ pub fn carry_through_pairs(
                     link,
                     root,
                     reaching,
-                    body: None,
+                    budget,
+                    has_body: false,
                     reach: None,
                     drawables: vec![drawable],
                     min,
@@ -510,22 +524,13 @@ pub fn carry_through_pairs(
         used[slot] = true;
         let all = by_room.in_room(Some(carry.room));
         let mut links = room_links(all);
-        let budget = match carry.reach {
-            Some(depth) => {
-                links.retain(|link| link.key == carry.link);
-                if let Some(link) = links.first_mut() {
-                    link.depth = Some(depth);
-                }
-                PieceBudget::SINGLE_HOP
+        if let Some(depth) = carry.reach {
+            links.retain(|link| link.key == carry.link);
+            if let Some(link) = links.first_mut() {
+                link.depth = Some(depth);
             }
-            None => match passages.as_deref() {
-                Some(passages) => match passages.budget_for(carry.body, Some(carry.room)) {
-                    Some(budget) => budget,
-                    None => continue,
-                },
-                None => PieceBudget::SINGLE_HOP,
-            },
-        };
+        }
+        let budget = carry.budget;
         // What the camera sees: a square of the slot's span about what is
         // carried (larger than the span is cut at its edge).
         let centre = (carry.min + carry.max) * 0.5;
@@ -542,6 +547,10 @@ pub fn carry_through_pairs(
                     ortho.scaling_mode = ScalingMode::Fixed { width: span, height: span };
                 }
             }
+        } else {
+            // A new camera is deferred. Keep the source on its world layers
+            // until the capture can run.
+            continue;
         }
         // The members and their families.
         let mut members: Vec<Entity> = Vec::new();
@@ -714,3 +723,6 @@ fn spawn_slot(commands: &mut Commands, images: &mut Assets<Image>, slot: usize, 
 /// The carry's clipped quads, kept from frame to frame.
 #[derive(Resource, Default)]
 pub struct CarryQuadPool(pub(crate) ClipQuadPool);
+
+#[cfg(test)]
+mod tests;

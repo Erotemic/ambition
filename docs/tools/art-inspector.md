@@ -42,3 +42,25 @@ the eras before the active renderer repository have authorship too.
 The inspector is read-only. It does not regenerate art and it does not
 replace a registry: the renderer registry, the content packs and the LDtk
 worlds stay the authorities.
+
+## Inspect a missing animation without a game build
+
+Open a character's asset page and read its animation list. This list comes
+from the published sheet YAML. Compare it with the runtime sheet RON when
+the game draws a different pose. The list does not show every clip that the
+source generator can produce.
+
+For a chargen character, run `./scripts/chargen_studio.sh --open`, open its
+example spec and use the pose view. Studio can show source clips that the
+published sheet omits. A source preview does not prove runtime selection.
+
+After a source edit, `./scripts/regen/sprites.sh --target <target>` publishes
+the target and its quality tiers. Rebuild the inspector to see the new rows.
+Run asset publication apart from Cargo builds and other asset publications.
+Desktop development builds read sprites from disk; their sprite watcher can
+defer metadata publication until the session ends. Restarting the same binary
+also reads the new files. Static-content builds embed sprite metadata.
+
+The [character coverage plan](../planning/engine/art-inspector-and-character-coverage.md)
+describes the current townsfolk death gap and the proposed coverage and
+character views. Those inspection commands are not implemented yet.

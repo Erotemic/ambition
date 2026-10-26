@@ -48,6 +48,9 @@ build a generic runtime service locator to implement a read-only catalog.
 
 ## A2 - semantic inspection before mutation
 
+The [art inspector and character coverage plan](art-inspector-and-character-coverage.md)
+applies this contract to character identity, art families and missing animations.
+
 Inspection answers what exists, which source owns it, what it resolves to, which
 capability executes it and which other definitions reference it. Runtime inspection
 names the session/content revision/frame and separates authoritative values,

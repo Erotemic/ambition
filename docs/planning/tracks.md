@@ -130,6 +130,9 @@ here.
 - ▢ **Inspection/diagnostics/workbench.** Build read-only discoverability from
   domain-contributed descriptors rather than a new simulation authority. Owner:
   [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md).
+- ▢ **Art inspector and character coverage.** Explain missing published
+  reactions, then group characters by identity, form, history and art family.
+  Owner: [`engine/art-inspector-and-character-coverage.md`](engine/art-inspector-and-character-coverage.md).
 - ▢ **Moveset observatory M3 — art/geometry agreement.** Do not build a parallel
   projection helper: measure the rendered frame through the camera that drew it.
   The remaining product definition is which anchor, tolerance and zoom constitute

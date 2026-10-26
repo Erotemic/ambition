@@ -55,19 +55,27 @@ mod tests {
     /// and a phase the clock does not have is refused when the pack compiles.
     #[test]
     fn a_rooms_track_by_the_time_of_day_is_read_and_its_phase_checked() {
-        let end = "fight_state: Some(\"fight\")),\n    ],\n)";
-        let row = |phase: &str| {
-            format!(
-                "fight_state: Some(\"fight\")),\n    ],\n    room_phase_tracks: [(room_id: \"math_town_street\", phase: \"{phase}\", track: \"shoulders_at_rest\")],\n)"
-            )
+        let compiled_for = |phase: &'static str| {
+            crate::pack::compile_pack_with(move |path: &str, text: String| {
+                if path != CUES {
+                    return text;
+                }
+                let mut authored: ambition_audio::cue_spec::AuthoredMusicCues =
+                    ron::from_str(&text).expect("the shipped music cues parse");
+                authored.room_phase_tracks.retain(|row| row.room_id != "math_town_street");
+                authored.room_phase_tracks.push(ambition_audio::cue_spec::RoomPhaseTrack {
+                    room_id: "math_town_street".into(),
+                    phase: phase.into(),
+                    track: "shoulders_at_rest".into(),
+                });
+                ron::to_string(&authored).expect("the edited music cues serialize")
+            })
         };
-        let night: &'static str = Box::leak(row("night").into_boxed_str());
-        let pack = compiled_with(end, night).expect("a row with a phase of the day compiles");
+        let pack = compiled_for("night").expect("a row with a phase of the day compiles");
         let catalog = music_cue_catalog_from(&pack).expect("the pack carries its catalog");
         assert_eq!(catalog.room_phase_track("math_town_street", "night"), Some("shoulders_at_rest"));
         assert_eq!(catalog.room_phase_track("math_town_street", "day"), None);
-        let teatime: &'static str = Box::leak(row("teatime").into_boxed_str());
-        assert!(compiled_with(end, teatime).is_err(), "no phase of the day is called teatime");
+        assert!(compiled_for("teatime").is_err(), "no phase of the day is called teatime");
     }
 
     #[test]

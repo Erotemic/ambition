@@ -566,7 +566,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             # The engine system that freezes it from the roster. This is the one
             # place a shipped build gets a topology.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+            ":(exclude)crates/ambition_platformer2d_runtime/src/input.rs",
             # The rollback observatory legitimately creates one for a proof
             # session that has no roster (Ambition's own rooms). It is behind
             # `dev_tools`, which is exactly the problem below — it may HAVE one,

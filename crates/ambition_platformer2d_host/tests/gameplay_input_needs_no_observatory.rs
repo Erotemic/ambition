@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_runtime::host_input::SlotControlLatches;
+use ambition_characters::control::SlotControlLatches;
 use ambition_platformer2d_runtime::SimulationHost;
 
 /// A host with a device and nothing else: no app crate, no dev tooling, no

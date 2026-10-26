@@ -24,7 +24,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools"]
 
 # Portal gun mechanic (the flagship player ability). Optional so non-portal
 # builds can compile out portal mechanics, portal rendering, and portal LDtk
@@ -110,7 +110,6 @@ web_platform = [
 # 2026-10-09 this list held all four, so every windowed game compiled portals
 # and the LDtk crate (`the-sdk-game-links-no-capability-it-omits`).
 visible = [
-    "input",
     "ui",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
@@ -134,7 +133,6 @@ visible = [
 # type API (`ui_api`) but no render pipeline, so dialog overlays,
 # menus, and touch buttons spawn entities that never get drawn.
 visible_web_base = [
-    "input",
     "portal",
     "portal_render",
     "bevy/2d_bevy_render",
@@ -211,7 +209,7 @@ static_sfx_bank = []
 # sandbox LDtk world is synchronously parsed before Bevy's Android AssetServer
 # path can hand it to the runtime; the APK still packages the loose asset tree
 # for sprites/audio/fonts and future map-loading work.
-android = ["visible", "android_platform", "mobile_touch"]
+android = ["visible", "android_platform"]
 
 # Explicit alias for Android builds that still include sandbox/dev gameplay
 # behavior. Kept separate so future phone-only diagnostics can be added without
@@ -230,17 +228,6 @@ android_dev = ["android", "dev_tools"]
 ui = ["ambition_conversation/ui"]
 # The Avian debris adapter is `ambition_platformer2d_physics_debris` (2026-10-23);
 # `world::physics` re-exports it.
-input = [
-    "dep:leafwing-input-manager",
-    "ambition_input/input",
-]
-# Mobile / Android touch input. Pulls `virtual_joystick` for the
-# on-screen sticks; the supporting Bevy systems live behind this feature
-# flag so desktop / gamepad / headless builds skip the touch path.
-# Pure helper (`mobile_input::fold_touch_into_control_frame`) is
-# always-available so its tests run in a default `cargo test` without
-# requiring the feature.
-mobile_touch = ["input", "dep:virtual_joystick"]
 
 # Flat Bevy-UI inventory/pause menu backend. Enabled by the normal `visible`
 # desktop/Android personas so both platforms exercise the same menu stack by
@@ -352,12 +339,7 @@ ambition_resource_spec = { path = "../ambition_resource_spec" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
 # LDtk is optional; movement-only games do not need its conversion crate.
-# Device -> ControlFrame input layer (Platformer2dInputActionMonolith / ControlFrame / presets /
-# input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
-# `crate::persistence::settings` re-exports its `settings` module so existing
-# `crate::persistence::settings::ControlSettings` paths resolve unchanged. The
-# sandbox `input` feature forwards to this crate's `input` feature. See
-# docs/planning/status.md.
+# Participant identity and semantic input contexts.
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_persistence = { path = "../ambition_persistence" }
@@ -390,8 +372,6 @@ bevy-inspector-egui = { version = "0.37", optional = true }
 # so the GPU/CPU idle between frames instead of rendering as fast as possible. Big
 # battery win on mobile; gated by `frame_pacing` (needs the render app, so visible-only).
 bevy_framepace = { version = "0.22", default-features = false, optional = true }
-leafwing-input-manager = { version = "0.21", optional = true }
-virtual_joystick = { version = "2.8.0", default-features = false, optional = true }
 # Browser support deps. Pulled in only by the `web_platform` feature; the actual
 # `#[wasm_bindgen(start)]` entry point lives in `ambition_app`.
 console_error_panic_hook = { version = "0.1", optional = true }
@@ -403,6 +383,7 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_audio = { path = "../ambition_audio" }
 ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 # The two-game session fixture the per-room rule readers' tests share.

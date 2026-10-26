@@ -110,7 +110,7 @@ pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
 pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
 pub use menu::{
-    analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
+    analog_to_dir, MenuControlFrame, MenuFramePopulate, MenuFrameConsume, MenuNavConsume, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
 };
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,

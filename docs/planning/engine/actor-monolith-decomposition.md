@@ -27,7 +27,7 @@ The session lifecycle and room-crossing policy now have a separate owner,
 `ambition_platformer2d_session`, above the actor kernel. Publication and runtime
 call that owner directly. The actor kernel has no production dependency on it.
 
-The remaining work is responsibility separation. Move world-object behavior and device input assembly to their owners. Keep accepted control, body custody,
+The remaining work is responsibility separation. Keep device input and global schedule assembly at runtime. Move the remaining cross-domain adapters to their owners. Keep accepted control, body custody,
 body motion, and action execution together. A dependency on a lower domain is
 valid when the kernel needs that domain's facts.
 
@@ -562,6 +562,20 @@ deleted; typed scopes and live receipt checks hold the construction boundary.
 Shared data-only cast fixtures belong to
 character test support. No scheduled invocation or rollback state is added.
 
+### K16 — Device input and phase order belong to runtime
+
+Device decoding, participant seating, context claims, frame adapters, and their
+behavior tests move to `ambition_platformer2d_runtime::input`. Runtime owns the
+concrete phase graph. The actor `schedule` module and runtime `host_input`
+forwarding module are deleted. Menu labels belong to `ambition_input`; the
+slot-publication label belongs to `ambition_characters::control`.
+
+The body kernel keeps raw-frame publication and its authority guard. Fixed-tick,
+rollback, and frame-step hosts retain their publication rules. Chains, gates,
+flushes, wire keys, and active system counts stay the same. Device dependencies
+move out of the actor manifest. Runtime still selects device input, as it did
+before this cut. Independent input profiles remain a separate exit.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved
@@ -617,7 +631,7 @@ because it is durable decomposition doctrine.
 | `crates/ambition_combat/src/moveset/mod.rs` | `ending-a-move-goes-through-the-one-teardown-path` |
 | `crates/ambition_characters/src/brain/fighter`, `crates/ambition_characters/src/brain/state_machine/mod.rs`, `crates/ambition_characters/src/snapshot_impls.rs`, or `crates/ambition_characters/src/brain/mod.rs` | `the-generic-brain-does-not-grow-new-platform-fighter-edges` |
 | `crates/ambition_platformer2d_session/src/match_activation.rs` or `game/ambition_app/src/app/versus.rs` | `a-second-writer-of-a-match-global-must-answer-ownership` |
-| `crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs` or `game/ambition_app/src/dev/rollback_observatory.rs` | `the-seat-topology-has-one-engine-side-creator` |
+| `crates/ambition_platformer2d_runtime/src/input.rs` or `game/ambition_app/src/dev/rollback_observatory.rs` | `the-seat-topology-has-one-engine-side-creator` |
 | `game/ambition_app/src/app/versus.rs` or `game/ambition_demo_smash/src/lib.rs` | `the-global-roster-is-retired-only-by-its-owner` |
 | `tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py` or `tools/ambition_ldtk_tools/tests/test_ldtk_core_helpers.py` | `the-worlds-path-is-confined-to-ldtk-paths` |
 | `crates/ambition_characters/src/prepared.rs`, `crates/ambition_combat/src/worn_kit.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-default-action-set-is-confined-to-one-file` |

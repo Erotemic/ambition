@@ -16,6 +16,7 @@
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
 | [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
+| [`input`](src/input.rs) | Device input, participant seating, context claims, and frame publication adapters. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
@@ -36,6 +37,7 @@
 | [`room_transition`](src/room_transition/mod.rs) | Engine-owned room-transition orchestration. |
 | [`runtime_census`](src/runtime_census.rs) | `[census] rooms` — WHICH ROOM IS LIVE, AND WHAT THE CROSSING IS DOING. |
 | [`sandbox_reset`](src/sandbox_reset.rs) | The sandbox reset authority and its room-replay consumer. |
+| [`schedule`](src/schedule.rs) | Runtime phase order and shared simulation gates. |
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_clock`](src/sim_clock/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
@@ -44,7 +46,7 @@
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_39 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -33,6 +33,8 @@ pub mod external_effects;
 pub mod gravity;
 #[cfg(test)]
 mod host_invariant_tests;
+pub mod input;
+pub mod schedule;
 pub mod input_drive;
 pub mod input_stream;
 /// The opt-in LDtk world install: the format's runtime spine + its rollback row.
@@ -129,33 +131,9 @@ pub use input_stream::{InputStreamRecorder, input_stream_recording, record_input
 #[cfg(feature = "ldtk")]
 pub use ldtk_world::LdtkWorldPlugin;
 
-/// Host-facing input seams that are implemented by the simulation heart but
-/// scheduled by a visible host. Keeping this tiny facade here lets
-/// `ambition_platformer2d_host` wire leafwing/device input without depending directly on
-/// `ambition_platformer2d_actor_monolith`.
 #[cfg(feature = "causal")]
 pub mod causal;
 
-pub mod host_input {
-    pub use ambition_platformer2d_actor_monolith::schedule::{
-        MenuFrameConsume, MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
-        commit_seat_raw_frames,
-        declare_gameplay_input_context, declare_in_session_input_contexts,
-        freeze_local_seating_for_the_decided_match, install_latched_slot_publication,
-        install_roster_seating, mirror_primary_slot_to_control_frame,
-        populate_menu_control_frame_from_actions, populate_seat_control_frames,
-        populate_seat_menu_frames, publish_latched_slot_controls,
-        publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,
-        spawn_primary_input_participant, sync_primary_recipe_from_settings,
-        toggle_player_trail_emission_from_actions,
-    };
-    pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;
-    // Publication boundary re-exported with the host-facing shaping systems.
-    pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
-    // Frame-to-tick latch re-exported through the host-facing input seam.
-    pub use ambition_characters::control::SlotControlLatches;
-    pub use ambition_dialog::{DialogState, dialog_pointer_input};
-}
 
 pub mod host_seams {
     pub use ambition_dev_tools::DeveloperRuntimeState;
@@ -361,7 +339,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         );
         // Declare the canonical simulation-phase ordering. System
         // registrations elsewhere only need `.in_set(Platformer2dSimulationPhase::X)`.
-        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
+        crate::schedule::configure_platformer2d_simulation_phases(
             app,
         );
         // The Class-B transit ledger (`docs/concepts/movement-collision.md`). Frame-scoped:

@@ -1,19 +1,7 @@
-//! Participant → frame populate systems: the schedule-anchored input vocabulary.
-//!
-//! Bridges the persistent participant's leafwing `ActionState<Platformer2dInputActionMonolith>`
-//! into the sim-side `ControlFrame` ([`populate_seat_control_frames`])
-//! and the menu-side [`MenuControlFrame`]
-//! ([`populate_menu_control_frame_from_actions`]), the device-agnostic seam
-//! the sim/menu read instead of raw devices (ADR 0012). Also:
-//! [`MenuNavConsume`] (the set menu-nav consumers join so touch/joystick
-//! writers can pin `.before` it), cutscene advance/skip routing,
-//! [`spawn_primary_input_participant`] (the boot-time participant spawn), and
-//! [`declare_gameplay_input_context`] (the session lifecycle's context
-//! claim). All gated behind the `input` feature except the context claim.
+//! Device input, participant seating, context claims, and frame publication adapters.
 
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-#[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
 use ambition_input::participant::{context_priority, ContextClaim};
@@ -22,7 +10,6 @@ use ambition_input::{
     ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT,
 };
 use ambition_platformer2d_core::ControlFrame;
-#[cfg(feature = "input")]
 use ambition_input::{
     read_gameplay_control_frame_with_settings, read_menu_control_frame,
     Platformer2dInputActionMonolith,
@@ -38,7 +25,6 @@ use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameM
 /// pause/dialogue/cutscene suppression). Reading `Window.focused` keeps the gate
 /// minimal — it never touches the leafwing `ActionState`, so the input abstraction
 /// is untouched; only the device-agnostic frames are zeroed.
-#[cfg(feature = "input")]
 fn input_suppressed_by_unfocus(
     settings: &ambition_persistence::settings::UserSettings,
     window_focus: impl IntoIterator<Item = bool>,
@@ -52,47 +38,6 @@ fn input_suppressed_by_unfocus(
     !window_focus.into_iter().any(|focused| focused)
 }
 
-/// The device→frame WRITERS of [`MenuControlFrame`] and its per-seat companion.
-///
-/// The counterpart of [`MenuNavConsume`], and it existed only as prose until
-/// now: an adapter that must add to the frame after it is rebuilt had to name
-/// `populate_menu_control_frame_from_actions` directly, from another crate.
-///
-/// TWO members, and the second one is the argument. `populate_seat_menu_frames`
-/// is the per-seat companion, chained immediately after the global populate, and
-/// it writes `SeatMenuFrames` and NOTHING else — not `MenuControlFrame`, not
-/// `SeatActiveDevices`. A gesture adapter pinning `.after` this set therefore lands
-/// in exactly the same observable position as pinning the global populate alone;
-/// it shares no mutable state with the extra member it now waits for. That was
-/// checked at both signatures rather than assumed from the names.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MenuFramePopulate;
-
-/// Umbrella for [`MenuControlFrame`] consumers in this schedule.
-///
-/// Bevy set ordering is schedule-local, so all member sets must live here.
-///
-/// ⚠ MEMBERSHIP IS NOT COMPLETE, and a writer pinning `.before` this set should
-/// know what it does not cover. Measured 2026-09-07: `ambition_dialog::dialog_input`
-/// and `ambition_menu::map::handle_map_menu_hotkeys` consume the frame and are NOT
-/// members. Neither crate depends on this one, so neither can name this set; only a
-/// composition depending on both sides can place them.
-///
-/// ⚠ AND MEMBERSHIP IS NOT AN ORDER. This set gives a WRITER one pin covering every
-/// member; it does not arrange the members among themselves, and nesting a set here
-/// does not order it against its siblings. Two direct members still conflict,
-/// proven on a three-system app in `update_schedule_census`. (A cutscene reads no
-/// menu frame: its confirm and cancel ride the seat's `ControlFrame`.)
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MenuFrameConsume;
-
-/// Directional navigation consumers of [`MenuControlFrame`].
-///
-/// Writers that must precede navigation can order against this set without
-/// naming backend-private systems. Use [`MenuFrameConsume`] for all consumers.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MenuNavConsume;
-
 /// Spawn the persistent primary input participant at boot.
 ///
 /// The participant is the person in front of the controller: it owns the
@@ -100,7 +45,6 @@ pub struct MenuNavConsume;
 /// before any gameplay session (startup cards, launcher), and survives every
 /// session teardown/relaunch — device state is never attached to actors or
 /// presentation entities. Idempotent by the primary-participant id guard.
-#[cfg(feature = "input")]
 pub fn spawn_primary_input_participant(
     mut commands: Commands,
     // The persisted setting is the ONE preset authority (`Option` so headless
@@ -165,7 +109,6 @@ pub fn spawn_primary_input_participant(
 /// the keyboard player picked is not a fact about their pad. Per-seat presets
 /// and per-seat overrides wait on the product question of whether couch seats
 /// get their own persisted profiles at all.
-#[cfg(feature = "input")]
 pub fn sync_primary_recipe_from_settings(
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut participants: Query<(&InputParticipant, &mut ambition_input::BindingRecipe)>,
@@ -200,7 +143,6 @@ pub fn sync_primary_recipe_from_settings(
 
 /// One physical source's device scope. Split out so the tests pin THIS rule
 /// rather than a second copy of it.
-#[cfg(feature = "input")]
 fn scope_for_source(
     source: Option<ambition_input::LocalInputSource>,
 ) -> ambition_input::BindingSources {
@@ -223,7 +165,6 @@ fn scope_for_source(
 /// roster (launcher, menus, a headless fixture) has declared nothing, and
 /// `Unified` is the right answer there — it is only a DECIDED MATCH that knows
 /// who claimed what.
-#[cfg(feature = "input")]
 fn sources_for_channel(
     roster: Option<&ambition_match::MatchParticipantRoster>,
     channel: ambition_input::ParticipantId,
@@ -262,7 +203,6 @@ fn sources_for_channel(
 /// rule ("a second player on the same keyboard as the first is not a second
 /// player") is still true, and the plan is what enforces it: the keyboard
 /// appears in the plan at most once.
-#[cfg(feature = "input")]
 pub fn seat_input_participants_for_roster(
     mut commands: Commands,
     roster: Option<Res<ambition_match::MatchParticipantRoster>>,
@@ -421,7 +361,6 @@ pub fn declare_gameplay_input_context(
 /// Conversation capture is attributed by `ConversationInputOwner`; absent attribution
 /// captures nobody. Pause remains separate because it routes menu input rather than a
 /// neutral gameplay frame.
-#[cfg(feature = "input")]
 pub fn declare_in_session_input_contexts(
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     // `Option` because a composition without the conversation feature still has
@@ -467,7 +406,6 @@ pub fn declare_in_session_input_contexts(
 /// The physical key or button belongs to `KeyboardPreset::input_map`; this bridge
 /// only consumes the semantic `Platformer2dInputActionMonolith` and flips the simulation resource
 /// that the trail system reads.
-#[cfg(feature = "input")]
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
@@ -475,7 +413,7 @@ pub fn toggle_player_trail_emission_from_actions(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
     )>,
-    enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
+    enabled: Option<ResMut<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailEnabled>>,
 ) {
     // The participant exists at the launcher too; only a session that owns
     // input (and is actually in a gameplay mode) may consume the toggle.
@@ -501,7 +439,6 @@ pub fn toggle_player_trail_emission_from_actions(
 ///
 /// Every seat carries its own on its participant entity now — including seat zero, which has a
 /// participant entity like everybody else — and that resource is deleted.
-#[cfg(feature = "input")]
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdgeState);
 
@@ -534,7 +471,6 @@ pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdg
 /// `ambition_input` readers are every one of them behind `input` at the `use`
 /// site. Found by the exhaustive plan 2026-09-03; nothing but that lane builds
 /// this crate without its defaults.
-#[cfg(feature = "input")]
 pub fn populate_seat_control_frames(
     mode: Res<State<GameMode>>,
     // Whether a conversation stops the world for everybody. Default `false`
@@ -579,7 +515,7 @@ pub fn populate_seat_control_frames(
         // exact shape the reviewer asked new code to stop writing — a bare
         // `PlayerSlot(id.slot())` asserts the two numberings are the same thing,
         // and they are two lifecycles that happen to agree today.
-        let slot = crate::participant_seat::player_slot_of(participant.id);
+        let slot = ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(participant.id);
         // ⛔⛤ **THE FRAME-MODE POLICY IS RESOLVED HERE, AT CAPTURE, AND NOWHERE
         // ELSE.** It is published BEFORE the `!gameplay` early-out on purpose: a
         // paused seat still has a preference, and a row that went stale while the
@@ -655,7 +591,6 @@ pub fn populate_seat_control_frames(
 /// it replaces `accumulate_control_frame_latch`, which folded exactly one
 /// seat's shaped frame in — because exactly one seat had anywhere for shaping to
 /// happen.
-#[cfg(feature = "input")]
 pub fn commit_seat_raw_frames(
     raw: Res<ambition_characters::control::SeatRawFrames>,
     latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
@@ -671,40 +606,6 @@ pub fn commit_seat_raw_frames(
     }
 }
 
-/// THE COMMIT FOR A COMPOSITION NOBODY ELSE PUBLISHES FOR.
-///
-/// THREE hosts publish a seat's frame and only one of them is this.
-///
-/// ```text
-/// fixed-tick  a latch bridges frame→tick; publish_latched_slot_controls drains it
-/// rollback    the SESSION publishes, from the input GGRS confirmed
-/// frame-step  neither exists — a frame IS a tick — so this copies raw → slots
-/// ```
-///
-/// guarding on the latch ALONE is not enough, and that cost 22 app_it tests. A rollback
-/// harness has no latch (it drives `PendingSeatInputs` directly), so a latch-only guard let
-/// this run there and overwrite the session's confirmed input with a neutral raw row — both
-/// seats went silent through a rewind.
-///
-/// the predecessor got this for free and that is why it never noticed.
-/// `populate_slot_controls` copied the global `ControlFrame`, which under both
-/// other hosts had ALREADY been written by whichever authority owned
-/// publication — so running it a second time copied the right answer twice. This
-/// copies a table that authority does not write, so it has to ask.
-#[cfg(feature = "input")]
-pub fn publish_seat_controls_when_nobody_else_does(
-    latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
-    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    raw: Res<ambition_characters::control::SeatRawFrames>,
-    mut slots: ResMut<ambition_characters::control::SlotControls>,
-) {
-    if crate::control::another_authority_publishes(latches.as_deref(), rollback.as_deref()) {
-        return;
-    }
-    for (slot, frame) in raw.seats() {
-        slots.set(slot, frame);
-    }
-}
 
 /// TICK clock: publish EVERY seat's latched frame.
 ///
@@ -717,7 +618,6 @@ pub fn publish_seat_controls_when_nobody_else_does(
 ///
 /// The primary seat has no equivalent hazard because GGRS overwrites
 /// `ControlFrame` from the session's confirmed inputs after it drains.
-#[cfg(feature = "input")]
 pub fn publish_latched_slot_controls(
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     mut latches: ResMut<ambition_characters::control::SlotControlLatches>,
@@ -740,7 +640,6 @@ pub fn publish_latched_slot_controls(
 /// to the wrong seam.
 ///
 /// Drive input with `drive_slot_frame`.
-#[cfg(feature = "input")]
 pub fn mirror_primary_slot_to_control_frame(
     slots: Res<ambition_characters::control::SlotControls>,
     mut frame: ResMut<ControlFrame>,
@@ -764,7 +663,6 @@ pub fn mirror_primary_slot_to_control_frame(
 /// arrangement needs a host to know it. A composition that called
 /// `add_systems` itself would be re-deciding, every time, something only this
 /// module can be wrong about.
-#[cfg(feature = "input")]
 pub fn install_roster_seating(app: &mut bevy::prelude::App) {
     use bevy::prelude::IntoScheduleConfigs;
     app.add_systems(
@@ -795,7 +693,6 @@ pub fn install_roster_seating(app: &mut bevy::prelude::App) {
 /// where a rollback host asks. Leaving the condition at the call site made the
 /// installer look optional when what is conditional is the SCHEDULE, not the
 /// choice.
-#[cfg(feature = "input")]
 pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     use bevy::prelude::IntoScheduleConfigs;
@@ -819,7 +716,6 @@ pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
 /// `ActionState<Platformer2dInputActionMonolith>`. Keyboard, gamepad, and virtual touch controls
 /// are already unified in the participant's action state; mouse-wheel and
 /// pointer-drag gestures add their scroll contribution before consumers run.
-#[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
     // The primary seat owns this resource, so its pad decides the calibration.
@@ -884,7 +780,6 @@ pub fn populate_menu_control_frame_from_actions(
 ///
 /// `None` — a headless fixture with no device tracking — reads the machine-wide
 /// sliders, which is the honest answer when nothing is known about the device.
-#[cfg(feature = "input")]
 fn filters_for_seat(
     settings: &ambition_persistence::settings::UserSettings,
     devices: Option<&ambition_input::SeatActiveDevices>,
@@ -900,7 +795,6 @@ fn filters_for_seat(
 }
 
 /// One decode, so the global menu frame and every seat's frame agree.
-#[cfg(feature = "input")]
 pub fn decode_menu_frame(
     actions: &ActionState<Platformer2dInputActionMonolith>,
     menu_input_state: &mut MenuInputState,
@@ -984,7 +878,6 @@ pub fn decode_menu_frame(
 /// question "who pressed lock-in" has no answer in a folded one.
 ///
 /// Repeat state is per seat too.
-#[cfg(feature = "input")]
 pub fn populate_seat_menu_frames(
     world_time: Option<Res<ambition_time::WorldTime>>,
     // the whole point of a per-seat frame: each seat's stick is filtered by
@@ -1020,7 +913,7 @@ pub fn populate_seat_menu_frames(
     }
 }
 
-#[cfg(all(test, feature = "input"))]
+#[cfg(test)]
 mod focus_gate_tests {
     use super::{
         declare_gameplay_input_context, declare_in_session_input_contexts,
@@ -1522,7 +1415,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                super::publish_seat_controls_when_nobody_else_does,
+                ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -1623,13 +1516,13 @@ mod focus_gate_tests {
                 (
                     resolve_active_input_context,
                     super::populate_seat_control_frames,
-                    super::publish_seat_controls_when_nobody_else_does,
+                    ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
                     // the COMMIT, because the producer no longer publishes.
                     // It fills every seat's raw row and one stage commits them;
                     // a fixture that ran only the producer and then read
                     // `SlotControls` would be asserting against a table nothing
                     // had written this frame.
-                    super::publish_seat_controls_when_nobody_else_does,
+                    ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
                 )
                     .chain(),
             );
@@ -1806,7 +1699,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                super::publish_seat_controls_when_nobody_else_does,
+                ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -1934,7 +1827,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                super::publish_seat_controls_when_nobody_else_does,
+                ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -2281,7 +2174,6 @@ mod focus_gate_tests {
 /// and it declares the ROSTER'S seat count (`capture_for_roster`), not the
 /// device count, because those are two different authorities and the device one
 /// was wrong in both directions.
-#[cfg(feature = "input")]
 pub fn freeze_local_seating_for_the_decided_match(
     mut commands: Commands,
     roster: Option<Res<ambition_match::MatchParticipantRoster>>,
@@ -2362,7 +2254,7 @@ pub fn freeze_local_seating_for_the_decided_match(
     commands.insert_resource(topology);
 }
 
-#[cfg(all(test, feature = "input"))]
+#[cfg(test)]
 mod binding_scope_tests {
     use super::*;
     use ambition_input::{BindingSources, LocalInputSource, ParticipantId};

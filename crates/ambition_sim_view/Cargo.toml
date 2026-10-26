@@ -13,7 +13,7 @@ crate-type = ["rlib"]
 default = []
 # The blink-preview fact reads device actions, so it exists only with the
 # input layer; forwarded so a mismatched combination is a compile error.
-input = ["ambition_platformer2d_actor_monolith/input"]
+input = ["ambition_input/input"]
 # The portal read-model, offered to a game that has portals.
 # No source file in this crate names `ambition_portal2d`; the portal types this
 # view reads arrive through the monolith. The `dep:` was a second edge to the
@@ -28,9 +28,7 @@ ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_abilities = { path = "../ambition_abilities" }
 # The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
 # crate for views instead of querying the sim heart).
-ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
-    "input",
-] }
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [] }
 # `ProjectedCharacterKit`, the kernel's record of which prepared character a
 # body's geometry was granted from — what `BodyPoseView::geometry` reads.
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
@@ -63,5 +61,6 @@ bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"]
 bevy_math = "0.19.1"
 
 [dev-dependencies]
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 # The boss fixture reads Ambition's encounter files from its pack manifest.
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }

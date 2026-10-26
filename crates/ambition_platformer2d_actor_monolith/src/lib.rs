@@ -21,7 +21,6 @@ mod character_roster;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
-pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;

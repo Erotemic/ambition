@@ -451,7 +451,7 @@ fn interact_buffered_starts_npc_dialogue() {
 /// fallback.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::schedule::configure_platformer2d_simulation_phases;
+    use ambition_platformer2d_runtime::schedule::configure_platformer2d_simulation_phases;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};

@@ -1030,7 +1030,7 @@ mod tests {
     #[test]
     fn content_combat_slots_are_registered_in_the_combat_chain() {
         let mut app = App::new();
-        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
+        crate::schedule::configure_platformer2d_simulation_phases(
             &mut app,
         );
         app.add_plugins(CombatSchedulePlugin);

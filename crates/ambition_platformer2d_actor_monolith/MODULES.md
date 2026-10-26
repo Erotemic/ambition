@@ -19,9 +19,8 @@
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
-| [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

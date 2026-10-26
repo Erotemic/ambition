@@ -90,7 +90,7 @@ bridge = "device-to-frame"
 why = "READS it as EVIDENCE, routes nothing. This rule exists because a sim holder is silently slot-0-only and so breaks possession and co-op; this system does not route input to anybody — it compares ControlFrame against PendingLocalInput to detect a consumer writing the seam a GGRS host does not read, which is silently discarded today. It is the diagnostic FOR this rule's failure mode one layer down, and it cannot do its job without holding the resource it is reporting on."
 
 [[allow]]
-file = "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs"
+file = "crates/ambition_platformer2d_runtime/src/input.rs"
 func = "mirror_primary_slot_to_control_frame"
 bridge = "slot-to-frame"
 why = "THE ONLY WRITER LEFT, and it writes the resource as an OUTPUT. D175 turned ControlFrame from an input bus into a read-only mirror of SlotControls[PRIMARY]: every seat's raw frame is now shaped in SeatRawFrames and committed by commit_seat_raw_frames, so the six entries this replaces (two latch systems, the seat-zero device producer, the gesture derivation, the interact buffer, and the frame-to-slot copy) hold nothing any more. What still legitimately wants the resource is the forensic trace codec, the harness action encoder, and report_input_written_to_the_wrong_seam — all readers of what seat zero received. A NEW writer of this resource is a bug."

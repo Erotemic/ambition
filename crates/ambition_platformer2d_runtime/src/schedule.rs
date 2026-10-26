@@ -1,22 +1,7 @@
-//! Sandbox simulation schedule: system sets and their explicit ordering.
-//!
-//! Single source of truth for the concrete sandbox app schedule.
-//!
-//! `ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase`
-//! is the reusable phase vocabulary AND the app's realization of it: it lives in
-//! the lowest platformer crate and 18 packages order against it. A second,
-//! aspirational `PlatformerRuntimeSet` stood beside it with ZERO members until
-//! 2026-09-11; ordering against an empty set is a silent no-op, so it is gone.
-//! Add new systems through module-owned plugins and stable sets rather than
-//! pinning a fragile cross-system `.after(other_system)` in this file or in
-//! `plugins.rs`.
+//! Runtime phase order and shared simulation gates.
 
 use bevy::prelude::*;
 
-// Canonical schedule labels live in the lower platformer-primitives crate so
-// runtime, host, content, sim-view, and render can order systems without
-// depending on `ambition_platformer2d_actor_monolith`. This module keeps only the concrete ordering
-// function because it still refers to actor-system anchors.
 use ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized;
 use ambition_platformer2d_shared_tangle::schedule::{
     gameplay_allowed, CombatSet, GameplayGated, GameplaySimulationRoot,
@@ -300,6 +285,6 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
 
     app.configure_sets(
         sim,
-        ambition_input::InputSet::Route.before(crate::control::PrimarySlotInputCommit),
+        ambition_input::InputSet::Route.before(ambition_characters::control::PrimarySlotInputCommit),
     );
 }

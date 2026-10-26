@@ -1089,6 +1089,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_interaction",
  "ambition_platformer2d_items",
+ "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_portal2d",
@@ -1110,11 +1111,9 @@ dependencies = [
  "bevy_framepace",
  "console_error_panic_hook",
  "image",
- "leafwing-input-manager",
  "ron 0.11.0",
  "serde",
  "serde_json",
- "virtual_joystick",
  "wasm-bindgen",
 ]
 
@@ -1231,6 +1230,7 @@ dependencies = [
  "ambition_combat",
  "ambition_content_pack",
  "ambition_cutscene",
+ "ambition_dialog",
  "ambition_engine_schemas",
  "ambition_input",
  "ambition_menu",
@@ -1463,6 +1463,7 @@ dependencies = [
  "bevy",
  "bevy_common_assets",
  "blake3",
+ "leafwing-input-manager",
  "serde_json",
 ]
 
@@ -1776,6 +1777,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_interaction",
  "ambition_platformer2d_items",
+ "ambition_platformer2d_runtime",
  "ambition_platformer2d_session",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",

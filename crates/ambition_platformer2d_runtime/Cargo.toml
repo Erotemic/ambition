@@ -7,6 +7,7 @@ authors.workspace = true
 description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app."
 
 [dependencies]
+leafwing-input-manager = "0.21"
 ambition_world_returns = { path = "../ambition_world_returns" }
 ambition_breakables = { path = "../ambition_breakables" }
 ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
@@ -26,7 +27,6 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
-    "input",
 ] }
 # The gameplay trace recorder, installed with the engine (`TraceSchedulePlugin`).
 ambition_platformer2d_trace = { path = "../ambition_platformer2d_trace" }
@@ -69,7 +69,7 @@ ambition_vfx = { path = "../ambition_vfx" }
 # refresh, the input-set vocabulary, and the body-cluster component types the
 # player frame registers as required components.
 ambition_time = { path = "../ambition_time" }
-ambition_input = { path = "../ambition_input" }
+ambition_input = { path = "../ambition_input", features = ["input"] }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The engine sim messages/resource defaults (E5 step 6, SimCoreResourcesPlugin).
 ambition_sfx = { path = "../ambition_sfx" }

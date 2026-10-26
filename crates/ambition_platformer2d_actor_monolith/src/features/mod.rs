@@ -504,7 +504,7 @@ mod actor_decision_phase_tests {
 
     fn composed_app() -> App {
         let mut app = App::new();
-        crate::schedule::configure_platformer2d_simulation_phases(&mut app);
+        ambition_platformer2d_runtime::schedule::configure_platformer2d_simulation_phases(&mut app);
         app.add_plugins(WorldPrepSchedulePlugin);
         app
     }

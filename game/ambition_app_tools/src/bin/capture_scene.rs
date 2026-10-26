@@ -1330,9 +1330,9 @@ fn install_room_capture(app: &mut App) {
             sim,
             hold_player_controls
                 .in_set(ambition_platformer2d::sim::Platformer2dSimulationPhase::PlayerInput)
-                .after(ambition_platformer2d::runtime::host_input::publish_latched_slot_controls)
-                .after(ambition_platformer2d::runtime::host_input::publish_seat_controls_when_nobody_else_does)
-                .before(ambition_platformer2d::runtime::host_input::mirror_primary_slot_to_control_frame),
+                .after(ambition_platformer2d::runtime::input::publish_latched_slot_controls)
+                .after(ambition_platformer2d::actors::control::publish_seat_controls_when_nobody_else_does)
+                .before(ambition_platformer2d::runtime::input::mirror_primary_slot_to_control_frame),
         );
     }
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {

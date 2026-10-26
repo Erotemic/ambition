@@ -77,9 +77,9 @@ fn two_pad_rollback_harness() -> Platformer2dSimHarness {
             // updated by the time `app_mut()` is reachable, so a Startup system
             // added here would never run. Safe because the system is idempotent
             // by construction — it returns early if a PRIMARY already exists.
-            ambition_platformer2d::runtime::host_input::spawn_primary_input_participant,
-            ambition_platformer2d::runtime::host_input::freeze_local_seating_for_the_decided_match,
-            ambition_platformer2d::runtime::host_input::seat_input_participants_for_roster,
+            ambition_platformer2d::runtime::input::spawn_primary_input_participant,
+            ambition_platformer2d::runtime::input::freeze_local_seating_for_the_decided_match,
+            ambition_platformer2d::runtime::input::seat_input_participants_for_roster,
         )
             .chain(),
     );

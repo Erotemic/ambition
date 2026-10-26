@@ -77,7 +77,7 @@ impl Plugin for PortalSchedulePlugin {
             PortalSet::InputWarp
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
-                .before(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit)
+                .before(ambition_characters::control::PrimarySlotInputCommit)
                 .run_if(gameplay_allowed),
         );
 

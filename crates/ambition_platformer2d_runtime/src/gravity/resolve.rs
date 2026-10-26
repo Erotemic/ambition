@@ -389,7 +389,7 @@ mod tests {
         }
 
         let mut app = App::new();
-        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(&mut app);
+        crate::schedule::configure_platformer2d_simulation_phases(&mut app);
         app.world_mut()
             .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
                 ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),

@@ -18,12 +18,11 @@ crate-type = ["rlib"]
 # its crates are optional, so a desktop / headless / RL consumer of the fold
 # compiles no render stack at all.
 default = []
-input = ["ambition_platformer2d_actor_monolith?/input", "ambition_render?/input", "dep:leafwing-input-manager"]
+input = ["ambition_render?/input", "dep:leafwing-input-manager"]
 mobile_touch = [
     "input",
     "dep:ambition_platformer2d_actor_monolith",
-    "ambition_platformer2d_actor_monolith/input",
-    "ambition_platformer2d_actor_monolith/mobile_touch",
+    "ambition_input/input",
     "dep:ambition_sim_view",
     "dep:ambition_render",
     "ambition_render/input",

@@ -179,7 +179,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 /// in-simulation reset systems use, to pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
-    use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
+    use ambition_platformer2d_runtime::schedule::configure_platformer2d_simulation_phases;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 
     fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {

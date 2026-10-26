@@ -1266,20 +1266,6 @@ contains = ["ambition_render"]
 file = "crates/ambition_touch_input/Cargo.toml"
 
 
-# was: architecture_boundaries_f2_schedule_labels_use_primitive_home
-[[policy]]
-id = "engine.f2-schedule-labels-primitive-home"
-scope = "engine"
-kind = "forbidden-source-reference"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
-rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platformer2d_shared_tangle::schedule"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_platformer2d_actor_monolith::schedule::Platformer2dSimulationPhase", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
-
-
 # was: architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates
 [[policy]]
 id = "engine.f2-asset-vocab-lower-crates"

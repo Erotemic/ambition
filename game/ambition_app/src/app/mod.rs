@@ -47,10 +47,9 @@ pub mod visible_composition;
 pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]
-pub use ambition_platformer2d::actors::schedule::{
-    populate_menu_control_frame_from_actions, MenuNavConsume,
-};
-pub use ambition_platformer2d::actors::schedule::configure_platformer2d_simulation_phases;
+pub use ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions;
+pub use ambition_platformer2d::input::MenuNavConsume;
+pub use ambition_platformer2d::runtime::schedule::configure_platformer2d_simulation_phases;
 pub use ambition_platformer2d::sim::{
     BossSteerSlot, Platformer2dSimulationPhase, PresentationSetupSet,
 };

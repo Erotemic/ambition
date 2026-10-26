@@ -81,7 +81,6 @@ ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk",
 ambition_mount = { path = "../../crates/ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../../crates/ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
-    "input",
     "portal",
 ] }
 # The pressed collectible (D33, 2026-09-03): the portal adapters equip/unequip

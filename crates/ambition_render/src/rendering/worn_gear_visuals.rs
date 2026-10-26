@@ -286,6 +286,7 @@ pub fn sync_worn_gear_visuals(
             session_scope.in_room(Some(room)),
             (
                 WornGearVisual { body: fact.body, gear: fact.gear.clone(), layer, room },
+                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(fact.body),
                 sprite,
                 anchor,
                 transform,

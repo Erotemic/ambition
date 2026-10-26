@@ -28,11 +28,11 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
         Startup,
         |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            crate::features::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
                 ambition_encounter::mob_seed::EncounterMobSeed {
@@ -276,11 +276,11 @@ fn fireball_damages_enemy_on_intersect() {
         Startup,
         |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            crate::features::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
                 ambition_encounter::mob_seed::EncounterMobSeed {
@@ -556,11 +556,11 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >| {
                 for (id, x) in order {
-                    crate::features::spawn_encounter_mob(
+                    ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                         &mut commands,
                         &catalog,
                         &Default::default(),
-                        &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                        &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                         "projectile_test",
                         ambition_encounter::mob_seed::EncounterMobSeed {
@@ -648,11 +648,11 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
         Startup,
         |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            crate::features::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
                 ambition_encounter::mob_seed::EncounterMobSeed {
@@ -834,11 +834,11 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
             Startup,
             |mut commands: Commands,
              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                crate::features::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                    &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                     "projectile_test",
                     ambition_encounter::mob_seed::EncounterMobSeed {
@@ -960,11 +960,11 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
         Startup,
         |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            crate::features::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
                 ambition_encounter::mob_seed::EncounterMobSeed {
@@ -1046,11 +1046,11 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
             Startup,
             |mut commands: Commands,
              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                crate::features::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                    &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                     "projectile_test",
                     ambition_encounter::mob_seed::EncounterMobSeed {
@@ -1621,11 +1621,11 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
             Startup,
             move |mut commands: Commands,
                   catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                crate::features::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                    &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                     "projectile_test",
                     ambition_encounter::mob_seed::EncounterMobSeed {
@@ -1717,11 +1717,11 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
             Startup,
             |mut commands: Commands,
              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                crate::features::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                    &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                     "projectile_test",
                     ambition_encounter::mob_seed::EncounterMobSeed {
@@ -1962,11 +1962,11 @@ fn the_body_a_stacked_shot_strikes(
         move |mut commands: Commands,
               catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
             for id in spawn_order {
-                crate::features::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                    &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                     "projectile_test",
                     ambition_encounter::mob_seed::EncounterMobSeed {

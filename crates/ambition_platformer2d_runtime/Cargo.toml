@@ -130,7 +130,7 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
-portal = ["ambition_platformer2d_session/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_trace/portal"]
+portal = ["ambition_platformer2d_publication/portal", "ambition_platformer2d_session/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_trace/portal"]
 # The WORLD MAP's simulation half. Default-OFF, and it was not optional at all
 # until 2026-09-09: this crate installed `MapStatePlugin` and
 # `install_map_simulation_systems` unconditionally, so `ambition_menu` was in

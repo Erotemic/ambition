@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use bevy::prelude::{MessageWriter, Res, ResMut, Resource};
 
-use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::publication::construction::RoomContentStagingRegistry;
 use ambition_platformer2d::asset_manager::image_stages::RenderWorldPresent;
 use ambition_platformer2d::game_shell::PREPARE_FIRST_ROOM_ART_WORK_ID;
 use ambition_platformer2d::load::{

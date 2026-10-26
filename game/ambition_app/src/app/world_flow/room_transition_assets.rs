@@ -18,7 +18,7 @@ use bevy::prelude::{
 };
 use bevy::time::Real;
 
-use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::publication::construction::RoomContentStagingRegistry;
 use ambition_platformer2d::asset_manager::image_stages::{
     AppGpuPreparedImages, RenderWorldPresent,
 };
@@ -1662,7 +1662,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 // was re-prepared from scratch on the next frame — a whole `RoomConstructionPlan`
                 // per neighbour per frame, thrown away, for as long as you stood there. It also
                 // meant the prefetch never covered exactly the rooms that cost the most to prepare.
-                ambition_platformer2d::actors::features::ActorConstructionContext::for_live_room_construction(
+                ambition_platformer2d::publication::construction::ActorConstructionContext::for_live_room_construction(
                     &construction_recipes,
                     &character_catalog,
                     &mechanics,

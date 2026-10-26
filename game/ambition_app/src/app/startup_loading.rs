@@ -14,7 +14,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::publication::construction::RoomContentStagingRegistry;
 use ambition_platformer2d::content::hole;
 use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
 use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};

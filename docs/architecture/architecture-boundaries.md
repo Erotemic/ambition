@@ -68,31 +68,16 @@ Representative rules:
 human explanation; policy IDs should point to a durable source doc rather than a
 completed migration ledger.
 
-## Exact allowlists
+## Scoped construction
 
-Allowlist files are exact reviewed inventories, not ceilings that can accumulate
-dead entries. The room-feature raw-spawn gate
-(`tests/ambition_workspace_policy/src/custom/lifecycle.rs`) reads:
+Placement interpreters receive `RootScope`. They can populate the allocated row
+and cannot allocate another root. Canonical body builders require an explicit
+session scope. Publication checks construction receipts against the live entity
+roster before it accepts a candidate.
 
-```text
-docs/architecture/architecture-boundary-allowlist.txt
-```
-
-The gate scans two roots: files under
-`crates/ambition_platformer2d_actor_monolith/src/features/ecs` whose path
-relative to that root starts with `spawn` (so `spawn_static.rs` and
-`spawn/portal_construction.rs` match one rule), and every file under
-`crates/ambition_platformer2d_actor_spawn/src/actor_spawn`. Every scanned file
-must appear exactly once, and its recorded count must equal its current raw
-`commands.spawn(` count.
-
-- A removed file, a missing row, or an excess allowance is a failure.
-- Reduce counts by moving creation through the canonical scoped construction
-  seam.
-- Increase a count only when a raw spawn is intentional, cannot use that seam,
-  and the same patch explains why.
-- The gate asserts a scanned-file FLOOR, not `> 0`. Only a deletion should lower
-  it. A filter that stops matching is how a name-matching gate goes blind.
+Keep raw `Commands` out of placement lowering callbacks. The typed scope and
+behavioral construction tests enforce this boundary. The completed migration's
+source-file inventory and spawn-count scanner are deleted.
 
 ### Adding or removing a crate touches files that name crates
 

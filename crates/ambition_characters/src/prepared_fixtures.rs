@@ -87,3 +87,36 @@ pub fn mary_o() -> CharacterDefinition {
             vec![slash("stomp", "mary_o.stomp", "mary_o.stomp.land")],
         ))
 }
+
+
+/// Body-complete fixture cast for tests that need registered characters but do
+/// not care which creatures they are.
+pub fn fixture_cast(ids: &[&str]) -> crate::prepared::PreparedCharacterRegistry {
+    let mut registry = crate::prepared::PreparedCharacterRegistry::default();
+    for id in ids {
+        let mut definition = crate::actor::definition::CharacterDefinition::new(*id, *id, "test")
+            .with_locomotion(crate::actor::CharacterLocomotion {
+                run_speed: 155.0,
+                move_style: crate::brain::MoveStyleSpec::Walk,
+                ..Default::default()
+            })
+            .with_contact_damage(crate::actor::ContactDamage {
+                strength: 0.70,
+                amount: 1,
+            })
+            .with_autonomous_profile(crate::brain::BrainProfile {
+                patrol_effort: 0.6774,
+                chase_effort: 1.0,
+                aggro_radius: 460.0,
+                attack_range: 150.0,
+                ..Default::default()
+            });
+        definition.vitals.max_health = Some(4);
+        let finalized = crate::prepared::prepare_and_finalize_for_test(
+            definition,
+            &crate::prepared::CharacterBindings::default(),
+        );
+        registry.insert_prepared(finalized.prepared);
+    }
+    registry
+}

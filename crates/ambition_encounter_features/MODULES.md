@@ -11,10 +11,11 @@
 | [`loading`](src/loading.rs) | Room → `EncounterSpec` loader plus the content-installed wave book. |
 | [`lock_walls`](src/lock_walls.rs) | Lock-wall contribution: the solid blocks that seal an arena's exits while an encounter is in flight. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for derived world state. |
+| [`spawn_service`](src/spawn_service.rs) | Build the bodies requested by encounter waves. |
 | [`switch_index`](src/switch_index.rs) | The switch INDEX rebuild, which stayed behind when the switch types left. |
 | [`systems`](src/systems.rs) | The Bevy adapters around the generic encounter lifecycle (E8/E9). |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

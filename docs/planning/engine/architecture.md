@@ -212,8 +212,8 @@ code over spatial dimension to advertise parity.
 
 ## Standing decisions
 
-- Construction and live mutation are separate operations. Keep the corrected
-  spawn boundary (`scripts/tests/test_actor_spawn_boundary.py`). Provoking,
+- Construction and live mutation are separate operations. Keep body construction
+  below live body execution. Provoking,
   querying or rebuilding an existing actor is not spawning.
 - Construction, transit and resource hydration are different operations even
   when one reset triggers all three. Rebuild an occurrence with its canonical

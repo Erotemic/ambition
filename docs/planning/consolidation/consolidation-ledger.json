@@ -4764,7 +4764,7 @@
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
         "crates/ambition_platformer2d_construction/src/lib.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs"
+        "crates/ambition_platformer2d_publication/src/construction/mod.rs"
       ],
       "evidence": [
         {
@@ -4773,7 +4773,7 @@
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
             "crates/ambition_platformer2d_construction/src/lib.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs"
+            "crates/ambition_platformer2d_publication/src/construction/mod.rs"
           ]
         }
       ],

@@ -9,10 +9,10 @@ use ambition_platformer2d_shared_tangle::construction::{
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Entity, Update, World};
-use ambition_platformer2d_actor_monolith::construction_fixtures::*;
-use ambition_platformer2d_actor_monolith::features::{
-    ActorConstructionContext, RoomFeatureConstructionPlan,
-};
+use crate::construction::fixtures::*;
+use crate::construction::ActorConstructionContext;
+use crate::construction::RoomFeatureConstructionPlan;
+
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionReceipt, RelationCheck,
@@ -202,7 +202,7 @@ fn a_boss_the_construction_executor_built_can_summon() {
         ));
     let plan = prepare(
         &room,
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the boss room plans");
@@ -923,7 +923,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 #[test]
 fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
     let room = empty_room("hall");
-    let mut staging = ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default();
+    let mut staging = crate::construction::RoomContentStagingRegistry::default();
     staging
         .register("hall", "test_provider", "boss", "boss.v1", |_room| {
             vec![staged_giant("gnu")]
@@ -1097,7 +1097,7 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
     for seed in [&host, &hand_l, &hand_r] {
         let plan = prepare(
             &giant_room(),
-            &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+            &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
         )
         .expect("the giant room plans");
@@ -1155,7 +1155,7 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
 fn a_committed_mount_pair_is_welded_both_ways_and_published() {
     let plan = prepare(
         &mounted_pair_room(),
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the mounted room plans");
@@ -1217,7 +1217,7 @@ fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
         .push(("the_rider".to_string(), "boss_mount".to_string()));
     let plan = prepare(
         &room,
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the boss-rider room plans");
@@ -1300,7 +1300,7 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
         ));
     let plan = prepare(
         &room,
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the room plans");
@@ -1341,7 +1341,7 @@ fn a_boss_respawns_through_the_planner() {
         ));
     let plan = prepare(
         &room,
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the room plans");
@@ -1465,7 +1465,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         });
     let plan = prepare(
         &room,
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the garden plans");
@@ -1537,7 +1537,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
 fn a_stale_plans_room_is_refused_publication() {
     let plan = prepare(
         &giant_room(),
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the room plans (epoch 4)");
@@ -1567,7 +1567,7 @@ fn a_stale_plans_room_is_refused_publication() {
 fn a_plan_matching_the_live_binding_publishes() {
     let plan = prepare(
         &giant_room(),
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the room plans (epoch 4)");

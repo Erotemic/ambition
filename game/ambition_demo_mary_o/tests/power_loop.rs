@@ -18,7 +18,7 @@
 //! projectile body. Nothing here inserts an `ActionSet` or a moveset by hand — if
 //! the reconcile stopped running, the ranged assertions would fail.
 
-use ambition_platformer2d::actors::features::spawn_encounter_mob;
+use ambition_platformer2d::actor::spawn_encounter_mob;
 use ambition_platformer2d::encounter::mob_seed::EncounterMobSeed;
 use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::prelude::*;

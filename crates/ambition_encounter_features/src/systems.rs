@@ -185,7 +185,7 @@ pub fn drive_wave_encounters(
     // character catalog, the prepared cast and the authored sheets as well —
     // every one of them a BODY-CONSTRUCTION input it needed only because it
     // served its own spawn requests. Serving moved to
-    // `features::serve_encounter_spawn_commands`, and the inputs went with it.
+    // `spawn_service::serve_encounter_spawn_commands`, and the inputs went with it.
     //
     // Every live room's, each player's own (OW1 cut 7c): with two live rooms
     // both rooms' encounters run.
@@ -365,7 +365,7 @@ pub fn drive_wave_encounters(
                 }
                 for event in events {
                     // The SpawnCommands go out on the bus like every other
-                    // event; `features::serve_encounter_spawn_commands` reads
+                    // event; `spawn_service::serve_encounter_spawn_commands` reads
                     // them. This driver no longer serves its own requests.
                     // The room goes with the request: a mob is served into
                     // its occurrence's live room.
@@ -386,7 +386,7 @@ pub fn drive_wave_encounters(
     // 4. Spawn requests are SERVED ELSEWHERE (2026-09-03). The wave director
     //    emits `EncounterEvent::SpawnCommand` and this system used to pull them
     //    out of its own local vector and build the bodies itself — driving and
-    //    serving in one place. `features::serve_encounter_spawn_commands` is
+    //    serving in one place. `spawn_service::serve_encounter_spawn_commands` is
     //    the server now: the domain says what it wants spawned, and the layer
     //    that owns body construction decides how.
 

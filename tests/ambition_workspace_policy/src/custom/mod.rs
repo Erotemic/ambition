@@ -13,7 +13,6 @@
 pub mod content_ownership;
 pub mod control_frame;
 pub mod determinism;
-pub mod lifecycle;
 pub mod module_size;
 pub mod session_world;
 
@@ -27,7 +26,6 @@ pub fn metas() -> Vec<CustomMeta> {
     out.extend(module_size::metas());
     out.extend(determinism::metas());
     out.extend(control_frame::metas());
-    out.extend(lifecycle::metas());
     out.extend(content_ownership::metas());
     out.extend(session_world::metas());
     out

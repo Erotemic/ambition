@@ -30,3 +30,5 @@ pub use transaction::{
 mod tests;
 #[cfg(test)]
 mod construction_tests;
+
+pub mod construction;

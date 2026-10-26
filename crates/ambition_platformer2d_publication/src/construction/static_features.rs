@@ -3,7 +3,8 @@
 //! These functions stay family-specific so adding an authored static
 //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
 
-use super::*;
+use bevy::prelude::*;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
 use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_combat::hazard_runtime::HazardRuntime;

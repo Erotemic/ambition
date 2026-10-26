@@ -131,7 +131,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
         Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition_platformer2d::construction::placements::PlacementLoweringRegistry>,
-        Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
+        Res<ambition_platformer2d::publication::construction::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::construction::ActorConstructionRegistry>,
         Res<world_manifest::WorldManifest>,
         Option<
@@ -512,7 +512,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     placement_lowering: &ambition_platformer2d::construction::placements::PlacementLoweringRegistry,
-    content_staging: &ambition_platformer2d::actors::features::RoomContentStagingRegistry,
+    content_staging: &ambition_platformer2d::publication::construction::RoomContentStagingRegistry,
     construction_recipes: &ambition_platformer2d::construction::ActorConstructionRegistry,
     world_manifest: &world_manifest::WorldManifest,
     // The published controller policies a PLACEMENT may name. NOT part of
@@ -638,7 +638,7 @@ pub(super) fn reload_ldtk_world_from_disk(
             ]
         })?;
 
-    let construction = ambition_platformer2d::actors::features::ActorConstructionContext::for_content_replacement(
+    let construction = ambition_platformer2d::publication::construction::ActorConstructionContext::for_content_replacement(
         construction_recipes,
         character_catalog,
         &live_mechanics,

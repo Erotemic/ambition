@@ -7,7 +7,6 @@
 
 use ambition_boss_encounter::BossCatalog;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_encounter::mob_seed::EncounterMobSeed;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 use std::collections::BTreeSet;
@@ -429,7 +428,7 @@ impl<'a> ActorConstructionContext<'a> {
 /// private, so no other road can make one) and consumed by the room
 /// coordinator's verdict (`ambition_platformer2d_publication`).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RoomFeatureConstructionReceipt {
+pub(crate) struct RoomFeatureConstructionReceipt {
     authoritative_ids: BTreeSet<String>,
     construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
     capability_lanes: capability_lanes::CapabilityReceipts,
@@ -504,7 +503,7 @@ fn placement_counts_against_the_actor_cap(
 ) -> bool {
     match &record.schema {
         ambition_entity_catalog::placements::PlacementSchema::Interactable(spec) => {
-            crate::features::ecs::spawn_static::counts_against_the_actor_cap(&spec.kind)
+            static_features::counts_against_the_actor_cap(&spec.kind)
         }
         _ => false,
     }
@@ -953,12 +952,12 @@ impl RoomFeatureConstructionPlan {
     /// itself against the shared baseline. A lane accessor exists so a test can
     /// prove an identity lives in one lane and not another — which is a claim
     /// only a test makes, and the reason these were dead code in every build.
-    #[cfg(all(any(test, feature = "test-support"), feature = "portal"))]
+    #[cfg(all(test, feature = "portal"))]
     pub fn portal_construction(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
         self.capability_lanes.portal()
     }
 
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(test)]
     pub fn gravity_construction(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan
@@ -1005,7 +1004,7 @@ impl RoomFeatureConstructionPlan {
     ///
     /// ⚠ `debug_assert_binding` checks the lanes share a content BINDING, which
     /// is a different fact and is why it did not catch this.
-    pub fn construction_transactions(
+    pub(crate) fn construction_transactions(
         &self,
         session: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
     ) -> Vec<ambition_platformer2d_shared_tangle::construction::TransactionId> {
@@ -1018,14 +1017,14 @@ impl RoomFeatureConstructionPlan {
     ///
     /// ⛔ What `transaction::open` declares it is RECONSTRUCTING. See that
     /// function for the measurement that nothing declared anything at all.
-    pub fn planned_sim_ids(
+    pub(crate) fn planned_sim_ids(
         &self) -> BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let mut all: BTreeSet<_> = self.construction.planned_ids().into_iter().collect();
         self.capability_lanes.planned_sim_ids(&mut all);
         all
     }
 
-    pub fn construction_binding(
+    pub(crate) fn construction_binding(
         &self,
     ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {
         // ⛔ THE EXPECTED-LIVE ONE: this feeds `transaction::close`'s staleness
@@ -1040,7 +1039,7 @@ impl RoomFeatureConstructionPlan {
     /// Verify every independently typed construction lane against the same
     /// pre-transaction baseline. The room transaction owns publication; each
     /// lane keeps its own parameter, service, and postcondition vocabulary.
-    pub fn verify_committed_construction(
+    pub(crate) fn verify_committed_construction(
         &self,
         receipt: &RoomFeatureConstructionReceipt,
         baseline: &ambition_platformer2d_shared_tangle::construction::TransactionBaseline,
@@ -1094,7 +1093,7 @@ impl RoomFeatureConstructionPlan {
     /// This room's plan with nothing in it, for a crossing that joins a live
     /// room already built (OW1 cut 6e). The transactions are the same, so
     /// the publication verifies an empty roster against them.
-    pub fn emptied(&self) -> Self {
+    pub(crate) fn emptied(&self) -> Self {
         Self {
             room: self.room.clone(),
             content_requests: Vec::new(),
@@ -1160,7 +1159,7 @@ impl RoomFeatureConstructionPlan {
     ///
     /// This uses the same typed construction plan ordinary room construction
     /// commits. Capability-owned lanes are consulted after the actor lane.
-    pub fn respawn_authoritative_entity(
+    pub(crate) fn respawn_authoritative_entity(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
@@ -1189,7 +1188,7 @@ impl RoomFeatureConstructionPlan {
     /// hands are exactly such a cluster: asking for ANY one of the three — host,
     /// left hand, right hand — rebuilds all three. For an unrelated row the
     /// closure is just itself, so this is a plain single-row commit.
-    pub fn respawn_authoritative_sim_id(
+    pub(crate) fn respawn_authoritative_sim_id(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
@@ -1309,174 +1308,73 @@ impl RoomFeatureConstructionPlan {
     }
 }
 
-pub fn spawn_room_feature_entities_from_plan(
-    commands: &mut Commands,
-    plan: &RoomFeatureConstructionPlan,
-    session_scope: SessionSpawnScope,
-    facts: &ambition_platformer2d_construction::PersistedFates,
-) -> RoomFeatureConstructionReceipt {
-    plan.spawn(commands, session_scope, facts)
-}
 
-/// Spawn one hostile actor for an encounter wave.
-///
-/// The encounter system still owns wave timing, but the mob itself is a normal
-/// feature entity queried by actor, projectile, rendering, and health systems.
-/// [`EncounterMobSeed`] says which body, which character, and which brain — and
-/// documents why those are three answers rather than one.
-pub fn spawn_encounter_mob(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
-    session_scope: SessionSpawnScope,
-    encounter_id: impl Into<String>,
-    mob: EncounterMobSeed<'_>,
-) {
-    ambition_platformer2d_actor_spawn::spawn_encounter_mob(
-        commands,
-        catalog,
-        authored_sheets,
-        prepared,
-        session_scope,
-        encounter_id,
-        mob,
-    );
-}
 
 #[cfg(test)]
 mod tests;
+mod static_features;
 
-/// Serve the encounter domain's spawn REQUESTS.
-///
-/// ⭐ THE REQUEST ALREADY EXISTED. `ambition_encounter`'s wave director emits
-/// [`ambition_encounter::EncounterEvent::SpawnCommand`] — id, character, kind,
-/// pos, size, all primitives — onto the ordinary event bus. What the actor
-/// kernel had was not a missing protocol but a SERVER living inside the
-/// encounter adapter: the wave driver collected its own `SpawnCommand`s out of a
-/// local vector and spawned them itself, so serving and driving were one system.
-///
-/// This is the server on its own, in the layer that owns body construction.
-/// The domain says WHAT it wants spawned; this crate decides HOW a body is
-/// assembled — the orchestration/construction line the decomposition doctrine
-/// draws.
-///
-/// ⚠ Ordered `.after(WaveEncounterDriven)`: the request and its service are the
-/// same tick, and a reader that ran first would serve last tick's requests.
-pub fn serve_encounter_spawn_commands(
-    mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
-    mut events: bevy::prelude::MessageReader<ambition_encounter::EncounterEventMsg>,
-    catalog: bevy::prelude::Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    // The session's cast, not the App's (`SessionCast`). A shell session that
-    // lost its generation is answered with no spawn, as a live room rebuild is.
-    cast: ambition_characters::prepared::SessionCast,
-    // The sheets of the running session, as every construction road reads
-    // them (`GenerationMechanics::sheets`). `None`: no session runs, see
-    // `SessionMechanics`.
-    generation: Option<bevy::prelude::Res<ambition_platformer2d_construction::mechanics::SessionMechanics>,
-    >,
-    // The room each mob is built in: it starts on the ground there, as a
-    // placed enemy does. `None`: a composition with no rooms.
-    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
-) {
-    let (Some(generation), Some(session_scope)) = (generation, commands.spawn_scope()) else {
-        return;
-    };
-    let authored_sheets = &generation.sheets;
-    let Some(prepared) = cast.get() else {
-        if !events.is_empty() {
-            bevy::log::warn_once!(
-                "an encounter asked for a spawn in a session with no prepared cast; \
-                 nothing was spawned (the session lost its generation)"
-            );
-        }
-        return;
-    };
-    for msg in events.read() {
-        let ambition_encounter::EncounterEvent::SpawnCommand {
-            id,
-            character,
-            kind,
-            pos,
-            size,
-        } = &msg.event
-        else {
-            continue;
-        };
-        let spec = rooms
-            .as_ref()
-            .and_then(|rooms| {
-            msg.room.and_then(|room| rooms.definition_in(room)).map(|d| rooms.rooms().spec(d))
-        });
-        let pos = ambition_platformer2d_core::Vec2::new(pos[0], pos[1]);
-        let size = ambition_platformer2d_core::Vec2::new(size[0], size[1]);
-        let flies = character
-            .as_deref()
-            .and_then(|character| prepared.get(character))
-            .and_then(|character| character.locomotion.as_ref())
-            .and_then(|locomotion| locomotion.baseline_free_flight)
-            .unwrap_or(false);
-        let pos = spec.map_or(pos, |spec| {
-            wave_mob_start(spec, &msg.encounter, id, pos, size, flies)
-        });
-        spawn_encounter_mob(
-            &mut commands,
-            &catalog,
-            authored_sheets,
-            prepared,
-            // ⛔ INTO THE OCCURRENCE'S LIVE ROOM, which the request carries. An
-            // unstamped body is in NO room while two are live: a wave there
-            // spawned mobs nothing in either room could hit, see or count.
-            session_scope.in_room(msg.room),
-            msg.encounter.clone(),
-            ambition_encounter::mob_seed::EncounterMobSeed {
-                id: id.clone(),
-                character: character.as_deref(),
-                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(kind.clone()),
-                pos,
-                size,
-            },
-        );
-    }
-}
 
-/// Where a wave mob starts in `room`: on the ground under its authored box,
-/// as a placed enemy does (`RoomSpec::settled_on_ground`), unless it flies.
-///
-/// ⛔ A box the room cannot settle and that is inside solid ground is an
-/// authoring error: the body would start in the floor. It is built where it
-/// was authored and reported loudly, so it is found and fixed (Jon,
-/// 2026-10-18: "if an enemy spawns in the floor we should flag that"). The
-/// content check `wave_spawns_start_clear_of_solid_ground` catches it before
-/// it ships.
-fn wave_mob_start(
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
-    encounter: &str,
-    id: &str,
-    pos: ambition_platformer2d_core::Vec2,
-    size: ambition_platformer2d_core::Vec2,
-    flies: bool,
-) -> ambition_platformer2d_core::Vec2 {
-    use ambition_platformer2d_core::AabbExt;
-    let body = ambition_platformer2d_core::Aabb::new(pos, size * 0.5);
-    if !flies {
-        if let Some(settled) = room.settled_on_ground(body) {
-            return settled.center();
-        }
-    }
-    let inside = room.embeds(body);
-    if !inside.is_empty() {
-        bevy::log::error!(
-            "SPAWNED IN THE FLOOR: wave mob {id} of encounter `{encounter}` in room `{}` starts at {pos:?} \
-             (box {size:?}) inside solid ground {inside:?}; move its spawn in the encounter's waves",
-            room.id
-        );
-    }
-    pos
-}
 
 // ⭐ THE SPAWN SERVICE PLUGIN AND ITS GUARD MOVED TO THE RUNTIME (2026-09-03).
 // The system above is this crate's — body construction is the kernel's job —
 // but its REGISTRATION orders against `ambition_encounter_features`'
 // `WaveEncounterDriven`, and this crate must not name that crate. The runtime
 // composes both, the same way it composes `ambition_world_items`.
+
+/// Install the built-in authored placement interpreters.
+pub struct RoomConstructionPlugin;
+impl bevy::prelude::Plugin for RoomConstructionPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use ambition_platformer2d_world::placements::PlacementLoweringAppExt;
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Hazard,
+            "ambition_platformer2d_publication",
+            "RoomConstructionPlugin",
+            "placement.hazard.v1",
+            static_features::lower_hazard_placement,
+        );
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Interactable,
+            "ambition_platformer2d_publication",
+            "RoomConstructionPlugin",
+            "placement.interactable.v1",
+            static_features::lower_interactable_placement,
+        );
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Pickup,
+            "ambition_platformer2d_publication",
+            "RoomConstructionPlugin",
+            "placement.pickup.v1",
+            ambition_platformer2d_items::construction::lower_pickup_placement,
+        );
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Chest,
+            "ambition_platformer2d_publication",
+            "RoomConstructionPlugin",
+            "placement.chest.v1",
+            ambition_platformer2d_items::construction::lower_chest_placement,
+        );
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Breakable,
+            "ambition_platformer2d_publication",
+            "RoomConstructionPlugin",
+            "placement.breakable.v1",
+            ambition_breakables::construction::lower_breakable_placement,
+        );
+        #[cfg(feature = "portal")]
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Portal,
+            "ambition_platformer2d_publication",
+            "RoomConstructionPlugin",
+            "placement.portal.v1",
+            static_features::lower_portal_placement,
+        );
+
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod fixtures;
+#[cfg(test)]
+mod plan_tests;

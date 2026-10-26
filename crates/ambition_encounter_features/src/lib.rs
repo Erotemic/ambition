@@ -139,3 +139,7 @@ pub mod authored_switch_commands;
 
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;
+
+pub mod spawn_service;
+
+pub use spawn_service::EncounterSpawnServicePlugin;

@@ -56,7 +56,6 @@ numbers are locators; re-read the symbols on the working head.
 git rev-parse HEAD
 git status --short
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
-python3 -m pytest -q scripts/tests/test_actor_spawn_boundary.py
 ```
 
 A regex search is not a compiler dependency graph. Widen a query before you
@@ -372,7 +371,6 @@ the focused tests that ran, profile evidence and open questions. Run:
 
 ```bash
 git diff --check
-python3 -m pytest -q scripts/tests/test_actor_spawn_boundary.py
 python3 scripts/check_doc_links.py
 python3 scripts/check_planning_citations.py
 ```

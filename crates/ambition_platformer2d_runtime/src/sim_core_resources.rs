@@ -113,7 +113,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_core::ActiveMovementTuning>()
             // The room-content staging seam: providers/content register pure
             // stagers into it; an app with none stages rooms as authored.
-            .init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>()
+            .init_resource::<ambition_platformer2d_publication::construction::RoomContentStagingRegistry>()
             // The closed actor construction table, plus a descriptor-only
             // catalog that fingerprints every independently typed construction
             // domain installed by the composition.

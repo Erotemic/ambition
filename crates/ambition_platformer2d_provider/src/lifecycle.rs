@@ -233,7 +233,7 @@ pub(crate) struct PlatformerPreparation<'w> {
         Res<'w, ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
     >,
     content_staging:
-        Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
+        Option<Res<'w, ambition_platformer2d_publication::construction::RoomContentStagingRegistry>>,
     //  This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
     // The next field added here must bundle something first.
     //
@@ -984,7 +984,7 @@ pub fn prepare_platformer_content_for_app(
         .cloned();
     let content_staging = app
         .world()
-        .get_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>(
+        .get_resource::<ambition_platformer2d_publication::construction::RoomContentStagingRegistry>(
         )
         .cloned();
     let construction_recipes = app
@@ -1531,7 +1531,7 @@ pub fn prepare_platformer_content(
         &ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Option<
-        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+        &ambition_platformer2d_publication::construction::RoomContentStagingRegistry,
     >,
     mechanical: MechanicalRegistries,
     snapshot_schema: ambition_platformer2d_runtime::SnapshotSchemaFingerprint,
@@ -2396,7 +2396,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     placement_lowering:
         Res<'w, ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
     content_staging:
-        Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
+        Res<'w, ambition_platformer2d_publication::construction::RoomContentStagingRegistry>,
     construction_recipes:
         Res<'w, ambition_platformer2d_construction::ActorConstructionRegistry>,
     /// ⛔⛤ **THE ONLY DURABLE INPUT THIS BUILDER HAS, AND THAT IS THE POINT —
@@ -2629,7 +2629,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // as arguments is what stopped that being a thing a road can
                 // forget.
                 construction:
-                    ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_live_room_construction(
+                    ambition_platformer2d_publication::construction::ActorConstructionContext::for_live_room_construction(
                         &self.construction_recipes,
                         candidate_catalog
                             .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog),
@@ -2668,7 +2668,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                         // ride along because a row may name an object minted by
                         // a record next door — see `OccurrenceContinuity`.
                         Some(
-                            ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
+                            ambition_platformer2d_publication::construction::OccurrenceContinuity {
                                 remembered: horizon.occurrences(),
                                 world: &room_set.rooms,
                                 // ⛔⛤ B'S DESCRIPTIONS, NOT A'S — REVIEW FINDING
@@ -3454,10 +3454,10 @@ mod tests {
 
     fn staging_registry(
         reverse: bool,
-    ) -> ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry {
+    ) -> ambition_platformer2d_publication::construction::RoomContentStagingRegistry {
         let mut registry =
-            ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default();
-        let register_a = |registry: &mut ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry| {
+            ambition_platformer2d_publication::construction::RoomContentStagingRegistry::default();
+        let register_a = |registry: &mut ambition_platformer2d_publication::construction::RoomContentStagingRegistry| {
             registry
                 .register(
                     "same-room",
@@ -3468,7 +3468,7 @@ mod tests {
                 )
                 .unwrap();
         };
-        let register_b = |registry: &mut ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry| {
+        let register_b = |registry: &mut ambition_platformer2d_publication::construction::RoomContentStagingRegistry| {
             registry
                 .register(
                     "same-room",
@@ -3492,7 +3492,7 @@ mod tests {
     fn fixture_content(
         source: PreparedPlatformerSource,
         characters: &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
-        staging: &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+        staging: &ambition_platformer2d_publication::construction::RoomContentStagingRegistry,
     ) -> PreparedContent {
         fixture_content_with_recipes(source, characters, staging, None)
     }
@@ -3500,7 +3500,7 @@ mod tests {
     fn fixture_content_with_recipes(
         source: PreparedPlatformerSource,
         characters: &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
-        staging: &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+        staging: &ambition_platformer2d_publication::construction::RoomContentStagingRegistry,
         construction_recipes: Option<String>,
     ) -> PreparedContent {
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");

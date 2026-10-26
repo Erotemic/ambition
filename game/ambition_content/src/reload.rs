@@ -1089,7 +1089,7 @@ fn publish_ambition_tuning(
             // contents are staged.
             crate::duel_arena::register_duel_content_staging(
                 &mut world.get_resource_or_insert_with(
-                    ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default,
+                    ambition_platformer2d::publication::construction::RoomContentStagingRegistry::default,
                 ),
                 &rules.duel,
             );

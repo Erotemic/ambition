@@ -14,6 +14,8 @@ publish = false
 # material ("the LDtk loader, ECS spawning, banners, and save/quest adapters stay
 # above it"), which is why this is a sibling crate rather than a module there.
 [dependencies]
+ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
@@ -28,6 +30,9 @@ bevy = { version = "0.19.1", default-features = false }
 # The authored encounter fixtures are RON, parsed here and in the tests.
 
 [dev-dependencies]
+ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+serde_json = "1"
+ambition_world_items = { path = "../ambition_world_items" }
 # Test-only: the ONLY `ron::` uses in this crate are `src/tests.rs` and the
 # `ENCOUNTER_WAVE_BOOK_FIXTURE` static, which carries `#[cfg(test)]` and whose
 # own doc says production embeds no encounter wave data. No benches, no

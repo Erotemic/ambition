@@ -22,7 +22,6 @@ pub mod cutscene;
 pub mod durable_save_horizon;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.
-pub mod encounter_spawn_service;
 #[cfg(test)]
 mod executor_tests;
 pub mod extension_composition;
@@ -175,8 +174,8 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_construction::ActorConstructionRegistry;
     // A direct-entry demo has one experience, so its first room reads the
     // save of the world it lands in, and says so.
-    pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
-    pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
+    pub use ambition_platformer2d_publication::construction::ActorConstructionContext;
+    pub use ambition_platformer2d_publication::construction::RoomContentStagingRegistry;
     pub use ambition_platformer2d_publication::CommitFactsSource;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
     pub use ambition_platformer2d_session::setup::{SimulationSetup, simulation_world};
@@ -498,6 +497,7 @@ impl PluginGroup for PlatformerEnginePlugins {
         let builder = builder.add(ambition_menu::map::MapStatePlugin);
         let builder = builder
             // The world-prep phase (body integration, gravity collection, etc.).
+            .add(ambition_platformer2d_publication::construction::RoomConstructionPlugin)
             .add(ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin)
             // A sheet-authored body adopts the box for the pose it is showing, in
             // `WorldPrepSet::BeforeIntegrate`.
@@ -567,7 +567,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The kernel serves the encounter domain's spawn requests; the
             // registration is here so the domain's own plugin names nothing in
             // the actor crate.
-            .add(crate::encounter_spawn_service::EncounterSpawnServicePlugin)
+            .add(ambition_encounter_features::EncounterSpawnServicePlugin)
             // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
             .add(ambition_platformer2d_actor_monolith::features::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)

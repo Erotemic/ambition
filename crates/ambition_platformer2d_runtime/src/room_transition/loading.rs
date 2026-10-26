@@ -110,7 +110,7 @@ pub fn advance_room_transition_content_epoch_system(
         ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Res<
-        ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+        ambition_platformer2d_publication::construction::RoomContentStagingRegistry,
     >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
@@ -634,7 +634,7 @@ pub fn begin_room_transition_load_system(
     room_set: world_rooms::LiveRoomSpecs,
     construction_services: (
         Res<ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
-        Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
+        Res<ambition_platformer2d_publication::construction::RoomContentStagingRegistry>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition_boss_encounter::BossCatalog>,
         Res<ambition_platformer2d_construction::ActorConstructionRegistry>,
@@ -1387,7 +1387,7 @@ pub fn begin_room_transition_load_system(
                 // content generation (same fix reset received). Plus the cast,
                 // and the policies a PLACEMENT may name: a room whose enemy
                 // spawn authors `brain_profile` resolves it against those.
-                ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_live_room_construction(
+                ambition_platformer2d_publication::construction::ActorConstructionContext::for_live_room_construction(
                     &construction_services.4,
                     &construction_services.2,
                     mechanics,
@@ -1425,7 +1425,7 @@ pub fn begin_room_transition_load_system(
                     // it would delete the object from the world. They are one
                     // value for exactly that reason.
                     selected_ledger.map(|remembered| {
-                        ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
+                        ambition_platformer2d_publication::construction::OccurrenceContinuity {
                             remembered,
                             world: &room_set.rooms().rooms,
                             minted: selected_minted,

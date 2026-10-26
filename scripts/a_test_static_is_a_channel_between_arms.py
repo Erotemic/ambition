@@ -118,7 +118,7 @@ ADJUDICATED: dict[tuple[str, str], str] = {
     ): "cross-arm UNIQUENESS is the job — it names failure-dump files, and two "
     "arms must not pick the same one",
     (
-        "crates/ambition_platformer2d_actor_monolith/src/construction_fixtures.rs",
+        "crates/ambition_platformer2d_publication/src/construction/fixtures.rs",
         "CAST",
     ): "a `OnceLock` built by `get_or_init` from a deterministic builder, read "
     "only afterwards: every arm sees the same value, and none can change it",
@@ -127,14 +127,14 @@ ADJUDICATED: dict[tuple[str, str], str] = {
         "CAST",
     ): "the same once-built immutable fixture cast as the row above",
     (
-        "crates/ambition_platformer2d_actor_monolith/src/construction_fixtures.rs",
+        "crates/ambition_platformer2d_publication/src/construction/fixtures.rs",
         "MECHANICS",
     ): "the SessionMechanics wrapper around that same cast, once-built by "
     "`get_or_init` and read only afterwards: `GenerationMechanics` borrows it "
     "for `'static`, so a per-arm local could not outlive the plan it is handed "
     "to, and no arm holds a handle that could change it",
     (
-        "crates/ambition_platformer2d_actor_monolith/src/construction_fixtures.rs",
+        "crates/ambition_platformer2d_publication/src/construction/fixtures.rs",
         "CANDIDATE_INSERTIONS",
     ): "a single-arm recorder, reset at entry to each phase. ⚠ LATENT: a second "
     "arm touching it inherits the defect this checker exists for",

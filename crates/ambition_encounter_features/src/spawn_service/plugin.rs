@@ -1,18 +1,5 @@
-//! The kernel's spawn server, registered where both sides are nameable.
+//! Install encounter body construction after the wave director.
 
-/// Composes the actor kernel's `serve_encounter_spawn_commands`.
-///
-/// ⭐ THE LAST THING THE ENCOUNTER ADAPTER NAMED IN THIS CRATE. The server lives
-/// here because body construction is the kernel's; its registration lived in the
-/// encounter plugin only because that plugin was here too. A plugin that moves
-/// into `ambition_encounter` cannot name a kernel system, so the registration
-/// comes home and the runtime composes it — the same shape as
-/// `EncounterRewardSyncPlugin`.
-///
-/// ⚠ Ordered `.after(WaveEncounterDriven)`: the request and its service are the
-/// same tick, and a server that ran first would serve last tick's requests. That
-/// set is encounter vocabulary and stays nameable from here after the module
-/// moves.
 pub struct EncounterSpawnServicePlugin;
 
 impl bevy::prelude::Plugin for EncounterSpawnServicePlugin {
@@ -22,11 +9,11 @@ impl bevy::prelude::Plugin for EncounterSpawnServicePlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::serve_encounter_spawn_commands
+            crate::spawn_service::serve_encounter_spawn_commands
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::EncounterSimulation,
                 )
-                .after(ambition_encounter_features::WaveEncounterDriven)
+                .after(crate::WaveEncounterDriven)
                 .run_if(bevy::ecs::prelude::any_with_component::<ambition_encounter::Encounter>),
         );
     }
@@ -46,7 +33,7 @@ mod spawn_request_service_order {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
     /// ⛔ `serve_encounter_spawn_commands` must be ordered AFTER
-    /// [`ambition_encounter_features::WaveEncounterDriven`].
+    /// [`crate::WaveEncounterDriven`].
     ///
     /// The domain's wave director emits `EncounterEvent::SpawnCommand` onto the
     /// bus; this kernel serves it. If the server were unordered relative to the
@@ -64,8 +51,8 @@ mod spawn_request_service_order {
         // `EncounterSpawnServicePlugin`, which the runtime composes beside it.
         // A guard that built only one would pass by not finding the other.
         let mut app = App::new();
-        app.add_plugins(ambition_encounter_features::EncounterSimulationSchedulePlugin);
-        app.add_plugins(crate::encounter_spawn_service::EncounterSpawnServicePlugin);
+        app.add_plugins(crate::EncounterSimulationSchedulePlugin);
+        app.add_plugins(super::EncounterSpawnServicePlugin);
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         let schedule = schedules
@@ -75,7 +62,7 @@ mod spawn_request_service_order {
 
         let driver_set = graph
             .system_sets
-            .get_key(ambition_encounter_features::WaveEncounterDriven.intern())
+            .get_key(crate::WaveEncounterDriven.intern())
             .expect("WaveEncounterDriven must be a registered SystemSet");
         // BY SHAPE, NEVER BY NAME: `system.name()` is a placeholder unless the
         // build graph unifies `bevy_ecs/debug` on, so a name lookup passes
@@ -86,7 +73,7 @@ mod spawn_request_service_order {
         // members of it.
         let service_alone = {
             let mut alone = App::new();
-            alone.add_plugins(crate::encounter_spawn_service::EncounterSpawnServicePlugin);
+            alone.add_plugins(super::EncounterSpawnServicePlugin);
             let sim = alone.sim_schedule();
             let count = alone
                 .world()

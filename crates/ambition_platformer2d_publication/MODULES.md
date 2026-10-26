@@ -6,12 +6,13 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`construction`](src/construction/mod.rs) | ECS-feature spawn facade. |
 | [`custody_handoffs`](src/custody_handoffs.rs) | What a publication owes the custodian of a hand it emptied. |
 | [`first_room`](src/first_room.rs) | A session's first room: published into a session root that may still be a hidden candidate, before any body of the session is built. |
 | [`stage`](src/stage.rs) | Canonical prepared room construction. |
 | [`transaction`](src/transaction.rs) | Room construction transaction boundary. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

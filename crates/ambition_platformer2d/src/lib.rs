@@ -1056,7 +1056,7 @@ pub mod actor {
     pub use ambition_combat::actor_tuning::ActorPolicy;
     /// Who a spawned body is: its stable id and display name.
     pub use ambition_combat::components::ActorIdentity;
-    pub use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
+    pub use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest, spawn_encounter_mob};
     /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
     /// movement kernel's own type; the monolith re-exported it twice
     /// (`features` → `features::ecs::actors::motion` → `_core`), so 125 call
@@ -1066,7 +1066,7 @@ pub mod actor {
     pub use ambition_platformer2d_core::movement::MotionModel;
 
     /// What a room stages when it opens.
-    pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
+    pub use ambition_platformer2d_publication::construction::RoomContentStagingRegistry;
 
     /// What a body can reach for.
     ///

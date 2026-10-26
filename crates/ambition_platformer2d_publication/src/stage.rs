@@ -17,7 +17,7 @@ use bevy::ecs::entity::Entity;
 use bevy::prelude::{Commands, Resource};
 
 use super::transaction;
-use ambition_platformer2d_actor_monolith::features::{self, RoomFeatureConstructionPlan};
+use crate::construction::{self as features, RoomFeatureConstructionPlan};
 use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
@@ -151,12 +151,7 @@ pub(crate) fn construct_room_candidate(
         };
         let receipt = {
             let mut inner = Commands::new(&mut queue, &*world);
-            let receipt = features::spawn_room_feature_entities_from_plan(
-                &mut inner,
-                &plan,
-                session_scope,
-                &facts,
-            );
+            let receipt = (&plan).spawn(&mut inner, session_scope, &facts);
             // no platform VISUAL is spawned here any more. The commit installs
             // platform STATE (the receipt counts it); the picture is reconciled
             // by a render family from `MovingPlatformSet`, like every other room

@@ -3179,12 +3179,12 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_encounter_features"]
 watch_paths = ["crates/ambition_encounter_features/Cargo.toml"]
-rationale = "ambition_encounter_features owns the ROOM-FEATURE side of encounters -- LDtk loading, ECS spawning, banners, save/quest projection, switch indexing and lock-wall contribution. It was ~2,000 lines inside the actor kernel until 2026-09-03. It sits ABOVE `ambition_encounter`, whose own purity rows forbid exactly this material (`the LDtk loader, ECS spawning, banners, and save/quest adapters stay above it`), which is why this is a sibling crate and not a module there. The list is the carve: the encounter domain it adapts, the shared schedule/lifecycle vocabulary, the world IR it loads specs from, combat components for chests and banners, characters for body health, persistence for save/quest, the entity catalog for brains, interaction for chest state, the trace sink, and the sim clock"
+rationale = "Encounter integration loads authored room specs, drives waves, builds requested bodies through canonical actor construction, and projects encounter rewards and switches. Construction supplies the running generation and body builders. World items own physical container state. Named game content, hosts, and UI do not belong in this owner."
 source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
 severity = "error"
 exact = false
 manifest = "crates/ambition_encounter_features/Cargo.toml"
-allow = [
+allow = ["ambition_platformer2d_actor_spawn", "ambition_platformer2d_construction", "ambition_world_items",
     "ambition_encounter",
     "ambition_platformer2d_shared_tangle",
     "ambition_platformer2d_core",

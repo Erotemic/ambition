@@ -32,7 +32,7 @@ pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefu
 /// An absent receipt means no candidates were built and publication fails.
 #[derive(Component)]
 pub(crate) struct PendingConstructionReceipt(
-    pub(crate) ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionReceipt,
+    pub(crate) crate::construction::RoomFeatureConstructionReceipt,
 );
 
 /// Read the opening decision before constructing a room.
@@ -1415,7 +1415,7 @@ pub struct LastConstructionVerification {
 pub(crate) fn open(
     commands: &mut Commands,
     publication: PublicationHandle,
-    plan: &ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionPlan,
+    plan: &crate::construction::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
 ) {
     let planned = plan.planned_sim_ids();
@@ -1593,7 +1593,7 @@ pub(crate) fn open(
 pub(crate) fn close(
     commands: &mut Commands,
     publication: PublicationHandle,
-    plan: &ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionPlan,
+    plan: &crate::construction::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
 ) {
     let plan = plan.clone();
@@ -1859,7 +1859,7 @@ fn promote_and_finalize(
 fn verify_and_publish(
     world: &mut World,
     publication: PublicationHandle,
-    plan: &ambition_platformer2d_actor_monolith::features::RoomFeatureConstructionPlan,
+    plan: &crate::construction::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
 ) {
     // ⛔⛤ **WHAT THIS PUBLICATION IS ABOUT IS READ OFF THE PUBLICATION.** The

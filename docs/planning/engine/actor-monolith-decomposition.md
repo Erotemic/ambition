@@ -46,7 +46,7 @@ Keep a cycle only when its shared invariant is stated.
 - Settlement state and the corrected actor-spawn extraction
   (`ambition_platformer2d_actor_spawn`, builders only). Do not move live actor
   views, provocation, fighter-ladder projection or dismounted-rider rebuild back
-  into spawning. Guard: `scripts/tests/test_actor_spawn_boundary.py`.
+  into spawning. The crate boundary and construction behavior tests hold this split.
 - `ambition_conversation`, `ambition_encounter_features` and
   `ambition_abilities` (the wielded kit, the gravity grenade, traversal verbs and
   the shared cooldown).
@@ -225,8 +225,7 @@ provider registry, new global resource, or duplicate saved state.
 
 **Can `ambition_platformer2d_actor_spawn` own construction? Not as is.**
 Construction lowers every placement kind, including ground items, chests and
-shrines, and `scripts/tests/test_actor_spawn_boundary.py` keeps pickup and
-chest construction out of the spawn crate. Planning therefore stays separate
+shrines. Pickup and chest construction belong to item integration. Planning therefore stays separate
 from spawn materialization. Construction is now a leaf of the monolith graph
 and can become its own owner. Its callers are `features` (50 references),
 `world` (5) and `session` (5), so do the move with K4's publication
@@ -242,126 +241,27 @@ planning work without importing the monolith back into itself. If it cannot,
 keep planning separate from spawn materialization. Reuse A3's prepared-plan,
 `SimId`, provenance and preflight tests.
 
-### K4 — Extract room-publication coordination as one packet — DONE 2026-10-22 (steps 1–3)
+### K4 — Room publication owns the transaction — DONE
 
-**Receipt (step 1, the coordinator module):** the room publication
-coordinator is the monolith's top-level module `publication`
-(`publication/stage.rs`, `publication/transaction.rs`, their tests). It
-left `world::rooms`, which now holds geometry, bindings, passages,
-residency and the door systems. Every caller names the new owner
-(`crate::publication::…`, `ambition_platformer2d::publication::…`);
-`rooms` does not re-export it. No system, resource, component or wire name
-moved: the rollback exemptions in `rollback_coverage.rs` match the moved
-type paths (`::publication::stage::`, `::publication::transaction::`).
+The room coordinator left `world::rooms` and then the actor kernel in commits
+`348bca4e0`, `b7c8ffd75`, and `bbe442392`. The owner is
+`ambition_platformer2d_publication`. The runtime, provider, and rollback lifecycle
+compose it through the public publication API.
 
-Measured with `measure_kernel_module_graph.py`: `world -> features` 9 → 4,
-`world -> session` 13 → 6, and `world` names nothing in `publication`. The
-largest component is nine modules, because `publication` is now a node in
-it. The edges that hold it there:
+Publication prepares a hidden candidate, checks its receipt, and publishes or
+refuses the result as one operation. Session owns admitted operations, restore
+facts, and retirement. World owns geometry and live-instance identity. Item
+custody stays with its domain.
 
-| Edge | Refs | What it is | Disposition |
-| --- | ---: | --- | --- |
-| `session -> publication` | 7 | `session/setup.rs` prepares a session's first room (`RoomConstructionPlan::prepare_from_parts`, `PublicationHandle`, `PublicationRetention`, `ActiveContentBinding`); `durable_horizon.rs` states `CommitFactsSource` | **MOVE_ADAPTER** with session setup: the setup's room half is publication work |
-| `publication -> session` | 7 | `CheckpointOperationKey`, `prospective_commit_fates`, `run_restore_consequences` | **KEEP_DIRECT**: session owns admitted operations and restore facts |
-| `publication -> items` | 5 | the custody handoffs (`record`/`apply`/`discard_custody_handoffs`) | **KEEP_DIRECT**: custody semantics are item-owned (A7) |
-| `items -> publication` | 3 | the same three functions take the `PublicationHandle` their handoffs are stored on | **HOLD**: the handle is a plain entity newtype; moving it lower only to cut the edge is not a reason |
+K15 co-locates the typed room plan, receipt, placement adapters, and transaction.
+Commit and verification operations are private to the publication crate. The
+old actor exports and temporary source guard are deleted. Construction fixtures
+are local test support. No production API is widened for a test.
 
-**Not done, and why:** an integration crate above the monolith would need
-`session/setup.rs`'s room preparation to move with it (otherwise the
-monolith depends on the crate), and the custody handoffs to take a handle
-that crate does not own. Step 2 is that move of session setup's room half.
-
-**Receipt (step 2, the session's first room and the custody handoffs):**
-the first room of a session is published by
-`publication::publish_first_room` (`publication/first_room.rs`), which
-takes a `FirstRoom` (the spec, the plan inputs and the commit facts) and
-returns the `PublicationHandle`. Session setup no longer prepares a room:
-`SimulationSetup` lost its room inputs, and `durable_horizon` states the
-facts as `first_room_fates() -> PersistedFates`, which the caller wraps in
-`CommitFactsSource::Stated`. The caller (the provider's lifecycle, the
-`demo_fixture` re-export and the host test support) publishes the first
-room into the session root, then builds the simulation world. The A10
-Model A custody handoffs (`record`/`apply`/`discard_custody_handoffs` and
-their tests) moved from `items/pickup` to `publication/custody_handoffs.rs`:
-they are stored on the publication handle and settled with it.
-This revises step 1's `publication -> items` KEEP_DIRECT. What a hand
-holds and how it is stripped stay item-owned (`HeldItem`, `GroundItem`,
-`ambition_combat::hand`, `restore_custody_to_checkpoint`); the record of
-what a publication owes, which only that publication creates, drains or
-discards, is the coordinator's adapter to them.
-
-Measured with `measure_kernel_module_graph.py`: `session -> publication`
-7 → 0, `items -> publication` 3 → 0, `publication -> items` 5 → 0. Nothing
-in the component names `publication`, so it left it; the component is the
-eight of K3. `publication` keeps its out-edges (`features` 7, `session` 7,
-`construction` 6, `world` 1): it is above the component, which is the
-direction an integration crate needs.
-
-The `items -> publication` HOLD above is spent: the handoffs that took
-the handle are publication's own now.
-
-**Receipt (step 3, the integration crate, 2026-10-22):** the coordinator
-is its own crate, `ambition_platformer2d_publication`, above the
-monolith. The monolith does not name it; the runtime's room transition,
-the provider's first room and the GGRS lifecycle commit do, and the
-facade exports it as `ambition_platformer2d::publication`. No system,
-resource, component or wire name changed; the rollback waivers name the
-new type paths (`ambition_platformer2d_publication::stage::`,
-`::transaction::`).
-
-What crossed the boundary, and how it is held:
-
-- **The feature-construction seam.** The coordinator spawns a room's
-  feature plan and verifies the receipt (`spawn_room_feature_entities_from_plan`,
-  `RoomFeatureConstructionReceipt`, and the plan's
-  `verify_committed_construction`, `construction_transactions`,
-  `planned_sim_ids`, `construction_binding`, `emptied`). They were
-  `pub(crate)` with the coordinator as their only caller; they are `pub`
-  now. The receipt is still unforgeable (its fields are private and only
-  the spawn makes one), and the absence contract
-  `only-the-room-coordinator-spawns-a-room-plan` keeps every other crate
-  off the spawn, the receipt and the verify step.
-- **The construction tests that commit.** 45 of the 100 tests in
-  `construction/tests.rs` build a room and commit it through a
-  publication; they moved to the coordinator's crate
-  (`construction_tests.rs`). The 30 fixtures both halves use are
-  `construction::test_fixtures`, compiled only for tests and for the
-  monolith's new `test-support` feature (`#![cfg(any(test, feature =
-  "test-support"))]`), which the coordinator enables as a dev-dependency.
-  The scanners that tell test code from production
-  (`check_rollback_mutators_run_in_sim.py`, which the static and request
-  censuses reuse, and `measure_kernel_module_graph.py`) read that gate as
-  test code.
-- **The portal lane test** ran only under the monolith's `portal`
-  feature; in the coordinator's crate its dev-dependencies enable portal,
-  so it runs in the default test run.
-
-Measured: the monolith's lib tests went 1430 → 1349 and the coordinator's
-crate has 82 (the 81 that moved, and the portal lane test). The graph is
-the eight of K3, unchanged. The capability-footprint sentinel links one
-more node (59 → 60), a carve in code: see the baseline's
-`publication_entered_the_closure_2026_10_22` row.
-
-Inspect these together, not as separate file moves:
-
-- `publication/stage.rs` and `publication/transaction.rs`;
-- `features/ecs/spawn/mod.rs` (`RoomFeatureConstructionPlan` and receipt);
-- `session/setup.rs`, checkpoint and durable-horizon admission;
-- the current publication and rollback registration path.
-
-Construction owns building a typed plan. Session owns admitted operations,
-restore facts and retirement. World owns geometry and live-instance identity.
-The coordinator owns preparing a hidden candidate, checking its receipt, and
-publishing or refusing it as one operation. Keep `InactiveCandidate` and
-`CandidateSessionRoot` protection, deferred flushes, rollback identity and
-lifecycle cancellation intact. Do not export crate-private receipts merely
-to relocate one file. Move the transaction with its required inputs and tests.
-This is the first plausible reason to create the integration crate.
-
-**Proof:** normal load; hot reload; checkpoint replay; failed candidate;
-rollback-confirmed transition; two players in different live rooms; same
-room definition in two instances when supported. Verify one publication
-and one retirement, not two. A9 then verifies the selected consumer closure.
+Keep candidate visibility protection, deferred flushes, rollback identity, and
+lifecycle cancellation intact. Publication tests cover normal load, content
+reload, checkpoint replay, failed candidates, confirmed transitions, and live
+room identity. Independent capability profiles remain an A9 obligation.
 
 ### K5 — Continue existing domain packets, then assess the residual kernel
 
@@ -532,6 +432,8 @@ Monolith production lines 61,303 → 60,612.
 
 ### K7 — Session lifecycle leaves the actor kernel
 
+Commit: `1f7f01c39`.
+
 Checkpoint admission, restore, reset, session construction and teardown, and
 room-crossing policy are `ambition_platformer2d_session`. The runtime installs
 its checkpoint offer beside the item-domain offer. The combined actor wrapper
@@ -544,6 +446,8 @@ The moved tests use the public body constructor. No production API is widened
 for a test. The remaining kernel graph is a DAG. This cut does not complete D33.
 
 ### K8 — World services leave the actor kernel
+
+Commit: `d22c2c18e`.
 
 The world crate owns authored room commands and condition-gated lock walls.
 `ambition_encounter_features` owns authored switch commands. The runtime owns
@@ -561,6 +465,8 @@ empty platform module, and duplicate color helper are deleted.
 
 ### K9 — Match time and health effects belong to their domains
 
+Commit: `33b070f86`.
+
 `ambition_match` owns `LiveMatchTicks`, its wire codec, and its rollback
 registration. Match identity and outcome declarations move to the same owner.
 `ambition_damage::healing` owns heal requests and their consumer; its two routing
@@ -568,6 +474,8 @@ tests move with it. The message key, target policy, and wire meaning stay the sa
 The runtime calls both domain declarations in its existing registration pass.
 
 ### K10 — Item lifecycle integration leaves the actor kernel
+
+Commit: `33b070f86`.
 
 `ambition_platformer2d_items` owns inventory commands and conditions, starting
 bags, match item cadence, custody restoration, persistence, and checkpoint
@@ -578,6 +486,8 @@ stays at `items`. The old actor `items` module is deleted.
 
 ### K11 — Projectile combat execution leaves the actor kernel
 
+Commit: `33b070f86`.
+
 `ambition_projectile_combat` owns charging, combat allegiance, swept contacts,
 interception, and hit delivery. The reusable model stays at `ambition_projectiles`.
 The allegiance codec and declaration move with the executor without a wire change.
@@ -587,6 +497,8 @@ The old actor `projectile` module and its shot-birth forwarding export are delet
 
 ### K12 — Match activation belongs to session lifecycle
 
+Commit: `33b070f86`.
+
 The session owns match preparation admission, body seating, opening holds, match
 object retirement, and the cast view declaration. `MatchLifecyclePlugin` installs
 the same systems with the same phases, gates, chains, and projection edge.
@@ -595,6 +507,8 @@ move with the session and use public body construction. No production API is
 widened for a test. The actor character module exports no match activation path.
 
 ### K13 — Character materialization leaves the body kernel
+
+Commit: `92c8dc8c4`.
 
 `ambition_platformer2d_assets` owns character declarations, asset demand and
 readiness, atlas residency, source attribution, catalog assembly, and startup
@@ -610,6 +524,8 @@ are deleted. The public facade owns asset profile features. The actor crate's
 asset, character-sprite, and character-runtime modules are deleted.
 
 ### K14 — World-object transitions leave the body kernel
+
+Commit: `d48699d2a`.
 
 `ambition_breakables` owns destructible state, accepted damage, stand collapse,
 return timers, collision volumes, and destruction loot. State reads are public.
@@ -628,6 +544,23 @@ advances the clock. `ambition_characters::control` owns acting participant
 queries. Live-room reach and gestures belong to `ambition_platformer2d_interaction`.
 Attempt residue is lifecycle vocabulary. Rollback keys and bytes stay the same.
 The old actor object modules and forwarding exports are deleted.
+
+### K15 — Room construction belongs to publication
+
+The typed room plan, construction context, placement adapters, content staging,
+receipt, and their tests move into `ambition_platformer2d_publication::construction`.
+`RoomConstructionPlugin` installs the same placement interpreters. The runtime
+composes it beside body simulation. Commit and verification operations are
+private again. The forwarding spawn function and temporary source guard are
+deleted. The actor kernel is a dev dependency of publication.
+
+`ambition_encounter_features::spawn_service` owns wave spawn requests and their
+body-construction tests. It calls the existing actor builder directly. The
+request/service order stays unchanged. The old actor spawn forwarding function
+and test-support feature are deleted. The old raw-spawn file inventory is
+deleted; typed scopes and live receipt checks hold the construction boundary.
+Shared data-only cast fixtures belong to
+character test support. No scheduled invocation or rollback state is added.
 
 ### Migration acceptance for each packet
 

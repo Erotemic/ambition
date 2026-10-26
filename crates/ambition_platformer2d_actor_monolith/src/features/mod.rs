@@ -123,10 +123,10 @@ pub use brain_command::{
 // monolith's own module tree is a public surface many callers still walk.
 pub use ecs::anim_helpers::advance_body_anim_overlay_clocks;
 pub use ecs::{
-    ActorConstructionContext, ActorSteering, CHALLENGE_GRACE_S, ChallengeRequested, FactionRelations, FriendlyFire,
+     ActorSteering, CHALLENGE_GRACE_S, ChallengeRequested, FactionRelations, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
-    OccurrenceContinuity, PendingChallenge, PetRequested, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan, WearRequested, advance_hazards,
+     PendingChallenge, PetRequested,
+       WearRequested, advance_hazards,
     apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
     apply_gameplay_banner_requests, apply_hazard_contacts, apply_hitbox_damage,
     apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes,
@@ -137,13 +137,12 @@ pub use ecs::{
     integrate_boss_bodies, integrate_sim_bodies,
     interact_ecs_actors_and_switches, project_boss_attack_state_from_move,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
-    refresh_boss_damageable_volumes, route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
-    snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions, tick_actor_brains, tick_and_despawn_hitboxes,
+    refresh_boss_damageable_volumes, route_boss_strikes_to_limbs, select_actor_targets,
+    snapshot_body_contact,  spawn_projectiles_from_brain_actions, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses,
 };
-// ⛔ The room coordinator's only: see `features::ecs`.
-pub use ecs::{RoomFeatureConstructionReceipt, spawn_room_feature_entities_from_plan};
+
 
 pub(crate) use ecs::{
     ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state, observe_actor_decision_inputs,
@@ -901,7 +900,6 @@ pub struct WorldPrepSchedulePlugin;
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
-        use ambition_platformer2d_world::placements::PlacementLoweringAppExt;
 
         // Autonomous decision is ordered by semantic phase sets. Systems may
         // join WorldPrep without acquiring unrelated leaf-system edges.
@@ -1019,49 +1017,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
-        );
-        app.register_placement_interpreter(
-            ambition_entity_catalog::placements::PlacementKind::Hazard,
-            "ambition_platformer2d_actor_monolith",
-            "WorldPrepSchedulePlugin",
-            "placement.hazard.v1",
-            crate::features::ecs::spawn_static::lower_hazard_placement,
-        );
-        app.register_placement_interpreter(
-            ambition_entity_catalog::placements::PlacementKind::Interactable,
-            "ambition_platformer2d_actor_monolith",
-            "WorldPrepSchedulePlugin",
-            "placement.interactable.v1",
-            crate::features::ecs::spawn_static::lower_interactable_placement,
-        );
-        app.register_placement_interpreter(
-            ambition_entity_catalog::placements::PlacementKind::Pickup,
-            "ambition_platformer2d_actor_monolith",
-            "WorldPrepSchedulePlugin",
-            "placement.pickup.v1",
-            ambition_platformer2d_items::construction::lower_pickup_placement,
-        );
-        app.register_placement_interpreter(
-            ambition_entity_catalog::placements::PlacementKind::Chest,
-            "ambition_platformer2d_actor_monolith",
-            "WorldPrepSchedulePlugin",
-            "placement.chest.v1",
-            ambition_platformer2d_items::construction::lower_chest_placement,
-        );
-        app.register_placement_interpreter(
-            ambition_entity_catalog::placements::PlacementKind::Breakable,
-            "ambition_platformer2d_actor_monolith",
-            "WorldPrepSchedulePlugin",
-            "placement.breakable.v1",
-            ambition_breakables::construction::lower_breakable_placement,
-        );
-        #[cfg(feature = "portal")]
-        app.register_placement_interpreter(
-            ambition_entity_catalog::placements::PlacementKind::Portal,
-            "ambition_platformer2d_actor_monolith",
-            "WorldPrepSchedulePlugin",
-            "placement.portal.v1",
-            crate::features::ecs::spawn_static::lower_portal_placement,
         );
         // Accumulating sim-time for brain perception (reaction latency).
         app.add_plugins(ambition_platformer2d_shared_tangle::lifecycle::SessionElapsedPlugin);

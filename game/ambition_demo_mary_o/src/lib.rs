@@ -1197,7 +1197,7 @@ pub fn install_mary_o_content(app: &mut App) {
     // untouched and still right for content a room does not author (the duel
     // arena uses it exactly that way) — Mary-O's enemies are simply not that
     // anymore.
-    app.init_resource::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>();
+    app.init_resource::<ambition_platformer2d::publication::construction::RoomContentStagingRegistry>();
     // The flagpole + warp-pipe LOOK: the construction sheets are prop sheets,
     // so the decorative props authored on the level resolve to real art instead
     // of the placeholder quad.

@@ -2,6 +2,7 @@
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
 use super::*;
+use ambition_platformer2d_actor_spawn::spawn_encounter_mob;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
     ActionSet, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
@@ -141,7 +142,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &registry,
         &Default::default(),
         &boss_catalog,
-        crate::features::ActorConstructionContext::new(
+        crate::construction::ActorConstructionContext::new(
             &ambition_platformer2d_construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
@@ -159,8 +160,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         // marker it counts is found by an ORDINARY query, and this rig never
         // calls `register_inactive_candidate_filter`, so the `InactiveCandidate`
         // stamp is inert here and the query sees its subject.
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(),
-        );
+        (&plan).spawn(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
     });
     app.update();
 
@@ -219,7 +219,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
         &registry,
         &Default::default(),
         &boss_catalog,
-        crate::features::ActorConstructionContext::new(
+        crate::construction::ActorConstructionContext::new(
             &ambition_platformer2d_construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
@@ -233,8 +233,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(),
-        );
+        (&plan).spawn(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
     });
     app.update();
 
@@ -480,7 +479,7 @@ fn encounter_mob_spawns_with_brain_components() {
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
+                &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
                 ambition_encounter::mob_seed::EncounterMobSeed {
@@ -620,7 +619,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         air_jumps_remaining: 0,
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    crate::brain_tick::tick_brain_with_actions(&mut brain, &actions, &snapshot, None, &mut frame);
+    ambition_platformer2d_actor_monolith::brain_tick::tick_brain_with_actions(&mut brain, &actions, &snapshot, None, &mut frame);
     assert!(
         frame.melee_pressed,
         "a body forced hostile with a melee in its kit should commit a swing \
@@ -650,7 +649,7 @@ fn authored_npc_takes_its_label_from_the_prepared_display_name() {
     use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
     let mut app = App::new();
-    app.insert_resource(crate::character_roster::catalog());
+    app.insert_resource(crate::construction::fixtures::catalog());
 
     let authored = ambition_platformer2d_world::rooms::Authored::new(
         "NpcSpawn-107741",
@@ -685,7 +684,7 @@ fn authored_npc_takes_its_label_from_the_prepared_display_name() {
             // The cast the barrier publishes for this catalog.
             &ambition_characters::prepared::prepare_cast_for_test(&catalog, []),
             // The fixture converts, exactly as the production caller does now.
-            &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+            &crate::construction::static_features::interactable_from_authored(&authored),
             &authored.name,
             &[],
             &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -722,7 +721,7 @@ fn an_npc_with_a_recorded_death_is_built_dead() {
         ),
     ] {
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         let authored = ambition_platformer2d_world::rooms::Authored::new(
             "NpcSpawn-guide",
             "NpcSpawn",
@@ -752,7 +751,7 @@ fn an_npc_with_a_recorded_death_is_built_dead() {
                 &catalog,
                 &Default::default(),
                 &Default::default(),
-                &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                &crate::construction::static_features::interactable_from_authored(&authored),
                 &authored.name,
                 &[],
                 &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -859,7 +858,7 @@ mod authored_enemy_reads_its_character {
         );
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -943,7 +942,7 @@ mod authored_enemy_reads_its_character {
             ),
         );
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -964,7 +963,7 @@ mod authored_enemy_reads_its_character {
                     &catalog,
                     &Default::default(),
                     &prepared,
-                    &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                    &crate::construction::static_features::interactable_from_authored(&authored),
                     &authored.name,
                     &[],
                     &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -1032,7 +1031,7 @@ mod authored_enemy_reads_its_character {
         );
         let generation = registry.generation();
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(registry);
         app.add_systems(
             Update,
@@ -1053,7 +1052,7 @@ mod authored_enemy_reads_its_character {
                     &catalog,
                     &Default::default(),
                     &prepared,
-                    &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                    &crate::construction::static_features::interactable_from_authored(&authored),
                     &authored.name,
                     &[],
                     &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -1125,7 +1124,7 @@ mod authored_enemy_reads_its_character {
             "the premise: this character cannot build a body on its own"
         );
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(registry);
         app.add_systems(
             Update,
@@ -1146,7 +1145,7 @@ mod authored_enemy_reads_its_character {
                     &catalog,
                     &Default::default(),
                     &prepared,
-                    &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                    &crate::construction::static_features::interactable_from_authored(&authored),
                     &authored.name,
                     &[],
                     &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -1191,7 +1190,7 @@ mod authored_enemy_reads_its_character {
         );
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -1320,7 +1319,7 @@ mod authored_enemy_reads_its_character {
         let profiles = profiles.clone();
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -1506,7 +1505,7 @@ mod authored_enemy_reads_its_character {
         );
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(registry);
         app.add_systems(
             Update,
@@ -1645,7 +1644,7 @@ mod authored_enemy_reads_its_character {
         );
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         // The character must be able to BUILD a body: respawn is a placement
         // fact, and reading it requires a body to write it onto.
         app.insert_resource(prepared_complete());
@@ -1713,7 +1712,7 @@ mod authored_enemy_reads_its_character {
         );
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(prepared);
         app.add_systems(
             Update,
@@ -1771,7 +1770,7 @@ mod authored_enemy_reads_its_character {
         );
 
         let mut app = App::new();
-        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(crate::construction::fixtures::catalog());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -1912,7 +1911,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             &registry,
             &Default::default(),
             &boss_catalog,
-            crate::features::ActorConstructionContext::for_live_room_construction(
+            crate::construction::ActorConstructionContext::for_live_room_construction(
                 &recipes,
                 &catalog,
                 &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(
@@ -1961,65 +1960,4 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
         vec!["placement:npc_0", "placement:npc_1"],
         "a SECOND plan of the same room under the same cap starts with a full quota"
     );
-}
-
-/// A spawn REQUEST from the encounter domain must produce a real body.
-///
-/// ⛔ THE GAP THIS CLOSES. Until 2026-09-03 the wave driver served its own
-/// `SpawnCommand`s inline, and the encounter tests assert only that the EVENT is
-/// emitted — so the whole request→body path had no test, and 1213 tests stayed
-/// green through a change that moved it. The ordering guard in
-/// `encounter::spawn_request_service_order` pins the WIRING (server after
-/// driver); this pins the BEHAVIOUR.
-#[test]
-fn a_spawn_request_on_the_bus_becomes_a_body() {
-    let mut app = spawn_request_app();
-    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    app.update();
-    assert_eq!(
-        bodies_built(&mut app),
-        1,
-        "one SpawnCommand on the bus must build exactly one body — the encounter \
-         domain asks and this crate constructs"
-    );
-}
-
-/// With no generation, no session runs (`SessionMechanics`), and the service
-/// builds no body.
-#[test]
-fn a_spawn_request_with_no_generation_builds_no_body() {
-    let mut app = spawn_request_app();
-    app.update();
-    assert_eq!(bodies_built(&mut app), 0, "a body was built with no generation");
-}
-
-/// The spawn service alone, with one `SpawnCommand` on the bus and no
-/// generation.
-fn spawn_request_app() -> App {
-    let mut app = App::new();
-    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.insert_resource(smash_fixture_cast());
-    app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_systems(Update, super::serve_encounter_spawn_commands);
-
-    app.world_mut()
-        .resource_mut::<bevy::prelude::Messages<ambition_encounter::EncounterEventMsg>>()
-        .write(ambition_encounter::EncounterEventMsg::new(
-            "test_encounter",
-            ambition_encounter::EncounterEvent::SpawnCommand {
-                id: "wave_mob_1".to_string(),
-                character: Some("fixture_striker".to_string()),
-                kind: "fixture_striker".to_string(),
-                pos: [100.0, 100.0],
-                size: [20.0, 30.0],
-            },
-        ));
-    app
-}
-
-fn bodies_built(app: &mut App) -> usize {
-    let mut q = app
-        .world_mut()
-        .query::<&ambition_characters::brain::Brain>();
-    q.iter(app.world()).count()
 }

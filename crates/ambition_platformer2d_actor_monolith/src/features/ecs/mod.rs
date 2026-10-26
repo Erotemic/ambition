@@ -29,7 +29,6 @@ use ambition_combat::{banner, hazards, held_items, hitbox, targeting};
 // `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
 // since the `features` facade stopped re-exporting the shared body vocabulary.
 use ambition_characters::actor::BodyCombat;
-use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 #[cfg(test)]
 use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With, Without};
@@ -68,8 +67,6 @@ pub mod navigation;
 pub mod perception;
 mod pet;
 mod rest_row;
-pub(crate) mod spawn;
-pub mod spawn_static;
 mod summon;
 mod talk_spacing;
 mod target_volumes;
@@ -135,21 +132,6 @@ mod mount_pair_tests;
 // `ambition_mount` owns it; a `pub use` here would let every caller keep
 // spelling it `ambition_mount::MountSlot` and hide whose domain it is — the same rule
 // `Mass`, `MountDied` and `ControlClaims` each moved under.
-pub use spawn::{
-    ActorConstructionContext,
-    OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan, serve_encounter_spawn_commands, spawn_encounter_mob,
-};
-// ⛔ The room construction boundary and the receipt it produces are consumed
-// only by the room coordinator (`ambition_platformer2d_publication`), which
-// spawns a plan inside a publication transaction and verifies the receipt.
-// The absence contract `only-the-room-coordinator-spawns-a-room-plan` keeps
-// every other crate off it.
-pub use spawn::{RoomFeatureConstructionReceipt, spawn_room_feature_entities_from_plan};
-// ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
-// is unchanged (`features::apply_summon_effects`) — the schedule in
-// `ambition_platformer2d_runtime` and an ordering in `ambition_demo_smash` both
-// name it, so a move that renamed the path would be a carve with a blast radius.
 pub use summon::apply_summon_effects;
 // ⛔ THE SPAWN-PRIMITIVE RE-EXPORTS THAT USED TO LIVE HERE ARE GONE, AND THEIR
 // DEATH IS THE EVIDENCE THE INVERSION IS REAL. They existed so `construction`

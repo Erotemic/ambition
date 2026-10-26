@@ -38,10 +38,10 @@ pub struct FirstRoom<'a> {
     pub placement_lowering: &'a ambition_platformer2d_construction::placements::PlacementLoweringRegistry,
     /// The App-installed room-content staging seam. The first room drains its registered content stagers exactly as transition, reset,
     /// hot-reload, and restore staging do — one construction authority.
-    pub content_staging: &'a ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+    pub content_staging: &'a crate::construction::RoomContentStagingRegistry,
     /// The App-installed construction recipe table plus the content generation
     /// this session was prepared under (Phase 3 planned families).
-    pub construction: ambition_platformer2d_actor_monolith::features::ActorConstructionContext<'a>,
+    pub construction: crate::construction::ActorConstructionContext<'a>,
     /// App-local boss profiles, encounter specs, sheets, and special rows.
     pub boss_catalog: &'a ambition_boss_encounter::BossCatalog,
 }

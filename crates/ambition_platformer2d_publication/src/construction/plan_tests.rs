@@ -15,8 +15,8 @@ use bevy::prelude::{App, Commands, Update, World};
 use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 
-use crate::construction_fixtures::*;
-use crate::features::{
+use crate::construction::fixtures::*;
+use crate::construction::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
 use ambition_platformer2d_core as ae;
@@ -71,12 +71,7 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
         // `InactiveCandidate` stamp is an inert component here. That is the state
         // `OpenRefused::CandidateFilterNotInstalled` refuses in production, used
         // deliberately.
-        let receipt = crate::features::spawn_room_feature_entities_from_plan(
-            &mut commands,
-            &plan,
-            SessionSpawnScope::UNSCOPED,
-            &ambition_platformer2d_construction::PersistedFates::unrecorded(),
-        );
+        let receipt = (&plan).spawn(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
         *sink.lock().unwrap() = Some(receipt.construction().committed_ids());
     });
     app.update();
@@ -182,7 +177,7 @@ fn every_reinstatable_record_can_be_relocated() {
 #[test]
 fn a_grudge_against_nobody_fails_the_plan() {
     let recipes = engine_construction_registry();
-    let mut staging = crate::features::RoomContentStagingRegistry::default();
+    let mut staging = crate::construction::RoomContentStagingRegistry::default();
     staging
         .register("hall", "test_provider", "duel", "duel.v1", |_room| {
             vec![staged_enemy("duel_red", Some("a_fighter_who_is_not_here"))]
@@ -427,7 +422,7 @@ fn stager_registration_order_does_not_change_the_room_plan() {
     let room = empty_room("hall");
 
     let dump_for = |first: bool| {
-        let mut staging = crate::features::RoomContentStagingRegistry::default();
+        let mut staging = crate::construction::RoomContentStagingRegistry::default();
         let (a, b): (&str, &str) = if first {
             ("alpha", "beta")
         } else {
@@ -723,7 +718,7 @@ fn successive_summons_allocate_non_overlapping_identities() {
         effect: ambition_vfx::Effect::Summon(summon_spec("b")),
     });
     world
-        .run_system_cached(crate::features::apply_summon_effects)
+        .run_system_cached(ambition_platformer2d_actor_monolith::features::apply_summon_effects)
         .expect("the summon executor runs");
     world.flush();
 
@@ -931,8 +926,8 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
         ..Default::default()
     });
     schedule.add_systems((
-        crate::features::apply_summon_effects,
-        interlope.after(crate::features::apply_summon_effects),
+        ambition_platformer2d_actor_monolith::features::apply_summon_effects,
+        interlope.after(ambition_platformer2d_actor_monolith::features::apply_summon_effects),
     ));
     schedule.run(&mut world);
 
@@ -1141,7 +1136,7 @@ fn a_seated_conductor_is_planned_as_the_owner_of_the_hands() {
         }
         let plan = prepare(
             &room,
-            &crate::features::RoomContentStagingRegistry::default(),
+            &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
         )
         .expect("the giant room plans");
@@ -1399,7 +1394,7 @@ fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
         ));
     let plan = prepare(
         &room,
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the pathed giant room plans");
@@ -1461,7 +1456,7 @@ fn an_encounter_wave_giant_is_refused_before_it_spawns() {
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     {
         let mut commands = world.commands();
-        crate::features::spawn_encounter_mob(
+        ambition_platformer2d_actor_spawn::spawn_encounter_mob(
             &mut commands,
             &catalog,
             &Default::default(),
@@ -1519,7 +1514,7 @@ fn the_limb_and_mount_relations_reach_the_registry_dump() {
 fn an_authored_mount_link_becomes_planned_rows_with_a_mount_relation() {
     let plan = prepare(
         &mounted_pair_room(),
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the mounted room plans");
@@ -1551,7 +1546,7 @@ fn a_mount_link_naming_nobody_fails_the_room_while_it_is_whole() {
         .push(("sky_rider_typo".to_string(), "sky_shark".to_string()));
     let error = prepare(
         &room,
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect_err("a dangling link cannot plan");
@@ -1602,7 +1597,7 @@ fn a_boss_script_naming_a_prop_the_room_lacks_fails_the_room_while_it_is_whole()
     let prepare_arena = |props: &[&str]| {
         prepare(
             &cut_rope_room(props),
-            &crate::features::RoomContentStagingRegistry::default(),
+            &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
         )
     };
@@ -1629,7 +1624,7 @@ fn a_boss_script_naming_a_prop_the_room_lacks_fails_the_room_while_it_is_whole()
 #[test]
 fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
     let prepare_staged = |no_encounter: bool| {
-        let mut staging = crate::features::RoomContentStagingRegistry::default();
+        let mut staging = crate::construction::RoomContentStagingRegistry::default();
         staging
             .register("hall", "test_provider", "behemoth", "behemoth.v1", move |_room| {
                 vec![SpawnActorRequest {
@@ -1690,7 +1685,7 @@ fn two_riders_claiming_one_authored_mount_are_refused() {
         .push(("second_rider".to_string(), "sky_shark".to_string()));
     let error = prepare(
         &room,
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect_err("a double-claimed mount cannot plan");
@@ -1711,7 +1706,7 @@ fn two_riders_claiming_one_authored_mount_are_refused() {
 fn the_mount_pair_reconstruction_closure_is_both_actors() {
     let plan = prepare(
         &mounted_pair_room(),
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the mounted room plans");
@@ -1756,7 +1751,7 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
         ));
     let plan = prepare(
         &room,
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
     )
     .expect("the mixed room plans");
@@ -1828,7 +1823,7 @@ fn person_room(character: Option<&str>) -> ambition_platformer2d_world::rooms::R
 /// composition that published no cast (a warning, not a refusal).
 #[test]
 fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_planned() {
-    let catalog = crate::character_roster::catalog();
+    let catalog = crate::construction::fixtures::catalog();
     let nobody = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let prepare = |room: &ambition_platformer2d_world::rooms::RoomSpec,
                    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -1844,7 +1839,7 @@ fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_plan
         RoomFeatureConstructionPlan::prepare(
             room,
             &placement_registry(),
-            &crate::features::RoomContentStagingRegistry::default(),
+            &crate::construction::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::test_boss_catalog(),
             match cast {
                 Some(cast) => context.with_prepared(cast),
@@ -1956,7 +1951,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     );
     room.enemy_spawns.push(walker);
 
-    let mut staging = crate::features::RoomContentStagingRegistry::default();
+    let mut staging = crate::construction::RoomContentStagingRegistry::default();
     staging
         .register("hall", "test_provider", "typo", "typo.v1", |_room| {
             vec![staged_enemy("walker_a", None)]
@@ -2034,7 +2029,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     let prepare_room = |room: &ambition_platformer2d_world::rooms::RoomSpec| {
         prepare(
             room,
-            &crate::features::RoomContentStagingRegistry::default(),
+            &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
         )
     };
@@ -2070,7 +2065,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     let incomplete = RoomFeatureConstructionPlan::prepare(
         &room_naming("npc_mute"),
         &Default::default(),
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &ambition_boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(
             &engine_construction_registry(),

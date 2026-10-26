@@ -1,7 +1,7 @@
 //! The fixtures the construction tests share with the room coordinator's
 //! (`ambition_platformer2d_publication`), which commit what they build.
 
-#![cfg(any(test, feature = "test-support"))]
+#![cfg(test)]
 #![allow(unused_imports)]
 
 use ambition_characters::actor::limb::{Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
@@ -16,7 +16,7 @@ use bevy::prelude::{App, Commands, Update, World};
 use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 use bevy::prelude::Entity;
-use crate::features::{
+use crate::construction::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
 use ambition_platformer2d_core as ae;
@@ -169,12 +169,12 @@ pub fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest
 /// provider so the resulting provenance is real rather than a placeholder.
 pub fn duelling_room() -> (
     ambition_platformer2d_world::rooms::RoomSpec,
-    crate::features::RoomContentStagingRegistry,
+    crate::construction::RoomContentStagingRegistry,
 ) {
     let mut room = empty_room("hall");
     room.ground_items
         .push(ground_item("pickup_a", REAL_HELD_ITEM));
-    let mut staging = crate::features::RoomContentStagingRegistry::default();
+    let mut staging = crate::construction::RoomContentStagingRegistry::default();
     staging
         .register("hall", "test_provider", "duel", "duel.v1", |_room| {
             vec![
@@ -188,7 +188,7 @@ pub fn duelling_room() -> (
 
 pub fn prepare(
     room: &ambition_platformer2d_world::rooms::RoomSpec,
-    staging: &crate::features::RoomContentStagingRegistry,
+    staging: &crate::construction::RoomContentStagingRegistry,
     recipes: &ActorConstructionRegistry,
 ) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
     RoomFeatureConstructionPlan::prepare(
@@ -213,7 +213,7 @@ pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::Summo
         effect: ambition_vfx::Effect::Summon(spec),
     });
     world
-        .run_system_cached(crate::features::apply_summon_effects)
+        .run_system_cached(ambition_platformer2d_actor_monolith::features::apply_summon_effects)
         .expect("the summon executor runs");
     world.flush();
 }
@@ -450,7 +450,7 @@ pub fn placement_registry() -> ambition_platformer2d_construction::placements::P
             "ambition_platformer2d_actor_monolith",
             "test",
             "placement.interactable.v1",
-            crate::features::ecs::spawn_static::lower_interactable_placement,
+            crate::construction::static_features::lower_interactable_placement,
         )
         .unwrap();
     registry
@@ -495,7 +495,7 @@ pub fn prepare_with_placements(
     RoomFeatureConstructionPlan::prepare(
         room,
         &placement_registry(),
-        &crate::features::RoomContentStagingRegistry::default(),
+        &crate::construction::RoomContentStagingRegistry::default(),
         &ambition_boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(
             &engine_construction_registry(),
@@ -525,4 +525,10 @@ pub fn count_candidate_insertions(world: &mut bevy::prelude::World) {
         .on_insert(|_world: DeferredWorld, _ctx: HookContext| {
             *CANDIDATE_INSERTIONS.lock().expect("insertions") += 1;
         });
+}
+
+/// The authored catalog used by construction conformance tests.
+pub fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+    CharacterCatalog::from_data(parse_catalog(include_str!("../../../../game/ambition_content/assets/data/character_catalog.ron")))
 }

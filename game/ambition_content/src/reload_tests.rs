@@ -4669,7 +4669,7 @@ fn a_candidate_that_changes_only_projectile_looks_restates_ambitions_rows() {
 /// new file, and the arena room stages the new spectator duel.
 #[test]
 fn a_candidate_that_changes_only_ambition_rules_restates_the_tuning() {
-    use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
+    use ambition_platformer2d::publication::construction::RoomContentStagingRegistry;
 
     let mut app = host_with_the_shipped_cast();
     crate::tuning::register(&mut app);

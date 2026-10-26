@@ -13,11 +13,12 @@
 | [`module_entity`](src/module_entity.rs) | Module-owned entities (fast-iteration I7): the adapters of `ambition.world.spawn_module_entity` and `ambition.world.module_entity_tick`. |
 | [`ranged`](src/ranged/mod.rs) | Ranged abilities: the bomb. |
 | [`ride`](src/ride.rs) | The adapters of a summoned ride: `ambition.world.summon_ride`, the facts `ambition.body.ride`, `ambition.body.saddle`, `ambition.body.presses`, `ambition.body.tumbling` and `ambition.body.room`, and the requests `ambition.mount.dismount`, `ambition.body.hold_course` and `ambition.world.dismiss`. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 | [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade and the puppy-slug gun. |
 | [`traversal`](src/traversal/mod.rs) | Traversal rules a held item uses through its ports: the blink rule and the mark, which the blink, dive and mark/recall modules use. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

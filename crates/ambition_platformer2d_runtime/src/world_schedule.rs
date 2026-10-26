@@ -20,7 +20,7 @@ pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_message::<ambition_platformer2d_actor_monolith::features::NpcProvocationChanged>();
+        app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
         let sim = app.sim_schedule();
         use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
         use bevy::prelude::IntoScheduleConfigs;
@@ -91,8 +91,8 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ecs::apply_actor_stimuli.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::ActorStimulus>),
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
-                ambition_platformer2d_actor_monolith::features::record_npc_provocations
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_actor_monolith::features::NpcProvocationChanged>)
+                ambition_persistence::npc_provocation::record_npc_provocations
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::npc_provocation::NpcProvocationChanged>)
                     .after(ambition_platformer2d_actor_monolith::features::apply_release_provocations),
                 crate::effect_bus::apply_gameplay_sfx_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::GameplaySfxRequested>),

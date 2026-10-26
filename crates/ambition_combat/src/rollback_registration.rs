@@ -15,7 +15,47 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{
+{    registrar
+        .rollback_component_clone_probed::<crate::hurtbox_resolution::BodyPoseClock>(
+            OWNER,
+            "actor.body_pose_clock",
+            |clock| {
+                ambition_platformer2d_core::snapshot::checksum_bytes(clock.pose.as_bytes())
+                    ^ clock.elapsed_s.to_bits() as u64
+                    ^ ((clock.gait as u64) << 32)
+                    ^ (u64::from(clock.gait_elapsed_s.to_bits()) << 8)
+            },
+        );
+    registrar.rollback_component_clone::<crate::hurtbox_resolution::AuthoredHurtboxes>(
+        OWNER,
+        "actor.authored_hurtboxes",
+    );
+    // Presence follows the worn character, exactly as the authored hurtboxes
+    // do: a restore across a re-wear must bring back the rig the restored
+    // character granted. The value is a shared `Arc`, so a clone is cheap.
+    registrar.rollback_component_clone::<crate::body_rig::BodyRig>(
+        OWNER,
+        "actor.body_rig");
+    // Granted with the rig, by a body whose feet are not under its centre (a
+    // conducted boss's birth kit), and constant after: presence like the rig's.
+    // Probed by value: it is two floats, and a presence probe would see a
+    // restore that brought back the wrong offset as the right one.
+    registrar.rollback_component_clone_probed::<crate::body_rig::RigFeetOffset>(
+        OWNER,
+        "actor.rig_feet_offset",
+        |feet| (u64::from(feet.0.x.to_bits()) << 32) | u64::from(feet.0.y.to_bits()),
+    );
+    registrar.declare_rollback_derived_component::<crate::hurtbox_resolution::ResolvedHurtboxes>(
+        OWNER,
+        "derived.resolved_hurtboxes",
+        "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",
+    );
+    registrar.declare_rollback_derived_component::<crate::body_rig::BodyRigPose>(
+        OWNER,
+        "derived.body_rig_pose",
+        "resolved from BodyRig plus the move and pose clocks each tick, before any consumer",
+    );
+
     registrar.rollback_resource_clone::<crate::targeting::FactionRelations>(
         OWNER,
         "resource.faction_relations",

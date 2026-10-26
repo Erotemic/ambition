@@ -217,3 +217,6 @@ pub fn heal_save_shrine_system(
 
 #[cfg(test)]
 mod tests;
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

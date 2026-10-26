@@ -168,12 +168,12 @@ pub(crate) fn prepare_first_room_art_system(
                 // realization AND puts its pages in the manifest (a transition
                 // re-demands a worn sheet only when it retired one).
                 let worn: Vec<String> = match source.initial_body() {
-                    ambition_platformer2d::actors::avatar::InitialBodyPolicy::SpawnCharacter(
+                    ambition_platformer2d::session::initial_body::InitialBodyPolicy::SpawnCharacter(
                         starting,
                     ) => vec![starting
                         .effective_id(&prepared.report.starting_character)
                         .to_string()],
-                    ambition_platformer2d::actors::avatar::InitialBodyPolicy::NoInitialBody => {
+                    ambition_platformer2d::session::initial_body::InitialBodyPolicy::NoInitialBody => {
                         Vec::new()
                     }
                 };

@@ -7,7 +7,12 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{
+{    registrar.declare_rollback_derived_component::<crate::attack_geometry::BossAnimationFrameSample>(
+        OWNER,
+        "derived.boss_animation_frame_sample",
+        "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
+    );
+
     registrar.rollback_component_cursor::<crate::BossEncounter>(OWNER, "boss.encounter");
     // The side a conducted boss faces: its module chose it on an earlier
     // tick, and the integration applies it, so it is state a rewind restores.

@@ -49,7 +49,7 @@ fn spawn_anonymous_npc(app: &mut App) -> bevy::prelude::Entity {
 fn a_body_with_no_provoked_policy_cannot_be_provoked() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_anonymous_npc(&mut app);
     let control = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
@@ -123,7 +123,7 @@ fn run(app: &mut App, actor: bevy::prelude::Entity) {
 fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     // Already at the strike threshold (the damage system increments
     // strikes; this stimulus is the provocation that re-evaluates).
@@ -165,7 +165,7 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
     let mut app = App::new();
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0));
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, tick_pending_challenges);
     let actor = app
         .world_mut()
@@ -211,7 +211,7 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
 fn npc_below_the_threshold_stays_peaceful() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
     run(&mut app, npc);
@@ -230,7 +230,7 @@ fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
     // is the gate the Perfect Cell-ular Automaton encounter rides on.
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     app.world_mut().write_message(ActorStimulus::Challenged {
@@ -266,7 +266,7 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     // First stimulus: the peaceful→hostile flip builds the (combatant Smash)
@@ -411,7 +411,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_flying_npc(&mut app);
 
@@ -506,7 +506,7 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), Some(9)));
 
@@ -572,7 +572,7 @@ fn provoking_a_driven_body_changes_its_mind_and_not_its_driver() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
 
     let cast = npc_cast(Some(false), None);
@@ -670,7 +670,7 @@ fn an_unauthored_body_gets_the_undescribed_pool_before_anybody_hits_it() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
 
@@ -707,7 +707,7 @@ fn an_un_challenged_passive_npc_ignores_damage() {
     // crossing the retaliation threshold) arms the fight.
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     // Force passive so DamagedBy is a no-op.
@@ -741,7 +741,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
     fn app_with_npc() -> (App, bevy::prelude::Entity) {
         let mut app = App::new();
         app.add_message::<ActorStimulus>();
-        app.add_message::<crate::features::NpcProvocationChanged>();
+        app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
         app.add_message::<crate::features::ReleaseProvocation>();
         app.add_message::<crate::features::BrainCommand>();
         app.insert_resource(AmbitionGameSave::default());
@@ -751,7 +751,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
             (
                 apply_actor_stimuli,
                 crate::features::apply_release_provocations,
-                crate::features::record_npc_provocations,
+                ambition_persistence::npc_provocation::record_npc_provocations,
             )
                 .chain(),
         );
@@ -895,7 +895,7 @@ fn authored_provocation_app() -> (
     let (cast, profile, id) = provoked_profile_cast();
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &cast);
     app.insert_resource(cast);
@@ -998,7 +998,7 @@ fn an_already_hostile_body_records_no_policy_it_was_not_given() {
 fn a_provocation_keeps_the_placements_authored_brain_key() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     let label = ambition_entity_catalog::placements::CharacterBrain::Custom("sandbag".into());

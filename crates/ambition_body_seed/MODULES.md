@@ -8,9 +8,10 @@
 |---|---|
 | [`clusters`](src/clusters.rs) | The per-tick view of an actor: [`ActorMut`](crate::clusters::ActorMut), the borrow the integration mutates in place, and the query that assembles it from live components. |
 | [`physical_baseline`](src/physical_baseline.rs) | Prepared-character physical facts shared by every body-construction path. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire encoders for the seed's own components. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

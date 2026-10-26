@@ -1609,7 +1609,7 @@ virtue ("idempotent by construction", "running every tick can only add"):
 | --- | --- | --- |
 | `isolate_live_rooms` (F14) | every room entity's `RenderLayers` | the live-room set changes, an entity is new |
 | `reconcile_effective_repertoire` (F15) | the repertoire, after a false change | equipment, identity, held item change |
-| `gate_body_control` (`avatar/starting_character.rs:631`) | each body's action scheme (`derive_action_scheme`); the control prompt derives it again | abilities, moveset, action set, techniques change |
+| `gate_body_control` (`avatar/character_execution.rs:631`) | each body's action scheme (`derive_action_scheme`); the control prompt derives it again | abilities, moveset, action set, techniques change |
 | `authorize_staged_character_presentation_sources` (`character_runtime/presentation.rs:54`) | each staged provider's SFX authorization, with catalog clones; its `ResMut` write marks the selection changed every tick | the cast, a bank or a catalog arrives |
 
 Reading (REASONED): the style is robust (no missed update, no order bug,

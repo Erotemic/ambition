@@ -19,7 +19,7 @@ pub struct AmbitionPreparedWorld {
     /// The experience's catalog DEFAULT character. Meaningful whatever
     /// [`Self::builds_a_home_body`] says: a worn fighter still needs a fallback
     /// id even in a session that lowers no avatar of its own.
-    pub starting_character: ambition_platformer2d_actor_monolith::avatar::StartingCharacter,
+    pub starting_character: ambition_platformer2d_session::initial_body::StartingCharacter,
     /// Whether this composition lowers Ambition's home avatar.
     ///
     /// True for every ordinary entry — the world is an exploration world and the

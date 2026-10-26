@@ -1489,3 +1489,6 @@ mod npc_flight_tests;
 #[cfg(test)]
 mod npc_vitals_tests;
 
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

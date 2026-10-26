@@ -98,21 +98,6 @@ fn an_authored_character_decides_whether_it_charges() {
     assert!(!plain.ranged_execution.charges_projectiles());
 }
 
-#[test]
-fn default_is_unset_and_is_default() {
-    // No override: an empty id routes to the untouched `from_scratch` path.
-    // The concrete row is CONTENT's (`effective_id` resolves it at spawn);
-    // the engine bakes in no character name.
-    let sc = StartingCharacter::default();
-    assert!(sc.character_id.as_str().is_empty());
-    assert!(sc.is_default());
-    // `effective_id` resolves to a real catalog row (the content-installed
-    // default, or the first row as fallback) — never empty, never a name
-    // the ENGINE baked in.
-    let eff = sc.effective_id("player_robot_v3");
-    assert!(!eff.is_empty());
-    assert!(test_catalog().get(eff).is_some());
-}
 
 #[test]
 fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
@@ -161,10 +146,6 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     );
 }
 
-#[test]
-fn non_default_id_is_not_default() {
-    assert!(!StartingCharacter::new("goblin").is_default());
-}
 
 /// S1: gameplay configuration is DERIVED from the worn identity, at spawn
 /// (Added) and on any later re-wear (Changed). A body carrying only the

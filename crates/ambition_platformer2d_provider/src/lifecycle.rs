@@ -3323,7 +3323,7 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone()),
-            ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
+            ambition_platformer2d_session::initial_body::StartingCharacter::new("alpha"),
         )
     }
 
@@ -3391,7 +3391,7 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone()),
-            ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
+            ambition_platformer2d_session::initial_body::StartingCharacter::new("alpha"),
         )
     }
 
@@ -3427,7 +3427,7 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone()),
-            ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
+            ambition_platformer2d_session::initial_body::StartingCharacter::new("alpha"),
         )
     }
 
@@ -3547,7 +3547,7 @@ mod tests {
                 ambition_platformer2d_core::RoomGeometry(
                     base.room_set().activation_spec().world.clone(),
                 ),
-                ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(
+                ambition_platformer2d_session::initial_body::StartingCharacter::new(
                     selected.to_string(),
                 ),
             );
@@ -4211,7 +4211,7 @@ mod mechanical_registries_reach_the_identity {
                 Vec::new(),
             ),
             ambition_platformer2d_core::RoomGeometry(world),
-            ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
+            ambition_platformer2d_session::initial_body::StartingCharacter::new("alpha"),
         )
     }
 

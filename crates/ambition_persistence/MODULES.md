@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`host`](src/host/mod.rs) | Host-facing settings vocabulary. |
+| [`npc_provocation`](src/npc_provocation.rs) | Durable provocation facts and their saved-flag reducer. |
 | [`quest`](src/quest/mod.rs) | Quest data types and progression rules. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_persistence`. |
 | [`save`](src/save.rs) | Sandbox save game I/O + autosave. |
@@ -14,7 +15,7 @@
 | [`settings`](src/settings/mod.rs) | User-facing persisted settings data. |
 | [`store`](src/store.rs) | Where a persisted file's bytes go, per platform. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

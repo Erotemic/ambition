@@ -18,7 +18,6 @@ pub fn apply_flag_effects(
     }
 }
 
-
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
 pub fn apply_quest_effects(
     mut effects: MessageReader<QuestAdvanceRequested>,

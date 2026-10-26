@@ -7,8 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`conditions`](src/conditions.rs) | What the item domain lets authored content ask about custody. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

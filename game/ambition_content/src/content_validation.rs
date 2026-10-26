@@ -595,7 +595,7 @@ fn composed_quest_ids(
             PlacementSchema::Interactable(interactable) => match &interactable.kind {
                 InteractionKindSpec::Npc { dialogue_id, .. } => {
                     npcs.insert(record.id.as_str().to_string());
-                    flags.insert(ambition_platformer2d::actors::features::npc_talked_flag(
+                    flags.insert(ambition_platformer2d::persistence::save_data::npc_talked_flag(
                         &ambition_platformer2d::actors::features::npc_talk_dialogue_id(
                             dialogue_id.as_deref(),
                         ),
@@ -1180,7 +1180,7 @@ mod tests {
                 )
             });
         assert!(silent, "the fixture needs a shipped NPC that authors no dialogue");
-        let flag = ambition_platformer2d::actors::features::npc_talked_flag(
+        let flag = ambition_platformer2d::persistence::save_data::npc_talked_flag(
             &ambition_platformer2d::actors::features::npc_talk_dialogue_id(None),
         );
         assert!(

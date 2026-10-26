@@ -27,7 +27,11 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{
+{    registrar.rollback_component_canonical::<crate::body_clusters::ActorSurfaceState>(
+        OWNER,
+        "actor.surface_state",
+    );
+
     use crate::body_clusters as bc;
 
     // The live room root's geometry (OW1 cut 3: one root per live room).

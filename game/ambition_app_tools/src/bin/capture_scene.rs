@@ -560,7 +560,7 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
             if let Some(character_id) = config.character.clone() {
                 eprintln!("capture_scene: player wears character '{character_id}'");
                 app.insert_resource(ambition_app::app::StartingCharacterOverride(
-                    ambition_platformer2d::actors::avatar::StartingCharacter::new(character_id),
+                    ambition_platformer2d::session::initial_body::StartingCharacter::new(character_id),
                 ));
             }
         },

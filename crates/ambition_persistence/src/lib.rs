@@ -249,3 +249,5 @@ pub(crate) fn lock_data_dir() -> std::sync::MutexGuard<'static, ()> {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
+
+pub mod npc_provocation;

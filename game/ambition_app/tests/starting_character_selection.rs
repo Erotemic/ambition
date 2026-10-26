@@ -44,7 +44,7 @@ fn a_selected_starting_character_activates_a_controllable_session() {
             // Exactly what `cli.rs::insert_starting_character_override` does for
             // `AMBITION_START_CHARACTER`, and `capture_scene` for `--character`.
             app.insert_resource(ambition_app::app::StartingCharacterOverride(
-                ambition_platformer2d::actors::avatar::StartingCharacter::new(SELECTED),
+                ambition_platformer2d::session::initial_body::StartingCharacter::new(SELECTED),
             ));
             ambition_app::rl_sim::ambition_sim_composition(app, options)
         },

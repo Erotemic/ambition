@@ -274,7 +274,7 @@ pub fn prepare_the_match(
     // — it lowered no avatar, so no seat can collide with one.
     home_body: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_actor_monolith::avatar::starting_character::InitialBodyPolicy,
+            crate::initial_body::InitialBodyPolicy,
         >,
     >,
     // WHICH session this plan is for; a plan from the previous one is stale.

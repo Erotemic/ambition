@@ -386,7 +386,7 @@ together.
 
 ### CHARACTER-FORM — a change of form is the same body in the new form's geometry
 
-**Owner:** the form application (`avatar/starting_character.rs`, the re-wear
+**Owner:** the form application (`avatar/character_execution.rs`, the re-wear
 road), `ambition_body_seed::PhysicalBaseline` / `BaselineBoundary`, the
 construction paths (home body, NPC placement, summons, match fighters, joined
 seats), and control projection (`control/authority.rs`). Ruling: Q159
@@ -2146,7 +2146,7 @@ responsibility to its owner and keep one body, control, and action path.
 
 | # | Item | Next step |
 |---|---|---|
-| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Finish startup body policy, rollback declaration ownership, and the public body API. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
+| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Startup body policy, durable NPC adapters, and rollback declarations now follow their owners. Finish the public body API and remove the old features::ecs topology and foreign forwarding exports. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`
@@ -3473,7 +3473,7 @@ Q103: refuse. The kit compiler takes a prepared definition (`WornKit::of`);
 `WornKit::resolve` and the peaceful-kit fallback are deleted. A re-wear to an
 unprepared id writes nothing and puts `WornCharacter` back to
 `PersonaBaseline::id`. Witnesses
-(`avatar::starting_character::tests`):
+(`avatar::character_execution::tests`):
 `a_rewear_to_an_unprepared_id_keeps_the_previous_character`,
 `an_unprepared_id_writes_nothing_on_the_body`. The two remainders (a generation
 that drops a worn id; the home body of an unprepared starting id) are open work

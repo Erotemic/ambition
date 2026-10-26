@@ -257,7 +257,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_persistence/src/save.rs",
         "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
         "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
+        "crates/ambition_persistence/src/npc_provocation.rs",
         "crates/ambition_platformer2d_items/src/persist.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
@@ -389,7 +389,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
+        "crates/ambition_persistence/src/npc_provocation.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/quest.rs",
@@ -1886,7 +1886,7 @@ ADJUDICATED: dict[str, str] = {
         "`runtime/src/effect_bus.rs::{apply_flag_effects, "
         "apply_quest_effects}`, "
         "`ambition_platformer2d_runtime/src/quest.rs::push_room_entered_quest_events`, "
-        "`actor_monolith/src/features/npcs.rs::record_npc_provocations` — which "
+        "`persistence/src/npc_provocation.rs::record_npc_provocations` — which "
         "writes an NPC's durable provocation flag through `effect_bus::write_flag`, "
         "the same save-plus-`FlagSet` write `apply_flag_effects` makes, added "
         "2026-09-23); TWO "
@@ -3791,6 +3791,11 @@ ADJUDICATED: dict[str, str] = {
 #: `dict[str, int]` and a same-cardinality writer swap on
 #: `EncounterMusicRequest` left the guard green. The file set is the owner.
 SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
+    "WorldTimeSchedule": (
+        "crates/ambition_breakables/src/returns.rs",
+        "crates/ambition_platformer2d_items/src/regrowth.rs",
+        "crates/ambition_world_returns/src/lifecycle.rs",
+    ),
     "AbandonedCheckpointOperation": (
         "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
@@ -3866,6 +3871,14 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: different lifetime: a session boundary reclaims these, so "two writers" is a
 #: question about one session's state rather than about the App's.
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
+    "WorldTimeSchedule": (
+        "CORRECT -- Breakables mirror respawn timers; pickups mirror regrowth "
+        "timers. Both use the ledger's record and forget operations with the "
+        "authored room and placement key. The returns owner applies admitted "
+        "replay and checkpoint horizon transitions. Runtime keeps these "
+        "operations in their existing interaction and restore slots. The ledger "
+        "is rollback state; its records carry deadlines and participant owners."
+    ),
     "OccurrenceBaseline": (
         "CORRECT -- ONE WRITER PER LIFECYCLE EVENT, ON THE SESSION ROOT SINCE C03 "
         "(2026-10-08). It was a multi-writer RESOURCE adjudicated as four "

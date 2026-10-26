@@ -1945,3 +1945,6 @@ mod tests;
 
 #[cfg(test)]
 mod schedule_tests;
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

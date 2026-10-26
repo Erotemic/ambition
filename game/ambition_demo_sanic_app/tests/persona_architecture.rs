@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::avatar::StartingCharacter;
+use ambition_platformer2d::session::initial_body::StartingCharacter;
 use ambition_platformer2d::characters::actor::WornCharacter;
 
 fn worn_of_primary(app: &mut App) -> Option<WornCharacter> {

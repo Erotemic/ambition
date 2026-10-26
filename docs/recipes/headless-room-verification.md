@@ -39,7 +39,7 @@ Prefer extending an existing harness/helper over adding a second miniature app.
 python scripts/agent_query.py tests "<invariant>"
 ./run_tests.sh -k <test_substring>
 ./run_tests.sh -p <owning_package> -k <test_substring>
-cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- <ROOM_ID>
+cargo run -p ambition_app_tools --bin render_room_geometry -- <ROOM_ID>
 ```
 
 `game/ambition_app` integration tests are aggregated through the current
@@ -71,8 +71,8 @@ GPU. A question about art cannot be answered by the fast one.
 ### 1. Geometry — `render_room_geometry` (sub-second, no GPU)
 
 ```bash
-cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- <ROOM_ID> [OUT.png]
-cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry           # lists every room
+cargo run -p ambition_app_tools --bin render_room_geometry -- <ROOM_ID> [OUT.png]
+cargo run -p ambition_app_tools --bin render_room_geometry           # lists every room
 ```
 
 A pure pixel buffer — no wgpu, no windowing, no display. It draws collision and

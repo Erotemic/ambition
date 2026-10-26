@@ -4,7 +4,7 @@
 //! `RoomSpec` that the game actually runs: no authored entity center
 //! may sit outside the room bounds (it would fall/float forever) and no
 //! player spawn may be embedded in a Solid block (the player would load
-//! stuck). The `render_room_geometry -- report` example prints the same
+//! stuck). The `render_room_geometry -- report` tool prints the same
 //! check for humans; this fails the build if a future room regresses.
 
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};

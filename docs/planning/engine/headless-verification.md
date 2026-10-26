@@ -92,8 +92,11 @@ capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
   names another. Name `high` or `ultra` to judge art; do not use `potato`,
   which scales screen shaders and parallax to nothing.
 
-The geometry-only sibling is
-`ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs capture`.
+For a geometry image, run:
+
+```bash
+cargo run -p ambition_app_tools --bin render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WxH]
+```
 
 So an agent can spot-check visuals. Work that "always draws blind" should
 produce an image.

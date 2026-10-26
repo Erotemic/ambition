@@ -1,33 +1,28 @@
-//! Headless geometry-debug renderer (TODO #200, geometry slice).
+//! Render a room's collision geometry to a PNG with a CPU pixel buffer.
 //!
-//! Renders a room's collision world to a PNG using a pure-Rust pixel
-//! buffer — no GPU / wgpu / windowing, so it runs anywhere the
-//! sandbox compiles (CI, this VM, a remote box). The point is to let an
-//! agent or reviewer *see* a room's spatial layout (solids, one-ways,
-//! hazards, pogo orbs, spawn) and verify authoring / collision bugs
-//! without launching the visible binary or hand-reading LDtk JSON.
-//!
-//! This is the geometry half of the broader "headless screenshot"
-//! verification path: it draws collision/volume *boxes* in world space,
-//! not the sprite art. That covers the class of bugs that are about
-//! *where things are* (room boundaries, mid-air doors, hurtbox vs body
-//! envelope) rather than what they look like.
+//! Shows solids, platforms, hazards, placement bounds, boss hurtboxes and the
+//! spawn point. Capture mode uses the shared camera snapshot resolver.
 //!
 //! Usage:
-//!   cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- [ROOM_ID] [OUT.png]
-//!   cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
+//!   cargo run -p ambition_app_tools --bin render_room_geometry -- [ROOM_ID] [OUT.png]
+//!   cargo run -p ambition_app_tools --bin render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
 //!
-//! With no ROOM_ID it lists every room id and exits. Default output is
-//! `/tmp/room_<id>.png`.
+//! With no room ID, list the rooms in Ambition's world manifest.
 
-use ambition_platformer2d_actor_monolith as sb;
-use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d::{boss_encounter, engine_core as ae, ldtk_map, persistence, sim_view, world};
+use ae::AabbExt;
+use image::{Rgba, RgbaImage};
+use persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
+use sim_view::camera_snapshot::{
+    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
+    CameraSnapshotResolveMode,
+};
 
 /// Footprints of placement records of a given kind, read from the single
 /// `placements` channel (fable audit F9.2 — these families no longer have a
 /// typed `RoomSpec` list).
 fn placement_aabbs(
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    room: &world::rooms::RoomSpec,
     kind: ambition_entity_catalog::placements::PlacementKind,
 ) -> Vec<ae::Aabb> {
     room.placements
@@ -36,39 +31,6 @@ fn placement_aabbs(
         .map(|r| r.aabb)
         .collect()
 }
-use ambition_sim_view::camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
-    CameraSnapshotResolveMode,
-};
-use image::{Rgba, RgbaImage};
-// CI *does* compile every target in the workspace — but as `cargo clippy --workspace
-// --all-targets … || true`, deliberately non-blocking while ~14 known warnings stand — so the
-// one command that would have caught a hard compile error here is the one that discards its own
-// exit code.  an example is a target nothing gates: whoever removes a re-export should
-// grep `examples/` by hand, because no suite will.
-use ambition_persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
-
-fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
-    let sources = ambition_boss_encounter::ambition_encounter_sources();
-    let encounters: Vec<&str> = sources.iter().map(String::as_str).collect();
-    let fragment = ambition_boss_encounter::BossCatalogFragment::from_ron(
-        "geometry-debug",
-        Some("clockwork_warden"),
-        Some("gradient_sentinel"),
-        include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-        &encounters,
-        include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
-        ambition_boss_encounter::BossArtKeys::from_ron(include_str!(
-            "../../../game/ambition_content/assets/data/boss_art_keys.ron"
-        ))
-        .expect("Ambition's boss art keys parse"),
-    )
-    .expect("geometry-debug boss fixture should parse");
-    let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();
-    registry.register(fragment).unwrap();
-    registry.assemble().unwrap()
-}
-
 /// Longest edge of the output image, in pixels. Worlds scale down to fit.
 const MAX_CANVAS_PX: u32 = 1000;
 /// Padding around the world inside the canvas.
@@ -239,8 +201,8 @@ fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: R
 }
 
 fn render_room(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    boss_catalog: &boss_encounter::BossCatalog,
+    room: &world::rooms::RoomSpec,
 ) -> RgbaImage {
     let world = &room.world;
     let (proj, w, h) = Projection::new(world.size);
@@ -248,8 +210,8 @@ fn render_room(
 }
 
 fn render_room_snapshot(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    boss_catalog: &boss_encounter::BossCatalog,
+    room: &world::rooms::RoomSpec,
     snapshot: &CameraSnapshot2d,
     image_size: (u32, u32),
 ) -> RgbaImage {
@@ -258,8 +220,8 @@ fn render_room_snapshot(
 }
 
 fn render_room_projected(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    boss_catalog: &boss_encounter::BossCatalog,
+    room: &world::rooms::RoomSpec,
     proj: &Projection,
     w: u32,
     h: u32,
@@ -314,7 +276,7 @@ fn render_room_projected(
         // player must hit — derived from the boss's sprite metrics, so a
         // boss whose hurtbox is a small head inside a big body envelope
         // reads correctly.
-        for hb in sb::features::boss_spawn_hurtboxes(
+        for hb in boss_encounter::ecs::boss_spawn_hurtboxes(
             boss_catalog,
             &b.id,
             &b.name,
@@ -379,7 +341,7 @@ fn parse_image_size(text: &str) -> Option<(u32, u32)> {
 }
 
 fn resolve_headless_snapshot(
-    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    room: &world::rooms::RoomSpec,
     focus_world: ae::Vec2,
     image_size: (u32, u32),
 ) -> CameraSnapshot2d {
@@ -411,8 +373,7 @@ fn resolve_headless_snapshot(
             chart_transit: None,
             // A headless ROOM portrait frames a point, never a cast.
             must_frame_world: None,
-            ease_tuning:
-                ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning::default(),
+            ease_tuning: Default::default(),
             screen_framing: None,
             reference_frame: Default::default(),
             subject_down: None,
@@ -426,7 +387,7 @@ fn resolve_headless_snapshot(
 /// the room bounds (it would fall/float forever), or a player spawn
 /// embedded inside a Solid collision block (the player loads stuck).
 /// These are projection-level checks the LDtk validator does not run.
-fn run_anomaly_report(room_set: &ambition_platformer2d_world::rooms::RoomSet) {
+fn run_anomaly_report(room_set: &world::rooms::RoomSet) {
     let mut total = 0usize;
     for room in &room_set.rooms {
         let world = &room.world;
@@ -557,59 +518,21 @@ fn run_anomaly_report(room_set: &ambition_platformer2d_world::rooms::RoomSet) {
     }
 }
 
-/// The sandbox world this tool renders, read cross-crate from the content
-/// crate's checked-in assets.
-///
-/// With the manifest an explicit argument the omission became a compile error, which is how it
-/// was found.
-fn sandbox_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldManifest {
-    use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
-    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../game/ambition_content/assets/worlds");
-    let source = |id: &str, file: &str, required: bool| WorldSource {
-        id: ambition_asset_manager::AssetId::new(id),
-        asset_path: format!("game://worlds/{file}"),
-        loose_path: Some(worlds_dir.join(file)),
-        embedded_text: None,
-        embedded_bevy_path: None,
-        required,
-    };
-    WorldManifest {
-        entry_room: "central_hub_complex".to_string(),
-        ron_rooms: Vec::new(),
-        worlds: vec![
-            source("world.sandbox_ldtk", "sandbox.ldtk", true),
-            source("world.intro_ldtk", "intro.ldtk", false),
-            source(
-                "world.cut_rope_ldtk",
-                "you_have_to_cut_the_rope.ldtk",
-                false,
-            ),
-            source("world.hall_ldtk", "hall_of_characters.ldtk", false),
-            source("world.math_ldtk", "math.ldtk", false),
-            source("world.science_ldtk", "science.ldtk", false),
-            source("world.evil_ldtk", "evil.ldtk", false),
-        ],
-    }
-}
-
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
-    let manifest = sandbox_world_manifest();
-    let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest)
-        .expect("sandbox LDtk should load");
-    let report = project.validate(&ambition_platformer2d_ldtk::LdtkVocabulary::engine());
+    let manifest = ambition_content::worlds::world_manifest();
+    let vocabulary = ambition_content::world_preparation::ldtk_vocabulary();
+    let project = ldtk_map::LdtkProject::load_default_for_dev(&manifest)
+        .expect("Ambition's LDtk worlds should load");
+    let report = project.validate(&vocabulary);
     if !report.is_ok() {
         eprintln!("warning: LDtk validation reported issues; rendering anyway");
     }
     let room_set = project
-        .to_room_set(
-            &manifest,
-            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
-        )
+        .to_room_set(&manifest, &vocabulary)
         .expect("room_set should build");
-    let boss_catalog = ambition_boss_catalog();
+    let boss_catalog = ambition_content::bosses::shipped_boss_catalog();
 
     // `report` mode: scan every room's RUNTIME projection for spatial
     // anomalies the LDtk validator can't see (it validates LDtk-level

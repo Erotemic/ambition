@@ -205,3 +205,8 @@ bench = false
 name = "fighter_motion"
 path = "src/bin/fighter_motion.rs"
 test = false
+
+[[bin]]
+name = "render_room_geometry"
+path = "src/bin/render_room_geometry.rs"
+test = false

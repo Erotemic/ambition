@@ -1,9 +1,8 @@
 //! Draw the stage, including the thing that kills you.
 //!
 //! Pure-Rust pixels (no GPU, windowing, or asset tree), so it runs wherever
-//! the crate compiles. The `render_room_geometry` example of
-//! `ambition_platformer2d_actor_monolith` is bound to that crate's room list,
-//! and no other renderer draws blast margins.
+//! the crate compiles. The `render_room_geometry` app tool draws room
+//! geometry. This tool also draws the stage's blast margins.
 //!
 //! It draws the world bounds, the platform, the blast envelope, and where a
 //! respawn lands.

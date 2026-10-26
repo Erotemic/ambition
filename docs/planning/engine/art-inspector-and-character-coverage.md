@@ -1,7 +1,7 @@
 # Art inspector and character coverage
 
-**State:** proposed implementation plan, 2026-10-26. Investigation only; the
-death-animation defect is still present. Parent programs:
+**State:** death publication corrected; inventory and inspector changes
+proposed, 2026-10-26. Parent programs:
 [authoring](authoring-and-tools.md) and
 [inspection](inspection-diagnostics-and-workbench.md). The
 [existing inspector](../../../tools/art_inspector/README.md) remains the tool.
@@ -15,27 +15,21 @@ history keep their present ownership. The inspector stores derived results.
 
 ## Evidence and present limits
 
-Source examined: superproject `c70860bef889`, renderer `5fe52bfe3272`.
-The checkout has other local submodule work. No runtime or authored art was
-changed for this investigation. The inspector was rebuilt from local files
-with `python3 scripts/art_inspector.py build --no-previews`.
+Source examined: superproject `d2fd61449c58`, renderer `eaacd737c133`.
 
-- All seven `tower_*` townsfolk sheets omit `hurt`, `death` and `death_idle`.
-  Of the 27 specs under the renderer's `data/townsfolk/`, 25 select the
-  default nine-row `townsfolk` profile. Only `armsmith_odile` and
-  `village_nagisa` select `full`; their published sheets have all three rows.
-- `chargen/sheets.py::TOWNSFOLK_ROWS` omits those reactions.
-  `PUBLISH_ROWS` includes them. `targets/characters/townsfolk.py` selects the
-  profile from `game.rows`, with `townsfolk` as its default.
-- `chargen/motion.py` supplies an eight-frame death and a four-frame corpse
-  loop. A fresh source render of Voss shows a fall and a body lying down.
-  These poses exist in the source but are absent from the published bundle.
-- The shared animation picker selects `Death` for a dead actor
-  (`ambition_character_sprites::anim`). The sheet resolver follows
-  `Death -> Hit -> Idle` (`CharacterAnim::base_pose`,
-  `CharacterSheetSpec::resolve_anim`). Voss has neither reaction row, so this
-  resolves to idle. This explains the reported standing body. An in-game
-  kill was not replayed in this investigation.
+**Death publication receipt.** The default townsfolk profile omitted hurt,
+death and corpse rows. A dead body therefore resolved `Death -> Hit -> Idle`.
+Renderer commit `eaacd737c133` adds `hurt`, `death` and `death_idle` to
+`TOWNSFOLK_ROWS`. The existing generated-character pose test exercises all
+three. All 25 affected targets were published at all quality tiers. All 27
+townsfolk have these rows in 108 runtime manifests and their part tables.
+The quality freshness check passes. The existing capture binary killed Voss
+through projectile hits and showed the fall and the corpse. Keep the
+correction in the common profile; do not add a soldier path
+or require the full combat profile for a peaceful body.
+
+Current inspection gaps:
+
 - The rebuilt index contains 234 character sheet assets; 141 have a
   description. These are sheet counts, not character counts. A lineage link
   exists for each of these assets, but only 126 link to a lineage with eras.
@@ -69,8 +63,8 @@ with `python3 scripts/art_inspector.py build --no-previews`.
    Studio reads the spec and builds the full source clip set. It does not
    establish that those clips are published or selected by the game.
 3. Compare the selected source profile with the published YAML and RON rows.
-   For Voss, both published manifests have nine rows and no death row. Do
-   not edit these generated manifests to add a row.
+   After the correction, Voss has 12 rows, including reactions and death.
+   Do not edit generated manifests to add a row.
 4. After a source correction, publish one target with
    `./scripts/regen/sprites.sh --target tower_voss`, then rebuild the
    inspector. This command is a publication step, not an inspection step.
@@ -149,6 +143,126 @@ Reports identify input revisions, local changes, source fingerprints and tool
 version. Cached exports must state whether they match their inputs. An offline
 file scan cannot claim what a running session has loaded.
 
+## Inventory and freshness for all art
+
+The inventory must cover actors, props, held items, projectiles, effects,
+icons, tiles, terrain skins, room dressing, backgrounds, portraits and derived
+atlases. A character-only catalog cannot answer the game's art requirements.
+The unit is a registered product bundle. A background theme has several layers;
+a terrain skin has several parts; an actor can use several bundles.
+
+### Existing surfaces and gaps
+
+- `scripts/regen/sprites.sh --check` reports required missing files and one
+  fingerprint for the last full publish. The measured baseline has all 1,986
+  required sprite files but a stale global fingerprint. It does not say which
+  targets are stale or inspect the quality tiers.
+- The full publish already has per-target input records and cache keys:
+  `read_record.py`, `scripts/lib/sprite_cache_key.sh`, `.cache/reads` and
+  `.cache/sheets`. Expose their decisions. Do not write another freshness
+  algorithm in the inspector.
+- The focused publish branch exits before the full branch sets
+  `AMBITION_SPRITE_READS_DIR`. Its provenance can therefore name only the
+  target module and declared data, omitting shared motion and drawing code.
+  A recorded output digest proves which bytes were published; it does not
+  prove those bytes include later changes to unrecorded inputs.
+- Registry output claims include optional companions. The script filters
+  these with its own `runtime_required` policy. A list of all claims is not
+  a correct list of missing required products.
+- Backgrounds and terrain already expose product plans
+  (`backgrounds.plan`, `parts_plan`, `terrain.plan`) and write provenance
+  through `provenance.Book`. Include them through those owners. The sprite
+  target registry alone does not enumerate them.
+- The inspector scans local products and uses character design history.
+  Missing products need records even when no files exist. Props and
+  backgrounds also need explicit lineage references where their authors have
+  established a history. Absence of that metadata means unknown history.
+
+### Keep use, registration, generation and history separate
+
+| Question | Derived answer |
+| --- | --- |
+| Does this game revision use it? | Referenced by the selected prepared provider and profile, available as an optional look, registered with no known use, or unresolved |
+| Can an owner produce it? | Registered, unregistered, or discovery unavailable/failed |
+| Is the required bundle ready? | Current, missing, partial, stale inputs, changed outputs, stale tiers, or unknown |
+| What design is it? | Explicit concept, lineage, era, form, part and derivation relations, with unknown values retained |
+
+An old design can be a current game's selectable skin. An unused registered
+target is not unregistered. A retired file with no live producer is not a
+missing current-game asset. A failed import is not proof of removal.
+
+Do not write `current: true` into generated art. Current use is a relation to
+an exact game content revision, provider and profile. Obtain it from the
+prepared content reference closure, including world themes, prop bindings,
+character forms, portraits and effects. The renderer cannot decide game use.
+Keep game revision/content digest separate from renderer revision and source
+fingerprints. A newer renderer commit does not make every old output stale.
+
+### Extend the product description and publication record
+
+Have each existing owner export the following facts without drawing:
+
+- Namespaced unit ID, kind, source paths and supported publish operation.
+- Required outputs by role and tier, optional outputs and selected parameters.
+  Derive this description from the same product plan that publication uses.
+- Available source clips, selected sheet rows, actual published clips and
+  semantic bindings. Serialize YAML and RON from the same rendered result.
+- Explicit concept, visual family and lineage/era references where authored.
+  Keep form, part and derived-character relations at their present owners.
+  A caller must not infer these from `_vN` or a common module name.
+
+Extend the existing provenance records with a complete generation key:
+recorded files, imported drawing code, directory membership, selected render
+parameters, effective seed/spec, relevant toolchain versions and product-plan
+version. Record the output members and their digests as one accepted bundle.
+Quality tiers and atlases name the source bundle digest and their conversion
+parameters. Store this evidence in the existing provenance root beside the
+runtime assets. Do not add a second registry or copy game catalogs into it.
+
+Focused and full publication must use the same recorder, key and acceptance
+path. A failed publication keeps the previous accepted receipt. A cache
+backfill without complete inputs remains unknown for source freshness; it
+must not gain a claim that it was rendered from today's source.
+
+### Fast questions and focused generation
+
+Extract the existing per-target cache decision into a reusable owner API. Use
+it for status, the publication plan and the actual publisher. The inspector
+combines owner results; it does not decide how to render a unit.
+
+The fast path discovers units once, hashes each shared input once, and caches
+digests for unchanged files. It does not decode pixels, generate previews,
+read Git blame or walk old revisions. A separate deep verification rehashes
+outputs. Report unsupported owner checks as unknown. Discovery failure makes
+the report incomplete, even when the known units are current.
+
+Return structured reasons, affected required members, evidence completeness
+and the exact repair operation. A publish of one selected target updates that
+target's accepted receipt; it must not claim that the whole game was rebuilt.
+Do not regenerate optional historical looks merely because their pixels are
+absent. Keep the set requested by the selected game separate from all known
+authoring units.
+
+Proposed inspector queries, not implemented commands:
+
+```text
+status --profile ambition --needs-generation --json
+list --profile ambition --kind actor,prop,background --lineage --json
+inspect npc_tower_voss --animation death --json
+```
+
+The page should expose the same records as Current game, Needs generation,
+Registered with no known use, History and Unregistered products. Unknown and
+conflicting metadata remain selectable. Selecting an actor, prop or theme
+shows its complete bundle, tiers, dependents, lineage and repair command.
+
+Acceptance: delete one required page, change a shared drawing helper, change
+one spec, leave one old skin enabled, add an unreferenced registered target,
+and retain an unregistered file. The report must identify each case and name
+only the affected generation work. Publication of that work must make the
+same owner status current. Use small product fixtures for these behaviors;
+do not add roster snapshots or source-text guards.
+
 ## Animation coverage and preview
 
 For each relevant semantic action, show separate facts:
@@ -160,8 +274,9 @@ For each relevant semantic action, show separate facts:
    select, including aliases and fallback steps?
 
 Show direct clip, alias, fallback, missing product and unknown as separate
-outcomes. For Voss, the report must explain that source death exists, the
-profile excludes it, the published row is absent, and death resolves to idle.
+outcomes. A fixture of the original Voss failure must explain that source death
+exists, the selected profile excludes it, the published row is absent and death
+resolves to idle. The corrected bundle must report a direct death clip.
 The inspector also compares YAML preview metadata with runtime RON metadata;
 a preview row alone does not prove runtime availability.
 
@@ -189,12 +304,10 @@ do not silently replace a missing published clip with a fresh source render.
    --animation death --json` and `coverage --missing death --json`; these
    commands do not exist yet. Voss and one complete townsfolk target must
    produce different, correct reports without launching the game.
-2. **Correct the shared publication profile.** Include hurt, death and corpse
-   poses in the ordinary townsfolk profile, through the common chargen path.
-   Keep optional combat and item rows driven by capabilities. Do not set every
-   soldier to `full` or add a military-only renderer. Publish one representative
-   first, inspect its bundle and death sequence, then publish affected targets
-   and all quality tiers. Verify freshness with the existing quality checker.
+2. **Unify status and publication.** Complete the cross-art owner descriptions
+   and receipts above. Make focused and full publication share the recorded
+   input path. Expose exact missing or stale units without rendering. Keep
+   optional combat and item rows driven by capabilities.
 3. **Add the character browser.** Use the derived identity model. Lead with
    game identities, expandable forms, parts and generations. Offer separate
    tabs for targets, concepts, history and raw files. Add facets for visual
@@ -218,16 +331,19 @@ synthetic data tests for inspection joins. Exercise forms, independent derived
 characters, parts, shared sheets, missing local products and unknown metadata.
 Do not add source-text guards or tests that freeze the current roster.
 
-The death correction needs a real lethal-damage witness through the shared
-actor path: death is requested, its clip plays once, and the corpse pose stays.
-Exercise a brain-driven body and a controlled body at that seam. A source GIF
-proves only source art. Python inspector checks do not prove Bevy rendering;
-runtime changes need the narrow owning tests and the assembled-app compile
-gate from the [verification recipe](../../recipes/cheapest-sufficient-check.md).
+A change to runtime death selection needs a lethal-damage witness through the
+shared actor path: death is requested, its clip plays once and the corpse pose
+stays. Exercise a brain-driven body and a controlled body at that seam. The
+publication correction above changes source art; its in-game witness uses
+projectile hits on the brain-driven Voss. A source GIF proves only source art.
+Python inspector checks do not prove Bevy rendering; runtime changes need the
+narrow owning tests and the assembled-app compile gate from the
+[verification recipe](../../recipes/cheapest-sufficient-check.md).
 
 ## First deliverable
 
-Select steps 1 and 2 together. The inspector should explain this failure before
-the corrected publish makes it disappear. Then build the character browser on
-the same inspection model. This keeps the first result useful while broader
-concept metadata remains incomplete.
+The shared townsfolk profile correction is the first delivered slice. Next,
+select owner status and the missing/stale report. Give actors, props and
+backgrounds the same query before adding more gallery controls. Then build the
+character browser on that inspection model. Sparse concept and history metadata
+must not prevent useful generation queries.

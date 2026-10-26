@@ -7,6 +7,7 @@ authors.workspace = true
 description = "Room publication: prepare a hidden candidate room, check its construction receipt, and publish or refuse it as one operation."
 
 [dependencies]
+ambition_world_returns = { path = "../ambition_world_returns" }
 ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }
 ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }

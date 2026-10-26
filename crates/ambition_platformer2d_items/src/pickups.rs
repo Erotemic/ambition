@@ -1,12 +1,19 @@
 //! Player → pickup collection on the ECS feature path.
 
-use super::*;
-use ambition_combat::components::{CenteredAabb, Collected, FeatureName, PickupFeature};
+#[cfg(test)]
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
+use bevy::prelude::*;
+
+use ambition_combat::components::{CenteredAabb, FeatureName};
 use ambition_combat::events::GameplayBanner;
 use ambition_combat::events::SetFlagRequested;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
 use ambition_sfx::{SfxMessage, SfxWriter};
+#[cfg(test)]
+use ambition_vfx::vfx::VfxInRoom;
+use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
 
 /// Bodies eligible for passive touch collection, and the value check that goes
 /// with it.
@@ -23,7 +30,7 @@ use ambition_sfx::{SfxMessage, SfxWriter};
 /// absent still collects — and action-driven held-item pickup uses a separate
 /// control path.
 pub use ambition_platformer2d_shared_tangle::markers::{
-    body_collects_on_touch, TouchCollectorFilter,
+    TouchCollectorFilter, body_collects_on_touch,
 };
 
 /// Attraction targets the nearest eligible touch collector.
@@ -123,8 +130,7 @@ pub fn magnetize_pickups(
                 collectors
                     .iter()
                     .filter(|(collector, _, is_player, control, _)| {
-                        body_collects_on_touch(*is_player, *control)
-                            && rooms.of(*collector) == room
+                        body_collects_on_touch(*is_player, *control) && rooms.of(*collector) == room
                     })
                     .map(|(_, body, _, _, id)| {
                         let delta = body.pos - aabb.center;
@@ -193,7 +199,10 @@ pub fn collect_ecs_pickups(
     // A quest step `ItemCollected(id)` names a pickup by its placement id, and
     // this is the one place a pickup is collected.
     mut quest_advance: MessageWriter<ambition_persistence::quest::QuestAdvanceRequested>,
-    (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
+    (mut owned, items): (
+        Option<ResMut<ambition_items::OwnedItems>>,
+        ambition_items::ItemCatalogRead,
+    ),
     // The tie-break's authority. Read through a lookup rather than joined onto
     // the collector query so a body without one still competes on distance —
     // it just cannot win a tie, which is what `winner_by` documents.
@@ -203,7 +212,7 @@ pub fn collect_ecs_pickups(
     // What a collected pickup gave: a retracted boss defeat takes back a
     // mint's, and a restore keeps a placed pickup's while one of the
     // participants in its room is spared (Q151).
-    mut reward_grants: Option<ResMut<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
+    mut reward_grants: Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>,
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
@@ -228,11 +237,13 @@ pub fn collect_ecs_pickups(
         // `PlayerHealRequested::target`, so single-player behaviour is unchanged:
         // one candidate wins by being the only one.
         let Some((collector_entity, ..)) = winner_by(
-            collectors.iter().filter(|(collector, (kin, last_step), is_player, control)| {
-                body_collects_on_touch(*is_player, *control)
-                    && rooms.of(*collector) == rooms.of(entity)
-                    && aabb.aabb().strict_intersects(kin.collision_box(*last_step))
-            }),
+            collectors
+                .iter()
+                .filter(|(collector, (kin, last_step), is_player, control)| {
+                    body_collects_on_touch(*is_player, *control)
+                        && rooms.of(*collector) == rooms.of(entity)
+                        && aabb.aabb().strict_intersects(kin.collision_box(*last_step))
+                }),
             |(_, (kin, _), _, _)| kin.pos.distance_squared(aabb.center),
             |(entity, _, _, _)| sim_ids.get(*entity).ok(),
         ) else {
@@ -249,7 +260,7 @@ pub fn collect_ecs_pickups(
         {
             commands
                 .entity(entity)
-                .insert(ambition_combat::components::RespawnTimer(seconds));
+                .insert(ambition_world_returns::RespawnTimer(seconds));
         }
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         let granted = grant_pickup(
@@ -265,14 +276,17 @@ pub fn collect_ecs_pickups(
             (sim_ids.get(collector_entity), reward_grants.as_deref_mut())
         {
             let source = match origin {
-                Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. }) => {
-                    ambition_platformer2d_items::pickup::GrantSource::Mint { parent: parent.clone() }
-                }
-                _ => ambition_platformer2d_items::pickup::GrantSource::Authored {
-                    owners: super::world_time_schedule::owners_beside(entity, &rooms, &participants),
+                Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
+                    parent,
+                    ..
+                }) => crate::pickup::GrantSource::Mint {
+                    parent: parent.clone(),
+                },
+                _ => crate::pickup::GrantSource::Authored {
+                    owners: ambition_world_returns::owners_beside(entity, &rooms, &participants),
                 },
             };
-            reward_grants.record(ambition_platformer2d_items::pickup::RewardGrant {
+            reward_grants.record(crate::pickup::RewardGrant {
                 source,
                 collector: collector.clone(),
                 granted,
@@ -328,8 +342,8 @@ pub fn grant_pickup(
     set_flag: &mut MessageWriter<SetFlagRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
     items: &ambition_items::ItemCatalog,
-) -> ambition_platformer2d_items::pickup::PickupGranted {
-    let mut granted = ambition_platformer2d_items::pickup::PickupGranted::default();
+) -> crate::pickup::PickupGranted {
+    let mut granted = crate::pickup::PickupGranted::default();
     match kind {
         ambition_interaction::PickupKind::Health { amount } => {
             heals.write(ambition_damage::healing::PlayerHealRequested::for_target(
@@ -418,7 +432,9 @@ pub fn record_consumed_pickups(
     // cannot name whose horizons own a row.
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
-    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    occurrences: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    >,
     mut since: ResMut<ConsumedSinceCheckpoint>,
 ) {
     let Some(mut occurrences) = occurrences else {
@@ -448,7 +464,7 @@ pub fn record_consumed_pickups(
             since.record(
                 sim_id.clone(),
                 rooms.rooms().spec(definition).id.clone(),
-                super::world_time_schedule::owners_beside(*entity, rooms.live(), &participants),
+                ambition_world_returns::owners_beside(*entity, rooms.live(), &participants),
             );
         }
     }
@@ -478,7 +494,9 @@ pub fn record_ended_occurrences(
     // is not ended while it lives.
     live: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
-    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    occurrences: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    >,
     mut since: ResMut<ConsumedSinceCheckpoint>,
 ) {
     let (Some(rooms), Some(mut occurrences)) = (rooms, occurrences) else {
@@ -486,7 +504,9 @@ pub fn record_ended_occurrences(
     };
     let mut ended = Vec::new();
     // Collected only when a live room has a placed row, which is not every tick.
-    let mut alive: Option<std::collections::BTreeSet<&ambition_platformer2d_shared_tangle::sim_id::SimId>> = None;
+    let mut alive: Option<
+        std::collections::BTreeSet<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    > = None;
     for (room, definition) in rooms.live_rooms() {
         let id = &rooms.rooms().spec(definition).id;
         for sim_id in occurrences.placed_in(id) {
@@ -531,7 +551,10 @@ pub fn record_ended_occurrences(
 /// Rollback state with a real value: a collection writes it on a tick.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConsumedSinceCheckpoint {
-    records: std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, ConsumedRecord>,
+    records: std::collections::BTreeMap<
+        ambition_platformer2d_shared_tangle::sim_id::SimId,
+        ConsumedRecord,
+    >,
 }
 
 /// One occurrence that ended since the checkpoint.
@@ -553,7 +576,14 @@ impl ConsumedSinceCheckpoint {
         room: String,
         owners: Vec<ambition_characters::control::PlayerSlot>,
     ) {
-        self.records.insert(occurrence, ConsumedRecord { room, owners, spent: false });
+        self.records.insert(
+            occurrence,
+            ConsumedRecord {
+                room,
+                owners,
+                spent: false,
+            },
+        );
     }
 
     /// Remember that `occurrence` was spent in room `room` (a chest opened),
@@ -564,7 +594,14 @@ impl ConsumedSinceCheckpoint {
         room: String,
         owners: Vec<ambition_characters::control::PlayerSlot>,
     ) {
-        self.records.insert(occurrence, ConsumedRecord { room, owners, spent: true });
+        self.records.insert(
+            occurrence,
+            ConsumedRecord {
+                room,
+                owners,
+                spent: true,
+            },
+        );
     }
 
     /// Whose horizons own the consumption of `occurrence`, if it is recorded.
@@ -572,7 +609,9 @@ impl ConsumedSinceCheckpoint {
         &self,
         occurrence: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> Option<&[ambition_characters::control::PlayerSlot]> {
-        self.records.get(occurrence).map(|record| record.owners.as_slice())
+        self.records
+            .get(occurrence)
+            .map(|record| record.owners.as_slice())
     }
 
     /// The occurrences consumed since the checkpoint that one of
@@ -601,7 +640,11 @@ impl ConsumedSinceCheckpoint {
         self.records
             .iter()
             .filter(move |(_, record)| {
-                record.spent == spent && record.owners.iter().any(|owner| participants.contains(owner))
+                record.spent == spent
+                    && record
+                        .owners
+                        .iter()
+                        .any(|owner| participants.contains(owner))
             })
             .map(|(occurrence, _)| occurrence.clone())
     }
@@ -664,3 +707,23 @@ pub fn disown_consumed_pickups_on_restore(
         }
     }
 }
+
+/// ECS-native pickup payload.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct PickupFeature {
+    pub pickup: ambition_interaction::Pickup,
+}
+
+impl PickupFeature {
+    pub fn new(pickup: ambition_interaction::Pickup) -> Self {
+        Self { pickup }
+    }
+
+    pub fn kind(&self) -> &ambition_interaction::PickupKind {
+        &self.pickup.kind
+    }
+}
+
+/// Marker inserted when a pickup has been collected in the current room/world.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Collected;

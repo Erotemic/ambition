@@ -7,6 +7,16 @@ authors.workspace = true
 description = "Item custody restoration, inventory persistence, and item simulation integration."
 
 [dependencies]
+ambition_world_items = { path = "../ambition_world_items" }
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_vfx = { path = "../ambition_vfx" }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_time = { path = "../ambition_time" }
+ambition_world_returns = { path = "../ambition_world_returns" }
 ambition_abilities = { path = "../ambition_abilities" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_characters = { path = "../ambition_characters" }

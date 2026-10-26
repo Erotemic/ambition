@@ -55,7 +55,7 @@ use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
 /// sees it. Each arm is a deliberate statement that the thing belongs to the
 /// run rather than to the room or to the player:
 ///
-/// - [`SpawnedThisAttempt`](ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt) — loot the
+/// - [`SpawnedThisAttempt`](ambition_platformer2d_shared_tangle::lifecycle::SpawnedThisAttempt) — loot the
 ///   attempt dropped. A weapon dropped in a room and found again on the way
 ///   back is intended; a weapon dropped in the fight being un-fought is not.
 /// - `PostBossNpc` — the celebrant a defeated boss leaves behind. The boss is
@@ -64,7 +64,7 @@ use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
 ///   whoever fired it.
 type AttemptResidue = (
     Or<(
-        With<ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt>,
+        With<ambition_platformer2d_shared_tangle::lifecycle::SpawnedThisAttempt>,
         With<ambition_combat::components::PostBossNpc>,
         With<ambition_projectiles::LiveProjectile>,
     )>,

@@ -6,7 +6,7 @@
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_core::snapshot::{
-    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u64, put_u8, put_vec2,
+    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u8, put_u64, put_vec2,
 };
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
@@ -75,8 +75,7 @@ where
     // test asks about components rather than about a list somebody maintains.
     registrar.rollback_component_canonical::<crate::moveset::StrikeRank>(
         OWNER,
-        "actor.strike_rank",
-    );
+        "actor.strike_rank");
     // Same shape, same reason: stamped once at the spawn from state the
     // resimulation replays, so a rewind mints the identical number and there is
     // nothing to snapshot.
@@ -101,11 +100,7 @@ where
     // exists in no boot world and the coverage census never saw it. `vel_y` is
     // where the chest IS a tick later, and a rewind that kept the future speed
     // lands it somewhere the resimulation did not put it.
-    registrar.rollback_component_clone_probed::<crate::components::FallingChest>(
-        OWNER,
-        "feature.falling_chest",
-        |chest| chest.vel_y.to_bits() as u64,
-    );
+
     registrar.rollback_component_clone_checksum::<crate::on_hit::HitboxOnHit>(
         OWNER,
         "combat.hitbox_on_hit",
@@ -121,7 +116,8 @@ where
     registrar
         .rollback_component_canonical::<crate::components::BodyMelee>(OWNER, "actor.body_melee");
     registrar
-        .rollback_component_canonical::<crate::components::RangedRefire>(OWNER, "actor.ranged_refire");
+        .rollback_component_canonical::<crate::components::RangedRefire>(OWNER, "actor.ranged_refire",
+    );
     registrar.declare_rollback_derived_component::<crate::components::BodyWeaponReadiness>(
         OWNER,
         "derived.weapon_readiness",
@@ -252,7 +248,8 @@ where
         |state| {
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            (state.run, state.since_deflect_s.to_bits(), state.deflects, state.broken_s.to_bits()).hash(&mut hasher);
+            (state.run, state.since_deflect_s.to_bits(), state.deflects, state.broken_s.to_bits(),
+            ).hash(&mut hasher);
             hasher.finish()
         },
     );
@@ -290,24 +287,7 @@ where
         OWNER,
         "feature.requires_facing",
     );
-    registrar.rollback_component_clone::<crate::components::BreakableFeature>(
-        OWNER,
-        "feature.breakable",
-    );
-    registrar.rollback_component_clone::<crate::components::ChestFeature>(OWNER, "feature.chest");
-    registrar.rollback_component_clone::<crate::components::Opened>(OWNER, "feature.opened");
-    registrar.rollback_component_clone_probed::<crate::components::RespawnTimer>(
-        OWNER,
-        "feature.respawn_timer",
-        |timer| timer.0.to_bits() as u64,
-    );
-    registrar.rollback_component_clone_probed::<crate::components::StandTimer>(
-        OWNER,
-        "feature.stand_timer",
-        |timer| timer.0.to_bits() as u64,
-    );
-    registrar
-        .rollback_component_clone::<crate::hazard_runtime::HazardFeature>(OWNER, "feature.hazard");
+    registrar.rollback_component_clone::<crate::hazard_runtime::HazardFeature>(OWNER, "feature.hazard");
     registrar
         .rollback_component_clone::<crate::components::PogoPolicy>(OWNER, "feature.pogo_policy");
     registrar.rollback_component_clone::<crate::components::PogoTargetContributor>(
@@ -336,8 +316,6 @@ where
         crate::moveset::stored_move_charge_probe,
     );
     registrar.rollback_component_clone::<crate::moveset::ActorMoveset>(OWNER, "actor.moveset");
-    registrar.rollback_component_clone::<crate::components::PickupFeature>(OWNER, "feature.pickup");
-    registrar.rollback_component_clone::<crate::components::Collected>(OWNER, "feature.collected");
     registrar.rollback_component_clone::<crate::components::RuntimeStagedActor>(
         OWNER,
         "marker.runtime_staged_actor",
@@ -347,8 +325,7 @@ where
     // survive the replay of the fight it celebrates.
     registrar.rollback_component_clone::<crate::components::PostBossNpc>(
         OWNER,
-        "marker.post_boss_npc",
-    );
+        "marker.post_boss_npc");
     registrar.declare_rollback_derived_resource::<crate::extension::contact::ContactTouchers>(
         OWNER,
         "derived.contact_touchers",
@@ -391,8 +368,7 @@ where
     // Written by the acquisition and read by the rebound after it, in one tick.
     registrar.clear_message_on_rollback::<crate::capture::GrabsParried>(
         OWNER,
-        "message.grabs_parried",
-    );
+        "message.grabs_parried");
     registrar.clear_message_on_rollback::<crate::capture::CapturePummelRequested>(
         OWNER,
         "message.capture_pummel_requested",
@@ -533,7 +509,8 @@ where
     registrar.rollback_map_entities::<crate::strike::HitboxHits>(OWNER, "map.hitbox_hits");
     // Presentation, but it rides the strike entity family: a volume restored
     // without it would grow the unauthored stand-in over its owner's own art.
-    registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner");
+    registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner",
+    );
     // A ray's geometry rides its strike: restored with it, so the drawn ray
     // and the volume that hurts stay one line.
     // Value-probed: a held ray is cast again each tick, so a replay that put
@@ -541,12 +518,14 @@ where
     registrar.rollback_component_clone_probed::<crate::strike::RayStrike>(OWNER, "combat.ray_strike", |ray| {
         // FNV-1a over the line and the look: stable across runs.
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        let words = [ray.dir.x.to_bits(), ray.dir.y.to_bits(), ray.length.to_bits(), ray.width.to_bits()];
+        let words = [ray.dir.x.to_bits(), ray.dir.y.to_bits(), ray.length.to_bits(), ray.width.to_bits(),
+            ];
         for byte in words.iter().flat_map(|w| w.to_le_bytes()).chain(ray.look.bytes()) {
             h = (h ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
         }
         h
-    });
+    },
+    );
     registrar.rollback_component_clone_probed::<crate::strike::HitboxLifetime>(
         OWNER,
         "combat.hitbox_lifetime",
@@ -741,11 +720,14 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                 // hit and what the block spends, so it is in the fingerprint.
                 // An explicit tag, as for the reaction.
                 match kb.guard {
-                    ambition_platformer2d_core::hit_response::HitGuard::Blockable { extra_shield_damage } => {
+                    ambition_platformer2d_core::hit_response::HitGuard::Blockable { extra_shield_damage,
+                    } => {
                         put_u8(&mut bytes, 0);
                         bytes.extend_from_slice(&extra_shield_damage.to_le_bytes());
                     }
-                    ambition_platformer2d_core::hit_response::HitGuard::Unblockable => put_u8(&mut bytes, 1),
+                    ambition_platformer2d_core::hit_response::HitGuard::Unblockable => {
+                        put_u8(&mut bytes, 1)
+                    }
                 }
                 // AUTOLINK, and it must be IN the fingerprint: it decides the
                 // victim's velocity, so two peers that disagree about whether a

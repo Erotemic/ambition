@@ -12,17 +12,16 @@ use bevy::prelude::*;
 #[cfg(test)]
 use ambition_platformer2d::characters::brain::action_set::RangedActionSpec;
 use ambition_platformer2d::characters::equipment::{
-    EquipmentRow, WornEquipment,
-};
+    EquipmentRow, WornEquipment};
 
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::world_items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
 use ambition_platformer2d::platformer::markers::PlayerEntity;
+use ambition_platformer2d::world_items::{ItemMotionPlan, WorldItem, spawn_moving_world_item};
 // The tests seat the first player.
 #[cfg(test)]
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -482,7 +481,8 @@ pub fn bonk_power_blocks(
             }
             // Used blocks flinch in presentation only; moving collision geometry would lift bodies
             // standing on the block. This records which block was struck.
-            struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()));
+            struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()),
+            );
             // from the block's OWN centre, so a block the author dragged pops its reward where
             // it now sits.
             let pos = (block_aabb.min + block_aabb.max) * 0.5;
@@ -496,7 +496,8 @@ pub fn bonk_power_blocks(
                     // face so it reads as coming OUT rather than through.
                     vfx.for_room(rooms.of(striker)).write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
                         pos: ae::Vec2::new(pos.x, block_aabb.min.y),
-                    });
+                    },
+                    );
                     // this was the `Hit` cue — the MASONRY THUNK — and the
                     // comment justifying it went stale. It read *"there is no
                     // `Pickup` cue in the shared vocabulary yet"*, which was true
@@ -558,7 +559,7 @@ pub fn bonk_power_blocks(
             // a second caller ever needs the same thing, that is the signal to move it.
             commands
                 .entity(popped)
-                .insert(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt);
+                .insert(ambition_platformer2d::platformer::lifecycle::SpawnedThisAttempt);
         }
     }
 }
@@ -703,7 +704,9 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
         // one coin per HIT, whatever the authored count. The count says
         // how many hits the block has left, not how much a single hit is worth
         // the caller's, because only it knows which block was struck.
-        MaryOBlockContents::Coins(_) => BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block),
+        MaryOBlockContents::Coins(_) => {
+            BlockPayout::Coins(crate::rules::mary_o_rules().coins_per_block)
+        }
     })
 }
 
@@ -755,7 +758,8 @@ fn quasar_reward() -> PowerReward {
         half: crate::rules::mary_o_rules().power_ups.quasar_half(),
         sprite: crate::star::QUASAR_SPRITE,
         motion: rises_from_a_block(
-            ItemMotionPlan::bouncer(crate::rules::mary_o_rules().power_ups.quasar_speed, crate::rules::mary_o_rules().power_ups.quasar_restitution),
+            ItemMotionPlan::bouncer(crate::rules::mary_o_rules().power_ups.quasar_speed, crate::rules::mary_o_rules().power_ups.quasar_restitution,
+            ),
             crate::rules::mary_o_rules().power_ups.quasar_half().y,
         ),
     }
@@ -776,7 +780,8 @@ struct PowerReward {
 /// half a block plus its own half-height. The time is the rules'
 /// `power_ups.rise_seconds`.
 pub(crate) fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
-    plan.emerging(crate::T * 0.5 + half_y, crate::rules::mary_o_rules().power_ups.rise_seconds)
+    plan.emerging(crate::T * 0.5 + half_y, crate::rules::mary_o_rules().power_ups.rise_seconds,
+    )
 }
 
 
@@ -791,7 +796,8 @@ fn wand_reward() -> PowerReward {
         half: crate::rules::mary_o_rules().power_ups.wand_half(),
         sprite: STAR_WAND_SPRITE,
         // The wand WALKS and turns at walls, like the mushroom.
-        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), crate::rules::mary_o_rules().power_ups.wand_half().y),
+        motion: rises_from_a_block(ItemMotionPlan::walker(crate::rules::mary_o_rules().power_ups.wand_speed), crate::rules::mary_o_rules().power_ups.wand_half().y,
+        ),
     }
 }
 
@@ -813,7 +819,8 @@ fn beacon_reward() -> PowerReward {
         half: crate::rules::mary_o_rules().power_ups.beacon_half(),
         sprite: CINDER_BEACON_SPRITE,
         // The beacon waits on its block, like the classic flower.
-        motion: rises_from_a_block(ItemMotionPlan::still(), crate::rules::mary_o_rules().power_ups.beacon_half().y),
+        motion: rises_from_a_block(ItemMotionPlan::still(), crate::rules::mary_o_rules().power_ups.beacon_half().y,
+        ),
     }
 }
 
@@ -1074,7 +1081,9 @@ pub fn dress_power_blocks(
             // Unspent bricks keep room-authored art/color so they remain visually
             // indistinguishable from masonry. Once a brick pays out, give it the
             // spent-block texture; empty bricks shatter instead of reaching `spent`.
-            Some(MaryOBlockLook::Brick) if is_spent => Some(EntityArt(EntitySprite::SpentBlockTile)),
+            Some(MaryOBlockLook::Brick) if is_spent => {
+                Some(EntityArt(EntitySprite::SpentBlockTile))
+            }
             Some(MaryOBlockLook::Brick) => None,
             // A plank of a bridge is not the masonry of its room: a bridge
             // that looks like the floor is not read as a bridge.
@@ -1101,7 +1110,8 @@ impl ambition_platformer2d::session::reset::AttemptScoped for SpentPowerBlocks {
         &self.0
     }
 
-    fn attempts_mut(&mut self) -> &mut ambition_platformer2d::session::reset::PerLiveRoom<RoomPowerBlocks> {
+    fn attempts_mut(&mut self,
+    ) -> &mut ambition_platformer2d::session::reset::PerLiveRoom<RoomPowerBlocks> {
         &mut self.0
     }
 }
@@ -1138,7 +1148,7 @@ mod tests {
             .expect("the cinder beacon grants the spark")
     }
     use ambition_platformer2d::characters::equipment::{
-        apply_equipment_grants, resolved_ranged, WornEquipment,
+        WornEquipment, apply_equipment_grants, resolved_ranged,
     };
 
     /// THE TRANSFORMATION BEAT READS THE SHEET THE CATALOG NAMES.
@@ -1258,7 +1268,7 @@ mod tests {
     #[test]
     fn the_cinder_beacon_grants_a_scaled_bouncing_spark() {
         use ambition_platformer2d::characters::brain::action_set::ActionSet;
-        use ambition_platformer2d::combat::moveset::{build_actor_moveset, RANGED_VERB};
+        use ambition_platformer2d::combat::moveset::{RANGED_VERB, build_actor_moveset};
 
         let worn = WornEquipment::new(vec![cinder_beacon()]);
 
@@ -1368,7 +1378,7 @@ mod tests {
         // And its blocks are a family of their own: no ?-block reads as a quasar
         // block and no quasar block reads as a ?-block. That disjointness is what
         // lets ONE bonk rule serve both without either shadowing the other.
-        use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
+        use crate::ldtk_vocabulary::{MaryOBlockLook, block_look_of};
         let room = crate::level_1_1();
         let of_kind = |want: MaryOBlockLook| {
             room.world
@@ -1868,7 +1878,8 @@ mod tests {
             ae::RoomGeometry(room.world.clone()),
         ));
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+            ),
         ));
         // The bonk announces the strike so the render layer can flinch the block;
         // an unregistered message fails parameter validation rather than being
@@ -1915,7 +1926,7 @@ mod tests {
     #[test]
     fn a_bonk_spends_the_block_of_the_strikers_room_only() {
         use ambition_platformer2d::platformer::lifecycle::{
-            spawn_live_room, ActiveSessionScope, InRoomInstance,
+            ActiveSessionScope, InRoomInstance, spawn_live_room,
         };
 
         let room = crate::level_1_1();
@@ -1941,7 +1952,8 @@ mod tests {
             ae::RoomGeometry(room.world.clone()),
         ));
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+            ),
         ));
         let bob = LiveRoomInstance::ACTIVATION.next();
         spawn_live_room(app.world_mut(), bob, ae::RoomGeometry(room.world.clone()));
@@ -1995,7 +2007,7 @@ mod tests {
     #[test]
     fn a_brick_that_hides_a_lantern_pops_a_lantern_and_is_not_breakable() {
         use crate::ldtk_vocabulary::{
-            block_of, reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
+            MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup, block_of, reactive_block,
         };
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
@@ -2037,7 +2049,8 @@ mod tests {
             ae::RoomGeometry(world),
         ));
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+            ),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
@@ -2072,9 +2085,7 @@ mod tests {
             .query::<&WorldItem>()
             .iter(app.world())
             .map(|item| match &item.payload {
-                ambition_platformer2d::world_items::WorldItemPayload::Equip(row) => {
-                    row.id.clone()
-                }
+                ambition_platformer2d::world_items::WorldItemPayload::Equip(row) => row.id.clone(),
             })
             .collect();
         assert_eq!(
@@ -2098,7 +2109,7 @@ mod tests {
     #[test]
     fn a_coin_block_credits_the_wallet_and_spawns_nothing() {
         use crate::ldtk_vocabulary::{
-            reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
+            MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup, reactive_block,
         };
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
@@ -2131,7 +2142,8 @@ mod tests {
             ae::RoomGeometry(world),
         ));
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+            ),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
@@ -2227,8 +2239,8 @@ mod tests {
     /// One hidden coin block in the activation room, and a second live room
     /// with the same geometry. Returns the app, the block and the second room.
     fn two_room_coin_block_app() -> (App, ae::GeoId, LiveRoomInstance) {
-        use crate::ldtk_vocabulary::{reactive_block, MaryOBlock, MaryOBlockLook};
-        use ambition_platformer2d::platformer::lifecycle::{spawn_live_room, ActiveSessionScope};
+        use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockLook, reactive_block};
+        use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, spawn_live_room};
 
         let block = reactive_block(
             MaryOBlock::plain(MaryOBlockLook::Hidden),
@@ -2253,7 +2265,8 @@ mod tests {
             ae::RoomGeometry(world.clone()),
         ));
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+            ),
         ));
         let second = LiveRoomInstance::ACTIVATION.next();
         spawn_live_room(app.world_mut(), second, ae::RoomGeometry(world));
@@ -2317,7 +2330,8 @@ mod tests {
         let (mut app, id, bobs_room) = two_room_coin_block_app();
         let alice = app
             .world_mut()
-            .spawn((bonking_seat(&id, 0, LiveRoomInstance::ACTIVATION), PrimaryPlayer))
+            .spawn((bonking_seat(&id, 0, LiveRoomInstance::ACTIVATION), PrimaryPlayer,
+            ))
             .id();
         let bob = app.world_mut().spawn(bonking_seat(&id, 1, bobs_room)).id();
         app.update();
@@ -2478,8 +2492,8 @@ mod tests {
 #[cfg(test)]
 mod loose_form_tests {
     use super::*;
-    use ambition_platformer2d::world_items::WorldItem;
     use ambition_platformer2d::characters::equipment::WornEquipment;
+    use ambition_platformer2d::world_items::WorldItem;
 
     /// A wand lying on the floor cannot demote fire Mary-O.
     #[test]
@@ -2563,7 +2577,8 @@ mod discovery_tests {
         use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
         use ambition_platformer2d::world::FeatureEcsWorldOverlay;
         let mut app = bevy::prelude::App::new();
-        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
+        ];
         let mut spent = SpentPowerBlocks::default();
         let roots: Vec<_> = rooms
             .into_iter()
@@ -2578,12 +2593,14 @@ mod discovery_tests {
                     vec![block(ae::BlockKind::BonkOnly, id, name)],
                 );
                 app.world_mut()
-                    .spawn((RoomInstanceRoot, room, ae::RoomGeometry(world), FeatureEcsWorldOverlay::default()))
+                    .spawn((RoomInstanceRoot, room, ae::RoomGeometry(world), FeatureEcsWorldOverlay::default(),
+                    ))
                     .id()
             })
             .collect();
         app.insert_resource(spent);
-        app.add_systems(bevy::prelude::Update, contribute_discovered_hidden_blocks_to_overlay);
+        app.add_systems(bevy::prelude::Update, contribute_discovered_hidden_blocks_to_overlay,
+        );
         app.update();
         let written: Vec<(Vec<String>, Vec<(String, ae::BlockKind)>)> = roots
             .iter()
@@ -2757,7 +2774,7 @@ mod block_dressing_tests {
 
     use super::*;
     use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup};
-    use ambition_platformer2d::render::rendering::{EntityArt, BlockVisual};
+    use ambition_platformer2d::render::rendering::{BlockVisual, EntityArt};
     use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     use bevy::prelude::{App, Entity, Update};
 
@@ -2883,7 +2900,8 @@ mod block_dressing_tests {
         );
         app.add_systems(Update, dress_power_blocks);
         let quasar = MaryOBlockContents::Always(MaryOPickup::Quasar);
-        let question = block(&mut app, "q", MaryOBlock::new(MaryOBlockLook::Question, quasar));
+        let question = block(&mut app, "q", MaryOBlock::new(MaryOBlockLook::Question, quasar),
+        );
         app.update();
         app.update();
         assert_eq!(art(&app, question), Some(EntitySprite::BonusBlockTile), "the premise: it is dressed");
@@ -2892,12 +2910,14 @@ mod block_dressing_tests {
         app.world_mut()
             .resource_mut::<SpentPowerBlocks>()
             .in_room_mut(LiveRoomInstance::ACTIVATION)
-            .spend(ae::GeoId::placement(ae::PlacementId::new("q".to_string()), 0));
+            .spend(ae::GeoId::placement(ae::PlacementId::new("q".to_string()), 0,
+            ));
         app.update();
         assert_eq!(art(&app, question), Some(EntitySprite::SpentBlockTile), "a block spent on a later frame");
 
         // A block that comes later.
-        let later = block(&mut app, "q_later", MaryOBlock::new(MaryOBlockLook::Question, quasar));
+        let later = block(&mut app, "q_later", MaryOBlock::new(MaryOBlockLook::Question, quasar),
+        );
         app.update();
         assert_eq!(art(&app, later), Some(EntitySprite::BonusBlockTile), "a block that comes later");
 
@@ -3089,8 +3109,7 @@ mod scale_fallback_tests {
         ] {
             for anim in played {
                 if ambition_platformer2d::character_sprites::posed_body_geometry(
-                    target, anim, 1.0,
-                )
+                    target, anim, 1.0)
                 .is_none()
                 {
                     missing.push(format!("{target}/{anim:?}"));

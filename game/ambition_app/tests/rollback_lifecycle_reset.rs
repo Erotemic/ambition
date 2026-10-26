@@ -111,7 +111,7 @@ fn smash_one_brick(world: &mut World) -> SimId {
         let mut q = world.query::<(
             Entity,
             &SimId,
-            &ambition_platformer2d::combat::components::BreakableFeature,
+            &ambition_platformer2d::breakables::BreakableFeature,
         )>();
         q.iter(world)
             .find(|(_, _, feature)| !feature.broken())
@@ -119,10 +119,12 @@ fn smash_one_brick(world: &mut World) -> SimId {
             .expect("the calibration lab authors a breakable brick")
     };
     let mut feature = world
-        .get_mut::<ambition_platformer2d::combat::components::BreakableFeature>(brick)
+        .get_mut::<ambition_platformer2d::breakables::BreakableFeature>(brick)
         .expect("breakable feature");
     // Fixture setup: drive it to broken; this test asserts the RESET, not the break.
-    let _broke = feature.breakable.apply_damage(9999);
+    let mut state = feature.state().clone();
+    let _broke = state.apply_damage(9999);
+    *feature = ambition_platformer2d::breakables::BreakableFeature::new(state);
     assert!(feature.broken(), "the brick is broken after lethal damage");
     id
 }
@@ -140,7 +142,7 @@ fn brick_is_broken(sim: &mut Platformer2dSimHarness, brick: &SimId) -> bool {
     let entity = entity_named(sim, brick)
         .unwrap_or_else(|| panic!("no live entity carries `{brick}` after the reset"));
     sim.world_mut()
-        .get::<ambition_platformer2d::combat::components::BreakableFeature>(entity)
+        .get::<ambition_platformer2d::breakables::BreakableFeature>(entity)
         .map(|f| f.broken())
         .expect("the reconstructed brick is a breakable")
 }
@@ -548,7 +550,8 @@ fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
     // eager host.
     sim.world_mut()
         .resource_mut::<OwnedItems>()
-        .grant(ambition_platformer2d::items::test_item_catalog(), STACKABLE, 1);
+        .grant(ambition_platformer2d::items::test_item_catalog(), STACKABLE, 1,
+    );
     sim.rebase_rollback_history()
         .expect("the post-checkpoint bag becomes the rollback baseline");
     assert_eq!(
@@ -628,7 +631,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
     // The subject's live identity: its id in the live room it is in.
     let subject = {
         let world = sim.world_mut();
-        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId)>();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId,
+        )>();
         let entity = q
             .iter(world)
             .find(|(_, id)| **id == subject)
@@ -653,11 +657,13 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations,
+        >(world)
             .expect("the live session root carries the checkpoint coordinator")
             .admit(scope)
             .expect("a live session can still mint an operation key");
-        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world)
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore,
+        >(world)
             .expect("the live session root carries the checkpoint coordinator")
             .accept(AcceptedRestore {
                 key,
@@ -666,7 +672,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
                 lifecycle: Some(ambition_platformer2d::platformer::lifecycle::CheckpointRestoreInputs {
                     occurrences: Default::default(),
                     custody: Default::default(),
-                }),
+                },
+            ),
                 item: None,
                 fresh: false,
                 replay: None,
@@ -685,7 +692,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
     let mut ended = false;
     for _ in 0..600 {
         sim.step(AgentAction::default());
-        if ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        if ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes,
+        >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .outcome_for(key)
             .is_some()
@@ -703,7 +711,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
          does not spend that note, the accepted operation and its lifecycle intent \
          stay live and readiness reopens the same invalid transaction every frame"
     );
-    let outcome = *ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+    let outcome = *ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes,
+    >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .outcome_for(key)
         .expect("checked above");
@@ -715,7 +724,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
          and left the world unverified, and nothing was applied"
     );
     assert!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<AcceptedCheckpointRestore>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<AcceptedCheckpointRestore,
+        >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .accepted()
             .is_none(),

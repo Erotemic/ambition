@@ -37,6 +37,7 @@
     "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_boss_special_port",
+    "ambition_breakables",
     "ambition_character_sprites",
     "ambition_characters",
     "ambition_combat",
@@ -71,6 +72,7 @@
     "ambition_platformer2d_construction",
     "ambition_platformer2d_core",
     "ambition_platformer2d_host",
+    "ambition_platformer2d_interaction",
     "ambition_platformer2d_items",
     "ambition_platformer2d_physics_debris",
     "ambition_platformer2d_provider",
@@ -96,15 +98,17 @@
     "ambition_time",
     "ambition_ui_nav",
     "ambition_vfx",
-    "ambition_world_items"
+    "ambition_world_items",
+    "ambition_world_returns"
   ],
-  "closure_size": 67,
+  "closure_size": 70,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",
     "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_boss_special_port",
+    "ambition_breakables",
     "ambition_conversation",
     "ambition_cutscene",
     "ambition_damage",
@@ -119,6 +123,7 @@
     "ambition_persistence",
     "ambition_platformer2d_actor_spawn",
     "ambition_platformer2d_construction",
+    "ambition_platformer2d_interaction",
     "ambition_platformer2d_items",
     "ambition_platformer2d_physics_debris",
     "ambition_projectile_combat",
@@ -129,14 +134,16 @@
     "ambition_shrine",
     "ambition_ui_nav",
     "ambition_vfx",
-    "ambition_world_items"
+    "ambition_world_items",
+    "ambition_world_returns"
   ],
-  "never_asked_for_count": 30,
+  "never_asked_for_count": 33,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_abilities",
     "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_boss_special_port",
+    "ambition_breakables",
     "ambition_conversation",
     "ambition_cutscene",
     "ambition_damage",
@@ -149,6 +156,7 @@
     "ambition_persistence",
     "ambition_platformer2d_actor_spawn",
     "ambition_platformer2d_construction",
+    "ambition_platformer2d_interaction",
     "ambition_platformer2d_items",
     "ambition_projectile_combat",
     "ambition_projectiles",
@@ -158,7 +166,8 @@
     "ambition_shrine",
     "ambition_ui_nav",
     "ambition_vfx",
-    "ambition_world_items"
+    "ambition_world_items",
+    "ambition_world_returns"
   ],
   "reachable_only_through_the_facade": [
     "ambition_render"
@@ -228,5 +237,6 @@
   "construction_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the shrine row's shape: `ambition_platformer2d_construction` is actor construction planning (placements and staged actors lowered into one checked plan, its recipes and relations), moved out of the actor monolith's `construction` module (K3 named it a leaf that could become its own owner once K4 landed; 2026-10-23). The monolith names it (its features lower placements into it and build its plans), so every consumer of the monolith links it. The sentinel links the code it linked before, in one more node. In `never_asked_for`, beside `ambition_platformer2d_actor_spawn`, whose actors it plans: a movement-only game did not ask for authored actors, chests and shrines. 62 -> 63, never-asked-for 27 -> 28.",
   "session_entered_the_closure_2026_10_25": "Session lifecycle and room-crossing policy moved from the actor kernel to ambition_platformer2d_session. The runtime and publication coordinator call it above the kernel. This adds one package and no scheduled system.",
   "item_and_projectile_owners_entered_the_closure_2026_10_25": "Two owner crates replace code already linked from the actor kernel. This move does not prune capability dependencies.",
-  "asset_owner_entered_the_closure_2026_10_26": "Asset catalog assembly and character materialization move above the body kernel. The new package contains code the consumer already linked. The kernel has no production edge to this owner or to the audio catalog."
+  "asset_owner_entered_the_closure_2026_10_26": "Asset catalog assembly and character materialization move above the body kernel. The new package contains code the consumer already linked. The kernel has no production edge to this owner or to the audio catalog.",
+  "world_object_owners_entered_the_closure_2026_10_26": "Three owner crates replace code already linked through the actor kernel. This cut separates transition authority and does not prune capability profiles."
 }

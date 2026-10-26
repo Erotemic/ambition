@@ -18,11 +18,11 @@ pub mod brain_tick;
 pub mod causal;
 #[cfg(test)]
 mod character_roster;
+pub mod construction_fixtures;
 /// Construction through the actor kernel's lowering: the tests, and the
 /// fixtures the room coordinator's tests share.
 #[cfg(test)]
 mod construction_tests;
-pub mod construction_fixtures;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
@@ -32,11 +32,11 @@ pub mod schedule;
 pub mod abilities;
 pub mod body_custody;
 pub mod body_mode;
-pub mod character_projection;
 #[cfg(test)]
 mod character_fixtures;
 #[cfg(test)]
 mod character_integration_tests;
+pub mod character_projection;
 /// Swings and shots arbitrated in ONE contest, before either damage road runs.
 pub mod clash;
 #[cfg(test)]
@@ -48,7 +48,6 @@ pub mod participant_seat;
 #[path = "tests/projectile/mod.rs"]
 mod projectile_tests;
 pub mod repertoire;
-mod snapshot_impls;
 
 // Public re-exports double as the external API for bins, tests, and docs.
 /// The live actor cluster view (`ActorMut`, `ActorClusterQueryData`) and the
@@ -60,9 +59,9 @@ pub mod features;
 
 
 #[cfg(test)]
-mod safe_pos_tests;
-#[cfg(test)]
 mod clock_discipline_tests;
+#[cfg(test)]
+mod safe_pos_tests;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;

@@ -22,11 +22,11 @@
 //! `ActiveBindings` source in P1/P5; the touch overlay keeps its own glyph
 //! subtitle in the meantime, so this model is label-first.
 
-use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
+use ambition_characters::action_scheme::{ActorTechniques, derive_action_scheme};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ActionId, ControlSlot, VisualId};
-use ambition_input::{ActiveUiCues, SeatInputContexts, UiCue, GAMEPLAY_CONTEXT};
+use ambition_input::{ActiveUiCues, GAMEPLAY_CONTEXT, SeatInputContexts, UiCue};
 use ambition_platformer2d_core::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::{
     ControlledSubject, PlayerEntity, PrimaryPlayer,
@@ -308,8 +308,7 @@ pub fn rebuild_control_prompt(
     // experience had before the knob existed. The subject's OWN room (OW1):
     // with two rooms live, THE live room's rules were the rules of no room.
     naming: ambition_combat::governing_rules::RulesOf<
-        PromptNaming,
-    >,
+        PromptNaming>,
     // The techniques the subject's room's rules give the driven body, which
     // the gate also reads.
     driven: ambition_combat::governing_rules::RulesOf<
@@ -737,9 +736,13 @@ mod tests {
         );
         let body = app
             .world_mut()
-            .spawn((actions, RangedRefire { remaining: 0.25, armed: 1.0 }))
+            .spawn((actions, RangedRefire { remaining: 0.25, armed: 1.0,
+                },
+            ))
             .id();
-        let readiness = |app: &App| app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0);
+        let readiness = |app: &App| {
+            app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0)
+        };
 
         app.update();
         assert_eq!(
@@ -751,7 +754,8 @@ mod tests {
         app.world_mut().get_mut::<RangedRefire>(body).unwrap().remaining = 0.0;
         let shot = app
             .world_mut()
-            .spawn((ambition_projectiles::ProjectileOwner(body), ambition_projectiles::WeaponShot))
+            .spawn((ambition_projectiles::ProjectileOwner(body), ambition_projectiles::WeaponShot,
+            ))
             .id();
         app.update();
         assert_eq!(readiness(&app), Some(WeaponReadiness::NoRoom), "its one shot is in flight");
@@ -776,7 +780,8 @@ mod tests {
         app.add_systems(Update, derive_weapon_readiness);
         let mut hot = PlayerProjectileState::default();
         hot.spawner
-            .try_spawn(ProjectileKind::Fireball, Default::default(), Default::default(), 1.0)
+            .try_spawn(ProjectileKind::Fireball, Default::default(), Default::default(), 1.0,
+            )
             .unwrap();
         hot.spawner.tick(ProjectileKind::Fireball.cooldown() / 4.0);
         let charger = app
@@ -785,13 +790,18 @@ mod tests {
             .id();
         let other = app
             .world_mut()
-            .spawn((PlayerProjectileState::default(), RangedRefire { remaining: 0.5, armed: 1.0 }))
+            .spawn((PlayerProjectileState::default(), RangedRefire { remaining: 0.5, armed: 1.0,
+                },
+            ))
             .id();
         let readiness =
-            |app: &App, body| app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0);
+            |app: &App, body| {
+            app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0)
+        };
 
         app.update();
-        let Some(WeaponReadiness::Recharging { progress: Some(progress) }) = readiness(&app, charger)
+        let Some(WeaponReadiness::Recharging { progress: Some(progress),
+        }) = readiness(&app, charger)
         else {
             panic!("the fireball is in its cooldown: {:?}", readiness(&app, charger));
         };
@@ -967,7 +977,9 @@ mod tests {
         // Board.
         app.world_mut()
             .entity_mut(body)
-            .insert(ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Ride));
+            .insert(ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Ride,
+            ),
+        );
         app.update();
 
         let prompt = app.world().resource::<ControlPrompt>();
@@ -1353,10 +1365,10 @@ mod tests {
     /// overlay gets a labeled confirm control at the title screen.
     #[test]
     fn a_frontend_context_owns_the_prompt_with_its_own_cue() {
-        use ambition_input::participant::{context_priority, ContextClaim};
+        use ambition_input::participant::{ContextClaim, context_priority};
         use ambition_input::{
-            resolve_active_input_context, InputParticipant, ParticipantContexts, SeatInputContexts,
-            LAUNCHER_CONTEXT,
+            InputParticipant, LAUNCHER_CONTEXT, ParticipantContexts, SeatInputContexts,
+            resolve_active_input_context,
         };
 
         let mut app = app();
@@ -1498,12 +1510,14 @@ mod tests {
 
     /// A session in `app` with two live rooms: `hall` (#0, no mode) and
     /// `stage` (#1, mode `fight`). The two live rooms are returned.
-    fn hall_and_fight_stage(app: &mut App) -> [ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance; 2] {
+    fn hall_and_fight_stage(app: &mut App,
+    ) -> [ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance; 2] {
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            session_world_component, sole_live_room_component, LiveRoomInstance, RoomInstanceRoot, SessionRoot,
+            LiveRoomInstance, RoomInstanceRoot, SessionRoot,
             SessionScopeId,
+            session_world_component, sole_live_room_component,
         };
-        use ambition_platformer2d_world::rooms::{seat_sole_live_room_by_id, RoomSet, RoomSpec};
+        use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec, seat_sole_live_room_by_id};
         let room = |id: &str, mode: Option<&str>| {
             let mut room = RoomSpec::new(
                 id,
@@ -1519,7 +1533,8 @@ mod tests {
         };
         app.world_mut().spawn((
             SessionRoot(SessionScopeId(1)),
-            RoomSet::from_parts_or_panic("hall", vec![room("hall", None), room("stage", Some("fight"))], Vec::new()),
+            RoomSet::from_parts_or_panic("hall", vec![room("hall", None), room("stage", Some("fight"))], Vec::new(),
+            ),
         ));
         seat_sole_live_room_by_id(app.world_mut(), "hall").expect("the set holds the hall");
         let hall = *sole_live_room_component::<LiveRoomInstance>(app.world()).expect("the hall is live");
@@ -1561,7 +1576,8 @@ mod tests {
             let live = hall_and_fight_stage(&mut app);
             let body = app
                 .world_mut()
-                .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat")), InRoomInstance(live[room])))
+                .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat")), InRoomInstance(live[room]),
+                ))
                 .id();
             app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
             app.update();
@@ -1686,9 +1702,9 @@ mod tests {
     #[test]
     fn a_same_tick_kit_swap_cannot_drift_the_prompt_from_the_gate() {
         use ambition_characters::action_scheme::ResolvedTechniqueEdges;
+        use ambition_characters::actor::WornCharacter;
         use ambition_characters::actor::character_catalog::CharacterCatalog;
         use ambition_characters::actor::control::ActorControlFrame;
-        use ambition_characters::actor::WornCharacter;
         use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
         use ambition_characters::control::ActorControl;
 
@@ -1879,10 +1895,10 @@ mod tests {
     /// pre-yield cache key.
     #[test]
     fn a_removed_input_context_hands_the_prompt_back_to_the_sim() {
-        use ambition_input::participant::{context_priority, ContextClaim};
+        use ambition_input::participant::{ContextClaim, context_priority};
         use ambition_input::{
-            resolve_active_input_context, InputParticipant, ParticipantContexts, SeatInputContexts,
-            LAUNCHER_CONTEXT,
+            InputParticipant, LAUNCHER_CONTEXT, ParticipantContexts, SeatInputContexts,
+            resolve_active_input_context,
         };
         use bevy::ecs::system::RunSystemOnce;
 

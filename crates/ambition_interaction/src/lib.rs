@@ -93,7 +93,7 @@ pub enum InteractionKind {
 /// `Chest::persistent`, and leave wiring-or-deleting as a design call. Leaving it <!-- cite-ok: records a field deleted 2026-09-12; naming it is the point -->
 /// there was the wrong half of that choice: `Pickup::collected` was a SECOND <!-- cite-ok: records a field deleted 2026-09-12; naming it is the point -->
 /// REPRESENTATION of a fact whose only live authority is the
-/// `ambition_combat::components::Collected` marker — the one `pickups.rs` inserts
+/// `ambition_platformer2d_items::pickups::Collected` marker — the one `pickups.rs` inserts
 /// and queries as `Without<Collected>` — and a spec that said `collected: true`
 /// produced a pickup that was still there to be taken.
 ///
@@ -136,7 +136,7 @@ pub use ambition_entity_catalog::PickupKind;
 /// assertions in this crate's own tests.
 ///
 /// ⇒ The live authority for *"is this chest opened"* is the
-/// `ambition_combat::Opened` MARKER COMPONENT — inserted and removed by
+/// `ambition_world_items::containers::Opened` MARKER COMPONENT — inserted and removed by
 /// `ambition_boss_encounter::rewards`, rollback-registered as `feature.opened`,
 /// and read by `ambition_sim_view`'s proximity affordance. One fact, and now one
 /// recorder.
@@ -225,7 +225,7 @@ impl BreakableCollision {
 /// ⛔⛤ **`debris_cue: Option<String>` IS GONE, 2026-09-17.** See `BreakableSpec`
 /// for the measurement: threaded here from the authored spec, read by nothing,
 /// and never set by any content in any format. The cue a breaking object emits
-/// is a literal at `ambition_combat::breakables::emit_breakable_destroyed`.
+/// is a literal at `ambition_breakables::emit_breakable_destroyed`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Breakable {
     pub id: String,
@@ -289,7 +289,8 @@ pub const TALK_REACH: f32 = 32.0;
 /// Does a body at `pos`, facing `facing` (its sign) along `side` (the run
 /// axis of its own frame), face `target`? A target straight above or below
 /// it is faced, so a gate never refuses a body for being level with it.
-pub fn faces(pos: bevy_math::Vec2, facing: f32, side: bevy_math::Vec2, target: bevy_math::Vec2) -> bool {
+pub fn faces(pos: bevy_math::Vec2, facing: f32, side: bevy_math::Vec2, target: bevy_math::Vec2,
+) -> bool {
     (target - pos).dot(side) * facing >= 0.0
 }
 

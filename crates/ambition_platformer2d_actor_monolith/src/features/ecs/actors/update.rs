@@ -2,8 +2,8 @@
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
 use super::*;
-use ambition_body_seed::clusters::ActorMut;
 use crate::features::ActorMutIntegrationExt;
+use ambition_body_seed::clusters::ActorMut;
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
 };
@@ -226,7 +226,9 @@ pub fn tick_actor_brains(
     // independent contracts in a tuple or context bag.
     world_time: Res<WorldTime>,
     // Accumulating sim-time, for the brain's reaction-latency lookback.
-    sim_clock: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::features::GameplayElapsed>,
+    sim_clock: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_time::GameplayElapsed,
+    >,
     // Peers, projectiles and hostility: what a body can perceive this tick.
     perceived: crate::features::ecs::perception::PerceivedWorld,
     // How far a sighted body sees: one value for the session, read here.
@@ -1280,7 +1282,8 @@ pub fn snapshot_body_contact(
 ) {
     snapshot.clear();
     // Each grounded body's box, and the parts of it a pair carries elsewhere.
-    let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2)> =
+    let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2,
+    )> =
         Vec::new();
     for (entity, kinematics, ground, frame, contact) in &bodies {
         if !ground.on_ground {
@@ -1290,13 +1293,15 @@ pub fn snapshot_body_contact(
         let contact_box = kinematics.aabb_oriented(frame.down());
         // its ENTRY velocity — this pass runs before any body resolves its
         // controller, which is the whole point of a common snapshot.
-        snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance);
+        snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance,
+        );
         boxes.push((entity, room, contact_box, kinematics.vel));
         let Some(passages) = passages.as_deref().filter(|passages| passages.straddled_by(entity).is_some()) else {
             continue;
         };
         for piece in passages
-            .pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room)
+            .pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room,
+            )
             .iter()
             .filter(|piece| piece.is_carried())
         {
@@ -1348,7 +1353,8 @@ pub fn snapshot_body_contact(
 fn bounding_box(points: &[ae::Vec2]) -> Option<ae::Aabb> {
     let (lo, hi) = points
         .iter()
-        .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
+        .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)),
+    );
     ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y)
 }
 
@@ -1661,7 +1667,8 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
-        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(player_entity).ok(), player_entity)
+        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(player_entity).ok(), player_entity,
+        )
         else {
             continue;
         };
@@ -1797,7 +1804,8 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding, encounter) in
+    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding, encounter,
+    ) in
         &mut set.p0()
     {
         let Some(mut cq) = clusters else {
@@ -2348,7 +2356,7 @@ fn capture_candidate(
 ) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
-    use ambition_entity_catalog::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
+    use ambition_entity_catalog::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,
@@ -2422,7 +2430,9 @@ pub(crate) fn movement_law_of(
 ) -> ae::MovementTuning {
     authored
         .map(|authored| authored.0)
-        .unwrap_or_else(|| config.tuning.movement.body_tuning(config.tuning.max_run_speed))
+        .unwrap_or_else(|| {
+        config.tuning.movement.body_tuning(config.tuning.max_run_speed)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2688,9 +2698,11 @@ pub fn tick_npc_idle_barks(
         // gallery from becoming a wall of speech bubbles. (base seconds,
         // jitter window in ms.)
         if is_gallery {
-            (ambition_characters::actor::character_catalog::BarkSituation::Hall, 28.0, 24_000)
+            (ambition_characters::actor::character_catalog::BarkSituation::Hall, 28.0, 24_000,
+            )
         } else {
-            (ambition_characters::actor::character_catalog::BarkSituation::Idle, 12.0, 8_000)
+            (ambition_characters::actor::character_catalog::BarkSituation::Idle, 12.0, 8_000,
+            )
         }
     };
     for (entity, kin, identity, combat, interaction, disposition, health, feature_id) in &npcs {
@@ -2750,11 +2762,13 @@ pub fn tick_npc_idle_barks(
         vfx.write_in(room, ambition_vfx::vfx::VfxMessage::SpeechBubble {
             pos: anchor,
             text: line.to_string(),
-        });
+        },
+        );
         vfx.write_in(room, ambition_vfx::vfx::VfxMessage::BarkGesture {
             feature_id: feature_id.as_str().to_string(),
             seconds: 0.48,
-        });
+        },
+        );
         let next = rotation.wrapping_add(1);
         rotations.insert(identity.id.clone(), next);
         timers.insert(

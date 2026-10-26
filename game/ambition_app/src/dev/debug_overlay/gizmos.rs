@@ -74,7 +74,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
             With<ambition_platformer2d::actor::FeatureSimEntity>,
-            With<ambition_platformer2d::combat::components::BreakableFeature>,
+            With<ambition_platformer2d::breakables::BreakableFeature>,
         ),
     >,
     pub chests: Query<
@@ -83,7 +83,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
             With<ambition_platformer2d::actor::FeatureSimEntity>,
-            With<ambition_platformer2d::combat::components::ChestFeature>,
+            With<ambition_platformer2d::world_items::containers::ChestFeature>,
         ),
     >,
     pub hazards: Query<
@@ -182,7 +182,8 @@ pub(crate) fn draw_ground_item_debug(
         if item.room != Some(room) {
             continue;
         }
-        draw_aabb_styled(gizmos, world, ae::Aabb::new(item.pos, item.half_extent), color, developer_tools);
+        draw_aabb_styled(gizmos, world, ae::Aabb::new(item.pos, item.half_extent), color, developer_tools,
+        );
     }
 }
 
@@ -637,11 +638,13 @@ pub(crate) fn draw_feature_debug(
         // guard that decides whether a blow on them lands.
         let turns_blows = boss.status.guarded || boss.config.behavior.environmental_kill_only;
         let (guard_text, guard_color) = if turns_blows {
-            ("GUARD UP: blows and shots turn", Color::srgba(0.55, 0.80, 1.00, 0.95))
+            ("GUARD UP: blows and shots turn", Color::srgba(0.55, 0.80, 1.00, 0.95),
+            )
         } else {
             ("guard down: blows land", cyan())
         };
-        label_box(labels, boss.aabb(), guard_text, guard_color, LabelSpot::TopRight);
+        label_box(labels, boss.aabb(), guard_text, guard_color, LabelSpot::TopRight,
+        );
         if turns_blows {
             let guard = boss.aabb();
             let ring = ae::Aabb::new(guard.center(), guard.half_size() + ae::Vec2::splat(3.0));
@@ -771,14 +774,17 @@ pub(crate) fn draw_projectile_debug(
         let fade = (*left / BOUNCE_MARK_SECS).clamp(0.0, 1.0);
         let c = with_alpha(bounce_color, fade);
         let arm = 5.0;
-        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, -arm)), w2(world, *pos + ae::Vec2::new(arm, arm)), c);
-        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, arm)), w2(world, *pos + ae::Vec2::new(arm, -arm)), c);
+        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, -arm)), w2(world, *pos + ae::Vec2::new(arm, arm)), c,
+        );
+        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, arm)), w2(world, *pos + ae::Vec2::new(arm, -arm)), c,
+        );
     }
 }
 
 /// Label each combat body with what decides a blow on it, above its box: its
 /// side, its health, whether it is invulnerable, a boss's guard. And each live hitbox with the damage it deals.
-pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut DebugOverlayLabels) {
+pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut DebugOverlayLabels,
+) {
     for body in &feature_q.combat_geometry.bodies {
         let Ok((faction, health, boss, boss_config)) = feature_q.body_props.get(body.body) else {
             continue;
@@ -802,9 +808,11 @@ pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &
             continue;
         }
         let top = body.collision.center() - ae::Vec2::new(0.0, body.collision.half_size().y + 6.0);
-        labels.0.push(DebugLabel { world_pos: top, text: parts.join(" "), color: Color::srgba(0.95, 0.95, 0.95, 1.0) });
+        labels.0.push(DebugLabel { world_pos: top, text: parts.join(" "), color: Color::srgba(0.95, 0.95, 0.95, 1.0),
+        });
     }
     for strike in &feature_q.combat_geometry.strikes {
-        label_box(labels, strike.volume.bounds(), format!("dmg {}", strike.damage), red(), LabelSpot::Center);
+        label_box(labels, strike.volume.bounds(), format!("dmg {}", strike.damage), red(), LabelSpot::Center,
+        );
     }
 }

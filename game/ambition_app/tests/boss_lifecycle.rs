@@ -62,7 +62,8 @@ pub(crate) fn spawn_mockingbird(sim: &mut Platformer2dSimHarness, runtime_id: &s
 
 /// A mockingbird `dx` to the side of the player. It holds the spot it is
 /// placed at, so this is where it dies and drops what it drops.
-pub(crate) fn spawn_mockingbird_beside(sim: &mut Platformer2dSimHarness, runtime_id: &str, dx: f32) {
+pub(crate) fn spawn_mockingbird_beside(sim: &mut Platformer2dSimHarness, runtime_id: &str, dx: f32,
+) {
     let (px, py) = player_pos(sim.world_mut());
     let px = px + dx;
     sim.spawn_boss_at(
@@ -273,7 +274,9 @@ fn a_defeated_boss_drops_its_signature_gauntlet_on_the_real_kill_road() {
 /// one more `volley` gauntlet on the floor than before, the `pirate_treasure`
 /// quest's step (its step 0 is `BossDefeated("mockingbird")`, and it starts at
 /// boot), and what the boss's reward chest holds.
-fn one_real_mockingbird_kill(practice: bool) -> (bool, u8, Vec<ambition_platformer2d::entity_catalog::PickupKind>) {
+fn one_real_mockingbird_kill(practice: bool,
+) -> (bool, u8, Vec<ambition_platformer2d::entity_catalog::PickupKind>,
+) {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "hall_copy");
@@ -294,7 +297,9 @@ fn one_real_mockingbird_kill(practice: bool) -> (bool, u8, Vec<ambition_platform
         .expect("the quest is authored")
         .step;
     assert_eq!(step_before, 0, "precondition: the quest waits on the mockingbird");
-    let volleys = |world: &mut World| ground_item_specs(world).iter().filter(|id| *id == "volley").count();
+    let volleys = |world: &mut World| {
+        ground_item_specs(world).iter().filter(|id| *id == "volley").count()
+    };
     let volleys_before = volleys(sim.world_mut());
 
     kill_boss_with_a_real_hit(&mut sim, "hall_copy", 600);
@@ -315,7 +320,8 @@ fn one_real_mockingbird_kill(practice: bool) -> (bool, u8, Vec<ambition_platform
         .expect("the quest is authored")
         .step;
     let world = sim.world_mut();
-    let mut chests = world.query::<(&BossRewardChest, &ambition_platformer2d::combat::ChestFeature)>();
+    let mut chests = world.query::<(&BossRewardChest, &ambition_platformer2d::world_items::containers::ChestFeature,
+    )>();
     let rewards = chests
         .iter(world)
         .filter(|(reward, _)| reward.encounter_id == "hall_copy")
@@ -578,8 +584,7 @@ fn boss_revives_after_a_room_reset() {
     // replay's consequences without the room rebuild that makes them mean
     // anything.
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..15 {
         sim.step(AgentAction::default());
     }
@@ -755,9 +760,9 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
     {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<
-            (bevy::prelude::Entity, &ambition_platformer2d::encounter::Encounter),
-            bevy::prelude::With<EncounterDef>,
-        >();
+            (bevy::prelude::Entity, &ambition_platformer2d::encounter::Encounter,
+        ),
+            bevy::prelude::With<EncounterDef>>();
         let enc = q
             .iter(world)
             .find(|(_, encounter)| encounter.id == "scripted")
@@ -864,8 +869,7 @@ fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
     // content half (clearing the persisted attempt record) and the host half
     // (resetting the player + the room's features) both hang off it.
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
 
     let replayed = observe_boss(&mut sim, "behemoth");
     assert_eq!(
@@ -944,7 +948,8 @@ fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2
 /// the player beat an hour ago dies again on screen every time they walk in.
 #[test]
 fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
-    use ambition_platformer2d::combat::components::{DeathBeat, BossPhase};
+
+use ambition_platformer2d::combat::components::{BossPhase, DeathBeat};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
@@ -1016,7 +1021,8 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
         assert!(boss_cleared(&sim, id), "precondition: {id} is defeated and recorded cleared");
     }
 
-    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+    >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
@@ -1027,7 +1033,8 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
     let mut committed = false;
     for _ in 0..120 {
         sim.step(AgentAction::default());
-        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+        >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
             .cloned();
@@ -1068,10 +1075,10 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
 #[test]
 fn a_new_game_brings_back_a_person_the_run_killed() {
     use ambition_app::Platformer2dSimHarnessOptions;
-    use ambition_platformer2d::construction::PersistedFates;
-    use ambition_platformer2d::persistence::save_data::enemy_dead_flag;
     use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
     use ambition_platformer2d::combat::components::ActorIdentity;
+    use ambition_platformer2d::construction::PersistedFates;
+    use ambition_platformer2d::persistence::save_data::enemy_dead_flag;
 
     const HUB: &str = "central_hub_complex";
     const GUIDE: &str = "npc_kernel_guide";
@@ -1106,7 +1113,8 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
          a dead guide"
     );
 
-    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+    >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
@@ -1117,7 +1125,8 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
     let mut committed = false;
     for _ in 0..120 {
         sim.step(AgentAction::default());
-        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+        >(sim.world())
             .expect("the live session root carries the checkpoint coordinator")
             .latest()
             .cloned();

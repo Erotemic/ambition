@@ -6,8 +6,9 @@ use bevy::prelude::*;
 use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
 use ambition_characters::actor::ActorFaction;
 use ambition_projectiles::{
-    build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
+    ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
     ProjectileStart,
+    build_in_flight_projectile,
 };
 
 #[derive(Resource, Default)]
@@ -55,7 +56,8 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    );
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
@@ -175,7 +177,8 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    );
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
@@ -246,7 +249,8 @@ fn arena_projectile_app(relations: ambition_combat::targeting::FactionRelations)
     app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    );
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.insert_resource(relations);
     app.add_systems(
@@ -544,9 +548,9 @@ fn a_shot_that_reaches_a_breakable_names_the_move_use_that_fired_it() {
         ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
         ambition_combat::components::FeatureId::new("crate_a"),
         ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 16.0)),
-        ambition_combat::components::BreakableFeature::new(
-            ambition_interaction::Breakable::new("crate_a", 10),
-        ),
+        ambition_breakables::BreakableFeature::new(
+            ambition_interaction::Breakable::new("crate_a", 10,
+        )),
     ));
     spawn_stamped_enemy_glider_with_splash(&mut app, pos, 3, Some(11), 12.0);
     app.update();
@@ -1033,7 +1037,8 @@ fn parry_ready_player_app() -> (App, Entity) {
     app.add_message::<ambition_vfx::vfx::FxRequest>();
     app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    );
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(Update, ambition_projectile_combat::step_projectiles);
 
@@ -1235,7 +1240,8 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    );
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,

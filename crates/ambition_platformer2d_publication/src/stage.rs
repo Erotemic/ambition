@@ -139,9 +139,8 @@ pub(crate) fn construct_room_candidate(
             // Read HERE, on the world this commit lands in — not with the
             // plan, which a replay commits again after the save has moved.
             crate::CommitFactsSource::TheWorldAtTheCommit => {
-                ambition_platformer2d_construction::PersistedFates::of_world(world).with_scheduled_returns(
-                    features::ecs::world_time_schedule::remaining_scheduled_returns(world),
-                )
+                ambition_platformer2d_construction::PersistedFates::of_world(world).with_scheduled_returns(ambition_world_returns::remaining_scheduled_returns(world,
+                    ))
             }
             // ⛔ NOT THE WORLD. The session of this room is not live yet, so
             // the save and the schedule in the world are another session's.
@@ -691,8 +690,8 @@ fn construction_plan_id(
 mod tests {
     use super::*;
     use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomScopedEntity};
     use ambition_platformer2d_shared_tangle::construction::ContentBinding;
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomScopedEntity};
 
     fn empty_spec(id: &str) -> RoomSpec {
         RoomSpec::new(
@@ -751,7 +750,8 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            )
                 .with_prepared(fixture_cast()),
         )
     }
@@ -857,7 +857,8 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(epoch)).with_prepared(cast),
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(epoch),
+            ).with_prepared(cast),
         )
     }
 
@@ -1161,7 +1162,8 @@ mod tests {
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            )
                 .with_prepared(fixture_cast()),
         )
         .expect("plan");
@@ -1265,7 +1267,8 @@ mod tests {
         // are prepared under it.
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            super::transaction::ActiveContentBinding(ContentBinding::content_unstated(Default::default())),
+            super::transaction::ActiveContentBinding(ContentBinding::content_unstated(Default::default(),
+            )),
         );
         let outgoing = ["n_body_a", "n_body_b"]
             .into_iter()
@@ -1343,7 +1346,8 @@ mod tests {
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
             session,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            )
                 .with_prepared(fixture_cast()),
         )
         .expect("the candidate room plans")
@@ -1414,17 +1418,21 @@ mod tests {
     ) -> Option<super::transaction::LiveRoomSuccession> {
         replaces
             .zip(mints)
-            .map(|(replaces, mints)| super::transaction::LiveRoomSuccession::replacing(replaces, mints))
+            .map(|(replaces, mints)| {
+            super::transaction::LiveRoomSuccession::replacing(replaces, mints)
+        })
     }
 
-    fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>) {
+    fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>,
+    ) {
         let mints = next_mint(app);
         app.add_systems(
             bevy::prelude::Update,
             // The room it replaces is the live one, read as the production
             // roads read it.
             move |mut commands: Commands,
-                  live: Option<ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<LiveRoomInstance>>| {
+                  live: Option<ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<LiveRoomInstance>,
+            >| {
                 plan.replace_live_world(
                     &mut commands,
                     outgoing.iter().map(|entity| (*entity, false)),
@@ -1453,7 +1461,8 @@ mod tests {
         bevy::ecs::system::RunSystemOnce::run_system_once(
             app.world_mut(),
             move |mut commands: Commands,
-                  live: Option<ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<LiveRoomInstance>>| {
+                  live: Option<ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<LiveRoomInstance>,
+            >| {
                 plan.replace_live_world(
                     &mut commands,
                     outgoing.iter().map(|entity| (*entity, false)),
@@ -1537,7 +1546,7 @@ mod tests {
     /// harness this repository does not have.
     #[test]
     fn the_verdict_reader_answers_about_one_publication_and_not_about_any() {
-        use super::transaction::{publication_succeeded, PublicationHandle, PublicationVerdict};
+        use super::transaction::{PublicationHandle, PublicationVerdict, publication_succeeded};
 
         let mut app = bevy::prelude::App::new();
         let mine = PublicationHandle(app.world_mut().spawn_empty().id());
@@ -1590,9 +1599,7 @@ mod tests {
     /// session's body survived" would also be true of an id nothing plans.
     #[test]
     fn a_rooms_publication_retires_its_own_sessions_predecessor_and_not_another_sessions() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{
-            SessionScopedEntity, SessionScopeId,
-        };
+        use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScopedEntity};
 
         fn stage_beside(owner: SessionScopeId) -> (bool, bool) {
             let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
@@ -1676,8 +1683,7 @@ mod tests {
         let root = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
             .expect("the fixture carries a session root");
         app.world_mut().entity_mut(root).insert(
-            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "7"),
-        );
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "7"));
         bevy::ecs::system::RunSystemOnce::run_system_once(
             app.world_mut(),
             move |mut commands: Commands| {
@@ -1767,7 +1773,8 @@ mod tests {
                 "precondition: the fixture is a direct composition"
             );
             if strip_binding {
-                let root = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+                let root = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world(),
+                )
                     .expect("precondition: the fixture has a session root");
                 app.world_mut()
                     .entity_mut(root)
@@ -1823,7 +1830,8 @@ mod tests {
         // this plan was not prepared against.
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            super::transaction::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default()),
+            super::transaction::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default(),
+            ),
         );
 
         stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());
@@ -1956,7 +1964,8 @@ mod tests {
         );
         insert_session_world_component(
             app.world_mut(),
-            super::transaction::ActiveContentBinding(ContentBinding::content_unstated(Default::default())),
+            super::transaction::ActiveContentBinding(ContentBinding::content_unstated(Default::default(),
+            )),
         );
         // ⛔ THE PREMISE, both halves: there IS a root (or this arm is the
         // no-root one wearing a different name), and it carries no room set.
@@ -2076,7 +2085,8 @@ mod tests {
         let mut query = world.query_filtered::<(
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        ), bevy::prelude::Without<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>();
+        ), bevy::prelude::Without<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
+        >>();
         let mut rooms: Vec<_> = query
             .iter(world)
             .map(|(id, room)| (id.as_str().to_string(), room.map(|room| room.0)))
@@ -2130,7 +2140,7 @@ mod tests {
     #[test]
     fn a_publication_writes_only_the_live_room_it_replaces() {
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            activation_room_root, session_world_component, RoomInstanceRoot, SessionRoot,
+            RoomInstanceRoot, SessionRoot, activation_room_root, session_world_component,
         };
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
@@ -2149,10 +2159,12 @@ mod tests {
         // `session:room_instance` today, and a baseline refuses two entities
         // with one identity. An identity per live room is cut 5.
         app.world_mut()
-            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other)))
+            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other),
+            ))
             .insert((
                 elsewhere,
-                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_7"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_7",
+                ),
             ));
 
         stage_the_candidate_as(
@@ -2196,7 +2208,8 @@ mod tests {
                 Some(succession),
                 Vec::new(),
             );
-        })
+        },
+        )
         .expect("the staging system runs");
     }
 
@@ -2204,7 +2217,7 @@ mod tests {
     /// live room the session has already minted.
     fn two_live_rooms() -> (bevy::prelude::App, Vec<Entity>) {
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            activation_room_root, session_world_component, session_world_component_mut, SessionRoot,
+            SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
         };
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
@@ -2229,11 +2242,13 @@ mod tests {
             .and_then(|rooms| rooms.definition_by_id("n"))
             .expect("the fixture's set has room `n`");
         app.world_mut()
-            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other)))
+            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other),
+            ))
             .insert((
                 second,
                 n,
-                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1",
+                ),
             ));
         (app, outgoing)
     }
@@ -2242,11 +2257,13 @@ mod tests {
     fn live_room_definitions(app: &mut bevy::prelude::App) -> Vec<(LiveRoomInstance, String)> {
         let world = app.world_mut();
         let mut roots = world.query_filtered::<
-            (&LiveRoomInstance, &ambition_platformer2d_world::rooms::LiveRoomDefinition),
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
-        >();
+            (&LiveRoomInstance, &ambition_platformer2d_world::rooms::LiveRoomDefinition,
+        ),
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
+        >>();
         let definitions: Vec<_> = roots.iter(world).map(|(live, definition)| (*live, *definition)).collect();
-        let rooms = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
+        let rooms = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet,
+        >(world)
             .expect("the session keeps its room set");
         let mut named: Vec<_> = definitions
             .into_iter()
@@ -2411,8 +2428,8 @@ mod tests {
     /// before this cut, a crossing always retired the room it left.
     #[test]
     fn a_publication_that_opens_a_live_room_leaves_the_room_it_leaves_whole() {
-        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
         use super::transaction::LiveRoomSuccession;
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
         let first = LiveRoomInstance::ACTIVATION;
         let second = first.next();
         let authored = candidate_plan()
@@ -2488,11 +2505,10 @@ mod tests {
     /// there is refused.
     #[test]
     fn a_crossing_into_a_room_another_player_holds_joins_it() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{
-            activation_room_root, session_world_component, session_world_component_mut, InRoomInstance,
-            SessionRoot,
-        };
         use super::transaction::LiveRoomSuccession;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
+        };
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
         let claims_after = std::cell::Cell::new(Vec::new());
@@ -2510,7 +2526,9 @@ mod tests {
             // Bob: slot 1 drives a body in #0 (OW4's claims).
             app.world_mut()
                 .entity_mut(outgoing[0])
-                .insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1)));
+                .insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1),
+                ),
+            );
             let scope = session_world_component::<SessionRoot>(app.world())
                 .expect("the fixture has a session root")
                 .0;
@@ -2536,7 +2554,8 @@ mod tests {
                 RoomScopedEntity,
                 InRoomInstance(second),
                 // The player who holds #1: slot 0.
-                ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(0)),
+                ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(0),
+                ),
             ));
             let outgoing = if succession.keeps_left() { Vec::new() } else { outgoing };
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
@@ -2550,7 +2569,8 @@ mod tests {
                 .expect("the session keeps its room set")
                 .next_live_room();
             // Who holds each live room after the publication: (room, slots).
-            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = ambition_platformer2d_session::rooms::residency::live_room_claims_in(app.world_mut())
+            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = ambition_platformer2d_session::rooms::residency::live_room_claims_in(app.world_mut(),
+                )
                 .into_iter()
                 .map(|(room, claims)| (room, claims.iter().map(|claim| claim.slot.0).collect()))
                 .collect();
@@ -2660,11 +2680,10 @@ mod tests {
     /// refused as a second live room of it.
     #[test]
     fn a_reload_that_brings_a_room_set_keeps_the_other_live_rooms_rooms() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{
-            activation_room_root, session_world_component, session_world_component_mut, InRoomInstance,
-            SessionRoot,
-        };
         use super::transaction::{LiveRoomSuccession, StagedWorldViolation};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
+        };
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
         let plan_of = |index: usize, spec: RoomSpec| {
@@ -2678,7 +2697,8 @@ mod tests {
                 &features::RoomContentStagingRegistry::default(),
                 &ambition_boss_encounter::BossCatalog::default(),
                 SessionSpawnScope::UNSCOPED,
-                features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+                features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+                )
                     .with_prepared(fixture_cast()),
             )
             .expect("the reloaded room plans")
@@ -2714,7 +2734,8 @@ mod tests {
                 .insert((second, candidate));
             let next = RoomSet::from_parts_or_panic(room, next, Vec::new());
             let index = next.definition_by_id(room).expect("the reloaded set has the room").index();
-            let plan = plan_of(index, next.spec(next.definition_by_id(room).expect("it is there")).clone());
+            let plan = plan_of(index, next.spec(next.definition_by_id(room).expect("it is there")).clone(),
+            );
             bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), move |mut commands: Commands| {
                 plan.replace_live_world(
                     &mut commands,
@@ -2725,17 +2746,20 @@ mod tests {
                     Some(LiveRoomSuccession::replacing(first, third)),
                     Vec::new(),
                 );
-            })
+            },
+            )
             .expect("the staging system runs");
             let verification = app
                 .world()
                 .resource::<crate::LastConstructionVerification>()
                 .clone();
-            (verification.published, verification.staged_violations, live_room_definitions(&mut app))
+            (verification.published, verification.staged_violations, live_room_definitions(&mut app),
+            )
         };
 
         let (published, violations, rooms) =
-            reload(vec![empty_spec("other"), empty_spec("n"), candidate_spec()], "n");
+            reload(vec![empty_spec("other"), empty_spec("n"), candidate_spec()], "n",
+        );
         assert!(published, "the reload of Alice's room was refused: {violations:?}");
         assert_eq!(
             rooms,
@@ -2991,7 +3015,8 @@ mod tests {
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let mut construction =
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+        )
                 .with_prepared(fixture_cast());
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,

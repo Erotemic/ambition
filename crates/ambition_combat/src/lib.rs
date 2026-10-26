@@ -28,7 +28,6 @@ pub mod body_geometry;
 pub mod body_landmarks;
 pub mod body_rig;
 pub mod brain;
-pub mod breakables;
 pub mod capture;
 #[cfg(feature = "causal")]
 pub mod causal;
@@ -42,13 +41,13 @@ pub mod dormancy_rule;
 pub mod events;
 pub mod extension;
 pub mod fade;
-pub mod falling_chest;
 pub mod feel;
 pub mod finish_zoom;
 pub mod footstool;
+pub mod governing_rules;
 pub mod guard;
-pub mod hazard_runtime;
 pub mod hand;
+pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;
 pub mod hit_camera_shake;
@@ -56,6 +55,7 @@ pub mod hit_reaction;
 pub mod hitbox;
 pub mod hurtbox_resolution;
 pub mod impact_hitstop;
+pub mod landing_lag;
 pub mod ledge_trump;
 pub mod moveset;
 pub mod on_hit;
@@ -65,16 +65,14 @@ pub mod path_motion;
 #[cfg(feature = "content_pack")]
 pub mod room_rules;
 pub mod rules;
-mod snapshot_impls;
 pub mod scoped_rules;
 pub mod shot_birth;
-pub mod governing_rules;
+mod snapshot_impls;
 pub mod stale;
 pub mod stocks;
 /// Authoritative strike damage volumes, lifecycle state, and world-anchored
 /// effect execution.
 pub mod strike;
-pub mod landing_lag;
 pub mod strike_weight;
 pub mod targeting;
 pub mod util;
@@ -84,8 +82,8 @@ pub mod worn_kit;
 
 pub use components::*;
 pub use death_rules::{DeathInterlude, DeathRules, KillBeat, LevelReset, OutOfPlay};
-pub use scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
 pub use events::*;
+pub use scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in
 // `ambition_platformer2d_shared_tangle::lifecycle` (ADR 0019).
@@ -129,18 +127,6 @@ pub fn actor_faction_from_hit_side(side: ambition_vfx::HitSide) -> ActorFaction 
     }
 }
 
-/// Seconds a player must stand on a breakable before it shatters.
-const BREAK_ON_STAND_SECONDS: f32 = 0.85;
-
-/// Gravity (px/s²) used by the falling-chest tick. Lighter than the
-/// player's GRAVITY (2250) so a treasure chest reads as a heavy-but-
-/// floaty drop, not a brick. Tuned by feel against the mockingbird
-/// arena: at 1400 px/s² and 80 px of fall, the drop lands in ~0.34 s.
-const CHEST_FALL_GRAVITY: f32 = 1400.0;
-/// Terminal-velocity cap so a chest dropped from a tall arena doesn't
-/// blast through the floor sweep before the sub-step kicks in.
-const CHEST_FALL_MAX_SPEED: f32 = 900.0;
-
 // Shared imports the module tree reaches via `use super::*` (the historical
 // combat/mod.rs surface, kept so the moved files stay byte-similar).
 use ambition_characters::actor::ActorFaction;
@@ -152,7 +138,8 @@ use ambition_sfx::SfxMessage;
 #[allow(unused_imports)]
 use ambition_time::WorldTime;
 #[allow(unused_imports)]
-use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxInRoom, VfxMessage, VfxWriter};
+use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxInRoom, VfxMessage, VfxWriter,
+};
 #[allow(unused_imports)]
 use bevy::prelude::*;
 
@@ -702,14 +689,16 @@ pub fn install_settle_presentation_systems(
     app.add_systems(
         schedule.clone(),
         finish_zoom::zoom_camera_on_decided_match
-            .run_if(ambition_platformer2d_core::a_message_waits::<crate::stocks::StocksMatchDecided>)
+            .run_if(ambition_platformer2d_core::a_message_waits::<crate::stocks::StocksMatchDecided>,
+            )
             .in_set(GameplayGated)
             .in_set(CombatSet::Settle)
             // It answers a stocks match's outcome, so it sleeps with the
             // stocks rules where no live room's game plays a stocks match.
             .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
                 ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks,
-            ))
+            ),
+            )
             .after(stocks::MatchOutcomeDecided),
     );
     // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute expiry tick,

@@ -11,9 +11,13 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::Platformer2dSimHarness;
-use ambition_platformer2d::actors::features::GameplayElapsed;
-use ambition_platformer2d::combat::components::{CenteredAabb, Collected, FeatureName, RespawnTimer};
+use ambition_platformer2d::item_runtime::pickups::Collected;
+use ambition_platformer2d::world_returns::RespawnTimer;
+use ambition_platformer2d::combat::components::{
+    CenteredAabb,  FeatureName,
+};
 use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::time::GameplayElapsed;
 
 use crate::breakable_respawn_across_rooms::cross_to;
 use crate::common::{base, fixed_60hz_room_sim};
@@ -26,7 +30,8 @@ const PLAIN: &str = "one-time heart";
 const REGROW_S: f32 = 4.0;
 
 fn now(sim: &Platformer2dSimHarness) -> f32 {
-    ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(sim.world())
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(sim.world(),
+    )
         .expect("the session root carries the clock")
         .0
 }
@@ -42,7 +47,8 @@ fn pickup(sim: &mut Platformer2dSimHarness, name: &str) -> Option<(bool, Option<
 }
 
 fn records(sim: &Platformer2dSimHarness) -> usize {
-    ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::world_returns::WorldTimeSchedule,
+    >(sim.world())
         .expect("the session root carries the schedule")
         .records()
         .count()
@@ -165,8 +171,7 @@ fn a_heart_regrows_in_its_live_room_and_a_plain_one_does_not() {
 fn a_replay_rebuilds_a_collected_heart_whole() {
     let (mut sim, _) = harvested_room();
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     settle(&mut sim, 30);
     assert_eq!(
         (pickup(&mut sim, HEART), records(&sim)),
@@ -242,7 +247,8 @@ fn a_death_keeps_the_regrowth_of_a_heart_in_another_players_room() {
 /// The one-time heart's row in the occurrence ledger.
 fn ledger_row(sim: &mut Platformer2dSimHarness, name: &str) -> Option<String> {
     let world = sim.world_mut();
-    let mut q = world.query::<(&FeatureName, &ambition_platformer2d::platformer::sim_id::SimId)>();
+    let mut q = world.query::<(&FeatureName, &ambition_platformer2d::platformer::sim_id::SimId,
+    )>();
     let sim_id = q
         .iter(world)
         .find(|(feature, _)| feature.0.as_str() == name)
@@ -276,9 +282,11 @@ fn a_one_time_heart_stays_gone_when_its_room_is_built_again() {
 }
 
 /// The stable id of the pickup `name`, which its room must have built.
-fn sim_id_of(sim: &mut Platformer2dSimHarness, name: &str) -> ambition_platformer2d::platformer::sim_id::SimId {
+fn sim_id_of(sim: &mut Platformer2dSimHarness, name: &str,
+) -> ambition_platformer2d::platformer::sim_id::SimId {
     let world = sim.world_mut();
-    let mut q = world.query::<(&FeatureName, &ambition_platformer2d::platformer::sim_id::SimId)>();
+    let mut q = world.query::<(&FeatureName, &ambition_platformer2d::platformer::sim_id::SimId,
+    )>();
     q.iter(world)
         .find(|(feature, _)| feature.0.as_str() == name)
         .map(|(_, sim_id)| sim_id.clone())
@@ -378,7 +386,8 @@ fn one_time_heart_after_a_death_elsewhere(by_bob: bool) -> (Option<(bool, Option
     // stops play, which would also leave the heart gone.
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+        >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
@@ -445,7 +454,8 @@ fn a_coin_taken_after_the_checkpoint(bob_stays: bool) -> (i32, Option<bool>) {
 fn a_coin_taken_after_the_checkpoint_then(
     bob_stays: bool,
     deaths: usize,
-) -> Vec<((i32, Option<bool>), Vec<Vec<ambition_platformer2d::characters::control::PlayerSlot>>)> {
+) -> Vec<((i32, Option<bool>), Vec<Vec<ambition_platformer2d::characters::control::PlayerSlot>>,
+)> {
     let mut sim = if bob_stays {
         crate::two_players_two_live_rooms::alice_leaves_bob_in(
             COIN_ROOM,
@@ -477,7 +487,8 @@ fn a_coin_taken_after_the_checkpoint_then(
         crate::death_restores_the_checkpoint::die(&mut sim);
         let outcome = format!(
             "{:?}",
-            ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+            ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+            >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
                 .latest()
         );
@@ -489,7 +500,9 @@ fn a_coin_taken_after_the_checkpoint_then(
             .grants()
             .iter()
             .filter_map(|grant| match &grant.source {
-                ambition_platformer2d::item_runtime::pickup::GrantSource::Authored { owners } => Some(owners.clone()),
+                ambition_platformer2d::item_runtime::pickup::GrantSource::Authored { owners } => {
+                    Some(owners.clone())
+                }
                 _ => None,
             })
             .collect();
@@ -580,7 +593,8 @@ fn a_load_does_not_build_a_one_time_heart_the_file_remembers_taken() {
     };
     let mut taken = AmbitionGameSaveData::new();
     taken.set_durable_horizon(
-        vec![PersistedOccurrence::new(heart, PersistedWhereabouts::Consumed)],
+        vec![PersistedOccurrence::new(heart, PersistedWhereabouts::Consumed,
+        )],
         Vec::new(),
     );
     assert_eq!(

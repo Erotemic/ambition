@@ -3,16 +3,16 @@
 //! rebuilds, and the dev-dependency cycle means gameplay_core's own test
 //! build sees a different type universe than the one this crate links).
 
-use ambition_combat::components::ChestFeature;
-use ambition_combat::components::Collected;
 use ambition_combat::components::FeatureId;
 use ambition_combat::components::FeatureName;
-use ambition_combat::components::PickupFeature;
-use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::CenteredAabb;
+use ambition_platformer2d_items::pickups::Collected;
+use ambition_platformer2d_items::pickups::PickupFeature;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
-use ambition_sim_view::{rebuild_feature_view_index, FeatureViewIndex};
+use ambition_sim_view::{FeatureViewIndex, rebuild_feature_view_index};
+use ambition_world_items::containers::ChestFeature;
 use bevy::prelude::{App, Commands, Entity, IntoScheduleConfigs, Query, Update, With};
 
 fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {

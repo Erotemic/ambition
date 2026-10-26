@@ -8,8 +8,9 @@
 //! tick of the kill or the next tick with a running clock.
 
 use super::super::ae;
-use super::super::damage_drops::{drop_ability_pickup, drop_currency_coin, drop_health_pickup};
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource};
+use ambition_platformer2d_items::loot::{drop_ability_pickup, drop_currency_coin, drop_health_pickup,
+};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -250,7 +251,8 @@ pub(crate) fn apply_boss_hit(
             writers.vfx.write_in(room, VfxMessage::SpeechBubble {
                 pos: boss.bark_anchor(),
                 text: line.to_string(),
-            });
+            },
+            );
         }
     }
     if let Some(spent) = wallet_spent {
@@ -329,7 +331,8 @@ pub(crate) fn apply_boss_hit(
         // theorem" — a defeated boss drops the ability it embodies, so combat
         // (not just the merchant) teaches the player new verbs.
         if let (true, Some(ability_id), Some(parent)) =
-            (story, boss.config.behavior.reward_ability.as_deref(), &parent)
+            (story, boss.config.behavior.reward_ability.as_deref(), &parent,
+        )
         {
             if let Some(name) = items.item_by_dialog_id(ability_id).and_then(|item| items.display_name(item)) {
                 drop_ability_pickup(
@@ -346,10 +349,11 @@ pub(crate) fn apply_boss_hit(
         // …and its signature wielded attack drops as a ground-item gauntlet the
         // player picks up + uses (the player literally wields the boss's move).
         if let (true, Some(gauntlet_id), Some(parent)) =
-            (story, boss.config.behavior.signature_gauntlet.as_deref(), &parent)
+            (story, boss.config.behavior.signature_gauntlet.as_deref(), &parent,
+        )
         {
             if let Some(spec) = ambition_characters::brain::held_item_by_id(gauntlet_id) {
-                super::super::damage_drops::drop_held_weapon(
+                ambition_platformer2d_items::loot::drop_held_weapon(
                     &mut writers.commands,
                     session_scope,
                     parent,
@@ -365,22 +369,14 @@ pub(crate) fn apply_boss_hit(
     true
 }
 
-// `begin_ecs_breakable_respawn` / `emit_breakable_destroyed` moved to
-// the combat kit (`ambition_combat::breakables`) — they are
-// generic breakable side-effect helpers shared by the typed-damage
-// path here and the kit's stand-to-break path.
-pub(crate) use ambition_combat::breakables::{
-    begin_ecs_breakable_respawn, emit_breakable_destroyed,
-};
-
 #[cfg(test)]
 mod entity_damage_tests {
     //! The entity-local boss damage contract for `apply_entity_boss_damage`:
     //! vulnerable phases take damage, lethal damage forces `Death`, invulnerable
     //! phases swallow the hit.
     use super::*;
-    use ambition_boss_encounter::test_support::test_boss_status;
     use ambition_boss_encounter::BossEncounterPhase;
+    use ambition_boss_encounter::test_support::test_boss_status;
 
     fn boss(
         hp: i32,

@@ -10,7 +10,9 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::combat::components::{CenteredAabb, ChestFeature, FeatureName, Opened};
+use ambition_platformer2d::world_items::containers::ChestFeature;
+use ambition_platformer2d::world_items::containers::Opened;
+use ambition_platformer2d::combat::components::{CenteredAabb,  FeatureName, };
 
 use crate::breakable_respawn_across_rooms::cross_to;
 use crate::common::{base, fixed_60hz_room_sim};

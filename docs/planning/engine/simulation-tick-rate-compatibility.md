@@ -144,7 +144,7 @@ hitstop authority. They can share tests but not a duplicate rate source.
 - `crates/ambition_platformer2d_core/src/movement/recovery.rs`: default `RecoveryProbe` is 240 steps at `1/60` s.
 - `crates/ambition_platformer2d_core/src/movement/containment.rs`: `ContainmentProbe::holding` uses 900 steps at `1/60` s.
 - `crates/ambition_platformer2d_ldtk/src/conversion/entity_converters/surface_ramp_winding_oracle.rs`: fixed-step movement reference.
-- `crates/ambition_combat/src/falling_chest.rs`: actual falling chest uses `sim_dt`; `settled_chest_center` uses a separate 60 Hz virtual rollout.
+- `crates/ambition_world_items/src/containers.rs`: actual falling chest uses `sim_dt`; `settled_chest_center` uses a separate 60 Hz virtual rollout.
 - `crates/ambition_combat/src/brain/smash/arena.rs` and other combat/recovery analysis probes.
 
 **Change:** distinguish **pure reference tests** that intentionally specify 60 Hz from **authoring or runtime verdicts** that must predict behavior at the chosen rate. Make the latter accept rate and a horizon in seconds. A pre-settled chest must agree with its live falling path at the selected rate, or explicitly use a rate-independent resting-position solver. Avoid changing test fixtures whose aim is to retain a known 60 Hz reference.

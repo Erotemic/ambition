@@ -36,11 +36,14 @@ use bevy::prelude::{Commands, Entity, Query, Res, ResMut, With};
 /// tick).
 /// Run condition of [`apply_boss_life_switches`]: this tick's presses hold a
 /// boss-life switch.
-pub fn a_boss_life_switch_is_pressed(switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>) -> bool {
+pub fn a_boss_life_switch_is_pressed(switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>,
+) -> bool {
     switches
         .0
         .iter()
-        .any(|activation| matches!(activation.action, ambition_encounter::switches::SwitchAction::BossLife))
+        .any(|activation| {
+        matches!(activation.action, ambition_encounter::switches::SwitchAction::BossLife)
+    })
 }
 
 pub fn apply_boss_life_switches(
@@ -48,7 +51,8 @@ pub fn apply_boss_life_switches(
     switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
-    chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_combat::ChestFeature>>,
+    chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_world_items::containers::ChestFeature>,
+    >,
     mut bosses: Query<(
         &crate::BossConfig,
         &mut crate::BossEncounter,
@@ -66,7 +70,8 @@ pub fn apply_boss_life_switches(
             continue;
         }
         for target in rooms.rooms().boss_succession_from(&activation.target_encounter) {
-            set_boss_life(&mut commands, &mut save, &mut quests, &chests, &mut bosses, &target, activation.on);
+            set_boss_life(&mut commands, &mut save, &mut quests, &chests, &mut bosses, &target, activation.on,
+            );
         }
     }
 }
@@ -77,7 +82,8 @@ fn set_boss_life(
     commands: &mut Commands,
     save: &mut ambition_persistence::save::AmbitionGameSave,
     quests: &mut ambition_persistence::quest::QuestRegistry,
-    chests: &Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_combat::ChestFeature>>,
+    chests: &Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_world_items::containers::ChestFeature>,
+    >,
     bosses: &mut Query<(
         &crate::BossConfig,
         &mut crate::BossEncounter,
@@ -112,8 +118,10 @@ fn set_boss_life(
         }
     } else {
         let data = save.data_mut();
-        data.set_boss(target, ambition_persistence::save_data::PersistedEncounterState::Cleared);
-        data.set_flag(ambition_encounter::encounter_reward_looted_flag(target), true);
+        data.set_boss(target, ambition_persistence::save_data::PersistedEncounterState::Cleared,
+        );
+        data.set_flag(ambition_encounter::encounter_reward_looted_flag(target), true,
+        );
         for (config, mut status, mut health, _clusters, _model) in bosses.iter_mut() {
             if config.id == target {
                 health.health.current = 0;

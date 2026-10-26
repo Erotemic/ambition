@@ -7,7 +7,7 @@
 //! checksums, mapping, and load behavior without making the generic runtime
 //! depend on that backend.
 
-use ambition_platformer2d_core::snapshot::{checksum_bytes, RollbackRegistrar};
+use ambition_platformer2d_core::snapshot::{RollbackRegistrar, checksum_bytes};
 use bevy::prelude::*;
 
 pub mod authority;
@@ -19,7 +19,7 @@ pub use authority::{
     RollbackDiagnosticHistory, RollbackTimelineContract, RollbackTimelineGeneration,
     RollbackTimelineStatus, SessionRollbackConfirmation,
 };
-pub use registrar::{detail, SchemaRollbackRegistrar};
+pub use registrar::{SchemaRollbackRegistrar, detail};
 pub use registry::*;
 
 /// Install the host-independent typed rollback schema used by prepared-content
@@ -47,6 +47,9 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // edits only that domain, and the runtime contains no gameplay type paths.
     ambition_encounter::register_rollback_state(registrar);
     ambition_combat::register_rollback_state(registrar);
+    ambition_breakables::register_rollback_state(registrar);
+    ambition_world_returns::register_rollback_state(registrar);
+    ambition_world_items::register_rollback_state(registrar);
     ambition_match::register_rollback_state(registrar);
     ambition_damage::register_rollback_state(registrar);
     ambition_platformer2d_actor_monolith::register_rollback_state(registrar);

@@ -1,10 +1,13 @@
 //! Per-frame tick for breakable feature entities: respawn countdown
 //! and the stand-to-break collapse trigger.
 
-use super::util::player_is_standing_on;
 use super::BREAK_ON_STAND_SECONDS;
 use super::*;
-use ambition_sfx::SfxWriter;
+use ambition_combat::util::player_is_standing_on;
+use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_vfx::vfx::PhysicsDebrisCue;
+#[cfg(test)]
+use ambition_vfx::vfx::VfxInRoom;
 
 /// Tick ECS-owned breakable timers and stand-to-break triggers.
 pub fn update_ecs_breakables(
@@ -75,18 +78,16 @@ pub fn update_ecs_breakables(
         // iterator today. OVERNIGHT-TODO #17.8 (iterate-all-players
         // "no targeting" B-bucket).
         let any_player_standing = breaks_on_stand
-            && player_body_q
-                .iter()
-                .any(|(player, kin, last_step)| {
-                    rooms.of(player) == room && player_is_standing_on(kin.collision_box(last_step), aabb.aabb())
-                });
+            && player_body_q.iter().any(|(player, kin, last_step)| {
+                rooms.of(player) == room
+                    && player_is_standing_on(kin.collision_box(last_step), aabb.aabb())
+            });
         if any_player_standing {
             stand_timer.0 += dt;
             if stand_timer.0 >= BREAK_ON_STAND_SECONDS {
                 let damage = feature.breakable.health.current.max(1);
-                let broke = feature.breakable.apply_damage(damage);
+                let broke = strike(&mut commands, entity, &mut feature, damage);
                 if broke {
-                    begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                     stand_timer.0 = 0.0;
                     banner.show(format!("{} collapsed under weight", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
@@ -104,9 +105,9 @@ mod breakable_tests {
     //! breakable accumulates its StandTimer and, once past BREAK_ON_STAND_SECONDS, collapses
     //! it; standing elsewhere does not.
     use super::*;
+    use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
     use ambition_platformer2d_core::BodyBaseSize;
     use ambition_platformer2d_core::BodyKinematics;
-    use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     use ambition_time::WorldTime;
     use ambition_vfx::vfx::DebrisBurstMessage;
@@ -190,20 +191,30 @@ mod breakable_tests {
     /// player stands on.
     #[test]
     fn a_player_collapses_only_the_breakable_of_its_own_live_room() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
         let mut app = app();
-        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let rooms = [
+            LiveRoomInstance::ACTIVATION,
+            LiveRoomInstance::ACTIVATION.next(),
+        ];
         let center = ae::Vec2::new(64.0, 100.0);
         let blocks = rooms.map(|room| {
             app.world_mut().spawn((RoomInstanceRoot, room));
             let block = stand_breakable(&mut app, center, THRESHOLD - 0.05);
-            app.world_mut().entity_mut(block).insert(InRoomInstance(room));
+            app.world_mut()
+                .entity_mut(block)
+                .insert(InRoomInstance(room));
             block
         });
         let player = player_at(&mut app, ae::Vec2::new(64.0, 65.0));
-        app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
+        app.world_mut()
+            .entity_mut(player)
+            .insert(InRoomInstance(rooms[1]));
         app.update();
-        let broken = blocks.map(|block| app.world().get::<BreakableFeature>(block).unwrap().broken());
+        let broken =
+            blocks.map(|block| app.world().get::<BreakableFeature>(block).unwrap().broken());
         let effect_rooms: std::collections::BTreeSet<_> = app
             .world()
             .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
@@ -218,7 +229,11 @@ mod breakable_tests {
             .collect();
         assert_eq!(
             (broken, effect_rooms, debris_rooms),
-            ([false, true], [Some(rooms[1])].into_iter().collect(), vec![Some(rooms[1])]),
+            (
+                [false, true],
+                [Some(rooms[1])].into_iter().collect(),
+                vec![Some(rooms[1])]
+            ),
             "(which of the two blocks collapsed, the rooms the effects name, the rooms the debris names): \
              the player stands in the second room"
         );
@@ -230,7 +245,7 @@ mod breakable_tests {
 /// Called from both `apply_feature_hit_events` (typed damage path) and
 /// `update_ecs_breakables` (stand-to-break path), so it lives here as a
 /// `pub(super)` helper rather than duplicating the policy check.
-pub fn begin_ecs_breakable_respawn(
+fn begin_ecs_breakable_respawn(
     commands: &mut Commands,
     entity: Entity,
     breakable: &ambition_interaction::Breakable,
@@ -266,4 +281,18 @@ pub fn emit_breakable_destroyed(
         id: ambition_sfx::ids::WORLD_CRATE_BREAK,
         pos,
     });
+}
+
+/// Apply accepted damage and start the authored return timer on destruction.
+pub fn strike(
+    commands: &mut Commands,
+    entity: Entity,
+    feature: &mut BreakableFeature,
+    damage: i32,
+) -> bool {
+    let broke = feature.breakable.apply_damage(damage);
+    if broke {
+        begin_ecs_breakable_respawn(commands, entity, &feature.breakable);
+    }
+    broke
 }

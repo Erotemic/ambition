@@ -11,6 +11,7 @@ default = []
 portal = ["dep:ambition_portal2d", "ambition_projectiles/portal"]
 
 [dependencies]
+ambition_breakables = { path = "../ambition_breakables" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }

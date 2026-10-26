@@ -1,6 +1,6 @@
 use super::*;
-use ambition_damage::healing::PlayerHealRequested;
 use ambition_combat::components::FeatureId;
+use ambition_damage::healing::PlayerHealRequested;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
@@ -451,27 +451,47 @@ mod who_gets_it {
 fn only_a_taken_authored_never_pickup_is_remembered_as_consumed() {
     use ambition_entity_catalog::placements::HazardRespawn;
     use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
-    use ambition_platformer2d_shared_tangle::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, OccurrenceWhereabouts,
+    };
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     let mut app = App::new();
-    app.init_resource::<AuthoredOccurrences>().init_resource::<ConsumedSinceCheckpoint>();
+    app.init_resource::<AuthoredOccurrences>()
+        .init_resource::<ConsumedSinceCheckpoint>();
     app.add_systems(Update, record_consumed_pickups);
     let pickup = |app: &mut App, id: &str, respawn: HazardRespawn, authored: bool, taken: bool| {
-        let mut feature = ambition_interaction::Pickup::new(id, ambition_interaction::PickupKind::Health { amount: 1 });
+        let mut feature = ambition_interaction::Pickup::new(
+            id,
+            ambition_interaction::PickupKind::Health { amount: 1 },
+        );
         feature.respawn = respawn;
         let origin = if authored {
-            SpawnOrigin::Authored { source: "room".into(), instance: id.into() }
+            SpawnOrigin::Authored {
+                source: "room".into(),
+                instance: id.into(),
+            }
         } else {
-            SpawnOrigin::Dynamic { parent: SimId::placement("boss"), sequence: 0 }
+            SpawnOrigin::Dynamic {
+                parent: SimId::placement("boss"),
+                sequence: 0,
+            }
         };
-        let mut entity = app.world_mut().spawn((SimId::placement(id), PickupFeature::new(feature), origin));
+        let mut entity =
+            app.world_mut()
+                .spawn((SimId::placement(id), PickupFeature::new(feature), origin));
         if taken {
             entity.insert(Collected);
         }
     };
     pickup(&mut app, "never", HazardRespawn::Never, true, true);
     pickup(&mut app, "reload", HazardRespawn::OnRoomReload, true, true);
-    pickup(&mut app, "regrows", HazardRespawn::AfterSeconds(4.0), true, true);
+    pickup(
+        &mut app,
+        "regrows",
+        HazardRespawn::AfterSeconds(4.0),
+        true,
+        true,
+    );
     pickup(&mut app, "untaken", HazardRespawn::Never, true, false);
     pickup(&mut app, "dropped", HazardRespawn::Never, false, true);
     app.update();
@@ -482,7 +502,10 @@ fn only_a_taken_authored_never_pickup_is_remembered_as_consumed() {
         .collect();
     assert_eq!(
         rows,
-        vec![(SimId::placement("never").to_string(), OccurrenceWhereabouts::Consumed)],
+        vec![(
+            SimId::placement("never").to_string(),
+            OccurrenceWhereabouts::Consumed
+        )],
         "the ledger's rows after one tick"
     );
 }
@@ -504,24 +527,34 @@ fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
     {
         let mut since = app.world_mut().resource_mut::<ConsumedSinceCheckpoint>();
         since.record(SimId::placement("alices"), "x".into(), vec![PlayerSlot(0)]);
-        since.record(SimId::placement("shared"), "x".into(), vec![PlayerSlot(0), PlayerSlot(1)]);
+        since.record(
+            SimId::placement("shared"),
+            "x".into(),
+            vec![PlayerSlot(0), PlayerSlot(1)],
+        );
         since.record(SimId::placement("bobs"), "y".into(), vec![PlayerSlot(1)]);
     }
     // Control: a replay that is not a checkpoint restore keeps every owner.
     app.world_mut().write_message(
-        ambition_combat::events::RoomReplayAdmitted::because(ambition_combat::RoomResetReason::PlayerDeath)
-            .sparing_participants(vec![PlayerSlot(1)]),
+        ambition_combat::events::RoomReplayAdmitted::because(
+            ambition_combat::RoomResetReason::PlayerDeath,
+        )
+        .sparing_participants(vec![PlayerSlot(1)]),
     );
     app.update();
     assert_eq!(
-        app.world().resource::<ConsumedSinceCheckpoint>().owners(&SimId::placement("alices")),
+        app.world()
+            .resource::<ConsumedSinceCheckpoint>()
+            .owners(&SimId::placement("alices")),
         Some(&[PlayerSlot(0)][..]),
         "control: a replay that does not rewind to the checkpoint disowned a record"
     );
     app.world_mut().write_message(
-        ambition_combat::events::RoomReplayAdmitted::because(ambition_combat::RoomResetReason::PlayerDeath)
-            .to_the_checkpoint()
-            .sparing_participants(vec![PlayerSlot(1)]),
+        ambition_combat::events::RoomReplayAdmitted::because(
+            ambition_combat::RoomResetReason::PlayerDeath,
+        )
+        .to_the_checkpoint()
+        .sparing_participants(vec![PlayerSlot(1)]),
     );
     app.update();
     let since = app.world().resource::<ConsumedSinceCheckpoint>();
@@ -558,11 +591,18 @@ fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
 
     let center = ae::Vec2::new(64.0, 64.0);
     let player = player_at(&mut app, center);
-    let body = *app.world().get::<BodyKinematics>(player).expect("the player has a body");
+    let body = *app
+        .world()
+        .get::<BodyKinematics>(player)
+        .expect("the player has a body");
     app.world_mut()
         .entity_mut(player)
         .insert(ae::SweepSample::at_rest(body, ae::Vec2::new(1.0, 0.0)));
-    let past_its_end = health_pickup_at(&mut app, "hp_past_its_end", center + ae::Vec2::new(26.0, 0.0));
+    let past_its_end = health_pickup_at(
+        &mut app,
+        "hp_past_its_end",
+        center + ae::Vec2::new(26.0, 0.0),
+    );
     let beside = health_pickup_at(&mut app, "hp_beside", center + ae::Vec2::new(0.0, 26.0));
 
     app.update();
@@ -602,7 +642,10 @@ fn a_collected_pickup_reports_its_id_to_the_quests() {
     let messages = app
         .world()
         .resource::<bevy::ecs::message::Messages<ambition_persistence::quest::QuestAdvanceRequested>>();
-    let reported: Vec<_> = messages.iter_current_update_messages().map(|request| request.0.clone()).collect();
+    let reported: Vec<_> = messages
+        .iter_current_update_messages()
+        .map(|request| request.0.clone())
+        .collect();
     assert_eq!(
         reported,
         vec![ambition_persistence::quest::QuestAdvanceEvent::ItemCollected("hp_near".into())],

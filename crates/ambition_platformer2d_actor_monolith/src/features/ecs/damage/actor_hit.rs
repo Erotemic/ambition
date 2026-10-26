@@ -7,13 +7,12 @@ use crate::features::ActorMutIntegrationExt;
 use bevy::prelude::Entity;
 
 use super::super::ae;
-use super::super::damage_drops::{
-    drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
-    spawn_split_offspring,
-};
+use super::super::death_effects::{spawn_death_explosion,
+    spawn_split_offspring};
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::midpoint;
+use ambition_platformer2d_items::loot::{drop_currency_coin, drop_health_pickup, id_drops_health};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -261,14 +260,16 @@ pub(crate) fn apply_actor_hit(
                             interactable,
                         )
                         .to_string(),
-                    });
+                    },
+                    );
                     writers.vfx.write_in(room, VfxMessage::Burst {
                         pos,
                         count: 16,
                         speed: 230.0,
                         color: [0.84, 0.95, 1.0, 0.82],
                         kind: ParticleKind::Spark,
-                    });
+                    },
+                    );
                     banner.show(format!("{} turns hostile", em.identity.name), 2.6);
                 } else {
                     writers.vfx.write_in(room, VfxMessage::SpeechBubble {
@@ -279,7 +280,8 @@ pub(crate) fn apply_actor_hit(
                             aggression.strikes,
                         )
                         .to_string(),
-                    });
+                    },
+                    );
                 }
             }
         }
@@ -416,7 +418,8 @@ pub(crate) fn apply_actor_hit(
                 writers.vfx.write_in(room, VfxMessage::SpeechBubble {
                     pos: em.bark_anchor(),
                     text: line.to_string(),
-                });
+                },
+                );
             }
         }
         if resolution == ambition_damage::BodyHitResolution::Blocked {
@@ -440,7 +443,8 @@ pub(crate) fn apply_actor_hit(
                 speed: 160.0,
                 color: [0.78, 0.90, 1.0, 0.90],
                 kind: ParticleKind::Spark,
-            });
+            },
+            );
             // ⭐ THE FACT THE ATTACKER'S MOVE NEEDS. It publishes no
             // `ResolvedBodyHit` here — a block is not a connect — and a consumer
             // cannot read that absence as "blocked", because on the player road
@@ -677,7 +681,8 @@ pub(crate) fn apply_actor_hit(
                         fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                         scale: 0.85,
                         pose: ambition_vfx::FxPose::UPRIGHT,
-                    });
+                    },
+                    );
                 }
                 // A spirit bursts into shots that run the floor out of it.
                 if let (Some(burst), Some(projectiles)) = (caps.bursts_into.as_ref(), writers.projectiles.as_mut()) {
@@ -737,7 +742,7 @@ pub(crate) fn apply_actor_hit(
                 if let (true, Some(spec), Some(parent)) =
                     (caps.drops_held_item, held_at_death.clone(), &parent)
                 {
-                    super::super::damage_drops::drop_held_weapon(
+                    ambition_platformer2d_items::loot::drop_held_weapon(
                         &mut writers.commands,
                         session_scope,
                         parent,
@@ -775,7 +780,8 @@ pub(crate) fn apply_actor_hit(
                 speed: 230.0,
                 color: [0.84, 0.95, 1.0, 0.82],
                 kind: ParticleKind::Spark,
-            });
+            },
+            );
             writers.debris.write(DebrisBurstMessage {
                 room,
                 pos: em.kin.pos,

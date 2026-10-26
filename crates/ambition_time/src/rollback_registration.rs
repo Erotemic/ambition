@@ -8,6 +8,7 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.rollback_component_canonical::<crate::GameplayElapsed>(OWNER, "resource.gameplay_elapsed");
     registrar.rollback_resource_canonical::<crate::time_control::RequestedClockScale>(
         OWNER,
         "resource.requested_clock_scale",

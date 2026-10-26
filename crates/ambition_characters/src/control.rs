@@ -465,7 +465,9 @@ impl CommandedMove {
     ) {
         // The axis of the walk: the side axis of a walker's own frame, and
         // world x for a body with no frame.
-        let side = walker.map_or(ambition_platformer2d_core::Vec2::X, |(_, frame)| frame.basis().side);
+        let side = walker.map_or(ambition_platformer2d_core::Vec2::X, |(_, frame)| {
+            frame.basis().side
+        });
         let along = (self.target - pos).dot(side);
         // Turn toward the mark, and not again once there: an arrived body
         // that overshoots by a pixel does not spin round. `facing` is a sign
@@ -617,3 +619,6 @@ pub fn clear_control_holds(commands: &mut Commands, body: Entity) {
         .entity(body)
         .try_remove::<ControlHolds>();
 }
+
+mod acting;
+pub use acting::ActingParticipant;

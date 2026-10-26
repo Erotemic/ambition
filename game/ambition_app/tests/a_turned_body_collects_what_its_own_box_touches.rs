@@ -15,7 +15,8 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::Platformer2dSimHarness;
-use ambition_platformer2d::combat::components::{CenteredAabb, Collected, FeatureName};
+use ambition_platformer2d::item_runtime::pickups::Collected;
+use ambition_platformer2d::combat::components::{CenteredAabb,  FeatureName};
 use ambition_platformer2d::engine_core::{Aabb, BodyKinematics, SweepSample, Vec2};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::With;

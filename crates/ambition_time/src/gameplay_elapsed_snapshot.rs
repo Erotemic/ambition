@@ -9,20 +9,17 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_platformer2d_core::snapshot::{
-    put_f32, Reader, SnapshotState,
-};
+use ambition_platformer2d_core::snapshot::{Reader, SnapshotState, put_f32};
 
 /// An accumulating sim clock, and netcode.md's N3.1 checklist names it: *"`WorldTime`
 /// + every sim clock"*. A brain stamps `RememberedActor.last_seen` with it, so a rewind
 /// that leaves it running makes every memory look older than it is — which is exactly
 /// how `gnu_ton_arena` diverged on `perception_memory` and nothing else.
-impl SnapshotState for crate::features::GameplayElapsed {
+impl SnapshotState for crate::GameplayElapsed {
     fn encode(&self, out: &mut Vec<u8>) {
         put_f32(out, self.0);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::features::GameplayElapsed(r.f32()?))
+        Some(crate::GameplayElapsed(r.f32()?))
     }
 }
-

@@ -7,9 +7,8 @@
 //! inferred merely because a body can be struck.
 
 use super::*;
-use ambition_combat::components::{
-    BreakableFeature, CenteredAabb, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
-};
+use ambition_breakables::BreakableFeature;
+use ambition_combat::components::{CenteredAabb, DamageableVolumes, PogoPolicy, PogoTargetVolumes};
 
 /// Publish current damageable volumes for every ordinary live body.
 ///
@@ -45,7 +44,8 @@ pub fn refresh_body_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, health, (out_of_play, plane, unmirrored), hurtboxes, kin, mut damageable, (policy, swing, combat)) in &mut bodies {
+    for (aabb, health, (out_of_play, plane, unmirrored), hurtboxes, kin, mut damageable, (policy, swing, combat),
+    ) in &mut bodies {
         // Dead, out-of-play and backdrop bodies publish no target volume;
         // disposition does not affect tangibility. Nor does a faded body.
         if ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
@@ -149,29 +149,6 @@ pub fn refresh_boss_damageable_volumes(
         )
         .with_animation_frame(animation_frame);
         damageable.publish(ambition_combat::body_geometry::damageable_volumes(&ctx));
-    }
-}
-
-/// Publish damageable breakable volumes for intact hit-reactive breakables.
-///
-/// Breakable pogo-orbs remain damageable even though their actual damage is
-/// resolved by the dedicated `HitSource::Pogo` path. Regular OnHit/Either
-/// breakables participate in the default damageable => pogoable rule; pure
-/// stand-to-crumble platforms opt into world rebound geometry through
-/// `PogoTargetContributor` instead of pretending to be body-damage targets.
-pub fn refresh_breakable_damageable_volumes(
-    mut breakables: Query<(&CenteredAabb, &BreakableFeature, &mut DamageableVolumes)>,
-) {
-    for (aabb, feature, mut damageable) in &mut breakables {
-        if feature.broken() {
-            damageable.clear();
-            continue;
-        }
-        if feature.breakable.trigger.allows_hit() || feature.breakable.pogo_refresh {
-            damageable.set_single(aabb.aabb());
-        } else {
-            damageable.clear();
-        }
     }
 }
 

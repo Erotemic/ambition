@@ -9,13 +9,13 @@
 //!
 //! These two never shared anything but this file.
 
+use ambition_world_items::containers::ChestFeature;
+use ambition_world_items::containers::Opened;
 // ⭐ NAMED, NOT GLOBBED. This was `use super::*` over the whole
 // `features/ecs` module — a channel no `crate::` grep sees. Measured by
 // deleting it: bevy's prelude, `ambition_vfx`'s two message types and
 // `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
-use ambition_combat::components::{
-    CenteredAabb, ChestFeature, EncounterRewardChest, FeatureId, FeatureName, Opened,
-};
+use ambition_combat::components::{CenteredAabb, EncounterRewardChest, FeatureId, FeatureName};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
@@ -71,14 +71,17 @@ pub fn sync_encounter_reward_chests_ecs(
     in_room: impl Fn(Entity) -> bool,
 ) {
     let chest_size = ae::Vec2::new(28.0, 28.0);
-    for (encounter_id, spec) in cleared.iter().filter(|(_, spec)| spec.room_id == active_room) {
+    for (encounter_id, spec) in cleared
+        .iter()
+        .filter(|(_, spec)| spec.room_id == active_room)
+    {
         let chest_id = ambition_encounter::encounter_chest_feature_id(encounter_id);
         let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             encounter_id,
         ));
-        let existing = chests
-            .iter()
-            .find(|(entity, reward, _, _)| reward.encounter_id == *encounter_id && in_room(*entity));
+        let existing = chests.iter().find(|(entity, reward, _, _)| {
+            reward.encounter_id == *encounter_id && in_room(*entity)
+        });
         if let Some((entity, _, _, opened)) = existing {
             match (looted, opened.is_some()) {
                 (true, false) => {
@@ -256,15 +259,20 @@ pub fn retire_rewards_for_rearmed_encounters(
         };
         // The chest of the occurrence in the switch's own live room.
         let room = ambition_encounter::occurrence::message_room(rooms.live(), activation.room);
-        clear_encounter_reward_ecs(&mut commands, save.data_mut(), &chests, target_id, |chest| {
-            rooms.live().of(chest) == room
-        });
+        clear_encounter_reward_ecs(
+            &mut commands,
+            save.data_mut(),
+            &chests,
+            target_id,
+            |chest| rooms.live().of(chest) == room,
+        );
     }
 }
 
 #[cfg(test)]
 mod retire_on_rearm_tests {
     use super::*;
+
     use ambition_encounter::switches::{
         ResolvedSwitchActivation, ResolvedSwitchActivations, SwitchAction,
     };
@@ -344,7 +352,9 @@ mod retire_on_rearm_tests {
     /// were live, and neither chest went.
     #[test]
     fn an_unnamed_rearm_retires_the_reward_of_its_own_rooms_encounter() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
         let second = LiveRoomInstance::ACTIVATION.next();
         let (mut app, _) = chest_app(vec![ResolvedSwitchActivation {
             id: "gate".into(),
@@ -363,52 +373,67 @@ mod retire_on_rearm_tests {
             ),
         );
         let definition = {
-            let mut rooms = app.world_mut().query::<&mut ambition_platformer2d_world::rooms::RoomSet>();
-            let mut rooms = rooms.single_mut(app.world_mut()).expect("the fixture has a room set");
+            let mut rooms = app
+                .world_mut()
+                .query::<&mut ambition_platformer2d_world::rooms::RoomSet>();
+            let mut rooms = rooms
+                .single_mut(app.world_mut())
+                .expect("the fixture has a room set");
             let test_room = rooms.rooms[0].clone();
             *rooms = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "test_room",
                 vec![test_room, other],
                 Vec::new(),
             );
-            rooms.definition_by_id("other_room").expect("the set has `other_room`")
+            rooms
+                .definition_by_id("other_room")
+                .expect("the set has `other_room`")
         };
-        app.world_mut().spawn((RoomInstanceRoot, second, definition));
+        app.world_mut()
+            .spawn((RoomInstanceRoot, second, definition));
         let chests: Vec<Entity> = [
             ("a_fight", "test_room", LiveRoomInstance::ACTIVATION),
             ("b_fight", "other_room", second),
         ]
-            .into_iter()
-            .map(|(id, room, live)| {
-                app.world_mut().spawn((
+        .into_iter()
+        .map(|(id, room, live)| {
+            app.world_mut().spawn((
+                InRoomInstance(live),
+                ambition_encounter::Encounter { id: id.into() },
+                ambition_encounter::EncounterWaves::new(ambition_encounter::EncounterSpec {
+                    id: id.into(),
+                    room_id: room.into(),
+                    waves: Vec::new(),
+                    trigger_min: [0.0, 0.0],
+                    trigger_size: [10.0, 10.0],
+                    camera_zoom: 1.0,
+                    lock_wall: None,
+                    intro_seconds: 0.0,
+                    music_track: String::new(),
+                    reward: ambition_encounter::spec::default_encounter_reward(),
+                }),
+            ));
+            app.world_mut()
+                .spawn((
                     InRoomInstance(live),
-                    ambition_encounter::Encounter { id: id.into() },
-                    ambition_encounter::EncounterWaves::new(ambition_encounter::EncounterSpec {
-                        id: id.into(),
-                        room_id: room.into(),
-                        waves: Vec::new(),
-                        trigger_min: [0.0, 0.0],
-                        trigger_size: [10.0, 10.0],
-                        camera_zoom: 1.0,
-                        lock_wall: None,
-                        intro_seconds: 0.0,
-                        music_track: String::new(),
-                        reward: ambition_encounter::spec::default_encounter_reward(),
-                    }),
-                ));
-                app.world_mut()
-                    .spawn((
-                        InRoomInstance(live),
-                        ChestFeature::new(ambition_interaction::Chest::new(format!("encounter_chest_{id}"), None)),
-                        EncounterRewardChest { encounter_id: id.into() },
-                        FeatureId(format!("encounter_chest_{id}")),
-                    ))
-                    .id()
-            })
-            .collect();
+                    ChestFeature::new(ambition_interaction::Chest::new(
+                        format!("encounter_chest_{id}"),
+                        None,
+                    )),
+                    EncounterRewardChest {
+                        encounter_id: id.into(),
+                    },
+                    FeatureId(format!("encounter_chest_{id}")),
+                ))
+                .id()
+        })
+        .collect();
         app.update();
         assert_eq!(
-            chests.iter().map(|chest| app.world().get_entity(*chest).is_ok()).collect::<Vec<_>>(),
+            chests
+                .iter()
+                .map(|chest| app.world().get_entity(*chest).is_ok())
+                .collect::<Vec<_>>(),
             vec![true, false],
             "the re-arm pressed in #1 did not retire only #1's encounter reward"
         );

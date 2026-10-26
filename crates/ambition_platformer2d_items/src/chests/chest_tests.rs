@@ -125,18 +125,27 @@ fn distant_chest_is_not_opened() {
 /// the position alone does not say which chest the body reaches.
 #[test]
 fn a_body_opens_only_the_chest_of_its_own_live_room() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     let mut app = app();
-    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let rooms = [
+        LiveRoomInstance::ACTIVATION,
+        LiveRoomInstance::ACTIVATION.next(),
+    ];
     let center = ae::Vec2::new(64.0, 64.0);
     let chests = rooms.map(|room| {
         app.world_mut().spawn((RoomInstanceRoot, room));
         let chest = chest(&mut app, "c1", center);
-        app.world_mut().entity_mut(chest).insert(InRoomInstance(room));
+        app.world_mut()
+            .entity_mut(chest)
+            .insert(InRoomInstance(room));
         chest
     });
     let player = player(&mut app, center, true);
-    app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
+    app.world_mut()
+        .entity_mut(player)
+        .insert(InRoomInstance(rooms[1]));
     app.update();
     let opened = chests.map(|chest| app.world().get::<Opened>(chest).is_some());
     let burst_rooms: Vec<_> = app
@@ -321,15 +330,22 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
 
     let source_of = |boss: bool| {
         let mut app = app();
-        app.init_resource::<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>();
+        app.init_resource::<crate::pickup::RewardGrantsSinceCheckpoint>();
         app.insert_resource(ControlledSubject(None));
         app.world_mut()
             .resource_mut::<SlotInteractionState>()
             .primary_mut()
             .interact_buffer_timer = 0.5;
-        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), Probe);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            Probe,
+        );
         let other = LiveRoomInstance::ACTIVATION.next();
-        ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), other, Probe);
+        ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+            app.world_mut(),
+            other,
+            Probe,
+        );
         let here = InRoomInstance(LiveRoomInstance::ACTIVATION);
         let at = ae::Vec2::new(100.0, 100.0);
         let seat = |app: &mut App, slot: u8, room: InRoomInstance, pos: ae::Vec2| {
@@ -346,13 +362,20 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
                 BodyAnimFacts::default(),
                 ambition_characters::actor::BodyWallet::default(),
                 DrivingParticipant(PlayerSlot(slot)),
-                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&format!("seat_{slot}")),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&format!(
+                    "seat_{slot}"
+                )),
                 room,
             ));
         };
         seat(&mut app, 0, here, at);
         seat(&mut app, 1, here, ae::Vec2::new(600.0, 100.0));
-        seat(&mut app, 2, InRoomInstance(other), ae::Vec2::new(900.0, 100.0));
+        seat(
+            &mut app,
+            2,
+            InRoomInstance(other),
+            ae::Vec2::new(900.0, 100.0),
+        );
         let chest = chest_holding(
             &mut app,
             "c1",
@@ -361,12 +384,16 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
         );
         app.world_mut().entity_mut(chest).insert(here);
         if boss {
-            app.world_mut()
-                .entity_mut(chest)
-                .insert(ambition_combat::components::BossRewardChest { encounter_id: "warden".to_string() });
+            app.world_mut().entity_mut(chest).insert(
+                ambition_combat::components::BossRewardChest {
+                    encounter_id: "warden".to_string(),
+                },
+            );
         }
         app.update();
-        let grants = app.world().resource::<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>();
+        let grants = app
+            .world()
+            .resource::<crate::pickup::RewardGrantsSinceCheckpoint>();
         let kept: Vec<_> = grants
             .kept_by_restore(&Default::default(), &Default::default(), &[PlayerSlot(1)])
             .map(|grant| grant.source.clone())
@@ -379,7 +406,9 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
     assert_eq!(
         source_of(true),
         (
-            vec![ambition_platformer2d_items::pickup::GrantSource::BossChest { placement: "warden".to_string() }],
+            vec![crate::pickup::GrantSource::BossChest {
+                placement: "warden".to_string()
+            }],
             1
         ),
         "control: a boss reward chest keeps its placement as its source"
@@ -387,7 +416,9 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
     assert_eq!(
         source_of(false),
         (
-            vec![ambition_platformer2d_items::pickup::GrantSource::Authored { owners: vec![PlayerSlot(0), PlayerSlot(1)] }],
+            vec![crate::pickup::GrantSource::Authored {
+                owners: vec![PlayerSlot(0), PlayerSlot(1)]
+            }],
             0
         ),
         "an ordinary chest: (the source, owned by the seats in its room; grants kept when only seat 2, of another room, is spared)"
@@ -403,7 +434,10 @@ fn a_body_in_sideways_gravity_opens_the_chest_its_own_box_touches() {
         let mut app = app();
         let center = ae::Vec2::new(64.0, 64.0);
         let body = player(&mut app, center, true);
-        let kin = *app.world().get::<BodyKinematics>(body).expect("the player has a body");
+        let kin = *app
+            .world()
+            .get::<BodyKinematics>(body)
+            .expect("the player has a body");
         app.world_mut()
             .entity_mut(body)
             .insert(ae::SweepSample::at_rest(kin, ae::Vec2::new(1.0, 0.0)));
@@ -471,7 +505,10 @@ fn two_bodies_on_one_chest_in_one_tick_are_paid_once() {
 
     app.update();
 
-    assert!(app.world().get::<Opened>(chest).is_some(), "precondition: the chest opened");
+    assert!(
+        app.world().get::<Opened>(chest).is_some(),
+        "precondition: the chest opened"
+    );
     let paid: Vec<u32> = bodies
         .iter()
         .map(|body| {

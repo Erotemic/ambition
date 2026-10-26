@@ -1,17 +1,18 @@
 //! Player → static-chest open path on the ECS feature side.
 
+use ambition_world_items::containers::ChestFeature;
+use ambition_world_items::containers::FallingChest;
+use ambition_world_items::containers::Opened;
 // ⭐ NAMED, NOT GLOBBED. This was `use super::*` over the whole
 // `features/ecs` module — a channel no `crate::` grep sees. Measured by
 // deleting it: bevy's prelude, `ambition_vfx`'s two message types and
 // `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
-use ambition_combat::components::{
-    CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
-};
+use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::{SfxMessage, SfxWriter};
-use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use ambition_vfx::vfx::VfxWriter;
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::*;
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
@@ -27,7 +28,7 @@ pub fn open_ecs_chests(
     // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY.
     // Slot 0 was the wrong source the moment a body other than the home avatar
     // can be driven: a possessed actor's chest open spent the home seat's press.
-    mut acting: crate::control::ActingParticipant,
+    mut acting: ambition_characters::control::ActingParticipant,
     // The startup-frame fallback subject, and nothing else.
     primary: Query<
         Entity,
@@ -71,7 +72,10 @@ pub fn open_ecs_chests(
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
-    (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
+    (mut owned, items): (
+        Option<ResMut<ambition_items::OwnedItems>>,
+        ambition_items::ItemCatalogRead,
+    ),
     // What a chest gave: a retracted defeat takes back a boss reward
     // chest's, and a restore keeps an ordinary chest's while one of the
     // participants in its room is spared (Q151).
@@ -80,10 +84,10 @@ pub fn open_ecs_chests(
     // own that (Q63, Q151).
     (sim_ids, mut reward_grants, participants, mut occurrences, mut spent_since, room_specs): (
         Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-        Option<ResMut<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
+        Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
         Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-        Option<ResMut<super::pickups::ConsumedSinceCheckpoint>>,
+        Option<ResMut<crate::pickups::ConsumedSinceCheckpoint>>,
         Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     ),
 ) {
@@ -114,8 +118,15 @@ pub fn open_ecs_chests(
         let Ok((subject_kin, subject_step, subject_frame)) = bodies.get(subject) else {
             continue;
         };
-        let reach = super::InteractReach::of(subject_kin, subject_step, subject_frame, rooms.of(subject));
-        for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in &chests {
+        let reach = ambition_platformer2d_interaction::InteractReach::of(
+            subject_kin,
+            subject_step,
+            subject_frame,
+            rooms.of(subject),
+        );
+        for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in
+            &chests
+        {
             // A chest has no facing gate: its spec has no `requires_facing`.
             if falling.is_some()
                 || opened.is_some()
@@ -133,7 +144,9 @@ pub fn open_ecs_chests(
             // encounter or a boss makes has its own record instead.
             if let (
                 Some(chest_sim_id),
-                Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { .. }),
+                Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored {
+                    ..
+                }),
                 Some(occurrences),
             ) = (chest_sim_id, origin, occurrences.as_deref_mut())
             {
@@ -147,13 +160,17 @@ pub fn open_ecs_chests(
                         spent_since.record_spent(
                             chest_sim_id.clone(),
                             room,
-                            super::world_time_schedule::owners_beside(entity, &rooms, &participants),
+                            ambition_world_returns::owners_beside(entity, &rooms, &participants),
                         );
                     }
                 }
             }
             acting.consume_interact(subject);
-            super::interact::pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
+            ambition_platformer2d_interaction::pose_interact(
+                &mut anims,
+                subject,
+                INTERACT_ANIM_HOLD_SECS,
+            );
             banner.show(format!("opened {}", name.0.as_str()), 2.6);
             // THE CHEST DOES NOT KNOW HOW TO GRANT ANYTHING, and that is
             // the point: its reward is a `PickupKind`, and there is exactly one
@@ -161,7 +178,7 @@ pub fn open_ecs_chests(
             // or a story flag. Teaching the chest a second copy would be four
             // payload kinds to keep in agreement forever.
             if let Some(reward) = chest.reward() {
-                let granted = super::pickups::grant_pickup(
+                let granted = crate::pickups::grant_pickup(
                     reward,
                     subject,
                     &mut heals,
@@ -174,14 +191,18 @@ pub fn open_ecs_chests(
                     (sim_ids.get(subject), reward_grants.as_deref_mut())
                 {
                     let source = match boss_reward {
-                        Some(boss_reward) => ambition_platformer2d_items::pickup::GrantSource::BossChest {
+                        Some(boss_reward) => crate::pickup::GrantSource::BossChest {
                             placement: boss_reward.encounter_id.clone(),
                         },
-                        None => ambition_platformer2d_items::pickup::GrantSource::Authored {
-                            owners: super::world_time_schedule::owners_beside(entity, &rooms, &participants),
+                        None => crate::pickup::GrantSource::Authored {
+                            owners: ambition_world_returns::owners_beside(
+                                entity,
+                                &rooms,
+                                &participants,
+                            ),
                         },
                     };
-                    reward_grants.record(ambition_platformer2d_items::pickup::RewardGrant {
+                    reward_grants.record(crate::pickup::RewardGrant {
                         source,
                         collector: collector.clone(),
                         granted,
@@ -218,3 +239,14 @@ pub fn open_ecs_chests(
 
 #[cfg(test)]
 mod chest_tests;
+
+/// ECS chest-opened lookup for sprite swapping.
+pub fn ecs_chest_opened(
+    id: &str,
+    chests: &Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
+) -> Option<bool> {
+    chests
+        .iter()
+        .find(|(feature_id, _)| feature_id.as_str() == id)
+        .map(|(_, opened)| opened.is_some())
+}

@@ -11,8 +11,10 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::actors::features::GameplayElapsed;
-use ambition_platformer2d::combat::components::{BreakableFeature, FeatureName, RespawnTimer};
+use ambition_platformer2d::breakables::BreakableFeature;
+use ambition_platformer2d::world_returns::RespawnTimer;
+use ambition_platformer2d::combat::components::{ FeatureName, };
+use ambition_platformer2d::time::GameplayElapsed;
 
 use crate::common::{base, fixed_60hz_room_sim, zone_to};
 
@@ -22,7 +24,8 @@ const PLATFORM: &str = "respawning breakable platform";
 const RESPAWN_S: f32 = 3.0;
 
 fn now(sim: &Platformer2dSimHarness) -> f32 {
-    ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(sim.world())
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(sim.world(),
+    )
         .expect("the session root carries the clock")
         .0
 }
@@ -51,8 +54,10 @@ fn break_the_platform_for(sim: &mut Platformer2dSimHarness, respawn_s: f32) -> f
         .iter_mut(world)
         .find(|(_, name, _)| name.0.as_str() == PLATFORM)
         .map(|(entity, _, mut feature)| {
-            let max = feature.breakable.health.max;
-            assert!(feature.breakable.apply_damage(max), "the platform breaks");
+            let mut state = feature.state().clone();
+            let max = state.health.max;
+            assert!(state.apply_damage(max), "the platform breaks");
+            *feature = BreakableFeature::new(state);
             entity
         })
         .expect("the room authors the respawning platform");
@@ -149,7 +154,8 @@ fn a_platform_whose_respawn_fell_due_while_away_is_whole_on_return() {
         "precondition: the respawn fell due while away"
     );
     settle(&mut sim, 2);
-    let schedule = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+    let schedule = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::world_returns::WorldTimeSchedule,
+    >(sim.world())
         .expect("the session root carries the schedule");
     let records = schedule.records().count();
     assert_eq!(
@@ -164,8 +170,7 @@ fn a_platform_whose_respawn_fell_due_while_away_is_whole_on_return() {
 fn a_replay_rebuilds_a_broken_platform_whole() {
     let (mut sim, _) = broken_room();
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     settle(&mut sim, 30);
     assert_eq!(
         platform(&mut sim),
@@ -197,7 +202,8 @@ fn platform_after_alices_death(bob_holds_it: bool) -> (bool, usize) {
     break_the_platform_for(&mut sim, LONG_S);
     settle(&mut sim, 2);
     let records = |sim: &Platformer2dSimHarness| {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::world_returns::WorldTimeSchedule,
+        >(sim.world())
         .expect("the session root carries the schedule")
             .records()
             .count()
@@ -250,7 +256,8 @@ fn a_dormant_record_after_alices_death(bobs: bool) -> (Option<f32>, usize) {
     // The schedule is keyed by the room and the platform's authored id; the
     // room has one record, the platform's.
     let schedule_due = |sim: &Platformer2dSimHarness| {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::world_returns::WorldTimeSchedule,
+        >(sim.world())
         .expect("the session root carries the schedule")
             .records()
             .find(|((room, _), _)| room == ROOM)

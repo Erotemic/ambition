@@ -1668,7 +1668,7 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "Runtime composes simulation domains, session lifecycle, publication, and capability installation. It does not depend on named content, hosts, or rendering."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_assets", "ambition_match", "ambition_platformer2d_session", "ambition_platformer2d_items", "ambition_projectile_combat", "ambition_platformer2d_physics_debris", "ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
+allow = ["ambition_breakables", "ambition_world_returns", "ambition_platformer2d_assets", "ambition_match", "ambition_platformer2d_session", "ambition_platformer2d_items", "ambition_projectile_combat", "ambition_platformer2d_physics_debris", "ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
     # Causal vocabulary is a foundation dependency used by runtime-side recording.
     "ambition_causal",
     # Carves out of the actor monolith the runtime composes: the room publication
@@ -2921,10 +2921,10 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_world_items"]
 watch_paths = ["crates/ambition_world_items/Cargo.toml"]
-rationale = "ambition_world_items owns the PHYSICAL life of a touched collectible -- where it is, whether it is moving, and that walking into it collects it (D33, 2026-09-02). The list is the carve: geometry and the world from platformer2d_core, the equipment ROW it records from ambition_characters, the touch-collect rule and spawn scope from shared_tangle, and the simulation clock from ambition_time so a dilated world moves its pickups at the dilated rate. It must NEVER regain ambition_platformer2d_actor_monolith -- that edge is what the carve removed, and the sibling it split from (items::pickup, the PRESSED pickup) still lives there"
+rationale = "World items own physical collectibles and containers: presence, motion, and physical collection state. The interaction model defines chest payloads. Reward grants and boss lifecycle integration belong above this owner. The crate must not depend on the actor kernel."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_time"]
+allow = ["ambition_interaction", "ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_time"]
 manifest = "crates/ambition_world_items/Cargo.toml"
 
 [[policy]]

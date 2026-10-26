@@ -609,6 +609,26 @@ owner only in integration tests. Core asset catalog types stay at
 are deleted. The public facade owns asset profile features. The actor crate's
 asset, character-sprite, and character-runtime modules are deleted.
 
+### K14 — World-object transitions leave the body kernel
+
+`ambition_breakables` owns destructible state, accepted damage, stand collapse,
+return timers, collision volumes, and destruction loot. State reads are public.
+The damage operation changes health and starts the return timer together.
+Hit dispatch keeps its recipient, room, and repeat-hit rules.
+
+`ambition_platformer2d_items` owns pickup and chest grants, collection locks,
+consumed occurrence horizons, and loot construction. `ambition_world_items`
+owns physical chest state and falling motion. Boss rewards read that lower
+state; item grant integration consumes boss lifecycle facts without a cycle.
+`ambition_world_returns` owns admitted return times and their horizon owners.
+Each domain keeps its own transition rules.
+
+`ambition_time` owns elapsed session time and its wire codec. Shared lifecycle
+advances the clock. `ambition_characters::control` owns acting participant
+queries. Live-room reach and gestures belong to `ambition_platformer2d_interaction`.
+Attempt residue is lifecycle vocabulary. Rollback keys and bytes stay the same.
+The old actor object modules and forwarding exports are deleted.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

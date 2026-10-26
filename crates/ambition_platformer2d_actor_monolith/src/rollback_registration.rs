@@ -3,8 +3,8 @@
 //! The actor runtime names only state defined in this crate. The host supplies GGRS machinery
 //! through [`RollbackRegistrar`].
 
-use ambition_platformer2d_core::snapshot::checksum_bytes;
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
+use ambition_platformer2d_core::snapshot::checksum_bytes;
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
 
@@ -90,7 +90,9 @@ where
             let kind = entity
                 .kind
                 .bytes()
-                .fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ b as u64).wrapping_mul(0x0100_0000_01b3));
+                .fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+                (h ^ b as u64).wrapping_mul(0x0100_0000_01b3)
+            });
             ((entity.pos.x.to_bits() as u64) << 32)
                 ^ (entity.pos.y.to_bits() as u64)
                 ^ ((entity.remaining_s.to_bits() as u64) << 16)
@@ -122,26 +124,6 @@ where
         OWNER,
         "message.sudden_death_began",
     );
-    // ⭐ COMPONENTS OF THE SESSION ROOT (C03), under the same keys: a new
-    // session's root is born with its clock at zero and no scheduled return,
-    // so neither is reset at a session edge.
-    registrar.rollback_component_canonical::<crate::features::GameplayElapsed>(
-        OWNER,
-        "resource.gameplay_elapsed",
-    );
-    registrar.rollback_component_clone_checksum::<crate::features::ecs::world_time_schedule::WorldTimeSchedule>(
-        OWNER,
-        "feature.world_time_schedule",
-        "when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
-        crate::features::ecs::world_time_schedule::WorldTimeSchedule::checksum,
-    );
-    registrar.rollback_resource_clone_checksum::<crate::features::ecs::pickups::ConsumedSinceCheckpoint>(
-        OWNER,
-        "feature.consumed_since_checkpoint",
-        "the one-time pickups consumed and the authored chests opened since the last checkpoint, with their room and whose horizons own each (Q151)",
-        crate::features::ecs::pickups::ConsumedSinceCheckpoint::checksum,
-    );
-
     registrar.rollback_resource_clone_entity_set::<crate::control::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
@@ -335,8 +317,7 @@ where
     // character granted. The value is a shared `Arc`, so a clone is cheap.
     registrar.rollback_component_clone::<ambition_combat::body_rig::BodyRig>(
         OWNER,
-        "actor.body_rig",
-    );
+        "actor.body_rig");
     // Granted with the rig, by a body whose feet are not under its centre (a
     // conducted boss's birth kit), and constant after: presence like the rig's.
     // Probed by value: it is two floats, and a presence probe would see a
@@ -346,11 +327,6 @@ where
         "actor.rig_feet_offset",
         |feet| (u64::from(feet.0.x.to_bits()) << 32) | u64::from(feet.0.y.to_bits()),
     );
-    registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
-        OWNER,
-        "feature.pickup_collect_lock",
-    );
-    registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
     registrar
         .rollback_component_clone::<ambition_held_items::GroundItem>(OWNER, "item.ground_item");
     // What a body was sent to fetch, and how that ended. Probed by value: a
@@ -425,24 +401,14 @@ where
     // the component existing, because a dropped coin is transient — spawned and
     // despawned inside the route — and the one-shot sweep in `rollback_coverage`
     // cannot see it. That is B3b's first blind spot, demonstrating itself.
-    registrar.rollback_component_clone_probed::<crate::features::ecs::pickups::PickupMagnet>(
-        OWNER,
-        "item.pickup_magnet",
-        |magnet| {
-            use std::hash::{Hash, Hasher};
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            magnet.range.to_bits().hash(&mut hasher);
-            magnet.speed.to_bits().hash(&mut hasher);
-            hasher.finish()
-        },
-    );
+
     // Presence is authoritative because gameplay edge-triggers on this marker;
     // rollback must restore whether the actor was dormant, not merely re-derive it.
     registrar.rollback_component_clone::<crate::features::ecs::dormancy::Dormant>(
         OWNER,
         "actor.dormant",
     );
-    registrar.rollback_component_clone::<crate::features::ecs::SpawnedThisAttempt>(
+    registrar.rollback_component_clone::<ambition_platformer2d_shared_tangle::lifecycle::SpawnedThisAttempt>(
         OWNER,
         "lifecycle.spawned_this_attempt",
     );
@@ -608,8 +574,7 @@ where
     );
     registrar.clear_message_on_rollback::<crate::features::PetRequested>(
         OWNER,
-        "message.pet_requested",
-    );
+        "message.pet_requested");
     registrar.clear_message_on_rollback::<crate::features::WearRequested>(
         OWNER,
         "message.wear_requested",

@@ -153,8 +153,12 @@ fn census(sim: &mut Platformer2dSimHarness) -> Census {
 
     // Feature dispositions a reconstruction claims to restore.
     {
-        use ambition_platformer2d::combat::components::{
-            ActorDisposition, BreakableFeature, Collected, Opened, RespawnTimer,
+        use ambition_platformer2d::item_runtime::pickups::Collected;
+use ambition_platformer2d::world_items::containers::Opened;
+use ambition_platformer2d::breakables::BreakableFeature;
+use ambition_platformer2d::world_returns::RespawnTimer;
+use ambition_platformer2d::combat::components::{
+            ActorDisposition,
         };
         let mut q = sim.world_mut().query::<(
             &SimId,
@@ -178,7 +182,8 @@ fn census(sim: &mut Platformer2dSimHarness) -> Census {
                 if let Some(breakable) = breakable {
                     facts.push(format!(
                         "breakable={:?} hp={}",
-                        breakable.breakable.state, breakable.breakable.health.current
+                        breakable.state().state,
+                        breakable.state().health.current
                     ));
                 }
                 if respawn.is_some() {
@@ -410,7 +415,9 @@ fn player_pos(sim: &mut Platformer2dSimHarness) -> Vec2 {
 /// question is what a rebuild restores, not whether a fight is winnable. Every
 /// mutation is one a real attempt can produce.
 fn disturb_the_room(sim: &mut Platformer2dSimHarness) -> usize {
-    use ambition_platformer2d::combat::components::{BreakableFeature, Collected};
+    use ambition_platformer2d::item_runtime::pickups::Collected;
+use ambition_platformer2d::breakables::BreakableFeature;
+
     let mut changed = 0;
 
     // Hurt every non-player body.
@@ -436,9 +443,10 @@ fn disturb_the_room(sim: &mut Platformer2dSimHarness) -> usize {
         for mut breakable in q.iter_mut(world) {
             // Through the domain's own verb, so the fixture cannot invent a
             // state the game never produces.
-            let hp = breakable.breakable.health.max;
-            // Fixture setup: the break itself is the point, not its consequences.
-            let _broke = breakable.breakable.apply_damage(hp);
+            let mut state = breakable.state().clone();
+            let hp = state.health.max;
+            let _broke = state.apply_damage(hp);
+            *breakable = BreakableFeature::new(state);
             changed += 1;
         }
     }
@@ -635,7 +643,8 @@ fn leaving_a_room_and_returning_rebuilds_what_entering_it_built() {
 /// Every piece of geometry the collision overlay holds, one line each, so two
 /// samples compare as sets and a failure names the pieces.
 fn overlay_geometry(sim: &Platformer2dSimHarness) -> BTreeSet<String> {
-    let overlay = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay>(sim
+    let overlay = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay,
+    >(sim
         .world()).expect("the live room has a collision overlay");
     let aabb = |kind: &str, a: &ae::Aabb| {
         format!(
@@ -646,8 +655,10 @@ fn overlay_geometry(sim: &Platformer2dSimHarness) -> BTreeSet<String> {
     let mut pieces = BTreeSet::new();
     pieces.extend(overlay.blocks.iter().map(|b| aabb("block", &b.aabb)));
     pieces.extend(overlay.gate_solids.iter().map(|b| aabb("gate", &b.aabb)));
-    pieces.extend(overlay.portal_holes.iter().map(|hole| aabb("portal hole", &hole.face.bounds())));
-    pieces.extend(overlay.climbable_carves.iter().map(|a| aabb("climb carve", a)));
+    pieces.extend(overlay.portal_holes.iter().map(|hole| aabb("portal hole", &hole.face.bounds())),
+    );
+    pieces.extend(overlay.climbable_carves.iter().map(|a| aabb("climb carve", a)),
+    );
     pieces.extend(overlay.water_regions.iter().map(|w| aabb("water", &w.aabb)));
     pieces.extend(
         overlay
@@ -798,7 +809,7 @@ fn a_replay_does_not_adopt_what_the_attempt_created() {
 
     let residue = sim
         .world_mut()
-        .spawn(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt)
+        .spawn(ambition_platformer2d::platformer::lifecycle::SpawnedThisAttempt)
         .id();
     assert!(
         sim.world().get_entity(residue).is_ok(),
@@ -872,8 +883,7 @@ fn an_object_in_your_hands_survives_a_replay_and_is_not_re_authored() {
     // population is the one object now in the body's hands — which is exactly
     // what a correct replay does not rebuild. The wait would never end.
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..30 {
         sim.step(base());
     }
@@ -928,8 +938,8 @@ fn boot_with_save(
     room: &str,
     file: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
 ) -> Platformer2dSimHarness {
-    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
 
     let mut sim = fixed_60hz_room_sim(room);
     for _ in 0..BEFORE_LOAD {
@@ -1013,7 +1023,8 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
             x: 200,
             y: 200,
         },
-    )], Vec::new());
+    )], Vec::new(),
+    );
 
     // The BOOT road.
     let mut loaded = boot_with_save(DURABLE_ROOM, &relocated_file);
@@ -1067,10 +1078,10 @@ fn a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike() {
 /// which is exactly the shape a two-endpoint test cannot see.
 #[test]
 fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
-    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
     use ambition_platformer2d::persistence::save_data::{
         PersistedOccurrence, PersistedWhereabouts,
     };
+    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
 
     let (relocatable, neighbour, empty_file) = relocatable_occurrence();
 
@@ -1082,7 +1093,8 @@ fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
             x: 200,
             y: 200,
         },
-    )], Vec::new());
+    )], Vec::new(),
+    );
 
     // ⭐ BOOT WITH THE FILE, the way the binary does — bytes in the world before
     // the session activates. Writing the save into a RUNNING session measures
@@ -1163,10 +1175,10 @@ fn a_load_never_authors_the_occurrence_it_is_about_to_suppress() {
 /// and all three poisons left it green.
 #[test]
 fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
-    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
     use ambition_platformer2d::persistence::save_data::{
         PersistedCheckpoint, PersistedOccurrence, PersistedWhereabouts,
     };
+    use ambition_platformer2d::platformer::lifecycle::SaveRestored;
 
     // ⛔⛔ THE ROW MUST BE ABOUT THE ROOM WE RESUME INTO, not the one we open in.
     // A row naming an object the destination never authors is suppressed by
@@ -1187,7 +1199,8 @@ fn a_save_with_a_checkpoint_and_an_occurrence_lands_both() {
             x: 200,
             y: 200,
         },
-    )], Vec::new());
+    )], Vec::new(),
+    );
 
     let mut sim = Platformer2dSimHarness::new_with_options(
         fixed_60hz_room_options(DURABLE_ROOM).with_save(file),
@@ -1261,8 +1274,7 @@ fn another_room_with_an_object() -> (String, String) {
         }
         let mut q = sim.world_mut().query::<(
             &SimId,
-            &ambition_platformer2d::held_items::ItemCustody,
-        )>();
+            &ambition_platformer2d::held_items::ItemCustody)>();
         let world = sim.world();
         let mut ids: Vec<String> = q
             .iter(world)
@@ -1330,8 +1342,7 @@ fn relocatable_occurrence_in(
     let relocatable = {
         let mut q = played.world_mut().query::<(
             &SimId,
-            &ambition_platformer2d::held_items::ItemCustody,
-        )>();
+            &ambition_platformer2d::held_items::ItemCustody)>();
         let world = played.world();
         let mut ids: Vec<String> = q
             .iter(world)
@@ -1387,7 +1398,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
     // Attempt residue that only the replay's own sweep would take.
     let residue = sim
         .world_mut()
-        .spawn(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt)
+        .spawn(ambition_platformer2d::platformer::lifecycle::SpawnedThisAttempt)
         .id();
     // Move the body off spawn, so a reset that ran would be visible.
     let displaced = {
@@ -1412,7 +1423,8 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
             kind: LifecycleIntent::Transition(RoomTransitionIntent {
                 subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
                     "somebody-elses-crossing",
-                ), None),
+                ), None,
+                ),
                 target_room: ROOM.to_string(),
                 arrival: Vec2::ZERO,
                 edge_exit: false,
@@ -1423,8 +1435,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
     );
 
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..8 {
         sim.step(base());
     }
@@ -1521,8 +1532,7 @@ fn a_replay_follows_the_body_you_are_actually_driving() {
     sim.step(base());
 
     sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
-    );
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..20 {
         sim.step(base());
     }
@@ -1750,7 +1760,9 @@ fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
         let id = ConditionId::parse("boss.cleared").expect("`boss.cleared` is a well-formed id");
         let world = sim.world_mut();
         world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-            catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.to_string())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
+            catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.to_string())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test",
+                ),
+            )
         })
     };
 
@@ -1857,7 +1869,9 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
             let after = {
                 let world = sim.world_mut();
                 world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
+                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test",
+                        ),
+                    )
                 })
             };
             report.push(format!(
@@ -1911,12 +1925,12 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
 /// chosen from three options instead of two.
 #[test]
 fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
-    use ambition_platformer2d::session::reset::RoomReplayRequested;
     use ambition_platformer2d::boss_encounter::BossConfig;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::platformer::authored_logic::{
         AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
     };
+    use ambition_platformer2d::session::reset::RoomReplayRequested;
 
     // The ONE family that retracts at all. A family that never retracts cannot
     // distinguish the reasons, so it would measure nothing here.
@@ -1956,7 +1970,9 @@ fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
             let after = {
                 let world = sim.world_mut();
                 world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
+                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test",
+                        ),
+                    )
                 })
             };
             report.push(format!(
@@ -2063,7 +2079,9 @@ fn every_shipped_boss_gate_opens_when_its_authored_placement_is_cleared() {
         let ask = |sim: &mut Platformer2dSimHarness| {
             let world = sim.world_mut();
             world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-                catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
+                catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test",
+                    ),
+                )
             })
         };
 

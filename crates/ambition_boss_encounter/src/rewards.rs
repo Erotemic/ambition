@@ -8,14 +8,16 @@
 //! `features::ecs` with the `EncounterMob` wave vocabulary.
 
 use super::BossRewardProfile;
-use ambition_combat::falling_chest::settled_chest_center;
 use ambition_combat::{
-    BossRewardChest, CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
-};
+    BossRewardChest, CenteredAabb, FeatureId, FeatureName};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     FeatureSimEntity, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_world_items::containers::ChestFeature;
+use ambition_world_items::containers::FallingChest;
+use ambition_world_items::containers::Opened;
+use ambition_world_items::containers::settled_chest_center;
 use bevy::prelude::{Commands, Entity, Name, Query, With};
 
 /// One boss placement's reward, where it would drop it.
@@ -49,7 +51,8 @@ pub fn sync_boss_reward_chests_ecs(
         With<ChestFeature>,
     >,
 ) {
-    for BossRewardAnchor { placement_id, spawn: boss_spawn, reward } in boss_placements {
+    for BossRewardAnchor { placement_id, spawn: boss_spawn, reward,
+    } in boss_placements {
         let BossRewardProfile::DropChest {
             pickup,
             offset,

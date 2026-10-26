@@ -85,7 +85,7 @@ This list is the single source. [`status.md`](../status.md) and
   `act_score` is a pure function (time bonus against par plus a per-ring bonus);
   no test drives the claim that the routes compete.
 - **Swept ring collection.** `collect_ecs_pickups`
-  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs`)
+  (`crates/ambition_platformer2d_items/src/pickups.rs`)
   uses a per-frame overlap, so a ring can tunnel at high speed. The magnet range
   hides it today. The correct route is `cast::aabb_path_contacts`.
 - **Ring collect animation.** The ring sheet has a `collect` row that is not

@@ -12,7 +12,8 @@ use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounterPhase};
 use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
 use bevy::prelude::World;
 
-use crate::boss_lifecycle::{boss_alive, boss_cleared, force_kill_boss, kill_boss_with_a_real_hit, spawn_mockingbird};
+use crate::boss_lifecycle::{boss_alive, boss_cleared, force_kill_boss, kill_boss_with_a_real_hit, spawn_mockingbird,
+};
 
 /// Ask for a replay of the controlled body's room and let it settle.
 fn replay(sim: &mut Platformer2dSimHarness) {
@@ -35,7 +36,8 @@ fn until_cleared(sim: &mut Platformer2dSimHarness, placement: &str) {
 }
 
 fn boss_phase(world: &mut World, placement: &str) -> Option<BossEncounterPhase> {
-    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::boss_encounter::BossEncounter)>();
+    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::boss_encounter::BossEncounter,
+    )>();
     q.iter(world)
         .find(|(config, _)| config.id == placement)
         .and_then(|(_, status)| status.encounter.as_ref().map(|phase| phase.phase))
@@ -157,7 +159,8 @@ fn a_replay_takes_back_the_gauntlet_the_retracted_defeat_dropped() {
     spawn_mockingbird(&mut sim, "gauntlet_giver");
     let boss = {
         let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::platformer::sim_id::SimId)>();
+        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::platformer::sim_id::SimId,
+        )>();
         q.iter(world)
             .find(|(config, _)| config.id == "gauntlet_giver")
             .map(|(_, sim_id)| sim_id.as_str().to_string())
@@ -286,7 +289,8 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
             script_id: "clockwork_warden".to_string(),
         },
     );
-    let before = (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::Blink));
+    let before = (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::Blink),
+    );
     kill_boss_with_a_real_hit(&mut sim, "ability_giver", 600);
     until_cleared(&mut sim, "ability_giver");
     let mut granted = 0;
@@ -294,7 +298,7 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
         let at = {
             let world = sim.world_mut();
             world
-                .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
+                .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
                 .iter(world)
                 .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall"))
                 .map(|(_, aabb)| aabb.center)
@@ -317,8 +321,10 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
 }
 
 /// The reward chest of placement `placement`: (opened, center).
-fn reward_chest(world: &mut World, placement: &str) -> Option<(bool, ambition_platformer2d::engine_core::Vec2)> {
-    use ambition_platformer2d::combat::components::{BossRewardChest, CenteredAabb, Opened};
+fn reward_chest(world: &mut World, placement: &str,
+) -> Option<(bool, ambition_platformer2d::engine_core::Vec2)> {
+    use ambition_platformer2d::world_items::containers::Opened;
+use ambition_platformer2d::combat::components::{BossRewardChest, CenteredAabb, };
     world
         .query::<(&BossRewardChest, &CenteredAabb, Option<&Opened>)>()
         .iter(world)
@@ -346,7 +352,8 @@ fn a_replay_takes_back_the_reward_chest_the_retracted_defeat_dropped() {
     // The pack's reward, in place of mockingbird's `Custom` relic.
     {
         let world = sim.world_mut();
-        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::combat::components::ChestFeature)>();
+        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::world_items::containers::ChestFeature,
+        )>();
         let (_, mut chest) = chests
             .iter_mut(world)
             .find(|(chest, _)| chest.encounter_id == BOSS)
@@ -374,9 +381,11 @@ fn a_replay_takes_back_the_reward_chest_the_retracted_defeat_dropped() {
     for _ in 0..5 {
         sim.step(AgentAction::default());
     }
-    let opened = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim));
+    let opened = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim),
+    );
     replay(&mut sim);
-    let after = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim));
+    let after = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim),
+    );
     assert_eq!(
         (opened, after),
         ((30, Some(true), true), (0, None, false)),
@@ -421,7 +430,8 @@ fn cut_rope_after_a_request(slot_taken: bool, try_again: bool) -> (bool, bool) {
     if slot_taken {
         let _ = sim.world_mut().resource_mut::<PendingLifecycleCommit>().record(
             0,
-            LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent { target_room: ROOM.to_string() }),
+            LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent { target_room: ROOM.to_string(),
+                }),
         );
     }
     if try_again {
@@ -520,7 +530,10 @@ fn pirate_treasure_across_a_replay(checkpoint: bool) -> Vec<((String, u8), (Stri
 /// mockingbird", in the registry and in the save.
 #[test]
 fn a_replay_takes_back_the_quest_step_the_retracted_defeat_advanced() {
-    let at = |step: u8| (("InProgress".to_string(), step), ("InProgress".to_string(), step));
+    let at = |step: u8| {
+        (("InProgress".to_string(), step), ("InProgress".to_string(), step),
+        )
+    };
     assert_eq!(
         pirate_treasure_across_a_replay(false),
         vec![started_at_boot(), at(1), at(0)],
@@ -531,7 +544,10 @@ fn a_replay_takes_back_the_quest_step_the_retracted_defeat_advanced() {
 /// The control: a defeat the checkpoint holds keeps the step it advanced.
 #[test]
 fn a_quest_step_from_a_defeat_before_the_checkpoint_survives_a_replay() {
-    let at = |step: u8| (("InProgress".to_string(), step), ("InProgress".to_string(), step));
+    let at = |step: u8| {
+        (("InProgress".to_string(), step), ("InProgress".to_string(), step),
+        )
+    };
     assert_eq!(
         pirate_treasure_across_a_replay(true),
         vec![started_at_boot(), at(1), at(1)],
@@ -566,7 +582,7 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
         let at = {
             let world = sim.world_mut();
             world
-                .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
+                .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
                 .iter(world)
                 .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall"))
                 .map(|(_, aabb)| aabb.center)
@@ -588,7 +604,9 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
 /// defeat instead of before it; `elsewhere` walks into the neighbour room
 /// before dying.
 fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, (String, u8), i32) {
-    use crate::death_restores_the_checkpoint::{commit_a_checkpoint, die, walk_to, NEIGHBOUR, ROOM};
+    use crate::death_restores_the_checkpoint::{
+        NEIGHBOUR, ROOM, commit_a_checkpoint, die, walk_to,
+    };
     let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
     let before = balance(sim.world_mut());
     if !banked {
@@ -604,7 +622,8 @@ fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, 
     die(&mut sim);
     (
         boss_cleared(&sim, "warden"),
-        owns(sim.world_mut(), ambition_platformer2d::items::Item::MarkRecall),
+        owns(sim.world_mut(), ambition_platformer2d::items::Item::MarkRecall,
+        ),
         quest(sim.world_mut(), "intro_first_system_boss").0,
         balance(sim.world_mut()) - before,
     )
@@ -643,7 +662,7 @@ fn a_defeat_before_the_checkpoint_survives_a_death_in_another_room() {
 /// Returns (markrecall held before the death, markrecall held after it, live
 /// markrecall mints after it).
 fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
-    use crate::death_restores_the_checkpoint::{commit_a_checkpoint, die, ROOM};
+    use crate::death_restores_the_checkpoint::{ROOM, commit_a_checkpoint, die};
     use ambition_platformer2d::items::Item;
     let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
     let home = {
@@ -669,7 +688,7 @@ fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
     let markrecalls = |sim: &mut Platformer2dSimHarness| {
         let world = sim.world_mut();
         world
-            .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb, Option<&ambition_platformer2d::combat::components::Collected>)>()
+            .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb, Option<&ambition_platformer2d::item_runtime::pickups::Collected>)>()
             .iter(world)
             .filter(|(pickup, _, collected)| {
                 collected.is_none()
@@ -703,12 +722,14 @@ fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
     die(&mut sim);
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+        >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
     assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
-    (held, owns(sim.world_mut(), Item::MarkRecall), markrecalls(&mut sim).len())
+    (held, owns(sim.world_mut(), Item::MarkRecall), markrecalls(&mut sim).len(),
+    )
 }
 
 /// The ability exists once after the death: in the bag, not lying again.
@@ -738,7 +759,8 @@ fn a_handed_in_treasure_across_a_replay(banked: bool) -> Vec<((String, u8), i64,
             .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
             .data()
             .flag("pirate_treasure_reward_granted");
-        (quest(sim.world_mut(), "pirate_treasure").0, cells(sim) - before, flag)
+        (quest(sim.world_mut(), "pirate_treasure").0, cells(sim) - before, flag,
+        )
     };
     spawn_mockingbird(&mut sim, "hoard_thief");
     for _ in 0..15 {
@@ -752,7 +774,8 @@ fn a_handed_in_treasure_across_a_replay(banked: bool) -> Vec<((String, u8), i64,
         .resource_mut::<ambition_content::quest::QuestRegistry>()
         .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet(
             "npc_pirate_admiral_talked".into(),
-        ));
+        ),
+        );
     for _ in 0..5 {
         sim.step(AgentAction::default());
     }
@@ -797,11 +820,13 @@ fn a_payout_before_the_checkpoint_survives_a_replay() {
 /// spawned at Alice's hub position and moved into Bob's room stands at hub
 /// coordinates there, outside its geometry, and its chest falls out of the
 /// world.
-fn spawn_mockingbird_beside_bob(sim: &mut Platformer2dSimHarness, id: &str, room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance) {
+fn spawn_mockingbird_beside_bob(sim: &mut Platformer2dSimHarness, id: &str, room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+) {
     let at = {
         let world = sim.world_mut();
         world
-            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics,
+            )>()
             .iter(world)
             .find(|(feature, _)| feature.0 == "ow1_bob")
             .map(|(_, kin)| (kin.pos.x, kin.pos.y))
@@ -940,7 +965,8 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
         .copied()
         .collect();
     let bobs_room = world
-        .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&InRoomInstance>)>()
+        .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&InRoomInstance>,
+        )>()
         .iter(world)
         .find(|(feature, _)| feature.0 == "ow1_bob")
         .and_then(|(_, room)| room.map(|room| room.0));
@@ -950,7 +976,8 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
         .filter(|stamp| !live.contains(&stamp.0))
         .count();
     let dead_body = world
-        .query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>()
+        .query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth,
+        )>()
         .iter(world)
         .any(|(config, health)| config.id == BOSS && !health.alive());
     BobsBoss {
@@ -1128,7 +1155,8 @@ fn alice_loots_bobs_chest_of_then_dies(
     }
     {
         let world = sim.world_mut();
-        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::combat::components::ChestFeature)>();
+        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::world_items::containers::ChestFeature,
+        )>();
         let (_, mut chest) = chests
             .iter_mut(world)
             .find(|(chest, _)| chest.encounter_id == BOSS)
@@ -1166,7 +1194,10 @@ fn alice_loots_bobs_chest_of_then_dies(
         )
     };
     let opened = seen(&mut sim);
-    let markrecall = |sim: &mut Platformer2dSimHarness| owns(sim.world_mut(), ambition_platformer2d::items::Item::MarkRecall);
+    let markrecall = |sim: &mut Platformer2dSimHarness| {
+        owns(sim.world_mut(), ambition_platformer2d::items::Item::MarkRecall,
+        )
+    };
     let held = markrecall(&mut sim);
     // Opening the chest holds Interact, which also crosses a door Alice stands in.
     if sim.observation().active_room != "central_hub_complex" {
@@ -1175,7 +1206,8 @@ fn alice_loots_bobs_chest_of_then_dies(
     crate::death_restores_the_checkpoint::die(&mut sim);
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+        >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
@@ -1207,7 +1239,8 @@ fn a_death_keeps_the_reward_taken_from_the_other_players_boss() {
 #[test]
 fn a_death_keeps_the_item_taken_from_the_other_players_boss() {
     let (_, markrecall) = alice_loots_bobs_chest_of_then_dies(
-        ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id: "markrecall".to_string() },
+        ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id: "markrecall".to_string(),
+        },
     );
     assert_eq!(markrecall, [1, 1], "markrecall in the bag when Alice opened the chest, then after her death");
 }

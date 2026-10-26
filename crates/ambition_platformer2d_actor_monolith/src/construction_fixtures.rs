@@ -5,24 +5,24 @@
 #![allow(unused_imports)]
 
 use ambition_characters::actor::limb::{Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
+use ambition_platformer2d_construction::*;
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionError, ConstructionPlan, ConstructionScope, SpawnOrigin,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Update, World};
-use ambition_platformer2d_construction::*;
 // What the planner's module brought in when these lived inside it.
 use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
-use bevy::prelude::Entity;
 use ambition_platformer2d_shared_tangle::construction::ContentBinding;
+use bevy::prelude::Entity;
 use crate::features::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::construction::{
-    verify_committed_roster, AuthoritativeScope, ConstructionReceipt, RelationCheck,
-    RelationRequest, RosterViolation, TransactionBaseline,
+    AuthoritativeScope, ConstructionReceipt, RelationCheck,
+    RelationRequest, RosterViolation, TransactionBaseline, verify_committed_roster,
 };
 
 pub const REAL_HELD_ITEM: &str = "gun_sword";
@@ -40,7 +40,8 @@ pub fn empty_room(id: &str) -> ambition_platformer2d_world::rooms::RoomSpec {
 /// `'static` for the same reason as [`fixture_cast`]: `GenerationMechanics`
 /// borrows it and the context borrows that.
 pub fn replacement_mechanics() -> &'static ambition_platformer2d_construction::mechanics::SessionMechanics {
-    static MECHANICS: std::sync::OnceLock<ambition_platformer2d_construction::mechanics::SessionMechanics> =
+    static MECHANICS: std::sync::OnceLock<ambition_platformer2d_construction::mechanics::SessionMechanics,
+    > =
         std::sync::OnceLock::new();
     MECHANICS.get_or_init(Default::default)
 }
@@ -50,7 +51,9 @@ pub fn replacement_mechanics() -> &'static ambition_platformer2d_construction::m
 pub fn replacement_cast() -> &'static ambition_characters::prepared::ActiveSessionCast {
     static CAST: std::sync::OnceLock<ambition_characters::prepared::ActiveSessionCast> =
         std::sync::OnceLock::new();
-    CAST.get_or_init(|| ambition_characters::prepared::ActiveSessionCast(Some(fixture_cast().clone())))
+    CAST.get_or_init(|| {
+        ambition_characters::prepared::ActiveSessionCast(Some(fixture_cast().clone()))
+    })
 }
 
 /// THE FIXTURE CAST every construction test builds bodies from.
@@ -134,7 +137,8 @@ pub fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharact
     })
 }
 
-pub fn ground_item(id: &str, held_item: &str) -> ambition_platformer2d_world::rooms::GroundItemSpec {
+pub fn ground_item(id: &str, held_item: &str,
+) -> ambition_platformer2d_world::rooms::GroundItemSpec {
     ambition_platformer2d_world::rooms::GroundItemSpec {
         id: id.to_string(),
         name: format!("{id} display"),
@@ -255,7 +259,8 @@ pub fn room_loaded_count(app: &mut App) -> usize {
 }
 
 pub fn dynamic_scope() -> ConstructionScope {
-    ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None)
+    ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None,
+    )
 }
 
 pub fn bare_request(id: &str) -> ActorConstructionRequest {
@@ -387,7 +392,8 @@ pub fn staged_giant(id: &str) -> SpawnActorRequest {
     }
 }
 
-pub fn rig_faults(plan: &ActorConstructionPlan, receipt: &ConstructionReceipt, world: &World) -> usize {
+pub fn rig_faults(plan: &ActorConstructionPlan, receipt: &ConstructionReceipt, world: &World,
+) -> usize {
     let faults = ambition_platformer2d_construction::verify_rig_composition(plan, receipt, world);
     for fault in &faults {
         assert!(
@@ -435,7 +441,7 @@ pub fn placement_registry() -> ambition_platformer2d_construction::placements::P
             "ambition_platformer2d_actor_monolith",
             "test",
             "placement.pickup.v1",
-            crate::features::ecs::spawn_static::lower_pickup_placement,
+            ambition_platformer2d_items::construction::lower_pickup_placement,
         )
         .unwrap();
     registry
@@ -454,10 +460,10 @@ pub fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     // `PickupKind` comes from the crate ROOT, not from `placements` — it is
     // public there and re-exported privately here, which `d3bd6e95a` exposed
     // when it deleted `PickupKindSpec`.
+    use ambition_entity_catalog::PickupKind;
     use ambition_entity_catalog::placements::{
         HazardRespawn, InteractableSpec, InteractionKindSpec, PickupSpec, PlacementSchema,
     };
-    use ambition_entity_catalog::PickupKind;
     let mut room = empty_room("gallery");
     room.placements.push(
         ambition_platformer2d_world::placements::PlacementRecord::new(

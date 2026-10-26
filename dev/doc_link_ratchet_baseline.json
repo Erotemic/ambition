@@ -94,7 +94,7 @@
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs: private `tick_npc_idle_barks -> crate::features::npcs::npc_ambient_bark_line`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs: unresolved `crate::features::SwitchFeature`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs: unresolved `super::events`",
-      "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs: private `EncounterRewardSyncPlugin -> sync_encounter_reward_chests`",
+      "crates/ambition_platformer2d_items/src/encounter_rewards.rs: private `EncounterRewardSyncPlugin -> sync_encounter_reward_chests`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `BodyKinematics`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs: unresolved `ContentBinding::Content`",
       "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs: unresolved `super::drive_music_director`",

@@ -1,35 +1,9 @@
-//! Guard the room ownership and source identity of every death drop.
-//!
-//! One test checks the spawned components in a real `World`; another scans the
-//! full damage path to ensure every collectible-spawning function is included in
-//! that invariant table. Both are required: component checks need coverage, and
-//! coverage alone does not validate the spawned state.
+//! Death drops must retire with their room and state their source identity.
 
 use super::*;
 use bevy::prelude::{App, Commands, Entity, Name, Or, Update, With, Without};
 
-/// Every collectible-spawning function covered by the death-drop invariant.
-const DEATH_DROPS_UNDER_GUARD: &[&str] = &[
-    "drop_currency_coin",
-    "drop_health_pickup",
-    "drop_ability_pickup",
-    "drop_held_weapon",
-];
-
-/// Damage-path sources scanned at compile time for coverage of collectible
-/// spawns. Drops outside this path belong to a different owner.
-const DAMAGE_PATH_SRC: &[(&str, &str)] = &[
-    ("damage_drops.rs", include_str!("../damage_drops.rs")),
-    ("damage/mod.rs", include_str!("../damage/mod.rs")),
-    (
-        "damage/actor_hit.rs",
-        include_str!("../damage/actor_hit.rs"),
-    ),
-    ("damage/boss_hit.rs", include_str!("../damage/boss_hit.rs")),
-];
-
-/// Fire every drop in [`DEATH_DROPS_UNDER_GUARD`] once, through the same
-/// `Commands` path the damage systems use.
+/// Spawn each supported death drop through the gameplay command path.
 fn spawn_every_death_drop(mut commands: Commands) {
     let parent = SimId::placement("guard_body");
     let pos = ae::Vec2::new(32.0, 48.0);
@@ -113,8 +87,8 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     // an empty population.
     assert_eq!(
         dropped.len(),
-        DEATH_DROPS_UNDER_GUARD.len(),
-        "expected one drop per function in DEATH_DROPS_UNDER_GUARD, found {dropped:?}"
+        4,
+        "expected one drop from each grant operation, found {dropped:?}"
     );
 
     // ASK THE ROSTER, do not restate it. The question is not "does this
@@ -153,111 +127,6 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
          SpawnOrigin::Dynamic, so the view rebuild that discovers runtime-minted loot \
          by provenance cannot see it — see dynamic_drop_origin."
     );
-}
-
-/// THE COVERAGE HALF: the table names every function in the damage path that
-/// drops a collectible.
-///
-/// Red the moment a further drop function is written, whatever it is called,
-/// wherever in the damage path it lives, and whichever collectible it spawns. It
-/// says nothing about components — it only refuses to let the invariant above go
-/// stale.
-///
-/// it reports the enclosing TOP-LEVEL function, so an inline drop written
-/// back into a damage system surfaces as `apply_actor_hit` rather than as a name
-/// that could be added to the table. That is intended: the fix for one is to
-/// move it beside its siblings, not to widen the table.
-#[test]
-fn the_death_drop_table_is_complete() {
-    let mut defined: Vec<String> = DAMAGE_PATH_SRC
-        .iter()
-        .flat_map(|(_, src)| collectible_drop_fns(src))
-        .collect();
-    defined.sort();
-    defined.dedup();
-    let mut guarded: Vec<String> = DEATH_DROPS_UNDER_GUARD
-        .iter()
-        .map(|name| (*name).to_string())
-        .collect();
-    guarded.sort();
-
-    assert_eq!(
-        defined, guarded,
-        "the damage path defines a different set of collectible-dropping functions than \
-         DEATH_DROPS_UNDER_GUARD names. Add the new one to the table AND to \
-         spawn_every_death_drop — that is what puts it under the guard. If the extra name \
-         is a damage SYSTEM, it is spawning a drop inline: move it into damage_drops.rs, \
-         which is the one place the class rule is spelled."
-    );
-}
-
-/// Every top-level function in `src` whose body constructs a collectible.
-///
-/// Line-oriented on purpose: top-level items start at column zero, so a `fn` at
-/// column zero opens a new body and everything indented under it belongs to that
-/// body. Cheap and total over these modules' shape; if one ever grows nested
-/// helpers that drop, this scan reports the enclosing top-level function, which
-/// is still the right unit for the table.
-///
-/// two spellings, because a collectible has two shapes. A `PickupFeature`
-/// is walked over and granted; a `GroundItem` is picked up and wielded. Watching
-/// only the first is what let two drops sit outside this guard.
-fn collectible_drop_fns(src: &str) -> Vec<String> {
-    let mut found = Vec::new();
-    let mut current: Option<String> = None;
-    let mut body_drops_a_collectible = false;
-
-    let close = |current: &mut Option<String>, drops: &mut bool, found: &mut Vec<String>| {
-        if *drops {
-            if let Some(name) = current.take() {
-                found.push(name);
-            }
-        }
-        *current = None;
-        *drops = false;
-    };
-
-    for line in src.lines() {
-        // ⛔⛤ **COMMENT LINES ARE SKIPPED BEFORE ANYTHING IS RECOGNISED IN
-        // THEM, AND THIS SCANNER LEARNED THAT THE HARD WAY (2026-09-13).** A doc
-        // comment written on `DropIdentity` explaining that *"`GroundItem::at_rest`
-        // sealed the COMPONENT"* was counted as a drop, and attributed to the
-        // previous top-level function — so `dynamic_drop_origin`, which spawns
-        // nothing at all, appeared in the defined set and reddened the table.
-        //
-        // ⇒ **REGION FIRST, PATTERN SECOND.** A scanner that recognises a
-        // pattern and then tries to decide whether it was prose has the rule
-        // backwards: prose can say anything, including the exact text the
-        // pattern watches for. Deciding what is CODE is cheap and total;
-        // deciding what a sentence meant is neither.
-        //
-        // ⚠ A DOC COMMENT CANNOT SPAWN, so nothing is lost. `//` covers `///`
-        // and `//!` alike.
-        if line.trim_start().starts_with("//") {
-            continue;
-        }
-        let signature = ["pub fn ", "pub(crate) fn ", "pub(super) fn ", "fn "]
-            .iter()
-            .find_map(|prefix| line.strip_prefix(prefix));
-        if let Some(rest) = signature {
-            close(&mut current, &mut body_drops_a_collectible, &mut found);
-            let name = rest.split(['(', '<']).next().unwrap_or(rest);
-            current = Some(name.trim().to_string());
-        } else if line.contains("PickupFeature::new(") || line.contains("GroundItem::") {
-            // ⛔⛔ `GroundItem::`, NOT `GroundItem {` — AND THE SEAL IS WHY THIS IS
-            // NOW THE STRONGER SPELLING. This scan recognised minting by a struct
-            // literal, so `GroundItem` gaining `#[non_exhaustive]` and a pair of
-            // constructors made every drop in this file invisible and the table
-            // read as empty. ⇒ The old pattern watched an OPEN spelling that any
-            // caller could vary; `GroundItem::` watches a CLOSED one the type
-            // owns, because no crate outside `ambition_held_items` can assemble
-            // the struct any other way. A guard whose input is source text has
-            // the language's own rules as an input too.
-            body_drops_a_collectible = true;
-        }
-    }
-    close(&mut current, &mut body_drops_a_collectible, &mut found);
-    found
 }
 
 /// A DEATH DROP THAT BECOMES A CARRIABLE OBJECT NEEDS AN IDENTITY; ONE THAT

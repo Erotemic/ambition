@@ -5,7 +5,7 @@
 //! sentence is *"a constructed body advancing against world geometry"* — three
 //! claims, and the third is the one a build cannot make.
 
-use ambition_platformer2d::app::prelude::*;
+use ambition_platformer2d::app::{prelude::*, CompositionStage};
 use ambition_platformer2d::bevy::prelude::*;
 use headless_profile::HeadlessModule;
 
@@ -24,22 +24,25 @@ fn the_headless_profile_composes() {
     );
 }
 
-// ⛔⛔ THE RENDERER'S ABSENCE IS NOT ASSERTED HERE, AND THAT IS THE FINDING.
-//
-// A first version of this file tried `app.get_sub_app(bevy::render::RenderApp)`
-// and did not compile: this consumer has no `bevy` dependency of its own, and
-// the `bevy` the facade re-exports at this profile is built without its render
-// feature, so `RenderApp` IS NOT A NAMEABLE TYPE from here. The absence is
-// enforced by the type system rather than by an assertion — which is stronger
-// than the test I set out to write, and worth saying instead of quietly
-// deleting.
-//
-// ⇒ The two halves A9's acceptance names have two homes. COMPILE CLOSURE is
-// `the-featureless-facade-links-none-of-these` in
-// `scripts/check_absence_contracts.py`, which walks the feature-resolved tree.
-// RUNTIME INSTALLATION for a profile that DOES render is the map's own witness
-// (`every_room_the_map_calls_visited_has_its_visit_on_the_save`). This fixture
-// is the third fact neither of those can state: that the profile RUNS.
+#[test]
+fn a_windowed_profile_requires_the_renderer_before_installation() {
+    let mut app = App::new();
+    let refused = PlatformerApp::windowed("Headless profile")
+        .without_gpu()
+        .mount(HeadlessModule)
+        .install_into(&mut app)
+        .expect_err("a windowed profile requires the renderer feature");
+
+    assert_eq!(refused.stage, CompositionStage::Declaration);
+    assert!(refused
+        .to_string()
+        .contains("built without the `ambition_render` capability"));
+    assert!(!app.is_plugin_added::<ambition_platformer2d::bevy::asset::AssetPlugin>());
+}
+
+// This fixture selects no renderer feature. RenderApp is not in its public
+// Bevy API. The absence contract checks the compile closure. These tests check
+// composition, refusal, and movement against authored geometry.
 
 /// A BODY ADVANCING AGAINST WORLD GEOMETRY: the third claim, and the reason this
 /// file exists rather than a second compile check.

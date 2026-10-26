@@ -194,7 +194,7 @@ fn probe_what_the_refusals_tell_a_stranger() {
 /// and the rollback promise run on these same builders.
 #[test]
 fn a_reduced_profile_omits_what_it_names() {
-    use ambition_platformer2d::app::profile::Capability;
+    use ambition_platformer2d::app::profile::{Capability, CapabilityComposition};
     let app = outlander::build_outlander_app();
     let installed: Vec<&str> = outlander::OUTLANDER_PROFILE
         .omits

@@ -707,11 +707,6 @@ impl Display {
     fn has_backend(self) -> bool {
         !matches!(self, Self::NoGpu)
     }
-
-    /// Is anything presented to a desktop window?
-    fn has_window(self) -> bool {
-        matches!(self, Self::Window)
-    }
 }
 
 /// How the game meets a display.
@@ -1025,7 +1020,14 @@ impl PlatformerApp {
         // ── Rules 2, 3, 4 ── the Bevy foundation.
         match &face {
             Face::Headless => crate::engine::add_headless_foundation(app),
-            Face::Windowed { title, display } => install_windowed_foundation(app, title, *display),
+            Face::Windowed { title, display } => {
+                #[cfg(feature = "ambition_render")]
+                install_windowed_foundation(app, title, *display);
+                #[cfg(not(feature = "ambition_render"))]
+                unreachable!(
+                    "windowed face `{title}` ({display:?}) passed declaration without rendering"
+                );
+            }
         }
 
         // ── The cast and the silence, per experience, through the seams a
@@ -1734,10 +1736,11 @@ pub fn default_plugins() -> bevy::app::PluginGroupBuilder {
     DefaultPlugins.build().disable::<bevy::animation::AnimationPlugin>()
 }
 
+#[cfg(feature = "ambition_render")]
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
-    let window = display.has_window();
+    let window = matches!(display, Display::Window);
     let plugins = default_plugins()
         .set(bevy::asset::AssetPlugin {
             // Rule 2: the engine knows where its own content is.

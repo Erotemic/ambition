@@ -111,6 +111,18 @@ pub struct CharacterMount {
     /// part of a horn). A gap between two ledges is not ground.
     #[serde(default)]
     pub ledges: Vec<MountBack>,
+    /// More one-way ground of a mount that has a `back`, while it is ridden,
+    /// that FOLLOWS ITS ART: each is a standing surface its sheet publishes
+    /// (`surface:<name>:a` / `:b` anchors of each frame), read in the row and
+    /// frame the mount is drawn in, so it leans and lifts as the drawing does
+    /// (the top of each of the giant gnu's shoulders).
+    #[serde(default)]
+    pub drawn_ledges: Vec<String>,
+    /// The drawn ledge the `saddle` is on (one of `drawn_ledges`): the seat
+    /// rises and falls with it, so a rider stands on the surface that is
+    /// drawn. `None`: the seat is where `saddle` says.
+    #[serde(default)]
+    pub saddle_on: Option<String>,
     /// A slope of the mount that a body walks while it is ridden (the rump up
     /// to the shoulders): a line of points `(x, y)` about the mount's centre
     /// (+y down), from left to right, for a mount facing right, mirrored with

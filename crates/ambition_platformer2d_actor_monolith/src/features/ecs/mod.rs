@@ -63,6 +63,7 @@ mod interact;
 pub mod navigation;
 pub mod perception;
 mod pet;
+mod drawn_ledges;
 mod rest_row;
 mod summon;
 mod talk_spacing;
@@ -116,6 +117,7 @@ pub use pet::{
     apply_pet_requests, project_pet_holds,
 };
 pub use rest_row::{REST_ROW_WRITER, pin_rest_rows};
+pub use drawn_ledges::follow_drawn_ledges;
 pub use talk_spacing::{TALK_GAP, TalkSpacing, space_the_talkers};
 pub use wear::{WearRequested, apply_wear_requests};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's

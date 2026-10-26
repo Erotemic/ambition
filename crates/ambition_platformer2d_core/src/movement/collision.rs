@@ -30,6 +30,7 @@ fn apply_bounded_resolution(
 fn one_way_landing_from_feet(
     body: Aabb,
     block: Aabb,
+    block_velocity: Vec2,
     delta: Vec2,
     gravity_dir: Vec2,
     drop_through: bool,
@@ -37,6 +38,7 @@ fn one_way_landing_from_feet(
     one_way_landing_from_previous_feet(
         body,
         block,
+        block_velocity,
         delta,
         gravity_dir,
         drop_through,
@@ -331,6 +333,7 @@ pub(super) fn sweep_player_axis_clusters(
             return one_way_landing_from_feet(
                 start_body,
                 block.aabb,
+                block.velocity,
                 delta,
                 gravity_dir,
                 drop_through,
@@ -539,6 +542,7 @@ fn resolve_axis_repair(
             if !one_way_landing_from_previous_feet(
                 aabb,
                 block.aabb,
+                block.velocity,
                 delta,
                 gravity_dir,
                 drop_through,

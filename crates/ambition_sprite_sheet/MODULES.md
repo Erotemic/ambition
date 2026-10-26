@@ -29,8 +29,9 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
 | [`sprite_tree`](src/sprite_tree.rs) | The published sprite tree: which files the sprite publisher wrote, and the key each one is read by. |
+| [`surfaces`](src/surfaces.rs) | The standing surfaces a sheet publishes, as the simulation reads them ([`ambition_characters::actor::SurfaceTable`]). |
 
-_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

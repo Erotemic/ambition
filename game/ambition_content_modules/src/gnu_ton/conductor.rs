@@ -68,7 +68,10 @@ const BUCK_WINDOW: f32 = 0.16;
 /// The buck THROWS whoever stands on its back off it: a light hit over the
 /// back that launches up and away from him. A hit's hitstun is what makes a
 /// throw a throw: a rebound pad was steered back by the player's air control.
-const BUCK_THROW_SPEED: f32 = 900.0;
+/// A body thrown from by him goes over the neck and must clear the other
+/// shoulder, which the buck lifts with the giant (the shoulders follow its
+/// art): at 900 the lifted shoulder caught it.
+const BUCK_THROW_SPEED: f32 = 1100.0;
 /// Up and out, `x` away from him.
 const BUCK_THROW_DIR: [f32; 2] = [0.75, -0.66];
 const BUCK_DAMAGE: i32 = 1;
@@ -366,11 +369,22 @@ pub enum Footing {
     Recover,
     /// The fight on the back is over: he hops to his saddle.
     Home,
+    /// He hops over the neck from one shoulder to the other: over it is no
+    /// ground.
+    Hop,
 }
 
 impl Footing {
-    const ALL: [Footing; 7] =
-        [Footing::Stand, Footing::Walk, Footing::Roll, Footing::Launched, Footing::Land, Footing::Recover, Footing::Home];
+    const ALL: [Footing; 8] = [
+        Footing::Stand,
+        Footing::Walk,
+        Footing::Roll,
+        Footing::Launched,
+        Footing::Land,
+        Footing::Recover,
+        Footing::Home,
+        Footing::Hop,
+    ];
 
     fn code(self) -> u32 {
         Self::ALL.iter().position(|f| *f == self).unwrap_or(0) as u32
@@ -1151,8 +1165,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // `scholar_pos` is the saddle), or a place from it.
     let mut me = scholar_pos + c.off.map_or(Vec2::ZERO, v);
     let to_player = scholar.target_body.map(|body| v(body.position) - me);
-    // The ends of the back, from the saddle: where he can stand.
-    let ends = giant.back.map_or((0.0, 0.0), |[min_x, _, max_x, _]| (min_x - scholar_pos.x, max_x - scholar_pos.x));
+    // The shoulders of the back, from the saddle: where he can stand. Over
+    // the neck between them is no ground.
+    let shoulders = ch::arms::Shoulders::of(&giant.ledges, giant.back, scholar_pos);
     c.full_health = c.full_health.max(scholar.health);
     // With its arms on it the giant lets him take blows, and throws at the
     // third. Each blow launches him away from it.
@@ -1188,7 +1203,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             to.x = to.x.clamp(hall.left + scholar_size.x * 0.5 - scholar_pos.x, hall.right - scholar_size.x * 0.5 - scholar_pos.x);
             let floor = hall.floor - scholar_size.y * 0.5 - scholar_pos.y;
             c.air = a(vel);
-            let over_back = (ends.0..=ends.1).contains(&to.x);
+            let over_back = shoulders.under(to.x).is_some();
             if vel.y > 0.0 && over_back && at.y <= 0.0 && to.y >= 0.0 {
                 // He comes down on the back.
                 to.y = 0.0;
@@ -1196,10 +1211,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 c.step_to(Footing::Land);
                 spark(inv, scholar_pos + to + Vec2::new(0.0, scholar_size.y * 0.5), DUST, 8, 120.0)?;
             } else if vel.y > 0.0 && (to.y >= ch::arms::RECOVER_UNDER.min(floor) || to.y >= floor) {
-                // The blow threw him off the back: he comes back to its
-                // nearer end.
+                // The blow threw him off the back: he comes back to the
+                // nearer shoulder.
                 to.y = to.y.min(floor);
-                let near = if (to.x - ends.0).abs() < (to.x - ends.1).abs() { ends.0 + ch::arms::RECOVER_IN } else { ends.1 - ch::arms::RECOVER_IN };
+                let near = shoulders.nearest_place(to.x, ch::arms::RECOVER_IN);
                 c.path_from = a(to);
                 c.path_to = [near, 0.0];
                 c.path_len = ch::arms::recover_time(to, Vec2::new(near, 0.0));
@@ -1232,6 +1247,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             if c.footing_t >= ch::arms::HOP {
                 c.off = None;
                 c.step_to(Footing::Stand);
+            }
+        }
+        (Footing::Hop, Some(at)) => {
+            let u = c.footing_t / c.path_len.max(0.01);
+            let to = ch::arms::hop_across(v(c.path_from), v(c.path_to), u);
+            c.air = a((to - at) / dt.max(1e-4));
+            c.off = Some(a(to));
+            if u >= 1.0 {
+                c.air = [0.0, 0.0];
+                c.step_to(Footing::Land);
+                spark(inv, scholar_pos + to + Vec2::new(0.0, scholar_size.y * 0.5), DUST, 6, 100.0)?;
             }
         }
         _ => {}
@@ -1304,7 +1330,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             match to_player {
                 // The player is at his elbow: he rolls through him.
                 Some(to) if ch::arms::duel_rolls(to, turn) => {
-                    let (low, high) = (ends.0 + ch::arms::EDGE, ends.1 - ch::arms::EDGE);
+                    // A roll stays on his shoulder.
+                    let (low, high) = shoulders.nearest(here.x).map_or((here.x, here.x), |i| shoulders.span(i, ch::arms::EDGE));
                     let past = here.x + to.x + to.x.signum() * ch::arms::ROLL_PAST;
                     // With no room behind the player, he rolls away from him.
                     let away = here.x - to.x.signum() * 2.0 * ch::arms::ROLL_PAST;
@@ -1336,7 +1363,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         c.duel_wait = ch::arms::DUEL_MOVES[ch::arms::DASH_ATTACK].1;
                         let to_x = here.x + to.x - to.x.signum() * ch::arms::DASH_SLIDE_TO;
                         c.path_from = a(here);
-                        c.path_to = [to_x.clamp(ends.0 + ch::arms::EDGE, ends.1 - ch::arms::EDGE), here.y];
+                        let (low, high) = shoulders.nearest(here.x).map_or((here.x, here.x), |i| shoulders.span(i, ch::arms::EDGE));
+                        c.path_to = [to_x.clamp(low, high), here.y];
                         c.step_to(Footing::Stand);
                     }
                     // Out of his reach: he goes to the player.
@@ -1346,11 +1374,28 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         // A run that started is a run to its end.
                         let ran = c.footing() == Footing::Walk && c.air[0].abs() > ch::arms::WALK * dt * 1.5;
                         let speed = if ran || to.x.abs() > ch::arms::RUN_FROM { ch::arms::RUN } else { ch::arms::WALK };
-                        let x = (here.x + to.x.signum() * speed * dt).clamp(ends.0 + ch::arms::EDGE, ends.1 - ch::arms::EDGE);
-                        c.air = [x - here.x, 0.0];
-                        c.off = Some([x, here.y]);
-                        if c.footing() != Footing::Walk {
-                            c.step_to(Footing::Walk);
+                        let mine = shoulders.nearest(here.x);
+                        let (low, high) = mine.map_or((here.x, here.x), |i| shoulders.span(i, ch::arms::EDGE));
+                        let x = (here.x + to.x.signum() * speed * dt).clamp(low, high);
+                        // The player is on the other shoulder and he is at
+                        // the end of his: he hops over the neck to it.
+                        let theirs = shoulders.under(here.x + to.x).filter(|theirs| Some(*theirs) != mine);
+                        let at_end = (x - here.x).abs() < 1e-3 && ((to.x < 0.0 && x <= low + 1e-3) || (to.x > 0.0 && x >= high - 1e-3));
+                        if let (Some(theirs), true) = (theirs, at_end) {
+                            let (lo, hi) = shoulders.span(theirs, ch::arms::EDGE);
+                            let land = if to.x < 0.0 { hi } else { lo };
+                            c.off = Some(a(here));
+                            c.path_from = a(here);
+                            c.path_to = [land, here.y];
+                            c.path_len = ch::arms::HOP_ACROSS;
+                            c.air = [0.0, 0.0];
+                            c.step_to(Footing::Hop);
+                        } else {
+                            c.air = [x - here.x, 0.0];
+                            c.off = Some([x, here.y]);
+                            if c.footing() != Footing::Walk {
+                                c.step_to(Footing::Walk);
+                            }
                         }
                     }
                 },
@@ -1386,7 +1431,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // Where he is when he is not in his saddle, and his speed there.
     let shoulder_pose = c.off.map(|off| scholar_pos + v(off));
     let shoulder_vel = match c.footing() {
-        Footing::Launched => c.air,
+        Footing::Launched | Footing::Hop => c.air,
         _ => [0.0, 0.0],
     };
     if let Some(t) = c.reflex {
@@ -1455,6 +1500,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         // He comes back to the back.
         (_, Footing::Recover) => draw(inv, DrawnPart::Body, Some((&["special_up", "brace"], t, false)))?,
         (_, Footing::Roll) => draw(inv, DrawnPart::Body, Some((&["roll", "spot_dodge", "brace"], t, false)))?,
+        // He hops over the neck: up, then down onto the other shoulder.
+        (_, Footing::Hop) if t < c.path_len * 0.5 => draw(inv, DrawnPart::Body, Some((&["jump", "launch", "special_up"], t, false)))?,
+        (_, Footing::Hop) => draw(inv, DrawnPart::Body, Some((&["fall", "jump"], t - c.path_len * 0.5, true)))?,
         // He goes to his saddle.
         (_, Footing::Home) => draw(inv, DrawnPart::Body, Some((&["brace"], t, false)))?,
         // He calls the two lines that take the arms, and closes them.

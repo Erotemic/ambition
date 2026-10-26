@@ -25,6 +25,8 @@ pub mod landmarks;
 pub mod guard;
 pub use guard::{Deflect, GuardBreak, GuardFaces, GuardSpec};
 pub use landmarks::{BodyLandmarkTable, GestureHand, Landmark, PartBox};
+pub mod surfaces;
+pub use surfaces::{SurfaceRow, SurfaceSegment, SurfaceTable};
 pub mod body_step;
 pub use body_step::step_body;
 pub mod attack_gesture;

@@ -10,9 +10,11 @@
 //!
 //! In the projection: the key, the target, the frame size, the body metrics
 //! (boxes, parts, polygons, feet, per-animation hurtboxes, hitboxes and frame
-//! durations), the tuning, the drawn facing, and each row's animation, frame
-//! count, durations and mirror. Out of it: `image`, `images`, `label_width`,
-//! `y_offset`, and each row's `row_index`, `page` and `rects`.
+//! durations), the tuning, the drawn facing, each row's animation, frame
+//! count, durations and mirror, and the standing-surface anchors of each of
+//! its frames (`crate::surfaces`). Out of it: `image`, `images`,
+//! `label_width`, `y_offset`, and each row's `row_index`, `page` and the rest
+//! of its `rects`.
 
 use crate::{
     AnimationBox, AnimationBoxFrame, AnimationMetrics, BodyMetrics, NamedPixelRect, PixelRect,
@@ -55,6 +57,17 @@ fn write_row(out: &mut Vec<u8>, row: &SheetRow) {
     put_u32(out, row.duration_ms);
     put_f32(out, row.duration_secs);
     put_opt(out, row.mirror_of.as_ref(), |out, mirror| put_str(out, mirror));
+    // The standing surfaces of each frame are a simulation input
+    // (`crate::surfaces`): their anchors, and no other anchor of a rect.
+    put_seq(out, &row.rects, |out, rect| {
+        let surfaces: Vec<(&String, &crate::NormPoint)> =
+            rect.anchors.iter().filter(|(key, _)| crate::surfaces::surface_end(key).is_some()).collect();
+        put_seq(out, &surfaces, |out, (key, at)| {
+            put_str(out, key);
+            put_f32(out, at.x);
+            put_f32(out, at.y);
+        });
+    });
 }
 
 fn write_body_metrics(out: &mut Vec<u8>, metrics: &BodyMetrics) {

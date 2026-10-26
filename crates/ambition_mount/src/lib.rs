@@ -191,19 +191,98 @@ pub struct MountSlot {
 /// `back` is the span a rider's conductor reads as "on its back"; it is not
 /// ground. `ledges` are the one-way ground: the places its art shows that a
 /// body can stand (each shoulder, the level part of each horn), so the gap
-/// between two ledges is not ground. `slope` is a line a body walks
-/// (`CharacterMount::slope`), from left to right for a mount facing right.
+/// between two ledges is not ground. `drawn` are more one-way ground that
+/// FOLLOWS THE ART (`CharacterMount::drawn_ledges`): each is a standing
+/// surface the mount's sheet publishes (`surfaces`), where the mount is
+/// drawn. `slope` is a line a body walks (`CharacterMount::slope`), from left
+/// to right for a mount facing right.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BackLedge {
     pub back: ambition_characters::actor::MountBack,
     pub ledges: Vec<ambition_characters::actor::MountBack>,
+    pub drawn: Vec<DrawnLedge>,
+    /// The standing surfaces the mount's sheet publishes, per row and frame:
+    /// immutable published data, shared. `None`: its drawn ledges are not
+    /// ground.
+    pub surfaces: Option<std::sync::Arc<ambition_characters::actor::SurfaceTable>>,
+    /// The drawn ledge the mount's seat is on (`CharacterMount::saddle_on`).
+    pub saddle_on: Option<String>,
     pub slope: Vec<ae::Vec2>,
+}
+
+/// A ledge that follows the mount's art: where its surface is (about the
+/// mount's centre, facing right) in the row and frame the mount was drawn in
+/// at the end of the last tick (`now`), and at the end of the tick before
+/// (`before`). The ground of a tick is a function of the two, so they are
+/// rollback state with the [`BackLedge`] they are part of; [`BackLedge::follow_drawing`]
+/// writes them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DrawnLedge {
+    /// The surface's name in the sheet (`surface:<name>:a` / `:b`).
+    pub surface: String,
+    pub now: Option<ambition_characters::actor::SurfaceSegment>,
+    pub before: Option<ambition_characters::actor::SurfaceSegment>,
+}
+
+impl DrawnLedge {
+    pub fn new(surface: impl Into<String>) -> Self {
+        Self { surface: surface.into(), now: None, before: None }
+    }
 }
 
 impl BackLedge {
     /// A back with no other ledge.
     pub fn new(back: ambition_characters::actor::MountBack) -> Self {
-        Self { back, ledges: Vec::new(), slope: Vec::new() }
+        Self { back, ledges: Vec::new(), drawn: Vec::new(), surfaces: None, saddle_on: None, slope: Vec::new() }
+    }
+
+    /// The height of the seat (about the mount's centre) at `x` (facing
+    /// right): the drawn ledge it is on, where the drawing put it. `None`
+    /// when the seat is on no drawn ledge, or the ledge is not drawn now.
+    pub fn seat_y(&self, x: f32) -> Option<f32> {
+        let name = self.saddle_on.as_deref()?;
+        let [a, b] = self.drawn.iter().find(|ledge| ledge.surface == name)?.now?;
+        let u = if (b.x - a.x).abs() > f32::EPSILON { ((x - a.x) / (b.x - a.x)).clamp(0.0, 1.0) } else { 0.5 };
+        Some(a.y + (b.y - a.y) * u)
+    }
+
+    /// Read each drawn ledge in the row the mount is drawn in: the first of
+    /// `rows` its sheet has, `elapsed_s` seconds in (its rest row when none),
+    /// looping or held as the drawing is. Call it once a tick, after every
+    /// system that chooses the mount's row: the ledge of the tick before
+    /// becomes `before`.
+    pub fn follow_drawing(&mut self, rows: &[String], elapsed_s: f32, looping: bool) {
+        let Some(table) = self.surfaces.as_deref() else {
+            return;
+        };
+        for ledge in &mut self.drawn {
+            ledge.before = ledge.now;
+            ledge.now = table.segment(rows, elapsed_s, looping, &ledge.surface);
+        }
+    }
+
+    /// Each drawn ledge where the mount is drawn: its two ends from left to
+    /// right (mirrored by the side it is drawn facing, as the back is), and
+    /// how far it moved on the mount since the tick before.
+    pub fn drawn_lines(
+        &self,
+        mount: &ae::BodyKinematics,
+        unmirrored: bool,
+    ) -> impl Iterator<Item = ([ae::Vec2; 2], ae::Vec2)> + '_ {
+        let side = ae::mirror_side(mount.facing, unmirrored);
+        let pos = mount.pos;
+        self.drawn.iter().filter_map(move |ledge| {
+            let [a, b] = ledge.now?;
+            let place = |p: ae::Vec2| ae::Vec2::new(pos.x + side * p.x, pos.y + p.y);
+            let (a, b) = (place(a), place(b));
+            // A line is one-sided by its winding: a floor runs left to right.
+            let ends = if a.x <= b.x { [a, b] } else { [b, a] };
+            let moved = ledge.before.map_or(ae::Vec2::ZERO, |[c, d]| {
+                let delta = (ledge.now.map_or(ae::Vec2::ZERO, |[a, b]| (a + b) * 0.5)) - (c + d) * 0.5;
+                ae::Vec2::new(side * delta.x, delta.y)
+            });
+            Some((ends, moved))
+        })
     }
 
     /// The slope where the mount is drawn, from left to right (mirrored by
@@ -229,10 +308,34 @@ impl BackLedge {
         Self::ledge_aabb(&self.back, mount, unmirrored)
     }
 
-    /// Each ledge of one-way ground, where the mount is drawn.
+    /// Each ledge of one-way ground, where the mount is drawn: the authored
+    /// ledges, then the drawn ones.
     pub fn ground(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> impl Iterator<Item = ae::Aabb> + '_ {
+        self.ground_moving(mount, unmirrored).map(|(aabb, _)| aabb)
+    }
+
+    /// [`Self::ground`], each with how far the drawing moved it on the mount
+    /// since the tick before (zero for an authored ledge).
+    ///
+    /// A drawn ledge is a one-way block, as an authored one is, so a body
+    /// lands on it and grabs its edge as on any platform. Its top is the
+    /// drawn surface at its middle: a surface the drawing tilts is under a
+    /// body's feet within half its tilt.
+    pub fn ground_moving(
+        &self,
+        mount: &ae::BodyKinematics,
+        unmirrored: bool,
+    ) -> impl Iterator<Item = (ae::Aabb, ae::Vec2)> + '_ {
         let mount = mount.clone();
-        self.ledges.iter().map(move |ledge| Self::ledge_aabb(ledge, &mount, unmirrored))
+        let authored = self.ledges.iter().map({
+            let mount = mount.clone();
+            move |ledge| (Self::ledge_aabb(ledge, &mount, unmirrored), ae::Vec2::ZERO)
+        });
+        let drawn = self.drawn_lines(&mount, unmirrored).map(|([a, b], moved)| {
+            let top = (a.y + b.y) * 0.5;
+            (ae::aabb_from_min_size(ae::Vec2::new(a.x, top), ae::Vec2::new(b.x - a.x, DRAWN_LEDGE_THICKNESS)), moved)
+        });
+        authored.chain(drawn.collect::<Vec<_>>())
     }
 
     fn ledge_aabb(ledge: &ambition_characters::actor::MountBack, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
@@ -247,9 +350,13 @@ impl BackLedge {
 pub const BACK_BLOCK: &str = "mount_back";
 /// The name of a mount's slope in its room's collision overlay.
 pub const SLOPE_LINE: &str = "mount_slope";
+/// How thick a drawn ledge's one-way block is (world units).
+pub const DRAWN_LEDGE_THICKNESS: f32 = 14.0;
 
 /// Each ridden mount's ledges are one-way ground in the mount's own live
-/// room, moving with the mount, and its slope a walkable line. A collision-overlay
+/// room, moving with the mount, and its slope a walkable line. A drawn
+/// ledge also moves as the drawing moves it on the mount: a body that stands
+/// on it is carried by the two together. A collision-overlay
 /// contribution: the composition runs it after the overlay rebuild and before
 /// the bodies that collide.
 ///
@@ -278,13 +385,13 @@ pub fn mount_backs_are_ground(
             continue;
         };
         let moved = step.map_or(ae::Vec2::ZERO, |step| step.curr - step.prev);
-        for aabb in back.ground(mount, unmirrored) {
+        for (aabb, drawn_moved) in back.ground_moving(mount, unmirrored) {
             overlay.blocks.push(ae::Block {
                 id: ae::GeoId::anon(),
                 name: BACK_BLOCK.to_string(),
                 aabb,
                 kind: ae::BlockKind::OneWay,
-                velocity: moved,
+                velocity: moved + drawn_moved,
                 art_color: None,
             });
         }
@@ -1661,6 +1768,7 @@ where
             .chain(back.ledges.iter())
             .flat_map(|b| [b.left, b.right, b.top, b.thickness])
             .chain(back.slope.iter().flat_map(|p| [p.x, p.y]))
+            .chain(back.drawn.iter().flat_map(|ledge| ledge.now.into_iter().chain(ledge.before)).flatten().flat_map(|p| [p.x, p.y]))
             .fold(0u64, |h, v| h.rotate_left(16) ^ u64::from(v.to_bits()))
     });
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");

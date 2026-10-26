@@ -206,10 +206,16 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
     let mount = world.get::<ambition_mount::RidingOn>(scope)?.mount;
     let kin = world.get::<ae::BodyKinematics>(mount)?;
     let unmirrored = world.get::<ae::Unmirrored>(mount).is_some();
-    let back = world.get::<ambition_mount::BackLedge>(mount).map(|back| {
+    let back_ledge = world.get::<ambition_mount::BackLedge>(mount);
+    let back = back_ledge.map(|back| {
         let b = back.aabb(kin, unmirrored);
         [b.min.x, b.min.y, b.max.x, b.max.y]
     });
+    // Each ledge of one-way ground where it is now (a drawn ledge where the
+    // drawing put it): its top.
+    let ledges = back_ledge
+        .map(|back| back.ground(kin, unmirrored).map(|b| [b.min.x, b.min.y, b.max.x, b.min.y]).collect())
+        .unwrap_or_default();
     // The floor and walls under the mount, in its own live room.
     let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(mount);
     let hall = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
@@ -252,6 +258,7 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
         facing: kin.facing,
         unmirrored,
         back,
+        ledges,
         hall,
         limbs,
     })
@@ -1020,6 +1027,7 @@ mod mount_view_tests {
                 facing: -1.0,
                 unmirrored: true,
                 back: Some([drawn.min.x, drawn.min.y, drawn.max.x, drawn.max.y]),
+                ledges: Vec::new(),
                 hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
                 limbs: vec![
                     ambition_boss_special_port::MountLimb {

@@ -139,6 +139,7 @@ fn one_way_landing_is_false_without_gravity() {
     assert!(!one_way_landing_from_previous_feet(
         body,
         block,
+        Vec2::ZERO,
         Vec2::new(0.0, 5.0),
         Vec2::ZERO,
         false,
@@ -148,6 +149,7 @@ fn one_way_landing_is_false_without_gravity() {
     assert!(one_way_landing_from_previous_feet(
         body,
         block,
+        Vec2::ZERO,
         Vec2::new(0.0, 5.0),
         Vec2::new(0.0, 1.0),
         false,

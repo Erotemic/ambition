@@ -884,6 +884,15 @@ impl Plugin for CombatSchedulePlugin {
                 .before(ambition_combat::hazards::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
+        // A ledge that follows the mount's art reads the row the mount is drawn
+        // in once the tick has chosen it: after the conductors (`WorldPrep`)
+        // and the rest and fade rows (`GameplayEffects`). The ground of the
+        // next tick is placed from what it read.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::features::ecs::follow_drawn_ledges
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
+        );
         // The dismounted-rider rebuild installs itself against the mount crate's
         // PUBLISHED set; this composition supplies only the schedule. The
         // reference defect that line used to carry, and why both anchors are the

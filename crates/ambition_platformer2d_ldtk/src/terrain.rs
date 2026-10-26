@@ -595,3 +595,19 @@ fn earth_strips(rings: &[Vec<ae::Vec2>]) -> Vec<Vec<ae::Vec2>> {
 #[cfg(test)]
 #[path = "terrain_tests.rs"]
 mod tests;
+
+impl super::project::LdtkLevel {
+
+    pub(super) fn terrain_layer(&self) -> Option<&super::project::LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == TERRAIN_LAYER)
+    }
+
+    pub(super) fn track_layer(&self) -> Option<&super::project::LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == TRACK_LAYER)
+    }
+
+}

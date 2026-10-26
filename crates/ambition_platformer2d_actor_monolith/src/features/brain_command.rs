@@ -8,10 +8,10 @@
 //! the mount's; a carried rider and a possessed body keep their own policy and
 //! switch live. Provocation remains a separate disposition authority.
 
-use ambition_characters::actor::character_catalog::{
-    qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
-    CharacterCatalog,
-};
+use ambition_characters::actor::character_catalog::{qualify_preset_like, BrainPresetId, CharacterCatalog};
+use ambition_characters::control::brain_binding::AuthoredBrainContext;
+use ambition_characters::control::brain_binding::BrainBinding;
+use ambition_characters::control::brain_binding::BrainBuildContext;
 use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::{ActorAggression, ActorDisposition};
@@ -114,7 +114,7 @@ fn resolve_command_preset(
             )))
         }
         BrainCommandKind::RestoreDefault => match &binding.default_preset {
-            ambition_characters::actor::character_catalog::AutonomousDefault::Preset(default) => {
+            ambition_characters::control::brain_binding::AutonomousDefault::Preset(default) => {
                 Some(default.clone())
             }
             // NOT A PRESET AND NOT A FAILURE. A character whose default is
@@ -122,10 +122,10 @@ fn resolve_command_preset(
             // `apply_brain_selection`, which has the body this lowering needs;
             // this function only answers the preset question, so it says *not
             // mine* rather than warning about a preset nobody named.
-            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile => {
+            ambition_characters::control::brain_binding::AutonomousDefault::CharacterProfile => {
                 None
             }
-            ambition_characters::actor::character_catalog::AutonomousDefault::None => {
+            ambition_characters::control::brain_binding::AutonomousDefault::None => {
                 warn!(
                     target: "crate::brain_command",
                     "BrainCommand RestoreDefault for {}: binding has no autonomous default \
@@ -174,7 +174,7 @@ fn apply_brain_selection(
     if matches!(kind, BrainCommandKind::RestoreDefault)
         && matches!(
             binding.default_preset,
-            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile
+            ambition_characters::control::brain_binding::AutonomousDefault::CharacterProfile
         )
     {
         let Some((config, identity)) = profile_body else {
@@ -211,7 +211,7 @@ fn apply_brain_selection(
     let Some(resolved_preset) = resolve_command_preset(sim_id, binding, kind) else {
         return false;
     };
-    let Some(new_brain) = catalog.build_brain_from_preset(resolved_preset.as_str(), ctx) else {
+    let Some(new_brain) = ambition_platformer2d_actor_spawn::brain_builders::catalog::build_brain_from_preset(&(catalog), resolved_preset.as_str(), ctx) else {
         warn!(
             target: "crate::brain_command",
             "BrainCommand for {}: unknown brain preset `{}` (not in brain_presets); command rejected",
@@ -477,7 +477,7 @@ fn update_source_only(
     if matches!(kind, BrainCommandKind::RestoreDefault)
         && matches!(
             binding.default_preset,
-            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile
+            ambition_characters::control::brain_binding::AutonomousDefault::CharacterProfile
         )
     {
         binding.restore_default();
@@ -488,8 +488,7 @@ fn update_source_only(
     };
     // Validate the preset resolves before recording it, so control never resumes
     // into an unknown brain.
-    if catalog
-        .build_brain_from_preset(resolved.as_str(), &BrainBuildContext::at(0.0))
+    if ambition_platformer2d_actor_spawn::brain_builders::catalog::build_brain_from_preset(&(catalog), resolved.as_str(), &BrainBuildContext::at(0.0))
         .is_none()
     {
         warn!(
@@ -506,7 +505,6 @@ fn update_source_only(
     }
     true
 }
-
 
 /// Registers the [`BrainCommand`] + [`ReleaseProvocation`] channels and their
 /// reducers. Runs in the gameplay effects window of the sim schedule.

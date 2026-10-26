@@ -340,7 +340,7 @@ mod tests {
                 .data()
                 .action_set_presets
                 .get(&row.default_action_set)
-                .map(ambition_characters::actor::character_catalog::action_set_from_preset);
+                .map(ambition_characters::prepared::action_presets::action_set_from_preset);
             assert_eq!(
                 character.kit.action_set(),
                 named.as_ref(),
@@ -1319,7 +1319,7 @@ mod assembled_provider_tests {
     /// answer waiting.
     #[test]
     fn every_migrated_character_has_an_autonomous_default_something_can_reach() {
-        use ambition_characters::actor::character_catalog::BrainBuildError;
+        use ambition_characters::control::brain_binding::BrainBuildError;
 
         let mut app = bevy::prelude::App::new();
         super::register(&mut app);
@@ -1328,7 +1328,7 @@ mod assembled_provider_tests {
             .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
             .expect("registering the content publishes an assembled catalog")
             .clone();
-        let ctx = ambition_characters::actor::character_catalog::BrainBuildContext {
+        let ctx = ambition_characters::control::brain_binding::BrainBuildContext {
             spawn_world_x: 0.0,
             patrol_radius: None,
         };
@@ -1336,7 +1336,7 @@ mod assembled_provider_tests {
         let mut redirected = Vec::new();
         let mut answered = 0usize;
         for id in catalog.data().characters.keys() {
-            match ambition_characters::actor::character_catalog::resolve_initial_brain(
+            match ambition_platformer2d_actor_spawn::brain_builders::catalog::resolve_initial_brain(
                 &catalog, id, None, &ctx,
             ) {
                 Ok(_) => answered += 1,

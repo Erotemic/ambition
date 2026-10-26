@@ -11,12 +11,15 @@
 pub mod authoring;
 pub mod composition;
 pub mod lifecycle;
+pub mod presentation;
 pub mod session_contents;
 pub mod world_source;
 
-pub use authoring::{
+pub use authoring::PlatformerExperienceAuthoring;
+pub mod catalogs;
+pub use catalogs::{
     AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry,
-    PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring,
+    PlatformerAuthoringRegistrationError,
 };
 pub use world_source::{IntoPreparedSource, WorldRefusal};
 pub use composition::ShellComposition;

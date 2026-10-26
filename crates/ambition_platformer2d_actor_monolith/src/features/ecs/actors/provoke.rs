@@ -107,7 +107,7 @@ pub fn provoke_actor_in_place(
             };
             em.insert((provoked_brain, policy));
             if let Some(mut binding) =
-                em.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>()
+                em.get_mut::<ambition_characters::control::brain_binding::BrainBinding>()
             {
                 binding.source = source;
             }

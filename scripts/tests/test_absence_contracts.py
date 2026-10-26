@@ -104,8 +104,6 @@ VIOLATING_LINE = {
     # noticed, because the registries the dump prints do not come from the host.
     "outlander-does-not-hand-order-its-own-composition":
         "    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);",
-    "the-catalog-default-action-set-is-confined-to-one-file":
-        "    let authored = catalog.build_default_action_set(id);",
     "the-provider-resolver-is-confined-to-one-file":
         "    let p = provider_of_character(registry, id);",
     "the-boss-encounter-phase-is-stored-once":

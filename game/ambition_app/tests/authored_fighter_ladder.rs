@@ -6,7 +6,8 @@
 //! The full app composition is required because it brings the authored ladder and
 //! Smash fighter consumers together.
 
-use ambition_platformer2d::characters::actor::character_catalog::{brain_from_preset, BrainPreset};
+use ambition_platformer2d::characters::actor::character_catalog::{BrainPreset};
+use ambition_platformer2d::character::brain_from_preset;
 use ambition_platformer2d::characters::brain::fighter::{FighterBrainLadder, FighterBrainProfile};
 use ambition_platformer2d::combat::scoped_rules::{ActiveRoom, DeclaredRules};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};

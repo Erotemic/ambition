@@ -21,7 +21,8 @@
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_interaction::{Interactable, InteractionKind};
-use ambition_characters::actor::character_catalog::binding::{AuthoredBrainContext, BrainBinding};
+use ambition_characters::control::brain_binding::AuthoredBrainContext;
+use ambition_characters::control::brain_binding::BrainBinding;
 
 pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 
@@ -115,7 +116,7 @@ pub fn resolve_npc_brain(
             );
         }
     }
-    match ambition_characters::actor::character_catalog::binding::resolve_initial_brain(
+    match crate::brain_builders::catalog::resolve_initial_brain(
         catalog,
         cid,
         forced_preset.or(brain_override.as_deref()),
@@ -133,7 +134,7 @@ pub fn resolve_npc_brain(
         // the body's own top speed, and `ambition_characters` has no body. That
         // is why the resolver redirects rather than answering.
         Err(
-            ambition_characters::actor::character_catalog::BrainBuildError::NoAutonomousDefault {
+            ambition_characters::control::brain_binding::BrainBuildError::NoAutonomousDefault {
                 ..
             },
         ) => {
@@ -159,7 +160,7 @@ pub fn resolve_npc_brain(
         // No catalog row for this id in this host (a partial-provider composition,
         // e.g. a Hall provider character not registered here). The body is an inert
         // stand-still with no binding (nothing to switch or snapshot).
-        Err(ambition_characters::actor::character_catalog::BrainBuildError::UnknownCharacter(
+        Err(ambition_characters::control::brain_binding::BrainBuildError::UnknownCharacter(
             _,
         )) => {
             bevy::log::warn!(

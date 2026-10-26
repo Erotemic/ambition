@@ -25,9 +25,7 @@
 //! silent characters rather than a count.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::characters::actor::character_catalog::{
-    BarkSituation, CharacterCatalog,
-};
+use ambition_platformer2d::characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
 
 /// Every character the shipped host composes can produce at least one line.
 ///

@@ -641,7 +641,6 @@ impl MovePlayback {
         self
     }
 
-
     /// WHERE THIS MOVE IS REACHING right now, body-local, if a capture attempt
     /// is live under the clock.
     ///
@@ -4663,3 +4662,18 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 
 #[cfg(test)]
 mod tests;
+
+/// End playback and remove its strike volumes for every out-of-play body.
+/// Reapply this invariant each tick, including after a snapshot restore.
+/// Pausing playback would leave its strike volumes active.
+pub fn end_moves_for_bodies_out_of_play(
+    mut commands: bevy::prelude::Commands,
+    mut out_of_play: bevy::prelude::Query<
+        (bevy::prelude::Entity, &mut MovePlayback),
+        bevy::prelude::With<crate::death_rules::OutOfPlay>,
+    >,
+) {
+    for (body, mut playback) in &mut out_of_play {
+        cancel_move_playback(&mut commands, body, &mut playback, MoveEnd::LeftPlay);
+    }
+}

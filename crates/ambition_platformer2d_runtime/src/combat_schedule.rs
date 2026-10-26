@@ -281,7 +281,7 @@ impl Plugin for CombatSchedulePlugin {
                     // `end_moves_for_bodies_out_of_play` for why it is an
                     // invariant re-established here rather than a line in each
                     // death road.
-                    ambition_combat::death_rules::end_moves_for_bodies_out_of_play,
+                    ambition_combat::moveset::end_moves_for_bodies_out_of_play,
                     ambition_combat::moveset::resolve_attack_gestures,
                     // Input leniency sits BETWEEN interpretation and the action
                     // authority, and only there: it decays the body's combat
@@ -1385,4 +1385,3 @@ fn refresh_authored_volume_resolver(
 ) {
     *resolver = authored_volume_resolver_for(&sheets);
 }
-

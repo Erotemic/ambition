@@ -7,7 +7,7 @@
 //! source. The answers to the lifecycle questions live here:
 //!
 //! - What does a provider prepare? A [`PreparedPlatformerSource`], validated
-//!   against its [`AuthoredCatalogFragments`](crate::authoring::AuthoredCatalogFragments)
+//!   against its [`AuthoredCatalogFragments`](crate::catalogs::AuthoredCatalogFragments)
 //!   into a [`PlatformerPreparationReport`].
 //! - What identity proves activation matches preparation? The
 //!   [`PreparedSessionIdentity`] published through the shell's
@@ -22,6 +22,8 @@ use std::collections::BTreeMap;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use crate::world_source::WorldRefusal;
+use ambition_game_shell::ShellEvent;
 
 use ambition_game_shell::{
     ActiveGameplaySession, GameplayInputOwner, GameplaySessionEvent,
@@ -37,7 +39,7 @@ use ambition_platformer2d_runtime::{
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionSpawnScope};
 
-use crate::authoring::PlatformerAuthoredCatalogRegistry;
+use crate::catalogs::PlatformerAuthoredCatalogRegistry;
 
 /// Every provider's preparation system runs in this set (inside
 /// `AmbitionLoadSet::Contributors`); the shared prepared-session cleanup runs
@@ -150,7 +152,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // activation and BEFORE the host resolves this frame's
                     // layout — otherwise every experience switch shows one
                     // frame of the previous game's viewport.
-                    crate::authoring::select_active_presentation_profiles
+                    crate::presentation::select_active_presentation_profiles
                         .after(adopt_candidate_platformer_session)
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
@@ -158,7 +160,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // The HUD declaration follows the route on the same
                     // schedule and for the same reason: a switch must not show
                     // one frame of the previous game's readouts.
-                    crate::authoring::select_active_hud_declaration
+                    crate::presentation::select_active_hud_declaration
                         .after(adopt_candidate_platformer_session)
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
@@ -175,7 +177,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // schedule failed to build. The cue systems read the policy
                     // published on the previous tick, which is the same one-frame
                     // relationship both siblings above have.
-                    crate::authoring::select_active_defense_presentation
+                    crate::presentation::select_active_defense_presentation
                         .after(adopt_candidate_platformer_session)
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
@@ -183,8 +185,8 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // After the profile SELECTION rather than before the layout resolve: it
                     // reads what that system just published, and the camera resolve it feeds
                     // runs on its own schedule.
-                    crate::authoring::publish_active_camera_feel
-                        .after(crate::authoring::select_active_presentation_profiles),
+                    crate::presentation::publish_active_camera_feel
+                        .after(crate::presentation::select_active_presentation_profiles),
                 ),
             );
     }
@@ -972,7 +974,7 @@ pub fn prepare_world_replacement_candidate(
 pub fn prepare_platformer_content_for_app(
     app: &mut App,
     source: PreparedPlatformerSource,
-    authored: &crate::authoring::AuthoredCatalogFragments,
+    authored: &crate::catalogs::AuthoredCatalogFragments,
 ) -> Result<PreparedContent, ContentDiagnostic> {
     let character_registry = app
         .world()
@@ -1093,7 +1095,7 @@ pub fn prepare_platformer_content_for_app(
 pub fn install_direct_session_root(
     app: &mut App,
     source: PreparedPlatformerSource,
-    authored: &crate::authoring::AuthoredCatalogFragments,
+    authored: &crate::catalogs::AuthoredCatalogFragments,
 ) -> Result<Entity, ContentDiagnostic> {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId,
@@ -1523,7 +1525,7 @@ fn baked_landmarks_identity() -> Option<String> {
 
 pub fn prepare_platformer_content(
     source: PreparedPlatformerSource,
-    authored: &crate::authoring::AuthoredCatalogFragments,
+    authored: &crate::catalogs::AuthoredCatalogFragments,
     character_registry: Option<
         &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
     >,
@@ -2898,7 +2900,8 @@ impl PreparedCandidateSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::authoring::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+    use crate::authoring::{PlatformerExperienceAuthoring};
+    use crate::catalogs::{AuthoredCatalogFragments};
 
     /// ⛔⛤ **WHERE THE CANDIDATE IS BUILT IS AN ASSERTION NOW, BECAUSE A GUARD
     /// ONE CRATE UP LOST ITS SUBJECT WHEN IT MOVED.**
@@ -2961,7 +2964,6 @@ mod tests {
                 .system_sets
                 .get_key(bevy::ecs::schedule::SystemSet::intern(&set))
         }
-
 
         // ⚠ NOT UPDATED. Running a schedule moves its systems out of the graph
         // into the executor, and the graph then answers "no systems".
@@ -3435,9 +3437,7 @@ mod tests {
         reverse: bool,
         beta_ron: &str,
     ) -> ambition_characters::actor::character_catalog::CharacterCatalogRegistry {
-        use ambition_characters::actor::character_catalog::{
-            CharacterCatalogFragment, CharacterCatalogRegistry,
-        };
+        use ambition_characters::actor::character_catalog::{CharacterCatalogFragment, CharacterCatalogRegistry};
         let a =
             CharacterCatalogFragment::from_ron("provider-a", Some("alpha"), CHARACTER_A).unwrap();
         let b = CharacterCatalogFragment::from_ron("provider-b", Some("beta"), beta_ron).unwrap();
@@ -4193,7 +4193,7 @@ mod mechanical_registries_reach_the_identity {
     //! unstable.
 
     use super::*;
-    use crate::authoring::AuthoredCatalogFragments;
+    use crate::catalogs::AuthoredCatalogFragments;
 
     fn source() -> PreparedPlatformerSource {
         let world = ambition_platformer2d_core::World::new(
@@ -4931,6 +4931,62 @@ mod mechanical_registries_reach_the_identity {
         assert_ne!(
             gentle, brutal,
             "how much a boss HURTS is mechanical and did not reach the identity",
+        );
+    }
+}
+
+/// True when the shell requested preparation for `experience_id` this frame —
+/// the run gate that keeps a provider's session-world source from building
+/// worlds on frames nobody asked for.
+pub(crate) fn preparation_requested(
+    experience_id: String,
+) -> impl FnMut(MessageReader<ShellEvent>) -> bool {
+    move |mut events: MessageReader<ShellEvent>| {
+        events.read().any(|event| {
+            matches!(
+                event,
+                ShellEvent::PreparationRequested(transaction)
+                    if transaction.experience_id.as_str() == experience_id
+            )
+        })
+    }
+}
+
+/// The shared preparation system body: piped after a provider's session-world
+/// source (tagged with its experience id), it gives every matching transaction
+/// an owned copy of that authored world value, or fails its world preparation
+/// with the source's refusal.
+pub(crate) fn prepare_requested_sessions(
+    In((experience_id, source)): In<(String, Result<PreparedPlatformerSource, WorldRefusal>)>,
+    mut events: MessageReader<ShellEvent>,
+    mut preparation: PlatformerPreparation,
+) {
+    for event in events.read() {
+        let ShellEvent::PreparationRequested(transaction) = event else {
+            continue;
+        };
+        if transaction.experience_id.as_str() != experience_id {
+            continue;
+        }
+        match &source {
+            Ok(source) => {
+                preparation.prepare(transaction, source.clone());
+            }
+            Err(refusal) => preparation.refuse_world(transaction, refusal),
+        }
+    }
+}
+
+impl PlatformerPreparation<'_> {
+    /// Fail `transaction`'s world preparation: the provider could not build
+    /// its world. Retryable, because the usual cause is a file the developer
+    /// can save again.
+    fn refuse_world(&mut self, transaction: &ProviderLoadTransaction, refusal: &WorldRefusal) {
+        self.fail(
+            transaction,
+            PREPARE_WORLD_WORK_ID,
+            ambition_load::LoadFailure::new("This world could not be built.", refusal.reasons.join("\n"))
+                .retryable(true),
         );
     }
 }

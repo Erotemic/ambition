@@ -234,14 +234,15 @@ neither side of it.
 Jon selected this work before further monolith decomposition and system
 consolidation. Review ownership, state, and lifetime; do not target zero cycles.
 
-**Active:** C2, catalog declarations versus controller selection and construction.
-C1 separates room identity from primary-body selection and camera bands.
-Catalog registration now belongs to preparation and keeps its automatic barrier.
-Finish C2, then review C3 through C7 in the owner plan.
+**Active:** validate the C1–C7 ownership cuts after asset publication. Runtime
+owns primary-room adapters; control owns preset selection; the stimulus reducer
+owns NPC reactions; display, provider and LDtk data have distinct owners. Keep
+the reviewed body, repertoire and navigation invariants in their current groups.
 
-**Acceptance:** fragments still prepare their rows; controller selection has one
-namespace rule; rollback restores the same sources and context. Preserve room
-selection, same-tick effects, required components and frozen session casts.
+**Acceptance:** assembled app, controller preparation and restoration, same-tick
+hit responses, world refusal/reload, input labels, movement and combat tests pass.
+Keep rollback codecs and required components unchanged. Then continue monolith
+API work and system consolidation in priority order.
 
 
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave

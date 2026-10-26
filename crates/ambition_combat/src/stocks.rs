@@ -680,7 +680,7 @@ mod tests {
             Update,
             (
                 spend_fighter_stocks,
-                crate::death_rules::end_moves_for_bodies_out_of_play,
+                crate::moveset::end_moves_for_bodies_out_of_play,
                 crate::death_rules::tick_death_interlude,
                 respawn_when_the_interlude_closes,
             )
@@ -906,46 +906,6 @@ mod tests {
             "an ELIMINATED fighter kept swinging — and elimination opens no death \
              window, so the generic out-of-play invariant never sees it and this \
              seam is the only thing that can end the move"
-        );
-    }
-
-    /// ⛔⛔ AND IT IS AN INVARIANT, NOT A RULE EACH DEATH ROAD REMEMBERS.
-    ///
-    /// The first version of this lived inside `spend_fighter_stocks`, which
-    /// fixed Smash and left the other real customer broken:
-    /// `session::death::open_death_interlude` — how Mary-O and every non-stock
-    /// ruleset die — inserts `OutOfPlay` and cancelled nothing. A body could die
-    /// mid-swing and go on opening hit windows and firing authored events.
-    ///
-    /// ⭐ SO THIS ARM DOES NOT SPEND A STOCK AT ALL. It puts `OutOfPlay` on a
-    /// body directly, which is what every death road has in common, and asks
-    /// whether the move survives it.
-    #[test]
-    fn any_body_that_leaves_play_loses_its_move_however_it_left() {
-        use crate::moveset::MovePlayback;
-
-        let mut app = App::new();
-        app.add_systems(Update, crate::death_rules::end_moves_for_bodies_out_of_play);
-        let body = app
-            .world_mut()
-            .spawn(MovePlayback::new(swing_spec(), 1.0))
-            .id();
-        app.update();
-        assert!(
-            app.world().get::<MovePlayback>(body).is_some(),
-            "a body still IN play lost its move, so the arm below would pass for \
-             the wrong reason"
-        );
-
-        app.world_mut()
-            .entity_mut(body)
-            .insert(crate::death_rules::OutOfPlay);
-        app.update();
-        assert!(
-            app.world().get::<MovePlayback>(body).is_none(),
-            "a body that left play kept swinging. Whatever road put it out — a \
-             stock, a pit, a hazard, a script — the world has its hands off it \
-             and the move clock does not care"
         );
     }
 

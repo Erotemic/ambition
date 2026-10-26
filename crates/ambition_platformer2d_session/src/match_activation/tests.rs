@@ -6,7 +6,6 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 // per step costs a set lookup after the first.
 use ambition_platformer2d_shared_tangle::app_finalization::finalize_and_update;
 
-
 use ambition_platformer2d_core::Vec2;
 
 use super::*;
@@ -51,9 +50,7 @@ fn cpu_fighter(character: &str) -> MatchParticipant {
 /// these fixtures were ALREADY getting through the archetype arm. Migrating the
 /// authority must not quietly retune what the fixtures seat.
 fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
-    use ambition_characters::actor::character_catalog::{
-        parse_catalog, BrainProfileRegistry, CharacterCatalog,
-    };
+    use ambition_characters::actor::character_catalog::{parse_catalog, BrainProfileRegistry, CharacterCatalog};
     const CATALOG: &str = r#"(
         autonomous_profiles: {
             "demo::cpu_policy": (template: StandStill),
@@ -2237,7 +2234,6 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
          two-phase body this whole row exists to remove"
     );
 }
-
 
 /// A MATCH THAT DECLARES A CEILING CANNOT HAND A BODY A VERB IT DOES NOT
 /// HAVE.

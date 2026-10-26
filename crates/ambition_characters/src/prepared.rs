@@ -1948,7 +1948,11 @@ fn finalize_character(
         // variant and was therefore already only answering membership.
         None if catalog.is_some_and(|catalog| catalog.knows(&id)) => {
             let set = catalog
-                .and_then(|catalog| catalog.build_default_action_set(&id))
+                .and_then(|catalog| {
+                    let row = catalog.get(&id)?;
+                    catalog.data().action_set_presets.get(&row.default_action_set)
+                        .map(action_presets::action_set_from_preset)
+                })
                 .unwrap_or_else(|| {
                     // A known row whose preset does not resolve is malformed
                     // content. Reported ONCE here rather than every time a body
@@ -3427,3 +3431,5 @@ mod prepared_tests;
 
 mod catalog_registration;
 pub use catalog_registration::CharacterCatalogAppExt;
+
+pub mod action_presets;

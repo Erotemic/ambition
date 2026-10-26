@@ -233,10 +233,10 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
         .ids()
         .enumerate()
         .filter(|(_, id)| {
-            catalog
-                .build_default_action_set(id)
-                .and_then(|set| set.melee)
-                .is_none()
+            catalog.get(id).is_some_and(|row| {
+                catalog.data().action_set_presets.get(&row.default_action_set)
+                    .is_some_and(|set| set.melee.is_none())
+            })
         })
         .map(|(index, _)| index)
         .collect();

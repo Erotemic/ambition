@@ -86,12 +86,12 @@ where
     registrar
         .rollback_component_clone::<crate::actor::limb::LimbRouteState>(OWNER, "limb.route_state");
     registrar.rollback_component_clone::<crate::actor::limb::LimbIntents>(OWNER, "limb.intents");
-    registrar.rollback_component_canonical::<crate::actor::character_catalog::BrainBinding>(
+    registrar.rollback_component_canonical::<crate::control::brain_binding::BrainBinding>(
         OWNER,
         "actor.brain_binding",
     );
     registrar
-        .rollback_component_canonical::<crate::actor::character_catalog::AuthoredBrainContext>(
+        .rollback_component_canonical::<crate::control::brain_binding::AuthoredBrainContext>(
             OWNER,
             "actor.authored_brain_context",
         );

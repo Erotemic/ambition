@@ -7,6 +7,10 @@
 //! already-hostile re-derive — in place, no cluster swap, no entity churn.
 
 use bevy::prelude::*;
+use crate::features::ActorMutIntegrationExt;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_combat::events::GameplayBanner;
+use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
 
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorInteraction, AggressionMode,
@@ -23,6 +27,10 @@ pub fn apply_actor_stimuli(
     // answer instead of one matched out of its display name.
     prepared: ambition_characters::prepared::SessionCast,
     mut stimuli: MessageReader<ActorStimulus>,
+    catalog: Res<CharacterCatalog>,
+    mut banner: ResMut<GameplayBanner>,
+    mut vfx: VfxWriter,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut actors: Query<
         (
             Entity,
@@ -66,17 +74,43 @@ pub fn apply_actor_stimuli(
             continue;
         };
 
-        // ⛔ ONE ANSWER TO "CAN THIS BODY BE PROVOKED": its character's
-        // resolved provoked policy. A peaceful body with none is not provoked
-        // at all, so neither its aggression nor its standing flips; flipping
-        // them while `provoke_actor_in_place` declined the mind left a body
-        // that read as hostile and ran its peaceful brain.
         let provoked_policy = worn.zip(prepared.get()).and_then(|(worn, registry)| {
             ambition_platformer2d_actor_spawn::brain_builders::authored_provoked_policy(
                 registry,
                 worn.id(),
             )
         });
+        // The accepted hit is counted once here, before retaliation and its
+        // presentation. A challenge does not count as a strike.
+        if !challenged && disposition.is_peaceful() {
+            aggression.strikes = aggression.strikes.saturating_add(1);
+            if let Some(interaction) = interaction {
+                let actor = cq.as_actor_mut();
+                let provokes = provoked_policy.is_some() && aggression.provoked();
+                let text = if provokes {
+                    crate::features::npcs::npc_hostile_bark_line(&catalog, &interaction.interactable)
+                } else {
+                    crate::features::npcs::npc_hit_bark_line(
+                        &catalog, &interaction.interactable, aggression.strikes,
+                    )
+                };
+                let room = rooms.of(entity);
+                vfx.write_in(room, VfxMessage::SpeechBubble {
+                    pos: actor.bark_anchor(),
+                    text: text.to_string(),
+                });
+                if provokes {
+                    vfx.write_in(room, VfxMessage::Burst {
+                        pos: actor.kin.pos,
+                        count: 16,
+                        speed: 230.0,
+                        color: [0.84, 0.95, 1.0, 0.82],
+                        kind: ParticleKind::Spark,
+                    });
+                    banner.show(format!("{} turns hostile", actor.identity.name), 2.6);
+                }
+            }
+        }
         if disposition.is_peaceful() && provoked_policy.is_none() {
             continue;
         }

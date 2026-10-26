@@ -1,5 +1,5 @@
-//! Applying a hit to an actor: peaceful actors accumulate strikes/barks (and
-//! provoke via `ActorStimulus`); hostile actors take damage/knockback/death.
+//! Apply accepted hits and publish their combat stimuli.
+//! Combat standing determines damage, knockback and death.
 //! Branches on `ActorDisposition`, not an actor type — every actor is the same
 //! unified cluster.
 
@@ -118,7 +118,6 @@ mod death_flag_tests {
 
 /// A dead hostile actor returns `false` (no-op).
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -139,8 +138,6 @@ pub(crate) fn apply_actor_hit(
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
     wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
-    aggression: Option<&mut ambition_combat::components::ActorAggression>,
-    interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
@@ -213,11 +210,9 @@ pub(crate) fn apply_actor_hit(
         if !combat.vulnerable() {
             return false;
         }
-        // Peaceful actor (talkable NPC): accumulate strikes + barks and emit a
-        // retaliation stimulus. No health damage — the flip to hostile is the
-        // consequence, handled by `apply_actor_stimuli`.
+        // A protected body registers the hit without health damage. The
+        // stimulus consumer owns retaliation, strike counts and speech.
         let pos = em.kin.pos;
-        let bark_anchor = em.bark_anchor();
         combat.hit_flash = 0.18;
         combat.note_struck();
         combat.damage_invuln_timer = ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S;
@@ -243,48 +238,6 @@ pub(crate) fn apply_actor_hit(
             source: event.attacker,
             damage: event.damage,
         });
-        if let Some(aggression) = aggression {
-            aggression.strikes = aggression.strikes.saturating_add(1);
-            if let Some(interactable) = interactable {
-                // ⛔ WAS `aggression.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD`, a
-                // GLOBAL DEFAULT standing in for a per-body policy. The bark is
-                // what the player hears, so it asks the question aggression
-                // resolution asks. The DURABLE fact is not written here: the
-                // flip in `apply_actor_stimuli` records it for every road that
-                // provokes, which a hit is only one of.
-                if aggression.provoked() {
-                    writers.vfx.write_in(room, VfxMessage::SpeechBubble {
-                        pos: bark_anchor,
-                        text: super::super::super::npcs::npc_hostile_bark_line(
-                            catalog,
-                            interactable,
-                        )
-                        .to_string(),
-                    },
-                    );
-                    writers.vfx.write_in(room, VfxMessage::Burst {
-                        pos,
-                        count: 16,
-                        speed: 230.0,
-                        color: [0.84, 0.95, 1.0, 0.82],
-                        kind: ParticleKind::Spark,
-                    },
-                    );
-                    banner.show(format!("{} turns hostile", em.identity.name), 2.6);
-                } else {
-                    writers.vfx.write_in(room, VfxMessage::SpeechBubble {
-                        pos: bark_anchor,
-                        text: super::super::super::npcs::npc_hit_bark_line(
-                            catalog,
-                            interactable,
-                            aggression.strikes,
-                        )
-                        .to_string(),
-                    },
-                    );
-                }
-            }
-        }
         true
     } else {
         // Combat banter — decided BEFORE the resolver mutates state: the bark

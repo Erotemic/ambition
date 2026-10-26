@@ -668,10 +668,10 @@ pub struct ProvokedArchetype {
 /// `config.brain` read-model, and the live one rebound and rebuilt an
 /// ALREADY-hostile body, recording a policy it never installed.
 ///
-/// [`BrainBinding`]: ambition_characters::actor::character_catalog::BrainBinding
+/// [`BrainBinding`]: ambition_characters::control::brain_binding::BrainBinding
 pub struct ProvokedMind {
     pub projection: ProvokedArchetype,
-    pub source: ambition_characters::actor::character_catalog::AutonomousSource,
+    pub source: ambition_characters::control::brain_binding::AutonomousSource,
 }
 
 /// The provoked policy a character resolved at preparation (its own, else its
@@ -696,7 +696,7 @@ pub fn provoked_mind(
     repertoire: Option<&ambition_characters::brain::ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedMind {
-    use ambition_characters::actor::character_catalog::AutonomousSource;
+    use ambition_characters::control::brain_binding::AutonomousSource;
     let source = AutonomousSource::ProvokedProfile { profile: id };
     ProvokedMind {
         projection: provoked_projection(policy, current_config, identity, repertoire, body),
@@ -726,3 +726,5 @@ pub fn provoked_projection(
         brain_profile,
     }
 }
+
+pub mod catalog;

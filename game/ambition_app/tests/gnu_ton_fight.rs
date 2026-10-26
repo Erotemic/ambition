@@ -653,7 +653,7 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
         (((a.min.x + a.max.x) * 0.5) - s.scholar.pos.x).abs().total_cmp(&(((b.min.x + b.max.x) * 0.5) - s.scholar.pos.x).abs())
     });
     let shoulder = shoulder.expect("the giant has shoulders");
-    let spot = ae::Vec2::new(((shoulder.min.x + shoulder.max.x) * 0.5), back.min.y - 40.0);
+    let spot = ae::Vec2::new((shoulder.min.x + shoulder.max.x) * 0.5, back.min.y - 40.0);
     // The fixture puts the fight in phase 2 with no clamp. Until a move of
     // the free fists starts, the arms are on the giant, and he would fight a
     // player on its back (the pattern has no move then).

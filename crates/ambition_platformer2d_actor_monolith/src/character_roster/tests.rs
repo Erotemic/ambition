@@ -227,3 +227,6 @@ fn display_name_returns_none_for_unknown_id() {
         .display_name("npc_definitely_not_in_catalog")
         .is_none());
 }
+
+use ambition_platformer2d_actor_spawn::brain_builders::catalog::brain_from_preset;
+use ambition_characters::prepared::action_presets::action_set_from_preset;

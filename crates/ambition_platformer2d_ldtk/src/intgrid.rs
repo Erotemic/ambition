@@ -348,3 +348,25 @@ mod intgrid_tests {
         );
     }
 }
+
+impl super::project::LdtkLevel {
+
+    pub(super) fn collision_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == COLLISION_LAYER)
+    }
+
+    pub(super) fn water_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == WATER_LAYER)
+    }
+
+    pub(super) fn climbable_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == CLIMBABLE_LAYER)
+    }
+
+}

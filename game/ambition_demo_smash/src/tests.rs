@@ -1057,9 +1057,7 @@ fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
 
 /// The catalog the demo registers: the one its pack compiled.
 fn shipped_catalog() -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        lowered_catalog, CharacterCatalog,
-    };
+    use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, CharacterCatalog};
     CharacterCatalog::from_data(
         lowered_catalog(crate::smash_pack::PACK.prepared())
             .expect("the smash pack states its cast")
@@ -1115,10 +1113,9 @@ fn the_duelist_preset_is_a_fighter_brain() {
         "the catalog does not know the `duelist` preset at all, so every \
          fighter asking for it silently stands still"
     );
-    let brain = catalog
-        .build_brain_from_preset(
+    let brain = ambition_platformer2d::character::build_brain_from_preset(&(catalog),
             "duelist",
-            &ambition_platformer2d::characters::actor::character_catalog::BrainBuildContext::at(
+            &ambition_platformer2d::character::BrainBuildContext::at(
                 0.0,
             ),
         )

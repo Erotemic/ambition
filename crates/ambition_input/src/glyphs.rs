@@ -17,7 +17,7 @@ use std::borrow::Cow;
 use bevy::prelude::*;
 
 use crate::active_input::{ActiveDevice, GamepadStyle};
-use crate::bindings::{ActionBindings, PhysicalControl};
+use crate::bindings::{action_for_slot, ActionBindings, PhysicalControl, SeatBindings};
 use crate::presets::{KeyboardPreset, PresetId};
 use crate::Platformer2dInputActionMonolith;
 
@@ -301,4 +301,101 @@ mod tests {
             );
         }
     }
+}
+
+/// `presets::key_name` returns `"?"` for a key it does not list. For those
+/// keys, use the `KeyCode` debug form (`F13`, `NumpadAdd`), as with
+/// [`PhysicalControl::Other`].
+fn key_label(key: KeyCode) -> String {
+    match key {
+        KeyCode::Space => "Space".to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Escape => "Esc".to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::ShiftLeft | KeyCode::ShiftRight => "Shift".to_string(),
+        KeyCode::ControlLeft | KeyCode::ControlRight => "Ctrl".to_string(),
+        KeyCode::AltLeft | KeyCode::AltRight => "Alt".to_string(),
+        KeyCode::ArrowUp => "Up".to_string(),
+        KeyCode::ArrowDown => "Down".to_string(),
+        KeyCode::ArrowLeft => "Left".to_string(),
+        KeyCode::ArrowRight => "Right".to_string(),
+        other => match crate::presets::key_name(other) {
+            "?" => format!("{other:?}"),
+            named => named.to_string(),
+        },
+    }
+}
+
+impl PhysicalControl {
+    /// What to print. Short, because it goes on a button. Gamepad buttons use
+    /// Xbox names; a caller that knows the seat's pad uses [`Self::label_for`].
+    pub fn label(&self) -> String {
+        self.label_for(crate::GamepadStyle::XboxLike)
+    }
+
+    /// What to print, in the names of the seat's own pad. It uses the same
+    /// table as the glyph path, so a prompt and a glyph always agree.
+    pub fn label_for(&self, style: crate::GamepadStyle) -> String {
+        match self {
+            Self::Key(key) => key_label(*key),
+            Self::Button(button) => crate::glyphs::button_label(*button, style).to_string(),
+            Self::Other(raw) => raw.clone(),
+        }
+    }
+
+}
+
+impl ActionBindings {
+
+    /// The label a prompt shows: the first binding, which the preset lists as
+    /// primary.
+    ///
+    /// It ignores the device: gamepad buttons use Xbox names and a mixed map
+    /// gives its keyboard half. Use it only with no seat (docs generator,
+    /// rebind list). A prompt for a seat uses [`Self::label_for`].
+    pub fn label(&self, action: &Platformer2dInputActionMonolith) -> Option<String> {
+        self.controls(action).first().map(PhysicalControl::label)
+    }
+
+    /// The label for the device this seat holds. From one map, a DualSense
+    /// reads "Cross", an Xbox pad "A", and a keyboard "Z".
+    ///
+    /// It falls back to the other device class, not `None`: a blank prompt
+    /// reads as "this action has no control".
+    pub fn label_for(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        device: crate::ActiveDevice,
+    ) -> Option<String> {
+        self.control_for(action, device)
+            .or_else(|| self.controls(action).first())
+            .map(|control| control.label_for(device.gamepad_style()))
+    }
+
+}
+
+impl SeatBindings {
+
+    /// The label this seat's prompt should show for this action.
+    pub fn label(&self, slot: u8, action: &Platformer2dInputActionMonolith) -> Option<String> {
+        self.for_seat(slot).label(action)
+    }
+
+    /// The label for an ability slot. Uses [`action_for_slot`].
+    ///
+    /// `devices` is a parameter because the seat's device decides both which
+    /// binding to name and how to spell it. `None` (a headless sim with no
+    /// device tracking) means the keyboard, the documented cold-start answer.
+    pub fn label_for_slot(
+        &self,
+        seat: u8,
+        slot: ambition_entity_catalog::action_scheme::ControlSlot,
+        devices: Option<&crate::SeatActiveDevices>,
+    ) -> Option<String> {
+        let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
+        self.for_seat(seat)
+            .label_for(&action_for_slot(slot)?, device)
+    }
+
 }

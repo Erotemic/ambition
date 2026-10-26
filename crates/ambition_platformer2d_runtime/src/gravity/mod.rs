@@ -18,4 +18,7 @@ mod resolve;
 
 pub use lifecycle::reset_gravity_on_room_reset;
 pub use plugin::{GravityPlugin, GravitySet};
-pub use resolve::resolve_body_motion_frames;
+pub use resolve::{resolve_body_motion_frames, resolve_active_gravity};
+
+mod developer;
+pub use developer::apply_ambient_gravity_requests;

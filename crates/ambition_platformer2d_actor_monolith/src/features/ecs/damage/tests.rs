@@ -16,12 +16,14 @@ use ambition_platformer2d_items::loot::{
 use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
-/// Register every message the shared feature-hit pipeline writes.
-///
-/// `apply_feature_hit_events` fans out to sfx / vfx / debris / stimuli / wallet facts, and a Bevy
-/// `MessageWriter` for an unregistered message PANICS the system rather than no-opping. One list,
-/// one edit.
-fn register_hit_pipeline_messages(app: &mut App) {
+/// Register hit messages and run the reaction consumer after accepted damage.
+fn install_hit_reaction_consumers(app: &mut App) {
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
+    app.add_systems(Update, super::super::aggression::apply_actor_stimuli
+        .after(apply_feature_hit_events)
+        .before(capture_bubbles)
+        .before(capture_hostile_turns));
+
     // The damage scaling simulation reads — see `ambition_damage::PlayerDamagePolicy`.
     // Every fixture in this module registers the hit pipeline, so the policy is
     // installed beside it rather than in 29 hand-rolled `App::new()` blocks.
@@ -73,7 +75,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
@@ -146,7 +148,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app);
         // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
@@ -218,7 +220,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         let mut settings = ambition_persistence::settings::UserSettings::default();
         settings.gameplay.player_damage_multiplier = multiplier;
         app.insert_resource(settings);
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         // ⭐ THE WHOLE ROAD, not the resource the system reads. The slider is set
         // on `UserSettings` exactly as the settings screen sets it, and
         // the propose and publish pair that resolves it runs chained ahead of
@@ -309,7 +311,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
@@ -357,7 +359,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let player = app
@@ -429,7 +431,7 @@ fn an_outcome_naming_another_occurrence_credits_no_move() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let attacker = app
@@ -507,7 +509,7 @@ fn an_unclaimed_outcome_credits_no_move() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let attacker = app
@@ -572,7 +574,7 @@ fn a_hit_with_no_generation_is_not_resolved() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -612,7 +614,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -696,7 +698,7 @@ fn a_killed_body_plays_the_death_cue_its_character_authors() {
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let actor_entity = spawn_hostile_actor(&mut app); // HP 5
         app.world_mut()
@@ -769,7 +771,7 @@ fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         for room in [first, first.next()] {
             app.world_mut().spawn((RoomInstanceRoot, room));
@@ -832,7 +834,7 @@ fn debris_rooms_of_a_kill_in_the_second_room(
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
     for room in rooms {
         app.world_mut().spawn((RoomInstanceRoot, room));
@@ -889,7 +891,7 @@ fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         let mut time = ambition_time::WorldTime::default();
         time.set_sim_dt(0.05);
         app.insert_resource(time);
@@ -1055,7 +1057,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
 
@@ -1112,7 +1114,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
 
@@ -1188,7 +1190,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
@@ -1240,7 +1242,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor = spawn_hostile_actor(&mut app); // HP 5 — survives one slash
@@ -1359,7 +1361,7 @@ fn player_slash_shatters_a_breakable() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
@@ -1740,7 +1742,7 @@ fn shield_test_app() -> App {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
     app
 }
@@ -2418,7 +2420,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     let attacker = app
@@ -2495,7 +2497,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(
         Update,
         (
@@ -2617,7 +2619,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         ),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
         let e = spawn_hostile_actor(&mut app);
@@ -2671,7 +2673,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-    register_hit_pipeline_messages(&mut app);
+    install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
     spawn_talkable_npc(&mut app, 1);
@@ -2760,7 +2762,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.insert_resource(ambition_persistence::settings::UserSettings::default());
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
 
         let victim = spawn_hostile_actor(&mut app);
@@ -3048,7 +3050,7 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.init_resource::<CapturedHostileTurns>();
         app.add_systems(
             Update,
@@ -3056,6 +3058,22 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
         );
 
         let body = spawn_talkable_npc_with_threshold(&mut app, 9, strike_threshold);
+        let definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "alice", "Alice", "test",
+        );
+        let mut character = ambition_characters::prepared::prepare_and_finalize_for_test(
+            definition, &ambition_characters::prepared::CharacterBindings::default(),
+        ).prepared;
+        character.provoked_profile = Some(ambition_characters::brain::BrainProfile {
+            template: ambition_characters::brain::CharacterBrainTemplate::MeleeBrute,
+            ..Default::default()
+        });
+        character.provoked_profile_id = Some(ambition_entity_catalog::BrainProfileId::new("test::angry"));
+        let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
+        cast.insert_prepared(character);
+        app.insert_resource(cast);
+        app.world_mut().entity_mut(body).insert(ambition_characters::actor::WornCharacter::new("alice"));
+
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
         for _ in 0..strikes {
             // ⛔ I-FRAMES, AND THEY COST ME THE FIRST RUN. `apply_actor_hit`
@@ -3161,7 +3179,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
             ),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.init_resource::<CapturedBubbleTexts>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubble_texts).chain(),
         );
@@ -3222,7 +3240,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
         ),
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        register_hit_pipeline_messages(&mut app);
+        install_hit_reaction_consumers(&mut app);
         app.init_resource::<Said>();
         app.add_systems(Update, (apply_feature_hit_events, capture_lines).chain());
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 60.0));

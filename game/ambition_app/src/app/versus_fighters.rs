@@ -209,9 +209,7 @@ mod tests {
     /// resolver reads the row's fallback pool before any other floor.
     #[test]
     fn a_duelist_speaks_in_its_own_voice() {
-        use ambition_platformer2d::characters::actor::character_catalog::{
-            lowered_catalog, BarkSituation, CharacterCatalog,
-        };
+        use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, BarkSituation, CharacterCatalog};
         let catalog = CharacterCatalog::from_data(
             lowered_catalog(PACK.prepared()).expect("the versus pack states its cast").clone(),
         );

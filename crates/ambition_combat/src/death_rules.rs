@@ -241,38 +241,3 @@ pub struct DeathCause {
     /// The entity that dealt the killing blow, when known.
     pub attacker: Option<bevy::prelude::Entity>,
 }
-
-/// An out-of-play body has no move, re-established every tick.
-///
-/// ⛔⛔ THE FIRST VERSION OF THIS WAS A LINE INSIDE `spend_fighter_stocks`, AND
-/// THAT FIXED ONE DEATH ROAD. Smash's stock loss cancelled the swing; the other
-/// real customer — `session::death::open_death_interlude`, which is how Mary-O
-/// and every non-stock ruleset die — inserted `OutOfPlay` and left the move
-/// clock running. So a fighter could die mid-swing and still open a hit window,
-/// fire an authored event and throw a projectile from a body the world had
-/// supposedly let go of. Each death mode had to REMEMBER the rule, and one of
-/// the two did not.
-///
-/// ⭐ AN INVARIANT, NOT A TRANSITION. This does not observe `OutOfPlay` being
-/// ADDED — an `Add` observer fires when GGRS re-inserts a component during a
-/// snapshot restore, so it would tear down moves on a rollback that merely
-/// replayed a body into the same state. Asking "does any out-of-play body still
-/// hold a move" each tick is idempotent, order-independent, and gives the same
-/// answer on a resimulated frame as on a live one.
-///
-/// ⭐ AND IT CANCELS RATHER THAN FREEZING. Gating `advance_move_playback` on
-/// `OutOfPlay` would stop the clock and leave the strike volumes the move
-/// already spawned standing, attached to a playback that will never reach the
-/// window that retires them. `cancel_move_playback` is the canonical teardown
-/// because it despawns those boxes.
-pub fn end_moves_for_bodies_out_of_play(
-    mut commands: bevy::prelude::Commands,
-    mut out_of_play: bevy::prelude::Query<
-        (bevy::prelude::Entity, &mut crate::moveset::MovePlayback),
-        bevy::prelude::With<OutOfPlay>,
-    >,
-) {
-    for (body, mut playback) in &mut out_of_play {
-        crate::moveset::cancel_move_playback(&mut commands, body, &mut playback, crate::moveset::MoveEnd::LeftPlay);
-    }
-}

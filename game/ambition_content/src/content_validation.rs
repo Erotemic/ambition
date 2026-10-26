@@ -241,7 +241,7 @@ fn validate_npc_brain_overrides(
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     report: &mut ContentValidationReport,
 ) {
-    use ambition_characters::actor::character_catalog::BrainBuildError;
+    use ambition_characters::control::brain_binding::BrainBuildError;
     for level in &project.levels {
         for entity in level.all_entity_instances() {
             if entity.identifier != "NpcSpawn" {
@@ -262,8 +262,7 @@ fn validate_npc_brain_overrides(
                 // A catalog-backed NPC: the character must exist and the override (if any)
                 // must resolve. `validate_brain_override` checks both.
                 (Some(character_id), brain_override) => {
-                    match character_catalog
-                        .validate_brain_override(&character_id, brain_override.as_deref())
+                    match ambition_characters::control::brain_binding::validate_brain_override(&(character_catalog), &character_id, brain_override.as_deref())
                     {
                         Ok(_) => {}
                         // A character owned by a provider not loaded in this composition:

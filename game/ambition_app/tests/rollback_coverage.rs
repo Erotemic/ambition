@@ -169,11 +169,11 @@ const WAIVED: &[(&str, &str)] = &[
          session rather than moving inside it",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::character_execution::StartingCharacter",
+        "ambition_platformer2d_session::initial_body::StartingCharacter",
         "session activation input, resolved once at player spawn",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::character_execution::InitialBodyPolicy",
+        "ambition_platformer2d_session::initial_body::InitialBodyPolicy",
         "the same session activation input one level up: WHETHER this session \
          lowers a home avatar at all, and which one. Authored by the experience \
          definition, written onto the session world root when the session is \
@@ -182,7 +182,7 @@ const WAIVED: &[(&str, &str)] = &[
          changed mid-flight would be a different session",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::character_execution::HomeBodyResources",
+        "ambition_platformer2d_session::initial_body::HomeBodyResources",
         "the same activation input for what the home body HOLDS: the prepared \
          bank the experience declared, on the session root beside \
          `InitialBodyPolicy`, read only by `simulation_world` when it builds the \
@@ -1430,7 +1430,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // gameplay consequence — art-derived hitboxes would be exactly that, and
     // §4.11 forbids it for this reason — this waiver becomes wrong.
     (
-        "::character_runtime::CharacterLoadStates",
+        "::materialization::CharacterLoadStates",
         "character art load bookkeeping; decoded-ness has no simulation consequence",
     ),
     (
@@ -1438,7 +1438,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "which sheets have been ASKED for; idempotent, and a decode has no simulation consequence",
     ),
     (
-        "::character_runtime::CharacterMaterializationService",
+        "::materialization::CharacterMaterializationService",
         "the art materializer seam itself; holds no per-frame simulation state",
     ),
     (
@@ -1584,11 +1584,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "authored LDtk project; hot reload restarts the session",
     ),
     (
-        "::assets::gameplay_defaults::Platformer2dGameplayDefaults",
+        "ambition_platformer2d_assets::gameplay_defaults::Platformer2dGameplayDefaults",
         "authored data-spec value",
     ),
     (
-        "::session::data::Platformer2dGameplayDefaultsHandle",
+        "ambition_platformer2d_session::data::Platformer2dGameplayDefaultsHandle",
         "authored data asset handle",
     ),
     (
@@ -1896,7 +1896,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "a marker saying THIS APP is composed as the shell-routed multi-game host          — \"absent in direct-entry and headless harnesses\". Composition identity,          inserted before the first frame; a rewind cannot change which app this is",
     ),
     (
-        "ambition_platformer2d_provider::authoring::PlatformerAuthoredCatalogRegistry",
+        "ambition_platformer2d_provider::catalogs::PlatformerAuthoredCatalogRegistry",
         "its own doc: \"app-local map from experience id to its authored catalog          fragments — the authority the shared preparation systems validate          against\". Authored content indexed at composition time; a rewind does not          re-author a catalog",
     ),
     (

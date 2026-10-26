@@ -660,10 +660,10 @@ fn put_attack_binding(out: &mut Vec<u8>, binding: crate::brain::attack_kit::Atta
 /// [`Brain`](crate::brain::Brain) is restored whole beside it (its cursor is only
 /// the checksum projection), so a rewind restores the pair exactly as saved and
 /// nothing rebuilds one from the other.
-impl SnapshotState for crate::actor::character_catalog::BrainBinding {
+impl SnapshotState for crate::control::brain_binding::BrainBinding {
     fn encode(&self, out: &mut Vec<u8>) {
-        use crate::actor::character_catalog::AutonomousDefault;
-        use crate::actor::character_catalog::AutonomousSource;
+        use crate::control::brain_binding::AutonomousDefault;
+        use crate::control::brain_binding::AutonomousSource;
         // THREE cases, not two. A tag byte: 0 = nothing to restore (a boss), 1 = a catalog preset,
         // 2 = the character's own authored profile.
         match &self.default_preset {
@@ -709,9 +709,10 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use crate::actor::character_catalog::{
-            AutonomousDefault, AutonomousSource, BossAutonomyId, BrainBinding, BrainPresetId,
-        };
+        use crate::actor::character_catalog::{BossAutonomyId, BrainPresetId};
+        use crate::control::brain_binding::AutonomousDefault;
+        use crate::control::brain_binding::AutonomousSource;
+        use crate::control::brain_binding::BrainBinding;
         let default_preset = match r.u8()? {
             0 => AutonomousDefault::None,
             1 => AutonomousDefault::Preset(BrainPresetId::new(r.str()?.to_string())),
@@ -742,7 +743,7 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
 /// plain `register_component`. Snapshot-safe so a `RestoreDefault` resimulated
 /// after a rewind recenters a patrol brain on its AUTHORED home, not wherever the
 /// actor wandered before the rewind.
-impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
+impl SnapshotState for crate::control::brain_binding::AuthoredBrainContext {
     fn encode(&self, out: &mut Vec<u8>) {
         put_f32(out, self.spawn_anchor_x);
         match self.patrol_radius {
@@ -755,7 +756,7 @@ impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::actor::character_catalog::AuthoredBrainContext {
+        Some(crate::control::brain_binding::AuthoredBrainContext {
             spawn_anchor_x: r.f32()?,
             patrol_radius: if r.bool()? { Some(r.f32()?) } else { None },
         })

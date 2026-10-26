@@ -1,4 +1,4 @@
-//! Character catalog schema, validation, resolution, and App-local assembly.
+//! Character catalog declarations, validation, and App-local assembly.
 //!
 //! Experience providers own immutable RON fragments. A host composes those
 //! fragments through [`crate::prepared::CharacterCatalogAppExt`], which transactionally rebuilds
@@ -13,19 +13,17 @@
 
 use bevy::prelude::*;
 
-pub mod binding;
+pub mod declarations;
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
 pub mod entry;
 pub mod loader;
 pub mod registry;
-pub mod resolver;
 pub mod validator;
 
-pub use binding::{
-    qualify_in_provider, qualify_preset_like, resolve_initial_brain, AuthoredBrainContext,
-    AutonomousDefault, AutonomousSource, BossAutonomyId, BrainBinding, BrainBuildContext,
-    BrainBuildError, BrainPresetId, BrainPresetRef, PresetSource,
+pub use declarations::{
+    qualify_in_provider, qualify_preset_like, BossAutonomyId,
+    BrainPresetId, BrainPresetRef,
 };
 #[allow(
     unused_imports,
@@ -54,7 +52,6 @@ pub use registry::{
     ProviderDeclaration, ProviderDeclarations,
     CharacterCatalogOwners, CharacterCatalogRegistry,
 };
-pub use resolver::{action_set_from_preset, brain_from_preset, brain_from_preset_with_context};
 
 /// Bevy resource holding the assembled catalog: every registered fragment,
 /// published by [`CharacterCatalogRegistry`] assembly.
@@ -135,104 +132,9 @@ impl CharacterCatalog {
         self.0.characters.is_empty()
     }
 
-    /// Resolve a character_id into a runtime [`crate::brain::Brain`]
-    /// using its catalog default. `spawn_world_x` becomes the patrol
-    /// center for `Patrol`-brain characters.
-    pub fn build_default_brain(
-        &self,
-        character_id: &str,
-        spawn_world_x: f32,
-    ) -> Option<crate::brain::Brain> {
-        let entry = self.get(character_id)?;
-        // A character that names no preset has no default brain to build — its
-        // definition's autonomous profile is the answer, and this road is not it.
-        if entry.default_brain.is_empty() {
-            return None;
-        }
-        let preset = self.0.brain_presets.get(&entry.default_brain)?;
-        Some(brain_from_preset(preset, spawn_world_x))
-    }
-
-    /// Build a runtime [`crate::brain::Brain`] from a NAMED brain preset,
-    /// threading the per-spawn [`BrainBuildContext`] (patrol lane center / radius
-    /// / path). `None` if the preset name is not in `brain_presets`.
-    ///
-    /// This is the single seam `preset name → Brain`. Both
-    /// [`resolve_initial_brain`] (spawn) and the runtime `BrainCommand` reducer
-    /// call it, so a preset resolves identically at spawn and at a later runtime
-    /// switch. It never inspects the built brain.
-    pub fn build_brain_from_preset(
-        &self,
-        preset_name: &str,
-        ctx: &BrainBuildContext,
-    ) -> Option<crate::brain::Brain> {
-        let preset = self.0.brain_presets.get(preset_name)?;
-        Some(brain_from_preset_with_context(preset, ctx))
-    }
-
     /// Whether a named (already-qualified) brain preset exists in this catalog.
     pub fn has_brain_preset(&self, preset_name: &str) -> bool {
         self.0.brain_presets.contains_key(preset_name)
-    }
-
-    /// Prepared-content validation for a placement's `brain_override`, WITHOUT
-    /// building a brain. Applies the same deterministic namespace rule as spawn
-    /// ([`qualify_preset_like`]): a raw override resolves within the character's
-    /// own provider namespace, a fully-qualified override is used exactly.
-    ///
-    /// `None`/empty means the character default (already validated at catalog
-    /// assembly) → `Ok(None)`. An unknown character, or an override that does not
-    /// resolve, is a loud [`BrainBuildError`] — never a silent pass. Returns the
-    /// resolved preset key so a caller can log what it validated.
-    pub fn validate_brain_override(
-        &self,
-        character_id: &str,
-        authored_override: Option<&str>,
-    ) -> Result<Option<BrainPresetId>, BrainBuildError> {
-        let entry = self
-            .get(character_id)
-            .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
-        let Some(name) = authored_override.map(str::trim).filter(|s| !s.is_empty()) else {
-            return Ok(None);
-        };
-        // Falling back to the `default_brain` inference keeps an UNASSEMBLED fragment working,
-        // where `provider` is empty because nothing has registered it yet — and that fallback
-        // is what the assembled catalog no longer needs. not every path does: the ASSEMBLY sets
-        // it, and a catalog lowered straight from compiled pack bytes carries whatever was
-        // serialized — so this degrades rather than assuming.
-        //
-        //  the fallbacks are both "a neighbouring key that is namespaced the same way", which
-        // is the smell `qualify_preset_like`'s doc names. Each disappears as its authority
-        // arrives.
-        let namespace_carrier = if !entry.provider.is_empty() {
-            format!("{}::_", entry.provider)
-        } else if !entry.default_action_set.is_empty() {
-            entry.default_action_set.clone()
-        } else {
-            entry.default_brain.clone()
-        };
-        let key = qualify_preset_like(&namespace_carrier, name);
-        if self.has_brain_preset(&key) {
-            Ok(Some(BrainPresetId::new(key)))
-        } else {
-            Err(BrainBuildError::UnknownPreset {
-                character_id: character_id.to_string(),
-                preset: name.to_string(),
-                resolved: key,
-                source: PresetSource::Override,
-            })
-        }
-    }
-
-    /// Resolve a character_id into a runtime [`crate::brain::action_set::ActionSet`]
-    /// using its catalog default.
-    pub fn build_default_action_set(
-        &self,
-        character_id: &str,
-    ) -> Option<crate::brain::action_set::ActionSet> {
-        let entry = self.get(character_id)?;
-        let preset = self.0.action_set_presets.get(&entry.default_action_set)?;
-        Some(action_set_from_preset(preset))
     }
 
     pub fn display_name(&self, character_id: &str) -> Option<&str> {
@@ -414,7 +316,6 @@ impl CharacterCatalog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::{Brain, StateMachineCfg};
 
     fn portrait_catalog_fixture(portrait: &str) -> CharacterCatalog {
         let data = parse_catalog(&format!(
@@ -781,210 +682,6 @@ mod tests {
         assert_eq!(catalog.bark_line("npc_mute", BarkSituation::Idle, 0), None);
     }
 
-    #[test]
-    fn brain_preset_patrol_offsets_spawn_world_x() {
-        // The patrol lane center is `spawn_world_x + spawn_local_x`.
-        // Pin the offset arithmetic so a refactor that drops the add
-        // breaks here rather than at first-spawn.
-        let preset = BrainPreset::Patrol {
-            spawn_local_x: 5.0,
-            radius: 64.0,
-            speed: 32.0,
-            aggressiveness: 0.0,
-            aggro_radius: 80.0,
-            attack_range: 0.0,
-        };
-        let brain = brain_from_preset(&preset, 100.0);
-        match brain {
-            Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
-                assert_eq!(cfg.lane.center_x, 105.0);
-                assert_eq!(cfg.lane.radius_px, 64.0);
-            }
-            other => panic!("expected Patrol, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn brain_preset_smash_threads_cfg_and_difficulty() {
-        // The data-exposed Smash fighter preset must resolve to a
-        // StateMachineCfg::Smash with its tuning + difficulty floats
-        // threaded through — this is the seam the PCA encounter swaps in.
-        let preset = BrainPreset::Smash {
-            aggro_radius: 460.0,
-            engage_distance: 76.0,
-            attack_range: 52.0,
-            too_close_distance: 34.0,
-            chase_speed: 150.0,
-            retreat_speed: 120.0,
-            crowding_threshold: 0.65,
-            sprint_to_close: true,
-            reaction_delay_s: 0.12,
-            commit_probability: 0.85,
-            accuracy: 0.9,
-        };
-        let brain = brain_from_preset(&preset, 0.0);
-        match brain {
-            Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
-                assert_eq!(cfg.attack_range, 52.0);
-                assert!(cfg.sprint_to_close);
-                assert_eq!(cfg.difficulty.reaction_delay_s, 0.12);
-                assert_eq!(cfg.difficulty.commit_probability, 0.85);
-                assert_eq!(cfg.difficulty.accuracy, 0.9);
-            }
-            other => panic!("expected Smash, got {other:?}"),
-        }
-        // Smash brains are hostile by construction (the encounter only
-        // arms them on the explicit challenge choice).
-        assert!(brain_from_preset(&preset, 0.0).is_hostile());
-    }
-
-    /// Prepared-content validation of `brain_override` against a MULTI-PROVIDER
-    /// assembled catalog (the real Hall composition: `default`/`sanic`/`mary_o`
-    /// each own their own `stand_still`). Proves the deterministic namespace rule:
-    /// a raw override resolves ONLY within the character's own provider namespace,
-    /// a qualified override is used exactly, and nothing leaks across providers.
-    mod brain_override_validation {
-        use super::*;
-
-        fn frag(provider: &str, ron: &str) -> CharacterCatalogFragment {
-            CharacterCatalogFragment::from_ron(provider, None::<String>, ron)
-                .expect("fragment parses")
-        }
-
-        fn character(id: &str, default_brain: &str) -> String {
-            format!(
-                r#""{id}": (
-                    display_name: "{id}", manifest: "x_spritesheet.ron",
-                    tier: MainHall, body_kind: Standard, composition: None,
-                    default_brain: "{default_brain}", default_action_set: "peaceful", tags: [],
-                )"#
-            )
-        }
-
-        // The assembled host. `default` also owns a `shared_only` preset that the
-        // other providers do NOT — the cross-provider-leak probe.
-        fn host() -> CharacterCatalog {
-            let mut reg = CharacterCatalogRegistry::default();
-            reg.register(frag(
-                "default",
-                &format!(
-                    r#"(
-                    brain_presets: {{ "stand_still": StandStill, "shared_only": StandStill }},
-                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
-                    characters: {{ {} }},
-                )"#,
-                    character("amb_hero", "stand_still")
-                ),
-            ))
-            .unwrap();
-            reg.register(frag(
-                "sanic",
-                &format!(
-                    r#"(
-                    brain_presets: {{
-                        "stand_still": StandStill,
-                        "sanic_special": Wanderer(speed: 9.0, aggressiveness: 0.0),
-                    }},
-                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
-                    characters: {{ {} }},
-                )"#,
-                    character("sanic", "stand_still")
-                ),
-            ))
-            .unwrap();
-            reg.register(frag(
-                "mary_o",
-                &format!(
-                    r#"(
-                    brain_presets: {{ "stand_still": StandStill }},
-                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
-                    characters: {{ {} }},
-                )"#,
-                    character("mary_o", "stand_still")
-                ),
-            ))
-            .unwrap();
-            reg.assemble().expect("assembles").catalog
-        }
-
-        #[test]
-        fn each_provider_resolves_its_own_stand_still() {
-            let cat = host();
-            // Ambition-owned, Sanic, and Mary-O each resolve the RAW "stand_still"
-            // into their OWN provider namespace.
-            for (character, provider) in [
-                ("amb_hero", "default"),
-                ("sanic", "sanic"),
-                ("mary_o", "mary_o"),
-            ] {
-                assert_eq!(
-                    cat.validate_brain_override(character, Some("stand_still"))
-                        .unwrap(),
-                    Some(BrainPresetId::new(format!("{provider}::stand_still"))),
-                    "{character}'s raw stand_still resolves in {provider}",
-                );
-            }
-        }
-
-        #[test]
-        fn a_fully_qualified_override_is_used_exactly() {
-            let cat = host();
-            // Sanic authored with a fully-qualified preset from ANOTHER provider —
-            // used verbatim (it exists in the assembled catalog).
-            assert_eq!(
-                cat.validate_brain_override("sanic", Some("default::stand_still"))
-                    .unwrap(),
-                Some(BrainPresetId::new("default::stand_still")),
-            );
-        }
-
-        #[test]
-        fn a_provider_local_preset_resolves() {
-            let cat = host();
-            assert_eq!(
-                cat.validate_brain_override("sanic", Some("sanic_special"))
-                    .unwrap(),
-                Some(BrainPresetId::new("sanic::sanic_special")),
-            );
-        }
-
-        #[test]
-        fn a_raw_override_does_not_leak_across_providers() {
-            let cat = host();
-            // `shared_only` exists ONLY under `default`. Sanic authoring it raw must
-            // NOT silently resolve to `default::shared_only` — it fails, because a
-            // raw override resolves only in the character's own namespace.
-            let err = cat
-                .validate_brain_override("sanic", Some("shared_only"))
-                .unwrap_err();
-            assert!(
-                matches!(&err, BrainBuildError::UnknownPreset { resolved, .. } if resolved == "sanic::shared_only"),
-                "a raw cross-provider preset must fail, not leak: {err:?}",
-            );
-        }
-
-        #[test]
-        fn a_missing_preset_fails_and_empty_is_ok() {
-            let cat = host();
-            assert!(matches!(
-                cat.validate_brain_override("amb_hero", Some("no_such"))
-                    .unwrap_err(),
-                BrainBuildError::UnknownPreset { .. }
-            ));
-            // Absent / empty override is always valid (the character default).
-            assert_eq!(cat.validate_brain_override("amb_hero", None).unwrap(), None);
-            assert_eq!(
-                cat.validate_brain_override("amb_hero", Some("  ")).unwrap(),
-                None
-            );
-            // An unknown character is a loud error.
-            assert!(matches!(
-                cat.validate_brain_override("nobody", Some("stand_still"))
-                    .unwrap_err(),
-                BrainBuildError::UnknownCharacter(_)
-            ));
-        }
-    }
 }
 
 #[cfg(test)]

@@ -64,6 +64,24 @@ mod tests {
     use crate::actor::character_catalog::*;
 
     #[test]
+    fn a_fragment_prepares_its_rows_without_a_controller_plugin() {
+        let mut app = App::new();
+        let source = A.replace("a.ron", "alpha_spritesheet.ron");
+        app.register_character_catalog_fragment(fragment("a", "alpha", &source));
+        app.finish();
+        let prepared = app
+            .world()
+            .resource::<crate::prepared::PreparedCharacterRegistry>();
+        let character = prepared
+            .get("alpha")
+            .expect("the fragment's row is prepared");
+        assert_eq!(character.provider, "a");
+        assert_eq!(character.sheet.as_deref(), Some("alpha"));
+        assert!(character.kit.action_set().is_some());
+        assert!(character.autonomous_profile.is_none());
+    }
+
+    #[test]
     fn failed_registration_leaves_the_previous_assembly_intact() {
         let mut app = App::new();
         app.register_character_catalog_fragment(fragment("a", "alpha", A));

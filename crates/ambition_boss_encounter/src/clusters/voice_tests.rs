@@ -1,9 +1,7 @@
 //! A boss's voice: the barks of the character row its encounter names.
 
 use super::*;
-use ambition_characters::actor::character_catalog::{
-    BarkSituation, CharacterCatalog, CharacterCatalogData,
-};
+use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCatalog, CharacterCatalogData};
 
 fn shipped_characters() -> CharacterCatalog {
     CharacterCatalog::from_data(

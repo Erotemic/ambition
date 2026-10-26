@@ -98,7 +98,6 @@ fn an_authored_character_decides_whether_it_charges() {
     assert!(!plain.ranged_execution.charges_projectiles());
 }
 
-
 #[test]
 fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     // Q16 test (c): wearing a momentum character makes the box ride
@@ -145,7 +144,6 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
         "unwearing a momentum character installs the explicit axis-swept policy"
     );
 }
-
 
 /// S1: gameplay configuration is DERIVED from the worn identity, at spawn
 /// (Added) and on any later re-wear (Changed). A body carrying only the
@@ -601,17 +599,17 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
         "the pirate's pistol survived a re-wear, so this body's kit depends on \
          what it used to be — and a restored snapshot would inherit it too"
     );
-    let authored = app
-        .world()
-        .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
-        .build_default_action_set("player_robot_v3")
-        .expect("the destination row names a kit");
+    let authored = app.world()
+        .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+        .get("player_robot_v3")
+        .and_then(|character| character.kit.action_set())
+        .cloned()
+        .expect("the destination character has a prepared kit");
     assert_eq!(
         *set, authored,
         "the re-worn body kept something the destination row does not author"
     );
 }
-
 
 /// ⛔ A RE-WEAR TO AN ID THE CAST DOES NOT HOLD IS REFUSED (Q103). The body
 /// wears the pirate admiral again, with its name, its pistol and its baseline:

@@ -20,7 +20,8 @@
 use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::characters::actor::character_catalog::{AutonomousSource, BrainBinding};
+use ambition_platformer2d::character::AutonomousSource;
+use ambition_platformer2d::character::BrainBinding;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg, WandererCfg};
 use bevy::prelude::{Entity, World};
@@ -97,7 +98,7 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
     world
         .get_mut::<BrainBinding>(body)
         .expect("the chosen body has a binding")
-        .source = ambition_platformer2d::characters::actor::character_catalog::AutonomousSource::ProvokedProfile {
+        .source = ambition_platformer2d::character::AutonomousSource::ProvokedProfile {
         profile: ambition_platformer2d::characters::brain::BrainProfileId::new("ambition::provoked_combatant"),
     };
     // A mind that is not the peaceful one, so "the brain survived" cannot be

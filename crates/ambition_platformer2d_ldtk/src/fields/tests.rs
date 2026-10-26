@@ -1,3 +1,4 @@
+use crate::project::LdtkFieldInstance;
 use super::*;
 use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
 use ambition_platformer2d_core::KinematicPathMode;

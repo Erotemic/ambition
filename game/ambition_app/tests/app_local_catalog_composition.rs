@@ -8,9 +8,7 @@
 
 use ambition_platformer2d::boss_encounter::{BossCatalog, BossCatalogRegistry};
 use ambition_platformer2d::audio::catalog::AudioCatalogRegistry;
-use ambition_platformer2d::characters::actor::character_catalog::{
-    CharacterCatalog, CharacterCatalogDefaults, CharacterCatalogOwners,
-};
+use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogDefaults, CharacterCatalogOwners};
 use bevy::prelude::*;
 
 fn register_ambition(app: &mut App) {
@@ -240,8 +238,7 @@ fn the_full_hall_validates_with_every_hub_provider_catalog() {
             let Some(character_id) = character_id else {
                 continue;
             };
-            catalog
-                .validate_brain_override(&character_id, brain_override.as_deref())
+            ambition_platformer2d::character::validate_brain_override(&(catalog), &character_id, brain_override.as_deref())
                 .unwrap_or_else(|error| {
                     panic!(
                         "Hall NpcSpawn '{}' ({character_id}) fails full-host validation: {error}",

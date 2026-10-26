@@ -10,9 +10,7 @@ use bevy::prelude::*;
 use ambition_asset_manager::AssetId;
 
 use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
-use ambition_characters::actor::character_catalog::{
-    CharacterCatalog, CharacterPortraitRef,
-};
+use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterPortraitRef};
 use ambition_persistence::settings::{TextureResolutionScale, VisualQualityBudget};
 use ambition_platformer2d_core as ae;
 // Keep the catalog-to-sheet join qualified so call sites distinguish the

@@ -50,7 +50,7 @@ pub use surfaces::{
 pub use fields::{boss_placement_id, field_bool, field_f32, field_i32, field_string, field_text};
 
 use fields::{
-    edge_exit_step_up_px, entity_rect, entity_touches_level_edge, known_entity, loading_zone_id,
+    edge_exit_step_up_px, entity_rect, entity_touches_level_edge, loading_zone_id,
     pivot_is_top_left, rects_strict_intersect,
 };
 use intgrid::{AMBITION_LAYER, GRID};
@@ -149,7 +149,7 @@ impl LdtkProject {
                 .collect::<Vec<_>>();
 
             for entity in &layer.entity_instances {
-                if !known_entity(&entity.identifier, vocabulary) {
+                if vocabulary.converter_for(&entity.identifier).is_none() {
                     report.errors.push(format!(
                         "level '{}' has unsupported Ambition entity '{}' ({})",
                         level.identifier, entity.identifier, entity.iid

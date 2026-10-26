@@ -334,6 +334,11 @@ where
         "derived.surface_upright",
         "republished from support facts every movement step",
     );
+    registrar.require_rollback::<crate::frame_env::ForceZone>(OWNER, "entity:force_zone");
+    registrar.rollback_component_canonical::<crate::frame_env::ForceZone>(
+        OWNER,
+        "frame_env.force_zone",
+    );
     registrar.declare_rollback_derived_resource::<crate::frame_env::ForceZones>(
         OWNER,
         "derived.force_zones",

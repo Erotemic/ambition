@@ -379,7 +379,6 @@ ambition_abilities = { path = "../ambition_abilities", features = ["test-support
 # Tests use developer fixtures and counters. Runtime code must not depend
 # on the developer-tools crate.
 ambition_dev_tools = { path = "../ambition_dev_tools" }
-# LDtk conversion fixtures are test-only; the production edge is optional.
 # Cross-crate fixtures require the test-support feature in dev builds only.
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
@@ -391,10 +390,3 @@ ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }
 # Dialogue fixtures are test-only; runtime callers depend on dialogue directly.
 ambition_dialog = { path = "../ambition_dialog" }
-# The observation-boundary crate: the headless camera example resolves its
-# snapshot through it (dev-only; cyclic dev-deps are fine).
-ambition_sim_view = { path = "../ambition_sim_view" }
-# Pure-Rust PNG encode for the headless geometry-debug renderer
-# (examples/render_room_geometry.rs). Already in the lock via Bevy, so no
-# new crate build — dev-only so it never touches the shipping binary.
-image = { version = "0.25", default-features = false, features = ["png"] }

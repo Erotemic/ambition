@@ -166,7 +166,3 @@ fn gate_one_arena(
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-pub(crate) mod conductor_reference_tests;
-#[cfg(test)]
-mod conductor_parity_tests;

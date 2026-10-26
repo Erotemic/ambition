@@ -464,17 +464,13 @@ before you add a port.
   stomp's travelling shocks need no new port: `ambition.combat.held_damage_box`
   v2 keeps a box while it is re-submitted, moves it to the submitted centre,
   and a new generation re-arms it with a fresh hit memory. The module
-  (`ambition_content_modules::gnu_ton`, its choreography beside it) and its
-  parity harness (`bosses::gnu_ton::conductor_parity_tests`: identical to the
-  native conductor for 1420 ticks of every move, the blows, the buck, the
-  shocks, eureka and death) are landed. The harness found that the native
-  stomp threw no shock (the wave was dropped on the tick it began); fixed.
-  ✅ 2026-10-11: the module is composed and conducts the fight. The native
-  conductor is the harness's test-only reference
-  (`bosses::gnu_ton::conductor_reference_tests`), `content.gnu_ton_conductor`
-  left the rollback registry (schema 341), and the app reads the module's
-  record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
-  `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
+  (`ambition_content_modules::gnu_ton`, with its choreography) conducts the
+  fight. The native conductor and its migration parity harness are deleted.
+  The app reads the module record through `bosses::gnu_ton::conductor_of`.
+  `content.gnu_ton_conductor` left the rollback registry at schema 341.
+  The `gnu_ton_fight` tests cover the live fight, damage windows, the buck,
+  eureka and room isolation. Removing the module from `MODULES` fails these
+  behavior tests. Keep one conductor; do not restore the native reference.
 
 - 2026-10-11 (S1-S3 ✅), **a custom brain as a module** (`actor_think`).
   A custom brain now decides through a loaded module after

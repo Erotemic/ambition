@@ -27,10 +27,12 @@ static_core_assets = ["ambition_asset_manager/static_core_assets"]
 content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
-# ECS surface only (Resource / Component / App via prelude) + logging macros.
-# No render/audio/windowing — this crate stays reusable and headless.
+# Sprite data, image assets, and logs need no rendering pipeline.
 bevy = { version = "0.19.1", default-features = false, features = [
-    "2d_bevy_render",
+    "bevy_asset",
+    "bevy_image",
+    "bevy_log",
+    "bevy_sprite",
 ] }
 
 # RON manifest schema + parsing of the baked sheet table.

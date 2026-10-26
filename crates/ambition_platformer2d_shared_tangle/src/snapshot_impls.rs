@@ -249,6 +249,24 @@ impl SnapshotState for crate::gravity::BaseGravity {
     }
 }
 
+impl SnapshotState for crate::frame_env::ForceZone {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.aabb.min);
+        put_vec2(out, self.aabb.max);
+        put_vec2(out, self.accel);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            aabb: ambition_platformer2d_core::Aabb {
+                min: r.vec2()?,
+                max: r.vec2()?,
+            },
+            accel: r.vec2()?,
+        })
+    }
+}
+
 impl SnapshotState for crate::gravity::GravityField {
     fn encode(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.dir);

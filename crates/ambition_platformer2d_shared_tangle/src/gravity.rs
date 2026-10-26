@@ -182,11 +182,11 @@ pub enum AmbientGravityRequest {
 /// felt this tick. Two requests in one tick cycle twice, in write order.
 ///
 /// The developer turns the primary seat's room, which is the room the
-/// developer looks at ([`crate::lifecycle::PrimaryLiveRoom`]).
+/// developer looks at ([`crate::body::PrimaryLiveRoom`]).
 pub fn apply_ambient_gravity_requests(
     mut requests: MessageReader<AmbientGravityRequest>,
     mut base: ResMut<BaseGravity>,
-    developer: crate::lifecycle::PrimaryLiveRoom,
+    developer: crate::body::PrimaryLiveRoom,
 ) {
     let room = developer.get();
     for request in requests.read() {

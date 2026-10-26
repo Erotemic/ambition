@@ -68,7 +68,7 @@ pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
 pub(crate) fn render_debug_overlay_labels(
     mut gizmos: Gizmos,
     worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
-    room: ambition_platformer2d::platformer::lifecycle::PrimaryLiveRoom,
+    room: ambition_platformer2d::platformer::body::PrimaryLiveRoom,
     mut labels: ResMut<DebugOverlayLabels>,
 ) {
     // The labels are in the room that `draw_debug_overlay` drew: the room of

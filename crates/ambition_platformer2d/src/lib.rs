@@ -641,7 +641,7 @@ pub mod content {
 
         /// Register the catalog and every character in it.
         pub fn register(self, app: &mut bevy::prelude::App) {
-            use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
+            use ambition_characters::prepared::CharacterCatalogAppExt;
             use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
             let pack = self.pack.prepared();
@@ -1088,9 +1088,8 @@ pub mod actor {
 /// Closed list.
 pub mod character {
     /// The cast, as authored content.
-    pub use ambition_characters::actor::character_catalog::{
-        CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment, parse_catalog,
-    };
+    pub use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogFragment, parse_catalog};
+    pub use ambition_characters::prepared::CharacterCatalogAppExt;
     /// What providers have authored, for a game that wants to inspect its own
     /// content before a session exists.
     pub use ambition_platformer2d_provider::PlatformerAuthoredCatalogRegistry;

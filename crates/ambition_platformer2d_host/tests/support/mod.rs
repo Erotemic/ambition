@@ -42,9 +42,8 @@ const FIXTURE_CATALOG_RON: &str = r#"(
 
 impl Plugin for FixtureContentPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_characters::actor::character_catalog::{
-            CharacterCatalogAppExt, CharacterCatalogFragment,
-        };
+        use ambition_characters::actor::character_catalog::CharacterCatalogFragment;
+        use ambition_characters::prepared::CharacterCatalogAppExt;
         app.register_character_catalog_fragment(
             CharacterCatalogFragment::from_ron("fixture", Some("player"), FIXTURE_CATALOG_RON)
                 .expect("fixture character catalog should be valid"),

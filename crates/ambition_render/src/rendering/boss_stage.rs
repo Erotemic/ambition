@@ -15,9 +15,8 @@ use bevy::prelude::*;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d_core::config::WORLD_Z_FX;
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, LiveRoomOf, PrimaryLiveRoom, SessionSpawnScope, SpawnSessionScopedExt,
-};
+use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, LiveRoomOf, SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 use ambition_sim_view::BossRenderIndex;
 
 /// Over the bodies, under the effects.

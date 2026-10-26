@@ -102,37 +102,35 @@ be removed. Choose work from here in `queue.md` when it is ready to execute.
 
 ### C1 — live-room contract versus body and display
 
-In `ambition_platformer2d_shared_tangle`, the `lifecycle` module reads
-`body::PrimaryBody` from `lifecycle/room_instance.rs:212`. The same file calls
-`camera_layers::live_room_band` near line 160. Room identity, primary-seat
-selection and camera band policy are different questions.
+`body::PrimaryLiveRoom` owns primary-body room selection. The lifecycle query
+returns room identities; presentation applies `camera_layers::live_room_band`
+to the same component-bearing roots. Lifecycle no longer imports body or
+camera policy. The room-selection test covers missing and duplicate primary
+bodies, sole-room fallback and multiple-room refusal.
 
-Keep `LiveRoomInstance`, `InRoomInstance` and the live-room query as the
-shared lifecycle contract. Review whether the primary-seat query belongs in
-the body or runtime reader, and whether camera band selection belongs in a
-presentation reader. A direct call is valid if there is a proven single owner;
-do not create a generic room lookup service.
-
-**Acceptance:** a missing primary body still selects the sole live room; more
-than one live room has no false sole-room answer; the developer gravity
-control and music tie-break keep their defined room choice (Q150). Keep
-room-stamp, split-view and session-retirement tests applicable. Re-run the
-SCC scan and name any remaining shared invariant.
+The remaining groups are **GROUP_PACKAGE**: `body`, `frame_env`, `gravity`
+and `orientation` supply one body motion frame and its required orientation;
+`construction`, `feature_overlay` and `lifecycle` govern room-root admission,
+candidate visibility and retirement. Keep the component requirements and
+candidate visibility rules. The scan reports two groups, of four and three
+modules, in place of the former eight-module group.
 
 ### C2 — character definition versus preparation and control
 
-`ambition_characters::actor::character_catalog::registry.rs:713-720` installs
-`CharacterPreparationPlugin` while it registers a catalog fragment. That
-ensures the fragment gets preparation. It also makes the catalog definition
-path know an installation rule. The larger SCC includes `actor`, `brain`,
-`control`, `prepared` and other actor features.
+`prepared::CharacterCatalogAppExt` owns fragment registration and installs
+its preparation barrier. The catalog registry only assembles definition data.
+Registration still builds a complete candidate before it publishes resources;
+a failed registration leaves the previous assembly intact. Tests stay with
+their owners, including the fragment-only preparation test.
 
-Review the registry callers first. Keep catalog and brain declarations as
-data. Put preparation behavior in its owner and plugin assembly with the
-capability or composition owner that has the needed information. Do not make
-registration succeed without the barrier it used to install. For the actor
-and brain back-edges, determine which facts must be shared and which decision
-belongs to the controller.
+The remaining cut is catalog-to-controller construction. Keep preset and
+character declarations in the catalog. Move live controller selection to
+`control`, constructors to the existing actor-spawn builder, and action-set
+lowering to `prepared`. Do not move live actor policy into spawning.
+
+The `prepared` and `session_cast` group is **GROUP_PACKAGE**: active sessions
+read their frozen cast, including an explicitly absent cast; no-session readers
+use the published generation. Keep that reload boundary.
 
 **Acceptance:** a fragment alone gets the same preparation guarantee; a
 prepared character has the same defaults and brain profile; an absent

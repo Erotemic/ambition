@@ -1038,7 +1038,7 @@ impl PlatformerApp {
         for (id, prepared) in prepared_casts {
             let PreparedCast { characters, audio } = prepared;
             if let Some(fragment) = characters {
-                use crate::characters::actor::character_catalog::registry::CharacterCatalogAppExt as _;
+                use crate::characters::prepared::CharacterCatalogAppExt as _;
                 app.try_register_character_catalog_fragment(fragment)
                     .map_err(|error| CompositionError {
                         stage: CompositionStage::Assembly,

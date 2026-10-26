@@ -228,6 +228,22 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
+### ARCH-CYCLES — remove wrong module dependency directions
+
+**Owner:** [internal module cycle breaking](engine/internal-module-cycle-breaking.md).
+Jon selected this work before further monolith decomposition and system
+consolidation. Review ownership, state, and lifetime; do not target zero cycles.
+
+**Active:** C2, catalog declarations versus controller selection and construction.
+C1 separates room identity from primary-body selection and camera bands.
+Catalog registration now belongs to preparation and keeps its automatic barrier.
+Finish C2, then review C3 through C7 in the owner plan.
+
+**Acceptance:** fragments still prepare their rows; controller selection has one
+namespace rule; rollback restores the same sources and context. Preserve room
+selection, same-tick effects, required components and frozen session casts.
+
+
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
 
 **Owner:** `ambition_input` (seating, `sources.rs`), Ambition's seating

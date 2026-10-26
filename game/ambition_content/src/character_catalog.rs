@@ -43,7 +43,7 @@ pub fn shipped_catalog() -> ambition_characters::actor::character_catalog::Chara
 ///
 /// The fragment is lowered from the App's selected pack ([`crate::pack::select`]).
 pub fn register(app: &mut bevy::prelude::App) {
-    use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
+    use ambition_characters::prepared::CharacterCatalogAppExt;
 
     let pack = crate::pack::select(app.world_mut());
     let catalog = catalog_of(&pack).data().clone();

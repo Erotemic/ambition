@@ -1,7 +1,7 @@
 //! Character catalog schema, validation, resolution, and App-local assembly.
 //!
 //! Experience providers own immutable RON fragments. A host composes those
-//! fragments through [`CharacterCatalogAppExt`], which transactionally rebuilds
+//! fragments through [`crate::prepared::CharacterCatalogAppExt`], which transactionally rebuilds
 //! one deterministic [`CharacterCatalog`] resource for that Bevy `App`. Runtime
 //! systems consume the resource or an explicit shared reference; provider-local
 //! preset names are namespaced during assembly, while character IDs remain the
@@ -49,7 +49,7 @@ pub use entry::{
 )]
 pub use loader::{parse_catalog, try_parse_catalog};
 pub use registry::{
-    AssembledCharacterCatalog, BrainProfileRegistry, CharacterCatalogAppExt,
+    AssembledCharacterCatalog, BrainProfileRegistry,
     CharacterCatalogAssemblyError, CharacterCatalogDefaults, CharacterCatalogFragment,
     ProviderDeclaration, ProviderDeclarations,
     CharacterCatalogOwners, CharacterCatalogRegistry,
@@ -986,3 +986,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test_fragments;

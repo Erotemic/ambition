@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom;
+use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 use ambition_sprite_sheet::game_assets::ParallaxTheme;
 

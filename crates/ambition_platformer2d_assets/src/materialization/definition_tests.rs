@@ -316,9 +316,8 @@ fn re_registering_one_character_still_reports_the_duplicate_id() {
 /// provider that declared nothing gives its silent character nothing.
 #[test]
 fn an_unauthored_character_wears_its_providers_declared_actor_default() {
-    use ambition_characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
+    use ambition_characters::actor::character_catalog::CharacterCatalogFragment;
+    use ambition_characters::prepared::CharacterCatalogAppExt;
     use ambition_characters::actor::definition::CharacterDefinition;
     use ambition_platformer2d_core::AbilitySet;
 
@@ -385,9 +384,8 @@ fn an_unauthored_character_wears_its_providers_declared_actor_default() {
 /// silent character unprovokable rather than inventing a fighter for it.
 #[test]
 fn a_silent_character_is_provoked_into_its_providers_declared_policy() {
-    use ambition_characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
+    use ambition_characters::actor::character_catalog::CharacterCatalogFragment;
+    use ambition_characters::prepared::CharacterCatalogAppExt;
     use ambition_characters::actor::definition::CharacterDefinition;
 
     const DECLARING: &str = r#"(
@@ -450,9 +448,8 @@ fn a_silent_character_is_provoked_into_its_providers_declared_policy() {
 /// catalog-only NPC could not be provoked and, possessed, could not move.
 #[test]
 fn a_catalog_row_with_no_definition_is_prepared_with_its_providers_declarations() {
-    use ambition_characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
+    use ambition_characters::actor::character_catalog::CharacterCatalogFragment;
+    use ambition_characters::prepared::CharacterCatalogAppExt;
 
     const ROWS: &str = r#"(
         brain_presets: {},

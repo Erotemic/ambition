@@ -3424,3 +3424,6 @@ pub(crate) fn admit_and_finalize_cast(
 #[cfg(test)]
 #[path = "prepared_tests.rs"]
 mod prepared_tests;
+
+mod catalog_registration;
+pub use catalog_registration::CharacterCatalogAppExt;

@@ -223,12 +223,9 @@ pub fn install_for_boss_conduct(app: &mut App) {
 /// gravity, takes its `force` over its mass, and falls toward its `well`, for
 /// this tick, as a change of its velocity.
 ///
-/// The field has no entity and no state of its own. The change goes into
-/// `BodyKinematics::vel`, which is rollback state, on the tick it is asked
-/// for. So a rewind gives the same velocities back, and a replay that asks
-/// again gives the same change. (A `ForceZone` entity would stand for the
-/// first tick after a rewind before its requester could take it away.) A
-/// body whose pose another authority owns is not moved.
+/// The field has no entity or stored lifetime. The request changes
+/// `BodyKinematics::vel`, which is rollback state, in this tick.
+/// A body whose pose another authority owns is not moved.
 pub fn lower_held_forces<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     time: Res<ambition_time::WorldTime>,
@@ -238,6 +235,7 @@ pub fn lower_held_forces<L: LowersIn>(
             Entity,
             &mut BodyKinematics,
             Option<&ResolvedMotionFrame>,
+            Option<&ambition_platformer2d_core::SweepSample>,
             Option<&ambition_platformer2d_shared_tangle::body::Mass>,
         ),
         Without<ambition_platformer2d_core::PoseOwnedExternally>,
@@ -252,8 +250,8 @@ pub fn lower_held_forces<L: LowersIn>(
         let area = ambition_platformer2d_core::Aabb::new((min + max) * 0.5, ((max - min) * 0.5).abs());
         let lift = field.lift.clamp(0.0, 1.0);
         let force = Vec2::from(field.force);
-        for (body, mut kin, frame, mass) in &mut bodies {
-            if live.of(body) != room || !ambition_platformer2d_core::AabbExt::strict_intersects(kin.aabb(), area) {
+        for (body, mut kin, frame, sample, mass) in &mut bodies {
+            if live.of(body) != room || !ambition_platformer2d_core::AabbExt::strict_intersects(kin.collision_box(sample), area) {
                 continue;
             }
             let gravity = frame.map_or(Vec2::ZERO, |f| f.get().gravity_acceleration());
@@ -772,6 +770,9 @@ fn lower_body_sounds<L: LowersIn>(
         );
     }
 }
+
+#[cfg(test)]
+mod force_tests;
 
 #[cfg(test)]
 mod tests {

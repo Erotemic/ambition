@@ -140,11 +140,6 @@
       "class": "a published view of the box the body has"
     },
     {
-      "file": "crates/ambition_portal2d_presentation/src/visuals.rs",
-      "code": "let body = ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5));",
-      "class": "a published view of the box the body has"
-    },
-    {
       "file": "crates/ambition_sim_view/src/camera_snapshot.rs",
       "code": "let half = kin.size / 2.0;",
       "class": "the camera's framing bounds"
@@ -152,6 +147,11 @@
     {
       "file": "game/ambition_app/src/dev/debug_overlay/gizmos.rs",
       "code": "draw_aabb_styled(gizmos, world, kin.aabb(), color, developer_tools);",
+      "class": "a shot"
+    },
+    {
+      "file": "game/ambition_app/src/dev/debug_overlay/gizmos.rs",
+      "code": "kin.aabb(),",
       "class": "a shot"
     },
     {

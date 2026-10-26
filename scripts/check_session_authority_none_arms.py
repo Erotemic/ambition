@@ -42,6 +42,7 @@ the tree cannot pass by being empty.
 from __future__ import annotations
 
 import pathlib
+from bisect import bisect_right
 import re
 import sys
 
@@ -82,10 +83,10 @@ MIN_SITES = 40  # anti-vacuity: a scan that finds fewer has lost the tree
 MIN_REASON = 30
 
 OPT = re.compile(
-    r"Option<\s*(?:\w+::)*(?:Res|ResMut|SessionWorldRef|SessionWorldMut)\s*<\s*(?:'\w+\s*,\s*)*(?:\w+::)*(\w+)\s*>"
+    r"Option<\s*(?:\w+::)*(?:Res|ResMut|SessionWorldRef|SessionWorldMut)\s*<\s*(?:'\w+\s*,\s*)*(?:\w+::)*(\w+)\s*,?\s*>"
 )
-GET = re.compile(r"\.(?:get_resource|get_resource_mut)::<\s*(?:\w+::)*(\w+)\s*>")
-SWC = re.compile(r"session_world_component(?:_mut)?::<\s*(?:\w+::)*(\w+)\s*>")
+GET = re.compile(r"\.(?:get_resource|get_resource_mut)::<\s*(?:\w+::)*(\w+)\s*,?\s*>")
+SWC = re.compile(r"session_world_component(?:_mut)?::<\s*(?:\w+::)*(\w+)\s*,?\s*>")
 ITEM = re.compile(r"^\s*(?:pub(?:\([a-z]+\))?\s+)?(?:async\s+)?(?:fn|struct)\s+(\w+)")
 ROW = re.compile(r"^none-arm:\s*(\S+?)::(\w+)\s*\|\s*([\w-]+)\s*\|\s*(.+?)\s*$")
 
@@ -99,19 +100,20 @@ def scan(root: pathlib.Path) -> dict[tuple[str, str], set[str]]:
             src = path.read_text(encoding="utf-8", errors="replace")
             if is_test_path(rel) or file_is_test_only(src):
                 continue
-            lines = code_only(strip_test_modules(src)).split("\n")
-            for number, line in enumerate(lines):
-                names = {m.group(1) for m in OPT.finditer(line)}
-                names |= {m.group(1) for m in GET.finditer(line)}
-                names |= {m.group(1) for m in SWC.finditer(line)}
-                names &= AUTHORITIES
-                if not names:
-                    continue
-                at = number
-                while at >= 0 and not ITEM.match(lines[at]):
-                    at -= 1
-                item = ITEM.match(lines[at]).group(1) if at >= 0 else "?"
-                found.setdefault((str(rel), item), set()).update(names)
+            code = code_only(strip_test_modules(src))
+            lines = code.split("\n")
+            starts = [0]
+            starts.extend(match.end() for match in re.finditer("\n", code))
+            for pattern in (OPT, GET, SWC):
+                for match in pattern.finditer(code):
+                    name = match.group(1)
+                    if name not in AUTHORITIES:
+                        continue
+                    at = bisect_right(starts, match.start()) - 1
+                    while at >= 0 and not ITEM.match(lines[at]):
+                        at -= 1
+                    item = ITEM.match(lines[at]).group(1) if at >= 0 else "?"
+                    found.setdefault((str(rel), item), set()).add(name)
     return found
 
 

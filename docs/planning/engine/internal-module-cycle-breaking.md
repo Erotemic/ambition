@@ -102,37 +102,37 @@ be removed. Choose work from here in `queue.md` when it is ready to execute.
 
 ### C1 — live-room contract versus body and display
 
-In `ambition_platformer2d_shared_tangle`, the `lifecycle` module reads
-`body::PrimaryBody` from `lifecycle/room_instance.rs:212`. The same file calls
-`camera_layers::live_room_band` near line 160. Room identity, primary-seat
-selection and camera band policy are different questions.
+`body::PrimaryLiveRoom` owns primary-body room selection. The lifecycle query
+returns room identities; presentation applies `camera_layers::live_room_band`
+to the same component-bearing roots. Lifecycle no longer imports body or
+camera policy. The room-selection test covers missing and duplicate primary
+bodies, sole-room fallback and multiple-room refusal.
 
-Keep `LiveRoomInstance`, `InRoomInstance` and the live-room query as the
-shared lifecycle contract. Review whether the primary-seat query belongs in
-the body or runtime reader, and whether camera band selection belongs in a
-presentation reader. A direct call is valid if there is a proven single owner;
-do not create a generic room lookup service.
-
-**Acceptance:** a missing primary body still selects the sole live room; more
-than one live room has no false sole-room answer; the developer gravity
-control and music tie-break keep their defined room choice (Q150). Keep
-room-stamp, split-view and session-retirement tests applicable. Re-run the
-SCC scan and name any remaining shared invariant.
+Runtime owns the developer request reducer and the primary-frame display
+mirror. Gravity no longer imports body selection or frame publication. The only
+remaining group is **GROUP_PACKAGE**: `construction`, `feature_overlay` and
+`lifecycle` govern room-root admission, candidate visibility and retirement.
+Keep their candidate visibility rules and all body component requirements.
 
 ### C2 — character definition versus preparation and control
 
-`ambition_characters::actor::character_catalog::registry.rs:713-720` installs
-`CharacterPreparationPlugin` while it registers a catalog fragment. That
-ensures the fragment gets preparation. It also makes the catalog definition
-path know an installation rule. The larger SCC includes `actor`, `brain`,
-`control`, `prepared` and other actor features.
+`prepared::CharacterCatalogAppExt` owns fragment registration and installs
+its preparation barrier. The catalog registry only assembles definition data.
+Registration still builds a complete candidate before it publishes resources;
+a failed registration leaves the previous assembly intact. Tests stay with
+their owners, including the fragment-only preparation test.
 
-Review the registry callers first. Keep catalog and brain declarations as
-data. Put preparation behavior in its owner and plugin assembly with the
-capability or composition owner that has the needed information. Do not make
-registration succeed without the barrier it used to install. For the actor
-and brain back-edges, determine which facts must be shared and which decision
-belongs to the controller.
+Catalog declarations no longer construct controllers. `control::brain_binding`
+owns autonomous sources, context, and initial preset selection; selection and
+validation use one namespace rule. The existing actor-spawn builders construct
+fresh brains, and `prepared::action_presets` lowers action sets. Live actor
+policy stays in the actor kernel. Rollback fields, keys and codecs stay the same.
+
+The remaining character groups are **GROUP_PACKAGE**. `prepared` and
+`session_cast` enforce the frozen-generation reload boundary. The declaration,
+control, equipment and action-scheme group holds typed character facets and the
+body's current repertoire. Keep `ActionSet`'s required resolved scheme components;
+do not replace typed character facets with a generic dispatch service.
 
 **Acceptance:** a fragment alone gets the same preparation guarantee; a
 prepared character has the same defaults and brain profile; an absent
@@ -142,92 +142,76 @@ preparation, not only compilation.
 
 ### C3 — generic actor effects versus NPC policy
 
-The residual actor crate's `features::ecs` and `features::npcs` are a nested
-SCC. In `features/ecs/damage/actor_hit.rs:258`, generic damage handling reads
-NPC-specific behavior. In `features/npcs.rs:93`, the NPC path writes a generic
-ECS effect flag. The `errand` and `navigation` modules also form a nested SCC;
-that pair may be one navigation authority and must be reviewed separately.
+Generic hit application publishes the accepted `ActorStimulus::DamagedBy`.
+The existing aggression reducer owns strike counting, retaliation, speech and
+the transition that publishes the durable provocation fact. It consumes the
+fact in the same tick. A character with no provoked policy keeps its peaceful
+standing and does not announce a hostile turn.
 
-Keep hit facts and accepted damage in the common actor path. Put NPC speech,
-provocation policy and their durable effects with the NPC/conversation owner
-or an explicit integration system. Keep same-tick and persistence meaning.
-Do not add a parallel NPC damage path or a catch-all message bus.
+The remaining `errand` and `navigation` pair is **GROUP_PACKAGE**: one goal's
+stable item identity drives this tick's route advice, and settlement consumes
+that advice to finish or refuse the same goal. Keep snapshot state separate
+from the derived graph cache.
 
-**Acceptance:** the same hit still produces the correct NPC response and
-world flag; generic damage no longer names a specific NPC response owner;
-replayed and restored states keep the same accepted damage and effects. Do
-not split errand and navigation without a reason beyond the SCC count.
+**Acceptance:** accepted hits count once; rejected hits produce no response;
+per-body thresholds govern the actual transition and its speech. Player-caused
+provocation and release keep their durable effects on replay and restore.
 
 ### C4 — physical input versus glyph names
 
-`ambition_input::bindings.rs:351` calls `glyphs::button_label` from
-`PhysicalControl::label_for`. The glyph module imports binding types. Both
-must give one control the same device-specific name, but canonical input data
-must not depend on an upper display policy.
+The `glyphs` owner implements control and binding labels, including keyboard
+labels and seat prompts. It reads canonical binding data and uses one gamepad
+label table. `bindings` no longer imports glyph policy. The public label methods
+keep their device selection, rebinding and fallback behavior.
 
-Review the users of `PhysicalControl::label` and `label_for`. Keep one table
-for gamepad names. Move only the formatting contract or its call sites so
-presentation can read binding data without a reverse edge. Do not duplicate
-the label table or break public prompts.
+The remaining binding, layout, preset, settings and active-device group is
+**GROUP_PACKAGE**: it builds and projects one seat's live `InputMap`. A device's
+vendor is an input fact; its printed button names belong to `glyphs`.
 
-**Acceptance:** keyboard, Xbox-like, DualShock and Switch names still agree
-between a binding prompt and glyph; changing a binding updates the prompt;
-unknown controls keep their fallback label; no input value depends on a
-display-only module.
+**Acceptance:** keyboard, Xbox-like, DualShock, Switch and unknown controls keep
+their defined labels; a rebind changes the prompt and glyph together.
 
 ### C5 — provider source versus lifecycle
 
-`ambition_platformer2d_provider::world_source.rs:14` imports
-`lifecycle::PlatformerPreparation`. The lifecycle module imports the authored
-catalog registry. Inspect whether the source only needs a narrow preparation
-contract or whether its code owns an orchestration operation.
+`world_source` holds source results and refusal data. Lifecycle owns request
+gates, transaction fan-out and refusal publication. `catalogs` owns authored
+catalog declarations and registration conflicts. `presentation` projects route
+declarations into camera, defense and HUD state. The authoring frontend installs
+these owners without an internal compatibility alias. The scan finds no cycle.
 
-Keep world-source interpretation below session preparation. Put a shared
-source result or refusal type with its semantic owner. Put sequencing and
-installation with the lifecycle or host. Do not introduce a service locator.
-
-**Acceptance:** a bad world file still produces a visible refusal without a
-partial live session; a valid source still admits an exact prepared session;
-reload and candidate-publication semantics do not change.
+**Acceptance:** a bad world still refuses preparation without a partial live
+session; valid sources, reloads and candidate publication keep exact prepared
+session identity. Route changes select the declared presentation.
 
 ### C6 — LDtk data versus conversion
 
-`ambition_platformer2d_ldtk::project.rs:11` imports helpers from `fields`
-and `intgrid`, although its header names a pure data-model role.
-`fields.rs:25` imports `conversion::LdtkVocabulary` to test a caller's
-entity vocabulary. These references tie raw LDtk representation to the
-conversion stage.
+The project model owns raw field decoding and structural entity-layer access.
+The converter owns room metadata and named entity-layer interpretation. IntGrid
+and terrain owners select their own named layers. Validation asks the caller's
+converter registry directly; field decoding imports no conversion vocabulary.
+The scan finds no cycle.
 
-Keep deserialized LDtk data independent of game-specific conversion rules.
-Place vocabulary decisions with the converter that receives the caller's
-vocabulary. Keep field decoding with a clear lower-level owner if the data
-model needs it. Do not remove the ability to accept game-registered entity
-names.
-
-**Acceptance:** built-in and game-added entities still pass validation when
-the caller supplies their vocabulary; wrong entities still fail for that
-caller; level and field conversion output does not change.
+**Acceptance:** built-in and game-added entities pass with their own vocabulary;
+unknown entities fail for that caller. Parsed fields, level conversion and
+entity order keep their defined results.
 
 ### C7 — combat and movement: preserve the invariant first
 
-`ambition_combat` has a 14-module SCC. A graph-only cut suggests removing
-`death_rules -> moveset`. That edge is not a defect by itself:
-`death_rules.rs:271` cancels move playback for an out-of-play body. The code
-states why a rollback `Added<OutOfPlay>` observer or a paused playback is
-not an equal replacement. Move the system only if the new owner preserves
-strike-volume teardown on every simulation path.
+Move playback owns `end_moves_for_bodies_out_of_play`. It reads the lower death
+fact and calls the same canonical cancellation path. Runtime keeps it first in
+the combat trigger chain. The behavior test checks volume removal and playback
+that returns while `OutOfPlay` remains. No observer or paused-clock substitute
+replaces the per-tick invariant. The combat group falls from 14 to 10 modules;
+its remaining contacts, capture, held repertoire and strike dispatch share one
+combat authority and are **GROUP_PACKAGE**.
 
-`ambition_platformer2d_core` has a 6-module SCC and a nested movement SCC.
-`body_clusters.rs:121` uses Bevy `#[require(AbilityContributions)]`. It
-ensures a spawned `AbilityBase` gets the related component. Do not remove
-that requirement to save an import. A narrow shared type may make sense,
-but only if it keeps the same spawn and rollback state.
+The core movement group is **GROUP_PACKAGE**. `AbilityBase` still requires
+`AbilityContributions`; projection and movement consume one body's authored and
+effective capabilities. Keep that component requirement and its rollback state.
 
-**Acceptance:** combat playback is cancelled and its strike volumes are
-removed for out-of-play bodies, including rollback replay. Body spawning
-still supplies the required ability contribution. Movement and combat
-behavior tests cover the new boundary. If no clear independent owner or
-consumer exists, mark the cycle GROUP_PACKAGE and leave it in place.
+**Acceptance:** leaving play cancels playback and its strike volumes on every
+simulation path, including replay. Body construction still supplies required
+ability contributions. Run movement, combat and rollback behavior tests.
 
 ## Cycles that are not current carve targets
 

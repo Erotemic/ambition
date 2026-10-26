@@ -11,21 +11,8 @@ use serde_json::Value;
 
 use ambition_platformer2d_core as ae;
 
-use super::{LdtkEntityInstance, LdtkFieldInstance, LdtkLevel};
-
-/// True if the CALLER'S vocabulary has a converter for the identifier — the
-/// engine's standard nouns plus whatever game extended them, so a
-/// game-registered entity passes validation like a built-in one.
-///
-/// the vocabulary is a parameter because validation's answer DEPENDS on it:
-/// `MaryOBlock` is a real entity to Mary-O and an unknown one to the sandbox,
-/// and both answers are correct.
-pub(super) fn known_entity(
-    identifier: &str,
-    vocabulary: &super::conversion::LdtkVocabulary,
-) -> bool {
-    vocabulary.converter_for(identifier).is_some()
-}
+use super::{LdtkEntityInstance, LdtkLevel};
+use super::project::{field_value, value_to_string};
 
 pub(super) fn pivot_is_top_left(entity: &LdtkEntityInstance) -> bool {
     if entity.pivot.len() != 2 {
@@ -49,22 +36,6 @@ pub(super) fn entity_touches_level_edge(entity: &LdtkEntityInstance, level: &Ldt
         || entity.px[1] <= 0
         || entity.px[0] + entity.width >= level.px_wid
         || entity.px[1] + entity.height >= level.px_hei
-}
-
-pub(super) fn field_value<'a>(fields: &'a [LdtkFieldInstance], name: &str) -> Option<&'a Value> {
-    fields
-        .iter()
-        .find(|field| field.identifier == name)
-        .map(|field| &field.value)
-}
-
-pub(super) fn value_to_string(value: &Value) -> Option<String> {
-    match value {
-        Value::String(value) => Some(value.clone()),
-        Value::Number(value) => Some(value.to_string()),
-        Value::Bool(value) => Some(value.to_string()),
-        _ => None,
-    }
 }
 
 pub fn field_string(entity: &LdtkEntityInstance, name: &str) -> Option<String> {

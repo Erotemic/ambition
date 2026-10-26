@@ -224,11 +224,16 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_combat/src/extension/think.rs",
         "crates/ambition_extension_host/src/exec.rs",
     ),
+    "PortalViewConeConfig": (
+        "crates/ambition_platformer2d_host/src/portal.rs",
+        "game/ambition_app/src/dev/portal_inspector.rs",
+    ),
     "ExtensionOutbox": (
         "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_abilities/src/ride.rs",
         "crates/ambition_boss_encounter/src/conduct.rs",
+        "crates/ambition_boss_encounter/src/conduct/wear.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
         "crates/ambition_combat/src/extension/blast.rs",
@@ -283,17 +288,20 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
     ),
     "GameplayBanner": (
+        (
         "crates/ambition_boss_encounter/src/encounter_script.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_combat/src/banner.rs",
         "crates/ambition_breakables/src/simulation.rs",
         "crates/ambition_platformer2d_items/src/chests.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/aggression.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/interact.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/arena.rs",
         "game/ambition_content/src/quest.rs",
+    )
     ),
     "OwnedItems": (
         "crates/ambition_held_items/src/lib.rs",
@@ -408,7 +416,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
-        "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
+        "crates/ambition_platformer2d_runtime/src/gravity/developer.rs",
         "crates/ambition_sim_harness/src/runtime.rs",
     ),
     "DeveloperTools": (
@@ -965,6 +973,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "PortalViewConeConfig": (
+        "The host projects the user's Video > Portal Windows setting into `PortalViewConeConfig.tint`. "
+        "The developer inspector edits geometry, capture and diagnostic fields; "
+        "it displays tint without writing it. These writers own separate fields."
+    ),
     "ActorAnimIndex": (
         "CORRECT — ONE REBUILDER AND ONE DECORATOR ORDERED AFTER IT. "
         "`rebuild_actor_anim_index` (anim_index) rebuilds every row each sim "
@@ -1115,7 +1128,9 @@ ADJUDICATED: dict[str, str] = {
         "its own port's items. Each port has exactly one adapter IN EACH PHASE: "
         "admission refuses a second offer for a port in a phase "
         "(`Refusal::DuplicateOffer`); `BlastPort` and `HoldStatusPort` are each "
-        "offered in two phases, by one adapter per phase."
+        "offered in two phases, by one adapter per phase. "
+        "The wear adapter in conduct/wear.rs drains WearPort in BOSS_CONDUCT; "
+        "it consumes only that port's admitted requests."
     ),
     "BrokenBricks": (
         "A SET THAT ONLY GROWS IN A TICK, ON DISJOINT NAMES (read 2026-10-12). "
@@ -1742,7 +1757,7 @@ ADJUDICATED: dict[str, str] = {
         "WAS DELETED 2026-09-19. Six files, seven production sites. ONE developer road, and it is an "
         "INVERSION rather than a writer: a dev hotkey or the menu's Gravity row "
         "writes `AmbientGravityRequest` and `apply_ambient_gravity_requests` "
-        "(`shared_tangle/src/gravity.rs`) applies it inside the sim. That seam "
+        "(`runtime/src/gravity/developer.rs`) applies it inside the sim. That seam "
         "exists because the direct version was caught — its own doc records "
         "*\"a developer control that wrote it from `Update` mutated a rewound "
         "value on a schedule that never rewinds\"*, found by "
@@ -3049,26 +3064,13 @@ ADJUDICATED: dict[str, str] = {
         "CalculexAmbition, 2026-09-18."
     ),
     "GameplayBanner": (
-        "A SINGLE-SLOT, LAST-WRITE-WINS COSMETIC NOTIFICATION, DOCUMENTED AS "
-        "INTENTIONAL, WITH NO DOWNSTREAM DECISION READER. The type's own doc "
-        "(`crates/ambition_combat/src/events.rs:265-266`) states it outright: "
-        "\"Gameplay systems either mutate this resource directly or emit "
-        "`GameplayBannerRequested` when their parameter list is already "
-        "large.\" `show()` (`:274-277`) is a plain overwrite of "
-        "`text`/`timer`; ten call sites across boss/combat/interact/pickup/"
-        "quest/reset systems call it directly, and "
-        "`apply_gameplay_banner_requests` "
-        "(`crates/ambition_combat/src/banner.rs:15`) drains the deferred "
-        "message form. If two of these fire in the same frame, one banner "
-        "text overwrites the other by schedule order — but the ONLY reader "
-        "outside tests is a `Res<GameplayBanner>` field on the HUD/feedback "
-        "bundle (`game/ambition_app/src/app/feedback.rs:43`), used purely for "
-        "display. No system branches on `.text` to make a gameplay decision, "
-        "so an arbitrary same-frame overwrite changes which of two transient "
-        "flavor messages is shown for ~2 seconds, never game state. "
-        "`census.shared_targets` confirms `show` is touched by ten files but "
-        "mutation-shaped in NONE of them — a method call, not a field write. "
-        "Measured by CalculexAmbition, 2026-09-18."
+        (
+        "A transient display slot, with no simulation decision reader. "
+        "Gameplay writers and the request consumer publish notifications; "
+        "the last write in schedule order selects the visible text. "
+        "The aggression reducer owns the NPC retaliation notice. Damage "
+        "still announces body deaths. Both run in the same simulation tick."
+    )
     ),
     "HudReadouts": (
         "A KEYED COLLECTION, DOUBLY SAFE. The struct "
@@ -3873,7 +3875,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
     "WorldTimeSchedule": (
         "CORRECT -- Breakables mirror respawn timers; pickups mirror regrowth "
-        "timers. Both use the ledger's record and forget operations with the "
+        "timers. Both use the ledger's `record` and `forget` operations with the "
         "authored room and placement key. The returns owner applies admitted "
         "replay and checkpoint horizon transitions. Runtime keeps these "
         "operations in their existing interaction and restore slots. The ledger "

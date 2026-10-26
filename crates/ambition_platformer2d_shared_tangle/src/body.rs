@@ -466,3 +466,6 @@ mod body_contact_room_tests {
         assert_eq!(blockers(first, None), 0, "a body met a body whose room is unknown");
     }
 }
+
+mod room;
+pub use room::PrimaryLiveRoom;

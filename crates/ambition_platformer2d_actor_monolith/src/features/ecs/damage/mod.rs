@@ -444,12 +444,6 @@ pub fn apply_feature_hit_events(
             &CenteredAabb,
             &ActorDisposition,
             &mut BodyCombat,
-            // Provoke accumulator (shared aggression component). `Option` so
-            // minimal test fixtures that spawn a bare actor without it still
-            // match; production actors always carry it.
-            Option<&mut ambition_combat::components::ActorAggression>,
-            // Dialogue payload — present on talkable actors (drives barks).
-            Option<&ambition_combat::components::ActorInteraction>,
             // The actor's held locomotion, for directional influence (CM2). The
             // brain writes it every tick; DI reads the SAME field, so a level-9
             // CPU or RL policy DIs its own knockback like a human. `Option` for
@@ -760,8 +754,6 @@ pub fn apply_feature_hit_events(
             aabb,
             disposition,
             mut combat,
-            mut aggression,
-            interaction,
             control,
             mut motion_model,
             wallet_shield,
@@ -805,7 +797,6 @@ pub fn apply_feature_hit_events(
             ) {
                 continue;
             }
-            let interactable = interaction.map(|i| &i.interactable);
             // The victim's held locomotion (local frame) drives DI (CM2).
             let di_input_local = control.map(|c| c.0.locomotion.vec()).unwrap_or_default();
             let mut em = cq.as_actor_mut();
@@ -834,8 +825,6 @@ pub fn apply_feature_hit_events(
                 wallet_shield.map(|(wallet, shield)| {
                     ambition_damage::WalletArmor::new(wallet.into_inner(), shield)
                 }),
-                aggression.as_deref_mut(),
-                interactable,
                 &mut banner,
                 feel,
                 di_input_local,

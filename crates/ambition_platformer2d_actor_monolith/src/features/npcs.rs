@@ -1,16 +1,4 @@
-//! Peaceful-actor (NPC) glue for the unified actor simulation: the catalog
-//! brain resolver ([`resolve_npc_brain`]) and the hit/hostile/dialogue/
-//! idle-bark line resolvers. Peaceful actors are the SAME ECS cluster as hostile
-//! enemies now (see [`ambition_body_seed::clusters`]); this module no
-//! longer owns a separate NPC runtime view — only the dialogue/bark selection and
-//! the peaceful brain selection. The hostility tuning const
-//! ([`NPC_HOSTILE_STRIKE_THRESHOLD`]) lives here.
-//!
-//! A character's VOICE (its per-situation bark pools) is content: it lives in
-//! the catalog `barks` field, keyed by the character id (the single source of
-//! truth — see `bark_line_for_character_id`). This module keeps only the
-//! engine-generic default an anonymous actor (no catalog id, or an empty pool)
-//! falls back to; every NAMED voice was evicted to the catalog (R3.4).
+//! Character voice, dialogue requests and ambient speech for talkable actors.
 
 use super::*;
 
@@ -478,13 +466,13 @@ mod default_profile_tests {
         let binding = binding.expect("a catalog-backed NPC is bound").0;
         assert_eq!(
             binding.default_preset,
-            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile,
+            ambition_characters::control::brain_binding::AutonomousDefault::CharacterProfile,
             "and the binding says WHAT IT WILL GO BACK TO — not a preset id, and \
              above all not an empty one, which is what crashed two rooms"
         );
         assert_eq!(
             binding.source,
-            ambition_characters::actor::character_catalog::AutonomousSource::CharacterProfile,
+            ambition_characters::control::brain_binding::AutonomousSource::CharacterProfile,
         );
     }
 

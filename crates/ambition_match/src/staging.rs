@@ -669,9 +669,7 @@ mod roster_validation_tests {
     fn published(
         keys: &[&str],
     ) -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
-        use ambition_characters::actor::character_catalog::{
-            parse_catalog, BrainProfileRegistry, CharacterCatalog,
-        };
+        use ambition_characters::actor::character_catalog::{parse_catalog, BrainProfileRegistry, CharacterCatalog};
         let rows: String = keys
             .iter()
             .map(|key| format!("\"{PROVIDER}::{key}\": (template: StandStill),"))

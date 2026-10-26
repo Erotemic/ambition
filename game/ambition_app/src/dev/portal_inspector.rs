@@ -530,12 +530,11 @@ mod enabled {
                                 "z units",
                                 "Z range over which nearer portals' windows draw on top of farther ones by adding an inverse-distance bias, kept under the rim gap.",
                             );
-                            color_row(
-                                ui,
-                                "tint",
-                                &mut config.tint,
-                                "Tint multiplied over the capture. It also attenuates recursion: nested portal captures multiply tint repeatedly so facing portals can fade into a tunnel instead of staying full-bright.",
-                            );
+                            field_label(ui, "tint", "Set in Video > Portal Windows.");
+                            let tint = config.tint.to_linear();
+                            ui.label(format!("{:.2}, {:.2}, {:.2}", tint.red, tint.green, tint.blue));
+                            ui.label("Video > Portal Windows");
+                            ui.end_row();
                         });
                 });
 
@@ -746,56 +745,6 @@ mod enabled {
         });
         ui.label(units).on_hover_text(help);
         ui.end_row();
-    }
-
-    fn color_row(ui: &mut egui::Ui, label: &'static str, value: &mut Color, help: &'static str) {
-        let mut srgba = value.to_srgba();
-        let mut changed = false;
-        field_label(ui, label, help);
-        ui.horizontal(|ui| {
-            changed |= ui
-                .add(
-                    egui::DragValue::new(&mut srgba.red)
-                        .speed(0.01)
-                        .prefix("r "),
-                )
-                .on_hover_text(help)
-                .changed();
-            changed |= ui
-                .add(
-                    egui::DragValue::new(&mut srgba.green)
-                        .speed(0.01)
-                        .prefix("g "),
-                )
-                .on_hover_text(help)
-                .changed();
-            changed |= ui
-                .add(
-                    egui::DragValue::new(&mut srgba.blue)
-                        .speed(0.01)
-                        .prefix("b "),
-                )
-                .on_hover_text(help)
-                .changed();
-            changed |= ui
-                .add(
-                    egui::DragValue::new(&mut srgba.alpha)
-                        .speed(0.01)
-                        .prefix("a "),
-                )
-                .on_hover_text(help)
-                .changed();
-        });
-        ui.label("sRGBA").on_hover_text(help);
-        ui.end_row();
-        if changed {
-            *value = Color::srgba(
-                srgba.red.clamp(0.0, 1.0),
-                srgba.green.clamp(0.0, 1.0),
-                srgba.blue.clamp(0.0, 1.0),
-                srgba.alpha.clamp(0.0, 1.0),
-            );
-        }
     }
 
     fn convention_row(

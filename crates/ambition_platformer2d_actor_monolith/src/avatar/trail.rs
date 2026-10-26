@@ -717,7 +717,7 @@ pub(crate) fn trail_strips(
     let mut strips = Vec::new();
     for (entity, rope) in ropes {
         // The band position, the index the room trail groups are banded by.
-        let position = world.room_of(entity).and_then(|room| world.band(room)).map(|band| {
+        let position = world.room_of(entity).and_then(|room| ambition_platformer2d_shared_tangle::camera_layers::live_room_band(world.instances(), room)).map(|band| {
             band - ambition_platformer2d_shared_tangle::camera_layers::LIVE_ROOM_RENDER_LAYER_BASE
         });
         let Some(world) = world.of(entity) else {

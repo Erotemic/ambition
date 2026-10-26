@@ -228,6 +228,23 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
+### ARCH-CYCLES — remove wrong module dependency directions
+
+**Owner:** [internal module cycle breaking](engine/internal-module-cycle-breaking.md).
+Jon selected this work before further monolith decomposition and system
+consolidation. Review ownership, state, and lifetime; do not target zero cycles.
+
+**Active:** validate the C1–C7 ownership cuts after asset publication. Runtime
+owns primary-room adapters; control owns preset selection; the stimulus reducer
+owns NPC reactions; display, provider and LDtk data have distinct owners. Keep
+the reviewed body, repertoire and navigation invariants in their current groups.
+
+**Acceptance:** assembled app, controller preparation and restoration, same-tick
+hit responses, world refusal/reload, input labels, movement and combat tests pass.
+Keep rollback codecs and required components unchanged. Then continue monolith
+API work and system consolidation in priority order.
+
+
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
 
 **Owner:** `ambition_input` (seating, `sources.rs`), Ambition's seating

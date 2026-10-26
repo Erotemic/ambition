@@ -611,8 +611,8 @@ pub(super) struct NpcActorSpawnPlan {
     /// rebuilt around its authored home (`RestoreDefault`), and its selection +
     /// context survive snapshot/restore.
     brain_binding: Option<(
-        ambition_characters::actor::character_catalog::BrainBinding,
-        ambition_characters::actor::character_catalog::AuthoredBrainContext,
+        ambition_characters::control::brain_binding::BrainBinding,
+        ambition_characters::control::brain_binding::AuthoredBrainContext,
     )>,
     action_set: ambition_characters::brain::ActionSet,
     aggression: ambition_combat::components::ActorAggression,
@@ -2148,7 +2148,6 @@ pub fn spawn_interactable_into(
 /// a re-export would keep this crate as the discovery path for vocabulary it no
 /// longer owns.
 
-
 /// Spawn one hostile actor for an encounter wave.
 ///
 /// The encounter system still owns wave timing, but the mob itself is a normal
@@ -2285,7 +2284,6 @@ pub fn spawn_encounter_mob(
     }
 }
 
-
 #[cfg(test)]
 mod giant_hand_identity_tests {
     use super::giant_hand_feature_id;
@@ -2409,4 +2407,3 @@ mod runtime_giant_refusal_tests {
         registry
     }
 }
-

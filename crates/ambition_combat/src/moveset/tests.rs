@@ -6962,7 +6962,6 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
     );
 }
 
-
 /// ⭐⭐ A HELPLESS FIGHTER CANNOT START A MOVE — at the MOVE-START AUTHORITY.
 ///
 /// ⛔⛔ THE DEFECT THIS PINS, found by review 2026-08-24: `body_is_helpless` was
@@ -10680,4 +10679,27 @@ fn a_volumes_guard_policy_rides_its_live_strike() {
     assert_eq!(guards_of(VolumeGuard::Unblockable), vec![VolumeGuard::Unblockable]);
     // Control: the ordinary volume spawns the ordinary strike.
     assert_eq!(guards_of(VolumeGuard::default()), vec![VolumeGuard::default()]);
+}
+
+/// Playback that returns while a body remains out of play loses its volumes too.
+#[test]
+fn any_body_that_leaves_play_loses_its_move_however_it_left() {
+    let mut app = App::new();
+    app.add_systems(Update, end_moves_for_bodies_out_of_play);
+    let body = app.world_mut().spawn_empty().id();
+    for restored in [false, true] {
+        let volume = app.world_mut().spawn_empty().id();
+        let mut playback = MovePlayback::new(swat(), 1.0);
+        playback.live_boxes.push((0, volume));
+        app.world_mut().entity_mut(body).insert(playback);
+        if !restored {
+            app.update();
+            assert!(app.world().get::<MovePlayback>(body).is_some());
+            assert!(app.world().get_entity(volume).is_ok());
+            app.world_mut().entity_mut(body).insert(crate::death_rules::OutOfPlay);
+        }
+        app.update();
+        assert!(app.world().get::<MovePlayback>(body).is_none());
+        assert!(app.world().get_entity(volume).is_err());
+    }
 }

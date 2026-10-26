@@ -153,11 +153,9 @@ impl<T: Component> LiveRoomOf<'_, '_, T> {
             .map(|(_, component)| component)
     }
 
-    /// The render band of live room `room`, by the rule a camera that shows
-    /// that room reads ([`crate::camera_layers::live_room_band`]). `None`
-    /// while fewer than two rooms are live.
-    pub fn band(&self, room: LiveRoomInstance) -> Option<usize> {
-        crate::camera_layers::live_room_band(self.roots.iter().map(|(live, _)| *live), room)
+    /// Live room instances that carry the component read by this query.
+    pub fn instances(&self) -> impl Iterator<Item = LiveRoomInstance> + '_ {
+        self.roots.iter().map(|(live, _)| *live)
     }
 }
 
@@ -201,26 +199,6 @@ impl LiveRooms<'_, '_> {
     }
 }
 
-/// The live room of the primary seat: the room of the primary body, and with
-/// no primary body, the sole live room. One developer control serves a
-/// session that has two live rooms, and it serves this room: the developer's
-/// gravity cycle turns it. The music chooses among the participants' rooms
-/// by authored priority and uses this room to break a tie (Q150).
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct PrimaryLiveRoom<'w, 's> {
-    live: LiveRooms<'w, 's>,
-    primary: bevy::prelude::Query<'w, 's, Entity, With<crate::body::PrimaryBody>>,
-}
-
-impl PrimaryLiveRoom<'_, '_> {
-    pub fn get(&self) -> Option<LiveRoomInstance> {
-        self.primary
-            .single()
-            .ok()
-            .and_then(|body| self.live.of(body))
-            .or_else(|| self.live.sole())
-    }
-}
 
 /// The live rooms one room transaction's world is made of: the room it
 /// replaces, and the room it mints.

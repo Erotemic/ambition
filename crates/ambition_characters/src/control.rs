@@ -627,3 +627,5 @@ pub use acting::ActingParticipant;
 /// Frame adapters run before this set. Readers of the accepted slot run after it.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimarySlotInputCommit;
+
+pub mod brain_binding;

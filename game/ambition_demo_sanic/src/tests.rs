@@ -207,9 +207,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
     // Each is a row of the cast, and they are not all one kind. The first is
     // the plain badnik: the tests that need "a badnik" take that one.
     let catalog = {
-        use ambition_platformer2d::characters::actor::character_catalog::{
-            CharacterCatalog, lowered_catalog,
-        };
+        use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, lowered_catalog};
         CharacterCatalog::from_data(
             lowered_catalog(crate::pack::PACK.prepared()).expect("the Sanic pack states its cast").clone(),
         )
@@ -1266,9 +1264,7 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
 fn the_super_row_authors_a_real_movement_boost() {
     // The transformation is more than a sprite swap: the super row's authored
     // momentum strictly dominates the base row's.
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        CharacterCatalog, lowered_catalog,
-    };
+    use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, lowered_catalog};
     let catalog = CharacterCatalog::from_data(
         lowered_catalog(crate::pack::PACK.prepared())
             .expect("the Sanic pack states its cast")

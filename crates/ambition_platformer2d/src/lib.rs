@@ -561,9 +561,7 @@ pub mod content {
         default_character: Option<&str>,
         actor_default_abilities: Option<ambition_platformer2d_core::AbilitySet>,
     ) -> Result<ambition_characters::actor::character_catalog::CharacterCatalogFragment, String> {
-        use ambition_characters::actor::character_catalog::{
-            CharacterCatalogFragment, lowered_catalog,
-        };
+        use ambition_characters::actor::character_catalog::{CharacterCatalogFragment, lowered_catalog};
         let catalog = lowered_catalog(pack).ok_or_else(|| "the pack states no cast".to_string())?;
         let fragment = CharacterCatalogFragment::from_prepared(
             format!("{}:character_catalog", pack.id.0),
@@ -641,7 +639,7 @@ pub mod content {
 
         /// Register the catalog and every character in it.
         pub fn register(self, app: &mut bevy::prelude::App) {
-            use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
+            use ambition_characters::prepared::CharacterCatalogAppExt;
             use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
             let pack = self.pack.prepared();
@@ -834,7 +832,7 @@ pub mod extension {
     pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;
 #[cfg(feature = "wasm_modules")]
-pub use ambition_extension_wasm::{LoadError, WasmModules, build_module_crate};
+    pub use ambition_extension_wasm::{LoadError, WasmModules, build_module_crate};
     pub use ambition_platformer2d_runtime::extension_composition::{
         EXTENSION_MODULES_SECTION, EXTENSION_MODULES_VAR, ExtensionGeneration, ExtensionModuleFiles,
     };
@@ -1087,10 +1085,19 @@ pub mod actor {
 ///
 /// Closed list.
 pub mod character {
+    pub use ambition_characters::control::brain_binding::{
+        validate_brain_override, AuthoredBrainContext, AutonomousDefault, AutonomousSource,
+        BrainBinding, BrainBuildContext, BrainBuildError, PresetSource,
+    };
+    pub use ambition_platformer2d_actor_spawn::brain_builders::catalog::{
+        build_default_brain, build_brain_from_preset, brain_from_preset, resolve_initial_brain,
+    };
+
     /// The cast, as authored content.
     pub use ambition_characters::actor::character_catalog::{
-        CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment, parse_catalog,
+        CharacterCatalog, CharacterCatalogFragment, parse_catalog,
     };
+    pub use ambition_characters::prepared::CharacterCatalogAppExt;
     /// What providers have authored, for a game that wants to inspect its own
     /// content before a session exists.
     pub use ambition_platformer2d_provider::PlatformerAuthoredCatalogRegistry;

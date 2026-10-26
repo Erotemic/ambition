@@ -170,7 +170,7 @@ hitstop authority. They can share tests but not a duplicate rate source.
 - `crates/ambition_characters/src/perception.rs`: `DelayedPerception::from_reaction_ms(reaction_ms, tick_hz)` already accepts a rate.
 - `crates/ambition_combat/src/brain/fighter/{decision,charge,rollout}.rs`: APM, charge, reaction, internal step predictions.
 - `crates/ambition_combat/src/brain/fighter/charge.rs`: `FULL_HOLD_TICKS = 90`, `PARTIAL_HOLD_TICKS = 12`, `STRING_CARRY_TICKS = 20`.
-- `crates/ambition_characters/src/actor/character_catalog/resolver.rs`, `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/brain_builders.rs`: constructed fighter configurations.
+- `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/brain_builders/catalog.rs`, `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/brain_builders.rs`: constructed fighter configurations.
 - `crates/ambition_characters/src/actor/character_catalog/entry.rs`: default authored decision interval.
 
 **Problem:** fighter reaction delay conversion already handles an input rate, but most constructors default it to 60. A five-tick decision interval means 83 ms at 60 Hz, 125 ms at 40 Hz, and 42 ms at 120 Hz. The hard-coded hold lengths change in the same way. The APM and rollout methods use the `FighterCfg` rate, so a stale value can make AI score against a different timeline than the live body.

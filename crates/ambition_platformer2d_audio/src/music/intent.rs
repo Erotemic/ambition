@@ -86,7 +86,7 @@ fn participant_rooms(
 /// track.
 pub fn release_narrative_music_on_room_change(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
     participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
@@ -135,7 +135,7 @@ pub fn compute_music_intent(
     // Q72; `the_room_the_music_plays_for`). This read was the sole live room,
     // so while two rooms were live this system did not run and the music froze.
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
     participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,

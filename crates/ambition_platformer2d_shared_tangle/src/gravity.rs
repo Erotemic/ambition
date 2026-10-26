@@ -161,7 +161,7 @@ impl BaseGravity {
 
 /// A request to change the room's ambient gravity, written from OUTSIDE the
 /// simulation (a dev hotkey, the developer menu's Gravity row) and applied
-/// INSIDE it by [`apply_ambient_gravity_requests`].
+/// inside the simulation by the runtime gravity reducer.
 ///
 /// ⛔ [`BaseGravity`] IS ROLLBACK STATE, and a developer control that wrote it
 /// from `Update` mutated a rewound value on a schedule that never rewinds —
@@ -174,26 +174,6 @@ pub enum AmbientGravityRequest {
     /// Step to the next cardinal direction (down → left → up → right → down),
     /// the one step both developer roads make.
     Cycle,
-}
-
-/// Apply every [`AmbientGravityRequest`] written since the last tick to
-/// [`BaseGravity`]. Runs in the simulation schedule, before the resolver that
-/// copies the ambient into each body's frame, so a request made this frame is
-/// felt this tick. Two requests in one tick cycle twice, in write order.
-///
-/// The developer turns the primary seat's room, which is the room the
-/// developer looks at ([`crate::lifecycle::PrimaryLiveRoom`]).
-pub fn apply_ambient_gravity_requests(
-    mut requests: MessageReader<AmbientGravityRequest>,
-    mut base: ResMut<BaseGravity>,
-    developer: crate::lifecycle::PrimaryLiveRoom,
-) {
-    let room = developer.get();
-    for request in requests.read() {
-        match request {
-            AmbientGravityRequest::Cycle => base.cycle(room),
-        }
-    }
 }
 
 /// An authored region with its own gravity direction — the building block of a
@@ -396,7 +376,7 @@ pub fn oscillate_gravity_zones(
 /// This is the heart of "gravity is local in space" — every non-player actor
 /// resolves gravity from its own position through this, so a body inside a
 /// gravity column feels the column independently of where the player is. (The
-/// player resolves the same way via [`resolve_active_gravity`] into its
+/// primary body uses the same resolved frame to publish its
 /// [`GravityField`].)
 pub fn gravity_dir_at(
     pos: Vec2,
@@ -420,7 +400,7 @@ pub fn gravity_dir_at(
 /// The localized gravity direction for a BODY: the highest-precedence
 /// [`GravityZone`] the body's AABB overlaps, else `base_dir`. This is the resolver the movement
 /// frame uses — a field grabs a body when the body TOUCHES it (the same rule
-/// [`resolve_active_gravity`] applies to the primary body), not when its center
+/// the frame resolver applies to every body), not when its center
 /// point crosses in; the point form above stays for cheap observation reads
 /// (perception, VFX).
 pub fn gravity_dir_for(
@@ -511,7 +491,7 @@ impl GravityCtx<'_, '_> {
     }
 
     /// Localized gravity direction for a body AABB (zone grabs on OVERLAP —
-    /// the same rule [`resolve_active_gravity`] applies to the primary body).
+    /// the same rule the frame resolver applies to every body).
     pub fn dir_for(
         &self,
         room: Option<crate::lifecycle::LiveRoomInstance>,
@@ -532,29 +512,6 @@ impl GravityCtx<'_, '_> {
             -1.0
         }
     }
-}
-
-/// Mirror the PRIMARY body's resolved frame into the presentation-facing
-/// [`GravityField`]. This is the one writer of `GravityField.dir`, and it is a
-/// MIRROR, not a resolver: the authoritative per-body resolution is the frame
-/// resolution phase publishing [`crate::frame_env::ResolvedMotionFrame`]; this
-/// derives the global presentation value (camera roll, gravity visuals, HUD)
-/// from that same artifact so no second zone-overlap computation exists. Falls
-/// back to the ambient of the sole live room when no primary body exists yet
-/// (menus, tests).
-pub fn resolve_active_gravity(
-    base: Option<Res<BaseGravity>>,
-    live: crate::lifecycle::LiveRooms,
-    bodies: Query<&crate::frame_env::ResolvedMotionFrame, With<crate::body::PrimaryBody>>,
-    mut gravity: ResMut<GravityField>,
-) {
-    let base_dir = base.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |base| {
-        base.dir_in(live.sole())
-    });
-    gravity.dir = bodies
-        .single()
-        .map_or(base_dir, |frame| frame.down())
-        .normalize_or_zero();
 }
 
 /// Apply the world's per-frame global forces to a free body's velocity. This is
@@ -651,41 +608,6 @@ mod tests {
         };
         assert_eq!(up.vertical_sign(), -1.0);
         assert_eq!(up.gravity_accel(1000.0), Vec2::new(0.0, -1000.0));
-    }
-
-    #[test]
-    fn gravity_field_mirrors_the_primary_bodys_resolved_frame() {
-        let mut app = App::new();
-        app.init_resource::<GravityField>();
-        app.init_resource::<BaseGravity>();
-        app.add_systems(Update, resolve_active_gravity);
-
-        // No primary body yet → the ambient direction.
-        app.update();
-        assert!(
-            app.world().resource::<GravityField>().dir.y > 0.0,
-            "no primary body: ambient down"
-        );
-
-        let player = app
-            .world_mut()
-            .spawn((
-                crate::body::PrimaryBody,
-                crate::frame_env::ResolvedMotionFrame::default(),
-            ))
-            .id();
-        app.world_mut()
-            .get_mut::<crate::frame_env::ResolvedMotionFrame>(player)
-            .unwrap()
-            .publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
-                Vec2::new(0.0, -1.0),
-                900.0,
-            ));
-        app.update();
-        assert!(
-            app.world().resource::<GravityField>().dir.y < 0.0,
-            "the field mirrors the primary body's resolved frame, not a second resolution"
-        );
     }
 
     #[test]
@@ -897,71 +819,6 @@ mod tests {
             c.x
         );
         assert!((c.y - base.y).abs() < 1e-3, "vertical position unchanged");
-    }
-}
-
-#[cfg(test)]
-mod ambient_request_tests {
-    use super::*;
-    use bevy::app::App;
-
-    /// The request road, end to end: a request written outside the sim
-    /// schedule is applied by the sim's applier, and only there. Poison:
-    /// make `apply_ambient_gravity_requests` ignore `Cycle` and the direction
-    /// stays down.
-    #[test]
-    fn a_cycle_request_is_applied_by_the_sim_and_steps_one_cardinal() {
-        let mut app = App::new();
-        app.add_message::<AmbientGravityRequest>();
-        app.init_resource::<BaseGravity>();
-        app.add_systems(bevy::app::Update, apply_ambient_gravity_requests);
-        app.world_mut().write_message(AmbientGravityRequest::Cycle);
-        app.update();
-        assert_eq!(
-            app.world().resource::<BaseGravity>().direction_label(None),
-            "Left",
-            "down -> left after one request"
-        );
-        app.world_mut().write_message(AmbientGravityRequest::Cycle);
-        app.world_mut().write_message(AmbientGravityRequest::Cycle);
-        app.update();
-        assert_eq!(
-            app.world().resource::<BaseGravity>().direction_label(None),
-            "Right",
-            "two requests in one tick cycle twice, in write order"
-        );
-        app.update();
-        assert_eq!(
-            app.world().resource::<BaseGravity>().direction_label(None),
-            "Right",
-            "a tick with no request changes nothing"
-        );
-    }
-
-    /// The developer turns the room the primary body is in, and no other.
-    /// Two live rooms; the primary body stands in the second. Poison: cycle
-    /// the sole live room (`None` here) and the second room stays down.
-    #[test]
-    fn a_cycle_request_turns_the_room_of_the_primary_body() {
-        use crate::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
-        let mut app = App::new();
-        app.add_message::<AmbientGravityRequest>();
-        app.init_resource::<BaseGravity>();
-        app.add_systems(bevy::app::Update, apply_ambient_gravity_requests);
-        let first = LiveRoomInstance::ACTIVATION.next();
-        let second = first.next();
-        for room in [first, second] {
-            app.world_mut().spawn((RoomInstanceRoot, room));
-        }
-        app.world_mut().spawn((crate::body::PrimaryBody, InRoomInstance(second)));
-        app.world_mut().write_message(AmbientGravityRequest::Cycle);
-        app.update();
-        let base = app.world().resource::<BaseGravity>();
-        assert_eq!(
-            (base.direction_label(Some(first)), base.direction_label(Some(second))),
-            ("Down", "Left"),
-            "(the first room, the primary body's room) after one request"
-        );
     }
 }
 

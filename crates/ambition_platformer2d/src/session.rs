@@ -44,7 +44,7 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 /// The primary seat's live room: what one developer control serves while two
 /// rooms are live, and the music's tie-break (Q150).
-pub use ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom;
+pub use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 
 /// Session lifecycle operations and their domain installers.
 pub use ambition_platformer2d_session::{initial_body, checkpoint, data, death, durable_horizon, join, lifecycle_commit, match_activation, reset, rooms, setup, teardown, MatchLifecyclePlugin, SessionTeardownPlugin};

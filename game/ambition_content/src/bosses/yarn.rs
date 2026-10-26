@@ -113,12 +113,13 @@ pub fn mirror_cut_rope_heavy_object(
 mod tests {
     use super::*;
 
-    /// The extras feed must reproduce the old inline behavior: with a
-    /// save present the current cycle id (or the "anvil" default) is
-    /// readable; without a save the key is absent → predicate false.
+    /// The mirror needs a save and uses the first object in the authored list.
     #[test]
     fn heavy_object_extra_mirrors_cycle_and_save_gating() {
         let mut app = App::new();
+        let rules = crate::tuning::shipped();
+        let first_object = rules.cut_rope_trap.heavy_object(0).name.clone();
+        app.insert_resource(crate::tuning::AmbitionTuning(rules));
         app.init_resource::<YarnStateMirror>();
         app.add_systems(Update, mirror_cut_rope_heavy_object);
 
@@ -130,7 +131,7 @@ mod tests {
             assert!(snap.extras.get(HEAVY_OBJECT_KEY).is_none());
         }
 
-        // Save present, no cycle resource: defaults to "anvil".
+        // A save with no cycle selects the first authored object.
         app.insert_resource(AmbitionGameSave::default());
         app.update();
         {
@@ -138,7 +139,7 @@ mod tests {
             let snap = mirror.0.read().unwrap();
             assert_eq!(
                 snap.extras.get(HEAVY_OBJECT_KEY).map(String::as_str),
-                Some("anvil")
+                Some(first_object.as_str())
             );
         }
     }

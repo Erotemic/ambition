@@ -49,6 +49,9 @@ fn spawn_anonymous_npc(app: &mut App) -> bevy::prelude::Entity {
 fn a_body_with_no_provoked_policy_cannot_be_provoked() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_anonymous_npc(&mut app);
@@ -70,6 +73,13 @@ fn a_body_with_no_provoked_policy_cannot_be_provoked() {
         ActorDisposition::Peaceful,
         "an anonymous body was provoked into a policy nobody declared"
     );
+    app.world_mut().get_mut::<ActorAggression>(npc).unwrap().strikes = NPC_HOSTILE_STRIKE_THRESHOLD - 1;
+    app.world_mut().write_message(ActorStimulus::DamagedBy { actor: npc, source: None, damage: 1 });
+    app.update();
+    assert_eq!(app.world().get::<ActorAggression>(npc).unwrap().strikes, NPC_HOSTILE_STRIKE_THRESHOLD);
+    assert_eq!(*app.world().get::<ActorDisposition>(npc).unwrap(), ActorDisposition::Peaceful);
+    assert!(!app.world().resource::<GameplayBanner>().text.ends_with("turns hostile"));
+
 }
 
 /// The spawn half of [`spawn_npc_with_strikes`], shared with the flight fixture
@@ -123,11 +133,13 @@ fn run(app: &mut App, actor: bevy::prelude::Entity) {
 fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
-    // Already at the strike threshold (the damage system increments
-    // strikes; this stimulus is the provocation that re-evaluates).
-    let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD);
+    // This accepted hit reaches the body's strike threshold.
+    let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
     let attacker = app.world_mut().spawn_empty().id();
     app.world_mut().write_message(ActorStimulus::DamagedBy {
         actor: npc,
@@ -165,6 +177,9 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
     let mut app = App::new();
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0));
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, tick_pending_challenges);
     let actor = app
@@ -211,9 +226,12 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
 fn npc_below_the_threshold_stays_peaceful() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
-    let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
+    let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 2);
     run(&mut app, npc);
     assert_eq!(
         *app.world().get::<ActorDisposition>(npc).unwrap(),
@@ -230,6 +248,9 @@ fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
     // is the gate the Perfect Cell-ular Automaton encounter rides on.
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
@@ -266,6 +287,9 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
@@ -411,6 +435,9 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_flying_npc(&mut app);
@@ -506,6 +533,9 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), Some(9)));
@@ -564,14 +594,17 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 /// either way: it is a projection of identity, worn equipment and the hand.
 #[test]
 fn provoking_a_driven_body_changes_its_mind_and_not_its_driver() {
-    use ambition_characters::actor::character_catalog::{
-        AutonomousSource, BrainBinding, BrainPresetId,
-    };
+    use ambition_characters::actor::character_catalog::{BrainPresetId};
+    use ambition_characters::control::brain_binding::AutonomousSource;
+    use ambition_characters::control::brain_binding::BrainBinding;
     use ambition_characters::brain::{ActionSet, Brain, StateMachineCfg};
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
 
@@ -670,6 +703,9 @@ fn an_unauthored_body_gets_the_undescribed_pool_before_anybody_hits_it() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
@@ -707,6 +743,9 @@ fn an_un_challenged_passive_npc_ignores_damage() {
     // crossing the retaliation threshold) arms the fight.
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
@@ -741,6 +780,9 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
     fn app_with_npc() -> (App, bevy::prelude::Entity) {
         let mut app = App::new();
         app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
         app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
         app.add_message::<crate::features::ReleaseProvocation>();
         app.add_message::<crate::features::BrainCommand>();
@@ -895,13 +937,16 @@ fn authored_provocation_app() -> (
     let (cast, profile, id) = provoked_profile_cast();
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &cast);
     app.insert_resource(cast);
     app.world_mut().entity_mut(npc).insert((
         ambition_characters::actor::WornCharacter::new("npc_test_parrot"),
-        ambition_characters::actor::character_catalog::BrainBinding::from_character_profile(),
+        ambition_characters::control::brain_binding::BrainBinding::from_character_profile(),
     ));
     (app, npc, profile, id)
 }
@@ -910,7 +955,8 @@ fn authored_provocation_app() -> (
 /// default is: policy, read-model, mind and the binding that records it.
 #[test]
 fn an_authored_provocation_installs_the_characters_policy_and_records_it() {
-    use ambition_characters::actor::character_catalog::{AutonomousSource, BrainBinding};
+    use ambition_characters::control::brain_binding::AutonomousSource;
+    use ambition_characters::control::brain_binding::BrainBinding;
     use ambition_characters::brain::Brain;
     let (mut app, npc, profile, id) = authored_provocation_app();
 
@@ -969,7 +1015,8 @@ fn a_repeat_stimulus_leaves_an_authored_provocation_alone() {
 /// while installing that policy only on a peaceful flip.
 #[test]
 fn an_already_hostile_body_records_no_policy_it_was_not_given() {
-    use ambition_characters::actor::character_catalog::{AutonomousSource, BrainBinding};
+    use ambition_characters::control::brain_binding::AutonomousSource;
+    use ambition_characters::control::brain_binding::BrainBinding;
     let (mut app, npc, profile, _) = authored_provocation_app();
     *app.world_mut().get_mut::<ActorDisposition>(npc).unwrap() = ActorDisposition::Hostile;
 
@@ -998,6 +1045,9 @@ fn an_already_hostile_body_records_no_policy_it_was_not_given() {
 fn a_provocation_keeps_the_placements_authored_brain_key() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.init_resource::<GameplayBanner>();
+        app.insert_resource(CharacterCatalog::empty());
     app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);

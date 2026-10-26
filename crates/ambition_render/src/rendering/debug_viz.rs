@@ -785,7 +785,7 @@ pub fn toggle_debug_viz(
 /// primary seat (the primary body's room, and with no primary body the sole
 /// one). `None` when that room cannot be told.
 pub(crate) fn shown_debug_room<'a>(
-    shown: &ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    shown: &ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
     worlds: &'a ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
 ) -> Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, &'a RoomGeometry)> {
     let room = shown.get()?;
@@ -821,7 +821,7 @@ pub fn draw_debug_viz(
     // The viz draws one live room: the room of the primary seat. The rooms
     // share one space and every camera draws the gizmos, so two rooms drawn
     // at once would lie on top of each other.
-    shown: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    shown: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
     worlds: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     developer_tools: Res<DeveloperTools>,
@@ -1200,7 +1200,7 @@ mod shown_room_tests {
     struct Drawn(Option<String>, Vec<String>, Vec<Entity>);
 
     fn record(
-        shown: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+        shown: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
         worlds: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
         features: Res<FeatureViewIndex>,
         combat: Res<CombatGeometryView>,

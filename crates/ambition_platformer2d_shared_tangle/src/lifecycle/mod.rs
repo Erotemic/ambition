@@ -47,7 +47,7 @@ pub use reset_slots::{ContentDialogueFollowupSet, ContentRoomReplayResetSet, Con
 pub use room_instance::{
     InRoomInstance, LiveBodies,
     LiveBodyId, LiveRoomInstance,
-    LiveRoomOf, LiveRooms, PrimaryLiveRoom, RoomInstanceRoot, SoleLiveRoom, TransactionRooms, activation_room_root,
+    LiveRoomOf, LiveRooms, RoomInstanceRoot, SoleLiveRoom, TransactionRooms, activation_room_root,
     insert_live_room_component, live_room_of, live_room_root_for, sole_live_room_component,
     sole_live_room_component_mut, sole_live_room_entity, spawn_live_room,
 };

@@ -77,7 +77,7 @@ fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
             &ActorIdentity,
             &ActorAggression,
             &ActorDisposition,
-            Option<&ambition_platformer2d::characters::actor::character_catalog::BrainBinding>,
+            Option<&ambition_platformer2d::character::BrainBinding>,
         ), With<ActorInteraction>>();
         let world = sim.world();
         let Some((_, _, aggression, disposition, binding)) = query

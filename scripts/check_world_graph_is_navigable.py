@@ -44,7 +44,7 @@ AREA_FIELD = "activeArea"
 
 
 #: Where the Rust reads it, so the claim above can be CHECKED rather than trusted.
-AREA_FIELD_SOURCE = REPO / "crates/ambition_platformer2d_ldtk/src/project.rs"
+AREA_FIELD_SOURCE = REPO / "crates/ambition_platformer2d_ldtk/src/conversion/level_fields.rs"
 
 
 def assert_area_field_matches_the_engine() -> None:

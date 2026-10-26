@@ -643,11 +643,11 @@ impl LiveRoomSpecs<'_, '_> {
 /// primary body, the sole live room. So two live rooms answer with the
 /// primary body's room, where [`SoleLiveRoomSpec`] answers with none.
 ///
-/// [`PrimaryLiveRoom`]: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom
+/// [`PrimaryLiveRoom`]: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom
 #[derive(bevy_ecs::system::SystemParam)]
 pub struct PrimaryLiveRoomSpec<'w, 's> {
     specs: LiveRoomSpecs<'w, 's>,
-    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom<'w, 's>,
+    primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom<'w, 's>,
 }
 
 impl PrimaryLiveRoomSpec<'_, '_> {

@@ -2,10 +2,10 @@
 //! restoration, deterministic replay, target isolation, and mount ownership.
 
 use super::*;
-use ambition_characters::actor::character_catalog::{
-    parse_catalog, AuthoredBrainContext, AutonomousSource, BrainBinding, BrainPresetId,
-    CharacterCatalog,
-};
+use ambition_characters::actor::character_catalog::{parse_catalog, BrainPresetId, CharacterCatalog};
+use ambition_characters::control::brain_binding::AuthoredBrainContext;
+use ambition_characters::control::brain_binding::AutonomousSource;
+use ambition_characters::control::brain_binding::BrainBinding;
 use ambition_characters::brain::{Brain, StateMachineCfg};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core as ae;
@@ -62,12 +62,12 @@ fn send(app: &mut App, cmd: BrainCommand) {
 /// Spawn a catalog NPC carrying its default brain, binding, and authored context.
 fn spawn_npc(app: &mut App, sim: &str, character_id: &str, anchor_x: f32) -> Entity {
     let cat = catalog();
-    let (binding, brain) = ambition_characters::actor::character_catalog::resolve_initial_brain(
+    let (binding, brain) = ambition_platformer2d_actor_spawn::brain_builders::catalog::resolve_initial_brain(
         &cat,
         character_id,
         None,
         // No definition-authored default: this fixture is about the catalog path.
-        &ambition_characters::actor::character_catalog::BrainBuildContext::at(anchor_x),
+        &ambition_characters::control::brain_binding::BrainBuildContext::at(anchor_x),
     )
     .expect("catalog default resolves");
     app.world_mut()
@@ -533,7 +533,7 @@ fn character_first_config() -> ActorConfig {
 fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
     let binding = BrainBinding {
         default_preset:
-            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile,
+            ambition_characters::control::brain_binding::AutonomousDefault::CharacterProfile,
         source: AutonomousSource::ProvokedProfile {
             profile: ambition_entity_catalog::BrainProfileId::new("brain_command_tests::angry"),
         },

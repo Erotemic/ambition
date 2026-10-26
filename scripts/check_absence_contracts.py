@@ -967,42 +967,6 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        "id": "the-catalog-default-action-set-is-confined-to-one-file",
-        "paths": [
-            "crates/",
-            "game/",
-            "fixtures/",
-            # The exemption is the same ONE file it always was; only its address changed, and this
-            # guard catching the move is the guard working.
-            ":!crates/ambition_characters/src/prepared.rs",
-            ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
-        ],
-        "patterns": [r"\bbuild_default_action_set\b"],
-        "reason": (
-            "`apply_worn_character_kit` is the ONE place the catalog's default "
-            "action set is read and weighed against the definition's authored "
-            "one (queue C3, 2026-07-28). A second reader forks the precedence, "
-            "and the failure is silent: the two answers agree for every "
-            "character that authored nothing, which is most of them, so it "
-            "presents only on the one character somebody bothered to author — "
-            "exactly how the seated-fighter gap hid behind two duelists whose "
-            "authored set happened to equal the default. "
-            "⚠ 2026-07-29: the fold MOVED to `definition.rs`, where "
-            "`finalize_character` performs it once per character at the "
-            "preparation barrier. `starting_character.rs` keeps a caller for "
-            "the ids nothing REGISTERED — most of the legacy cast — which have "
-            "no prepared value to weigh against. Two files, still one decision "
-            "per character; the day a registered character is resolved in both "
-            "is the day this contract has stopped meaning anything, so read "
-            "them together before adding a third. "
-            "2026-09-03: the unregistered-id caller moved out of the actor kernel "
-            "with the worn-kit compiler (`ambition_combat::worn_kit`); "
-            "the kernel no longer reads the catalog's default set at all. "
-            "2026-10-03: that caller is deleted. An id the cast does not hold "
-            "is not worn (Q103), so `worn_kit.rs` has no exemption."
-        ),
-    },
-    {
         "id": "the-provider-resolver-is-confined-to-one-file",
         "paths": [
             "crates/",

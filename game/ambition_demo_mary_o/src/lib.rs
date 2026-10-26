@@ -97,8 +97,6 @@ pub const USED_CAPABILITIES: ambition_platformer2d::platformer::capability::Used
 /// in a room that is not Mary-O's.
 pub const MARY_O_MODE: &str = "mary_o";
 
-
-
 /// One tile. The whole level is authored on this grid, because the 1-1 grammar IS
 /// a grid grammar: a jump clears a few tiles, a pit is two or three wide.
 pub(crate) const T: f32 = 32.0;
@@ -1127,9 +1125,7 @@ fn start_a_lap(sequence: &mut flag::FlagSequence, level: &mut MaryOLevelState) {
 /// time itself against the art).
 pub fn mary_o_character_catalog(
 ) -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        lowered_catalog, CharacterCatalog,
-    };
+    use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, CharacterCatalog};
     CharacterCatalog::from_data(
         lowered_catalog(pack::PACK.prepared())
             .expect("the Mary-O pack states her cast")

@@ -17,6 +17,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::frame_env::{FrameEnv, ResolvedMotionFrame};
 
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
+use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityField};
 use ambition_boss_encounter::BossConfig;
 use ambition_combat::actor_tuning::ActorConfig;
 
@@ -141,7 +142,6 @@ fn bosses_resolve_through_the_actor_arm(_: &BossConfig) {}
 mod tests {
     use super::*;
 
-
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_shared_tangle::frame_env::{collect_force_zones, ForceZones};
     use ambition_platformer2d_shared_tangle::gravity::{
@@ -161,7 +161,7 @@ mod tests {
                 collect_gravity_zones,
                 collect_force_zones,
                 resolve_body_motion_frames,
-                ambition_platformer2d_shared_tangle::gravity::resolve_active_gravity,
+                resolve_active_gravity,
             )
                 .chain(),
         );
@@ -434,4 +434,68 @@ mod tests {
             "presentation mirror derives from the SAME resolved artifact"
         );
     }
+}
+
+/// Mirror the PRIMARY body's resolved frame into the presentation-facing
+/// [`GravityField`]. This is the one writer of `GravityField.dir`, and it is a
+/// MIRROR, not a resolver: the authoritative per-body resolution is the frame
+/// resolution phase publishing [`ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame`]; this
+/// derives the global presentation value (camera roll, gravity visuals, HUD)
+/// from that same artifact so no second zone-overlap computation exists. Falls
+/// back to the ambient of the sole live room when no primary body exists yet
+/// (menus, tests).
+pub fn resolve_active_gravity(
+    base: Option<Res<BaseGravity>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    bodies: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame, With<ambition_platformer2d_shared_tangle::body::PrimaryBody>>,
+    mut gravity: ResMut<GravityField>,
+) {
+    let base_dir = base.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |base| {
+        base.dir_in(live.sole())
+    });
+    gravity.dir = bodies
+        .single()
+        .map_or(base_dir, |frame| frame.down())
+        .normalize_or_zero();
+}
+
+#[cfg(test)]
+mod primary_gravity_tests {
+    use super::*;
+
+    #[test]
+    fn gravity_field_mirrors_the_primary_bodys_resolved_frame() {
+        let mut app = App::new();
+        app.init_resource::<GravityField>();
+        app.init_resource::<BaseGravity>();
+        app.add_systems(Update, resolve_active_gravity);
+
+        // No primary body yet → the ambient direction.
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y > 0.0,
+            "no primary body: ambient down"
+        );
+
+        let player = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::body::PrimaryBody,
+                ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
+            ))
+            .id();
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(player)
+            .unwrap()
+            .publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
+                Vec2::new(0.0, -1.0),
+                900.0,
+            ));
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y < 0.0,
+            "the field mirrors the primary body's resolved frame, not a second resolution"
+        );
+    }
+
 }

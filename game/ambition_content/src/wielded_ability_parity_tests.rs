@@ -170,6 +170,16 @@ fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
     (app, bodies)
 }
 
+// Effect poses treat positive and negative zero as the same angle.
+fn trace_vfx(mut event: ambition_vfx::vfx::VfxInRoom) -> String {
+    if let ambition_vfx::vfx::VfxMessage::Effect { pose, .. } = &mut event.vfx {
+        if pose.angle == 0.0 {
+            pose.angle = 0.0;
+        }
+    }
+    format!("{:?} {:?}", event.room, event.vfx)
+}
+
 /// Each tick's output by body index: requests, effects, sounds, then mana.
 type Trace = Vec<BTreeMap<usize, Vec<String>>>;
 
@@ -551,7 +561,7 @@ mod transits {
                 ));
             }
             for vfx in app.world_mut().resource_mut::<Messages<ambition_vfx::vfx::VfxInRoom>>().drain() {
-                out.entry(usize::MAX).or_default().push(format!("{:?} {:?}", vfx.room, vfx.vfx));
+                out.entry(usize::MAX).or_default().push(trace_vfx(vfx));
             }
             let sounds: Vec<_> = app
                 .world_mut()

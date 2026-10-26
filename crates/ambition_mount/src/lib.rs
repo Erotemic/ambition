@@ -262,27 +262,46 @@ impl BackLedge {
     }
 
     /// Each drawn ledge where the mount is drawn: its two ends from left to
-    /// right (mirrored by the side it is drawn facing, as the back is), and
-    /// how far it moved on the mount since the tick before.
+    /// right (mirrored by the side it is drawn facing, as the back is), how
+    /// far its middle moved on the mount since the tick before, and how far
+    /// it turned (radians, `+` turns `+x` toward `+y`).
     pub fn drawn_lines(
         &self,
         mount: &ae::BodyKinematics,
         unmirrored: bool,
-    ) -> impl Iterator<Item = ([ae::Vec2; 2], ae::Vec2)> + '_ {
+    ) -> impl Iterator<Item = ([ae::Vec2; 2], ae::Vec2, f32)> + '_ {
         let side = ae::mirror_side(mount.facing, unmirrored);
         let pos = mount.pos;
+        let mirrored = move |p: ae::Vec2| ae::Vec2::new(side * p.x, p.y);
+        let sorted = |[a, b]: [ae::Vec2; 2]| if a.x <= b.x { [a, b] } else { [b, a] };
+        let angle = |[a, b]: [ae::Vec2; 2]| (b.y - a.y).atan2(b.x - a.x);
         self.drawn.iter().filter_map(move |ledge| {
-            let [a, b] = ledge.now?;
-            let place = |p: ae::Vec2| ae::Vec2::new(pos.x + side * p.x, pos.y + p.y);
-            let (a, b) = (place(a), place(b));
-            // A line is one-sided by its winding: a floor runs left to right.
-            let ends = if a.x <= b.x { [a, b] } else { [b, a] };
-            let moved = ledge.before.map_or(ae::Vec2::ZERO, |[c, d]| {
-                let delta = (ledge.now.map_or(ae::Vec2::ZERO, |[a, b]| (a + b) * 0.5)) - (c + d) * 0.5;
-                ae::Vec2::new(side * delta.x, delta.y)
+            let now = sorted(ledge.now?.map(mirrored));
+            let (moved, turned) = ledge.before.map_or((ae::Vec2::ZERO, 0.0), |before| {
+                let before = sorted(before.map(mirrored));
+                ((now[0] + now[1] - before[0] - before[1]) * 0.5, angle(now) - angle(before))
             });
-            Some((ends, moved))
+            Some((now.map(|p| p + pos), moved, turned))
         })
+    }
+
+    /// Each drawn ledge where the mount is drawn, as the one-way line a body
+    /// stands on: carried by the mount's step (`moved`) and by the drawing's
+    /// (its move, and its turn about its middle), so a body that stands on
+    /// it goes with it, and its ends are ledges a body can hang from while
+    /// they are level enough (`ledge_grab::chain_ledges`).
+    pub fn drawn_chains(&self, mount: &ae::BodyKinematics, unmirrored: bool, moved: ae::Vec2) -> Vec<ae::SurfaceChain> {
+        self.drawn_lines(mount, unmirrored)
+            .map(|(ends, drawn_moved, turned)| {
+                let mut line = ae::SurfaceChain::open(DRAWN_LEDGE_LINE, ends.to_vec());
+                line.velocity = moved + drawn_moved;
+                line.turn = turned;
+                line.pivot = (ends[0] + ends[1]) * 0.5;
+                // The mount's art draws it.
+                line.hidden = true;
+                line
+            })
+            .collect()
     }
 
     /// The slope where the mount is drawn, from left to right (mirrored by
@@ -308,34 +327,11 @@ impl BackLedge {
         Self::ledge_aabb(&self.back, mount, unmirrored)
     }
 
-    /// Each ledge of one-way ground, where the mount is drawn: the authored
-    /// ledges, then the drawn ones.
+    /// Each authored ledge of one-way ground, where the mount is drawn (the
+    /// drawn ones are lines: [`Self::drawn_chains`]).
     pub fn ground(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> impl Iterator<Item = ae::Aabb> + '_ {
-        self.ground_moving(mount, unmirrored).map(|(aabb, _)| aabb)
-    }
-
-    /// [`Self::ground`], each with how far the drawing moved it on the mount
-    /// since the tick before (zero for an authored ledge).
-    ///
-    /// A drawn ledge is a one-way block, as an authored one is, so a body
-    /// lands on it and grabs its edge as on any platform. Its top is the
-    /// drawn surface at its middle: a surface the drawing tilts is under a
-    /// body's feet within half its tilt.
-    pub fn ground_moving(
-        &self,
-        mount: &ae::BodyKinematics,
-        unmirrored: bool,
-    ) -> impl Iterator<Item = (ae::Aabb, ae::Vec2)> + '_ {
         let mount = mount.clone();
-        let authored = self.ledges.iter().map({
-            let mount = mount.clone();
-            move |ledge| (Self::ledge_aabb(ledge, &mount, unmirrored), ae::Vec2::ZERO)
-        });
-        let drawn = self.drawn_lines(&mount, unmirrored).map(|([a, b], moved)| {
-            let top = (a.y + b.y) * 0.5;
-            (ae::aabb_from_min_size(ae::Vec2::new(a.x, top), ae::Vec2::new(b.x - a.x, DRAWN_LEDGE_THICKNESS)), moved)
-        });
-        authored.chain(drawn.collect::<Vec<_>>())
+        self.ledges.iter().map(move |ledge| Self::ledge_aabb(ledge, &mount, unmirrored))
     }
 
     fn ledge_aabb(ledge: &ambition_characters::actor::MountBack, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
@@ -350,13 +346,13 @@ impl BackLedge {
 pub const BACK_BLOCK: &str = "mount_back";
 /// The name of a mount's slope in its room's collision overlay.
 pub const SLOPE_LINE: &str = "mount_slope";
-/// How thick a drawn ledge's one-way block is (world units).
-pub const DRAWN_LEDGE_THICKNESS: f32 = 14.0;
+/// The name of a mount's drawn ledge in its room's collision overlay.
+pub const DRAWN_LEDGE_LINE: &str = "mount_drawn_ledge";
 
 /// Each ridden mount's ledges are one-way ground in the mount's own live
-/// room, moving with the mount, and its slope a walkable line. A drawn
-/// ledge also moves as the drawing moves it on the mount: a body that stands
-/// on it is carried by the two together. A collision-overlay
+/// room, moving with the mount, and its slope and its drawn ledges walkable
+/// lines. A drawn ledge also moves and turns as the drawing moves it on the
+/// mount: a body that stands on it is carried by the two together. A collision-overlay
 /// contribution: the composition runs it after the overlay rebuild and before
 /// the bodies that collide.
 ///
@@ -385,16 +381,17 @@ pub fn mount_backs_are_ground(
             continue;
         };
         let moved = step.map_or(ae::Vec2::ZERO, |step| step.curr - step.prev);
-        for (aabb, drawn_moved) in back.ground_moving(mount, unmirrored) {
+        for aabb in back.ground(mount, unmirrored) {
             overlay.blocks.push(ae::Block {
                 id: ae::GeoId::anon(),
                 name: BACK_BLOCK.to_string(),
                 aabb,
                 kind: ae::BlockKind::OneWay,
-                velocity: moved + drawn_moved,
+                velocity: moved,
                 art_color: None,
             });
         }
+        overlay.chains.extend(back.drawn_chains(mount, unmirrored, moved));
         if let Some(points) = back.slope_line(mount, unmirrored) {
             let mut line = ae::SurfaceChain::open(SLOPE_LINE, points);
             line.velocity = moved;

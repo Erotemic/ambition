@@ -68,6 +68,30 @@ is what it keeps to. The lasting attachment comes with lines that move
   test: a body stands still on a ramp that moves both ways and ends where the
   ramp went, and walks up it, with no tick in the air.
 
+## Built (2026-10-26): ledges that tilt, and lines that lift and turn
+
+Jon: "we could let a slightly tilted platform have a ledge grab, no? or have
+a tilt knock a ledge grabber off?"
+
+- A LEDGE is a lip, the way its standing surface goes in from it, and the
+  side face (`ledge_grab::Ledge`). A block's top corner is the level case;
+  the free end of an open one-way line (`ledge_grab::chain_ledges`) is a
+  ledge that tilts as the line does. One probe for both
+  (`probe_ledge_grab_in_frame`): the anchor is at the lip, the climb target
+  stands on the tilted surface. A surface tilted more than
+  `LEDGE_TILT_LIMIT_DEG` (20) is no ledge, and a moving line that tilts past
+  it under a hanging body knocks it off (`LedgeCarry::KnockOff`); under it,
+  the line carries the hanger with its lip (its move and its turn).
+- A line's motion is a move and a turn about a pivot (`SurfaceChain::turn`,
+  `pivot`): the giant's drawn shoulders lift and tilt as the art does.
+  Kernel test: `a_body_rides_a_plank_that_lifts_and_tilts`.
+- A frozen body (hitlag, a tick with no time) is still carried by the line
+  or block it stands on (`movement::carry_frozen_rider`): a rider was left
+  under a lifting shoulder for the length of its own blow's hitlag and fell
+  through it.
+- A one-way BLOCK that rose toward a body this tick is crossed from where it
+  was (`one_way_landing_from_previous_feet` takes the block's velocity).
+
 ## The sites that move to it
 
 | Site | Today | After |
@@ -75,7 +99,7 @@ is what it keeps to. The lasting attachment comes with lines that move
 | The Math town's switchback stair | 64 still one-way platforms | two one-way slope lines and a landing |
 | The gate cradle's stairs | 24 still one-way platforms | a one-way slope line at each end |
 | The cart of the wake room | 14 still one-way platforms | one line (done; the cart stands still) |
-| The giant gnu's back | 10 typed ledges a tick | one moving line (done) |
+| The giant gnu's back | 10 typed ledges a tick | one moving line (done); its shoulders are drawn lines that lift and tilt (done) |
 
 ## Portals on angled surfaces (the second track)
 

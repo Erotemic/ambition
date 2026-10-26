@@ -411,6 +411,34 @@ enum SimPhaseReach {
     ShortCircuited,
 }
 
+/// A FROZEN body (a tick with no time: hitlag) does not move itself, but
+/// what it stands on still moves it: a line or a block that moved this tick
+/// carries a body that stood on it as it carries it in a stepped tick (the
+/// parent-frame carry, [`authority::carry_body`]). A body left behind by its
+/// moving support for the length of a hitlag is under it when the hitlag
+/// ends, and falls through it (a giant's shoulder that lifts while the
+/// player's blow freezes the player).
+fn carry_frozen_rider(world: &World, clusters: &mut crate::body_clusters::BodyClustersMut<'_>, frame: MotionFrame) {
+    use crate::{AabbExt, Vec2};
+    if !clusters.ground.on_ground {
+        return;
+    }
+    let g = frame.down();
+    let body = clusters.kinematics.aabb_oriented(g);
+    let delta = if let Some(line) = crate::walkable_lines::stood_on_line(world, body, g) {
+        let chain = &world.chains[line.chain];
+        let feet_point = body.center() + g * (body.feet_coord(g) - body.center().dot(g));
+        chain.carried(feet_point) - feet_point
+    } else if let Some(block) = crate::collision_semantics::supporting_block(world, body, g, false) {
+        block.velocity
+    } else {
+        Vec2::ZERO
+    };
+    if delta != Vec2::ZERO {
+        authority::carry_body(clusters.kinematics, clusters.sweep.as_deref_mut(), delta);
+    }
+}
+
 fn update_body_simulation_inner(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -425,6 +453,7 @@ fn update_body_simulation_inner(
 ) -> (FrameEvents, SimPhaseReach) {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
+        carry_frozen_rider(world, clusters, frame);
         return (events, SimPhaseReach::ShortCircuited);
     }
     let dt = raw_dt.min(1.0 / 30.0);

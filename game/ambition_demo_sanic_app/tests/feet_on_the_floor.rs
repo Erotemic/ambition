@@ -5,7 +5,10 @@
 //! rides a circle, and it took that circle's radius from the body's SMALLER
 //! half-extent. Sanic is taller than he is wide (33.7x48), so the circle was
 //! shorter than his box and the box — with the art drawn on it — hung 7.2
-//! units below the surface he rode.
+//! units below the surface he rode. His box is now his visible body, nearly
+//! square, so the tall case is guarded in the kernel's own tests
+//! (`a_tall_body_rides_a_circle_whose_bottom_is_its_feet`); this test keeps
+//! the feet of the shipped body on the floor of the shipped room.
 
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
@@ -27,10 +30,6 @@ fn sanic_stands_on_the_floor_he_rides() {
         .map(|(kin, ground)| (*kin, ground.on_ground))
         .expect("the demo spawned Sanic");
     assert!(on_ground, "the premise: he has settled onto the speedway floor");
-    assert!(
-        kin.size.y > kin.size.x + 1.0,
-        "the premise: a body taller than it is wide, which is the case that sank"
-    );
     let feet = kin.pos.y + kin.size.y * 0.5;
     // The painted floor under him: the nearest floor segment (authored left to
     // right) below his centre.

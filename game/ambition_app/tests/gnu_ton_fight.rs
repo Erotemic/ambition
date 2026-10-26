@@ -94,7 +94,27 @@ fn thrown_off_the_back(sim: &mut Platformer2dSimHarness, back: ae::Aabb, within:
         let (kin, _) = player(sim);
         (kin.pos.x - s.scholar.pos.x).signum()
     };
-    step_until(sim, within, "the buck to throw the player away from him", |sim| player(sim).0.vel.x * away > 300.0);
+    let mut seen = Vec::new();
+    for _ in 0..within {
+        sim.step(AgentAction::default());
+        let (kin, _) = player(sim);
+        let now = scene(sim);
+        let under: Vec<Option<f32>> = shoulder_lines(&now).into_iter().map(|line| top_under(line, &kin).map(f32::round)).collect();
+        seen.push((
+            kin.pos.x.round(),
+            (kin.pos.y + kin.size.y * 0.5).round(),
+            kin.vel.x.round(),
+            kin.vel.y.round(),
+            now.giant.pos.y.round(),
+            under,
+            giant_pin(sim).map(|p| p.0[0].clone()),
+        ));
+        if kin.vel.x * away > 300.0 {
+            break;
+        }
+    }
+    let (kin, _) = player(sim);
+    assert!(kin.vel.x * away > 300.0, "the buck did not throw the player away ({away}) from him: {seen:?}; {:?}", scene(sim).scholar.pos);
     let mut trail = Vec::new();
     for _ in 0..90 {
         sim.step(AgentAction::default());
@@ -249,20 +269,36 @@ fn strike_him_from(sim: &mut Platformer2dSimHarness, stand: ae::Vec2, toward: f3
 /// its drawn ledges (they follow its art). Over the neck between them is no
 /// ground.
 fn shoulders(s: &Scene) -> Vec<ae::Aabb> {
-    let mut out: Vec<ae::Aabb> =
-        s.giant_back.ground(&s.giant, s.giant_unmirrored).skip(s.giant_back.ledges.len()).collect();
-    out.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+    shoulder_lines(s)
+        .into_iter()
+        .map(|[a, b]| ae::aabb_from_min_size(ae::Vec2::new(a.x, a.y.min(b.y)), ae::Vec2::new(b.x - a.x, (a.y - b.y).abs())))
+        .collect()
+}
+
+/// The line of each shoulder where the sim has it now (it tilts as the art
+/// does), left first, each from its left end to its right end.
+fn shoulder_lines(s: &Scene) -> Vec<[ae::Vec2; 2]> {
+    let mut out: Vec<[ae::Vec2; 2]> = s.giant_back.drawn_lines(&s.giant, s.giant_unmirrored).map(|(ends, ..)| ends).collect();
+    out.sort_by(|a, b| a[0].x.total_cmp(&b[0].x));
     out
+}
+
+/// Where a body of `kin`'s width over `line` stands on it: the highest point
+/// of the line under its feet (`None` when the line is not under them).
+fn top_under(line: [ae::Vec2; 2], kin: &ae::BodyKinematics) -> Option<f32> {
+    let (left, right) = (kin.pos.x - kin.size.x * 0.5, kin.pos.x + kin.size.x * 0.5);
+    let [a, b] = line;
+    let (u0, u1) = (a.x.max(left), b.x.min(right));
+    (u1 > u0).then(|| {
+        let at = |x: f32| a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x).max(1e-3);
+        at(u0).min(at(u1))
+    })
 }
 
 /// A body stands on a shoulder of the giant, where the sim has it now.
 fn on_a_shoulder(s: &Scene, kin: &ae::BodyKinematics, slack: f32) -> bool {
     let feet = kin.pos.y + kin.size.y * 0.5;
-    shoulders(s).iter().any(|shoulder| {
-        (feet - shoulder.min.y).abs() <= slack
-            && kin.pos.x + kin.size.x * 0.5 > shoulder.min.x
-            && kin.pos.x - kin.size.x * 0.5 < shoulder.max.x
-    })
+    shoulder_lines(s).into_iter().any(|line| top_under(line, kin).is_some_and(|top| (feet - top).abs() <= slack))
 }
 
 /// Take the scholar's conductor away (he still rides the giant): the giant
@@ -690,8 +726,10 @@ fn a_body_stands_where_the_giant_has_moss() {
     // Where it can stand, not the fight: the giant holds the row it is in.
     stop_the_conductor(&mut sim);
     let s = scene(&mut sim);
-    let ground: Vec<ae::Aabb> = s.giant_back.ground(&s.giant, s.giant_unmirrored).collect();
-    assert_eq!(ground.len(), 4, "the giant has two horns and two shoulders (which follow its art)");
+    let mut ground: Vec<ae::Aabb> = s.giant_back.ground(&s.giant, s.giant_unmirrored).collect();
+    assert_eq!(ground.len(), 2, "the giant has two horns");
+    ground.extend(shoulders(&s));
+    assert_eq!(ground.len(), 4, "and two shoulders, which follow its art");
     let slope = s.giant_back.slope_line(&s.giant, s.giant_unmirrored).expect("the giant's back has a slope");
     // The highest point of the slope under a span: where a body over it stands.
     let slope_under = |left: f32, right: f32| {
@@ -721,7 +759,8 @@ fn a_body_stands_where_the_giant_has_moss() {
         let (left, right) = (kin.pos.x - kin.size.x * 0.5, kin.pos.x + kin.size.x * 0.5);
         // A shoulder moves with the giant's breath: where it is now.
         let now = scene(&mut sim);
-        let on_a_ledge = now
+        let on_a_ledge = on_a_shoulder(&now, &kin, 2.0)
+            || now
             .giant_back
             .ground(&now.giant, now.giant_unmirrored)
             .any(|other| other.max.x > left && other.min.x < right && (feet - other.min.y).abs() < 2.0);
@@ -836,7 +875,7 @@ fn a_body_walks_up_the_giants_hump_and_jumps_to_his_shoulders() {
         back.min.y
     );
     assert!(
-        (feet - near.min.y).abs() < 2.0 && kin.pos.x + kin.size.x * 0.5 > near.min.x && kin.pos.x - kin.size.x * 0.5 < near.max.x,
+        on_a_shoulder(&now, &kin, 2.0) && kin.pos.x + kin.size.x * 0.5 > near.min.x && kin.pos.x - kin.size.x * 0.5 < near.max.x,
         "two jumps from the end of the hump did not put the body on the near shoulder {near:?}: it is at {:?}, feet at {feet}",
         kin.pos
     );
@@ -875,11 +914,9 @@ fn a_body_over_the_giants_neck_falls_and_on_a_shoulder_stands() {
         let (kin, _) = player(&mut sim);
         let feet = kin.pos.y + kin.size.y * 0.5;
         // Where the shoulder is now: it moves with the giant's breath.
-        let shoulder = shoulders(&scene(&mut sim))[side];
-        assert!(
-            (feet - shoulder.min.y).abs() < 2.0,
-            "a body on the shoulder {shoulder:?} stands: feet at {feet}"
-        );
+        let line = shoulder_lines(&scene(&mut sim))[side];
+        let top = top_under(line, &kin);
+        assert!(top.is_some_and(|top| (feet - top).abs() < 2.0), "a body on the shoulder {line:?} stands: feet at {feet}, its top {top:?}");
     }
 }
 
@@ -923,6 +960,44 @@ fn drawn_shoulder(s: &Scene, pin: &(Vec<String>, f32, bool), name: &str) -> Opti
 /// conductor does.
 #[test]
 fn a_body_on_a_shoulder_rides_it_through_a_hammer() {
+    // Near its outer end, its middle, and near its inner end: the shoulder
+    // tilts as the torso leans, and the ground tilts with it.
+    for at in [0.18, 0.5, 0.82] {
+        let ride = ride_a_hammer(at);
+        println!(
+            "shoulder ride at {at}: the drawn shoulder moved {:.1}; the feet were off the ground line by at most {:.1} \
+             and off the drawn frame by at most {:.1}, moved at most {:.1} in a tick, and left it {} ticks",
+            ride.drawn_moved, ride.off_line, ride.off_drawn, ride.step, ride.airborne
+        );
+        assert!(ride.drawn_moved > 10.0, "the premise: the drawn shoulder moved: {:.1}", ride.drawn_moved);
+        assert_eq!(ride.airborne, 0, "at {at} the body left the shoulder {} ticks: {:?}", ride.airborne, ride.trail);
+        assert!(ride.off_line < 2.0, "at {at} the feet were {:.1} off the shoulder's line: {:?}", ride.off_line, ride.trail);
+        // The drawn frame jumps where the line goes smoothly: up to the
+        // frame's step (`scripts/measure_giant_shoulder_ground.py`).
+        assert!(ride.off_drawn < 10.0, "at {at} the feet were {:.1} off the drawn shoulder: {:?}", ride.off_drawn, ride.trail);
+        assert!(ride.step < 10.0, "at {at} the feet jumped {:.1} in one tick", ride.step);
+    }
+}
+
+/// What a body on the left shoulder went through in a hammer.
+struct Ride {
+    drawn_moved: f32,
+    /// The worst distance of its feet from the line it stood on (the ground
+    /// of that tick), and from the shoulder in the frame drawn.
+    off_line: f32,
+    off_drawn: f32,
+    /// The most its feet moved in one tick.
+    step: f32,
+    airborne: usize,
+    trail: Vec<(String, f32, f32, f32, f32, bool)>,
+}
+
+/// Stand a body at `at` (0 its outer end, 1 its inner end) along the left
+/// shoulder, and draw the giant through a hammer's windup, strike, hold and
+/// recover. The giant does not swing at a body on its back (its rider fights
+/// it), so this draws it in the hammer's rows itself: it takes the scholar's
+/// conductor away (he still rides) and pins the rows, as the conductor does.
+fn ride_a_hammer(at: f32) -> Ride {
     use ambition_platformer2d::sprite_sheet::character::PinnedRow;
     let mut sim = arena();
     untouchable_player(&mut sim);
@@ -954,52 +1029,108 @@ fn a_body_on_a_shoulder_rides_it_through_a_hammer() {
     };
     pin(&mut sim, 0.0);
     sim.step(AgentAction::default());
-    let left = shoulders(&scene(&mut sim))[0];
-    place_player(&mut sim, ae::Vec2::new((left.min.x + left.max.x) * 0.5, left.min.y - 40.0));
-    pin(&mut sim, 0.0);
+    let [a, b] = shoulder_lines(&scene(&mut sim))[0];
+    place_player(&mut sim, ae::Vec2::new(a.x + (b.x - a.x) * at, a.y.min(b.y) - 40.0));
     for _ in 0..20 {
-        sim.step(AgentAction::default());
         pin(&mut sim, 0.0);
+        sim.step(AgentAction::default());
     }
-    let (mut worst_off, mut worst_step, mut airborne) = (0.0_f32, 0.0_f32, 0);
+    let mut ride = Ride { drawn_moved: 0.0, off_line: 0.0, off_drawn: 0.0, step: 0.0, airborne: 0, trail: Vec::new() };
     let (mut drawn_low, mut drawn_high) = (f32::MAX, f32::MIN);
     let mut last_feet: Option<f32> = None;
     let total: f32 = lengths.iter().sum();
     let mut t = 0.0;
-    let mut trail = Vec::new();
     while t < total + 0.2 {
+        // The line the body stands on this tick: where the drawing was read
+        // at the end of the last.
+        let before = scene(&mut sim);
         pin(&mut sim, t);
         sim.step(AgentAction::default());
         let s = scene(&mut sim);
         let drawn_pin = giant_pin(&mut sim).expect("the giant is drawn in a pinned row");
         let (kin, _) = player(&mut sim);
         let feet = kin.pos.y + kin.size.y * 0.5;
+        // The ground moved with the giant this tick: the line as it stood,
+        // moved by the giant's own step.
+        let moved = s.giant.pos - before.giant.pos;
+        let line = shoulder_lines(&before)[0].map(|p| p + moved);
+        let on_line = top_under(line, &kin).expect("the body is over the shoulder's line");
         let drawn = drawn_shoulder(&s, &drawn_pin, "shoulder_left")
-            .and_then(|line| line_y(line, kin.pos.x))
+            .and_then(|line| top_under(line, &kin))
             .expect("the body is over the drawn left shoulder");
         drawn_low = drawn_low.min(drawn);
         drawn_high = drawn_high.max(drawn);
-        worst_off = worst_off.max((feet - drawn).abs());
+        ride.off_line = ride.off_line.max((feet - on_line).abs());
+        ride.off_drawn = ride.off_drawn.max((feet - drawn).abs());
         if let Some(last) = last_feet {
-            worst_step = worst_step.max((feet - last).abs());
+            ride.step = ride.step.max((feet - last).abs());
         }
         last_feet = Some(feet);
         let grounded = player_on_ground(&mut sim);
         if !grounded {
-            airborne += 1;
+            ride.airborne += 1;
         }
-        trail.push((drawn_pin.0[0].clone(), (t * 100.0).round() / 100.0, feet.round(), drawn.round(), kin.pos.x.round(), grounded));
+        ride.trail.push((drawn_pin.0[0].clone(), (t * 100.0).round() / 100.0, feet.round(), drawn.round(), on_line.round(), grounded));
         t += 1.0 / 60.0;
     }
-    println!(
-        "shoulder ride: the drawn shoulder moved {:.1}; the feet were off it by at most {worst_off:.1}, \
-         moved at most {worst_step:.1} in a tick, and left it {airborne} ticks",
-        drawn_high - drawn_low
-    );
-    assert!(drawn_high - drawn_low > 10.0, "the premise: the drawn shoulder moved: {:.1}", drawn_high - drawn_low);
-    assert_eq!(airborne, 0, "the body left the shoulder {airborne} ticks: {trail:?}");
-    assert!(worst_off < 10.0, "the feet were {worst_off:.1} off the drawn shoulder: {trail:?}");
-    assert!(worst_step < 10.0, "the feet jumped {worst_step:.1} in one tick");
+    ride.drawn_moved = drawn_high - drawn_low;
+    ride
+}
+
+/// A player can hang from the end of a shoulder while the giant leans (its
+/// shoulder tilted, under the ledge limit) and climb up onto it: the end of
+/// a drawn line is a ledge as a block's corner is (Jon, 2026-10-25).
+#[test]
+fn a_player_grabs_the_end_of_a_tilted_shoulder_and_climbs_up() {
+    use ambition_platformer2d::sprite_sheet::character::PinnedRow;
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    stop_the_conductor(&mut sim);
+    // Cocked for a hammer: the torso leans back, the left shoulder tilts.
+    let hold = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&mut PinnedRow, (With<BackLedge>, Without<Limb>)>();
+        q.iter_mut(world).next().expect("the giant is drawn in a pinned row").pin(&["hammer_windup"], 10.0, false);
+    };
+    for _ in 0..3 {
+        hold(&mut sim);
+        sim.step(AgentAction::default());
+    }
+    let [lip, inner] = shoulder_lines(&scene(&mut sim))[0];
+    let tilt = ((inner.y - lip.y).abs()).atan2(inner.x - lip.x).to_degrees();
+    let (kin, _) = player(&mut sim);
+    // Beside the outer end of the left shoulder, the lip a little under the
+    // head, reaching in toward it.
+    place_player(&mut sim, ae::Vec2::new(lip.x - kin.size.x * 0.5 - 2.0, lip.y + kin.size.y * 0.5 - 12.0));
+    let reach = AgentAction { move_x: 1.0, ..AgentAction::default() };
+    let mut hung = None;
+    for frame in 0..30 {
+        hold(&mut sim);
+        sim.step(reach.clone());
+        let (kin, _) = player(&mut sim);
+        if !player_on_ground(&mut sim) && kin.vel == ae::Vec2::ZERO && (kin.pos.y - kin.size.y * 0.5 - lip.y).abs() < 6.0 {
+            hung = Some(frame);
+            break;
+        }
+    }
+    let (kin, _) = player(&mut sim);
+    println!("ledge on a tilted shoulder: tilt {tilt:.1} degrees; hung at frame {hung:?}, at {:?}", kin.pos);
+    assert!(tilt > 3.0, "the premise: the shoulder tilts: {tilt:.1} degrees");
+    assert!(hung.is_some(), "the player did not hang from the end of the shoulder {lip:?}: it is at {:?}", kin.pos);
+    // Up: it climbs onto the tilted shoulder.
+    let up = AgentAction { move_y: -1.0, ..AgentAction::default() };
+    let mut on = false;
+    for _ in 0..60 {
+        hold(&mut sim);
+        sim.step(up.clone());
+        let (kin, _) = player(&mut sim);
+        if player_on_ground(&mut sim) && on_a_shoulder(&scene(&mut sim), &kin, 2.0) {
+            on = true;
+            break;
+        }
+    }
+    let (kin, _) = player(&mut sim);
+    assert!(on, "the player did not climb onto the shoulder: it is at {:?}", kin.pos);
 }
 
 /// ⭐ OVER THE NECK IS NO GROUND, so the scholar hops it (Jon, 2026-10-25:

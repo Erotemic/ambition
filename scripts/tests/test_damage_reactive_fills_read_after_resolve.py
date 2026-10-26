@@ -61,7 +61,7 @@ def test_the_authored_fill_is_lowered_in_content_specials():
     same direction, on a different channel."""
     adapter = (REPO / "crates/ambition_combat/src/extension/special.rs").read_text()
     assert re.search(
-        r"install_extension_request::<RefillResourcePort, _>\(\s*TECHNIQUE_EXECUTION,[^)]*lower_refills\)",
+        r"install_extension_submitted_request::<RefillResourcePort, _>\(\s*TECHNIQUE_EXECUTION,[^)]*lower_refills\)",
         adapter,
     ), "the refill adapter is no longer installed in `technique_execution`"
     composition = (REPO / "crates/ambition_platformer2d_runtime/src/extension_composition.rs").read_text()

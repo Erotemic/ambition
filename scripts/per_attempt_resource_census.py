@@ -79,6 +79,12 @@ KNOWN_PER_ATTEMPT = {"BrokenBricks", "SpentPowerBlocks", "SpentMonitors"}
 #: the cost of adding one is a line and a sentence, and the alternative is the
 #: Sanic bug, which cost a whole run's speed shoes.
 NOT_PER_ATTEMPT = {
+    "TerminalUi": (
+        "frame-clock terminal controls; drive_gate_terminal resets them when the "
+        "network has no open terminal or names a different ring"
+    ),
+    "AmbitionWornGear": "the gear ids the content pack registered; a death does not change the pack",
+
     # Rollback state, restored by the rollback registry rather than re-armed.
     "VersusMatch": "per-MATCH scoreboard, and its own doc says it is rollback state",
     # Presentation caches that re-seed themselves when their subject changes.

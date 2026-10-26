@@ -104,6 +104,10 @@ MIN_INTERSECTION = 5
 #: says right before it is wrong about one member. A name here is a READING: it
 #: says this component's presence is not authoritative over rewinding state.
 WAIVERS = {
+    "GateTerminalRoot": "gate panel layout, read by drive_gate_terminal and draw_gate_terminal in Update",
+    "DialBackButton": "gate panel Interaction, read by drive_gate_terminal in Update",
+    "RoomLookOverlay": "room-look Visibility, read by spread_room_states in Update",
+
     # Presentation. Each is filtered only by systems outside the sim schedule,
     # and a rewind that lost one would cost a frame of drawing, not a divergence.
     "MainCamera": "camera identity; 12 filter sites, all in render/camera systems",

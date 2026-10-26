@@ -54,7 +54,7 @@ def test_the_area_key_is_the_one_the_engine_reads() -> None:
     commented.
     """
     module = _module()
-    source = (REPO / "crates/ambition_platformer2d_ldtk/src/project.rs").read_text(
+    source = module.AREA_FIELD_SOURCE.read_text(
         encoding="utf-8"
     )
     assert f'field_string("{module.AREA_FIELD}")' in source

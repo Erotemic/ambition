@@ -15,7 +15,6 @@
 | [`body_landmarks`](src/body_landmarks.rs) | The one landmark query: where a body's hand, head or foot is. |
 | [`body_rig`](src/body_rig.rs) | A body's semantic rig on the body, and its pose resolved from simulation clocks every tick. |
 | [`brain`](src/brain/mod.rs) | THINKING THAT IS NOT THE FLOOR'S BUSINESS. |
-| [`breakables`](src/breakables.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
 | [`capture`](src/capture/mod.rs) | Capture is a persistent relationship between two bodies, separate from hit resolution and [`MovePlayback`](crate::moveset::MovePlayback). |
 | [`causal`](src/causal.rs) | Causal facts derived from stock-lifecycle messages. |
 | [`clank`](src/clank.rs) | TWO ATTACKS MEETING — hitbox-vs-hitbox arbitration, before either reaches a victim. |
@@ -26,7 +25,6 @@
 | [`events`](src/events.rs) | Combat message/event vocabulary and small shared value types. |
 | [`extension`](src/extension.rs) | The combat domain's extension request adapters. |
 | [`fade`](src/fade.rs) | A body that FADES between its attacks ([`MeleeTactics::fades`]): a spirit that is faint and intangible while it circles you, and solid while it strikes (Jon, 2026-10-22, the spectral wolf: "fades between attacks"). |
-| [`falling_chest`](src/falling_chest.rs) | Falling-chest physics for ECS reward chests. |
 | [`feel`](src/feel.rs) | Live gameplay-feel tuning owned by the combat domain. |
 | [`finish_zoom`](src/finish_zoom.rs) | The finishing blow pulls the camera in. |
 | [`footstool`](src/footstool.rs) | Footstool interaction: jumping off another body. |
@@ -63,7 +61,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_56 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_54 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

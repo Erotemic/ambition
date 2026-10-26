@@ -47,7 +47,7 @@ impl Plugin for AffordancesPlugin {
                 // It reads the controlled body's position against feature
                 // volumes, so it runs after this tick's input has settled which
                 // body is controlled.
-                .after(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit)
+                .after(ambition_characters::control::PrimarySlotInputCommit)
                 .in_set(AffordancesSystemSet::Compute),
         );
     }

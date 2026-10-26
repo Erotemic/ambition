@@ -2146,7 +2146,7 @@ responsibility to its owner and keep one body, control, and action path.
 
 | # | Item | Next step |
 |---|---|---|
-| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Continue with item integration, character activation and materialization, projectile execution, and world-object behavior. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
+| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Finish startup body policy, rollback declaration ownership, and the public body API. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`

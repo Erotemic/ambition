@@ -368,7 +368,7 @@ fn every_seat_is_its_own_side() {
 /// and `last_side_standing` decides among the contenders.
 #[test]
 fn only_the_tied_sides_are_carried_into_the_sudden_death_round() {
-    use ambition_platformer2d::actors::features::stocks_match::SuddenDeathBegan;
+    use ambition_platformer2d::runtime::stocks_match::SuddenDeathBegan;
     use ambition_platformer2d::characters::actor::{BodyHealth, Health};
     use ambition_platformer2d::combat::stocks::FighterEliminated;
     use ambition_platformer2d::combat::targeting::MatchTeam;

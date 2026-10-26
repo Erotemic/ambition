@@ -1,9 +1,4 @@
-//! Consumer systems for the typed gameplay-effect messages declared in
-//! [`events`](super::events): one focused applier per channel — flag writes
-//! (`apply_flag_effects`, mirrors `on` into a quest event), quest advances,
-//! switch activations (forwarded to the encounter queue + click SFX), and bare
-//! audio cues. Replaces the former single `GameplayEffect` enum bus; schedule
-//! composition stays content-side, not here.
+//! Apply typed flag, quest, switch, and audio effects.
 
 use ambition_combat::events::{GameplaySfxRequested, SetFlagRequested};
 use ambition_encounter::switches::SwitchActivated;
@@ -19,24 +14,10 @@ pub fn apply_flag_effects(
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
-        write_flag(&mut save, &mut quests, effect.id.clone(), effect.on);
+        ambition_persistence::quest::write_flag(&mut save, &mut quests, effect.id.clone(), effect.on);
     }
 }
 
-/// The one flag write: the save, plus `QuestAdvanceEvent::FlagSet` when the
-/// flag goes on. Shared by typed recorders that own a flag's meaning, so a
-/// flag set through one never skips the quest mirror the other provides.
-pub(crate) fn write_flag(
-    save: &mut ambition_persistence::save::AmbitionGameSave,
-    quests: &mut ambition_persistence::quest::QuestRegistry,
-    id: String,
-    on: bool,
-) {
-    if on {
-        quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(id.clone()));
-    }
-    save.data_mut().set_flag(id, on);
-}
 
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
 pub fn apply_quest_effects(
@@ -49,7 +30,7 @@ pub fn apply_quest_effects(
 }
 
 /// Switch activations are gameplay events too. The activation is already
-/// typed by the LDtk-to-ECS spawn path (see [`crate::features::SwitchFeature`]),
+/// typed by the LDtk-to-ECS spawn path (see [`ambition_encounter::switches::SwitchFeature`]),
 /// so this consumer just forwards it to the encounter queue and emits the
 /// click SFX.
 pub fn apply_switch_effects(
@@ -87,10 +68,6 @@ pub fn apply_gameplay_sfx_effects(
         });
     }
 }
-
-// `GameplayEffectsSchedulePlugin` lives content-side (content/features/mod.rs):
-// the effect chain interleaves the kit's appliers with the content layer's
-// stimuli appliers, and schedule composition belongs to the consumer.
 
 #[cfg(test)]
 mod tests {

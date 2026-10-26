@@ -1568,7 +1568,7 @@ fn abandon_the_match_when_the_shell_asks(
         return;
     };
     commands.insert_resource(
-        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&active),
+        ambition_platformer2d::runtime::stocks_match::MatchAbandonRequest::stop(&active),
     );
 }
 
@@ -1584,7 +1584,7 @@ fn abandon_the_match_when_the_shell_asks(
 fn open_the_sudden_death_round(
     mut commands: bevy::prelude::Commands,
     mut began: bevy::prelude::MessageReader<
-        ambition_platformer2d::actors::features::stocks_match::SuddenDeathBegan,
+        ambition_platformer2d::runtime::stocks_match::SuddenDeathBegan,
     >,
     mut fighters: bevy::prelude::Query<
         (

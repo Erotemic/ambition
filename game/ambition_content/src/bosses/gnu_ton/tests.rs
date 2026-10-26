@@ -3,7 +3,7 @@ use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 use ambition_boss_encounter::BossBehaviorProfileExt;
 use ambition_boss_encounter::BossClusterScratch;
-use ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay;
+use ambition_platformer2d_runtime::world_overlay::rebuild_feature_ecs_world_overlay;
 use ambition_platformer2d_world::collision::world_with_sandbox_solids;
 
 /// The composited collision view (immutable base + this frame's overlay).

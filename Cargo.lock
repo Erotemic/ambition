@@ -1110,11 +1110,9 @@ dependencies = [
  "bevy_framepace",
  "console_error_panic_hook",
  "image",
- "leafwing-input-manager",
  "ron 0.11.0",
  "serde",
  "serde_json",
- "virtual_joystick",
  "wasm-bindgen",
 ]
 
@@ -1231,6 +1229,7 @@ dependencies = [
  "ambition_combat",
  "ambition_content_pack",
  "ambition_cutscene",
+ "ambition_dialog",
  "ambition_engine_schemas",
  "ambition_input",
  "ambition_menu",
@@ -1410,6 +1409,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_abilities",
  "ambition_audio",
+ "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_breakables",
  "ambition_causal",
@@ -1430,6 +1430,7 @@ dependencies = [
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",
+ "ambition_interaction",
  "ambition_items",
  "ambition_load",
  "ambition_match",
@@ -1463,6 +1464,7 @@ dependencies = [
  "bevy",
  "bevy_common_assets",
  "blake3",
+ "leafwing-input-manager",
  "serde_json",
 ]
 

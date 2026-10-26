@@ -149,14 +149,14 @@ profile = ["ambition_platformer2d_actor_monolith/profile"]
 perf_probe = ["ambition_dev_tools/perf_probe"]
 portal_ldtk = ["portal", "ldtk_runtime", "ambition_platformer2d_ldtk/portal_ldtk"]
 input = [
-    "ambition_platformer2d_actor_monolith/input",
+    "ambition_input/input",
     "ambition_menu?/input",
     "ambition_platformer2d_host/input",
     # Weak: input does not FORCE the render edge; it configures it if present.
     "ambition_render?/input",
     "ambition_sim_view/input",
 ]
-mobile_touch = ["ambition_platformer2d_actor_monolith/mobile_touch", "ambition_touch_input/mobile_touch"]
+mobile_touch = ["ambition_touch_input/mobile_touch"]
 portal = [
     "ambition_portal2d",
     "ambition_held_items/portal",

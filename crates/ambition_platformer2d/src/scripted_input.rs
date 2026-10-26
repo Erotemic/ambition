@@ -85,7 +85,7 @@ pub fn drive_the_local_participant(app: &mut App) {
             // conclusion from the target's registration alone; what settles it is
             // whether the ORDERED-FROM system is present, which is a different
             // question and the one that matters.
-            .before(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit),
+            .before(ambition_characters::control::PrimarySlotInputCommit),
     );
     // `Last`, and it reads the SLOT TABLE. The observation has to come
     // from the far side of the pipeline or it would only be restating the write

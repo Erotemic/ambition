@@ -320,7 +320,7 @@ impl ambition_platformer2d::session::reset::AttemptScoped for BrokenBricks {
 /// encounter gates use to DROP authored blocks without editing the base). This is
 /// what actually removes a broken brick from every collision read AND, via the
 /// render reconcile, from the drawn world. Runs AFTER
-/// [`rebuild_feature_ecs_world_overlay`](ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay)
+/// [`rebuild_feature_ecs_world_overlay`](ambition_platformer2d::runtime::world_overlay::rebuild_feature_ecs_world_overlay)
 /// clears the list (its clean-slate-per-frame contract), exactly as
 /// `contribute_encounter_lock_walls` does for `gate_solids`.
 pub fn contribute_broken_bricks_to_overlay(

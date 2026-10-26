@@ -255,7 +255,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_menu/src/map/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_persistence/src/save.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
         "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_items/src/persist.rs",
@@ -388,7 +388,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -398,7 +398,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "SeatRawFrames": (
         "crates/ambition_platformer2d/src/scripted_input.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
         "crates/ambition_platformer2d_runtime/src/portal_seat.rs",
         "game/ambition_app/src/app/sim_systems.rs",
@@ -421,12 +421,13 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SlotControls": (
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
         "crates/ambition_platformer2d_runtime/src/portal_seat.rs",
         "game/ambition_app/src/app/sim_systems.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/raw_publication.rs",
     ),
     "SlotInteractionState": (
         "crates/ambition_platformer2d_actor_monolith/src/body_mode/mechanics/mod.rs",
@@ -541,7 +542,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "MenuControlFrame": (
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_touch_input/src/menu_bridge.rs",
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
@@ -651,7 +652,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
     ),
     "SlotControlLatches": (
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
     ),
@@ -714,7 +715,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/dev_runtime.rs",
     ),
     "ControlFrame": (
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
     ),
     "ControlledSubject": (
@@ -841,11 +842,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_touch_input/src/menu_bridge.rs",
     ),
     "SeatControlFrameModes": (
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_sim_harness/src/runtime.rs",
     ),
     "SeatMenuFrames": (
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input.rs",
         "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
     ),
     "SelectPage": (
@@ -885,11 +886,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash/src/select_screen.rs",
     ),
     "StocksMatchSettled": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
+        "crates/ambition_platformer2d_runtime/src/stocks_match.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "SuddenDeathEntered": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
+        "crates/ambition_platformer2d_runtime/src/stocks_match.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "VersusMatch": (
@@ -1677,7 +1678,7 @@ ADJUDICATED: dict[str, str] = {
     "ControlFrame": (
         "CORRECT — TWO HOSTS, ONE DERIVATION, AND THE SOURCE CALLS IT AN OUTPUT. "
         "`mirror_primary_slot_to_control_frame` "
-        "(`actor_monolith/src/schedule/input_systems.rs`) is `*frame = "
+        "(`runtime/src/input.rs`) is `*frame = "
         "slots.get(PRIMARY)` and nothing else, registered *\"once, for every "
         "host\"* in `PlayerInputSet::Device`; `publish_ggrs_input` "
         "(`rollback_ggrs/src/session.rs`) writes the SAME expression from the "
@@ -1694,7 +1695,7 @@ ADJUDICATED: dict[str, str] = {
         "CORRECT — FIVE SITES, FIVE ROLES, AND THE TWO DESTRUCTIVE ONES CANNOT "
         "BOTH BE INSTALLED. Three files, five sites by `write_sites`. ONE "
         "accumulator from the shaped table: `commit_seat_raw_frames` "
-        "(`actor_monolith/src/schedule/input_systems.rs`), which folds every "
+        "(`runtime/src/input.rs`), which folds every "
         "seat's `SeatRawFrames` row in *\"once the shaping stages have all "
         "run\"*. ONE out-of-band accumulator: "
         "`ambition_platformer2d_runtime::input_drive::drive_slot_frame`, the "
@@ -1826,7 +1827,7 @@ ADJUDICATED: dict[str, str] = {
         "one wrong publisher is a body that moves on the wrong input rather than "
         "a value nobody reads.\n"
         "    THE THREE COMMITTERS. `publish_seat_controls_when_nobody_else_does` "
-        "(`actor_monolith/src/schedule/input_systems.rs`) copies raw -> slots for "
+        "(`actor_monolith/src/control/raw_publication.rs`) copies raw -> slots for "
         "a FRAME-STEP composition and stands down whenever anything else "
         "publishes — the predicate is `another_authority_publishes`, "
         "`latches.is_some() || rollback.is_some()`. `publish_latched_slot_controls` "
@@ -1882,7 +1883,7 @@ ADJUDICATED: dict[str, str] = {
         "(`ambition_boss_encounter/src/systems.rs::update_boss_encounters`, "
         "`ambition_encounter_features/src/systems.rs::{drive_wave_encounters, "
         "apply_wave_encounter_effects}`, "
-        "`actor_monolith/src/features/ecs/effect_bus.rs::{apply_flag_effects, "
+        "`runtime/src/effect_bus.rs::{apply_flag_effects, "
         "apply_quest_effects}`, "
         "`ambition_platformer2d_runtime/src/quest.rs::push_room_entered_quest_events`, "
         "`actor_monolith/src/features/npcs.rs::record_npc_provocations` — which "
@@ -2886,7 +2887,7 @@ ADJUDICATED: dict[str, str] = {
         "comment (`:722-726`) explains it writes this resource directly "
         "because the headless composition does not run the normal device "
         "stage, `populate_seat_control_frames` — same "
-        "`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs` "
+        "`crates/ambition_platformer2d_runtime/src/input.rs` "
         "file. Never coexists with the shipped game's own world. Measured "
         "by CalculexAmbition, 2026-09-18."
     ),
@@ -2897,7 +2898,7 @@ ADJUDICATED: dict[str, str] = {
         "resource directly (`app.world_mut().resource_mut::<SeatMenuFrames>()`, "
         "around `:132`/`:143`) to simulate what the real device stage, "
         "`populate_seat_menu_frames` — same "
-        "`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs` "
+        "`crates/ambition_platformer2d_runtime/src/input.rs` "
         "file — would have produced. Never runs alongside the shipped game. "
         "Measured by CalculexAmbition, 2026-09-18."
     ),
@@ -3816,7 +3817,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SwitchActivationQueue": (
         "crates/ambition_encounter/src/switches.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
     ),
     "CustodyBaseline": (
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",

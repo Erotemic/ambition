@@ -404,3 +404,15 @@ mod menu_input_tests {
         assert_eq!(s.held_dir, None);
     }
 }
+
+/// Systems that rebuild the global and per-seat menu frames.
+#[derive(bevy::prelude::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuFramePopulate;
+
+/// Menu-frame consumers. Membership does not order consumers against each other.
+#[derive(bevy::prelude::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuFrameConsume;
+
+/// Directional menu navigation consumers.
+#[derive(bevy::prelude::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuNavConsume;

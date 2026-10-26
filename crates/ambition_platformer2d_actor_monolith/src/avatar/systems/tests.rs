@@ -2,7 +2,7 @@
 // tests drive the player tick THROUGH it so they exercise the same slot-owned
 // authority as production rather than stamping body-local input state.
 use super::*;
-use crate::schedule::publish_seat_controls_when_nobody_else_does;
+use crate::control::publish_seat_controls_when_nobody_else_does;
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
 

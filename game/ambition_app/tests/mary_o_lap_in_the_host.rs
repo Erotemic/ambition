@@ -200,7 +200,7 @@ fn a_press_on_seat_zero_moves_her_in_the_shell_host() {
         app.add_systems(
             schedule,
             observe_from_inside_the_sim
-                .after(ambition_platformer2d::actors::control::PrimarySlotInputCommit),
+                .after(ambition_platformer2d::characters::control::PrimarySlotInputCommit),
         );
     }
 

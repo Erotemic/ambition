@@ -1144,7 +1144,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 // Join the shared menu-nav consume set so the touch-joystick
                 // fold (mobile_input) can pin `.before(MenuNavConsume)` and
                 // land its directional intent before this reads the frame.
-                .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume)
+                .in_set(ambition_platformer2d::input::MenuNavConsume)
                 // ORDERED against the cube backend's nav; see `menu::GridMenuNav`.
                 .in_set(crate::menu::GridMenuNav),
         )
@@ -1199,7 +1199,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 // controller submit would be dispatched a frame late — breaking the
                 // `InputSet` contract that an edge produced this frame is consumed
                 // this frame.
-                .after(ambition_platformer2d::actors::schedule::MenuNavConsume)
+                .after(ambition_platformer2d::input::MenuNavConsume)
                 .before(grid_menu_republish_view),
         );
     }

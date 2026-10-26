@@ -137,7 +137,7 @@ pub(super) fn install(app: &mut App) {
                 // A READER of the menu frame, after every surface that writes
                 // or consumes it: the frame is whole when the terminal reads
                 // it, and no other surface's order depends on the terminal's.
-                .after(ambition_platformer2d::actors::schedule::MenuFrameConsume),
+                .after(ambition_platformer2d::input::MenuFrameConsume),
         );
 }
 

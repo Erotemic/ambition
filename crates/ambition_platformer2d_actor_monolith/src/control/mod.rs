@@ -10,7 +10,7 @@ pub mod components;
 pub mod input_systems;
 pub mod possession;
 pub mod queries;
-pub mod slots;
+mod raw_publication;
 
 pub use ambition_characters::control::DrivingParticipant;
 pub use authority::project_driving_participant;
@@ -22,5 +22,5 @@ pub use queries::{
     another_authority_publishes, body_driving_seat, controlled_frame_down, primary_player_entity,
     seat_frame_down, seat_frame_this_tick, shape_seat_frame,
 };
-pub use slots::PrimarySlotInputCommit;
+pub use raw_publication::publish_seat_controls_when_nobody_else_does;
 

@@ -336,7 +336,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                     // screen or inside a hosted Sanic/Mary-O session.
                     .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
                     .run_if(ambition_platformer2d::runtime::in_base_mode)
-                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume)
+                    .in_set(ambition_platformer2d::input::MenuNavConsume)
                     // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
                     .in_set(crate::menu::KaleidoscopeMenuNav),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
@@ -344,7 +344,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume)
+                    .in_set(ambition_platformer2d::input::MenuNavConsume)
                     // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
                     .in_set(crate::menu::KaleidoscopeMenuNav),
                 // between nav and republish, deliberately. Nav and the
@@ -364,7 +364,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // menu frame, which is what the consume set is pinned behind.
                 kaleidoscope_scroll_wheel
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_platformer2d::actors::schedule::MenuFrameConsume),
+                    .in_set(ambition_platformer2d::input::MenuFrameConsume),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
                 // Build the System model + radio/dev snapshots ONCE per frame; the
                 // republish + both in-place sync systems read this cache instead of

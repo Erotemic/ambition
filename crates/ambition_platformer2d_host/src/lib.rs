@@ -58,15 +58,9 @@ pub struct HostInputBindingsPlugin;
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith};
-        use ambition_platformer2d_runtime::host_input::{
-            commit_seat_raw_frames,
-            declare_gameplay_input_context, declare_in_session_input_contexts,
-            dialog_pointer_input, populate_menu_control_frame_from_actions,
-            populate_seat_control_frames, populate_seat_menu_frames,
-            spawn_primary_input_participant, sync_primary_recipe_from_settings,
-            toggle_player_trail_emission_from_actions, MenuFrameConsume,
-            MenuFramePopulate, MenuNavConsume,
-        };
+        use ambition_platformer2d_runtime::input::{commit_seat_raw_frames, declare_gameplay_input_context, declare_in_session_input_contexts, populate_menu_control_frame_from_actions, populate_seat_control_frames, populate_seat_menu_frames, spawn_primary_input_participant, sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions};
+        use ambition_dialog::dialog_pointer_input;
+        use ambition_input::{MenuFrameConsume, MenuFramePopulate, MenuNavConsume};
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
         // ⭐ THE INPUT CAPABILITY DECLARES ITS OWN PIPELINE. This host restated
@@ -133,7 +127,7 @@ impl Plugin for HostInputBindingsPlugin {
             //  ONE table, seat zero included. There were two `init_resource`
             // calls here and two systems below, because seat zero had its own
             // spelling of the latch — see `SlotControlLatches`.
-            app.init_resource::<ambition_platformer2d_runtime::host_input::SlotControlLatches>();
+            app.init_resource::<ambition_characters::control::SlotControlLatches>();
         }
         // Fold after proposal-side input shaping and before confirmed-input derivations.
         // Device- or wall-clock-derived shaping belongs in `InputSet::Route`; confirmed
@@ -142,7 +136,7 @@ impl Plugin for HostInputBindingsPlugin {
             Update,
             commit_seat_raw_frames
                 .after(ambition_input::InputSet::Route)
-                .in_set(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit),
+                .in_set(ambition_characters::control::PrimarySlotInputCommit),
         );
         //  ONE drain for every seat. This was two systems because their
         // destinations differed — seat zero's latched frame went to the global
@@ -158,7 +152,7 @@ impl Plugin for HostInputBindingsPlugin {
         // the same latches at `ReadInputs`, where a rollback host asks) are all
         // facts about that module, not about this composition. This host spelled
         // all four and reached for `app.sim_schedule()` to do it.
-        ambition_platformer2d_runtime::host_input::install_latched_slot_publication(app);
+        ambition_platformer2d_runtime::input::install_latched_slot_publication(app);
 
         // leafwing's `InputManagerPlugin` runs systems (e.g. `filter_captured_input`)
         // over Bevy's `ButtonInput<..>` resources, which `bevy::input::InputPlugin`
@@ -312,7 +306,7 @@ impl Plugin for HostInputBindingsPlugin {
                     // frame (`ResMut<DialogState>` does not exist). And only
                     // while a dialogue is open: it reads its rows then.
                     dialog_pointer_input.run_if(
-                        |dialogue: Option<bevy::prelude::Res<ambition_platformer2d_runtime::host_input::DialogState>>| {
+                        |dialogue: Option<bevy::prelude::Res<ambition_dialog::DialogState>>| {
                             dialogue.is_some_and(|dialogue| dialogue.active())
                         },
                     ),
@@ -340,7 +334,7 @@ impl Plugin for HostInputBindingsPlugin {
         // The roster-driven seating pair installs ITSELF: both systems live in the
         // monolith and its ordering against `InputSet::Collect` is that crate's
         // fact, not this composition's.
-        ambition_platformer2d_runtime::host_input::install_roster_seating(app);
+        ambition_platformer2d_runtime::input::install_roster_seating(app);
         // The menu crate cannot know an asset path and the render crate must
         // not own the menu IR, so the host is where the font handle crosses —
         // and only a host that HAS a renderer has a font to carry.

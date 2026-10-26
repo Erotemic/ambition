@@ -622,3 +622,8 @@ pub fn clear_control_holds(commands: &mut Commands, body: Entity) {
 
 mod acting;
 pub use acting::ActingParticipant;
+
+/// The publication boundary for local controller input.
+/// Frame adapters run before this set. Readers of the accepted slot run after it.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PrimarySlotInputCommit;

@@ -3258,7 +3258,7 @@ fn a_settled_match_withdraws_the_exit_row_while_the_winner_card_is_still_up() {
         .cloned()
         .expect("a live match");
     app.world_mut().insert_resource(
-        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&running),
+        ambition_platformer2d::runtime::stocks_match::MatchAbandonRequest::stop(&running),
     );
     app.update();
     app.update();

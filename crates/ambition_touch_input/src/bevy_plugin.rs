@@ -267,10 +267,10 @@ impl Plugin for TouchControlsPlugin {
                     // populate rebuilt it and before menu consumers read it.
                     fold_touch_gestures
                         .in_set(ambition_input::InputSet::Route)
-                        .after(ambition_platformer2d_actor_monolith::schedule::MenuFramePopulate)
+                        .after(ambition_input::MenuFramePopulate)
                         // One pin on the consume set, not one per reader, so a
                         // new reader is covered too.
-                        .before(ambition_platformer2d_actor_monolith::schedule::MenuFrameConsume),
+                        .before(ambition_input::MenuFrameConsume),
                 )
                     .chain(),
             )

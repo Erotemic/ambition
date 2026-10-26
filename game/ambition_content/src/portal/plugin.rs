@@ -248,7 +248,7 @@ mod schedule_tests {
 
     use bevy::prelude::*;
 
-    use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
+    use ambition_platformer2d_runtime::schedule::configure_platformer2d_simulation_phases;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 
     // A seat-frame writer whose ONLY scheduling constraint is set
@@ -268,8 +268,8 @@ mod schedule_tests {
     #[test]
     fn input_set_populate_runs_before_primary_slot_publication() {
         use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
-        use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
-        use ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does;
+        use ambition_characters::control::PrimarySlotInputCommit;
+        use ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does;
 
         let mut app = App::new();
         configure_platformer2d_simulation_phases(&mut app);

@@ -44,10 +44,10 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     // component the projectile system + visuals path queries
     // (`BodyKinematics`, `PlayerEntity`, `PrimaryPlayer`, `LocalPlayer`, the
     // cluster components, …) with no manual spawn-tuple list.
-    let mut scratch = crate::avatar::home_body_scratch(pos, ae::AbilitySet::sandbox_all());
+    let mut scratch = ambition_platformer2d_actor_monolith::avatar::home_body_scratch(pos, ae::AbilitySet::sandbox_all());
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;
-    let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
+    let bundle = crate::test_body::home_body(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
@@ -139,8 +139,8 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
         (
             // Commit every seat's shaped raw frame into SlotControls, then let
             // the player brain translate that canonical slot (production order).
-            crate::schedule::publish_seat_controls_when_nobody_else_does,
-            crate::avatar::tick_controlled_brains,
+            ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
+            ambition_platformer2d_actor_monolith::avatar::tick_controlled_brains,
             ambition_combat::action_emission::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
             // shots, THEN input fires + the delayed request materializer runs (so a
@@ -148,7 +148,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             step_projectiles,
             charge_projectile_input,
             ambition_projectiles::materialize_projectiles_for_next_tick,
-            crate::features::apply_feature_hit_events,
+            ambition_platformer2d_actor_monolith::features::apply_feature_hit_events,
         )
             .chain(),
     );

@@ -90,7 +90,7 @@ pub fn record_npc_provocations(
     mut quests: bevy::prelude::ResMut<ambition_persistence::quest::QuestRegistry>,
 ) {
     for change in changes.read() {
-        super::ecs::effect_bus::write_flag(
+        ambition_persistence::quest::write_flag(
             &mut save,
             &mut quests,
             ambition_persistence::save_data::npc_hostile_flag(&change.id),

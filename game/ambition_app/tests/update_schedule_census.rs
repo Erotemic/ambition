@@ -139,7 +139,8 @@ fn census_of_how_much_of_update_is_inside_a_set() {
 /// alone is insufficient.
 #[test]
 fn the_menu_frame_reader_sets_are_co_scheduled() {
-    use ambition_platformer2d::actors::schedule::{MenuFrameConsume, MenuNavConsume};
+    use ambition_platformer2d::input::MenuFrameConsume;
+use ambition_platformer2d::input::MenuNavConsume;
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -308,7 +309,8 @@ type ConflictCensus = (
 );
 
 fn menu_frame_conflicts(app: &mut App) -> ConflictCensus {
-    use ambition_platformer2d::actors::schedule::{MenuFrameConsume, MenuNavConsume};
+    use ambition_platformer2d::input::MenuFrameConsume;
+use ambition_platformer2d::input::MenuNavConsume;
     let menu_id = app
         .world()
         .components()
@@ -551,7 +553,7 @@ fn name_the_menu_frame_conflicts() {
                 name!("dialog_input", ambition_platformer2d::dialog::dialog_input);
                 name!("fold_touch_gestures", ambition_platformer2d::touch_input::menu_bridge::fold_touch_gestures);
                 name!("handle_map_menu_hotkeys", ambition_platformer2d::menu::map::handle_map_menu_hotkeys);
-                name!("populate_menu_control_frame_from_actions", ambition_platformer2d::actors::schedule::populate_menu_control_frame_from_actions);
+                name!("populate_menu_control_frame_from_actions", ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions);
 
                 let who = |k: &bevy::ecs::schedule::SystemKey| -> String {
                     for (n, keys) in &named {

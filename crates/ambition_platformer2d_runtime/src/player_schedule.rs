@@ -120,13 +120,13 @@ impl Plugin for PlayerSchedulePlugin {
                 // surface, and record the final frame the simulation consumes.
                 (
                     ambition_platformer2d_actor_monolith::control::possession::resolve_controlled_subject,
-                    ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does
-                        .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
+                    ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does
+                        .in_set(ambition_characters::control::PrimarySlotInputCommit),
                     //  and the MIRROR, once, for every host. `ControlFrame`
                     // is seat zero's output now; the forensic trace codec and the
                     // harness's action encoder read it, and they must be able to
                     // whatever clock the composition runs on.
-                    ambition_platformer2d_actor_monolith::schedule::mirror_primary_slot_to_control_frame,
+                    crate::input::mirror_primary_slot_to_control_frame,
                     // N0.2: capture the input the SIM consumes, which is not the
                     // input the device produced — gestures, portal warp, and the
                     // fixed-tick latch all rewrite the frame on the way here.

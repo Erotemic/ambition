@@ -21,7 +21,6 @@ mod character_roster;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
-pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
@@ -37,9 +36,6 @@ pub mod enemy_projectile;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-#[cfg(test)]
-#[path = "tests/projectile/mod.rs"]
-mod projectile_tests;
 pub mod repertoire;
 
 // Public re-exports double as the external API for bins, tests, and docs.

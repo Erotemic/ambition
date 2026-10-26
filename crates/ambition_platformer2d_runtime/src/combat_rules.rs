@@ -1,18 +1,4 @@
-//! Fold the active room's declared combat rules over the world's baseline. (AE6)
-//!
-//! The type this produces —
-//! [`ResolvedCombatTuning`](ambition_combat::rules::ResolvedCombatTuning) — lives
-//! in `ambition_combat`, because `on_hit`, `hitbox` and the damage paths are its
-//! readers and a type must sit at or below its readers. The FOLD lives here,
-//! one layer up, because its inputs do not both live down there: friendly fire
-//! is combat's own baseline, and `di_max_angle` belongs to this crate's feel
-//! tuning. Ownership travels down with the type; the projection happens where
-//! the facts are visible.
-//!
-//! this is a DERIVED resource — rebuilt every tick from inputs that are
-//! themselves either rollback state (the active room) or authored constants
-//! (the declarations), so a rewind does not need to restore it and must not
-//! try to.
+//! Project match rules into the live combat tuning.
 
 use bevy::prelude::{Commands, Res};
 

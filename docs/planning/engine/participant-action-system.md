@@ -33,7 +33,7 @@ clock. Dialogue says only the first. Ownership lives in `SeatInputContexts` /
 dialogue box while another keeps running. Pause, room transition and cutscene
 still stop everybody. Witness:
 `dialogue_claims_the_talker_while_a_pause_still_stops_everybody`
-(`actor_monolith/src/schedule/input_systems.rs`).
+(`runtime/src/input.rs`).
 
 `GameMode::allows_gameplay()` is still `matches!(self, Self::Playing)`. It no
 longer decides per-seat gameplay routing. Do not "fix" it by deleting the mode

@@ -7,6 +7,7 @@ authors.workspace = true
 description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing. Must NOT dep ambition_content — that one IS boundary-tested (engine.host-names-no-content). Avoiding a DIRECT ambition_platformer2d_actor_monolith dep is a goal, not a ratchet: no guard has ever enforced it, and actors already arrives transitively via ambition_platformer2d_runtime, so do not cite it as settled — see docs/planning/engine/actor-monolith-decomposition.md. The shared per-frame SIM wiring lives in `ambition_platformer2d_runtime` (headless/RL runs it too)."
 
 [dependencies]
+ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
@@ -69,6 +70,7 @@ render = ["dep:ambition_render", "dep:ambition_menu", "dep:ambition_sprite_sheet
 # The leafwing input bindings + the device→ControlFrame bridge
 # (HostInputBindingsPlugin). Mirrors the app's `input` persona feature.
 input = [
+    "dep:ambition_characters",
     "ambition_input/input",
     "ambition_render?/input",
     "ambition_sim_view/input",

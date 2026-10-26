@@ -62,7 +62,7 @@ An integer Hz is a rate, not a rational representation of the exact frame period
 - `game/ambition_app/src/app/visible_composition.rs`: currently selects `SimulationHost::Rollback` unconditionally, including Android.
 - `game/ambition_app/src/app/plugins.rs`: installs `AmbitionRollbackPlugin` and game-specific rollback declarations only for a rollback host.
 - `crates/ambition_platformer2d_host/src/lib.rs`: frame-to-tick `SlotControlLatches` and the fixed-step drain.
-- `crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs`: input publication for fixed, rollback, and frame-step hosts.
+- `crates/ambition_platformer2d_runtime/src/input.rs`: input publication for fixed, rollback, and frame-step hosts.
 - `crates/ambition_platformer2d_runtime/src/room_transition/{loading,commit}.rs`: eager and confirmed room changes.
 - `crates/ambition_platformer2d_runtime/src/external_effects.rs`: uses confirmation only when `ConfirmedFrameBoundary` exists.
 - `game/ambition_app/src/host/platform/android.rs`: platform lifecycle and pause/resume.

@@ -15,6 +15,20 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;
 mod combat_schedule;
+pub mod combat_rules;
+pub mod stocks_match;
+pub mod effect_bus;
+pub mod world_overlay;
+mod world_schedule;
+pub use world_schedule::{WorldPrepSchedulePlugin, GameplayEffectsSchedulePlugin, FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin, register_damage_facing_volume_publication};
+#[cfg(test)]
+mod world_integration_tests;
+#[cfg(test)]
+mod hurtbox_damage_tests;
+#[cfg(test)]
+mod view_schedule_tests;
+#[cfg(test)]
+mod feature_interaction_order_tests;
 pub mod content_identity;
 /// The cutscene player: triggers, playback and its save effects (the
 /// `Cutscenes` capability; a profile without it leaves the plugin out).
@@ -33,6 +47,8 @@ pub mod external_effects;
 pub mod gravity;
 #[cfg(test)]
 mod host_invariant_tests;
+pub mod input;
+pub mod schedule;
 pub mod input_drive;
 pub mod input_stream;
 /// The opt-in LDtk world install: the format's runtime spine + its rollback row.
@@ -129,33 +145,9 @@ pub use input_stream::{InputStreamRecorder, input_stream_recording, record_input
 #[cfg(feature = "ldtk")]
 pub use ldtk_world::LdtkWorldPlugin;
 
-/// Host-facing input seams that are implemented by the simulation heart but
-/// scheduled by a visible host. Keeping this tiny facade here lets
-/// `ambition_platformer2d_host` wire leafwing/device input without depending directly on
-/// `ambition_platformer2d_actor_monolith`.
 #[cfg(feature = "causal")]
 pub mod causal;
 
-pub mod host_input {
-    pub use ambition_platformer2d_actor_monolith::schedule::{
-        MenuFrameConsume, MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
-        commit_seat_raw_frames,
-        declare_gameplay_input_context, declare_in_session_input_contexts,
-        freeze_local_seating_for_the_decided_match, install_latched_slot_publication,
-        install_roster_seating, mirror_primary_slot_to_control_frame,
-        populate_menu_control_frame_from_actions, populate_seat_control_frames,
-        populate_seat_menu_frames, publish_latched_slot_controls,
-        publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,
-        spawn_primary_input_participant, sync_primary_recipe_from_settings,
-        toggle_player_trail_emission_from_actions,
-    };
-    pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;
-    // Publication boundary re-exported with the host-facing shaping systems.
-    pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
-    // Frame-to-tick latch re-exported through the host-facing input seam.
-    pub use ambition_characters::control::SlotControlLatches;
-    pub use ambition_dialog::{DialogState, dialog_pointer_input};
-}
 
 pub mod host_seams {
     pub use ambition_dev_tools::DeveloperRuntimeState;
@@ -361,7 +353,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         );
         // Declare the canonical simulation-phase ordering. System
         // registrations elsewhere only need `.in_set(Platformer2dSimulationPhase::X)`.
-        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
+        crate::schedule::configure_platformer2d_simulation_phases(
             app,
         );
         // The Class-B transit ledger (`docs/concepts/movement-collision.md`). Frame-scoped:
@@ -498,7 +490,7 @@ impl PluginGroup for PlatformerEnginePlugins {
         let builder = builder
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_platformer2d_publication::construction::RoomConstructionPlugin)
-            .add(ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin)
+            .add(crate::WorldPrepSchedulePlugin)
             // A sheet-authored body adopts the box for the pose it is showing, in
             // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
@@ -543,8 +535,8 @@ impl PluginGroup for PlatformerEnginePlugins {
             // does is INSIDE this one (step before collect), and it says so.
             .add(ambition_world_items::WorldItemSimulationPlugin)
             // Feature (room-entity) collection + interaction schedules.
-            .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
-            .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
+            .add(crate::FeatureCollectionSchedulePlugin)
+            .add(crate::FeatureInteractionSchedulePlugin)
             // CONVERSATION IS A MEMBER OF THIS GROUP, not something the interaction
             // schedule installs from inside its own `build`: a plugin added from
             // another plugin's `build` is invisible to `PluginGroupBuilder::disable`,
@@ -559,7 +551,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(crate::authored_verdict_timeline::AuthoredVerdictTimelinePlugin)
             .add(crate::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
-            .add(ambition_platformer2d_actor_monolith::features::GameplayEffectsSchedulePlugin)
+            .add(crate::GameplayEffectsSchedulePlugin)
             // Reward chests react to the encounter domain's published cleared
             // list; composed beside its siblings so no registration for it
             // lands back in the encounter adapter.
@@ -838,3 +830,10 @@ const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 mod gated_lock_wall_tests;
 
 pub mod world_facts;
+
+#[cfg(test)]
+#[path = "tests/projectile/mod.rs"]
+mod projectile_tests;
+
+#[cfg(test)]
+mod test_body;

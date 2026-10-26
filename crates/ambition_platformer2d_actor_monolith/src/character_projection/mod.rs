@@ -212,5 +212,3 @@ impl Plugin for ActorCharacterPlugin {
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod hurtbox_damage_tests;

@@ -940,7 +940,7 @@ fn real_input_cube_app(
     app.add_systems(
         Update,
         (
-            ambition_platformer2d::actors::schedule::populate_menu_control_frame_from_actions,
+            ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions,
             kaleidoscope_menu_open_routing,
             kaleidoscope_focus_nav,
         )

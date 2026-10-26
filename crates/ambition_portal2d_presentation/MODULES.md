@@ -18,9 +18,10 @@
 | [`plugin`](src/plugin.rs) | The drop-in presentation plugin + its schedule label. |
 | [`source_visibility`](src/source_visibility.rs) | One authority over a portal-presented body's own `Visibility`. |
 | [`view_cones`](src/view_cones.rs) | Live through-portal view windows. |
+| [`viewpoints`](src/viewpoints.rs) | Host viewpoints shared by portal presentation passes. |
 | [`visuals`](src/visuals.rs) | Default portal-seam visuals: portal labels and the disorientation indicator. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

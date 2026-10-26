@@ -9,8 +9,8 @@ use bevy::prelude::*;
 
 use crate::far_side;
 use crate::gun_visuals;
-#[cfg(feature = "effect_view_cones")]
 use crate::source_visibility;
+#[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
 use crate::visuals;
 #[cfg(feature = "effect_view_cones")]
@@ -105,6 +105,7 @@ impl Plugin for PortalPresentationPlugin {
         app.init_resource::<crate::PortalParallaxCarry>();
         app.init_resource::<PortalCameraContinuityHostView>();
         app.init_resource::<crate::PortalObserverViews>();
+        app.init_resource::<crate::PortalViewers>();
 
         if self.portal_quads {
             app.add_systems(
@@ -190,10 +191,6 @@ impl Plugin for PortalPresentationPlugin {
             app.init_resource::<view_cones::PortalViewConeRule>();
             app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
-            // The viewer seam (host-synced each frame): one eye for each live
-            // room that a view frames. A room with no eye has no window. Init
-            // here so the host can `ResMut` it.
-            app.init_resource::<view_cones::PortalViewers>();
             app.init_resource::<PortalDebugOverlay>();
             app.add_systems(
                 Update,

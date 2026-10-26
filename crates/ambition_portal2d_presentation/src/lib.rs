@@ -31,6 +31,7 @@ mod source_visibility;
 #[cfg(feature = "effect_view_cones")]
 mod view_cones;
 mod visuals;
+mod viewpoints;
 
 pub use camera_continuity::{
     camera_roll_for_portal_transit, PortalCameraContinuityCamera, PortalCameraContinuityConfig,
@@ -83,8 +84,9 @@ pub use view_cones::{
     PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeDebugRow,
     PortalViewConeMode, PortalViewConeRule, PortalViewCones, PortalViewConeSourceClipPolicy,
     PortalViewConeVisibilityMode,
-    PortalViewRig, PortalViewer, PortalViewers, PORTAL_WINDOW_RENDER_LAYER,
+    PortalViewRig, PORTAL_WINDOW_RENDER_LAYER,
 };
+pub use viewpoints::{PortalViewer, PortalViewers};
 pub use visuals::{
     sync_portal_disorientation_indicator, sync_portal_visuals, PortalBodyPiece, PortalDisorientIndicator,
     PortalVisual,

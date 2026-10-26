@@ -106,7 +106,8 @@ fn every_snake_wears_the_shell_state_its_brain_promises() {
 /// each authored enemy is a body that rule reaches, and the far ones sleep.
 #[test]
 fn every_authored_enemy_sleeps_when_she_is_far() {
-    use ambition_platformer2d::actors::features::ecs::dormancy::{wake_radius, Dormant};
+    use ambition_platformer2d::actors::dormancy::wake_radius;
+use ambition_platformer2d::actors::dormancy::Dormant;
     use ambition_platformer2d::combat::dormancy_rule::DormancyRule;
     use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::characters::control::DrivingParticipant;

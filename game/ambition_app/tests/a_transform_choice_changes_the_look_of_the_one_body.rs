@@ -30,7 +30,7 @@ fn ask(sim: &mut ambition_app::Platformer2dSimHarness, body: Entity, character: 
     let id = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), body)
         .expect("a placed body has a SimId");
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::features::WearRequested {
+        .write_message(ambition_platformer2d::actors::WearRequested {
             body: id,
             character: WornCharacter::new(character).character().clone(),
         });
@@ -95,7 +95,7 @@ fn the_hall_seats_a_character_once_and_a_transform_puts_each_look_on_that_body()
 /// his body"). The sheet he wears with no armor has no `transform` row.
 #[test]
 fn a_look_with_a_transform_row_plays_it_when_the_body_changes_into_it() {
-    use ambition_platformer2d::actors::features::transform_beat::TransformBeat;
+    use ambition_platformer2d::actors::transform_beat::TransformBeat;
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
     let mut sim = fixed_60hz_room_sim("hall_of_characters");
@@ -133,7 +133,7 @@ fn a_look_with_a_transform_row_plays_it_when_the_body_changes_into_it() {
 fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
     use crate::the_note_travels_from_alice_to_bob::{dialog_active, npc, put_body_at, tap};
     use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
-    use ambition_platformer2d::actors::features::transform_beat::TransformBeat;
+    use ambition_platformer2d::actors::transform_beat::TransformBeat;
     use ambition_platformer2d::dialog::DialogState;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use bevy::prelude::KeyCode;

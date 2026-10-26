@@ -1106,7 +1106,7 @@ pub mod character {
     /// tests, procedural generation, unrepresentable schemas, and a cast whose
     /// behavior is supplied by host code as a deliberate authoring choice.
     pub use ambition_characters::actor::definition::{CharacterDefinition, Lineage, Vitals};
-    pub use ambition_characters::actor::{CharacterLocomotion, ContactDamage, WornCharacter};
+    pub use ambition_characters::actor::{CharacterLocomotion, ContactDamage, Empowerment, WornCharacter};
     /// Controller policy and locomotion vocabulary used by Rust-authored characters.
     ///
     /// These are CHARACTER-AUTHORING values, not runtime implementation types: a

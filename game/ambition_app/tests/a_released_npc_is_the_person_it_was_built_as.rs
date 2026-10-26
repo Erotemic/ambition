@@ -66,7 +66,7 @@ fn a_challenged_then_released_npc_keeps_the_body_it_was_built_with() {
             continue;
         }
         sim.world_mut()
-            .write_message(ambition_platformer2d::actors::features::ChallengeRequested {
+            .write_message(ambition_platformer2d::actors::ChallengeRequested {
                 target: npc_sim.clone(),
                 challenger: Some(player_sim.clone()),
             });
@@ -77,7 +77,7 @@ fn a_challenged_then_released_npc_keeps_the_body_it_was_built_with() {
             "premise: the challenge never turned {id}, so the release undoes nothing"
         );
         sim.world_mut()
-            .write_message(ambition_platformer2d::actors::features::ReleaseProvocation::new(npc_sim));
+            .write_message(ambition_platformer2d::actors::ReleaseProvocation::new(npc_sim));
         sim.step_n(base(), 5);
         let (after_tuning, after_caps, after_disposition, after_profile) = body_facts(&mut sim, npc);
         assert_eq!(after_disposition, ActorDisposition::Peaceful, "premise: {id} was not released");

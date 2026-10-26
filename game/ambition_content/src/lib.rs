@@ -13,9 +13,7 @@
 //! [`bosses`], [`dialogue`], [`items`]) that seed named rosters into
 //! machinery resources, alongside the authored data/content itself
 //! ([`quest`], [`music`], [`intro`]) and the
-//! [`content_validation`] cross-reference checker. Several names re-export
-//! their machinery half (e.g. [`data`], [`features`]) so historical
-//! `crate::…` paths keep resolving.
+//! [`content_validation`] cross-reference checker.
 
 pub mod audio_registries;
 pub mod autoplay;
@@ -73,12 +71,6 @@ pub use ambition_content_pack::CandidateGeneration;
 /// provider fragment.
 pub mod provider;
 pub mod world_preparation;
-// `features` (the feature-ECS actor/boss world) was promoted to
-// `ambition_platformer2d_actor_monolith::features` (lib root): machinery presentation/dev still read
-// its named bits (doc 20 B3/B4), so it stays in the sandbox lib when
-// the rest of this content module becomes the `ambition_content`
-// crate. Re-exported here so `content::features` paths keep working.
-pub use ambition_platformer2d_actor_monolith::features;
 #[cfg(test)]
 mod alice_moveset;
 /// How a fighter borrows an archetype's timings under its own name.

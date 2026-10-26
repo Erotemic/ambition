@@ -9,7 +9,6 @@ ANSWERS.** MEASURED 2026-09-16, before this module existed:
     ecs_inventory.py                                yes      yes      yes        yes           no
     check_set_pins_have_engine_members.py           yes      yes      yes        NO            no
     check_capability_ships.py                       yes      yes      NO         NO           yes
-    test_every_smash_technique_has_a_translator.py  yes      yes      NO         NO            no
 
 The `*_tests.rs` rule reached TWO of five, and one of those docstrings records
 that it *"used to miss all 51 of them"* — so a known defect was found and fixed

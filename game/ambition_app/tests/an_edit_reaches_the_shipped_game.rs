@@ -3435,7 +3435,7 @@ fn a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_sessio
 #[test]
 fn preparing_a_candidate_does_not_reset_the_live_sessions_faction_relations() {
     use ambition_platformer2d::actor::ActorFaction;
-    use ambition_platformer2d::actors::features::FactionRelations;
+    use ambition_platformer2d::combat::targeting::FactionRelations;
     use ambition_platformer2d::game_shell::ShellRequestId;
 
     let mut app = a_running_shipped_session();

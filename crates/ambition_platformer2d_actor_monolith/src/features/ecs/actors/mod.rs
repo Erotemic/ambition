@@ -63,12 +63,10 @@ fn shark_charge_crashed_geometry(
 
 mod crowd_observation;
 mod limbs;
-mod motion;
 mod provoke;
 mod update;
 pub use limbs::*;
 pub use provoke::*;
-pub use motion::*;
 pub use update::*;
 
 #[cfg(test)]

@@ -128,7 +128,7 @@ pub fn detect_room_transition_system(
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
-    talkable: ambition_platformer2d_actor_monolith::features::ecs::TalkableBodies,
+    talkable: ambition_platformer2d_actor_monolith::TalkableBodies,
     // A room whose game plays passages: a door or a gate starts one, and the
     // passage records the crossing when its going-in ends (`passage`).
     passage_rules: ambition_combat::governing_rules::RulesOf<super::passage::ZonePassageRules>,

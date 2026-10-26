@@ -98,7 +98,7 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
     for (entity, ..) in &bodies {
         let target = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), *entity).expect("a placed body has a SimId");
         sim.world_mut()
-            .write_message(ambition_platformer2d::actors::features::ChallengeRequested {
+            .write_message(ambition_platformer2d::actors::ChallengeRequested {
                 target,
                 challenger: Some(player.clone()),
             });

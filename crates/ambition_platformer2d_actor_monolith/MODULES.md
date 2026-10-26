@@ -2,14 +2,14 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_platformer2d_actor_monolith** — Gameplay-system assembly layer for platformer actors, world interaction, abilities, items, sessions, and related Bevy plugins.
+**ambition_platformer2d_actor_monolith** — The body, control, and action kernel.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
+| [`abilities`](src/abilities/mod.rs) | Body traversal through authored room geometry. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
-| [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
+| [`body_mode`](src/body_mode/mod.rs) | Body-mode transitions from accepted control and contact facts. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
 | [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
@@ -27,26 +27,15 @@ _13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 ## Notes
 
-**Read this first if you are about to change something here.** This crate is an
-active decomposition target. At the 2026-08-07 planning baseline it contains
-110,911 Rust lines under `src/`; with Cargo incremental compilation disabled,
-that size is also an edit-loop cost. The current strategy is to subtract coherent
-domains little by little, guided by dependency/authority evidence, until the
-residue is honestly the actor/body/control simulation domain. See
-[`docs/planning/engine/actor-monolith-decomposition.md`](../../docs/planning/engine/actor-monolith-decomposition.md).
+This crate owns body, control, and action execution. Domain owners supply
+construction, sessions, items, world policy, and presentation. Runtime composes
+their schedules. See the
+[decomposition plan](../../docs/planning/engine/actor-monolith-decomposition.md).
 
-The generated module map and `.agent` inventories are navigation evidence for
-choosing slices; they are not a reason to preserve today's directory boundaries
-as crates.
-
-### Historical names to interpret during the carve
-
-| Name | What it currently means / where it is headed |
-|---|---|
-| `features` | **the enemy / NPC / boss ECS ACTOR SIMULATION**, not a feature-toggle layer. Peel optional domains first; rename the residue only when its ownership is honest. |
-| `actor` (singular) | neutral body vocabulary, not the whole actor runtime. Shared body state belongs here or in a lower canonical owner rather than on participant-specific types. |
-| `avatar` | historical slot-0/home-body and protagonist integration. Do not extract an `avatar` crate; dissolve its mechanics, lifecycle policy, preparation, and presentation responsibilities into their actual owners. |
-| `control` | local participant/input-source → slot/channel → controlled-body seam. Downstream body simulation should not depend on a privileged participant identity. |
+The public crate root exposes owned operations and semantic modules.
+`features` is private implementation. Call lower domain owners for their types;
+do not restore foreign forwarding exports here. `avatar` contains controlled
+body integration; controller kind does not select a separate physics path.
 
 ### Authoritative state — who mutates what
 

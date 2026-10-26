@@ -12,7 +12,7 @@
 //! It also proves that the rule is DECLARED for Ambition's rooms, which a
 //! compile cannot catch: without it, no body sleeps and the hostile half fails.
 
-use ambition_platformer2d::actors::features::ecs::dormancy::Dormant;
+use ambition_platformer2d::actors::dormancy::Dormant;
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::limb::Limb;
 use ambition_platformer2d::characters::brain::Brain;

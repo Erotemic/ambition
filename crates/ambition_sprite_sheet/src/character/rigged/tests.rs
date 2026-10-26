@@ -437,6 +437,48 @@ fn posed(target: &str) -> (RiggedSpriteAsset, ambition_characters::actor::Prepar
     (flipbook, rig, posed)
 }
 
+#[test]
+fn joint_binding_measures_pixel_error_after_joint_scale() {
+    let flipbook = r#"(
+        schema_version: 2, target: "scaled", pages: ["scaled.png"],
+        frame_size: (20, 30), feet_pixel: (10.0, 29.0),
+        parts: [(name: "leg", page: 0, rect: (0, 0, 4, 5), pivot: (2.0, 2.5))],
+        tracks: ["leg"],
+        clips: {"idle": (frame_duration_s: 0.1, frames: [
+            [(part: 0, track: 0, at: (0.0, FIRST_AT), rotation: 0.0, scale: (1.0, 1.0))],
+            [(part: 0, track: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+            [(part: 0, track: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+        ])},
+    )"#;
+    let rig = r#"(
+        schema_version: 1, target: "scaled",
+        joints: [(name: "leg", parent: None)],
+        clips: {"idle": (looping: true, frame_duration_s: 0.1, frames: [
+            [(translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, FIRST_SCALE))],
+            [(translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+            [(translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+        ])},
+    )"#;
+    for (scale, at, binds) in [("0.25", "0.5", true), ("4.0", "2.4", false)] {
+        let flipbook = RiggedSpriteAsset::from_published_ron(&flipbook.replace("FIRST_AT", at)).unwrap();
+        let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(&rig.replace("FIRST_SCALE", scale))
+            .unwrap().prepare().unwrap();
+        let posed = PosedParts::bind(&flipbook, &rig, 1.0, 0.02);
+        assert_eq!(posed.binding(0).is_some(), binds, "joint scale {scale}");
+        if !binds {
+            continue;
+        }
+        let (mut joints, mut placed) = (Vec::new(), Vec::new());
+        for index in 0..3 {
+            assert!(rig.solve("idle", index, &mut joints));
+            let frame = flipbook.frame("idle", index).unwrap();
+            let unplaced = [PartDraw { at: Vec2::splat(100.0), ..frame[0] }];
+            posed.place(&unplaced, &joints, &mut placed);
+            assert!(placed[0].at.distance(frame[0].at) <= 1.0, "frame {index}");
+        }
+    }
+}
+
 /// ⭐ ONE SEMANTIC DECOMPOSITION. Mary-O's part flipbook is what her body
 /// rig's pose places: every rig part rides a joint (its pivot and angle fixed
 /// in the joint's frame, within a pixel and a degree), and the rig's own frame

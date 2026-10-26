@@ -24,9 +24,9 @@ use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::features::transform_beat::{
-    TransformBeat, TransformBeatPolicy, TransformBeatRequested,
-};
+use ambition_platformer2d::actors::transform_beat::TransformBeat;
+use ambition_platformer2d::actors::transform_beat::TransformBeatPolicy;
+use ambition_platformer2d::actors::transform_beat::TransformBeatRequested;
 use ambition_platformer2d::world_items::{collect_world_items, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::characters::brain::action_set::{ActionSet, IdentityKit};
@@ -625,7 +625,8 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
-    use ambition_platformer2d::actors::features::{apply_feature_hit_events, spawn_encounter_mob};
+    use ambition_platformer2d::actors::apply_feature_hit_events;
+use ambition_platformer2d::actor::spawn_encounter_mob;
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
     use ambition_platformer2d::world::FeatureEcsWorldOverlay;

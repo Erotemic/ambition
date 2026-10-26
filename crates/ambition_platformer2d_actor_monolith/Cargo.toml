@@ -259,10 +259,8 @@ profile = ["bevy/trace", "bevy/trace_tracy"]
 [dependencies]
 ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
 ambition_breakables = { path = "../ambition_breakables" }
-ambition_world_returns = { path = "../ambition_world_returns" }
 ambition_projectile_combat = { path = "../ambition_projectile_combat" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
-ambition_registry_core = { path = "../ambition_registry_core" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 # `ambition_sfx` stays in the dep graph regardless of the `audio`
 # feature: it has no audio backend deps and the sim layer
@@ -291,17 +289,8 @@ ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
-# The physical life of a touched collectible -- where it is, whether it is
-# moving, and that touching it collects it (D33, 2026-09-02). `items::pickup`
-# still owns the PRESSED pickup and the two are siblings, so this crate is named
-# from `rollback_registration` and from the pickup plugin's ordering comment.
-ambition_world_items = { path = "../ambition_world_items" }
-# The PRESSED collectible (D33, 2026-09-03): pickup / use / throw / physics /
-# residency and the schedule they own. The kernel keeps checkpoint policy over
-# its components and attaches its own systems to its steps.
 ambition_abilities = { path = "../ambition_abilities" }
 ambition_held_items = { path = "../ambition_held_items" }
-ambition_shrine = { path = "../ambition_shrine" }
 ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_match = { path = "../ambition_match" }
 # ADR 0019; Stage 19.
@@ -329,13 +318,8 @@ ambition_damage = { path = "../ambition_damage" }
 # Conversation continuity — the `ActiveConversation` authority, the hold, the break rule + its cast
 # port, the narrative-input ledger, and the dialogue- opening seam.
 ambition_conversation = { path = "../ambition_conversation" }
-# Cutscene script format + runtime stepper + playback-state resources (pure
-# data + ECS resources). The playback systems that drive them live in
-# `crate::cutscene`.
-ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
-ambition_resource_spec = { path = "../ambition_resource_spec" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
 # LDtk is optional; movement-only games do not need its conversion crate.
@@ -389,8 +373,6 @@ ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 ambition_combat = { path = "../ambition_combat", features = ["test-support"] }
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
 ambition_items = { path = "../ambition_items", features = ["test-support"] }
-# Test the encounter/actor schedule composition without a production edge.
-ambition_encounter_features = { path = "../ambition_encounter_features" }
 # The abilities carve took the shared spawn fixtures with it; the puppy-slug gun
 # stayed and still tests against them.
 ambition_abilities = { path = "../ambition_abilities", features = ["test-support"] }

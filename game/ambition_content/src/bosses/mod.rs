@@ -413,7 +413,7 @@ impl Plugin for AmbitionBossContentPlugin {
             gate_gnu_ton_arena_ladder
                 .run_if(gnu_ton::the_gnu_ton_arena_is_live)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
-                .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
+                .before(ambition_combat::hazards::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // The duel on the giant's back: after his conductor chose (its record

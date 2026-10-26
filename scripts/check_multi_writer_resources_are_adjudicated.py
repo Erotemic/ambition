@@ -3068,7 +3068,7 @@ ADJUDICATED: dict[str, str] = {
         "A transient display slot, with no simulation decision reader. "
         "Gameplay writers and the request consumer publish notifications; "
         "the last write in schedule order selects the visible text. "
-        "The aggression reducer owns the NPC retaliation notice. Damage "
+        "`apply_actor_stimuli` owns the NPC retaliation notice. Damage "
         "still announces body deaths. Both run in the same simulation tick."
     )
     ),

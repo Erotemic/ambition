@@ -148,7 +148,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             step_projectiles,
             charge_projectile_input,
             ambition_projectiles::materialize_projectiles_for_next_tick,
-            ambition_platformer2d_actor_monolith::features::apply_feature_hit_events,
+            ambition_platformer2d_actor_monolith::apply_feature_hit_events,
         )
             .chain(),
     );

@@ -158,7 +158,7 @@ fn possessed_actor_reads_this_frame_slot_input() {
 /// Attack authority follows the primary seat, not the home body.
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
-    use ambition_platformer2d::actors::features::Hitbox;
+    use ambition_platformer2d::combat::hitbox::Hitbox;
     use ambition_platformer2d::combat::moveset::{melee_swing_of, ActorMoveset, MovePlayback};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())

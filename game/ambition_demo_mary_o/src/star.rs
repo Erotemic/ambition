@@ -5,7 +5,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
+use ambition_platformer2d::actors::empowerment::Empowered;
+use ambition_platformer2d::character::Empowerment;
 use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 // The tests seat the first player.
@@ -186,11 +187,11 @@ mod tests {
         // point of.
         app.add_systems(Update, begin_star_power);
         app.add_plugins(
-            ambition_platformer2d::actors::features::empowerment::EmpowermentLifecyclePlugin,
+            ambition_platformer2d::actors::empowerment::EmpowermentLifecyclePlugin,
         );
         app.configure_sets(
             Update,
-            ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry
+            ambition_platformer2d::actors::empowerment::EmpowermentExpiry
                 .after(begin_star_power),
         );
         (app, body)

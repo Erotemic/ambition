@@ -314,7 +314,7 @@ pub struct ActorConfig {
     /// brain and they must not disagree: a match seat, a room spawn, and a
     /// rewind/live restore all go through
     /// `enemy_default_brain` — ⚠ deliberately NOT a link: it is `pub(crate)` in
-    /// `ambition_platformer2d_actor_monolith::features::ecs::brain_builders`, so
+    /// `ambition_platformer2d_actor_monolith::brain_builders`, so
     /// no doc link from here can ever resolve to it. Naming the crate and module
     /// in prose is the most a reader can be given — and
     /// the

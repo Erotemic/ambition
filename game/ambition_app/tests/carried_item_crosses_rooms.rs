@@ -323,7 +323,7 @@ fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
         .custodian;
     let mut driven = sim
         .world_mut()
-        .query_filtered::<Entity, With<ambition_platformer2d::actors::features::HeldItem>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::combat::held_items::HeldItem>>();
     let hands: Vec<Entity> = driven.iter(sim.world()).collect();
     assert!(
         hands.contains(&holder),
@@ -692,7 +692,7 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     // room may legitimately author other bodies with something in hand.
     assert!(
         sim.world()
-            .get::<ambition_platformer2d::actors::features::HeldItem>(holder)
+            .get::<ambition_platformer2d::combat::held_items::HeldItem>(holder)
             .is_none(),
         "the reset that destroyed the object also emptied the hand holding it"
     );

@@ -21,7 +21,7 @@ use ambition_items::{Item, OwnedItems};
 use ambition_platformer2d::platformer::lifecycle::{
     SessionCommands, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer2d_actor_monolith::features::HeldItem;
+use ambition_combat::held_items::HeldItem;
 use ambition_combat::hand::RepertoireQuery;
 #[cfg(test)]
 use ambition_platformer2d_core::BodyBaseSize;

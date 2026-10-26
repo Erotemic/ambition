@@ -17,7 +17,7 @@ use ambition_combat::events::{
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-pub use ambition_characters::actor::Empowerment;
+use ambition_characters::actor::Empowerment;
 
 /// What a body is empowered with now: its grant, joined with what the
 /// character it wears grants while worn.

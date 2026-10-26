@@ -56,6 +56,10 @@ from rust_source import code_only  # noqa: E402
 #: did not grow, it MOVED — which this guard reported as one undeclared entry
 #: and one declared-but-gone, the shape a move always takes here.
 DECLARED: dict[str, str] = {
+    "crates/ambition_combat/src/governing_rules/test_fixtures.rs": (
+        "test-support fixture for per-room rule readers; each witness supplies "
+        "a fresh App and calls two_game_session once. No runtime plugin installs it"
+    ),
     "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs": (
         "the A10 candidate-admission path, and the ONE moment a candidate stops "
         "being a candidate — `Q132`'s invariant expressed as a swap rather than "

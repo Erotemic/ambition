@@ -1283,9 +1283,9 @@ fn mirror_bout(
     // outside its own senses is the question the gap column raises and cannot
     // answer. This column answers it.
     let sight = {
-        use ambition_platformer2d::actors::features::ecs::perception::{
-            perception_of, Perception, SenseExtent,
-        };
+        use ambition_platformer2d::actors::perception::perception_of;
+use ambition_platformer2d::actors::perception::Perception;
+use ambition_platformer2d::actors::perception::SenseExtent;
         use bevy::ecs::system::RunSystemOnce;
         let world = app.world_mut();
         let extent = world

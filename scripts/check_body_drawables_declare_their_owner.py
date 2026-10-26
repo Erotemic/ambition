@@ -39,6 +39,7 @@ FIELD = re.compile(r"^\s*(?:pub )?(body|owner|source): Entity,")
 #: Components that name a body, and what each is. A drawable that DRAWS the body
 #: needs the seam; one that merely references it does not, and says why here.
 CENSUS = {
+    "WornGearVisual": "draws gear on its body; has PresentationOf",
     "FlylineVisual": "draws a wire holding the body up — has the seam",
     "TrapdoorVisual": "draws the door the submerged body went through — has the seam",
     "TetherVisual": "draws the line from the reaching body — has the seam",

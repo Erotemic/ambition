@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 
 use ambition_demo_mary_o::cosmic::COSMIC_CHARACTER_ID;
-use ambition_platformer2d::actors::features::transform_beat::TransformBeat;
+use ambition_platformer2d::actors::transform_beat::TransformBeat;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth, Invulnerability, WornCharacter};
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::combat::impact_hitstop::ImpactHitstop;

@@ -1,7 +1,7 @@
 //! Body decisions, accepted controls, movement, and action execution.
 
-use ambition_persistence::save_data::npc_talked_flag;
 use ambition_characters::actor::limb::fan_out_limb_intents;
+use ambition_persistence::save_data::npc_talked_flag;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -12,30 +12,14 @@ use bevy::prelude::*;
 /// body transitions `on_ground: false → true` in `enemy.update()`.
 pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
-// The former `step_floating_body` bespoke float is GONE (archetype swap AS4c):
-// every non-grounded actor — aerial enemy, the parrot, and now bosses — flies
-// through the ONE shared movement pipeline (`ActorMut::update` → the flight limb),
-// so there is no parallel gravity-free integrator to keep in sync.
-
-// Archetype data owns enemy speed/range tuning; keep only shared fallback
-// clocks here.
-// Boss/profile and combat-kit data own their own cooldown/timing constants.
-
 pub mod brain_command;
-// Stable facade for boss attack geometry.
 pub mod ecs;
 pub(crate) mod enemies;
 pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
-pub use npcs::{
-    npc_talk_dialogue_id,
-};
+pub use npcs::npc_talk_dialogue_id;
 
-// Re-export the generic combat kit so existing feature-facing paths stay stable.
-// None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
-// facts for whichever body produced them; `swim` and `ledge_grab` are thin shims over
-// engine-owned water / ledge state and name no `crate::` type at all.
 pub mod empowerment;
 pub mod ledge_grab;
 pub mod movement_fx;
@@ -47,93 +31,37 @@ pub use movement_fx::{
     handle_player_events,
 };
 
-// ⛔⛔ SIX RE-EXPORT FACADES DELETED 2026-08-26, and FOUR of them had no
-// consumer at all. `events`, `hazard_runtime as hazards`, `path_motion`, `util`,
-// `collision as world_overlay` and `effect_bus as bus` all forwarded another
-// crate's module under this one's address, which is how a coupling census counts
-// `ambition_combat` and `ambition_platformer2d_world` as MONOLITH surface. The
-// two live consumers named `ambition_combat::events` directly instead, and
-// nothing else in the tree named the other four.
-//
-// ⭐ THE TELL, and it is the one that took the damage carve from an apparent ~70
-// outward references to zero: one module spelling one crate two ways. Callers
-// name the crate that owns the thing.
-
 pub use ecs::body_identity::{BodyIdentityCensus, install_body_identity_census};
-pub use ecs::boss_component_snapshot;
 pub use ecs::dismounted_rider::install_dismounted_rider_rebuild;
-// Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
-// puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
-// the CAST half of the conversation port: a bark line for a character in
-// a situation. Named explicitly rather than opening the whole `npcs` module,
-// because when the conversation module is carved out this single function is
-// what answers its `ConversationCutBark`, and a `pub(crate) mod` would have
-// hidden how small the remaining coupling is.
-//
-// Measured: `conversation/` contains zero non-doc `crate::` paths. The temporal half of the same
-// port is `FeatureInteractionSet::CutBarkCast`, the phase this system is placed in below.
 pub use npcs::speak_conversation_cut_barks;
 
-// Switch machinery + the quest-advance message live with their owning domains
-// (E2): the hub keeps the names importable until it dissolves (E7/E8).
-
+use ambition_boss_encounter::ecs::tick_boss_brains_system;
+use ambition_combat::targeting::dissolve_settled_grudges;
+use ambition_combat::targeting::select_actor_targets;
 pub use brain_command::{
-    BrainCommand, BrainCommandKind,
-    BrainCommandPlugin, ReleaseProvocation, apply_brain_commands, apply_release_provocations,
+    BrainCommand, BrainCommandKind, BrainCommandPlugin, ReleaseProvocation, apply_brain_commands,
+    apply_release_provocations,
 };
-// ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
-// config now live (D33, 2026-08-27). Re-exported here only because the
-// monolith's own module tree is a public surface many callers still walk.
 pub use ecs::anim_helpers::advance_body_anim_overlay_clocks;
 pub use ecs::{
-     ActorSteering, CHALLENGE_GRACE_S, ChallengeRequested, FactionRelations, FriendlyFire,
-    HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
-     PendingChallenge, PetRequested,
-       WearRequested, advance_hazards,
-    apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
-    apply_gameplay_banner_requests, apply_hazard_contacts, apply_hitbox_damage,
-    apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes,
-    can_damage, damage_lands,
-    derive_pogo_target_volumes, dissolve_settled_grudges,
-    drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample,
-    integrate_boss_bodies, integrate_sim_bodies,
-    interact_ecs_actors_and_switches, project_boss_attack_state_from_move,
-    refresh_body_damageable_volumes,
-    refresh_boss_damageable_volumes, route_boss_strikes_to_limbs, select_actor_targets,
-    snapshot_body_contact,  spawn_projectiles_from_brain_actions, tick_actor_brains, tick_and_despawn_hitboxes,
-    tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
-    trigger_boss_attack_moves, update_ecs_bosses,
+    ActorSteering, CHALLENGE_GRACE_S, ChallengeRequested, PendingChallenge, PetRequested,
+    WearRequested, apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
+    apply_summon_effects, arm_requested_challenges, derive_pogo_target_volumes,
+    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
+    refresh_body_damageable_volumes, refresh_boss_damageable_volumes, route_boss_strikes_to_limbs,
+    snapshot_body_contact, spawn_projectiles_from_brain_actions, tick_actor_brains,
+    tick_npc_idle_barks, tick_pending_challenges,
 };
 
-
+use ambition_combat::util::*;
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 pub(crate) use ecs::{
-    ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state, observe_actor_decision_inputs,
-    publish_actor_decision_frames,
+    ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state,
+    observe_actor_decision_inputs, publish_actor_decision_frames,
 };
-// ⛔ `MotionModel`, `AxisSweptMotion` and `MomentumMotion` LEFT THIS FACADE,
-// 2026-08-26. All three are `ambition_platformer2d_core::movement`'s, re-exported
-// twice through this crate — and `MomentumMotion` also RENAMED
-// `SurfaceMomentumMotion` on the way, so a caller could not grep the real type.
-// Callers name `_core`; the SDK keeps its own one-hop alias.
-pub use ambition_entity_catalog::placements::RespawnPolicy;
-pub use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 pub(crate) use enemies::ActorMutIntegrationExt;
 #[cfg(test)]
 pub(crate) use enemies::SeedActorIntegrationTestExt;
-// ⛔ THE COMBAT EVENT VOCABULARY LEFT THIS FACADE, 2026-08-26. All fifteen are
-// `ambition_combat::events`', re-exported up to `features` beside a whole-module
-// `pub use ambition_combat::events` — so 74 sites read as coupling to the actor
-// crate for types it does not own, and `damage_apply`'s own tests reached the
-// monolith for exactly two names, both of them these. Callers name the owner.
-pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
-// ⛔ MOVED DOWN TO `ambition_platformer2d_actor_spawn::npc_policy` — spawn-time NPC policy went
-// with the primitives that consume it; `npcs` keeps NPC BEHAVIOUR. Re-exported
-// here because `damage_apply`'s tests name the owner, and the owner changed.
-// The programmatic actor-spawn seam installs itself; the composition names
-// only the schedule. See `actor_spawn::install_actor_spawn_requests`.
-
-use ambition_combat::util::*;
 
 /// Advance each body's diagnostic [`ae::BodyLifeStats`].
 ///
@@ -152,7 +80,6 @@ pub fn track_body_life_stats(
         }
     }
 }
-
 
 /// The decision chain's boundaries now live in
 /// [`ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet`], with
@@ -291,7 +218,6 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .before(select_actor_targets),
         );
 
-
         // Cross-phase order lives on named sets. Local chains remain only where
         // same-phase deferred commands or write-after-read order require them.
         app.init_resource::<ActorDecisionFacts>();
@@ -421,7 +347,9 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
             ambition_combat::capture::systems::tick_capture_holds
                 .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_combat::capture::systems::CaptureHoldsTicked)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures,
+                .in_set(
+                    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::Captures,
                     ),
                 )
                 .in_set(
@@ -441,7 +369,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                     .run_if(
                         |rooms: Query<
                             &ambition_platformer2d_world::collision::MovingPlatformSet,
-                            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
+                            bevy::prelude::With<
+                                ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
                             >,
                         >| {
                             rooms.iter().any(|platforms| !platforms.0.is_empty())
@@ -506,7 +435,9 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
             ambition_combat::capture::systems::maintain_existing_capture_pose
                 .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures,
+                .in_set(
+                    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::Captures,
                     ),
                 ),
         );
@@ -566,7 +497,9 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 // A boss's limbs exist only where named bosses do.
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                .in_set(
+                    ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                        ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
                     ),
                 )
                 .after(ambition_mount::MountsSteeredByRiders)
@@ -606,7 +539,6 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
 #[cfg(test)]
 mod actor_movement_tests;
 
-
 #[cfg(test)]
 mod body_life_stats_tests {
     use super::track_body_life_stats;
@@ -625,21 +557,35 @@ mod body_life_stats_tests {
         );
         let body = app
             .world_mut()
-            .spawn((ae::BodyRestartLatch::default(), ae::BodyLifeStats::default(),
+            .spawn((
+                ae::BodyRestartLatch::default(),
+                ae::BodyLifeStats::default(),
             ))
             .id();
         app.update();
         app.update();
         let stats = *app.world().get::<ae::BodyLifeStats>(body).unwrap();
-        assert_eq!(stats, ae::BodyLifeStats { time_alive: 1.0, resets: 0 });
+        assert_eq!(
+            stats,
+            ae::BodyLifeStats {
+                time_alive: 1.0,
+                resets: 0
+            }
+        );
 
-        app.world_mut().get_mut::<ae::BodyRestartLatch>(body).unwrap().pending = true;
+        app.world_mut()
+            .get_mut::<ae::BodyRestartLatch>(body)
+            .unwrap()
+            .pending = true;
         app.update();
         app.update();
         let stats = *app.world().get::<ae::BodyLifeStats>(body).unwrap();
         assert_eq!(
             stats,
-            ae::BodyLifeStats { time_alive: 0.5, resets: 1 },
+            ae::BodyLifeStats {
+                time_alive: 0.5,
+                resets: 1
+            },
             "one pending restart is one reset, and the clock starts again from it"
         );
     }

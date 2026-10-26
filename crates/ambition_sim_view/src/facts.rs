@@ -330,7 +330,7 @@ pub fn rebuild_held_item_view(
     bodies: Query<(
         bevy::prelude::Entity,
         &BodyKinematics,
-        &ambition_platformer2d_actor_monolith::features::HeldItem,
+        &ambition_combat::held_items::HeldItem,
         &ActorControl,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -762,7 +762,7 @@ pub fn rebuild_hostile_wielded_items_view(
     wielders: Query<(
         Entity,
         &ambition_combat::components::ActorDisposition,
-        &ambition_platformer2d_actor_monolith::features::HeldItem,
+        &ambition_combat::held_items::HeldItem,
         Option<&ActorControl>,
         Option<&BodyKinematics>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
@@ -1314,7 +1314,7 @@ impl Plugin for SimViewPlugin {
         // A row view is rebuilt while a source of its rows exists or it still
         // holds rows, so a room with none of a kind runs nothing for it and
         // the view is what a rebuild would make: empty.
-        use ambition_platformer2d_actor_monolith::features::HeldItem;
+        use ambition_combat::held_items::HeldItem;
         app.add_systems(
             sim,
             (
@@ -1695,7 +1695,7 @@ mod held_item_view_tests {
                 size: ae::Vec2::splat(32.0),
                 ..Default::default()
             },
-            ambition_platformer2d_actor_monolith::features::HeldItem::new(spec),
+            ambition_combat::held_items::HeldItem::new(spec),
             ActorControl::default(),
             SimId::placement(sim),
             DrivingParticipant(PlayerSlot(slot)),
@@ -1719,7 +1719,7 @@ mod held_item_view_tests {
                 size: ae::Vec2::splat(32.0),
                 ..Default::default()
             },
-            ambition_platformer2d_actor_monolith::features::HeldItem::new(spec),
+            ambition_combat::held_items::HeldItem::new(spec),
             ActorControl::default(),
             SimId::placement(sim),
         ));
@@ -1989,7 +1989,7 @@ mod wielded_aim_tests {
             },
             ActorDisposition::Hostile,
             BodyHealth::new(ambition_characters::actor::Health::new(10)),
-            ambition_platformer2d_actor_monolith::features::HeldItem::new(
+            ambition_combat::held_items::HeldItem::new(
                 ambition_characters::brain::held_item_by_id("gun_sword").expect("test gun"),
             ),
             ActorControl(control),

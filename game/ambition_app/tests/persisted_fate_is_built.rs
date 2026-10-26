@@ -147,7 +147,7 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), player).expect("the primary body has a SimId")
     };
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::features::ChallengeRequested {
+        .write_message(ambition_platformer2d::actors::ChallengeRequested {
             target: npc_sim,
             challenger: Some(player_sim),
         });
@@ -380,7 +380,7 @@ fn a_room_rebuilt_after_a_persisted_on_rest_death_builds_that_body_dead() {
                 identity.id.starts_with("EnemySpawn")
                     && matches!(
                         config.tuning.respawn,
-                        ambition_platformer2d::actors::features::RespawnPolicy::OnRest
+                        ambition_platformer2d::entity_catalog::placements::RespawnPolicy::OnRest
                     )
             })
             .map(|(entity, identity, health, _)| (entity, identity.id.clone(), health.health.current))

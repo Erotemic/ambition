@@ -12,7 +12,6 @@ pub mod possession;
 pub mod queries;
 mod raw_publication;
 
-pub use ambition_characters::control::DrivingParticipant;
 pub use authority::project_driving_participant;
 pub use input_systems::{
     InputTimersAdvanced, InteractionInputBuffered, cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,

@@ -136,7 +136,7 @@ fn pirate_sky_sfx_census() {
             println!("[sky-census] HEADLESS schedules: {n} non-empty, {total} systems total");
         }
         {
-            use ambition_platformer2d::actors::features::ecs::dormancy::Dormant;
+            use ambition_platformer2d::actors::dormancy::Dormant;
             let w = sim.world_mut();
             let mut dq = w.query::<&Dormant>();
             let n = dq.iter(sim.world()).count();

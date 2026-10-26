@@ -50,7 +50,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     );
     let combat = ambition_characters::actor::BodyCombat::default();
     let (identity, disposition) =
-        ambition_platformer2d_actor_monolith::features::boss_component_snapshot(boss.as_ref());
+        ambition_boss_encounter::ecs::boss_component_snapshot(boss.as_ref());
 
     let mut app = App::new();
     app.init_resource::<FeatureViewIndex>();

@@ -1,32 +1,28 @@
 #!/usr/bin/env python3
-"""Check that every published character sheet draws its grounded feet on its body's floor.
+"""Check that every published body sheet draws its grounded feet on its body's floor.
 
-The game stands a body on the bottom of the body box its sheet publishes and
-draws the frame on that box, so paint the box holds under the soles is air
-between the feet and the floor (Jon, 2026-10-26: "sanic, his feet hover over
-the ground"; "Fix the other hover characters"). For each sheet with an
-``idle`` row, and for each grounded row it draws (``GROUNDED``), the lowest
-SOLID pixel of the row (alpha >= ``SOLID``: paint, not a glow and not the
-resampling fringe) must be within ``TOLERANCE`` px of:
+The game stands a body on the bottom of the body box its sheet publishes
+(``body_pixel_bbox``: where the feet anchor is) and draws every row on that box;
+a crouch keeps its feet planted on it. So paint the box holds under the soles is
+air between the feet and the floor, and a sole drawn under it is in the floor
+(Jon, 2026-10-26: "sanic, his feet hover over the ground"; "Fix the other hover
+characters"). For each row a body stands in (``GROUNDED``), the lowest SOLID
+pixel of the row (alpha >= ``SOLID``: paint, not a glow and not the resampling
+fringe) must be within ``TOLERANCE`` px of the bottom of the box.
 
-* the standing floor, the bottom of ``body_pixel_bbox`` (where the feet anchor
-  is, and the idle body a posed body stands on), for the rows a standing body
-  is drawn in (``LOCOMOTION``); and
-* the row's own body bottom, when the sheet publishes one for the row.
-
-A sheet is a body when its actor sidecar names a body plan that is one: a
-sheet with no sidecar, no plan, or a plan in ``NOT_BODIES`` (props, held
-items, effects) has no floor and is skipped. A
-body that hovers by design is named in ``HOVERS`` with its reason; a new
-hovering character fails until it is named there or fixed.
+A sheet is a body when its actor sidecar names a body plan that is one: a sheet
+with no sidecar, no plan, or a plan in ``NOT_BODIES`` (props, held items,
+effects) has no floor and is skipped. A body whose drawing is off its floor by
+design is named in ``HOVERS`` with its reason, so a new hovering character fails
+until it is named there or fixed.
 
 Usage::
 
     python3 scripts/check_sheet_feet_on_floor.py
     python3 scripts/check_sheet_feet_on_floor.py --sprites <dir> --all
 
-Exit 1 lists each sheet off its floor, with the gap of each row in px
-(positive: the feet are above the floor)."""
+Exit 1 lists each body off its floor, with the gap of each row in px
+(positive: the feet are above the floor; negative: in it)."""
 
 from __future__ import annotations
 
@@ -47,16 +43,26 @@ SPRITES = REPO / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
 #: The least alpha of paint that is part of the figure.
 SOLID = 192
 TOLERANCE = 2
-#: Rows a standing body is drawn in on its standing box.
-LOCOMOTION = ("idle", "walk", "run")
-#: Rows with a foot on the ground in each frame.
-GROUNDED = LOCOMOTION + ("crouch", "skid", "block")
-
+#: The rows a body stands, walks and runs in: a foot on the ground in each
+#: frame (in some frame, for a run). Not the crouch, the block or the skid: the
+#: lowest paint of those is as often a wing, a tail or a cape as a sole.
+GROUNDED = ("idle", "walk", "run")
 #: Actor body plans of sheets that are not a body standing on a floor.
 NOT_BODIES = {"Prop", "StaticProp", "Effect"}
 
-#: Bodies whose drawn feet are off the floor of their box by design, and why.
-HOVERS: dict[str, str] = {}
+#: Bodies whose drawing is off the floor of their box by design, and why.
+HOVERS: dict[str, str] = {
+    "agent_swarm": "seven small flying robots: the box reaches down to the ground under the cloud, so a body on the "
+                   "ground runs into it, and the cloud floats above it",
+    "burning_flying_shark": "a flyer: its fins and flames hang under its body",
+    "exploding_mite": "the old bomb drone (the robot generator's diver): it hovers on its jets. The game draws "
+                      "exploding_mite_v2",
+    "flying_spaghetti_monster_boss": "a flyer: its body is the bell, and the noodles hang far under it",
+    "flying_spaghetti_monster_boss_sauce": "the sauce of the boss's noodles, drawn on the boss's body (its sheet "
+                                           "states the boss's body)",
+    "mary_o_v2_cosmic": "her soles are on the floor; the tips of her wings hang down to it and a little past",
+    "wolfenstein_inugami": "a floating flaming head: its body is the head, and the flame trails far under it",
+}
 
 
 def _body_plan(sprites: Path, target: str) -> str | None:
@@ -79,52 +85,39 @@ def _row_bottom(pages: list[np.ndarray], row: dict) -> int | None:
     return lowest
 
 
-def _box_bottom(box: dict | None) -> int | None:
-    return None if not box or not box.get("h") else int(box["y"]) + int(box["h"])
-
-
-def census(sprites: Path) -> list[tuple[str, dict[str, dict[str, int]]]]:
-    """Every sheet with an idle row: ``(target, {row: {floor: gap px}})``."""
+def census(sprites: Path) -> list[tuple[str, dict[str, int]]]:
+    """Every body with an idle row: ``(target, {row: gap px})``."""
     out = []
     for path in sorted(sprites.glob("*_spritesheet.ron")):
-        if _body_plan(sprites, path.name[: -len("_spritesheet.ron")]) in NOT_BODIES | {None}:
+        target = path.name[: -len("_spritesheet.ron")]
+        if _body_plan(sprites, target) in NOT_BODIES | {None}:
             continue
         sheet = parse_ron(path.read_text())
         sheet = sheet[0] if isinstance(sheet, list) else sheet
         rows = {row["animation"]: row for row in sheet.get("rows") or []}
-        metrics = sheet.get("body_metrics") or {}
-        standing = _box_bottom(metrics.get("body_pixel_bbox"))
-        if "idle" not in rows or standing is None:
+        box = (sheet.get("body_metrics") or {}).get("body_pixel_bbox")
+        if "idle" not in rows or not box or not box.get("h"):
             continue
+        floor = int(box["y"]) + int(box["h"])
         images = sheet.get("images") or [sheet["image"]]
         pages = [np.asarray(Image.open(sprites / name).convert("RGBA")) for name in images]
-        poses = metrics.get("animations") or {}
-        gaps: dict[str, dict[str, int]] = {}
+        gaps = {}
         for name in GROUNDED:
-            if name not in rows:
-                continue
-            sole = _row_bottom(pages, rows[name])
-            if sole is None:
-                continue
-            gap = {}
-            if name in LOCOMOTION:
-                gap["standing"] = standing - sole
-            own = _box_bottom(((poses.get(name) or {}).get("hurtbox") or {}).get("bbox"))
-            if own is not None:
-                gap["own"] = own - sole
-            gaps[name] = gap
-        out.append((path.name[: -len("_spritesheet.ron")], gaps))
+            sole = _row_bottom(pages, rows[name]) if name in rows else None
+            if sole is not None:
+                gaps[name] = floor - sole
+        out.append((target, gaps))
     return out
 
 
-def worst(gaps: dict[str, dict[str, int]]) -> int:
-    return max((abs(px) for gap in gaps.values() for px in gap.values()), default=0)
+def worst(gaps: dict[str, int]) -> int:
+    return max((abs(px) for px in gaps.values()), default=0)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sprites", type=Path, default=SPRITES)
-    parser.add_argument("--all", action="store_true", help="print every sheet, not only those off the floor")
+    parser.add_argument("--all", action="store_true", help="print every body, not only those off the floor")
     args = parser.parse_args()
     off = []
     rows = census(args.sprites)
@@ -133,12 +126,12 @@ def main() -> int:
         if bad:
             off.append(target)
         if bad or args.all:
-            shown = ", ".join(f"{row} {gap}" for row, gap in gaps.items())
-            print(f"{'OFF ' if bad else 'ok  '}{target:44s} worst {worst(gaps):3d} px  {shown}")
+            mark = "OFF " if bad else ("hov " if target in HOVERS else "ok  ")
+            print(f"{mark}{target:44s} worst {worst(gaps):3d} px  {gaps}")
     print(f"{len(rows)} bodies with an idle row; {len(off)} off the floor by more than {TOLERANCE} px")
     if off:
-        print("Fix the body box at its generator (measure the body, not what it gives off), "
-              "or name a body that hovers by design in HOVERS with its reason.")
+        print("Fix the body box or the art at its generator, or name a body that is off its floor by design "
+              "in HOVERS with its reason.")
     return 1 if off else 0
 
 

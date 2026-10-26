@@ -1282,6 +1282,12 @@ tackon_targets=(
     village_clan_gatehouse
     village_dojo_entry
     village_dojo_exam
+    # Sheets the catalog draws that no roster line named, so a full publish
+    # refused to swap ("no regen target publishes"): Alice v2 and two
+    # townsfolk made by the character generator.
+    alice_v2
+    armsmith_odile
+    village_nagisa
     # The garrison of the General's tower, made by the character generator
     # (`data/townsfolk/tower_*.chargen.yaml`), and the inside of its five
     # floors (`targets/props/military_tower_props.py`).

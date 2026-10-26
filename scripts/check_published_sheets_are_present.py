@@ -97,6 +97,25 @@ def claimed_names(targets: list[str]) -> dict[str, list[str]] | None:
     return claimed_install_names(targets)
 
 
+def named_prop_sheets(repo: Path) -> dict[str, list[str]]:
+    """The sheet each game's `prop_sheets.ron` draws, by file: a row's kind.
+    A row with a `sheet` names a record of a shared sheet (the creator lab's
+    props), not a file, and is left out.
+
+    ⛔ A SHEET NO ROSTER LINE PUBLISHES IS NEVER CHECKED BY THE PASS BELOW,
+    which starts from the roster. Sanic's monitor boxes were named here and on
+    no roster line, so every monitor drew as the plain tile under it."""
+    out: dict[str, list[str]] = {}
+    for path in sorted(repo.glob("game/*/assets/data/prop_sheets.ron")):
+        text = re.sub(r"//[^\n]*", "", path.read_text(encoding="utf-8"))
+        sheets = []
+        for kind, body in re.findall(r'"([a-z0-9_]+)"\s*:\s*\(([^)]*(?:\([^)]*\))?[^)]*)\)', text):
+            if not re.search(r"\bsheet\s*:", body):
+                sheets.append(kind)
+        out[str(path.relative_to(repo))] = sheets
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--asset-root", type=Path, default=DEFAULT_ASSET_ROOT)
@@ -124,6 +143,20 @@ def main() -> int:
             "  run through the tool venv: scripts/regen/sprites.sh --check-toolchain"
         )
         return 0
+
+    published = {n for names in claimed.values() for n in names}
+    unrostered = [
+        (path, sheet)
+        for path, sheets in named_prop_sheets(REPO_ROOT).items()
+        for sheet in sheets
+        if f"{sheet}_spritesheet.png" not in published
+    ]
+    if unrostered:
+        print(f"{len(unrostered)} prop sheet(s) a game draws are published by NO rostered target:")
+        for path, sheet in unrostered:
+            print(f"       unrostered  {sheet}  ({path})")
+        print("  fix: name the target that draws it in scripts/regen/sprites.sh")
+        return 1
 
     missing: dict[str, list[str]] = {}
     checked = 0

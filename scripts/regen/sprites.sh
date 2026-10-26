@@ -760,6 +760,11 @@ tackon_targets=(
     super_sanic
     sanic_ring_prop
     sanic_goal_post
+    # The monitors' boxes (`ambition_demo_sanic`'s `prop_sheets.ron`). Not
+    # named here, they were never published and every monitor drew as the
+    # plain one-way tile under it.
+    sanic_powerup_speed
+    sanic_powerup_rings
     creator
     creator_lab_props
     gnu_ton_boss
@@ -810,6 +815,11 @@ tackon_targets=(
     castle_specimen_vat
     castle_operating_table
     castle_iron_throne
+    # The old drain's cracked stone and its breach (`castle_godwin_dressing`).
+    castle_cracked_wall
+    castle_cracked_floor
+    castle_cracked_niche
+    castle_drain_breach
     # The house fronts of the Math town (LDtk `Prop`s, decoration).
     math_house_rose
     math_house_dome

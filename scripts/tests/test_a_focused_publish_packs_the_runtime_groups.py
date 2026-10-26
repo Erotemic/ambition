@@ -67,7 +67,7 @@ def test_a_focused_publish_writes_the_staging_root_and_swaps_it_in() -> None:
     end = text.index("    print_regen_timings\n    exit 0\n", focused)
     block = text[focused:end]
     begin = block.index('    begin_staging\n    use_publish_root "$staging_root"\n')
-    for writer in ('regen_one_target "$one"', "generate_visual_quality_variants.py", "--runtime-only"):
+    for writer in ('publish-many', "generate_visual_quality_variants.py", "--runtime-only"):
         assert begin < block.index(writer) < block.index("    finish_staging\n"), writer
     assert '--asset-root "$publish_asset_root"' in block
     assert '--out "$publish_asset_root/sprite_packs/$tname"' in block

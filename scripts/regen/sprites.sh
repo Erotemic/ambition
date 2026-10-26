@@ -399,28 +399,6 @@ PY
     )
 }
 
-regen_one_target() {
-    local target="$1"
-    local dest_root="$sprites_dir"
-
-    # Every target installs to assets/sprites/ and owns any further subdirectory
-    # behavior in its own Python `Target.install` hook — gnu_ton_boss,
-    # gnu_ton_apple, interdimensional_gate, pirate_heavy, mockingbird_boss,
-    # sanic_support_entities, and `entities`.
-    #
-    # That made this script right and the CLI wrong: anyone running `python3 -m
-    # ambition_sprite2d_renderer publish entities` installed a directory too high, where the runtime
-    # loader never looks, and nothing in the chain said so. A rule that lives in one of two callers
-    # is a rule the other caller breaks.
-
-    echo "==> sprite target: $target → $dest_root"
-    run_renderer_python "publish-$target" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root"
-    if [ "$make_gifs" -eq 1 ]; then
-        echo "==> animation GIFs: $target → $renderer_dir/generated/gifs/$target"
-        run_renderer_python "gifs-$target" -m ambition_sprite2d_renderer gifs "$target"
-    fi
-}
-
 if [ "$list_targets" -eq 1 ]; then
     list_sprite_targets
     exit 0
@@ -532,9 +510,16 @@ if [ "${#target_names[@]}" -gt 0 ]; then
     # the next run continues the staged copy.
     begin_staging
     use_publish_root "$staging_root"
-    for one in "${target_names[@]}"; do
-        regen_one_target "$one"
-    done
+    # Each target owns its installed paths under the shared sprite root.
+    echo "==> sprite targets: ${target_names[*]} → $sprites_dir"
+    run_renderer_python "publish-focused" -m ambition_sprite2d_renderer publish-many \
+        --quiet --dest-root "$sprites_dir" "${target_names[@]}"
+    if [ "$make_gifs" -eq 1 ]; then
+        for one in "${target_names[@]}"; do
+            echo "==> animation GIFs: $one → $renderer_dir/generated/gifs/$one"
+            run_renderer_python "gifs-$one" -m ambition_sprite2d_renderer gifs "$one"
+        done
+    fi
     copy_prop_canonicals "${target_names[@]}"
     # ⛔ A FOCUSED run used to exit here, publishing the full-resolution sheet
     # and leaving the Low / Medium / Potato tiers on the previous art — the

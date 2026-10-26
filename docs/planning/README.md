@@ -101,6 +101,8 @@ links to.
   — bounded ownership packets A1–A12 and their state.
 - [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
   — carve rules and edge dispositions for the actor kernel.
+- [`engine/internal-module-cycle-breaking.md`](engine/internal-module-cycle-breaking.md)
+  — source-audit findings, ownership boundaries and candidate cycle cuts.
 - [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md)
   — target contract for the actor kernel.
 - [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)

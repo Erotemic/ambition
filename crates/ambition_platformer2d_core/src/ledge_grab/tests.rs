@@ -1971,3 +1971,53 @@ fn each_regrab_before_landing_earns_less_and_the_seventh_is_refused() {
         "the intangibility of grabs 1 to 7 without landing (None: refused)"
     );
 }
+
+/// A world with one one-way line from `lip` going in to the right, tilted
+/// `deg` degrees up from level, and its motion this tick.
+fn world_with_line(lip: Vec2, deg: f32, velocity: Vec2) -> World {
+    let mut world = world_with(Vec::new());
+    let (sin, cos) = deg.to_radians().sin_cos();
+    let mut line = crate::world::SurfaceChain::open("line", vec![lip, lip + Vec2::new(cos, -sin) * 100.0]);
+    line.velocity = velocity;
+    world.chains.push(line);
+    world
+}
+
+/// The end of a tilted one-way line is a ledge (the corner of a block is the
+/// level case of the same rule): the body hangs with its head at the lip, and
+/// climbs onto the tilted surface, its feet on the highest point under them.
+#[test]
+fn grabs_the_end_of_a_tilted_one_way_line_under_the_limit() {
+    let world = world_with_line(Vec2::new(100.0, 100.0), 10.0, Vec2::ZERO);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN)
+        .expect("the end of a line tilted 10 degrees is a ledge");
+    assert_eq!(contact.wall_normal_x, -1.0);
+    assert!(contact.anchor.distance(Vec2::new(87.0, 119.0)) < 0.01, "anchor {:?}", contact.anchor);
+    // 18 in from the lip, over [104, 132] of the line: its highest point is
+    // at 132, 32 * tan(10) over the lip.
+    let feet = 100.0 - 32.0 * 10.0_f32.to_radians().tan();
+    assert!(contact.climb_target.distance(Vec2::new(118.0, feet - 24.0)) < 0.01, "climb {:?}", contact.climb_target);
+}
+
+/// A line tilted past `LEDGE_TILT_LIMIT_DEG` is no ledge.
+#[test]
+fn no_grab_on_a_line_tilted_past_the_limit() {
+    let world = world_with_line(Vec2::new(100.0, 100.0), LEDGE_TILT_LIMIT_DEG + 5.0, Vec2::ZERO);
+    assert!(probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN).is_none());
+}
+
+/// A hang on a moving line is carried with its lip, and a line that tilts
+/// past the limit while a body hangs on it lets the body fall.
+#[test]
+fn a_moving_line_carries_its_hanger_and_knocks_it_off_past_the_limit() {
+    let size = Vec2::new(28.0, 46.0);
+    let held = world_with_line(Vec2::new(100.0, 100.0), 10.0, Vec2::ZERO);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), size, -1.0, &held, DOWN).expect("a grab");
+    let body = Aabb::new(contact.anchor, size * 0.5);
+    // The line rose 6 this tick and is still level enough: it carries.
+    let rose = world_with_line(Vec2::new(100.0, 94.0), 15.0, Vec2::new(0.0, -6.0));
+    assert_eq!(ledge_carry_for_frame(&rose, contact, body, size, DOWN), LedgeCarry::Carry(Vec2::new(0.0, -6.0)));
+    // It tilted past the limit: the body falls.
+    let tilted = world_with_line(Vec2::new(100.0, 94.0), LEDGE_TILT_LIMIT_DEG + 5.0, Vec2::new(0.0, -6.0));
+    assert_eq!(ledge_carry_for_frame(&tilted, contact, body, size, DOWN), LedgeCarry::KnockOff);
+}

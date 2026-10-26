@@ -16,7 +16,10 @@ carries them (`ambition_sprite_sheet::surfaces`). A mount's
 `drawn_ledges` names surfaces; `BackLedge` holds the table and, per ledge,
 where it was drawn at the end of the last tick and the tick before
 (rollback state, read after every row pin: `follow_drawn_ledges`). The
-ground is a one-way line moved by the mount's step and the drawing's.
+ground is a one-way line from end to end, TILTED as the drawing is, moved
+and turned by the mount's step and the drawing's (2026-10-26); its ends are
+ledges a body can hang from while they tilt less than 20 degrees
+(`slopes-feet-ride-surfaces.md`, "ledges that tilt").
 `SurfaceTable::segment` puts a surface at its frame in the middle of the
 frame's time and goes smoothly to the next. The giant's two shoulders are
 the first (`giant_art.surfaces`). `mount.back` is now a span, not ground.

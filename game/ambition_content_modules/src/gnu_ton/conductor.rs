@@ -804,6 +804,20 @@ fn fist_part(fist: Fist) -> DrawnPart {
 /// It rides HIM, not the world: a hit launches away from where it came from,
 /// and a world box comes from the middle of the back, which threw a player
 /// standing beside him toward him. Riding him, it also rides the gnu's hop.
+/// The giant's back as it is now: its span, its top where the highest of the
+/// ledges on its line is (they lift and lean with the giant's art).
+fn back_now(giant: &MountView) -> Option<[f32; 4]> {
+    let [x0, top, x1, bottom] = giant.back?;
+    let on_line = giant
+        .ledges
+        .iter()
+        .filter(|[ax, ay, bx, by]| ax.max(*bx) > x0 && ax.min(*bx) < x1 && (ay.min(*by) - top).abs() <= ch::arms::BACK_LINE)
+        .map(|[_, ay, _, by]| ay.min(*by))
+        .reduce(f32::min);
+    let lifted = on_line.unwrap_or(top);
+    Some([x0, lifted, x1, bottom + lifted - top])
+}
+
 fn buck(inv: &mut Invocation<'_>, scholar: Vec2, back: Option<[f32; 4]>) -> Result<(), Fault> {
     inv.submit::<MountLaunchPort>(MountLaunch { velocity: [0.0, -BUCK_HOP], flinchless: true })?;
     let Some([min_x, min_y, max_x, _]) = back else {
@@ -1014,7 +1028,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     // The strike's own onset.
                     match mv {
                         Move::Buck => {
-                            buck(inv, scholar_pos, giant.back)?;
+                            buck(inv, scholar_pos, back_now(&giant))?;
                             play(inv, SFX_SNORT, giant_pos)?;
                         }
                         Move::PortalPunch | Move::PortalKick if c.blow_exit != 0 => {
@@ -1438,7 +1452,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let next = t + dt;
         if t < REFLEX_TELL && next >= REFLEX_TELL {
             // The throw rides him where he is: on a shoulder, or between them.
-            buck(inv, shoulder_pose.unwrap_or(scholar_pos), giant.back)?;
+            buck(inv, shoulder_pose.unwrap_or(scholar_pos), back_now(&giant))?;
         }
         c.reflex = (next < REFLEX_LEN).then_some(next);
         if c.reflex.is_none() {

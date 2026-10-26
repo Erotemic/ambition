@@ -187,6 +187,12 @@ pub const LEDGE_REACH_DOWN: f32 = 30.0;
 /// contact; 10px catches near-misses without pulling from across gaps.
 pub const LEDGE_HORIZONTAL_REACH: f32 = 10.0;
 
+/// The steepest a ledge's standing surface may tilt from level (degrees)
+/// for a body to grab its lip, and to keep hanging on it: the end of a
+/// tilted one-way line is a ledge up to this tilt, and a body that hangs on
+/// one that tilts past it falls off. A block's corner is level.
+pub const LEDGE_TILT_LIMIT_DEG: f32 = 20.0;
+
 /// Horizontal input threshold used only to request an airborne ledge
 /// probe. Hanging/getup choices keep their stronger 0.4 dead-zone below
 /// so climbing/dropping from a ledge does not become accidental.

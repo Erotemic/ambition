@@ -354,6 +354,41 @@ fn a_body_rides_a_swinging_plank() {
     assert!((scratch.kinematics.pos.x - pivot.x - along).abs() < 2.0, "it slid along the plank: {} -> {}", along, scratch.kinematics.pos.x - pivot.x);
 }
 
+/// A plank that lifts fast and tilts as it lifts (a giant's shoulder that
+/// rises as it rears): its motion is a move of its middle and a turn about
+/// it, and a body standing off its middle is carried with it, never landing.
+#[test]
+fn a_body_rides_a_plank_that_lifts_and_tilts() {
+    let mut world = test_world();
+    let plank = |mid: Vec2, angle: f32| {
+        let half = Vec2::from_angle(angle) * 60.0;
+        vec![mid - half, mid + half]
+    };
+    let mut mid = Vec2::new(600.0, 700.0);
+    let mut angle = 0.0_f32;
+    world.chains.push(SurfaceChain::open("plank", plank(mid, angle)));
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(630.0, 660.0), AbilitySet::sandbox_all());
+    for _ in 0..30 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(scratch.ground.on_ground);
+    let mut landings = 0;
+    for tick in 1..=24 {
+        let (next_mid, next_angle) = (mid + Vec2::new(0.0, -5.0), angle - 0.5_f32.to_radians());
+        let line = world.chains.iter_mut().find(|c| c.name == "plank").expect("the plank");
+        line.points = plank(next_mid, next_angle);
+        line.velocity = next_mid - mid;
+        line.turn = next_angle - angle;
+        line.pivot = next_mid;
+        (mid, angle) = (next_mid, next_angle);
+        if matches!(step_scratch(&world, &mut scratch, InputState::default()).ground_contact, GroundContactTransition::Landed { .. }) {
+            landings += 1;
+        }
+        assert!(scratch.ground.on_ground, "off the plank on tick {tick} at {:?}", scratch.kinematics.pos);
+    }
+    assert_eq!(landings, 0);
+}
+
 /// A solid outline (`SurfaceKind::Solid`, what a portal pair carries of a
 /// block it turns): a body that walks into its side is stopped there, and one
 /// that falls on its top stands on it — both where the turned shape is, not

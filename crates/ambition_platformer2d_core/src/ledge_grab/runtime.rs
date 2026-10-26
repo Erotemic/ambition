@@ -137,7 +137,7 @@ pub fn ledge_carry_for_frame(
                     gravity_dir,
                 ))
     }) else {
-        return LedgeCarry::Stay;
+        return line_ledge_carry(world, contact, body_aabb, body_size, gravity_dir);
     };
 
     let delta = carrier.velocity;
@@ -157,9 +157,183 @@ pub fn ledge_carry_for_frame(
     }
 }
 
-/// `OneWay`) whose anti-gravity face is within a shoulder-height band of the
-/// controlled body and whose side face matches the side the body is reaching
-/// toward. If found, returns the snap anchor and the climb target.
+/// [`ledge_carry_for_frame`] for a hang on the end of a moving one-way line
+/// ([`chain_ledges`]): the line carries the body as it carries its lip (its
+/// move and its turn), and a lip that tilts past
+/// [`super::LEDGE_TILT_LIMIT_DEG`] lets the body fall (a hang on a ledge that
+/// is no longer a ledge).
+fn line_ledge_carry(
+    world: &World,
+    contact: LedgeContact,
+    body_aabb: Aabb,
+    body_size: Vec2,
+    gravity_dir: Vec2,
+) -> LedgeCarry {
+    let frame = crate::AccelerationFrame::new(gravity_dir);
+    let lip = Ledge::lip_of(contact, body_size * 0.5, frame);
+    let side_normal = contact.wall_normal_x.signum();
+    let carrier = chain_ledges(world, frame).find(|(ci, _, ledge)| {
+        let chain = &world.chains[*ci];
+        // The line moved before the bodies: its lip was where it is less its
+        // move, and a stored contact describes where it was.
+        chain.moves()
+            && ledge.side_normal == side_normal
+            && (ledge.lip.distance(lip) <= LEDGE_LATCH_TOL || (ledge.lip - chain.velocity).distance(lip) <= LEDGE_LATCH_TOL)
+    });
+    let Some((ci, _, ledge)) = carrier else {
+        return LedgeCarry::Stay;
+    };
+    if !ledge.grabbable(frame) {
+        return LedgeCarry::KnockOff;
+    }
+    let delta = world.chains[ci].carried(lip) - lip;
+    let carried = body_aabb.translated(delta);
+    let into_wall = world
+        .blocks
+        .iter()
+        .any(|block| matches!(block.kind, BlockKind::Solid) && carried.strict_intersects(block.aabb));
+    if into_wall {
+        LedgeCarry::KnockOff
+    } else {
+        LedgeCarry::Carry(delta)
+    }
+}
+
+/// A LEDGE a body can hang from: the LIP (the end of a standing surface, by
+/// a drop), the way that surface goes in from the lip (`inward`, a unit
+/// vector along it), and the side face the body hangs on: `side_normal` is
+/// `+1` when the face looks toward the body frame's `+side` (the body hangs
+/// on that side of the lip).
+///
+/// ONE RULE FOR EVERY LEDGE. A block's top corner is a ledge whose surface
+/// is level ([`Ledge::of_block`]); the end of a one-way line is one whose
+/// surface tilts as the line does ([`chain_ledges`]). A ledge whose surface
+/// tilts more than [`super::LEDGE_TILT_LIMIT_DEG`] from level is no ledge: a
+/// body does not catch it, and a body that hangs on it as it tilts past the
+/// limit falls off ([`ledge_carry_for_frame`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Ledge {
+    pub lip: Vec2,
+    pub inward: Vec2,
+    pub side_normal: f32,
+}
+
+impl Ledge {
+    /// The top corner of `block` on its `side_normal` face, in `frame`.
+    pub fn of_block(block: Aabb, side_normal: f32, frame: crate::AccelerationFrame) -> Self {
+        let side = side_normal.signum();
+        let block_half = block.half_size();
+        let block_center = block.center();
+        let wall_side = block_center.dot(frame.side) + side * half_along_axis(block_half, frame.side);
+        let lip_down = block_center.dot(frame.down) - half_along_axis(block_half, frame.down);
+        Self { lip: point_from_frame_coords(frame, wall_side, lip_down), inward: frame.side * -side, side_normal: side }
+    }
+
+    /// How far its surface tilts from level in `frame`, in degrees.
+    pub fn tilt_deg(&self, frame: crate::AccelerationFrame) -> f32 {
+        self.inward.dot(frame.down).abs().atan2(self.inward.dot(frame.side).abs()).to_degrees()
+    }
+
+    /// It is level enough to hang from.
+    pub fn grabbable(&self, frame: crate::AccelerationFrame) -> bool {
+        self.tilt_deg(frame) <= super::LEDGE_TILT_LIMIT_DEG
+    }
+
+    /// The height (as a coordinate along `frame.down`) of its surface at
+    /// `side` (a coordinate along `frame.side`) on the surface's side of the
+    /// lip.
+    fn surface_down_at(&self, side: f32, frame: crate::AccelerationFrame) -> f32 {
+        let across = self.inward.dot(frame.side);
+        let lip_side = self.lip.dot(frame.side);
+        let slope = if across.abs() > 1.0e-6 { self.inward.dot(frame.down) / across } else { 0.0 };
+        self.lip.dot(frame.down) + slope * (side - lip_side)
+    }
+
+    /// Where a body of half size `half` (in its frame) stands on the
+    /// surface `offset` in from the lip: its centre, the highest point of the
+    /// surface under its feet plus `lift`.
+    fn standing_centre(&self, half: Vec2, offset: f32, lift: f32, frame: crate::AccelerationFrame) -> Vec2 {
+        let side = self.lip.dot(frame.side) - self.side_normal * offset;
+        let feet_down = self
+            .surface_down_at(side - half.x, frame)
+            .min(self.surface_down_at(side + half.x, frame));
+        point_from_frame_coords(frame, side, feet_down - half.y - lift)
+    }
+
+    /// Where a body of half size `half` hangs from it: its side against the
+    /// face, its head at the lip.
+    fn hang_centre(&self, half: Vec2, frame: crate::AccelerationFrame) -> Vec2 {
+        point_from_frame_coords(
+            frame,
+            self.lip.dot(frame.side) + self.side_normal * (half.x - 1.0),
+            self.lip.dot(frame.down) + half.y - 4.0,
+        )
+    }
+
+    /// The lip a contact was made on, from where it hangs a body of `half`
+    /// (the inverse of [`Self::hang_centre`]).
+    fn lip_of(contact: LedgeContact, half: Vec2, frame: crate::AccelerationFrame) -> Vec2 {
+        let side = contact.wall_normal_x.signum();
+        point_from_frame_coords(
+            frame,
+            contact.anchor.dot(frame.side) - side * (half.x - 1.0),
+            contact.anchor.dot(frame.down) - half.y + 4.0,
+        )
+    }
+}
+
+/// The ledges at the free ends of the world's one-way lines (its open
+/// `Ground` chains), in `frame`: `(chain, the end's point index, ledge)`. An
+/// end is a ledge where the line is a floor (its top faces away from the
+/// feet) and no other line goes on from it.
+pub fn chain_ledges(
+    world: &World,
+    frame: crate::AccelerationFrame,
+) -> impl Iterator<Item = (usize, usize, Ledge)> + '_ {
+    let up = -frame.down;
+    world.chains.iter().enumerate().flat_map(move |(ci, chain)| {
+        let usable = !chain.closed
+            && chain.points.len() >= 2
+            && chain.junctions.is_empty()
+            && chain.depth_lanes.is_empty()
+            && matches!(chain.kind, crate::world::SurfaceKind::Ground);
+        let last = chain.points.len().saturating_sub(1);
+        [(0usize, 1usize), (last, last.saturating_sub(1))]
+            .into_iter()
+            .filter(move |_| usable)
+            .filter_map(move |(end, next)| {
+                let (lip, toward) = (chain.points[end], chain.points[next]);
+                let inward = (toward - lip).try_normalize()?;
+                // The segment's top faces away from the feet: a floor.
+                let (a, b) = if end == 0 { (lip, toward) } else { (toward, lip) };
+                let t = b - a;
+                let normal = Vec2::new(t.y, -t.x);
+                if normal.dot(up) <= 0.0 {
+                    return None;
+                }
+                let across = inward.dot(frame.side);
+                if across.abs() < 1.0e-4 {
+                    return None;
+                }
+                // No other line goes on from this end.
+                let joined = world.chains.iter().enumerate().any(|(other, c)| {
+                    other != ci && c.points.iter().any(|p| p.distance(lip) <= LEDGE_JOIN_TOL)
+                });
+                (!joined).then_some((ci, end, Ledge { lip, inward, side_normal: -across.signum() }))
+            })
+    })
+}
+
+/// How near another line's point must be to a line's end for the two to be
+/// one surface (the end is not a ledge).
+const LEDGE_JOIN_TOL: f32 = 2.0;
+
+/// Probe for a ledge the controlled body can grab: a support surface's lip
+/// (a block that is `Solid`, `BlinkWall` or `OneWay`; or the free end of a
+/// one-way line, [`chain_ledges`]) whose surface is level within
+/// [`super::LEDGE_TILT_LIMIT_DEG`], within a shoulder-height band of the
+/// body's head, on the side the body reaches toward. If found, returns the
+/// snap anchor and the climb target.
 ///
 /// `wall_normal_x` is historical naming: it is now the side-face normal expressed
 /// in the controlled body's local side axis (`+1` = platform on local-left,
@@ -183,101 +357,79 @@ pub fn probe_ledge_grab_in_frame(
     }
     let side_normal = wall_normal_x.signum();
     let frame = crate::AccelerationFrame::new(gravity_dir);
-    let player_half_local = player_size * 0.5;
-    let player_half_world = frame.to_world_half(player_half_local);
-    let player_side_half = player_half_local.x;
-    let player_down_half = player_half_local.y;
+    let block_ledges = world
+        .blocks
+        .iter()
+        .filter(|block| ledge_surface_kind(block.kind))
+        .map(|block| (Ledge::of_block(block.aabb, side_normal, frame), Some(block)));
+    let line_ledges = chain_ledges(world, frame)
+        .filter(|(_, _, ledge)| ledge.side_normal == side_normal)
+        .map(|(_, _, ledge)| (ledge, None));
 
-    let player_side = player_pos.dot(frame.side);
-    let player_down = player_pos.dot(frame.down);
-
-    // Window where the ledge anti-gravity face must sit. Under normal gravity
-    // this is the old world-Y top-face / head-Y band.
-    let head_down = player_down - player_down_half;
-    let reach_min_down = head_down - LEDGE_REACH_UP;
-    let reach_max_down = head_down + LEDGE_REACH_DOWN;
-
-    // The controlled body's side that is reaching toward the wall, expressed in
-    // local side coordinates. side_normal = +1 means the block face normal points
-    // toward local-right, so the actor reaches with its local-left side.
-    let cling_side = player_side - side_normal * player_side_half;
-
-    let mut best: Option<LedgeContact> = None;
-    for block in &world.blocks {
-        if !ledge_surface_kind(block.kind) {
+    let head_down = player_pos.dot(frame.down) - player_size.y * 0.5;
+    let mut best: Option<(LedgeContact, f32)> = None;
+    for (ledge, block) in block_ledges.chain(line_ledges.collect::<Vec<_>>()) {
+        let Some(candidate) = ledge_contact_at(player_pos, player_size, ledge, block, world, frame) else {
             continue;
-        }
-        let block_half = block.aabb.half_size();
-        let block_center = block.aabb.center();
-        let block_side_half = half_along_axis(block_half, frame.side);
-        let block_down_half = half_along_axis(block_half, frame.down);
-        let block_side = block_center.dot(frame.side);
-        let block_down = block_center.dot(frame.down);
-        let lip_down = block_down - block_down_half;
-        if lip_down < reach_min_down || lip_down > reach_max_down {
-            continue;
-        }
-
-        // Pick the platform side face matching the controlled body's reach side.
-        let block_wall_side = block_side + side_normal * block_side_half;
-        if (block_wall_side - cling_side).abs() > LEDGE_HORIZONTAL_REACH {
-            continue;
-        }
-
-        // The space directly above the platform (away from the feet) must be clear.
-        let probe_center = point_from_frame_coords(
-            frame,
-            block_wall_side - side_normal * (player_side_half - 1.0),
-            lip_down - player_down_half - 1.0,
-        );
-        if !inside_world_bounds(probe_center, player_half_world, world) {
-            continue;
-        }
-        let probe_aabb = Aabb::new(probe_center, player_half_world - Vec2::new(2.0, 2.0));
-        let blocked = world.body_overlaps_any(probe_aabb, |b| {
-            ledge_clearance_blocker_kind(b.kind) && !std::ptr::eq(b, block)
-        });
-        if blocked {
-            continue;
-        }
-
-        let hang_center = point_from_frame_coords(
-            frame,
-            block_wall_side + side_normal * (player_side_half - 1.0),
-            lip_down + player_down_half - 4.0,
-        );
-        let hang_aabb = Aabb::new(hang_center, player_half_world - Vec2::new(2.0, 2.0));
-        let hang_blocked = world.body_overlaps_any(hang_aabb, |b| {
-            ledge_clearance_blocker_kind(b.kind) && !std::ptr::eq(b, block)
-        });
-        if hang_blocked {
-            continue;
-        }
-
-        let climb_target = point_from_frame_coords(
-            frame,
-            block_wall_side - side_normal * (player_side_half + 4.0),
-            lip_down - player_down_half - 1.0,
-        );
-        let candidate = LedgeContact {
-            wall_normal_x: side_normal,
-            anchor: hang_center,
-            climb_target,
         };
-        let new_distance = (lip_down - head_down).abs();
-        let keep = match best {
-            None => true,
-            Some(prev) => {
-                let prev_lip_down = prev.anchor.dot(frame.down) - player_down_half + 4.0;
-                let prev_distance = (prev_lip_down - head_down).abs();
-                new_distance < prev_distance
-            }
-        };
-        if keep {
-            best = Some(candidate);
+        let distance = (ledge.lip.dot(frame.down) - head_down).abs();
+        if best.is_none_or(|(_, known)| distance < known) {
+            best = Some((candidate, distance));
         }
     }
-    best
+    best.map(|(contact, _)| contact)
+}
+
+/// The contact of a body at `player_pos` with `ledge`, if it can grab it:
+/// the ledge is level enough, its lip is in the body's reach, the body's
+/// reaching side is at its face, and the places the body hangs and stands
+/// are clear of every support surface but `block` (the ledge's own).
+fn ledge_contact_at(
+    player_pos: Vec2,
+    player_size: Vec2,
+    ledge: Ledge,
+    block: Option<&crate::world::Block>,
+    world: &World,
+    frame: crate::AccelerationFrame,
+) -> Option<LedgeContact> {
+    if !ledge.grabbable(frame) {
+        return None;
+    }
+    let half = player_size * 0.5;
+    let half_world = frame.to_world_half(half);
+    let player_side = player_pos.dot(frame.side);
+    let head_down = player_pos.dot(frame.down) - half.y;
+    let lip_down = ledge.lip.dot(frame.down);
+    // Window where the lip must sit. Under normal gravity this is the old
+    // world-Y top-face / head-Y band.
+    if lip_down < head_down - LEDGE_REACH_UP || lip_down > head_down + LEDGE_REACH_DOWN {
+        return None;
+    }
+    // The body's side that reaches toward the face. side_normal = +1 means
+    // the face looks toward local-right, so the body reaches with its
+    // local-left side.
+    let cling_side = player_side - ledge.side_normal * half.x;
+    if (ledge.lip.dot(frame.side) - cling_side).abs() > LEDGE_HORIZONTAL_REACH {
+        return None;
+    }
+    let others = |b: &crate::world::Block| ledge_clearance_blocker_kind(b.kind) && block.is_none_or(|own| !std::ptr::eq(b, own));
+    // The space over the surface (away from the feet) must be clear.
+    let probe_center = ledge.standing_centre(half, half.x - 1.0, 1.0, frame);
+    if !inside_world_bounds(probe_center, half_world, world) {
+        return None;
+    }
+    if world.body_overlaps_any(Aabb::new(probe_center, half_world - Vec2::new(2.0, 2.0)), others) {
+        return None;
+    }
+    let hang_center = ledge.hang_centre(half, frame);
+    if world.body_overlaps_any(Aabb::new(hang_center, half_world - Vec2::new(2.0, 2.0)), others) {
+        return None;
+    }
+    Some(LedgeContact {
+        wall_normal_x: ledge.side_normal,
+        anchor: hang_center,
+        climb_target: ledge.standing_centre(half, half.x + 4.0, 1.0, frame),
+    })
 }
 
 /// If the player is currently hanging/climbing, advance that state and return

@@ -214,7 +214,12 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
     // Each ledge of one-way ground where it is now (a drawn ledge where the
     // drawing put it): its top.
     let ledges = back_ledge
-        .map(|back| back.ground(kin, unmirrored).map(|b| [b.min.x, b.min.y, b.max.x, b.min.y]).collect())
+        .map(|back| {
+            back.ground(kin, unmirrored)
+                .map(|b| [b.min.x, b.min.y, b.max.x, b.min.y])
+                .chain(back.drawn_lines(kin, unmirrored).map(|([a, b], ..)| [a.x, a.y, b.x, b.y]))
+                .collect()
+        })
         .unwrap_or_default();
     // The floor and walls under the mount, in its own live room.
     let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(mount);

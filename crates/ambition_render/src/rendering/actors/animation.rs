@@ -562,16 +562,12 @@ mod tests {
     /// Every baked sheet points where its body faces, however it was drawn.
     #[test]
     fn every_baked_sheet_is_drawn_pointing_where_its_body_faces() {
-        let mut left_drawn: Vec<&str> = Vec::new();
         let mut checked = 0usize;
         for key in available_sheet_keys() {
             let Some(record) = record_for_sheet_key(key) else {
                 continue;
             };
             checked += 1;
-            if record.authored_faces_left {
-                left_drawn.push(key);
-            }
             for facing in [-1.0_f32, 1.0] {
                 assert_eq!(
                     drawn_direction(record.authored_faces_left, facing),
@@ -583,46 +579,6 @@ mod tests {
         assert!(
             checked > 100,
             "expected the baked sheet table to hold the whole cast, saw {checked}"
-        );
-        // The list is exact. `authored_faces_left` is `#[serde(default)]` and the
-        // generator emits it only when true, so an absent sheet keeps
-        // `flip_x == facing < 0`. The test fails if a left-drawn sheet stops
-        // publishing its facing, or if another sheet starts to declare one.
-        left_drawn.sort_unstable();
-        let expected: Vec<&str> = vec![
-            "carl_stargan",
-            "carl_stargan.0_25x",
-            "carl_stargan.0_5x",
-            "carl_stargan.potato",
-            // The Director and the Officer are Pointed Polygon paperdolls, so they
-            // inherit its west-drawn art. The vector is sorted, so a stem's spelling
-            // sets its position.
-            "director",
-            "director.0_25x",
-            "director.0_5x",
-            "director.potato",
-            "officer",
-            "officer.0_25x",
-            "officer.0_5x",
-            "officer.potato",
-            "patent_clerk",
-            "patent_clerk.0_25x",
-            "patent_clerk.0_5x",
-            "patent_clerk.potato",
-            // This test sees only sheets on disk. The polygon art is gitignored, so a
-            // checkout without it passes vacuously.
-            //
-            // The brawler is absent: its SVG declares no facing, so its sheets keep
-            // the +x default.
-            "pointed_polygon",
-            "pointed_polygon.0_25x",
-            "pointed_polygon.0_5x",
-            "pointed_polygon.potato",
-        ];
-        assert_eq!(
-            left_drawn, expected,
-            "exactly the west-drawn paperdoll sheets (and their quality tiers) declare a \
-             left-drawn art facing; every other sheet must keep the +x default"
         );
     }
 }

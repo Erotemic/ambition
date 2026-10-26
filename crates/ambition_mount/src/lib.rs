@@ -183,14 +183,15 @@ pub struct MountSlot {
     pub rider: Option<Entity>,
 }
 
-/// A mount's back is one-way ground while it is ridden: a body can climb
-/// onto it to reach the rider (GNU-ton's gnu: you stand on the shoulders of a
-/// giant). From the mount's character (`CharacterMount::back`), in world units
-/// about the mount's centre, facing right.
+/// A ridden mount's back: a body can climb onto it to reach the rider
+/// (GNU-ton's gnu: you stand on the shoulders of a giant). From the mount's
+/// character (`CharacterMount`), in world units about the mount's centre,
+/// facing right.
 ///
-/// `ledges` are more one-way ground on the same mount (`CharacterMount::ledges`):
-/// the places its art shows that a body can stand. They are ground and no
-/// more: "on its back" is `back`. `slope` is a line a body walks
+/// `back` is the span a rider's conductor reads as "on its back"; it is not
+/// ground. `ledges` are the one-way ground: the places its art shows that a
+/// body can stand (each shoulder, the level part of each horn), so the gap
+/// between two ledges is not ground. `slope` is a line a body walks
 /// (`CharacterMount::slope`), from left to right for a mount facing right.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BackLedge {
@@ -221,19 +222,17 @@ impl BackLedge {
         Some(points)
     }
 
-    /// The back where the mount is drawn: mirrored by the side it is drawn
-    /// facing ([`ae::mirror_side`]), so an unmirrored mount keeps its back
-    /// where its art puts it when it turns.
+    /// The span of the back where the mount is drawn (not ground): mirrored
+    /// by the side it is drawn facing ([`ae::mirror_side`]), so an
+    /// unmirrored mount keeps its back where its art puts it when it turns.
     pub fn aabb(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
         Self::ledge_aabb(&self.back, mount, unmirrored)
     }
 
-    /// The back and each other ledge, where the mount is drawn.
+    /// Each ledge of one-way ground, where the mount is drawn.
     pub fn ground(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> impl Iterator<Item = ae::Aabb> + '_ {
         let mount = mount.clone();
-        std::iter::once(&self.back)
-            .chain(self.ledges.iter())
-            .map(move |ledge| Self::ledge_aabb(ledge, &mount, unmirrored))
+        self.ledges.iter().map(move |ledge| Self::ledge_aabb(ledge, &mount, unmirrored))
     }
 
     fn ledge_aabb(ledge: &ambition_characters::actor::MountBack, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
@@ -249,8 +248,8 @@ pub const BACK_BLOCK: &str = "mount_back";
 /// The name of a mount's slope in its room's collision overlay.
 pub const SLOPE_LINE: &str = "mount_slope";
 
-/// Each ridden mount's back is one-way ground in the mount's own live room,
-/// moving with the mount, and its slope a walkable line. A collision-overlay
+/// Each ridden mount's ledges are one-way ground in the mount's own live
+/// room, moving with the mount, and its slope a walkable line. A collision-overlay
 /// contribution: the composition runs it after the overlay rebuild and before
 /// the bodies that collide.
 ///
@@ -2377,6 +2376,8 @@ mod back_tests {
 
     const GNU: ambition_characters::actor::MountBack =
         ambition_characters::actor::MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 };
+    const SHOULDER: ambition_characters::actor::MountBack =
+        ambition_characters::actor::MountBack { left: -208.0, right: -100.0, top: -9.75, thickness: 14.0 };
 
     #[test]
     fn the_back_is_where_the_mount_is_drawn() {
@@ -2392,12 +2393,12 @@ mod back_tests {
         assert_eq!(BackLedge::new(GNU).aabb(&kin, true), right);
     }
 
-    /// ⭐ A ridden mount's back is a one-way block in its own live room's
-    /// overlay, and nowhere else; an unridden mount's back is not ground. It
-    /// moves by the step the mount made (its `SweepSample`), not by its `vel`,
-    /// which is per second.
+    /// ⭐ A ridden mount's ledges are one-way blocks in its own live room's
+    /// overlay, and nowhere else; the span of its back is not ground, and an
+    /// unridden mount's ledges are not ground. They move by the step the
+    /// mount made (its `SweepSample`), not by its `vel`, which is per second.
     #[test]
-    fn a_ridden_mount_s_back_is_ground_in_its_own_live_room_only() {
+    fn a_ridden_mount_s_ledges_are_ground_in_its_own_live_room_only() {
         let mut world = bevy::prelude::World::new();
         insert_live_room_component(&mut world, FeatureEcsWorldOverlay::default());
         let other = LiveRoomInstance::ACTIVATION.next();
@@ -2408,8 +2409,9 @@ mod back_tests {
         kin.facing = 1.0;
         let rider = world.spawn_empty().id();
         let step = ae::SweepSample { prev: kin.pos - ae::Vec2::new(0.5, -0.25), curr: kin.pos, ..Default::default() };
-        let ridden = world.spawn((kin, step, BackLedge::new(GNU), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
-        world.spawn((kin, BackLedge::new(GNU), MountSlot { rider: None }, InRoomInstance(other)));
+        let back = BackLedge { ledges: vec![SHOULDER], ..BackLedge::new(GNU) };
+        let ridden = world.spawn((kin, step, back.clone(), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
+        world.spawn((kin, back, MountSlot { rider: None }, InRoomInstance(other)));
         let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
         bevy::ecs::system::System::initialize(&mut system, &mut world);
         let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
@@ -2420,7 +2422,7 @@ mod back_tests {
                 overlay.blocks.iter().filter(|b| b.name == BACK_BLOCK).map(move |b| (*live, b.aabb, b.velocity, b.kind))
             })
             .collect();
-        let expected = BackLedge::new(GNU).aabb(world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
+        let expected = BackLedge::ledge_aabb(&SHOULDER, world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
         assert_eq!(backs, vec![(other, expected, ae::Vec2::new(0.5, -0.25), ae::BlockKind::OneWay)]);
     }
 }

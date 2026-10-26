@@ -95,7 +95,7 @@ fn the_enemy_body_report_is_actually_measuring_something() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::actors::character_sprites::{
+use ambition_platformer2d::assets::character_sprites::{
     sheet_for_character_id_in, sprite_body_collision_for_character_id_in,
 };
 use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;

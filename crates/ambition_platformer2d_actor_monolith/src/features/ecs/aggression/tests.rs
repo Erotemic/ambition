@@ -329,7 +329,7 @@ fn npc_cast(
         ..Default::default()
     });
     definition.vitals.max_health = max_health;
-    let mut prepared = crate::character_runtime::prepare_and_finalize_for_test(
+    let mut prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     )
@@ -869,7 +869,7 @@ fn provoked_profile_cast() -> (
         "Test Parrot",
         "test",
     );
-    let mut finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let mut finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );

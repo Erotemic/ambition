@@ -374,7 +374,7 @@ pub fn spawn_projectiles_from_brain_actions(
         // is tall: the shot is born clear of the ground it stands on.
         let spawn_origin = match discharge.muzzle {
             ambition_characters::brain::action_set::Muzzle::Hand { .. } => {
-                crate::projectile::clear_of_the_feet(spawn_origin, kin.pos, kin.size.y, gravity_dir, flight.half_extent)
+                ambition_combat::shot_birth::clear_of_the_feet(spawn_origin, kin.pos, kin.size.y, gravity_dir, flight.half_extent)
             }
             _ => spawn_origin,
         };

@@ -840,7 +840,7 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
         ),
     ] {
         registry.insert_prepared(
-            crate::character_runtime::prepare_and_finalize_against_for_test(
+            ambition_characters::prepared::prepare_and_finalize_against_for_test(
                 CharacterDefinition::new(id, id, "test")
                     .with_ranged_execution(execution)
                     .with_action_set(ActionSet {
@@ -1276,7 +1276,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         flow: None,
     };
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-    let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+    let prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new("hero", "Hero", "demo")
             .with_moveset(MovesetContract {
                 verbs: std::collections::BTreeMap::from([(
@@ -1322,7 +1322,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     // this is the single writer for a worn body, and a guarantee belongs at the authority that
     // provides it.
     let mut registry = registry;
-    let unarmed = crate::character_runtime::prepare_and_finalize_for_test(
+    let unarmed = ambition_characters::prepared::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new("monk", "Monk", "demo"),
         &ambition_characters::prepared::CharacterBindings::default(),
     );
@@ -1439,7 +1439,7 @@ fn prepared_against(
     }
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(
-        crate::character_runtime::prepare_and_finalize_against_for_test(
+        ambition_characters::prepared::prepare_and_finalize_against_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
             catalog,
@@ -2072,7 +2072,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
         let mut definition =
             ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
         definition.vitals = vitals;
-        let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+        let prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -2195,7 +2195,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
             mass,
             knockback_weight: None,
         };
-        let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+        let prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -2274,7 +2274,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
         // Neither authors health or mass — the ordinary case for most of the cast.
         let definition =
             ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
-        let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+        let prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -2383,7 +2383,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             "demo",
         );
         definition.vitals = vitals;
-        crate::character_runtime::prepare_and_finalize_for_test(
+        ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         )
@@ -2823,7 +2823,7 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
         ..ActionSet::default()
     };
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new("brute", "Brute", "demo")
             .with_action_set(authored.clone()),
         &ambition_characters::prepared::CharacterBindings::default(),
@@ -2870,7 +2870,7 @@ fn a_charger_swings_with_the_builders_cue_on_a_seat_and_at_spawn() {
         })),
         ..ActionSet::default()
     };
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "sparker", "Sparker", "demo",
         )
@@ -2932,7 +2932,7 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
         ambition_characters::actor::definition::CharacterDefinition::new("lobber", "Lobber", "demo")
             .with_moveset(moveset_with(&[("attack", "swing")], vec![slash("swing", "swing", "hit")]))
             .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
-    let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+    let prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     )

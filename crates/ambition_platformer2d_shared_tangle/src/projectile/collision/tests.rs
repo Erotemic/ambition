@@ -4,7 +4,7 @@
 //! caller reaches when the sweep declined a grazing start, or when the shot did
 //! not move. The witness road is the caller's, and it is exercised where the
 //! sweep actually runs
-//! (`ambition_platformer2d_actor_monolith::projectile::tests::collision`).
+//! (`ambition_platformer2d_actor_monolith::projectile_tests::collision`).
 
 use super::*;
 

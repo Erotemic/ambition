@@ -16,7 +16,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
+use ambition_platformer2d::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
 use bevy::prelude::*;
 
 use crate::boss_lifecycle::{boss_cleared, kill_boss_with_a_real_hit, spawn_mockingbird};
@@ -254,7 +254,7 @@ fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
 /// one despawn is the retirement of the session, which takes the operation
 /// back. An arm for it would remove the body by hand.
 fn a_refused_publication_changes_nothing(refusal: Refusal) -> Verification {
-    use ambition_platformer2d::actors::session::checkpoint::RestoreCancellation;
+    use ambition_platformer2d::session::checkpoint::RestoreCancellation;
     let (before, after, outcome, verification, _) = a_restore_after_a_boss(Road::PublicationRefused(refusal));
     // ⛔ THE PREMISE: this is the road of a refused publication. A room that
     // was not prepared ends as `PreparationFailed`, and that is the arm above.
@@ -322,7 +322,7 @@ fn a_checkpoint_restore_whose_room_fails_its_verdict_leaves_the_live_world_as_it
 /// any more, the next request is a new operation, and it commits.
 #[test]
 fn a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_commits() {
-    use ambition_platformer2d::actors::session::checkpoint::{OutstandingCheckpointRequest, RestoreCancellation};
+    use ambition_platformer2d::session::checkpoint::{OutstandingCheckpointRequest, RestoreCancellation};
     use ambition_platformer2d::platformer::body::PrimaryBody;
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
     let (before, after, outcome, _, mut sim) = a_restore_after_a_boss(Road::TwoPrimaryBodies);

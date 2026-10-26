@@ -51,7 +51,7 @@ use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
 /// instances of 1-1), and a brick broken in one is whole in the other.
 #[derive(Resource, Default, Clone)]
 pub struct BrokenBricks(
-    ambition_platformer2d::actors::session::reset::PerLiveRoom<std::collections::BTreeSet<String>>,
+    ambition_platformer2d::session::reset::PerLiveRoom<std::collections::BTreeSet<String>>,
 );
 
 impl BrokenBricks {
@@ -303,14 +303,14 @@ pub fn drop_planks_when_the_goal_is_taken(
 
 /// Broken bricks are per-attempt: the next lap — and the next LIFE — is a new
 /// live room, and it starts against a whole wall.
-impl ambition_platformer2d::actors::session::reset::AttemptScoped for BrokenBricks {
+impl ambition_platformer2d::session::reset::AttemptScoped for BrokenBricks {
     type Attempt = std::collections::BTreeSet<String>;
 
-    fn attempts(&self) -> &ambition_platformer2d::actors::session::reset::PerLiveRoom<Self::Attempt> {
+    fn attempts(&self) -> &ambition_platformer2d::session::reset::PerLiveRoom<Self::Attempt> {
         &self.0
     }
 
-    fn attempts_mut(&mut self) -> &mut ambition_platformer2d::actors::session::reset::PerLiveRoom<Self::Attempt> {
+    fn attempts_mut(&mut self) -> &mut ambition_platformer2d::session::reset::PerLiveRoom<Self::Attempt> {
         &mut self.0
     }
 }
@@ -842,7 +842,7 @@ mod tests {
         app.insert_resource(broken);
         app.add_systems(
             Update,
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<BrokenBricks>,
+            ambition_platformer2d::session::reset::rearm_attempt_scoped::<BrokenBricks>,
         );
         app.update();
         assert!(
@@ -876,7 +876,7 @@ mod tests {
             app.world_mut(),
             FeatureEcsWorldOverlay::default(),
         );
-        ambition_platformer2d::actors::session::reset::install_attempt_scoped::<BrokenBricks, _>(
+        ambition_platformer2d::session::reset::install_attempt_scoped::<BrokenBricks, _>(
             &mut app,
             Update,
             || true,

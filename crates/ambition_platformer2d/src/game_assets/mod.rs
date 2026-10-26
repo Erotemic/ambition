@@ -18,7 +18,7 @@ pub use sheets::{
 };
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog;
+use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_boss_encounter::BossCatalog;
 use ambition_platformer2d_world::world_manifest::WorldManifest;
 use ambition_platformer2d_world::rooms::RoomMetadata;
@@ -125,7 +125,7 @@ impl Plugin for PlatformerAssetsPlugin {
                 tracks: Vec::new(),
             });
 
-        let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_platformer2d_asset_catalog(
+        let catalog = ambition_platformer2d_assets::platformer_assets::build_platformer2d_asset_catalog(
             &config,
             &character_catalog,
             &boss_catalog,

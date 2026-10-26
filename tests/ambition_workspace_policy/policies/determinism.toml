@@ -84,6 +84,9 @@ scope = "engine"
 path = "crates/ambition_platformer2d_actor_monolith"
 scope = "engine"
 [[root]]
+path = "crates/ambition_platformer2d_session"
+scope = "engine"
+[[root]]
 path = "crates/ambition_platformer2d_runtime"
 scope = "engine"
 
@@ -97,3 +100,14 @@ scope = "game"
 [[root]]
 path = "game/ambition_demo_mary_o"
 scope = "game"
+
+[[root]]
+path = "crates/ambition_platformer2d_items"
+scope = "engine"
+[[root]]
+path = "crates/ambition_projectile_combat"
+scope = "engine"
+
+[[root]]
+path = "crates/ambition_platformer2d_assets"
+scope = "engine"

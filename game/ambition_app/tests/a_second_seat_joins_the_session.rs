@@ -11,7 +11,7 @@
 use ambition_app::rl_sim::{
     AgentAction, AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes;
+use ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
@@ -435,7 +435,7 @@ fn a_new_game_takes_a_seat_in_another_room_into_the_new_room() {
             sim.step_n(AgentAction::default(), 30);
         }
         sim.world_mut()
-            .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+            .write_message(ambition_platformer2d::session::reset::NewGameRequested);
         sim.step_n(AgentAction::default(), 400);
         let seated = bodies_of_the_seat(&mut sim);
         assert_eq!(seated, vec![body], "apart={apart}: seat 1 does not have its one body after the New Game");

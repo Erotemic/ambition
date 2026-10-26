@@ -1,0 +1,1727 @@
+//! Actor-side room-graph behavior tests: possession-aware room transitions and fast-body
+//! walk-zone tunneling.
+
+use super::*;
+// The room vocabulary these fixtures build is the world crate's. Named here
+// rather than forwarded from the parent module, which no longer globs it.
+use ambition_platformer2d_world::rooms::*;
+
+fn empty_world(name: &str) -> ae::World {
+    ae::World::new(
+        name,
+        ae::Vec2::new(640.0, 480.0),
+        ae::Vec2::new(96.0, 96.0),
+        Vec::new(),
+    )
+}
+
+/// A room transition follows the CONTROLLED body, not a `PrimaryPlayer` marker: a
+/// possessed actor (the controlled subject, standing in a Walk zone) triggers the
+/// transition even though the vacated home avatar is nowhere near it. Pins that the
+/// transition capability is body-generic and inherited by possession.
+#[test]
+fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Captured(Option<String>);
+
+    // This read a `RoomTransitionRequested` message, which only an eager host ever wrote — so
+    // these fixtures were checking the half of a fork that the shipped game does not take. The
+    // intent names its destination by authored id, so the room is asserted by NAME rather than
+    // by index.
+    fn capture(
+        pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
+        mut out: ResMut<Captured>,
+    ) {
+        if let Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+            pending.pending.as_ref().map(|intent| &intent.kind)
+        {
+            out.0 = Some(transition.target_room.clone());
+        }
+    }
+
+    let zone_center = ae::Vec2::new(100.0, 100.0);
+    let mut room_a = spec_with(RoomMetadata::default(), "a");
+    room_a.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
+    }];
+    let set = RoomSet::from_parts_or_panic(
+        "a",
+        vec![room_a, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let mut app = App::new();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        set,
+    );
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
+    app.insert_resource(GatePortalRegistry::default());
+    // The live phase is its own resource (rollback state) since
+    // `detect_room_transition_system` reads it.
+    app.init_resource::<GatePortalPhases>();
+    app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<Captured>();
+    app.init_resource::<ambition_time::WorldTime>();
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_systems(Update, (detect_room_transition_system, capture).chain());
+
+    // The vacated home avatar, far from the zone.
+    //
+    // the `SimId`s below are what CONSTRUCTION would have given these
+    // bodies, not decoration: `ensure_sim_id` runs in the sim schedule on every
+    // host and files a `PrimaryPlayer` under `player_slot(0)` and an authored body
+    // under `placement(feature_id)`. These fixtures build their bodies by hand and
+    // never run it, so without this they model a body no construction path
+    // produces — and a crossing whose subject cannot be named is now refused.
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        BodyKinematics {
+            pos: ae::Vec2::new(1000.0, 1000.0),
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        },
+    ));
+    // The possessed actor the player is driving, standing IN the walk zone.
+    let actor = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("possessed_actor"),
+            BodyKinematics {
+                pos: zone_center,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+    app.world_mut().entity_mut(actor).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<Captured>().0.as_deref(),
+        Some("b"),
+        "the possessed (controlled) actor in the walk zone triggers the transition to room b, \
+         even though the home avatar is far away",
+    );
+
+    // Death resolves before room-transition detection in the production schedule.
+    // Once the controlled body is out of play, the SAME geometry must therefore
+    // produce no fresh crossing later in that tick. This is the Mary-O loading
+    // hang race: before the filter, a corpse could immediately refill the sticky
+    // lifecycle slot that death had just cleared.
+    app.world_mut()
+        .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
+        .take();
+    app.world_mut().resource_mut::<Captured>().0 = None;
+    app.world_mut()
+        .entity_mut(actor)
+        .insert(ambition_combat::death_rules::OutOfPlay);
+
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<Captured>().0.as_deref(),
+        None,
+        "an out-of-play controlled body cannot start a new room transition",
+    );
+}
+
+/// CC2 (§3.3, the sweep law): a fast body must not tunnel an overlap-fire
+/// (`Walk`) loading zone. A body that starts BEFORE the zone and ends PAST it
+/// in one frame — never discretely overlapping either endpoint — still crosses
+/// the zone's swept path, so the transition fires. The pre-CC2 discrete
+/// `strict_intersects` check would silently miss this (blink / dash / Sanic
+/// speed leaping straight over the exit band).
+#[test]
+fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Captured(Option<String>);
+
+    // This read a `RoomTransitionRequested` message, which only an eager host ever wrote — so
+    // these fixtures were checking the half of a fork that the shipped game does not take. The
+    // intent names its destination by authored id, so the room is asserted by NAME rather than
+    // by index.
+    fn capture(
+        pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
+        mut out: ResMut<Captured>,
+    ) {
+        if let Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+            pending.pending.as_ref().map(|intent| &intent.kind)
+        {
+            out.0 = Some(transition.target_room.clone());
+        }
+    }
+
+    // A thin exit band at x = 100 (half-width 8) — thinner than the body travels
+    // in one frame.
+    let zone_center = ae::Vec2::new(100.0, 100.0);
+    let mut room_a = spec_with(RoomMetadata::default(), "a");
+    room_a.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
+    }];
+    let set = RoomSet::from_parts_or_panic(
+        "a",
+        vec![room_a, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let mut app = App::new();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        set,
+    );
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
+    app.insert_resource(GatePortalRegistry::default());
+    // The live phase is its own resource (rollback state) since
+    // `detect_room_transition_system` reads it.
+    app.init_resource::<GatePortalPhases>();
+    app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<Captured>();
+    // A 60 fps frame; the body crosses the whole zone within it.
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_systems(Update, (detect_room_transition_system, capture).chain());
+
+    // The body has already SHOT PAST the zone this frame: it ends at x = 200
+    // (clear of the x = 100 band, half-width 12) having entered from x = 40, so
+    // the band sits squarely on its travelled path. A discrete endpoint check at
+    // x = 200 would see no overlap and miss the exit.
+    //
+    // The path is given as the body's `SweepSample`, which is what a real body
+    // carries. It used to be given only as a VELOCITY, and the detector
+    // reconstructed the segment as `vel · dt` — so this arm proved the reader
+    // could sweep a reconstruction and never touched the sample road at all.
+    // `a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into`
+    // below is the case that distinguishes them.
+    let dt = 1.0 / 60.0;
+    let end = ae::Vec2::new(200.0, 100.0);
+    let start = ae::Vec2::new(40.0, 100.0);
+    let vel = (end - start) / dt;
+    let body = app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        // What `ensure_sim_id` gives a primary avatar on every host; see the
+        // note in `a_possessed_actor_triggers_a_room_transition_through_a_walk_zone`.
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        BodyKinematics {
+            pos: end,
+            vel,
+            size: ae::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        },
+        ae::SweepSample {
+            prev: start,
+            curr: end,
+            vel,
+            half: ae::Vec2::new(12.0, 20.0),
+            down: ae::Vec2::new(0.0, 1.0),
+        },
+    )).id();
+    app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<Captured>().0.as_deref(),
+        Some("b"),
+        "a body that tunnelled through the walk zone in one frame still triggers \
+         the transition — the reader sweeps its path (CC2), it does not sample \
+         the endpoint",
+    );
+}
+
+/// A body that WALKED into an edge exit and was stopped by the boundary still
+/// transitions — even though its velocity is now zero.
+///
+/// that is not a key binding issue."* He was right, and the two zone tests above
+/// are why nobody found it: both hand the detector a velocity chosen to make
+/// the answer come out. The tunnel test computes `vel = (end - start) / dt`
+/// after picking both endpoints, which is precisely the assumption production
+/// breaks; the door tests place the body inside the zone and press a key. Neither
+/// runs a body through the movement kernel, so neither could see this.
+///
+/// What production does, in order:
+///
+/// ```text
+/// 1. the kernel integrates prev → curr and writes SweepSample
+/// 2. collision advances to time-of-impact and calls zero_axis_vel
+/// 3. the detector reconstructs the path as vel · dt    ZERO
+/// ```
+///
+/// An edge exit sits at a room boundary — the one place step 2 always happens —
+/// so the segment that proves the body entered the zone was being discarded on
+/// exactly the frame it mattered. A body left TOUCHING the band rather than
+/// strictly inside it then never transitions, however long it stands there.
+/// The room a body crosses to, as `detect_room_transition_system` decides it:
+/// room `a` has one `EdgeExit` zone at `zone`, linked to room `b`. The body is
+/// the primary seat's, with the record `sample` when it has one.
+fn room_crossed_to(
+    zone: ae::Aabb,
+    body: ambition_platformer2d_core::BodyKinematics,
+    sample: Option<ae::SweepSample>,
+) -> Option<String> {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Captured(Option<String>);
+
+    // This read a `RoomTransitionRequested` message, which only an eager host ever wrote — so
+    // these fixtures were checking the half of a fork that the shipped game does not take. The
+    // intent names its destination by authored id, so the room is asserted by NAME rather than
+    // by index.
+    fn capture(
+        pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
+        mut out: ResMut<Captured>,
+    ) {
+        if let Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+            pending.pending.as_ref().map(|intent| &intent.kind)
+        {
+            out.0 = Some(transition.target_room.clone());
+        }
+    }
+
+    let mut room_a = spec_with(RoomMetadata::default(), "a");
+    room_a.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: zone,
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
+    }];
+    let set = RoomSet::from_parts_or_panic(
+        "a",
+        vec![room_a, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let mut app = App::new();
+    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
+    app.insert_resource(GatePortalRegistry::default());
+    // The live phase is its own resource (rollback state) since
+    // `detect_room_transition_system` reads it.
+    app.init_resource::<GatePortalPhases>();
+    app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<Captured>();
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_systems(Update, (detect_room_transition_system, capture).chain());
+
+    let mut entity = app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        // What `ensure_sim_id` gives a primary avatar on every host.
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        body,
+    ));
+    if let Some(sample) = sample {
+        entity.insert(sample);
+    }
+    entity.insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+    app.update();
+    app.world().resource::<Captured>().0.clone()
+}
+
+#[test]
+fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
+    use ambition_platformer2d_core::BodyKinematics;
+
+    // The exit band at the room's east edge, and a body stopped with its right
+    // face exactly ON the band's left face — touching, not overlapping. This is
+    // what a collision solver leaves behind when it advances to time-of-impact.
+    let zone_center = ae::Vec2::new(100.0, 100.0);
+    let body_half = ae::Vec2::new(12.0, 20.0);
+    let stopped_at = ae::Vec2::new(zone_center.x - 8.0 - body_half.x, 100.0);
+
+    let build = |sample: Option<ae::SweepSample>| {
+        room_crossed_to(
+            ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
+            BodyKinematics {
+                pos: stopped_at,
+                // ZERO, and that is the whole point: the wall took it.
+                vel: ae::Vec2::ZERO,
+                size: body_half * 2.0,
+                facing: 1.0,
+            },
+            sample,
+        )
+    };
+
+    // The kernel's record of the frame: it walked 40 px east and was stopped.
+    let travelled = ae::SweepSample {
+        prev: stopped_at - ae::Vec2::new(40.0, 0.0),
+        curr: stopped_at,
+        vel: ae::Vec2::new(2400.0, 0.0),
+        half: body_half,
+        down: ae::Vec2::new(0.0, 1.0),
+    };
+    assert_eq!(
+        build(Some(travelled)).as_deref(),
+        Some("b"),
+        "the body walked into the exit band and was stopped ON it. Its TRUE path \
+         (SweepSample) crosses the zone, so the transition fires — the reader must \
+         read the kernel's segment, not the velocity collision just zeroed",
+    );
+
+    // THE POISON, and it is the shipped bug: same body, same position, no
+    // sample  the reader falls back to `vel · dt`, which is zero, and the zone
+    // it is standing against goes unnoticed.
+    assert_eq!(
+        build(None).as_deref(),
+        None,
+        "and with no sample the reconstruction is `vel · dt` = 0, which cannot \
+         describe that movement at all — if this ever names a room the fixture \
+         has stopped modelling the collision that makes the bug possible",
+    );
+}
+
+/// A transit moves a body and does not turn it, and the record says so
+/// (`SweepSample::down`). The loading zones read the record a phase after the
+/// transits of the tick (a blink, a dive, a portal crossing), so the box they
+/// test at the arrival is the box the record states.
+///
+/// A 48 by 22 body falls one step in sideways gravity through the real
+/// kernel, and then transits. A thin zone under its end is touched by its own
+/// box (22 by 48) and not by its level box; a thin zone beside it is touched
+/// by its level box only. The collapsed record gave the level box, so the body
+/// crossed the zone beside it and not the zone it was in.
+#[test]
+fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
+    let size = ae::Vec2::new(48.0, 22.0);
+    let arrival = ae::Vec2::new(300.0, 200.0);
+    let mut scratch =
+        ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(100.0, 100.0), ae::AbilitySet::default());
+    scratch.kinematics.size = size;
+    scratch.base_size.base_size = size;
+    let world = empty_world("sideways");
+    let mut sample = ae::SweepSample::default();
+    {
+        let (model, mut clusters) = scratch.parts();
+        clusters.sweep = Some(&mut sample);
+        ambition_platformer2d_core::step_motion(
+            model,
+            &mut clusters,
+            ambition_platformer2d_core::MotionStepContext {
+                world: &world,
+                input: ae::InputState::default(),
+                frame: ae::MotionFrame::from_acceleration(
+                    ae::Vec2::new(ambition_platformer2d_core::movement::GRAVITY, 0.0),
+                )
+                .expect("gravity is not zero"),
+                facing_intent: 1.0,
+                dt: 1.0 / 60.0,
+                contact: ambition_platformer2d_core::BodyContactField::NONE,
+                pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
+            },
+        );
+        ambition_platformer2d_core::movement::transit_body(
+            model,
+            &mut clusters,
+            arrival,
+            ambition_platformer2d_core::movement::TransitVelocity::Zero,
+        );
+    }
+    assert_eq!((sample.prev, sample.curr), (arrival, arrival), "premise: the transit collapsed the record");
+    let body = scratch.kinematics;
+    let zone = |min: ae::Vec2, max: ae::Vec2| ae::Aabb {
+        min: arrival + min,
+        max: arrival + max,
+    };
+
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(-4.0, 16.0), ae::Vec2::new(4.0, 20.0)), body, Some(sample)).as_deref(),
+        Some("b"),
+        "the zone under the end of the body touches its box, and the body must cross it",
+    );
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(15.0, -3.0), ae::Vec2::new(20.0, 3.0)), body, Some(sample)),
+        None,
+        "the zone beside the body does not touch its box, and the body must not cross it",
+    );
+}
+
+/// A body that a raw teleport moved has a record that does not end where it
+/// is, so the zones test the body where it stands. The box it stands in is
+/// its collision box as its last step turned it
+/// (`BodyKinematics::collision_box`), not its level box.
+#[test]
+fn a_body_moved_past_its_record_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
+    let size = ae::Vec2::new(48.0, 22.0);
+    let stands_at = ae::Vec2::new(300.0, 200.0);
+    let body = ambition_platformer2d_core::BodyKinematics {
+        pos: stands_at,
+        vel: ae::Vec2::ZERO,
+        size,
+        facing: 1.0,
+    };
+    // The record of its last step, in sideways gravity, far from where it is.
+    let record = ae::SweepSample::at_rest(
+        ambition_platformer2d_core::BodyKinematics {
+            pos: ae::Vec2::new(100.0, 100.0),
+            ..body
+        },
+        ae::Vec2::new(1.0, 0.0),
+    );
+    assert!(record.ending_at(stands_at).is_none(), "premise: the record does not end where the body is");
+    let zone = |min: ae::Vec2, max: ae::Vec2| ae::Aabb {
+        min: stands_at + min,
+        max: stands_at + max,
+    };
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(-4.0, 16.0), ae::Vec2::new(4.0, 20.0)), body, Some(record)).as_deref(),
+        Some("b"),
+        "the zone under the end of the body touches its box, and the body must cross it",
+    );
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(15.0, -3.0), ae::Vec2::new(20.0, 3.0)), body, Some(record)),
+        None,
+        "the zone beside the body does not touch its box, and the body must not cross it",
+    );
+}
+
+fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
+    RoomSpec {
+        id: id.into(),
+        world: empty_world(id),
+        loading_zones: Vec::new(),
+        metadata: meta,
+        camera_zones: Vec::new(),
+        kinematic_paths: Vec::new(),
+        moving_platforms: Vec::new(),
+        props: Vec::new(),
+        ground_items: Vec::new(),
+        portal_gun_spawns: Vec::new(),
+        shrines: Vec::new(),
+        gravity_zones: Vec::new(),
+        enemy_spawns: Vec::new(),
+        boss_spawns: Vec::new(),
+        debug_labels: Vec::new(),
+        mount_links: Vec::new(),
+        boss_successions: Vec::new(),
+        placements: Vec::new(),
+        encounter_triggers: Vec::new(),
+        lock_walls: Vec::new(),
+        switch_commands: Vec::new(),
+    }
+}
+
+#[test]
+fn active_metadata_returns_active_room_metadata() {
+    let m1 = RoomMetadata {
+        biome: Some("hub".into()),
+        music_track: Some("hub_loop".into()),
+        fight_music_track: None,
+        ambient_profile: None,
+        visual_theme: None,
+        visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
+        gallery: false,
+        practice: false,
+        mode: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        next_room: None,
+        title: None,
+        entry_cutscene: None,
+        while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
+    };
+    let m2 = RoomMetadata {
+        biome: Some("cave".into()),
+        music_track: Some("cave_loop".into()),
+        fight_music_track: None,
+        ambient_profile: Some("damp".into()),
+        visual_theme: None,
+        visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
+        gallery: false,
+        practice: false,
+        mode: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        next_room: None,
+        title: None,
+        entry_cutscene: None,
+        while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
+    };
+    let set = RoomSet::from_parts_or_panic(
+        "first",
+        vec![
+            spec_with(m1.clone(), "first"),
+            spec_with(m2.clone(), "second"),
+        ],
+        Vec::new(),
+    );
+    let [first, second] = [0, 1].map(|index| set.definition(index).expect("the fixture set holds two rooms"));
+    assert_eq!(set.spec(first).metadata, m1);
+    assert_eq!(set.spec(second).metadata, m2);
+}
+
+#[test]
+fn room_metadata_is_empty_default_is_true() {
+    let m = RoomMetadata::default();
+    assert!(m.is_empty());
+}
+
+#[test]
+fn room_metadata_is_empty_false_when_any_field_set() {
+    let mut m = RoomMetadata::default();
+    m.biome = Some("hub".into());
+    assert!(!m.is_empty());
+
+    let m = RoomMetadata {
+        biome: None,
+        music_track: Some("loop".into()),
+        fight_music_track: None,
+        ambient_profile: None,
+        visual_theme: None,
+        visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
+        gallery: false,
+        practice: false,
+        mode: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        next_room: None,
+        title: None,
+        entry_cutscene: None,
+        while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
+    };
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.visual_profile.id = Some("intro".into());
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.nameplate_policy.full_opacity_count = Some(100);
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.mode = Some("sanic".into());
+    assert!(!m.is_empty());
+    let mut m = RoomMetadata::default();
+    m.entry_cutscene = Some("intro".into());
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.while_live = Some("encounter.start encounter:cave".into());
+    assert!(!m.is_empty());
+}
+
+#[test]
+fn room_metadata_merge_preserves_existing_values() {
+    let mut a = RoomMetadata {
+        biome: Some("hub".into()),
+        music_track: None,
+        fight_music_track: None,
+        ambient_profile: None,
+        visual_theme: Some("blue".into()),
+        visual_profile: Default::default(),
+        nameplate_policy: Default::default(),
+        gallery: false,
+        practice: false,
+        mode: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        next_room: None,
+        title: None,
+        entry_cutscene: None,
+        while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
+    };
+    let b = RoomMetadata {
+        biome: Some("CONFLICT".into()),        // ignored — a.biome wins
+        music_track: Some("hub_loop".into()),  // takes effect — a.music_track was None
+        fight_music_track: Some("boss_loop".into()), // takes effect — a had none
+        ambient_profile: Some("damp".into()),  // takes effect
+        visual_theme: Some("CONFLICT".into()), // ignored
+        visual_profile: Default::default(),
+        nameplate_policy: RoomNameplatePolicy {
+            full_opacity_count: Some(100),
+            fade_out_count: Some(120),
+            label_driven_bodies: Some(true),
+        },
+        gallery: true,              // takes effect — a.gallery was false (merge ORs)
+        practice: true,             // takes effect — a.practice was false (merge ORs)
+        mode: Some("sanic".into()), // takes effect — a.mode was None
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        // takes effect — a.next_room was None. An area spanning several levels
+        // has ONE exit, and it is whichever member level names one first; a
+        // merge that dropped it would turn an authored circuit into a room that
+        // silently loops.
+        next_room: Some("cave_2".into()),
+        // takes effect — a.title was None. An area's title is its first member
+        // level's.
+        title: Some("CAVE 1".into()),
+        // takes effect — a had none. Content validation refuses a second
+        // value in one area, because this merge would drop it.
+        entry_cutscene: Some("cave_intro".into()),
+        // takes effect — a had none.
+        while_live: Some("encounter.start encounter:cave".into()),
+        // takes effect — a had none.
+        fall_rescue: Some("burning_flying_shark".into()),
+        boss_reward_drop: Some("cove.mockingbird".into()),
+    };
+    a.merge(b);
+    assert_eq!(a.fall_rescue.as_deref(), Some("burning_flying_shark"));
+    assert_eq!(a.boss_reward_drop.as_deref(), Some("cove.mockingbird"));
+    assert_eq!(a.entry_cutscene.as_deref(), Some("cave_intro"));
+    assert_eq!(a.while_live.as_deref(), Some("encounter.start encounter:cave"));
+    assert_eq!(a.title.as_deref(), Some("CAVE 1"));
+    assert_eq!(a.biome.as_deref(), Some("hub"));
+    assert!(a.gallery, "merge ORs the gallery flag from a member level");
+    assert!(a.practice, "merge ORs the practice flag from a member level");
+    assert_eq!(a.music_track.as_deref(), Some("hub_loop"));
+    assert_eq!(a.fight_music_track.as_deref(), Some("boss_loop"));
+    assert_eq!(a.ambient_profile.as_deref(), Some("damp"));
+    assert_eq!(a.visual_theme.as_deref(), Some("blue"));
+    assert_eq!(a.nameplate_policy.full_opacity_count, Some(100));
+    assert_eq!(a.nameplate_policy.fade_out_count, Some(120));
+    assert_eq!(
+        a.mode.as_deref(),
+        Some("sanic"),
+        "a member level's mode tag propagates to the merged active area"
+    );
+    assert_eq!(
+        a.next_room.as_deref(),
+        Some("cave_2"),
+        "a member level's exit propagates to the merged active area"
+    );
+
+    // ...and the first non-empty value still wins, so one level cannot
+    // re-home an area another level already claimed for its ruleset.
+    let mut a = RoomMetadata {
+        mode: Some("sanic".into()),
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        ..Default::default()
+    };
+    a.merge(RoomMetadata {
+        mode: Some("CONFLICT".into()),
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
+        ..Default::default()
+    });
+    assert_eq!(a.mode.as_deref(), Some("sanic"));
+}
+
+#[test]
+fn room_visual_profile_merge_prefers_existing_values() {
+    let mut a = RoomVisualProfile {
+        id: Some("intro".into()),
+        parallax_theme: None,
+        palette: Some("warm".into()),
+        lighting_hint: None,
+        foreground_treatment: None,
+        sky_scroll_px_s: None,
+    };
+    let b = RoomVisualProfile {
+        id: Some("conflict".into()),
+        parallax_theme: Some("basement".into()),
+        palette: Some("cool".into()),
+        lighting_hint: Some("low_key".into()),
+        foreground_treatment: Some("dust".into()),
+        sky_scroll_px_s: Some(-600),
+    };
+    a.merge(b);
+    assert_eq!(a.id.as_deref(), Some("intro"));
+    assert_eq!(a.parallax_theme.as_deref(), Some("basement"));
+    assert_eq!(a.palette.as_deref(), Some("warm"));
+    assert_eq!(a.lighting_hint.as_deref(), Some("low_key"));
+    assert_eq!(a.foreground_treatment.as_deref(), Some("dust"));
+    assert_eq!(a.sky_scroll_px_s, Some(-600));
+}
+
+#[test]
+fn camera_clamp_mode_parses_author_values() {
+    assert_eq!(
+        CameraClampMode::from_author_value(Some("zone_bounds")),
+        CameraClampMode::ZoneBounds
+    );
+    assert_eq!(
+        CameraClampMode::from_author_value(Some("free")),
+        CameraClampMode::None
+    );
+    assert_eq!(
+        CameraClampMode::from_author_value(Some("whatever")),
+        CameraClampMode::RoomBounds
+    );
+}
+
+#[test]
+fn loading_zone_activation_label_is_non_empty() {
+    assert!(!LoadingZoneActivation::EdgeExit.label().is_empty());
+    assert!(!LoadingZoneActivation::Door.label().is_empty());
+}
+
+#[test]
+fn loading_zone_is_ready_respects_activation() {
+    let edge = LoadingZone {
+        id: "x".into(),
+        name: "x".into(),
+        aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+        activation: LoadingZoneActivation::EdgeExit,
+    };
+    // EdgeExit is always ready (auto-fires on overlap).
+    assert!(edge.is_ready(false));
+    assert!(edge.is_ready(true));
+
+    let door = LoadingZone {
+        id: "y".into(),
+        name: "y".into(),
+        aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+        activation: LoadingZoneActivation::Door,
+    };
+    // Door requires interact press.
+    assert!(!door.is_ready(false));
+    assert!(door.is_ready(true));
+}
+
+#[test]
+fn loading_zone_hint_includes_door_prompt() {
+    let door = LoadingZone {
+        id: "lab_door".into(),
+        name: "lab door".into(),
+        aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+        activation: LoadingZoneActivation::Door,
+    };
+    let hint = door.hint(false);
+    assert!(hint.contains("door"));
+    assert!(hint.contains("Interact") || hint.contains("interact"));
+    assert!(hint.contains("lab door"));
+}
+
+#[test]
+fn loading_zone_hint_for_edge_exit_skips_prompt() {
+    let edge = LoadingZone {
+        id: "east_exit".into(),
+        name: "east exit".into(),
+        aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+        activation: LoadingZoneActivation::EdgeExit,
+    };
+    let hint = edge.hint(false);
+    assert!(hint.contains("east exit"));
+    // Auto-firing edge exits don't need an Interact prompt.
+    assert!(!hint.contains("Interact"));
+}
+
+#[test]
+fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
+    use ambition_platformer2d_core::KinematicPath;
+    use ambition_platformer2d_world::rooms::KinematicPathSpec;
+
+    // A spec whose id was NOT derived from its display name is still
+    // reachable by that name's slug — the alias exists for rooms built
+    // in Rust, which may carry any id they like (or none).
+    //
+    // `enemy_patrol_a` is a hand-written id here, not a derived one.
+    let spec = KinematicPathSpec::new(
+        "enemy_patrol_a",
+        "enemy patrol path A",
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+        KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(100.0, 0.0), 40.0),
+    );
+    assert!(
+        spec.matches_id("enemy_patrol_a"),
+        "exact id alias must match"
+    );
+    assert!(
+        spec.matches_id("enemy patrol path A"),
+        "exact name alias must match"
+    );
+    assert!(
+        spec.matches_id("enemy_patrol_path_a"),
+        "raw slug-of-name must match"
+    );
+    assert!(
+        !spec.matches_id("some_other_id"),
+        "unrelated id must NOT match"
+    );
+}
+
+/// The MOVEMENT KERNEL walks a body into a wall on an exit band, and the
+/// transition fires from the sample the kernel actually published.
+///
+/// the sibling test above MANUFACTURES its `SweepSample`, and that is the hole this one closes.
+/// It proves the detector reads a sample correctly; it cannot prove the kernel still WRITES one, or
+/// writes one whose `prev` is the pre-collision position.
+///
+/// Nothing is hand-built here but the room: the floor and wall are real
+/// geometry, the body accelerates under the real movement model, the stop is the
+/// real collision solver's, and the delta handed to the real predicate is
+/// `SweepSample::delta()` off the borrowed view the kernel wrote through.
+#[test]
+fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() {
+    let zone_center = ae::Vec2::new(300.0, 100.0);
+    let zone_half = ae::Vec2::new(8.0, 40.0);
+    let body_half = ae::Vec2::new(12.0, 20.0);
+    let band_left = zone_center.x - zone_half.x;
+    let floor_top = 130.0;
+    let block = |name: &str, center: ae::Vec2, half: ae::Vec2| ae::Block {
+        id: ae::GeoId::placement(ae::PlacementId::new(name), 0),
+        name: name.into(),
+        aabb: ae::Aabb::new(center, half),
+        velocity: ae::Vec2::ZERO,
+        kind: ae::BlockKind::Solid,
+        art_color: None,
+    };
+    let world = ae::World::new(
+        "kernel_zone",
+        ae::Vec2::new(600.0, 400.0),
+        ae::Vec2::new(40.0, 100.0),
+        vec![
+            block(
+                "floor",
+                ae::Vec2::new(300.0, floor_top + 50.0),
+                ae::Vec2::new(300.0, 50.0),
+            ),
+            // The wall's left face IS the band's left face, so a body walking
+            // east is stopped exactly against the zone it is trying to enter.
+            block(
+                "east_wall",
+                ae::Vec2::new(band_left + 100.0, floor_top - 100.0),
+                ae::Vec2::new(100.0, 100.0),
+            ),
+        ],
+    );
+
+    let start = ae::Vec2::new(band_left - body_half.x - 120.0, floor_top - body_half.y);
+    let mut scratch =
+        ae::BodyClusterScratch::new_with_abilities(start, ae::AbilitySet::sandbox_all());
+    scratch.kinematics.size = body_half * 2.0;
+    let frame = ae::MotionFrame::from_acceleration(
+        ambition_platformer2d_core::movement::DEFAULT_GRAVITY_DIR
+            * ambition_platformer2d_core::movement::GRAVITY,
+    )
+    .expect("the default gravity is non-zero");
+
+    // Walk east until the solver stops making eastward progress — the arrival
+    // tick is the one whose sample spans "short of the band" to "against it".
+    let mut arrival: Option<(ae::SweepSample, ae::Vec2, ae::Vec2)> = None;
+    for _ in 0..240 {
+        let before = scratch.kinematics.pos;
+        let mut sample = ae::SweepSample {
+            prev: before,
+            curr: before,
+            vel: ae::Vec2::ZERO,
+            half: body_half,
+            down: ae::Vec2::new(0.0, 1.0),
+        };
+        {
+            let (model, mut clusters) = scratch.parts();
+            clusters.sweep = Some(&mut sample);
+            ambition_platformer2d_core::step_motion(
+                model,
+                &mut clusters,
+                ambition_platformer2d_core::MotionStepContext {
+                    world: &world,
+                    input: ae::InputState {
+                        axes: ae::LocalAxes::new(1.0, 0.0),
+                        ..Default::default()
+                    },
+                    frame,
+                    facing_intent: 1.0,
+                    dt: 1.0 / 60.0,
+                    contact: ambition_platformer2d_core::BodyContactField::NONE,
+                    pose_owned_externally: false,
+                    recovery_commitment_outstanding: false,
+                },
+            );
+        }
+        let after = scratch.kinematics.pos;
+        if after.x - before.x < 0.01 && before.x > start.x + 1.0 {
+            // Progress has stopped: the ARRIVAL tick is the last one that moved,
+            // whose segment runs from short of the band to against it. This tick
+            // is the pinned one after it, and its segment is a point — which is
+            // exactly why a reader that waits for "now" never sees the crossing.
+            break;
+        }
+        arrival = Some((sample, after, scratch.kinematics.vel));
+    }
+
+    let (sample, stopped, post_vel) =
+        arrival.expect("the body never stopped advancing east — it never reached the wall");
+    assert!(
+        (stopped.x + body_half.x - band_left).abs() <= 1.0,
+        "the body settled at {stopped:?}, right face {}, but the band starts at \
+         {band_left} — this fixture only models the bug while the solver leaves \
+         the body against the band it walked into",
+        stopped.x + body_half.x
+    );
+
+    let mut room = spec_with(RoomMetadata::default(), "a");
+    room.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: ae::Aabb::new(zone_center, zone_half),
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), zone_half),
+    }];
+    let set = RoomSet::from_parts_or_panic(
+        "a",
+        vec![room, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let body_aabb = ae::Aabb::new(stopped, body_half);
+    assert!(
+        set.transition_for_player(set.activation_definition(), body_aabb, sample.delta(), false)
+            .is_some(),
+        "the kernel's own published segment ({:?} -> {:?}) reaches the band the \
+         body was stopped against, so the transition must fire",
+        sample.prev,
+        sample.curr
+    );
+
+    // THE POISON: the fallback the detector uses when no sample exists. The
+    // solver zeroed the axis, so this describes movement that never reaches the
+    // band the body is touching.
+    assert!(
+        set.transition_for_player(set.activation_definition(), body_aabb, post_vel * (1.0 / 60.0), false)
+            .is_none(),
+        "post-collision velocity {post_vel:?} still reaches the zone, so this \
+         fixture no longer models the collision that makes the sample necessary"
+    );
+}
+
+/// a rewind must put the portal's PHASE back, not just the switch that
+/// drives it.
+///
+/// This runs the shipped system over a real rollback shape: snapshot the phase
+/// resource at frame 10 (a clone, which is exactly what
+/// `rollback_resource_clone` stores), overshoot to frame 22, then resimulate
+/// frames 11..=16 from the snapshot and compare against a timeline that reached
+/// frame 16 without ever rewinding.
+///
+/// frame 16 is chosen to land INSIDE the ~38-tick opening window — the test
+/// asserts that first, because once the portal reaches `On` both timelines
+/// agree again and the fixture would prove nothing.
+#[test]
+fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
+    use bevy::prelude::*;
+
+    const ZONE: &str = "gate";
+    const DT: f32 = 1.0 / 60.0;
+
+    /// A world with one authored portal whose switch is already ON, so every
+    /// tick advances the `Opening` timer.
+    fn portal_app() -> App {
+        let mut app = App::new();
+        let mut registry = GatePortalRegistry::default();
+        registry
+            .try_register(ZONE, "gate_switch", "portal", "ring")
+            .expect("a fresh registry has no conflicting portal");
+        app.insert_resource(registry);
+        app.init_resource::<GatePortalPhases>();
+        app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
+        let mut save = ambition_persistence::save::AmbitionGameSave::default();
+        save.data_mut().set_switch("gate_switch", true);
+        app.insert_resource(save);
+        app.insert_resource(ambition_time::WorldTime::new(0.0, DT));
+        app.add_systems(Update, tick_portal_phases_system);
+        app
+    }
+
+    fn tick_n(app: &mut App, n: usize) {
+        for _ in 0..n {
+            app.update();
+        }
+    }
+
+    fn phases(app: &App) -> GatePortalPhases {
+        app.world().resource::<GatePortalPhases>().clone()
+    }
+
+    // The confirmed timeline, frame 16.
+    let mut confirmed_app = portal_app();
+    tick_n(&mut confirmed_app, 16);
+    let confirmed = phases(&confirmed_app).phase(ZONE);
+    assert!(
+        matches!(confirmed, GatePortalPhase::Opening { .. }),
+        "frame 16 must still be mid-open or this fixture cannot see a divergence; \
+         got {confirmed:?}"
+    );
+    assert!(
+        !confirmed.allows_traversal(),
+        "a mid-open gate must refuse traversal — that refusal is the decision \
+         this state feeds"
+    );
+
+    // The speculative timeline: frame 10 is saved, then it runs on to frame 22
+    // before a rollback to 10 arrives.
+    let mut speculative_app = portal_app();
+    tick_n(&mut speculative_app, 10);
+    let snapshot_at_frame_10 = phases(&speculative_app);
+    tick_n(&mut speculative_app, 12);
+    let speculative_at_frame_22 = phases(&speculative_app);
+
+    // THE POISON — the defect's own behaviour: resimulate frames 11..=16
+    // with the phase NOT restored, exactly as an unregistered resource behaves
+    // while everything around it rewinds.
+    let mut unrestored_app = portal_app();
+    unrestored_app.insert_resource(speculative_at_frame_22);
+    tick_n(&mut unrestored_app, 6);
+    assert_ne!(
+        phases(&unrestored_app).phase(ZONE),
+        confirmed,
+        "an UNRESTORED phase reproduced the confirmed frame, so this fixture \
+         cannot distinguish the defect from the fix"
+    );
+
+    // the registered behaviour: the phase comes back with the frame, and
+    // resimulation lands where the confirmed timeline stood.
+    let mut restored_app = portal_app();
+    restored_app.insert_resource(snapshot_at_frame_10);
+    tick_n(&mut restored_app, 6);
+    assert_eq!(
+        phases(&restored_app).phase(ZONE),
+        confirmed,
+        "resimulating frames 11..=16 from the restored frame-10 phase must land \
+         on the phase the confirmed timeline had at frame 16"
+    );
+}
+
+
+/// A door crossing that is REFUSED the lifecycle slot must not spend the press.
+///
+/// ⛔⛔ **THE BUG THE ARM BELOW DID NOT COVER, FOUND BY REVIEW 2026-09-17.**
+/// `detect_room_transition_system` ended with
+///
+/// ```text
+///     slot_gestures.primary_mut().clear();
+///     let _ = pending_lifecycle.record(..);
+/// ```
+///
+/// in that order, discarding the `Admission`. `record` is `#[must_use]`
+/// precisely because the slot is earliest-sticky and *"a refused intent must not
+/// have its consequences run"* — and clearing the buffer is a consequence. The
+/// comment sitting between those two lines claimed a refusal *"mutated nothing"*,
+/// which was true of everything except the line above it.
+///
+/// ⚠ **AND THE ARM THAT WENT IN WITH THAT COMMENT COULD NOT SEE IT**, because it
+/// only asked whether a SUCCESSFUL crossing spends the press. Both orders answer
+/// that identically. The distinguishing case is a refusal, and a refusal is
+/// reachable: `resume_at_checkpoint_on_reset`, `admit_room_replay` and the death
+/// respawn all record into this one slot from EARLIER phases in the same tick.
+///
+/// ⭐ **IT HAS TO BE A TAP.** A held press is refilled by the producer on the
+/// next tick, so the loss is invisible for as long as the button is down — which
+/// is what all eleven authored door arms do. That is why this defect survived
+/// 1,207 crate arms and eleven integration arms twice over: once as a missing
+/// consumption, and once as a consumption in the wrong place.
+#[test]
+fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    // ⭐ THE INCUMBENT. Another lifecycle operation already owns the slot — the
+    // shape a checkpoint resume or a death respawn leaves behind, both of which
+    // record from an EARLIER phase of the same tick. It names a DIFFERENT body
+    // and arrival, so `record`'s idempotence cannot be mistaken for a refusal
+    // that was honoured.
+    let incumbent = crate::lifecycle_commit::LifecycleIntent::Transition(
+        crate::lifecycle_commit::RoomTransitionIntent {
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("somebody_else"), None),
+            target_room: "b".into(),
+            arrival: ae::Vec2::new(7.0, 9.0),
+            edge_exit: false,
+            zone_sfx: None,
+            participant: None,
+        },
+    );
+    let mut app = app_with_a_door(true, Some(incumbent.clone()));
+    app.update();
+
+    assert_eq!(
+        pending_intent(&app).as_ref(),
+        Some(&incumbent),
+        "the door overwrote an intent the earliest-sticky slot had already \
+         admitted, which is a lifecycle operation replaced by a later one"
+    );
+    assert!(
+        still_buffered(&app),
+        "the door spent the player's press on a crossing the slot REFUSED. A tap \
+         is not refilled, so the press is gone and the crossing is never asked \
+         again"
+    );
+}
+
+/// A door crossing CONSUMES the buffered press; it does not leave it to decay.
+///
+/// ⛔⛤ **THE LINE THIS ARM HOLDS HAD NO WITNESS, MEASURED BY POISON 2026-09-17.**
+/// `detect_room_transition_system` ends with `slot_gestures.primary_mut().clear()`
+/// under the comment *"Consume the gesture only after every invariant required to
+/// describe the crossing has been validated"*, and deleting that line left **1,207
+/// arms in this crate and all 11 room-transition integration arms green.** The
+/// reason is uniform across every existing door test: they HOLD interact
+/// (`interact_held: true`, thirty frames), so the producer refills the buffer on
+/// the next tick and the clear is invisible. A tap is the only shape that can see
+/// it.
+///
+/// ⚠ **WHAT THE ABSENCE WOULD COST IS SMALL AND REAL**, which is why this is an
+/// arm rather than a waiver: `interact_buffer_timer` decays on its own, so a
+/// missing clear leaves a live press for the rest of the buffer WINDOW — long
+/// enough to describe a second crossing the player did not ask for if the body
+/// lands on another zone. The `PendingLifecycleCommit` dedupe covers one window,
+/// not the frame after the commit empties the slot.
+///
+/// ⭐ The CONTROL is the same fixture with the body OUT of the zone: no crossing,
+/// and the press still buffered. Without it this arm would pass against a system
+/// that cleared the buffer unconditionally, which is a different behaviour with
+/// the same reading.
+/// A one-room-pair app with a live buffered press, for the three door-gesture
+/// arms below.
+///
+/// `incumbent` seeds `PendingLifecycleCommit` before detection runs, which is
+/// the only way to reach `Admission::AlreadyPending` from here.
+///
+/// A door zone needs the press, which is the whole point of this fixture:
+/// `LoadingZoneActivation::Walk` fires on overlap and would never read the
+/// buffer at all.
+fn app_with_a_door(
+    body_in_the_zone: bool,
+    incumbent: Option<crate::lifecycle_commit::LifecycleIntent>,
+) -> bevy::prelude::App {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
+    {
+        let zone_center = ae::Vec2::new(100.0, 100.0);
+        let mut room_a = spec_with(RoomMetadata::default(), "a");
+        room_a.loading_zones = vec![LoadingZone {
+            id: "door_a".into(),
+            name: "east door".into(),
+            activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
+        }];
+        let mut room_b = spec_with(RoomMetadata::default(), "b");
+        room_b.loading_zones = vec![LoadingZone {
+            id: "entry_b".into(),
+            name: "west".into(),
+            activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
+        }];
+        let set = RoomSet::from_parts_or_panic(
+            "a",
+            vec![room_a, room_b],
+            vec![RoomLink {
+                from_room: "a".into(),
+                from_zone: "door_a".into(),
+                to_room: "b".into(),
+                to_zone: "entry_b".into(),
+                bidirectional: false,
+            }],
+        );
+
+        let mut app = App::new();
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            set,
+        );
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
+        app.insert_resource(GatePortalRegistry::default());
+        app.init_resource::<GatePortalPhases>();
+        app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<ambition_time::WorldTime>();
+        app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+        if let Some(kind) = incumbent {
+            let admitted = app
+                .world_mut()
+                .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
+                .record(0, kind);
+            assert!(
+                admitted.admitted(),
+                "the fixture could not seed the incumbent into an empty slot",
+            );
+        }
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_systems(Update, detect_room_transition_system);
+
+        // The press is armed directly rather than by running the input producer:
+        // the subject here is what the CONSUMER does with a live buffer, and
+        // driving the producer would put the refill this arm is about back in.
+        app.world_mut()
+            .resource_mut::<SlotInteractionState>()
+            .primary_mut()
+            .buffered_interact(true, 0.0, 0.2);
+        assert!(
+            app.world().resource::<SlotInteractionState>().primary().buffered(),
+            "the fixture failed to arm the press, so nothing below is measuring a crossing",
+        );
+
+        let pos = if body_in_the_zone {
+            zone_center
+        } else {
+            ae::Vec2::new(1000.0, 1000.0)
+        };
+        let body = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+                BodyKinematics {
+                    pos,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+        app
+    }
+}
+
+/// What is waiting in the one earliest-sticky lifecycle slot.
+fn pending_intent(
+    app: &bevy::prelude::App,
+) -> Option<crate::lifecycle_commit::LifecycleIntent> {
+    app.world()
+        .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
+        .peek()
+        .map(|intent| intent.kind.clone())
+}
+
+fn still_buffered(app: &bevy::prelude::App) -> bool {
+    app.world()
+        .resource::<ambition_characters::control::SlotInteractionState>()
+        .primary()
+        .buffered()
+}
+
+#[test]
+fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
+    fn crossed(app: &bevy::prelude::App) -> bool {
+        pending_intent(app).is_some()
+    }
+
+    // ── THE CONTROL: no zone under the body, so no crossing and no consumption.
+    let mut control = app_with_a_door(false, None);
+    control.update();
+    assert!(!crossed(&control), "the control body is nowhere near the door");
+    assert!(
+        still_buffered(&control),
+        "the press was cleared WITHOUT a crossing, so this system is not consuming \
+         a gesture it spent — it is just emptying the buffer, and the arm below \
+         would pass for the wrong reason",
+    );
+
+    // ── THE SUBJECT: the body stands in the door with the same live press.
+    let mut subject = app_with_a_door(true, None);
+    subject.update();
+    assert!(
+        crossed(&subject),
+        "a body standing in a `Door` zone with a buffered interact must record the \
+         crossing; without that this arm cannot say anything about the press",
+    );
+    assert!(
+        !still_buffered(&subject),
+        "the crossing was described and the press it spent is STILL BUFFERED. It \
+         would go on being live for the rest of the buffer window, which is long \
+         enough to describe a second crossing the player never asked for",
+    );
+}
+
+/// Nobody driving means nobody crosses. The home body stands in the door with a
+/// live press, but no body holds the primary seat, so there is no subject for a
+/// crossing; the engine does not appoint the home body in its place.
+#[test]
+fn an_undriven_home_body_in_a_door_is_not_crossed_for_anyone() {
+    // Control: the same door, driven, crosses.
+    let mut driven = app_with_a_door(true, None);
+    driven.update();
+    assert!(pending_intent(&driven).is_some(), "the driven body in the door did not cross");
+
+    let mut undriven = app_with_a_door(true, None);
+    let home = undriven
+        .world_mut()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>()
+        .single(undriven.world())
+        .expect("the home body");
+    undriven
+        .world_mut()
+        .entity_mut(home)
+        .remove::<ambition_characters::control::DrivingParticipant>();
+    undriven.update();
+    assert!(
+        pending_intent(&undriven).is_none(),
+        "a body nobody drives crossed a door: the transition picked its own subject",
+    );
+}
+
+/// ⭐ ONLY A PERSON THE PRESS CAN TALK TO KEEPS A DOOR'S PRESS (review
+/// 2026-10-08). The body stands in the door 10 px from its centre, and a
+/// peaceful person stands 2 px from the body. Arms:
+///
+/// - the person in the body's own live room keeps the press: no crossing;
+/// - the person in the other live room cannot be talked to, so the door
+///   takes the press;
+/// - the person in the body's own room behind the body, gated to be faced,
+///   cannot be talked to either.
+///
+/// The door asked a copy of the talk rule with no live-room check and no
+/// facing gate, so a person the press could not reach held the door shut.
+#[test]
+fn only_a_person_the_press_can_talk_to_keeps_a_doors_press() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, InRoomInstance, LiveRoomInstance, SessionRoot,
+    };
+    let crosses = |other_room: bool, behind_and_gated: bool| -> bool {
+        let mut app = app_with_a_door(true, None);
+        let scope = session_world_component::<SessionRoot>(app.world())
+            .expect("the fixture has a session root")
+            .0;
+        let a = session_world_component::<RoomSet>(app.world())
+            .and_then(|rooms| rooms.definition_by_id("a"))
+            .expect("the fixture's set has room `a`");
+        let second = LiveRoomInstance::ACTIVATION.next();
+        app.world_mut().spawn(activation_room_root(scope)).insert((
+            second,
+            a,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
+        ));
+        let body = app
+            .world_mut()
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>()
+            .single(app.world())
+            .expect("the home body");
+        let at = ae::Vec2::new(110.0, 100.0);
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::BodyKinematics>(body)
+            .expect("the body has kinematics")
+            .pos = at;
+        app.world_mut()
+            .entity_mut(body)
+            .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+        let person_at = at + ae::Vec2::new(if behind_and_gated { -2.0 } else { 2.0 }, 0.0);
+        let person = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::CenteredAabb::from_center_size(person_at, ae::Vec2::new(16.0, 24.0)),
+                ambition_combat::components::ActorDisposition::Peaceful,
+                ambition_combat::components::ActorIdentity::new("guide", "Guide"),
+                ambition_combat::components::ActorInteraction {
+                    interactable: ambition_interaction::Interactable::new(
+                        "guide",
+                        "Talk",
+                        ae::Aabb::new(person_at, ae::Vec2::new(16.0, 24.0)),
+                        ambition_interaction::InteractionKind::Npc {
+                            character_id: None,
+                            dialogue_id: Some("hub_guide".into()),
+                            patrol_radius: 0.0,
+                            patrol_path_id: None,
+                            brain_override: None,
+                        },
+                    ),
+                },
+                InRoomInstance(if other_room { second } else { LiveRoomInstance::ACTIVATION }),
+            ))
+            .id();
+        if behind_and_gated {
+            app.world_mut()
+                .entity_mut(person)
+                .insert(ambition_combat::components::RequiresFacing);
+        }
+        app.update();
+        pending_intent(&app).is_some()
+    };
+    assert_eq!(
+        (crosses(false, false), crosses(true, false), crosses(false, true)),
+        (false, true, true),
+        "(person in the body's room, person in the other live room, gated person behind the body): \
+         the door took the press"
+    );
+}
+
+/// OW1 cut 6a: a crossing reads the crossing body's own live room.
+///
+/// Live room #0 is room `a` and #1 is room `b`. `b`'s walk zone stands where
+/// `a` has none. The subject: a driven body in #1, standing in that zone,
+/// records a crossing to `a`. The control: the same body at the same place
+/// in #0 records none, because `a` has no zone there. The sole-room read
+/// did not run at all while two rooms were live, so the subject crossed
+/// nothing.
+#[test]
+fn a_crossing_reads_the_crossing_bodys_own_live_room() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, InRoomInstance, LiveRoomInstance, SessionRoot,
+    };
+    use bevy::prelude::*;
+
+    let b_zone = ae::Vec2::new(60.0, 100.0);
+    let crossing_from = |room: LiveRoomInstance| {
+        let mut room_a = spec_with(RoomMetadata::default(), "a");
+        room_a.loading_zones = vec![LoadingZone {
+            id: "exit_a".into(),
+            name: "east".into(),
+            activation: LoadingZoneActivation::Walk,
+            aabb: ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::new(24.0, 24.0)),
+        }];
+        let mut room_b = spec_with(RoomMetadata::default(), "b");
+        room_b.loading_zones = vec![LoadingZone {
+            id: "entry_b".into(),
+            name: "west".into(),
+            activation: LoadingZoneActivation::Walk,
+            aabb: ae::Aabb::new(b_zone, ae::Vec2::new(24.0, 24.0)),
+        }];
+        let set = RoomSet::from_parts_or_panic(
+            "a",
+            vec![room_a, room_b],
+            vec![RoomLink {
+                from_room: "a".into(),
+                from_zone: "exit_a".into(),
+                to_room: "b".into(),
+                to_zone: "entry_b".into(),
+                bidirectional: true,
+            }],
+        );
+        let mut app = App::new();
+        ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
+        let scope = session_world_component::<SessionRoot>(app.world())
+            .expect("the fixture has a session root")
+            .0;
+        let b = session_world_component::<RoomSet>(app.world())
+            .and_then(|rooms| rooms.definition_by_id("b"))
+            .expect("the fixture's set has room `b`");
+        let second = LiveRoomInstance::ACTIVATION.next();
+        app.world_mut().spawn(activation_room_root(scope)).insert((
+            second,
+            b,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
+        ));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
+        app.insert_resource(GatePortalRegistry::default());
+        app.init_resource::<GatePortalPhases>();
+        app.init_resource::<ambition_platformer2d_world::rooms::GateNetworkState>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<ambition_time::WorldTime>();
+        app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_systems(Update, detect_room_transition_system);
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+                InRoomInstance(room),
+                BodyKinematics {
+                    pos: b_zone,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+        app.update();
+        match pending_intent(&app) {
+            Some(crate::lifecycle_commit::LifecycleIntent::Transition(transition)) => {
+                Some(transition.target_room)
+            }
+            _ => None,
+        }
+    };
+    assert_eq!(
+        crossing_from(LiveRoomInstance::ACTIVATION),
+        None,
+        "control: a body in room `a` crossed a zone only room `b` has"
+    );
+    assert_eq!(
+        crossing_from(LiveRoomInstance::ACTIVATION.next()),
+        Some("a".to_string()),
+        "a body in live room #1 did not cross its own room's zone"
+    );
+}
+
+/// OW1 cut 6b: a crossing leaves its subject's own live room.
+///
+/// Live room #0 is room `a` and #1 is room `b`. A crossing whose subject was
+/// recorded in #1 leaves `b`, in the system read the readiness and the eager
+/// commit use and in the exclusive-world read the confirmed host uses. The
+/// control: a subject recorded in #0 leaves `a`. With two live rooms, a
+/// crossing that names no subject leaves no room: the sole read answers for
+/// neither, and that is the only answer it gave before.
+#[test]
+fn a_crossing_leaves_its_subjects_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, LiveBodyId, LiveRoomInstance, SessionRoot,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::ecs::system::RunSystemOnce as _;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        RoomSet::from_parts_or_panic(
+            "a",
+            vec![spec_with(RoomMetadata::default(), "a"), spec_with(RoomMetadata::default(), "b")],
+            Vec::new(),
+        ),
+    );
+    let scope = session_world_component::<SessionRoot>(app.world())
+        .expect("the fixture has a session root")
+        .0;
+    let b = session_world_component::<RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("b"))
+        .expect("the fixture's set has room `b`");
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    app.world_mut().spawn(activation_room_root(scope)).insert((
+        second,
+        b,
+        SimId::singleton("session", "room_instance_1"),
+    ));
+
+    let left = |app: &mut App, subject: Option<LiveBodyId>| {
+        let id_of = |world: &World, definition: Option<LiveRoomDefinition>| {
+            definition.and_then(|definition| {
+                session_world_component::<RoomSet>(world).map(|rooms| rooms.spec(definition).id.clone())
+            })
+        };
+        let exclusive = id_of(
+            app.world(),
+            ambition_platformer2d_world::rooms::live_room_definition_left_by(app.world(), subject.as_ref()),
+        );
+        let wanted = subject.clone();
+        let system = app
+            .world_mut()
+            .run_system_once(move |rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs| {
+                rooms.left_by(wanted.as_ref())
+            })
+            .expect("the read runs");
+        (exclusive, id_of(app.world(), system))
+    };
+    let hero = |room| Some(LiveBodyId::new(SimId::player_slot(0), Some(room)));
+
+    assert_eq!(
+        left(&mut app, hero(first)),
+        (Some("a".to_string()), Some("a".to_string())),
+        "control: a crossing from live room #0 does not leave `a`"
+    );
+    assert_eq!(
+        left(&mut app, hero(second)),
+        (Some("b".to_string()), Some("b".to_string())),
+        "a crossing from live room #1 does not leave its own room `b`"
+    );
+    assert_eq!(
+        left(&mut app, None),
+        (None, None),
+        "with two live rooms, a crossing that names no subject left one of them"
+    );
+}
+

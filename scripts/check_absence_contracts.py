@@ -274,7 +274,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         "id": "world-construction-does-not-read-the-ability-editor",
         "paths": [
             "crates/ambition_platformer2d_provider/",
-            "crates/ambition_platformer2d_actor_monolith/src/session/",
+            "crates/ambition_platformer2d_session/src/",
             "game/ambition_demo_mary_o/src/",
             "game/ambition_demo_sanic/src/",
         ],
@@ -518,7 +518,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # Activation stayed the one writer. 2026-09-03: activation's file is
             # `match_activation.rs` (preparation left for `ambition_match`); the
             # exemption moved with the writer, it did not widen.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
+            ":(exclude)crates/ambition_platformer2d_session/src/match_activation.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
             # ⛔⛤ THE THIRD WRITER ARRIVED 2026-09-16, AND THE REVIEW THIS
             # CONTRACT EXISTS TO FORCE IS WHAT PUT IT HERE: a GPT architecture
@@ -544,7 +544,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # would not change what it does. The VALUE still has exactly one
             # writer (activation). A fourth writer that PUBLISHES rather than
             # clears is still the graduation this contract is watching for.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+            ":(exclude)crates/ambition_platformer2d_session/src/teardown.rs",
         ],
         "patterns": [
             r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch)",
@@ -739,7 +739,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # kept the seam would have watched the wrong half of its own subject, which is the
         # "instrument that measures nothing" shape this file's header names.
         "paths": [
-            "crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            "crates/ambition_platformer2d_assets/src/materialization/definition.rs",
             "crates/ambition_characters/src/prepared.rs",
         ],
         "patterns": [r"CharacterLoadDemand::request", r"\bdemand\.request\("],
@@ -1031,7 +1031,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "crates/",
             "game/",
             "fixtures/",
-            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
+            ":!crates/ambition_platformer2d_assets/src/materialization/presentation.rs",
         ],
         "patterns": [r"\bprovider_of_character\("],
         "reason": (
@@ -1064,7 +1064,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "fixtures/",
             ":!crates/ambition_characters/src/actor/character_catalog/registry.rs",
-            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs",
+            ":!crates/ambition_platformer2d_assets/src/materialization/audit.rs",
             ":!game/ambition_app/tests/app_local_catalog_composition.rs",
         ],
         "patterns": [r"\.provider_for\("],

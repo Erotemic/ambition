@@ -39,7 +39,7 @@ particular physical manifestation being indestructible.
 | `GroundItem`, `ItemCustody`, held specs, pickup/use/throw/physics/residency chain, `ItemPickupSet::CoreHeldItems` | `ambition_held_items` |
 | `WorldItem` and the touched pickup | `ambition_world_items` |
 | `OwnedItems` (session `Resource`), `Inventory { bag, in_hand }`, `ItemCategory` | `ambition_items` |
-| The three-variant `ItemPickupSet` `.chain()`, `restore_custody_to_checkpoint`, `minted_horizon` | kernel (`ambition_platformer2d_actor_monolith/src/items/pickup/`) |
+| The three-variant `ItemPickupSet` `.chain()`, `restore_custody_to_checkpoint`, `minted_horizon` | kernel (`ambition_platformer2d_items/src/pickup/`) |
 | The held-item registry | one table, `HELD_ITEMS` (`ambition_characters::brain::action_set`), read by `held_item_by_id` and `held_spec_by_id` |
 | Durable whereabouts | `AuthoredOccurrences` and `OccurrenceWhereabouts` (`shared_tangle/src/lifecycle/continuity.rs`) |
 | The starter roster | one insert, in `AmbitionContentPlugin` (`game/ambition_content/src/plugin.rs`) |

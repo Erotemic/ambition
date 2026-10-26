@@ -1,0 +1,2753 @@
+use super::*;
+
+use ambition_characters::actor::BodyHealth;
+use ambition_characters::control::ActorControl;
+use ambition_platformer2d_core::{BodyBaseSize, BodyKinematics, Vec2};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
+
+use ambition_shrine::{heal_save_shrine_system, HealShrine};
+
+
+fn checkpoint_body(
+    scratch: ambition_platformer2d_core::BodyClusterScratch,
+    health: ambition_characters::actor::Health,
+) -> impl Bundle {
+    let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
+    (
+        ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+            scratch,
+            health,
+            "checkpoint-fixture",
+            None,
+            &mut ranged,
+        ),
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::body::PrimaryBody,
+    )
+}
+
+/// Give the fixture's session root the whole checkpoint coordinator, as the
+/// plugin's required-components registration does in a composed app.
+fn install_checkpoint_state(world: &mut World) {
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        world,
+        SessionCheckpointState::default(),
+    );
+}
+
+/// One coordinator value of the live session root.
+fn held<T: Component>(world: &World) -> &T {
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<T>(world)
+        .expect("the fixture's session root carries the checkpoint coordinator")
+}
+
+/// The mutable form of [`held`].
+fn held_mut<T: Component<Mutability = bevy::ecs::component::Mutable>>(
+    world: &mut World,
+) -> Mut<'_, T> {
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<T>(world)
+        .expect("the fixture's session root carries the checkpoint coordinator")
+}
+
+/// A save point that actually saves, and a session that resumes there.
+///
+/// The shrine claimed both halves and delivered neither: it called
+/// `save.set_changed()` on a value it never modified — which the value-comparing
+/// autosave correctly ignores — and there was no checkpoint field to write into
+/// even if the marker had worked. It healed, logged
+/// "healed to full + saved", and persisted nothing.
+///
+/// Both halves in one test on purpose. Either alone is worthless: a checkpoint
+/// nothing records is a lie, and a checkpoint nothing restores is a number in a
+/// file.
+#[test]
+fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+
+    fn room_set(room_id: &str) -> ambition_platformer2d_world::rooms::RoomSet {
+        let world = ambition_platformer2d_core::World::new(
+            "Shrine Room",
+            Vec2::new(640.0, 480.0),
+            Vec2::new(32.0, 400.0),
+            vec![ambition_platformer2d_core::Block::solid(
+                "floor",
+                Vec2::new(0.0, 440.0),
+                Vec2::new(640.0, 40.0),
+            )],
+        );
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            room_id,
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                room_id, world,
+            )],
+            Vec::new(),
+        )
+    }
+
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ShrineActivationPulse>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), room_set("shrine_room"));
+    app.add_systems(Update, heal_save_shrine_system);
+
+    let player = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActorControl::default(),
+            BodyKinematics {
+                pos: Vec2::new(412.0, 396.0),
+                vel: Vec2::ZERO,
+                size: Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            BodyBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
+            },
+            BodyHealth::new(ambition_characters::actor::Health {
+                current: 1,
+                max: 5,
+                invulnerable: Default::default(),
+            }),
+        ))
+        .id();
+    app.world_mut().spawn(HealShrine {
+        pos: Vec2::new(412.0, 396.0),
+        half_extent: Vec2::new(22.0, 40.0),
+    });
+    app.world_mut()
+        .get_mut::<ActorControl>(player)
+        .unwrap()
+        .0
+        .interact_pressed = true;
+    app.update();
+
+    let recorded = app
+        .world()
+        .resource::<ambition_persistence::save::AmbitionGameSave>()
+        .data()
+        .checkpoint()
+        .cloned()
+        .expect(
+            "resting at a shrine recorded no checkpoint, so the save point saves \
+             nothing — which is what it did while logging that it had",
+        );
+    assert_eq!(recorded.room_id, "shrine_room");
+    assert_eq!((recorded.x, recorded.y), (412, 396));
+
+    // ── The next session, from the same save ─────────────────────────────────
+    //
+    // A fresh app with the recorded save: the body starts at the room's authored
+    // spawn and must be moved to the checkpoint instead.
+    let mut next = App::new();
+    next.insert_resource(ambition_persistence::save::AmbitionGameSave(
+        app.world()
+            .resource::<ambition_persistence::save::AmbitionGameSave>()
+            .data()
+            .clone(),
+    ));
+    next.init_resource::<ActiveSessionScope>();
+    next.world_mut()
+        .resource_mut::<ActiveSessionScope>()
+        .begin();
+    ambition_platformer2d_world::rooms::insert_room_set(next.world_mut(), room_set("shrine_room"));
+    next.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    install_checkpoint_state(next.world_mut());
+    next.add_systems(Update, restore_checkpoint_on_session_start);
+    // The REAL player bundle, at the room's authored spawn — the body the
+    // construction path produces, with every cluster the transit authority reads.
+    let resumed = next
+        .world_mut()
+        .spawn((checkpoint_body(
+            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+                ambition_platformer2d_core::Vec2::new(32.0, 400.0),
+                ambition_platformer2d_core::AbilitySet::default(),
+            ),
+            ambition_characters::actor::Health::new(5),
+        ),))
+        .id();
+    next.update();
+
+    let pos = next.world().get::<BodyKinematics>(resumed).unwrap().pos;
+    assert_eq!(
+        (pos.x, pos.y),
+        (412.0, 396.0),
+        "the session opened in the checkpoint's room and left the body at the \
+         authored spawn — a checkpoint nothing restores is a number in a file"
+    );
+}
+/// A checkpoint recorded in ANOTHER room must not be applied here.
+#[test]
+fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "somewhere_else",
+        999,
+        999,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    let world = ambition_platformer2d_core::World::new(
+        "Here",
+        Vec2::new(640.0, 480.0),
+        Vec2::new(32.0, 400.0),
+        vec![],
+    );
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here", world,
+            )],
+            Vec::new(),
+        ),
+    );
+    // The slot a transition is recorded into: production initializes it in sim-core resources,
+    // so a fixture running this system owes it too.
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    install_checkpoint_state(app.world_mut());
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+    let body = app
+        .world_mut()
+        .spawn((checkpoint_body(
+            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+                ambition_platformer2d_core::Vec2::new(32.0, 400.0),
+                ambition_platformer2d_core::AbilitySet::default(),
+            ),
+            ambition_characters::actor::Health::new(5),
+        ),))
+        .id();
+    app.update();
+
+    let pos = app.world().get::<BodyKinematics>(body).unwrap().pos;
+    assert_eq!(
+        (pos.x, pos.y),
+        (32.0, 400.0),
+        "a checkpoint from another room was applied to this one"
+    );
+}
+/// A checkpoint in ANOTHER room of this world routes the session to it.
+///
+/// Distinct from `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned`,
+/// which covers a room this world does NOT contain. Refusing to teleport a body
+/// into coordinates from a room that does not exist is right; refusing to OPEN a
+/// room that does is the gap.
+#[test]
+fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room",
+        512,
+        300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        // Opens in `entry`; the player rested in `rest_room`.
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    // The `SimId` is what `ensure_sim_id` files a `PrimaryPlayer` under on every host.
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    // The slot a transition is recorded into: production initializes it in sim-core resources,
+    // so a fixture running this system owes it too.
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    install_checkpoint_state(app.world_mut());
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+    app.update();
+
+    // It wrote a `RoomTransitionRequested` around a synthetic door; the message is gone and so
+    // is the invented zone. The intent names its room by AUTHORED ID, which is also what made
+    // the index lookup here deletable.
+    fn recorded(app: &App) -> Option<crate::lifecycle_commit::PendingIntent> {
+        app.world()
+            .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
+            .pending
+            .clone()
+    }
+    let Some(intent) = recorded(&app) else {
+        panic!(
+            "the session opened in `entry` while the checkpoint is in `rest_room` \
+             and no transition was recorded — the player does not resume where \
+             they rested"
+        );
+    };
+    // A shrine warp is a CROSSING by a body, never the bodyless
+    // `ReconstituteRoom` that v146 added — it names a subject and an arrival.
+    let crate::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind
+    else {
+        panic!("the shrine recorded a bodyless room reconstitution, not a warp");
+    };
+    assert_eq!(transition.target_room, "rest_room");
+    assert_eq!(
+        transition.subject,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
+        "the resume asked for a room without saying whose resume it is, so the \
+         commit would transit whoever happens to be controlled several frames later"
+    );
+    assert_eq!(
+        (transition.arrival.x, transition.arrival.y),
+        (512.0, 300.0),
+        "the transition must arrive AT the checkpoint, not at the room's own spawn"
+    );
+
+    // Clearing the slot is what makes the question askable at all.
+    app.world_mut()
+        .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
+        .take();
+    app.update();
+    app.update();
+    assert!(
+        recorded(&app).is_none(),
+        "the resume transition was recorded repeatedly"
+    );
+}
+/// ⛔⛔ **F1: THE ROUTED LATCH BELONGED TO THE ATTEMPT, NOT TO THE ADMISSION.**
+///
+/// `restore_checkpoint_on_session_start` wrote `routed_for` and then *discarded*
+/// the `Admission` the slot returned. A slot already owned by another lifecycle
+/// intent refused the crossing while the session recorded that it had spent its
+/// one resume — so the player stayed in whichever room the session happened to
+/// open in, permanently, because the only road back is gated on a generation
+/// that line had already burned.
+///
+/// ⭐ THE WITNESS IS THE RETRY, NOT THE FLAG. Asserting `routed_for.is_none()`
+/// alone would pass on a system that never ran at all; this releases the slot
+/// and requires the crossing to actually arrive on a later tick.
+#[test]
+fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+    use crate::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room",
+        512,
+        300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.init_resource::<PendingLifecycleCommit>();
+    install_checkpoint_state(app.world_mut());
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+
+    // SOMEBODY ELSE ALREADY OWNS THE SLOT. A door crossing recorded on an
+    // earlier frame is the ordinary shape of this: the slot is earliest-sticky.
+    let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"), None),
+        target_room: "entry".into(),
+        arrival: Vec2::new(1.0, 2.0),
+        edge_exit: true,
+        zone_sfx: None,
+        participant: None,
+    });
+    assert!(app
+        .world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .record(3, incumbent.clone())
+        .admitted());
+
+    app.update();
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<PendingLifecycleCommit>()
+            .pending
+            .as_ref()
+            .map(|pending| &pending.kind),
+        Some(&incumbent),
+        "the refused resume overwrote the incumbent lifecycle operation"
+    );
+    assert!(
+        held::<super::SessionStartupResume>(app.world())
+            .state_for(None)
+            .is_none(),
+        "the resume recorded that it had routed while the slot refused it, so \
+         the session can never ask again"
+    );
+
+    // THE INCUMBENT COMMITS AND FREES THE SLOT. The resume must now land.
+    app.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    app.update();
+
+    let pending = app
+        .world()
+        .resource::<PendingLifecycleCommit>()
+        .pending
+        .clone()
+        .expect(
+            "the slot was released and the checkpoint resume never re-asked — a \
+             refusal permanently stranded the player in the session's own room",
+        );
+    let LifecycleIntent::Transition(transition) = pending.kind else {
+        panic!("the resume recorded a bodyless reconstitution, not a crossing");
+    };
+    assert_eq!(transition.target_room, "rest_room");
+    assert_eq!(
+        (transition.arrival.x, transition.arrival.y),
+        (512.0, 300.0)
+    );
+
+    // ⭐ AND IT IS STILL ONCE-ONLY. The latch moved to the admission; it did not
+    // disappear. A second release must not produce a second crossing.
+    let generation = app
+        .world()
+        .resource::<ActiveSessionScope>()
+        .current()
+        .expect("the session was begun")
+        .0;
+    assert!(
+        matches!(
+            held::<super::SessionStartupResume>(app.world())
+                .state_for(Some(generation)),
+            Some(StartupResume::Routed(_))
+        ),
+        "an admitted crossing must name the operation it was spent on — a \
+         generation latch cannot tell whether the crossing that committed was \
+         this one"
+    );
+    app.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    app.update();
+    app.update();
+    assert!(
+        app.world()
+            .resource::<PendingLifecycleCommit>()
+            .pending
+            .is_none(),
+        "the admitted resume was recorded a second time, so a session that \
+         reaches the slot twice restarts its crossing forever"
+    );
+}
+
+/// A session whose avatar has not been constructed yet cannot name the body it
+/// is resuming — and must not spend the once-per-session route saying so.
+///
+/// This is the OTHER half of the same rule as the refusal above: `routed_for` is
+/// a receipt for an accepted crossing, and the two ways to fail to get one are a
+/// busy slot and an unresolvable subject.
+#[test]
+fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+    use crate::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit};
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room",
+        512,
+        300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    install_checkpoint_state(app.world_mut());
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+
+    // No body at all: construction has not finished.
+    app.update();
+    assert!(
+        app.world()
+            .resource::<PendingLifecycleCommit>()
+            .pending
+            .is_none(),
+        "a crossing was recorded for a body nobody can name"
+    );
+    assert!(
+        held::<super::SessionStartupResume>(app.world())
+            .state_for(None)
+            .is_none(),
+        "the session marked its resume routed before it had a subject"
+    );
+
+    // The avatar materializes.
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.update();
+
+    let pending = app
+        .world()
+        .resource::<PendingLifecycleCommit>()
+        .pending
+        .clone()
+        .expect("the body arrived and the resume never asked again");
+    let LifecycleIntent::Transition(transition) = pending.kind else {
+        panic!("the resume recorded a bodyless reconstitution, not a crossing");
+    };
+    assert_eq!(transition.target_room, "rest_room");
+}
+
+/// A STARTUP RESUME WITH TWO PRIMARY BODIES ENDS. The subject of the resume is
+/// the one primary body. With none, construction is not finished and the
+/// resume asks again on the next tick (the arm above). With two, no tick
+/// changes that: the resume ends with the session where it opened, as it ends
+/// for a checkpoint in a room this world does not hold. It records no crossing
+/// and admits no operation.
+///
+/// Measured 2026-10-05 before the repair: the state was unset after five
+/// ticks in each branch, so the resume asked on each tick for ever.
+///
+/// Two branches: the checkpoint in another room (a routed crossing) and the
+/// checkpoint in the room the session opened in (the body is placed there).
+/// Control: one primary body takes each road.
+#[test]
+fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
+    use crate::lifecycle_commit::PendingLifecycleCommit;
+
+    // (the resume state, a crossing was recorded, where each primary body is)
+    fn resume(checkpoint_room: &str, primaries: u8) -> (Option<StartupResume>, bool, Vec<(f32, f32)>) {
+        let mut app = App::new();
+        let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+        save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+            checkpoint_room,
+            512,
+            300,
+        ));
+        app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+        app.init_resource::<ActiveSessionScope>();
+        app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        let room = |name: &str| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                name,
+                ambition_platformer2d_core::World::new(
+                    name,
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )
+        };
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "entry",
+                vec![room("entry"), room("rest_room")],
+                Vec::new(),
+            ),
+        );
+        app.init_resource::<PendingLifecycleCommit>();
+        install_checkpoint_state(app.world_mut());
+        app.add_systems(Update, restore_checkpoint_on_session_start);
+        for _ in 0..primaries {
+            // The full body, as the same-room branch moves it.
+            app.world_mut()
+                .spawn(checkpoint_body(
+                    ambition_platformer2d_actor_monolith::avatar::home_body_scratch(Vec2::new(32.0, 400.0), ae::AbilitySet::sandbox_all()),
+                    ambition_characters::actor::Health::new(20),
+                ));
+        }
+        for _ in 0..5 {
+            app.update();
+        }
+        let generation = app
+            .world()
+            .resource::<ActiveSessionScope>()
+            .current()
+            .map(|scope| scope.0);
+        let state = held::<super::SessionStartupResume>(app.world()).state_for(generation);
+        let crossing = app.world().resource::<PendingLifecycleCommit>().pending.is_some();
+        let world = app.world_mut();
+        let places = world
+            .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>()
+            .iter(world)
+            .map(|kin| (kin.pos.x, kin.pos.y))
+            .collect();
+        (state, crossing, places)
+    }
+
+    // Control: one primary body takes each road.
+    let (state, crossing, _) = resume("rest_room", 1);
+    assert!(
+        matches!(state, Some(StartupResume::Routed(_))) && crossing,
+        "control: one primary body and a checkpoint in another room: {state:?}, crossing {crossing}"
+    );
+    let (state, crossing, places) = resume("entry", 1);
+    assert_eq!(
+        (state, crossing, places),
+        (Some(StartupResume::Satisfied), false, vec![(512.0, 300.0)]),
+        "control: one primary body and a checkpoint in the room the session opened in"
+    );
+
+    // Two primary bodies: each branch ends, and nothing moves.
+    let opened = vec![(32.0, 400.0), (32.0, 400.0)];
+    assert_eq!(
+        resume("rest_room", 2),
+        (Some(StartupResume::Satisfied), false, opened.clone()),
+        "(the resume state, a crossing was recorded, the places) with two primary \
+         bodies and a checkpoint in another room"
+    );
+    assert_eq!(
+        resume("entry", 2),
+        (Some(StartupResume::Satisfied), false, opened),
+        "(the resume state, a crossing was recorded, the places) with two primary \
+         bodies and a checkpoint in the room the session opened in"
+    );
+}
+
+/// ⭐ **A CHECKPOINT-ONLY COMPOSITION RESUMES ITS SESSION**, with no held-item
+/// plugin, no shrine entity and no item domain of any kind installed.
+///
+/// ⛔⛔ IT COULD NOT, UNTIL A1b. `CheckpointResumeProgress` was initialized and
+/// `restore_checkpoint_on_session_start` was installed by
+/// `ItemPickupSimulationPlugin`, so a profile that wanted checkpoints and no
+/// hands got a resume that never ran — or, if it initialized the resource
+/// itself, a panic-free silence, which is worse.
+///
+/// ⚠ THE PLUGIN IS THE SUBJECT, not the systems. Every other fixture in this
+/// file adds `restore_checkpoint_on_session_start` to `Update` by hand, which
+/// measures the function and says nothing about who installs it. This one runs
+/// the real sim schedule through the real offer.
+#[test]
+fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "here", 412, 396,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+
+    // ⚠ THE CHANNELS ARE THE HOST'S, not this offer's, and that is unchanged by
+    // A1b: `runtime::CheckpointHorizonPlugin` registers the reset horizon's
+    // messages and the domain offers contribute systems to its sets. A domain
+    // plugin that registered them would be a second owner of the channel. The
+    // fixture stands in for the host because `runtime` depends on this crate.
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+
+    // THE COMPOSITION UNDER TEST. No `HeldItemSimulationPlugin`, no
+    // `ItemPickupSimulationPlugin`, no `HealShrine` anywhere in the world.
+    let sim = app.sim_schedule();
+    app.add_plugins(super::SessionCheckpointHorizonPlugin);
+
+    let body = app
+        .world_mut()
+        .spawn((checkpoint_body(
+            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+                Vec2::new(32.0, 400.0),
+                ambition_platformer2d_core::AbilitySet::default(),
+            ),
+            ambition_characters::actor::Health::new(5),
+        ),))
+        .id();
+
+    app.world_mut().run_schedule(sim);
+
+    let pos = app.world().get::<BodyKinematics>(body).unwrap().pos;
+    assert_eq!(
+        (pos.x, pos.y),
+        (412.0, 396.0),
+        "a composition with checkpoints and no items did not resume at its \
+         checkpoint — the offer that installs the resume still depends on the \
+         item domain"
+    );
+}
+
+/// ⛔⛔ **NOTHING IN THE SIMULATION'S RESTORE SET MUTATES A DOMAIN ANY MORE.**
+///
+/// This is the invariant A1c/3b exists for, and it is a claim about WHERE
+/// systems are REGISTERED, not about what their bodies say. Occurrence, custody
+/// and entitlement application used to run in `CheckpointRestore` — ordinary
+/// speculative simulation — so an unconfirmed reset on a rollback host
+/// destructively restored ledgers and despawned objects on a frame that could be
+/// rewound. They run from the commit executor's schedule now, which only a
+/// committed, authorized transition reaches.
+///
+/// ⭐ THE POPULATION IS THE POINT. Asserting the three names would pass while a
+/// fourth domain quietly re-added itself to the simulation set; this asserts
+/// that the restore set holds ONLY the session's own systems, and that the
+/// domain schedule holds the reducers.
+#[test]
+fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CheckpointDomainApply, CheckpointRestore, LifecycleCheckpointHorizonPlugin,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
+
+    fn set_key<S: SystemSet + Copy + std::fmt::Debug>(graph: &ScheduleGraph, set: S) -> NodeId {
+        NodeId::Set(
+            graph
+                .system_sets
+                .get_key(set.intern())
+                .unwrap_or_else(|| panic!("{set:?} must be a registered SystemSet")),
+        )
+    }
+
+    let mut app = App::new();
+    app.add_plugins((
+        LifecycleCheckpointHorizonPlugin,
+        crate::checkpoint::SessionCheckpointHorizonPlugin,
+        ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
+    ));
+    let sim = app.sim_schedule();
+    let schedules = app.world().resource::<Schedules>();
+
+    let sim_graph = schedules.get(sim).expect("the sim schedule exists").graph();
+    let restore = set_key(sim_graph, CheckpointRestore);
+    let in_simulation = sim_graph
+        .systems
+        .iter()
+        .filter(|(key, _, _)| {
+            sim_graph
+                .hierarchy()
+                .graph()
+                .contains_edge(restore, NodeId::System(*key))
+        })
+        .count();
+    assert_eq!(
+        in_simulation, 2,
+        "`CheckpointRestore` must hold the session's admission and its retirement \
+         and NOTHING ELSE. A domain reducer registered here runs on speculative \
+         frames, which is how an unconfirmed reset destructively restored ledgers \
+         and despawned objects a rewind then had to invent again"
+    );
+
+    let apply_graph = schedules
+        .get(CheckpointDomainApply)
+        .expect("the lifecycle offer installs the domain-apply schedule")
+        .graph();
+    assert_eq!(
+        apply_graph.systems.iter().count(),
+        7,
+        "the occurrence, entitlement and custody reducers, the custody \
+         projection the verification reads, the two fresh-run baseline \
+         adoptions and the mint-grant forgetter are this composition's \
+         installed domains, and all seven belong to the commit's schedule"
+    );
+}
+
+/// ⛔⛔ **THE INSTALLED INPUTS ARE REMOVED ON EVERY PATH, INCLUDING THE ONE THAT
+/// APPLIES NOTHING — and the commit applies the operation it was OPENED for, not
+/// whichever one happens to be outstanding.**
+///
+/// Their absence is what makes "a domain reducer cannot act outside an
+/// authorized commit" true by construction. Leave a context installed and every
+/// later run of that schedule — or any future caller of those systems — becomes
+/// an effective restore nobody authorized.
+///
+/// ⛔ THE KEY IS WHY THE SECOND HALF IS TESTABLE AT ALL. Matching by intent
+/// equality, two crossings to one room with one subject and one arrival compare
+/// EQUAL, so a transaction opened for the FIRST operation would be served the
+/// SECOND's pinned population — a room rebuilt from a checkpoint it is not
+/// about. A key names one admission in one session and cannot be produced by
+/// resemblance.
+#[test]
+fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs() {
+    use ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs;
+
+    use ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
+    use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
+
+    let crossing = |room: &str| {
+        LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
+            target_room: room.into(),
+            arrival: Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+            participant: None,
+        })
+    };
+    let mut operations = super::SessionCheckpointOperations::default();
+    let first = operations.admit(None).expect("a fresh counter mints a key");
+    let second = operations.admit(None).expect("and another");
+    assert_ne!(
+        first, second,
+        "two admissions in one session must be distinguishable, or the key adds \
+         nothing over the intent equality it replaces"
+    );
+
+    let mut app = App::new();
+    app.add_plugins(ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin);
+    install_checkpoint_state(app.world_mut());
+
+    // ── AN ORDINARY DOOR: no accepted operation, nothing applied ─────────────
+    assert!(
+        !super::apply_committed_checkpoint_restore(app.world_mut(), first),
+        "a commit with no accepted checkpoint operation applied one anyway"
+    );
+    assert!(!app.world().contains_resource::<CheckpointRestoreInputs>());
+
+    // ── THE SECOND OPERATION IS OUTSTANDING; A TRANSACTION OPENED FOR THE
+    //    FIRST MUST NOT BE SERVED IT — and the two intents are IDENTICAL ──────
+    held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
+        .accept(super::AcceptedRestore {
+            key: second,
+            frame: 3,
+            intent: crossing("east"),
+            lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody: Default::default(),
+            }),
+            item: Some(ItemCheckpointRestoreInputs {
+                minted: Default::default(),
+                owned: Default::default(),
+                grants: Default::default(),
+                spends: Default::default(),
+            }),
+            fresh: false,
+            replay: None,
+        });
+    assert!(
+        !super::apply_committed_checkpoint_restore(app.world_mut(), first),
+        "a commit opened for an earlier operation was served the outstanding \
+         one's pinned population. The two intents are equal by construction here, \
+         which is exactly the case intent matching cannot tell apart"
+    );
+    assert!(!app.world().contains_resource::<CheckpointRestoreInputs>());
+    assert!(!app.world().contains_resource::<ItemCheckpointRestoreInputs>());
+
+    // ── ITS OWN OPERATION: applied, and the inputs are gone afterwards ───────
+    assert!(
+        super::apply_committed_checkpoint_restore(app.world_mut(), second),
+        "the accepted operation's own commit did not apply it"
+    );
+    assert!(
+        !app.world().contains_resource::<CheckpointRestoreInputs>(),
+        "the lifecycle restore inputs outlived the commit that installed them, so \
+         anything that runs that schedule again is an unauthorized restore"
+    );
+    assert!(
+        !app.world().contains_resource::<ItemCheckpointRestoreInputs>(),
+        "the item restore inputs outlived the commit that installed them"
+    );
+}
+
+/// ⛔⛔ **AN OPERATION FROM A RETIRED SESSION CANNOT ACT IN A NEW ONE.**
+///
+/// The sequence alone is a per-session counter, so a teardown and re-entry mints
+/// key 0 again. What separates them is the session ownership stamp the key
+/// carries: a load, a commit or a verification holding the old session's key
+/// finds no accepted operation, rather than finding the NEW session's first one
+/// because two integers matched.
+#[test]
+fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+    let mut operations = super::SessionCheckpointOperations::default();
+    let old = operations
+        .admit(Some(SessionScopeId(1)))
+        .expect("the retired session admits one");
+
+    // Teardown and re-entry: a NEW scope, and the counter is deliberately not
+    // reset — recycling a live identifier is how a stale load gets authorized.
+    let new = operations
+        .admit(Some(SessionScopeId(2)))
+        .expect("the new session admits one");
+    assert_ne!(old, new);
+
+    let mut held = super::AcceptedCheckpointRestore::default();
+    held.accept(super::AcceptedRestore {
+        key: new,
+        frame: 0,
+        intent: crate::lifecycle_commit::LifecycleIntent::ReconstituteRoom(
+            crate::lifecycle_commit::RoomReconstitutionIntent {
+                target_room: "here".into(),
+            },
+        ),
+        lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+            occurrences: Default::default(),
+            custody: Default::default(),
+        }),
+        item: None,
+        fresh: false,
+        replay: None,
+    });
+    assert!(
+        held.inputs_for_key(old).is_none(),
+        "an operation admitted by a session that has been torn down matched the \
+         new session's accepted restore"
+    );
+    assert!(held.inputs_for_key(new).is_some());
+
+    // ⛔ AND AN ABSENT SCOPE IS NOT A WILDCARD. A standalone profile's key must
+    // not match a real session's, in either direction.
+    let standalone = super::SessionCheckpointOperations::default()
+        .admit(None)
+        .expect("a standalone profile admits one");
+    assert!(
+        held.inputs_for_key(standalone).is_none(),
+        "a scopeless key matched a scoped operation, so production session code \
+         treating a missing scope as 'any scope' would be authorized"
+    );
+}
+
+/// ⭐ **THE ACCEPTED OPERATION OUTLIVES ITS FRAME, MATCHES ONLY ITS OWN INTENT,
+/// AND IS RETIRED BY THE SLOT.**
+///
+/// This is the value room preparation reads several frames after admission, so
+/// all three properties are load-bearing and none of them is visible from the
+/// admitting frame alone:
+///
+/// * outliving the frame is what lets a load read it at all;
+/// * matching only its own intent is what stops a DOOR crossing recorded while a
+///   restore is outstanding from being prepared out of the checkpoint's
+///   population — a room rebuilt from a checkpoint that is not about it;
+/// * retiring when the slot gives up the intent is what stops a later,
+///   unrelated transition matching a stale intent BY VALUE. Two crossings to
+///   one room with one subject compare equal.
+#[test]
+fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_the_slot() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope, LifecycleCheckpointHorizonPlugin,
+        ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    use crate::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((
+        LifecycleCheckpointHorizonPlugin,
+        super::SessionCheckpointHorizonPlugin,
+    ));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    let admitted_intent = app
+        .world()
+        .resource::<PendingLifecycleCommit>()
+        .peek()
+        .map(|pending| pending.kind.clone())
+        .expect("the reset took the slot, or nothing below is about an operation");
+    // ⛔ THE ADMISSION ANNOUNCES NOTHING. Its replay is pinned with the
+    // operation and runs at the room's publication (review 2026-10-05, P1).
+    assert_eq!(
+        (
+            app.world()
+                .resource::<bevy::ecs::message::Messages<ambition_combat::events::RoomReplayAdmitted>>()
+                .len(),
+            held::<super::AcceptedCheckpointRestore>(app.world())
+                .accepted()
+                .and_then(|accepted| accepted.replay.as_ref())
+                .map(|replay| replay.to_checkpoint),
+        ),
+        (0, Some(true)),
+        "(replay messages written by the admission, the pinned replay is a checkpoint restore's)"
+    );
+
+    // ── IT SURVIVES FRAMES THE SHARED TOKEN DOES NOT ────────────────────────
+    for _ in 0..3 {
+        app.world_mut().run_schedule(sim);
+    }
+    let accepted = held::<super::AcceptedCheckpointRestore>(app.world());
+    assert!(
+        accepted.accepted().is_some(),
+        "the accepted restore was retired while its intent still held the slot. \
+         Room preparation runs several frames after admission and reads this \
+         value; retiring it early sends the load back to the live ledger"
+    );
+    assert!(
+        accepted.inputs_for(&admitted_intent).is_some(),
+        "the accepted restore does not match the intent it was admitted for"
+    );
+
+    // ⛔ AND IT DOES NOT MATCH SOMEBODY ELSE'S CROSSING. A door recorded while a
+    // restore is outstanding is prepared from LIVE state.
+    let a_door = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
+        target_room: "here".into(),
+        arrival: Vec2::new(9.0, 9.0),
+        edge_exit: true,
+        zone_sfx: Some("world.portal.enter".into()),
+        participant: None,
+    });
+    assert!(
+        accepted.inputs_for(&a_door).is_none(),
+        "an unrelated crossing matched the checkpoint's pinned population, so it \
+         would rebuild its destination from a checkpoint that is not about it"
+    );
+
+    // ── THE SLOT GIVES UP THE INTENT, AND NOTHING COMMITTED IT ───────────────
+    // A refused publication, a subject that is gone, or a retraction.
+    let key = held::<super::AcceptedCheckpointRestore>(app.world())
+        .accepted()
+        .map(|accepted| accepted.key)
+        .expect("asserted above");
+    app.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    app.world_mut().run_schedule(sim);
+    assert!(
+        held::<super::AcceptedCheckpointRestore>(app.world())
+            .accepted()
+            .is_none(),
+        "the accepted restore outlived the operation that owned it. Two crossings \
+         to one room with one subject compare EQUAL, so a stale one can be \
+         matched by a later transition it has nothing to do with"
+    );
+    // ⛔⛔ AND IT IS ANSWERED. Until 2026-10-05 it was retired with no outcome
+    // (review 2026-10-05, P1).
+    assert_eq!(
+        held::<super::SessionCheckpointOutcomes>(app.world()).latest(),
+        Some(&super::CheckpointRestoreOutcome::Cancelled {
+            key,
+            reason: super::RestoreCancellation::NotCommitted,
+        }),
+        "the one terminal outcome of an operation whose intent left the slot uncommitted"
+    );
+}
+
+/// THE CONTROL FOR THE ANSWER ABOVE: an operation that was answered before its
+/// intent left the slot (the commit publishes `Committed`) keeps that answer,
+/// and the retirement adds none.
+#[test]
+fn an_operation_answered_before_its_intent_leaves_keeps_its_one_answer() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, LifecycleCheckpointHorizonPlugin, ResetToCheckpoint};
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    use crate::lifecycle_commit::PendingLifecycleCommit;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new("Here", Vec2::new(640.0, 480.0), Vec2::new(32.0, 400.0), vec![]),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((LifecycleCheckpointHorizonPlugin, super::SessionCheckpointHorizonPlugin));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+    let key = held::<super::AcceptedCheckpointRestore>(app.world())
+        .accepted()
+        .map(|accepted| accepted.key)
+        .expect("the reset was admitted");
+    held_mut::<super::SessionCheckpointOutcomes>(app.world_mut())
+        .publish(super::CheckpointRestoreOutcome::Committed { key });
+    app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+    app.world_mut().run_schedule(sim);
+    assert_eq!(
+        held::<super::SessionCheckpointOutcomes>(app.world()).latest(),
+        Some(&super::CheckpointRestoreOutcome::Committed { key }),
+        "the operation's one answer"
+    );
+}
+
+/// ⛔⛔ **A PARTIAL CHECKSUM REPORTS AGREEMENT BETWEEN PEERS HOLDING DIFFERENT
+/// OPERATIONS**, which is worse than having none — the desync it exists to
+/// catch is exactly the case it would sleep through.
+///
+/// The first version of `AcceptedCheckpointRestore::checksum` covered three of
+/// four fields: the frame, the pinned ledger, and the intent's TARGET ROOM. So
+/// two accepted restores agreed while differing in their pinned MINT RECIPES —
+/// which decide what a reconstruction can rebuild a carried runtime mint from —
+/// and so did two crossings differing only in subject, arrival, edge or door
+/// cue. Both halves are consumed: preparation lowers the fresh plan from the
+/// ledger AND the mints, and `inputs_for` matches on the whole intent.
+///
+/// ⭐ EVERY FIELD IS PERTURBED SEPARATELY, because a hash that folds two fields
+/// through one operation can be insensitive to a change in either while looking
+/// complete. The intent's own leg is exhaustive by destructure, so a NEW field
+/// stops that compiling; this covers the ones that exist.
+#[test]
+fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_builds() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline;
+    use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
+
+    fn crossing() -> RoomTransitionIntent {
+        RoomTransitionIntent {
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
+            target_room: "east".into(),
+            arrival: Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+            participant: None,
+        }
+    }
+    fn accepted(restore: AcceptedRestore) -> u64 {
+        let mut held = AcceptedCheckpointRestore::default();
+        held.accept(restore);
+        held.checksum()
+    }
+    fn base() -> AcceptedRestore {
+        AcceptedRestore {
+            key: super::CheckpointOperationKey {
+                scope: None,
+                sequence: 0,
+            },
+            frame: 7,
+            intent: LifecycleIntent::Transition(crossing()),
+            lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody: Default::default(),
+            }),
+            item: Some(ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                minted: MintedItemBaseline::default(),
+                owned: Default::default(),
+                grants: Default::default(),
+                spends: Default::default(),
+            }),
+            fresh: false,
+            replay: None,
+        }
+    }
+
+    let reference = accepted(base());
+    assert_ne!(
+        reference,
+        AcceptedCheckpointRestore::default().checksum(),
+        "an accepted operation must not hash the same as no operation at all"
+    );
+
+    let perturbations: Vec<(&str, AcceptedRestore)> = vec![
+        ("the originating frame", AcceptedRestore { frame: 8, ..base() }),
+        (
+            "whether it begins a new run — a New Game and a death to the same \
+             room with the same pinned values do different things at the commit",
+            AcceptedRestore { fresh: true, ..base() },
+        ),
+        (
+            "the operation SEQUENCE — two admissions with identical intents and \
+             identical snapshots are still different operations",
+            AcceptedRestore {
+                key: super::CheckpointOperationKey {
+                    sequence: 1,
+                    ..base().key
+                },
+                ..base()
+            },
+        ),
+        (
+            "the owning SESSION — a scopeless standalone key is not session zero",
+            AcceptedRestore {
+                key: super::CheckpointOperationKey {
+                    scope: Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0)),
+                    ..base().key
+                },
+                ..base()
+            },
+        ),
+        (
+            "the restore SUBJECT — the body the operation is about",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(1), None),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the destination room",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    target_room: "west".into(),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the arrival position",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    arrival: Vec2::new(9.0, 9.0),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "whether it is an edge crossing, which selects the feel",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    edge_exit: true,
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the door cue",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    zone_sfx: Some("world.portal.enter".into()),
+                    participant: None,
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the intent's SHAPE — a bodyless rebuild is not a crossing",
+            AcceptedRestore {
+                intent: LifecycleIntent::ReconstituteRoom(
+                    crate::lifecycle_commit::RoomReconstitutionIntent {
+                        target_room: "east".into(),
+                    },
+                ),
+                ..base()
+            },
+        ),
+        (
+            "an ABSENT mint baseline versus an installed empty one — a \
+             composition without the item domain is not a checkpoint that saw \
+             no mints",
+            AcceptedRestore {
+                item: None,
+                ..base()
+            },
+        ),
+        (
+            "an ABSENT lifecycle baseline versus an installed empty one — a \
+             composition without the lifecycle horizon is not a checkpoint in \
+             which nothing occurred",
+            AcceptedRestore {
+                lifecycle: None,
+                ..base()
+            },
+        ),
+    ];
+    for (what, perturbed) in perturbations {
+        assert_ne!(
+            accepted(perturbed),
+            reference,
+            "the accepted-restore checksum does not see {what}, so two peers \
+             holding different operations agree about their snapshot"
+        );
+    }
+}
+
+/// The room check of a restore's verification, with two live rooms (Q151:
+/// Alice's restore rebuilds her room while Bob's room stays live). A restore
+/// of a room that stands is committed, whichever live room it is; a restore
+/// of a room no live room stands in fails as `Room`. With one live room the
+/// answer is the one it always was. Before, the check read the sole live room,
+/// so with two live rooms it checked nothing and every arm was committed.
+#[test]
+fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        session_world_component, LifecycleCheckpointHorizonPlugin, LiveRoomInstance,
+        RoomInstanceRoot,
+    };
+
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    // `None`: committed. With `bobs_room_live`, `bobs` is live beside the
+    // activation room `elsewhere`.
+    let restore = |target: &str, bobs_room_live: bool| -> Option<super::RestoreFailure> {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        install_checkpoint_state(app.world_mut());
+        app.insert_resource(bevy::prelude::NextState::<
+            ambition_platformer2d_shared_tangle::schedule::GameMode,
+        >::default());
+        let room = |id: &str| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                id,
+                ambition_platformer2d_core::World::new(
+                    id,
+                    bevy::prelude::Vec2::new(800.0, 600.0),
+                    bevy::prelude::Vec2::new(16.0, 16.0),
+                    Vec::new(),
+                ),
+            )
+        };
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "elsewhere",
+                vec![room("elsewhere"), room("bobs"), room("here")],
+                Vec::new(),
+            ),
+        );
+        if bobs_room_live {
+            let bobs = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(app.world())
+                .and_then(|rooms| rooms.definition_by_id("bobs"))
+                .expect("the set has `bobs`");
+            app.world_mut()
+                .spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION.next(), bobs));
+        }
+        let key = super::SessionCheckpointOperations::default()
+            .admit(None)
+            .expect("a fresh counter mints a key");
+        held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
+            .accept(super::AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                    target_room: target.into(),
+                }),
+                lifecycle: None,
+                item: None,
+                fresh: false,
+                replay: None,
+            });
+        assert!(
+            super::apply_committed_checkpoint_restore(app.world_mut(), key),
+            "the commit did not run the operation at all"
+        );
+        let outcome = held::<super::SessionCheckpointOutcomes>(app.world())
+            .outcome_for(key)
+            .expect("an answered operation has a terminal outcome");
+        outcome.failure()
+    };
+    assert_eq!(
+        [restore("elsewhere", false), restore("here", false)],
+        [None, Some(super::RestoreFailure::Room)],
+        "control, one live room: (its own room, a room that does not stand)"
+    );
+    assert_eq!(
+        [restore("elsewhere", true), restore("bobs", true), restore("here", true)],
+        [None, None, Some(super::RestoreFailure::Room)],
+        "two live rooms: (the activation room, Bob's room, a room that does not stand)"
+    );
+}
+
+/// ⛔⛔ **A RESTORE THAT DID NOT COME BACK RIGHT DOES NOT BECOME A WORLD THE
+/// PLAYER MAY ACT IN**, and it publishes exactly one terminal outcome saying so.
+///
+/// This is the protocol's trusted-failure row. The destructive application has
+/// already run by the time verification looks, so there is no old world to
+/// return to and this contract does not offer one — what it offers is that the
+/// failure is CONTAINED: gameplay is blocked, and the outcome names the
+/// operation and the domain rather than the world quietly continuing.
+///
+/// ⭐ THE FORCED FAILURE IS A REAL SHAPE, not an injected one. A checkpoint that
+/// remembers an occurrence in somebody's hand, restored into a composition that
+/// cannot materialize it, leaves a custody row nothing answers for — the case
+/// `restore_custody_to_checkpoint` already logs a warning about. Before this,
+/// that warning was the whole response and the session published a success.
+#[test]
+fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CustodyBaseline, LifecycleCheckpointHorizonPlugin,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    let mut app = App::new();
+    app.add_plugins(LifecycleCheckpointHorizonPlugin);
+    install_checkpoint_state(app.world_mut());
+    app.insert_resource(bevy::prelude::NextState::<
+        ambition_platformer2d_shared_tangle::schedule::GameMode,
+    >::default());
+
+    let key = super::SessionCheckpointOperations::default()
+        .admit(None)
+        .expect("a fresh counter mints a key");
+    // A checkpoint that remembers an object in a hand, in a world that has
+    // neither the object nor an item domain to rebuild it with.
+    let mut custody = CustodyBaseline::default();
+    custody.adopt(
+        [(
+            SimId::placement("a_key_the_world_cannot_rebuild"),
+            SimId::player_slot(0),
+        )]
+        .into_iter()
+        .collect(),
+    );
+    held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
+        .accept(super::AcceptedRestore {
+            key,
+            frame: 0,
+            intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                target_room: "here".into(),
+            }),
+            lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody,
+            }),
+            item: None,
+            fresh: false,
+            replay: None,
+        });
+
+    assert!(
+        super::apply_committed_checkpoint_restore(app.world_mut(), key),
+        "the commit did not run the operation at all, so nothing below is about \
+         a verification result"
+    );
+
+    let outcomes = held::<super::SessionCheckpointOutcomes>(app.world());
+    let outcome = outcomes
+        .outcome_for(key)
+        .expect("an answered operation has a terminal outcome");
+    assert!(
+        !outcome.committed(),
+        "the restore left a custody row nothing in the world answers for and the \
+         session called it committed. A verification that cannot fail is a \
+         formality, and a success published over an incomplete restore is worse \
+         than none"
+    );
+    assert_eq!(
+        outcome.failure(),
+        Some(super::RestoreFailure::Custody),
+        "the outcome must name the contract that broke, or the report says only \
+         that something went wrong somewhere — and two peers that agreed on \
+         'failed' while disagreeing about WHERE blocked gameplay for different \
+         reasons"
+    );
+
+    assert!(
+        matches!(
+            app.world().resource::<bevy::prelude::NextState<
+                ambition_platformer2d_shared_tangle::schedule::GameMode,
+            >>(),
+            bevy::prelude::NextState::Pending(
+                ambition_platformer2d_shared_tangle::schedule::GameMode::Paused
+            )
+        ),
+        "gameplay was not blocked after a restore failed verification, so the \
+         player acts in a world the session knows did not come back"
+    );
+
+    // ⛔ AND EXACTLY ONE. A second publication for one operation would let a
+    // `Committed` follow a `Failed` for the same restore.
+    held_mut::<super::SessionCheckpointOutcomes>(app.world_mut())
+        .publish(super::CheckpointRestoreOutcome::Committed { key });
+    assert!(
+        !held::<super::SessionCheckpointOutcomes>(app.world())
+            .outcome_for(key)
+            .expect("the outcome is still there")
+            .committed(),
+        "a second terminal outcome overwrote the first for one operation"
+    );
+}
+
+/// ⭐⭐ **STARTUP IS FINISHED BY ITS OPERATION'S OUTCOME, NOT BY A FLAG IT SETS
+/// WHEN IT ASKS** — and a cancelled operation is owed again.
+///
+/// ⛔⛔ THIS REPLACED A SECOND COMPLETION MECHANISM. `routed_for` and
+/// `applied_for` were per-generation latches beside the operation model the
+/// reset road uses, so a startup crossing and a death crossing — the same
+/// operation asked twice — had two different ways of being "done". Two ways of
+/// knowing one thing is how they drift. What replaces them is not another pair
+/// of booleans: `Routed` names the admitted operation by KEY, and only that
+/// operation's terminal outcome satisfies it.
+///
+/// ⚠ AND A CANCELLED CROSSING IS RE-ASKED. An operation that leaves the accepted
+/// state without publishing an outcome was retracted; a latch would have called
+/// that finished and stranded the player in the room the session opened in,
+/// which is the F1 defect one level up.
+#[test]
+fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+
+    use crate::lifecycle_commit::PendingLifecycleCommit;
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room", 512, 300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.init_resource::<PendingLifecycleCommit>();
+    install_checkpoint_state(app.world_mut());
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+
+    let generation = Some(
+        app.world()
+            .resource::<ActiveSessionScope>()
+            .current()
+            .expect("the session was begun")
+            .0,
+    );
+
+    app.update();
+    let Some(StartupResume::Routed(key)) =
+        held::<super::SessionStartupResume>(app.world()).state_for(generation)
+    else {
+        panic!("the startup resume did not route a crossing to the checkpoint's room");
+    };
+    // ⭐ AND IT PINNED ITS INPUTS, like the reset road. Before this the startup
+    // crossing recorded a bare transition and its destination was prepared from
+    // whatever the live ledger held.
+    assert!(
+        held::<super::AcceptedCheckpointRestore>(app.world())
+            .inputs_for_key(key)
+            .is_some(),
+        "a startup crossing is a checkpoint reconstruction and must be an \
+         accepted operation like any other, or its room is prepared from live \
+         state that only happens to agree at session start"
+    );
+
+    // ── STILL IN FLIGHT: no outcome, so nothing re-asks and nothing completes ─
+    app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+    app.update();
+    assert_eq!(
+        held::<super::SessionStartupResume>(app.world()).state_for(generation),
+        Some(StartupResume::Routed(key)),
+        "the routed resume re-asked while its own operation was still in flight"
+    );
+
+    // ── ITS OPERATION IS ANSWERED ────────────────────────────────────────────
+    held_mut::<super::SessionCheckpointOutcomes>(app.world_mut())
+        .publish(CheckpointRestoreOutcome::Committed { key });
+    app.update();
+    assert_eq!(
+        held::<super::SessionStartupResume>(app.world()).state_for(generation),
+        Some(StartupResume::Satisfied),
+        "the routed crossing committed and startup never noticed, so a later \
+         room transition can still be mistaken for the resume it is waiting on"
+    );
+    assert!(
+        app.world().resource::<PendingLifecycleCommit>().peek().is_none(),
+        "a satisfied startup resume asked for a second crossing"
+    );
+}
+
+/// ⛔ **A CANCELLED STARTUP CROSSING IS OWED AGAIN**, not called finished.
+#[test]
+fn a_startup_resume_whose_operation_is_retracted_asks_again() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope,
+    };
+
+    use crate::lifecycle_commit::PendingLifecycleCommit;
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room", 512, 300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.init_resource::<PendingLifecycleCommit>();
+    install_checkpoint_state(app.world_mut());
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+
+    app.update();
+    let first = held::<super::AcceptedCheckpointRestore>(app.world()).accepted().is_some();
+    assert!(first, "the first update must route and accept an operation");
+
+    // The crossing is retracted before it commits: the slot is cleared and the
+    // accepted operation retired, with no outcome ever published.
+    app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+    let _ = held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
+        .retire();
+
+    // One update notices the operation is gone; the next asks again.
+    app.update();
+    app.update();
+    assert!(
+        app.world().resource::<PendingLifecycleCommit>().peek().is_some(),
+        "a startup crossing that was retracted before committing left the \
+         session believing it had resumed. That is the once-per-session latch \
+         defect again, one level up: the player stays in the room the session \
+         happened to open in, forever"
+    );
+}
+
+/// ⛔⛔ **AN OPERATION THIS SESSION CANNOT NAME MUST NOT TAKE THE LIFECYCLE
+/// SLOT.**
+///
+/// The counter refuses overflow rather than recycling a live identifier, and
+/// that refusal used to happen AFTER the room intent was recorded and the
+/// request spent. The result was fail-OPEN in the worst shape available: a
+/// lifecycle transition admitted, no accepted operation behind it, and therefore
+/// a room rebuilt as an ordinary crossing — no pinned continuity, no domain
+/// restore, and a reset the session believed it had handled.
+///
+/// ⚠ IT IS UNREACHABLE IN PLAY — at one admission per frame at 60 Hz a `u64`
+/// lasts about ten billion years — and that is precisely why it needs a test.
+/// Nothing else will ever execute this path, so "overflow is refused" was a
+/// sentence in a doc comment and nothing more.
+#[test]
+fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    use crate::lifecycle_commit::PendingLifecycleCommit;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((
+        ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
+        super::SessionCheckpointHorizonPlugin,
+    ));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    *held_mut::<SessionCheckpointOperations>(app.world_mut()) =
+        SessionCheckpointOperations::exhausted_for_test();
+
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    assert!(
+        app.world().resource::<PendingLifecycleCommit>().peek().is_none(),
+        "a restore this session cannot name took the lifecycle slot anyway. The \
+         room would then be rebuilt as an ordinary crossing: no pinned \
+         continuity, no domain restore, and the reset spent"
+    );
+    assert!(
+        held::<super::AcceptedCheckpointRestore>(app.world())
+            .accepted()
+            .is_none(),
+        "an operation was accepted without an identity"
+    );
+    assert!(
+        held::<super::OutstandingCheckpointRequest>(app.world()).0.is_some(),
+        "the request was spent on an operation that never happened; it is still \
+         owed, and a session that later regains capacity must be able to serve it"
+    );
+}
+
+/// ⛔⛔ **THE REWARD GOES BACK TO THE HAND THAT BANKED IT, not to a hand.**
+///
+/// Custody verification first asked only whether each banked occurrence was in
+/// SOMEBODY's custody, which a restore that handed the object to the wrong body
+/// satisfies — and "the reward is in a hand" is not the contract. This is the
+/// stronger incremental check: the custodian named by the checkpoint.
+///
+/// ⚠ THE SECOND ARM IS THE DUPLICATE. The materialization arm rebuilds
+/// occurrences no live entity answers for, and two live things behind one
+/// identity is the other way it fails — a world every later lookup answers
+/// differently about depending on iteration order.
+#[test]
+fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CustodyBaseline, InCustodyOf, LifecycleCheckpointHorizonPlugin,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    let banked = SimId::placement("the_reward");
+    let rightful = SimId::player_slot(0);
+    let somebody_else = SimId::player_slot(1);
+
+    // `world` builds the state a restore is claimed to have produced, and the
+    // fixture then asks verification what it makes of it.
+    let verify = |holders: Vec<(SimId, SimId)>| -> Option<super::RestoreFailure> {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        install_checkpoint_state(app.world_mut());
+        app.insert_resource(bevy::prelude::NextState::<
+            ambition_platformer2d_shared_tangle::schedule::GameMode,
+        >::default());
+
+        let custodian_entities: std::collections::BTreeMap<SimId, bevy::prelude::Entity> =
+            [rightful.clone(), somebody_else.clone()]
+                .into_iter()
+                .map(|id| {
+                    let entity = app.world_mut().spawn(id.clone()).id();
+                    (id, entity)
+                })
+                .collect();
+        for (occurrence, custodian) in holders {
+            let holder = custodian_entities[&custodian];
+            app.world_mut().spawn((occurrence, InCustodyOf {
+                    custodian: holder,
+                    // ⭐ `Restored`: this fixture is about what the SAVE keeps, and a
+                    // `SessionOnly` row is filtered out before it gets there.
+                    durability:
+                        ambition_platformer2d_shared_tangle::lifecycle::CustodyDurability::Restored,
+                }));
+        }
+
+        let mut custody = CustodyBaseline::default();
+        custody.adopt([(banked.clone(), rightful.clone())].into_iter().collect());
+        let key = SessionCheckpointOperations::default().admit(None).unwrap();
+        held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
+            .accept(super::AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                    target_room: "here".into(),
+                }),
+                lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences: Default::default(),
+                    custody,
+                }),
+                item: None,
+                fresh: false,
+                replay: None,
+            });
+        assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
+        held::<super::SessionCheckpointOutcomes>(app.world())
+            .outcome_for(key)
+            .expect("an answered operation has an outcome")
+            .failure()
+    };
+
+    // ⛔ THE PREMISE: the shape the checkpoint describes verifies clean, or every
+    // failure below is about the fixture rather than about the check.
+    assert_eq!(
+        verify(vec![(banked.clone(), rightful.clone())]),
+        None,
+        "the reward in the hand the checkpoint names must verify clean"
+    );
+
+    assert_eq!(
+        verify(vec![(banked.clone(), somebody_else.clone())]),
+        Some(super::RestoreFailure::Custody),
+        "the restore put the banked reward in the WRONG hand and verification \
+         called it correct — 'in somebody's custody' is not the contract"
+    );
+    assert_eq!(
+        verify(vec![
+            (banked.clone(), rightful.clone()),
+            (banked.clone(), somebody_else.clone()),
+        ]),
+        Some(super::RestoreFailure::Custody),
+        "the restore left TWO live things behind one identity and verification \
+         accepted it, so every later lookup answers differently depending on \
+         iteration order"
+    );
+    assert_eq!(
+        verify(Vec::new()),
+        Some(super::RestoreFailure::Custody),
+        "the restore materialized nothing for a banked custody row"
+    );
+}
+
+/// Build a session that can admit a checkpoint reset, with the room the
+/// checkpoint names as the one it is standing in.
+///
+/// Shared by the acceptance rows below, which are all about what happens to an
+/// operation BETWEEN admission and commit and differ only in what they disturb.
+fn a_session_that_can_reset() -> (App, bevy::ecs::schedule::InternedScheduleLabel) {
+    a_session_that_can_reset_with(true)
+}
+
+/// [`a_session_that_can_reset`], with or without the lifecycle horizon.
+fn a_session_that_can_reset_with(
+    lifecycle_horizon: bool,
+) -> (App, bevy::ecs::schedule::InternedScheduleLabel) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    // ⛔ THE PRODUCTION ORDER, STATED. `CheckpointRestore` sits in `PlayerInput`,
+    // before the `PlayerSimulation` set that holds the startup resume. The
+    // fixture composes no phases, and which of the two ran first was whatever
+    // the executor's access sets happened to give: the death road (the one this
+    // fixture exists for) ran first while the coordinator was a pair of
+    // resources, and the startup road won the slot once it was components on the
+    // root (2026-10-07). A startup crossing with the slot taken is not what the
+    // arms below measure.
+    app.configure_sets(
+        sim,
+        ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore
+            .before(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems),
+    );
+    if lifecycle_horizon {
+        app.add_plugins(
+            ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
+        );
+    }
+    app.add_plugins(super::SessionCheckpointHorizonPlugin);
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    (app, sim)
+}
+
+/// ⛔⛔ **A ROOM REBUILT FROM THE RIGHT PLAN THAT PRODUCED HALF OF IT IS NOT A
+/// RESTORED ROOM.** (Verification: population completeness.)
+///
+/// Ledger equality cannot see this: it compares the applied ledger with the
+/// pinned one, and both agree while the WORLD is missing what they describe. The
+/// player then stands in a room the session believes it restored.
+///
+/// ⚠ ONLY THE ROWS THAT NAME THIS ROOM are the reconstruction's to produce. An
+/// occurrence the checkpoint places elsewhere is another room's business, and one
+/// in custody is the custody arm's — asserted here, because a completeness check
+/// that demanded every row would fail every ordinary restore.
+#[test]
+fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in_it() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, LifecycleCheckpointHorizonPlugin, OccurrenceBaseline,
+        OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use crate::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    let here = SimId::placement("authored_in_the_room_being_rebuilt");
+    let elsewhere = SimId::placement("authored_next_door");
+
+    let verify = |spawn: Vec<SimId>| -> Option<super::RestoreFailure> {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        install_checkpoint_state(app.world_mut());
+        app.insert_resource(bevy::prelude::NextState::<
+            ambition_platformer2d_shared_tangle::schedule::GameMode,
+        >::default());
+        for id in spawn {
+            app.world_mut().spawn(id);
+        }
+
+        let placed = |room: &str| OccurrenceWhereabouts::Placed {
+            room: room.into(),
+            at: Vec2::new(1.0, 2.0),
+        };
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.adopt_rows(
+            [
+                (here.clone(), placed("here")),
+                (elsewhere.clone(), placed("next_door")),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let mut occurrences = OccurrenceBaseline::default();
+        occurrences.adopt(ledger);
+
+        let key = SessionCheckpointOperations::default().admit(None).unwrap();
+        held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
+            .accept(super::AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                    target_room: "here".into(),
+                }),
+                lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences,
+                    custody: Default::default(),
+                }),
+                item: None,
+                fresh: false,
+                replay: None,
+            });
+        assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
+        held::<super::SessionCheckpointOutcomes>(app.world())
+            .outcome_for(key)
+            .expect("an answered operation has an outcome")
+            .failure()
+    };
+
+    // ⛔ THE PREMISE: the room containing what the checkpoint puts in it verifies
+    // clean EVEN THOUGH the next-door occurrence is absent — a completeness check
+    // that demanded every row would redden every ordinary restore.
+    assert_eq!(
+        verify(vec![here.clone()]),
+        None,
+        "the reconstruction produced its own room's occurrence and verification \
+         still failed it, which would pause the game on every working restore"
+    );
+
+    assert_eq!(
+        verify(Vec::new()),
+        Some(super::RestoreFailure::Population),
+        "the rebuilt room does not contain the occurrence the checkpoint places \
+         IN IT and verification called the restore committed. Both ledgers agree \
+         while the world is missing what they describe"
+    );
+}
+
+/// ⭐ **TWO RAW RESETS IN ONE TICK ARE ONE OPERATION.** (Acceptance row: "two raw
+/// reset requests in one tick".)
+///
+/// ⛔ THE COUNTER IS THE WITNESS, not the slot. The slot is earliest-sticky, so
+/// it would hold one intent however many times the session admitted — asserting
+/// on it alone would pass on a session that minted two operation keys and
+/// accepted the second over the first, which is two reconstructions' worth of
+/// consequences behind one crossing.
+/// ⛔ **A COMPOSITION WITH NO LIFECYCLE HORIZON PINS NO LIFECYCLE HALF.**
+///
+/// The admission used to pin an EMPTY ledger and an empty custody relation when
+/// the baselines were absent. An empty baseline is a real answer: the custody
+/// restore takes every carried object from its holder, and room preparation
+/// builds from that ledger instead of the live one. So absence must stay
+/// absence, as it does for the item half.
+#[test]
+fn a_restore_admitted_without_the_lifecycle_horizon_pins_no_lifecycle_inputs() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
+
+    for lifecycle_horizon in [true, false] {
+        let (mut app, sim) = a_session_that_can_reset_with(lifecycle_horizon);
+        app.world_mut().write_message(ResetToCheckpoint);
+        app.world_mut().run_schedule(sim);
+        let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
+            .accepted()
+            .expect("the reset was admitted in both compositions")
+            .clone();
+        assert_eq!(
+            accepted.lifecycle.is_some(),
+            lifecycle_horizon,
+            "with the lifecycle horizon installed = {lifecycle_horizon}, the \
+             admission pinned lifecycle inputs = {}. An absent horizon must pin \
+             nothing, and an installed one must pin its baselines",
+            accepted.lifecycle.is_some(),
+        );
+    }
+}
+
+/// ⭐ A NEW GAME IS A CHECKPOINT RESTORE TO THE FRESH BASELINE AT THE START
+/// ROOM, and it outranks a death asked for on the same tick.
+///
+/// The death alone is the control: it goes to the checkpoint's room and pins the
+/// checkpoint's ledger. The New Game goes to the start room's spawn, pins an
+/// empty ledger and is marked fresh, so the commit runs the fresh-run reducers.
+#[test]
+fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, OccurrenceBaseline,
+        OccurrenceWhereabouts, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let start_spawn = Vec2::new(32.0, 400.0);
+    for new_game in [false, true] {
+        let (mut app, sim) = a_session_that_can_reset();
+        let room = |name: &str, spawn: Vec2| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                name,
+                ambition_platformer2d_core::World::new(name, Vec2::new(640.0, 480.0), spawn, vec![]),
+            )
+        };
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "here",
+                vec![room("here", start_spawn), room("rest_room", Vec2::new(90.0, 90.0))],
+                Vec::new(),
+            ),
+        );
+        app.world_mut()
+            .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+            .data_mut()
+            .set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+                "rest_room", 512, 300,
+            ));
+        let mut remembered = AuthoredOccurrences::default();
+        remembered.adopt_rows(std::collections::BTreeMap::from([(
+            SimId::from_snapshot("room:rest_room:axe".into()),
+            OccurrenceWhereabouts::Consumed,
+        )]));
+        held_mut::<OccurrenceBaseline>(app.world_mut()).adopt(remembered);
+
+        app.world_mut().write_message(ResetToCheckpoint);
+        if new_game {
+            app.world_mut().write_message(crate::reset::NewGameRequested);
+        }
+        app.world_mut().run_schedule(sim);
+        let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
+            .accepted()
+            .expect("the request was admitted")
+            .clone();
+        assert_eq!(accepted.key.sequence, 0, "one tick's requests became two operations");
+        assert_eq!(accepted.fresh, new_game);
+        let pinned = accepted.lifecycle.expect("the lifecycle horizon is installed");
+        if new_game {
+            assert_eq!(accepted.intent.target_room(), "here", "a New Game kept the old run's room");
+            assert_eq!(accepted.intent.arrival(), Some(start_spawn));
+            assert_eq!(
+                pinned.occurrences,
+                OccurrenceBaseline::default(),
+                "a New Game restored the old run's ledger"
+            );
+        } else {
+            assert_eq!(accepted.intent.target_room(), "rest_room");
+            assert_eq!(accepted.intent.arrival(), Some(Vec2::new(512.0, 300.0)));
+            assert_ne!(pinned.occurrences, OccurrenceBaseline::default());
+        }
+    }
+}
+
+#[test]
+fn two_reset_requests_in_one_tick_become_one_operation() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
+
+    let (mut app, sim) = a_session_that_can_reset();
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
+        .accepted()
+        .expect("the reset was admitted")
+        .clone();
+    assert_eq!(
+        accepted.key.sequence, 0,
+        "the session minted more than one operation for one tick's requests, so \
+         two reconstructions' worth of consequences ride behind one crossing"
+    );
+    assert!(
+        held::<super::OutstandingCheckpointRequest>(app.world()).0.is_none(),
+        "the coalesced request was not spent by the operation that serves it"
+    );
+
+    // ⛔ AND A SECOND TICK WITH NO NEW REQUEST ADMITS NOTHING FURTHER.
+    app.world_mut().run_schedule(sim);
+    assert_eq!(
+        held::<super::AcceptedCheckpointRestore>(app.world())
+            .accepted()
+            .map(|accepted| accepted.key),
+        Some(accepted.key),
+        "a later tick replaced the accepted operation without a new request"
+    );
+}
+
+/// ⭐⭐ **AN ADMITTED OPERATION IS NOT RETARGETED BY ANYTHING THAT HAPPENS WHILE
+/// IT WAITS.** (Acceptance rows: "control changes after admission" and "capture
+/// changes while load waits".)
+///
+/// A restore takes several frames to reach its commit, and both of the things
+/// that can change underneath it in that window are ways to restore the wrong
+/// world:
+///
+/// * the CONTROLLED body changes — possession, a death, a seat handover — and a
+///   restore that re-asked "who is controlled now" at commit time would transit
+///   somebody who never triggered it;
+/// * a CAPTURE lands — another shrine rest — and a restore that read the live
+///   baseline at commit would apply a checkpoint taken AFTER the one it was
+///   accepted for.
+///
+/// ⛔ NEITHER IS DEFENDED BY THE ORDER OF ANYTHING. They are defended by the
+/// values being pinned at acceptance, which is why this asserts the pinned
+/// values rather than a schedule edge.
+#[test]
+fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, OccurrenceBaseline, OccurrenceWhereabouts, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let (mut app, sim) = a_session_that_can_reset();
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    let key = held::<super::AcceptedCheckpointRestore>(app.world())
+        .accepted()
+        .expect("the reset was admitted")
+        .key;
+    let pinned = held::<super::AcceptedCheckpointRestore>(app.world())
+        .inputs_for_key(key)
+        .expect("its own key finds it")
+        .clone();
+    assert_eq!(
+        pinned.intent.subject(),
+        Some(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None)),
+        "the operation did not record the body it is about"
+    );
+
+    // ── THE WORLD MOVES UNDER THE WAITING OPERATION ─────────────────────────
+    //
+    // A different body takes the primary seat, and a later checkpoint is
+    // committed over a different population.
+    {
+        let world = app.world_mut();
+        let mut primaries = world.query_filtered::<
+            bevy::prelude::Entity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        let old: Vec<_> = primaries.iter(world).collect();
+        for entity in old {
+            world.entity_mut(entity).despawn();
+        }
+        world.spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            SimId::player_slot(3),
+        ));
+        let mut later = AuthoredOccurrences::default();
+        later.adopt_rows(
+            [(
+                SimId::placement("minted_after_the_operation"),
+                OccurrenceWhereabouts::InCustody,
+            )]
+            .into_iter()
+            .collect(),
+        );
+        let mut baseline = OccurrenceBaseline::default();
+        baseline.adopt(later);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(world, baseline);
+    }
+    app.world_mut().run_schedule(sim);
+
+    // ⛔ THE PREMISE, ASSERTED. Without this the two checks below are satisfied
+    // by a world where nothing moved, and "the operation kept its values" would
+    // be indistinguishable from "nothing had different values to offer".
+    {
+        let world = app.world_mut();
+        let mut primaries = world.query_filtered::<
+            &SimId,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        let live: Vec<SimId> = primaries.iter(world).cloned().collect();
+        assert_eq!(
+            live,
+            vec![SimId::player_slot(3)],
+            "the seat did not actually change hands, so the subject check below \
+             is about a world that never moved"
+        );
+    }
+    assert_ne!(
+        held::<OccurrenceBaseline>(app.world()).remembered(),
+        pinned
+            .lifecycle
+            .as_ref()
+            .expect("the lifecycle horizon is installed, so the operation pinned its half")
+            .occurrences
+            .remembered(),
+        "the later capture did not actually change the live baseline, so the \
+         snapshot check below is about a horizon that never moved"
+    );
+
+    let still = held::<super::AcceptedCheckpointRestore>(app.world())
+        .inputs_for_key(key)
+        .expect("the operation is still outstanding");
+    assert_eq!(
+        still.intent.subject(),
+        Some(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None)),
+        "the admitted operation adopted whoever is controlled NOW. A restore \
+         several frames later would then transit a body that never triggered it"
+    );
+    assert_eq!(
+        still.lifecycle, pinned.lifecycle,
+        "a checkpoint committed while the operation waited retargeted it. The \
+         restore would apply a horizon taken AFTER the one it was accepted for"
+    );
+}
+
+/// A world holding one accepted operation and its lifecycle intent, plus an
+/// abandonment note for whatever `noted` names.
+fn world_with_an_abandoned_operation(
+    accepted: AcceptedRestore,
+    noted: &AcceptedRestore,
+) -> bevy::prelude::World {
+    let mut world = bevy::prelude::World::new();
+    world.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
+    install_checkpoint_state(&mut world);
+    assert!(world
+        .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
+        .record(accepted.frame, accepted.intent.clone())
+        .admitted());
+    held_mut::<super::AcceptedCheckpointRestore>(&mut world)
+        .accept(accepted);
+    held_mut::<super::AbandonedCheckpointOperation>(&mut world)
+        .note(noted);
+    world
+}
+
+fn an_operation_at(
+    frame: i32,
+    sequence_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    target_room: &str,
+) -> AcceptedRestore {
+    let mut counter = SessionCheckpointOperations::default();
+    AcceptedRestore {
+        key: counter.admit(sequence_scope).expect("a fresh counter mints"),
+        frame,
+        intent: crate::lifecycle_commit::LifecycleIntent::Transition(
+            crate::lifecycle_commit::RoomTransitionIntent {
+                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
+                target_room: target_room.into(),
+                arrival: Vec2::ZERO,
+                edge_exit: false,
+                zone_sfx: None,
+                participant: None,
+            },
+        ),
+        lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+            occurrences: Default::default(),
+            custody: Default::default(),
+        }),
+        item: None,
+        fresh: false,
+        replay: None,
+    }
+}
+
+/// ⛔⛔ **A HOST'S PREPARATION FAILURE MAY NOT SPEND A SPECULATIVE OPERATION.**
+///
+/// The retraction writes `AcceptedCheckpointRestore`, `PendingLifecycleCommit`
+/// and `SessionCheckpointOutcomes` — all rollback state. The failure that
+/// motivates it is a HOST fact: asset residency and construction preflight are
+/// not simulated, do not rewind, and two peers need not agree about them. Ending
+/// an operation admitted on a frame a rewind can still revisit therefore writes a
+/// non-deterministic decision into a re-simulable frame.
+///
+/// ⭐ AND THE NOTE IS KEPT, NOT DROPPED. The host's transaction does not rewind,
+/// so the failure is still true at the next boundary; discarding the note there
+/// would silently restore the wedge this whole road exists to close.
+#[test]
+fn an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed() {
+    let operation = an_operation_at(10, None, "a_room_that_cannot_be_prepared");
+    let key = operation.key;
+    let mut world = world_with_an_abandoned_operation(operation.clone(), &operation);
+
+    assert_eq!(
+        terminalize_abandoned_checkpoint_restore(&mut world, Some(9)),
+        AbandonmentVerdict::NotYetConfirmed,
+        "an operation admitted on frame 10 was ended while only frame 9 could \
+         never be simulated again"
+    );
+    assert!(
+        held::<super::AcceptedCheckpointRestore>(&world)
+            .inputs_for_key(key)
+            .is_some(),
+        "the accepted operation was retired on a frame a rewind can revisit"
+    );
+    assert!(
+        world
+            .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
+            .peek()
+            .is_some(),
+        "the lifecycle intent was spent on a frame a rewind can revisit"
+    );
+    assert!(
+        held::<super::SessionCheckpointOutcomes>(&world)
+            .outcome_for(key)
+            .is_none(),
+        "a terminal outcome was published for an operation that is still speculative"
+    );
+    assert_eq!(
+        held::<super::AbandonedCheckpointOperation>(&world).pending(),
+        Some(key),
+        "the note was dropped rather than kept, so the failed preparation is \
+         forgotten and readiness reopens the same invalid transaction forever"
+    );
+
+    // ── AND IT ENDS THE MOMENT ITS FRAME IS FINAL ────────────────────────────
+    assert_eq!(
+        terminalize_abandoned_checkpoint_restore(&mut world, Some(10)),
+        AbandonmentVerdict::Ended,
+        "the operation's own admitted frame is confirmed and it still was not \
+         ended — the rows above are then satisfied by a road that never ends \
+         anything"
+    );
+    assert_eq!(
+        held::<super::SessionCheckpointOutcomes>(&world)
+            .outcome_for(key)
+            .map(|outcome| outcome.cancellation()),
+        Some(Some(RestoreCancellation::PreparationFailed)),
+    );
+}
+
+/// ⛔⛔ **A NOTE FROM A DISCARDED BRANCH MAY NOT END THE OPERATION THAT REPLACED
+/// IT.**
+///
+/// `SessionCheckpointOperations` is rollback state, so its sequence rewinds. A
+/// speculative branch can mint sequence K, fail its preparation, leave a note
+/// here — the note does NOT rewind, that is the point of it — and then be thrown
+/// away. The next timeline can mint K again for a different operation. A note
+/// holding only the key would cancel that replacement: a healthy operation ended
+/// by a failure belonging to a timeline that no longer exists.
+///
+/// ⇒ the note names the operation by VALUE — key, admitted frame and the
+/// accepted operation's own checksum — and a note that does not match exactly is
+/// DISCARDED rather than spent.
+#[test]
+fn a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key() {
+    let abandoned = an_operation_at(4, None, "the_branch_that_was_discarded");
+    let replacement = an_operation_at(4, None, "the_room_the_replay_actually_wants");
+    // ⛔ THE PREMISE. Both operations carry the SAME key, because a rewound
+    // counter mints the same sequence again — that is exactly what makes a
+    // key-only note dangerous. Without this the test is about two unrelated
+    // operations and proves nothing.
+    assert_eq!(
+        abandoned.key, replacement.key,
+        "the two operations do not share a key, so this fixture is not about \
+         sequence reuse across a rewind at all"
+    );
+    let key = replacement.key;
+    let mut world = world_with_an_abandoned_operation(replacement, &abandoned);
+
+    assert_eq!(
+        terminalize_abandoned_checkpoint_restore(&mut world, Some(9)),
+        AbandonmentVerdict::Stale,
+        "a note written on a discarded branch was treated as an answer about the \
+         operation that reused its key"
+    );
+    assert!(
+        held::<super::AcceptedCheckpointRestore>(&world)
+            .inputs_for_key(key)
+            .is_some(),
+        "the replayed operation was retired by another timeline's failure"
+    );
+    assert!(
+        world
+            .resource::<crate::lifecycle_commit::PendingLifecycleCommit>()
+            .peek()
+            .is_some(),
+        "the replayed operation's lifecycle intent was spent by another \
+         timeline's failure, so its crossing simply never happens"
+    );
+    assert!(
+        held::<super::SessionCheckpointOutcomes>(&world)
+            .outcome_for(key)
+            .is_none(),
+        "a terminal outcome was published against a key whose operation is live"
+    );
+    assert_eq!(
+        held::<super::AbandonedCheckpointOperation>(&world).pending(),
+        None,
+        "the stale note survived, so it gets to ask the same wrong question at \
+         every later boundary"
+    );
+}
+
+/// ⭐ **TWO SESSION ROOTS HOLD TWO COORDINATORS, AND NEITHER READS THE OTHER'S
+/// (C03, 2026-10-07).**
+///
+/// The six checkpoint-coordinator values were process-global resources, reset at
+/// the activation of each session (the reset was added after two reviews each
+/// found a member crossing sessions; the second found the REST of the family).
+/// They are components of the session root now, so there is nothing to reset: a
+/// session starts from the coordinator its root was born with.
+///
+/// The arm: session A is live and has spent three operations and is owed a
+/// restore. Session B is prepared beside it (a candidate root). While B waits,
+/// the live coordinator is A's and is not touched. B is then published and A
+/// retired, in the order the shell does it, and the live coordinator is B's:
+/// fresh, with the first operation of B at sequence zero.
+///
+/// ⛔ POISONED TWICE, 2026-10-07, each restored by copy. (1) The plugin's
+/// requirement not registered: the six composed `a_cancelled_restore_changes_nothing`
+/// arms fail at their first read of the coordinator, loudly (a `Single` that
+/// matched nothing would have skipped the system instead; the read is where it
+/// is caught). (2) B given A's operation counter at the swap, which is what the
+/// process-global resource did without its reset: THIS arm fails at the
+/// `assert_eq!` on the checksum (`...824` against a fresh `...827`).
+#[test]
+fn two_session_roots_hold_two_checkpoint_coordinators() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CandidateSessionRoot, SessionRoot, SessionScopeId,
+    };
+
+    let mut app = App::new();
+    require_checkpoint_state_on_session_root(&mut app);
+    let world = app.world_mut();
+
+    // Session A: live, spent.
+    let a = world.spawn(SessionRoot(SessionScopeId(0))).id();
+    {
+        let mut operations = held_mut::<SessionCheckpointOperations>(world);
+        for _ in 0..3 {
+            operations.admit(Some(SessionScopeId(0))).expect("admits");
+        }
+    }
+    held_mut::<OutstandingCheckpointRequest>(world).ask(RestoreTo::LastCheckpoint);
+    let spent = held::<SessionCheckpointOperations>(world).checksum();
+    let fresh = SessionCheckpointOperations::default().checksum();
+    // ⚠ THE PREMISE: a coordinator that never moved makes "separate" vacuous.
+    assert_ne!(spent, fresh, "the fixture admitted no operation");
+
+    // Session B: prepared beside A. A candidate is not a session root, and the
+    // requirement is on `SessionRoot`, so B holds no coordinator YET.
+    let b = world.spawn(CandidateSessionRoot(SessionScopeId(1))).id();
+    assert!(world.get::<SessionCheckpointOperations>(b).is_none());
+    assert_eq!(
+        held::<SessionCheckpointOperations>(world).checksum(),
+        spent,
+        "preparing a candidate changed the live session's coordinator"
+    );
+    assert!(held::<OutstandingCheckpointRequest>(world).0.is_some());
+
+    // The shell's order: the live session retires, then the candidate is
+    // published (`publish_candidate_session`'s swap).
+    world.despawn(a);
+    world.entity_mut(b).remove::<CandidateSessionRoot>();
+    world.entity_mut(b).insert(SessionRoot(SessionScopeId(1)));
+
+    assert_eq!(
+        held::<SessionCheckpointOperations>(world).checksum(),
+        fresh,
+        "session B inherited A's admitted-operation counter, and that counter is \
+         inside the canonical checksum — so two mechanically identical sessions \
+         disagree because of what happened in a run that already ended"
+    );
+    assert!(
+        held::<OutstandingCheckpointRequest>(world).0.is_none(),
+        "a restore owed to the RETIRED session survived into this one, which then \
+         performs a checkpoint reset it never requested"
+    );
+    let first = held_mut::<SessionCheckpointOperations>(world)
+        .admit(Some(SessionScopeId(1)))
+        .expect("B admits its first operation");
+    assert_eq!(
+        first.sequence, 0,
+        "B's first admitted operation did not get sequence zero under B's scope"
+    );
+}
+
+/// The bundle that tests insert and the requirement that production registers
+/// name the same six values. A seventh value added to one and not the other is a
+/// session root that is missing it in one of the two worlds.
+#[test]
+fn a_session_root_carries_the_whole_checkpoint_coordinator() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+    let mut required = App::new();
+    require_checkpoint_state_on_session_root(&mut required);
+    let from_the_requirement = required.world_mut().spawn(SessionRoot(SessionScopeId(0))).id();
+    let mut bundled = World::new();
+    let from_the_bundle = bundled
+        .spawn((SessionRoot(SessionScopeId(0)), SessionCheckpointState::default()))
+        .id();
+
+    let components_of = |world: &World, entity: Entity| {
+        let mut names: Vec<String> = world
+            .inspect_entity(entity)
+            .expect("the root exists")
+            .map(|info| info.name().to_string())
+            .filter(|name| name.contains("::checkpoint::"))
+            .collect();
+        names.sort();
+        names
+    };
+    let required_set = components_of(required.world(), from_the_requirement);
+    let bundled_set = components_of(&bundled, from_the_bundle);
+    assert_eq!(required_set.len(), 6, "the requirement names {required_set:?}");
+    assert_eq!(
+        required_set, bundled_set,
+        "the plugin's required components and the bundle disagree"
+    );
+}
+
+/// ⛔⛤ **RECORDED DIVERGENCE, NOT A PASSING PROPERTY — ID-PEER, 2026-09-15.**
+///
+/// `CheckpointOperationKey::write_into` is the ONE projection every value
+/// holding a key reuses, and it writes the raw `SessionScopeId`. Four resources
+/// carry it into a peer checksum — `SessionStartupResume`,
+/// `AcceptedCheckpointRestore`, `SessionCheckpointOutcomes` and
+/// `OutstandingCheckpointRequest`, all `resource-clone-custom-checksum` — so two
+/// peers performing the SAME logical first checkpoint operation hash differently
+/// purely because their Apps have begun different numbers of sessions.
+///
+/// ⚠ The scope is not the defect and must not simply be deleted: its
+/// stale-operation and load-correlation job is local and real. What is missing
+/// is a peer-side term, and `SessionCheckpointOperations` already advances its
+/// sequence only on ADMISSION for exactly this reason.
+///
+/// ⇒ When the split lands, this arm flips to `assert_eq!` and the four entries
+/// leave `RECORDED_DIVERGENCE` in `game/ambition_app/tests/id_peer_audit.rs`.
+#[test]
+fn a_checkpoint_operation_key_projects_the_sequence_and_not_the_session_scope() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+    let scoped = |scope: u64| {
+        let mut bytes = Vec::new();
+        CheckpointOperationKey {
+            scope: Some(SessionScopeId(scope)),
+            sequence: 0,
+        }
+        .write_peer_stable_into(&mut bytes);
+        bytes
+    };
+    assert_eq!(
+        scoped(3),
+        scoped(12),
+        "the checkpoint operation key projects the host-local session scope \
+         again. A `SessionScopeId` counts THIS App's session activations, so two \
+         peers in one agreed session hold different ones and the four resources \
+         that checksum this key would disagree from the first compared frame."
+    );
+    // ⛔ AND THE SEQUENCE MUST STILL SEPARATE, or the arm above would be
+    // satisfied by a projection that hashed the scope and nothing else.
+    let sequenced = |sequence: u64| {
+        let mut bytes = Vec::new();
+        CheckpointOperationKey {
+            scope: None,
+            sequence,
+        }
+        .write_peer_stable_into(&mut bytes);
+        bytes
+    };
+    assert_ne!(
+        sequenced(0),
+        sequenced(1),
+        "two different operation sequences project identically"
+    );
+    // ⛔ AND "A SCOPE OWNS THIS" MUST STILL SEPARATE FROM "NOTHING DOES". The
+    // presence tag is a composition fact both peers agree on, and without it a
+    // standalone key and a scoped one at the same sequence compare equal.
+    let unscoped = {
+        let mut bytes = Vec::new();
+        CheckpointOperationKey {
+            scope: None,
+            sequence: 0,
+        }
+        .write_peer_stable_into(&mut bytes);
+        bytes
+    };
+    assert_ne!(
+        unscoped,
+        scoped(3),
+        "a standalone operation key and a session-owned one at the same \
+         sequence project identically"
+    );
+}

@@ -40,14 +40,13 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.
-portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_projectiles/portal", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal"]
+portal = ["ambition_projectile_combat/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_projectiles/portal"]
 # `portal_render` does NOT force `visible` on, so the web backbone
 # (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
 # into portal visuals without dragging in the desktop-only audio/ui/physics
 # subsystems. Personas that want portal rendering enable their own render
 # pipeline (`visible` / `visible_web_base`) alongside this flag.
 portal_render = ["portal"]
-portal_ldtk = ["portal", "ldtk_runtime", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal_ldtk"]
 
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
@@ -114,7 +113,6 @@ web_platform = [
 visible = [
     "input",
     "ui",
-    "physics_debris",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
     "bevy/scene",
@@ -137,12 +135,9 @@ visible = [
 # type API (`ui_api`) but no render pipeline, so dialog overlays,
 # menus, and touch buttons spawn entities that never get drawn.
 visible_web_base = [
-    "ldtk_runtime",
     "input",
-    "static_map",
     "portal",
     "portal_render",
-    "portal_ldtk",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
     "bevy/scene",
@@ -156,7 +151,7 @@ visible_web_base = [
 # on the host; bigger binary. Out-of-set sprites fall back to colored
 # rectangles. Audio is silent here unless `static_sfx_bank` also bakes
 # the SFX bank into the wasm. See `docs/recipes/web-build.md`.
-visible_web = ["visible_web_base", "static_core_assets"]
+visible_web = ["visible_web_base"]
 
 # Composite for the "served assets" browser persona. Bundles LDtk only;
 # every other visual / audio asset is fetched over HTTP from the
@@ -204,34 +199,6 @@ dev_tools = ["dep:bevy-inspector-egui"]
 # automatically.
 dev_hot_reload = ["bevy/file_watcher"]
 
-# Opt-in self-contained map build. Normal sandbox builds load
-# assets/ambition/worlds/sandbox.ldtk from disk so LDtk edits and modded maps do
-# not require recompiling Rust. Enabling this feature also embeds the checked-in
-# map and falls back to it if the external map cannot be read or parsed.
-static_map = [
-    "ambition_asset_manager/static_map",
-    "dep:ambition_platformer2d_ldtk",
-    "ambition_platformer2d_ldtk/static_map",
-]
-
-# Embed a bounded "core visual" subset (UI fonts + primary character sheets +
-# core entity sprite PNGs) into the binary via `include_bytes!`, and register
-# them with Bevy's `EmbeddedAssetRegistry` via `AmbitionAssetSourcePlugin`.
-# Intended for `WebStatic` / `BundledStatic` builds where there is no
-# filesystem to read from. Desktop dev builds normally leave this off — the
-# loose `assets/` tree under `cargo run` is the source of truth there.
-#
-# Composes with `static_map`: `static_map` embeds the LDtk world JSON,
-# `static_core_assets` embeds the visual layer. The `web` composite feature
-# enables both.
-static_core_assets = ["ambition_asset_manager/static_core_assets", "ambition_sprite_sheet/static_core_assets"]
-
-# Embed this crate's authored data (`assets/ambition/platformer_defaults.ron`).
-# Off by default, so a development build reads it off disk and a movement
-# tuning edit compiles no crate (embedded, it compiled 15). Turn it on where
-# there is no source tree to read: `ambition_app`'s `static_content` forwards it.
-static_content = []
-
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables
 # this automatically when crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank exists
@@ -245,7 +212,7 @@ static_sfx_bank = []
 # sandbox LDtk world is synchronously parsed before Bevy's Android AssetServer
 # path can hand it to the runtime; the APK still packages the loose asset tree
 # for sprites/audio/fonts and future map-loading work.
-android = ["visible", "android_platform", "mobile_touch", "static_map"]
+android = ["visible", "android_platform", "mobile_touch"]
 
 # Explicit alias for Android builds that still include sandbox/dev gameplay
 # behavior. Kept separate so future phone-only diagnostics can be added without
@@ -257,12 +224,6 @@ android_dev = ["android", "dev_tools"]
 # inside these subsystems is not yet cfg-gated end-to-end, so disabling
 # them today only works when paired with `--features visible` (where
 # they're all enabled).
-ldtk_runtime = [
-    "dep:bevy_ecs_ldtk",
-    "dep:bevy_asset_loader",
-    "dep:ambition_platformer2d_ldtk",
-    "ambition_platformer2d_ldtk/ldtk_runtime",
-]
 # Audio is not this crate's: the facade's `audio` installs
 # `ambition_platformer2d_audio` (D33, 2026-10-23).
 # UI selection does not add a production dependency on `ambition_dialog`;
@@ -270,7 +231,6 @@ ldtk_runtime = [
 ui = ["ambition_conversation/ui"]
 # The Avian debris adapter is `ambition_platformer2d_physics_debris` (2026-10-23);
 # `world::physics` re-exports it.
-physics_debris = ["ambition_platformer2d_physics_debris/physics_debris"]
 input = [
     "dep:leafwing-input-manager",
     "ambition_input/input",
@@ -311,6 +271,8 @@ frame_pacing = ["dep:bevy_framepace"]
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
+ambition_projectile_combat = { path = "../ambition_projectile_combat" }
+ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_registry_core = { path = "../ambition_registry_core" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 # `ambition_sfx` stays in the dep graph regardless of the `audio`
@@ -336,7 +298,6 @@ ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Authored-audio stack (Stage 20 / B1). The data schema half is
 # unconditional (Platformer2dGameplayDefaults embeds AudioSpec); the Kira playback
 # half lights up via the `audio` feature below.
-ambition_audio = { path = "../ambition_audio" }
 # Shared lifecycle and schedule primitives used by the actor systems.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
@@ -389,7 +350,6 @@ ambition_resource_spec = { path = "../ambition_resource_spec" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
 # LDtk is optional; movement-only games do not need its conversion crate.
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
 # Device -> ControlFrame input layer (Platformer2dInputActionMonolith / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
 # `crate::persistence::settings` re-exports its `settings` module so existing
@@ -403,11 +363,6 @@ ambition_persistence = { path = "../ambition_persistence" }
 # input systems + the bevy_yarnspinner bridge and binding-installer seam. The
 # game-specific Yarn bindings + GameMode sync stay in `src/dialog`.
 
-# Logical asset catalog + per-profile source resolution. The actor-side
-# sandbox only needs Bevy `AssetPath` formatting; SFX ownership stays with
-# the audio/SFX crates rather than flowing through the catalog crate.
-ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
-ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }
 bevy = { version = "0.19.1", default-features = false, features = [
     # Minimum surface every sandbox build (visible and headless) needs.
     #
@@ -428,8 +383,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
     # what moving them to `visible` already buys us.
     "ui_api",
 ] }
-bevy_asset_loader = { version = "0.27", optional = true }
-bevy_ecs_ldtk = { version = "0.15", optional = true }
 bevy-inspector-egui = { version = "0.37", optional = true }
 # Frame pacing / limiter — caps the frame rate to the display refresh (Limiter::Auto)
 # so the GPU/CPU idle between frames instead of rendering as fast as possible. Big
@@ -448,6 +401,8 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+ambition_audio = { path = "../ambition_audio" }
+ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 # The two-game session fixture the per-room rule readers' tests share.
 ambition_combat = { path = "../ambition_combat", features = ["test-support"] }
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
@@ -461,7 +416,6 @@ ambition_abilities = { path = "../ambition_abilities", features = ["test-support
 # on the developer-tools crate.
 ambition_dev_tools = { path = "../ambition_dev_tools" }
 # LDtk conversion fixtures are test-only; the production edge is optional.
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
 # Cross-crate fixtures require the test-support feature in dev builds only.
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }

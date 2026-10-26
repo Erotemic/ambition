@@ -6,7 +6,6 @@
 pub mod body_integration;
 pub mod bundles;
 pub mod components;
-pub mod events;
 pub mod fall_rescue;
 pub mod movement_components;
 pub mod starting_character;
@@ -26,9 +25,8 @@ pub use starting_character::{
     HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter, WornControlGateSet,
 };
 // Body-generic vocabulary stays under `crate::actor`; this module exports only home-avatar policy.
-pub use events::PlayerHealRequested;
 pub use systems::{
-    apply_player_heal_requests, blank_scripted_control_frames, drive_commanded_moves,
+    blank_scripted_control_frames, drive_commanded_moves,
     regen_player_mana, tick_controlled_brains, ControlledBrainTick,
 };
 

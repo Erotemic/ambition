@@ -227,17 +227,17 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // The rows of a body that fades between its attacks.
                 ecs::pin_fade_rows,
                 // Each applier of a request runs on its request.
-                crate::items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
-                crate::items::narrative::apply_shop_transactions
+                ambition_platformer2d_items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
+                ambition_platformer2d_items::narrative::apply_shop_transactions
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::shop::ShopTransactionRequested>),
-                crate::items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
+                ambition_platformer2d_items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item
                 // uses (above). A heal written after its apply waits a tick,
                 // and a rewind to that tick clears the message, so the
                 // resimulation loses the heal.
-                crate::avatar::apply_player_heal_requests
-                    .run_if(ambition_platformer2d_core::a_message_waits::<crate::avatar::events::PlayerHealRequested>),
+                ambition_damage::healing::apply_player_heal_requests
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_damage::healing::PlayerHealRequested>),
                 ecs::effect_bus::apply_flag_effects.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::SetFlagRequested>),
                 ecs::effect_bus::apply_quest_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::quest::QuestAdvanceRequested>),
@@ -1581,7 +1581,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // leftover. A payload belongs to whoever CONSUMES it: three of these
         // are `features` types that a carved-out conversation crate could not
         // name at all, and the other three are applied by `features::bus` and
-        // `crate::items::narrative`. Conversation provides the ledger MECHANISM
+        // `ambition_platformer2d_items::narrative`. Conversation provides the ledger MECHANISM
         // and registers only `ConversationEnded`, the payload it both defines
         // and consumes.
         app.add_plugins((

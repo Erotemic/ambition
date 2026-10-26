@@ -370,7 +370,7 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::avatar::body_integration::publish_kernel_reset_death,
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
-                ambition_platformer2d_actor_monolith::session::death::open_death_interlude
+                ambition_platformer2d_session::death::open_death_interlude
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::death_rules::ActorDiedMessage>),
                 ambition_combat::death_rules::tick_death_interlude
                     .run_if(bevy::prelude::any_with_component::<ambition_combat::death_rules::DeathInterlude>),
@@ -384,7 +384,7 @@ impl Plugin for PlayerSchedulePlugin {
         // window still opens on the original frame because `ActorDiedMessage` is also cleared.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::session::death::close_death_interlude
+            ambition_platformer2d_session::death::close_death_interlude
                 .run_if(bevy::prelude::any_with_component::<ambition_combat::death_rules::DeathInterlude>)
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
@@ -394,7 +394,7 @@ impl Plugin for PlayerSchedulePlugin {
         // character for the tick (Q153 default).
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::session::join::seat_a_joining_participant
+            ambition_platformer2d_session::join::seat_a_joining_participant
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection),
@@ -403,7 +403,7 @@ impl Plugin for PlayerSchedulePlugin {
         // `BodyRestarted`, so returning a body to play needs no line at any of
         // the call sites that bring one back.
         app.add_observer(
-            ambition_platformer2d_actor_monolith::session::death::clear_out_of_play_on_restart,
+            ambition_platformer2d_session::death::clear_out_of_play_on_restart,
         );
 
         // Presentation timers decay even while gameplay is suspended.

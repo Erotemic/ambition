@@ -19,7 +19,7 @@ fn app() -> App {
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<SlotInteractionState>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_systems(Update, open_ecs_chests);
@@ -321,7 +321,7 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
 
     let source_of = |boss: bool| {
         let mut app = app();
-        app.init_resource::<crate::items::pickup::RewardGrantsSinceCheckpoint>();
+        app.init_resource::<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>();
         app.insert_resource(ControlledSubject(None));
         app.world_mut()
             .resource_mut::<SlotInteractionState>()
@@ -366,7 +366,7 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
                 .insert(ambition_combat::components::BossRewardChest { encounter_id: "warden".to_string() });
         }
         app.update();
-        let grants = app.world().resource::<crate::items::pickup::RewardGrantsSinceCheckpoint>();
+        let grants = app.world().resource::<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>();
         let kept: Vec<_> = grants
             .kept_by_restore(&Default::default(), &Default::default(), &[PlayerSlot(1)])
             .map(|grant| grant.source.clone())
@@ -379,7 +379,7 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
     assert_eq!(
         source_of(true),
         (
-            vec![crate::items::pickup::GrantSource::BossChest { placement: "warden".to_string() }],
+            vec![ambition_platformer2d_items::pickup::GrantSource::BossChest { placement: "warden".to_string() }],
             1
         ),
         "control: a boss reward chest keeps its placement as its source"
@@ -387,7 +387,7 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
     assert_eq!(
         source_of(false),
         (
-            vec![crate::items::pickup::GrantSource::Authored { owners: vec![PlayerSlot(0), PlayerSlot(1)] }],
+            vec![ambition_platformer2d_items::pickup::GrantSource::Authored { owners: vec![PlayerSlot(0), PlayerSlot(1)] }],
             0
         ),
         "an ordinary chest: (the source, owned by the seats in its room; grants kept when only seat 2, of another room, is spared)"

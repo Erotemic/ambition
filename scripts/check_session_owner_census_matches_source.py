@@ -63,12 +63,12 @@ MARKER = re.compile(r"<!--\s*session-owner-census:\s*(.+?)\s*-->")
 
 #: group name -> (file, how to count it)
 BUNDLES = {
-    "SessionScopedResources": "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    "SessionScopedResources": "crates/ambition_platformer2d_session/src/teardown.rs",
 }
 #: Families whose members are COMPONENTS of the session root (C03). Not App
 #: resources, so not in the total; counted by a second marker.
 ROOT_FAMILIES = {
-    "SessionCheckpointState": "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+    "SessionCheckpointState": "crates/ambition_platformer2d_session/src/checkpoint.rs",
 }
 ROOT_MARKER = re.compile(r"<!--\s*session-root-family:\s*(.+?)\s*-->")
 #: A root family is a `Bundle`: `pub name: Type,` per member.

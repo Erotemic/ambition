@@ -181,7 +181,7 @@ fn install_ambition_game(app: &mut App) {
         app.add_plugins(ambition_platformer2d_ldtk::LdtkRuntimePlugin);
         // After `LdtkPlugin`: the collection holds a typed LDtk handle, so the
         // LDtk asset type must be registered before the handles are made.
-        app.init_collection::<ambition_platformer2d_actor_monolith::assets::loading::Platformer2dStartupAssets>();
+        app.init_collection::<ambition_platformer2d_assets::loading::Platformer2dStartupAssets>();
     }
     // Yarn compiles its project through the asset server; an App with no
     // asset server (a provider declaration test) gets no dialogue runtime.
@@ -235,7 +235,7 @@ fn install_ambition_game(app: &mut App) {
 
 #[cfg(feature = "physics_debris")]
 fn install_physics_debris(app: &mut App) {
-    use ambition_platformer2d_actor_monolith::world::physics;
+    use ambition_platformer2d::world::physics;
     if app.is_plugin_added::<physics::AmbitionPhysicsPlugin>() {
         return;
     }

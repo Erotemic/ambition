@@ -164,7 +164,7 @@ fn a_platform_whose_respawn_fell_due_while_away_is_whole_on_return() {
 fn a_replay_rebuilds_a_broken_platform_whole() {
     let (mut sim, _) = broken_room();
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     settle(&mut sim, 30);
     assert_eq!(

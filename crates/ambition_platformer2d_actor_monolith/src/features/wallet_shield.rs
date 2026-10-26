@@ -94,7 +94,7 @@ mod tests {
                 ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
             definition.wallet_shield = wallet_shield;
             cast.insert_prepared(
-                crate::character_runtime::prepare_and_finalize_for_test(
+                ambition_characters::prepared::prepare_and_finalize_for_test(
                     definition,
                     &ambition_characters::prepared::CharacterBindings::default(),
                 )
@@ -181,7 +181,7 @@ mod tests {
             ambition_characters::actor::definition::CharacterDefinition::new("shielded", "shielded", "demo");
         definition.wallet_shield = true;
         cast.insert_prepared(
-            crate::character_runtime::prepare_and_finalize_for_test(
+            ambition_characters::prepared::prepare_and_finalize_for_test(
                 definition,
                 &ambition_characters::prepared::CharacterBindings::default(),
             )

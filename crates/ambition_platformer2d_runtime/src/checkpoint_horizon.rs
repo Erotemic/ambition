@@ -54,7 +54,8 @@ impl Plugin for CheckpointHorizonPlugin {
         // live with the domains that own their semantics.
         app.add_plugins((
             LifecycleCheckpointHorizonPlugin,
-            ambition_platformer2d_actor_monolith::ActorCheckpointHorizonPlugin,
+            ambition_platformer2d_session::checkpoint::SessionCheckpointHorizonPlugin,
+            ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
         ));
     }
 }

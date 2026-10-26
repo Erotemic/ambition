@@ -229,7 +229,7 @@ fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 /// The player's entity, so the Class-B ledger can be read per body.
 fn held_by_a_passage(sim: &Platformer2dSimHarness, body: ambition_platformer2d::bevy::prelude::Entity) -> bool {
     sim.world()
-        .get::<ambition_platformer2d::actors::rooms::passage::ZonePassage>(body)
+        .get::<ambition_platformer2d::session::rooms::passage::ZonePassage>(body)
         .is_some_and(|passage| passage.holds_body())
 }
 

@@ -8,7 +8,7 @@
 //! keeps the residual glue enumerable while the remaining actor-side steppers
 //! are split.
 
-pub use ambition_platformer2d_actor_monolith::projectile::{
+pub use ambition_projectile_combat::{
     charge_projectile_input, stamp_new_projectile_allegiance, step_projectiles,
     ProjectileAllegiance, ProjectileStepSet,
 };

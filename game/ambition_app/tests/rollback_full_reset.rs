@@ -55,7 +55,7 @@ fn a_full_sandbox_reset_survives_the_rollback_window() {
     // The menu's road: a host intent, with no rebase.
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     );
 
     // Drive the window: the admission runs on the stamped tick and every

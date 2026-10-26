@@ -293,7 +293,7 @@ large brittle test that mocks half the engine.
 ## Concrete code anchors at the October 24 baseline
 
 - `crates/ambition_input/src/local_seats.rs` — device claims/seats.
-- `crates/ambition_platformer2d_actor_monolith/src/session/join.rs` — sim join.
+- `crates/ambition_platformer2d_session/src/join.rs` — sim join.
 - `crates/ambition_platformer2d_host/src/lib.rs` — shared host composition.
 - `crates/ambition_sim_view/src/local_view.rs` — adaptive view opening/merging.
 - `crates/ambition_render/src/platformer_presentation.rs` — extra camera rigs.

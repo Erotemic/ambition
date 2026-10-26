@@ -1188,7 +1188,7 @@ fn a_character_states_which_character_its_hands_are() {
     authored.payload.character_id = ambition_entity_catalog::CharacterId::new("npc_giant");
     room.enemy_spawns.push(authored);
 
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_giant",
             "Giant GNU",
@@ -2045,7 +2045,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     // how it moves and `body_blueprint` refuses it.
     let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     cast.insert_prepared(
-        crate::character_runtime::prepare_and_finalize_for_test(
+        ambition_characters::prepared::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_mute", "Mute", "test",
             ),
@@ -2102,7 +2102,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     };
     *character = ambition_entity_catalog::CharacterId::new("npc_test_shark");
 
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_test_shark",
             "Shark",
@@ -2183,7 +2183,7 @@ fn a_placement_is_planned_where_its_body_starts() {
 
     let mut flyer = ambition_characters::prepared::PreparedCharacterRegistry::default();
     flyer.insert_prepared(
-        crate::character_runtime::prepare_and_finalize_for_test(
+        ambition_characters::prepared::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new("fixture_flyer", "Flyer", "test")
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     baseline_free_flight: Some(true),

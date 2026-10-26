@@ -19,7 +19,7 @@ This guard states the boundary the other way round, from the SPAWN side:
   (`brain_builders`, `conversion` snapshots, `npc_policy`), never through spawn-only
   vocabulary (`SpawnActorRequest`, `spawn_*_into`, `actor_bundles`, installers);
 * and, positively, the kernel's spawn roads DO consume it, and the live view DOES
-  live in the kernel — so a rename cannot turn this file into an always-green
+  live at the shared body owner, so a rename cannot turn this file into an always-green
   historical assertion.
 
 The no-back-edge invariant (spawn never names the monolith) stays in
@@ -99,7 +99,7 @@ def test_the_spawn_crate_declares_no_live_query_view() -> None:
     ]
     assert not offenders, (
         "the spawn crate derives or names a `QueryData` view; the per-tick actor "
-        "view belongs to the kernel (`crate::actor_clusters`):\n  "
+        "view belongs to the kernel (`ambition_body_seed::clusters`):\n  "
         + "\n  ".join(offenders)
     )
 
@@ -185,16 +185,16 @@ def test_the_positive_controls_hold() -> None:
         "if construction moved, re-point SPAWN_ROADS instead of letting this guard "
         "certify an empty population"
     )
-    view = MONOLITH_SRC / "actor_clusters.rs"
-    assert view.is_file(), "the live actor view left the kernel again"
+    view = REPO / "crates/ambition_body_seed/src/clusters.rs"
+    assert view.is_file(), "the shared actor view is absent"
     code = _code(view)
     assert "QueryData" in code and "ACTOR_DAMAGE_IFRAME_S" in code
     live_users = [
         p
         for p in _production_files(MONOLITH_SRC / "features")
-        if "crate::actor_clusters::" in _code(p)
+        if "ambition_body_seed::clusters::" in _code(p)
     ]
     assert len(live_users) >= 5, (
-        f"only {len(live_users)} live feature files read `crate::actor_clusters`; the "
+        f"only {len(live_users)} live feature files read `ambition_body_seed::clusters`; the "
         "view is supposed to be the kernel's shared tick vocabulary"
     )

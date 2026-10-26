@@ -16,7 +16,7 @@
 //! they are what a body starts with, and a body that already started keeps its
 //! abilities. A change to them is reported, and a restart takes it.
 
-use ambition_platformer2d::actors::assets::gameplay_defaults::{
+use ambition_platformer2d::assets::gameplay_defaults::{
     Platformer2dGameplayDefaults, PLATFORMER_DEFAULTS_FILE,
 };
 use ambition_platformer2d::combat::feel::EditableFeelTuning;

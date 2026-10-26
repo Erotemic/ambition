@@ -2,7 +2,7 @@
 //!
 //! `presentation_world` spawns the cameras, the player sprite, the HUD/quest-panel text, the static
 //! room visuals + parallax, and wires the audio library / SFX bank. It is the render+audio
-//! composition that pairs with `ambition_platformer2d::actors::session::setup::simulation_world`
+//! composition that pairs with `ambition_platformer2d::session::setup::simulation_world`
 //! (which stays sim-only).
 #![allow(clippy::too_many_arguments)]
 

@@ -108,7 +108,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
         let asset_server = world.resource::<AssetServer>().clone();
         world.resource_scope(|world, mut layouts: Mut<Assets<bevy::image::TextureAtlasLayout>>| {
             let fx = &mut world.resource_mut::<ambition_sprite_sheet::game_assets::GameAssets>().into_inner().fx;
-            let made = ambition_platformer2d::actors::character_sprites::ensure_fx_sheet_loaded(fx, PROBE, &asset_server, &mut layouts, Default::default());
+            let made = ambition_platformer2d::assets::character_sprites::ensure_fx_sheet_loaded(fx, PROBE, &asset_server, &mut layouts, Default::default());
             assert!(made, "the premise: an effect sheet is made from the probe sheet");
         });
     }

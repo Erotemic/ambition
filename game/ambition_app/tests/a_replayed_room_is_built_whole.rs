@@ -106,7 +106,7 @@ fn a_replayed_room_is_rebuilt_with_the_persona_the_room_load_built() {
     );
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     // The first tick on which the room's bodies are new entities.
     let rebuilt = (0..12)
@@ -215,7 +215,7 @@ fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
     let loaded = std::mem::take(&mut sim.world_mut().resource_mut::<UnattachedAtDecision>().seen);
 
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     sim.step_n(base(), 12);
 

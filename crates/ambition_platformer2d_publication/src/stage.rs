@@ -147,7 +147,7 @@ pub(crate) fn construct_room_candidate(
             // the save and the schedule in the world are another session's.
             crate::CommitFactsSource::Stated(facts) => facts,
             crate::CommitFactsSource::AfterTheRestore(key) => {
-                ambition_platformer2d_actor_monolith::session::checkpoint::prospective_commit_fates(world, key)
+                ambition_platformer2d_session::checkpoint::prospective_commit_fates(world, key)
             }
         };
         let receipt = {
@@ -527,7 +527,7 @@ impl RoomConstructionPlan {
         arrival: Option<transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
-        restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+        restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
     ) -> transaction::PublicationHandle {
         self.stage_live_world(
             commands,
@@ -581,7 +581,7 @@ impl RoomConstructionPlan {
         arrival: Option<transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
-        restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+        restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
         held: bool,
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
@@ -2550,7 +2550,7 @@ mod tests {
                 .expect("the session keeps its room set")
                 .next_live_room();
             // Who holds each live room after the publication: (room, slots).
-            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = ambition_platformer2d_actor_monolith::world::rooms::residency::live_room_claims_in(app.world_mut())
+            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = ambition_platformer2d_session::rooms::residency::live_room_claims_in(app.world_mut())
                 .into_iter()
                 .map(|(room, claims)| (room, claims.iter().map(|claim| claim.slot.0).collect()))
                 .collect();

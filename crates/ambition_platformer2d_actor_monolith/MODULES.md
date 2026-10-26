@@ -7,33 +7,23 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
-| [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
 | [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
-| [`character_runtime`](src/character_runtime/mod.rs) | Engine-owned character loading and materialization. |
-| [`character_sprites`](src/character_sprites/mod.rs) | Character sprite asset loading and actor/content joins. |
-| [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Actor-side contribution to the reset/checkpoint horizon. |
+| [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
 | [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
-| [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`construction_fixtures`](src/construction_fixtures.rs) | The fixtures the construction tests share with the room coordinator's (`ambition_platformer2d_publication`), which commit what they build. |
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
-| [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
-| [`items`](src/items/mod.rs) | Item adapters that compose actor simulation with item capabilities. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
-| [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
-| [`session`](src/session/mod.rs) | Ambition-game session lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
-| [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D debris adapter (re-exported from its own crate), and LDtk-authored moving platforms. |
-| [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

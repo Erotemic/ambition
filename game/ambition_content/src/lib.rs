@@ -202,7 +202,7 @@ fn ambition_owns_the_sandbox_save_file() {
 // character entries live in `assets/data/character_catalog.ron`.
 
 /// Inbound `crate::data::…` paths keep working.
-pub use ambition_platformer2d_actor_monolith::session::data;
+pub use ambition_platformer2d_session::data;
 
 /// Declare every rollback row owned by Ambition-specific content.
 ///

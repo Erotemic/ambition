@@ -3531,7 +3531,7 @@
       "current_truth": "MovingPlatformSet is a Component on each live room's root (RoomInstanceRoot), beside its RoomGeometry, since OW1 cut 3b (2026-09-29); it was App resource state for the active room before. Setup writes the first room's set onto its own session's room root (hidden with a candidate), a room publication inserts the published room's set on the root it replaces, and advance_moving_platforms advances every live room's set.",
       "source_paths": [
         "crates/ambition_platformer2d_world/src/collision.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/setup.rs",
+        "crates/ambition_platformer2d_session/src/setup.rs",
         "crates/ambition_platformer2d_publication/src/transaction.rs"
       ],
       "evidence": [
@@ -3540,7 +3540,7 @@
           "claim": "MovingPlatformSet is a Component on each live room's root (RoomInstanceRoot), beside its RoomGeometry, since OW1 cut 3b (2026-09-29); it was App resource state for the active room before. Setup writes the first room's set onto its own session's room root (hidden with a candidate), a room publication inserts the published room's set on the root it replaces, and advance_moving_platforms advances every live room's set.",
           "sources": [
             "crates/ambition_platformer2d_world/src/collision.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/session/setup.rs",
+            "crates/ambition_platformer2d_session/src/setup.rs",
             "crates/ambition_platformer2d_publication/src/transaction.rs"
           ]
         }
@@ -3584,7 +3584,7 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "AuthoredOccurrences and its occurrence/custody/minted baselines carry durable world facts across rebuilds. Source explicitly treats them as one live-session world state and resets/adopts them at lifecycle edges.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
         "docs/planning/engine/construction-and-reconstitution.md"
       ],
       "evidence": [
@@ -3592,7 +3592,7 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "AuthoredOccurrences and its occurrence/custody/minted baselines carry durable world facts across rebuilds. Source explicitly treats them as one live-session world state and resets/adopts them at lifecycle edges.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+            "crates/ambition_platformer2d_session/src/teardown.rs",
             "docs/planning/engine/construction-and-reconstitution.md"
           ]
         }
@@ -3921,12 +3921,12 @@
       "id": "AUTH-CHECKPOINT-RESTORE",
       "category": "authority",
       "name": "Accepted checkpoint restore operation",
-      "owner": "ambition_platformer2d_actor_monolith::session::checkpoint",
+      "owner": "ambition_platformer2d_session::checkpoint",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Checkpoint restore uses an accepted operation and pinned inputs. Request, accepted operation, outcomes, abandoned operation, startup resume, and outstanding request have separate coordinator roles.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "docs/planning/engine/checkpoint-restoration-protocol.md"
       ],
       "evidence": [
@@ -3934,7 +3934,7 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "Checkpoint restore uses an accepted operation and pinned inputs. Request, accepted operation, outcomes, abandoned operation, startup resume, and outstanding request have separate coordinator roles.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+            "crates/ambition_platformer2d_session/src/checkpoint.rs",
             "docs/planning/engine/checkpoint-restoration-protocol.md"
           ]
         }
@@ -3969,21 +3969,21 @@
       "id": "AUTH-LIFECYCLE-COMMIT",
       "category": "authority",
       "name": "Pending lifecycle commit",
-      "owner": "ambition_platformer2d_actor_monolith::session::lifecycle_commit",
+      "owner": "ambition_platformer2d_session::lifecycle_commit",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "PendingLifecycleCommit is the earliest-sticky admitted lifecycle intent slot. The session reset aggregate treats it as session-owned and rollback state.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+        "crates/ambition_platformer2d_session/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "PendingLifecycleCommit is the earliest-sticky admitted lifecycle intent slot. The session reset aggregate treats it as session-owned and rollback state.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+            "crates/ambition_platformer2d_session/src/lifecycle_commit.rs",
+            "crates/ambition_platformer2d_session/src/teardown.rs"
           ]
         }
       ],
@@ -4457,19 +4457,19 @@
       "id": "LIFE-SESSION-RESOURCE-AGGREGATE",
       "category": "lifecycle",
       "name": "SessionScopedResources process-storage aggregate",
-      "owner": "ambition_platformer2d_actor_monolith::session::teardown",
+      "owner": "ambition_platformer2d_session::teardown",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-10-15, when the time of day joined: DayClock; 28 from 2026-10-08, when the four checkpoint baselines left for the session root: 32 from earlier that day, when the encounter view left: 33 from earlier still, when the switch queue left: 34 from earlier still, when the door countdown left: 35 from earlier still, when the session clock and its return schedule left: 37 from 2026-10-07, when the checkpoint coordinator and the two room memories left for the session root: 39 from 2026-10-04, when WorldTime, GatePortalPhases and OwnedItemsBaseline joined after a two-host census at tick 0; 34 from earlier that day, when the clock pace joined: RequestedClockScale and ClockState; 32 from 2026-10-03, when the census began to count the optional members and Q128 added the sim tick and the impact freeze; 27 from 2026-09-30, when the encounter registry was deleted; 28 from 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+        "crates/ambition_platformer2d_session/src/teardown.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-10-15, when the time of day joined: DayClock; 28 from 2026-10-08, when the four checkpoint baselines left for the session root: 32 from earlier that day, when the encounter view left: 33 from earlier still, when the switch queue left: 34 from earlier still, when the door countdown left: 35 from earlier still, when the session clock and its return schedule left: 37 from 2026-10-07, when the checkpoint coordinator and the two room memories left for the session root: 39 from 2026-10-04, when WorldTime, GatePortalPhases and OwnedItemsBaseline joined after a two-host census at tick 0; 34 from earlier that day, when the clock pace joined: RequestedClockScale and ClockState; 32 from 2026-10-03, when the census began to count the optional members and Q128 added the sim tick and the impact freeze; 27 from 2026-09-30, when the encounter registry was deleted; 28 from 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+            "crates/ambition_platformer2d_session/src/teardown.rs"
           ]
         }
       ],
@@ -4488,19 +4488,19 @@
       "id": "LIFE-CHECKPOINT-RESOURCE-AGGREGATE",
       "category": "lifecycle",
       "name": "SessionCheckpointState root-owned checkpoint coordinator",
-      "owner": "ambition_platformer2d_actor_monolith::session::checkpoint",
+      "owner": "ambition_platformer2d_session::checkpoint",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "SessionCheckpointState names six components of the session root for one gameplay-session checkpoint coordinator. The activation reset and its aggregate param are deleted; a new root is born with the defaults (C03, 2026-10-07).",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
+        "crates/ambition_platformer2d_session/src/checkpoint.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "SessionCheckpointState names six components of the session root for one gameplay-session checkpoint coordinator. The activation reset and its aggregate param are deleted; a new root is born with the defaults (C03, 2026-10-07).",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
+            "crates/ambition_platformer2d_session/src/checkpoint.rs"
           ]
         }
       ],
@@ -4520,7 +4520,7 @@
       "current_truth": "SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it.",
       "source_paths": [
         "crates/ambition_platformer2d_construction/src/mechanics.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+        "crates/ambition_platformer2d_session/src/teardown.rs"
       ],
       "evidence": [
         {
@@ -4528,7 +4528,7 @@
           "claim": "SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it.",
           "sources": [
             "crates/ambition_platformer2d_construction/src/mechanics.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+            "crates/ambition_platformer2d_session/src/teardown.rs"
           ]
         }
       ],
@@ -4641,8 +4641,8 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "A replay is admitted through PendingLifecycleCommit and rebuilds the active room through the same room-construction model. Domain reset hooks run at the admitted replay boundary.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_session/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "docs/planning/engine/construction-and-reconstitution.md"
       ],
       "evidence": [
@@ -4650,8 +4650,8 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "A replay is admitted through PendingLifecycleCommit and rebuilds the active room through the same room-construction model. Domain reset hooks run at the admitted replay boundary.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+            "crates/ambition_platformer2d_session/src/lifecycle_commit.rs",
+            "crates/ambition_platformer2d_session/src/reset/mod.rs",
             "docs/planning/engine/construction-and-reconstitution.md"
           ]
         }
@@ -4671,7 +4671,7 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Checkpoint restore admits an operation with pinned inputs. Same-room restore uses replay; cross-room restore routes through room transition. Durable facts are restored from accepted checkpoint inputs, not arbitrary current globals.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "docs/planning/engine/checkpoint-restoration-protocol.md"
       ],
       "evidence": [
@@ -4679,7 +4679,7 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "Checkpoint restore admits an operation with pinned inputs. Same-room restore uses replay; cross-room restore routes through room transition. Durable facts are restored from accepted checkpoint inputs, not arbitrary current globals.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+            "crates/ambition_platformer2d_session/src/checkpoint.rs",
             "docs/planning/engine/checkpoint-restoration-protocol.md"
           ]
         }
@@ -4699,14 +4699,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Since 2026-09-29 a New Game is a checkpoint restore to the fresh baseline (NEW-GAME-RESYNC): resume_at_checkpoint_on_reset admits NewGameRequested with the start room as destination and empty pinned inputs, the room is rebuilt through the checkpoint restore's transition on the confirmed-frame commit, and the fresh-run reducers clear durable/session progress in CheckpointDomainApply.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
+        "crates/ambition_platformer2d_session/src/reset/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Since 2026-09-29 a New Game is a checkpoint restore to the fresh baseline (NEW-GAME-RESYNC): resume_at_checkpoint_on_reset admits NewGameRequested with the start room as destination and empty pinned inputs, the room is rebuilt through the checkpoint restore's transition on the confirmed-frame commit, and the fresh-run reducers clear durable/session progress in CheckpointDomainApply.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
+            "crates/ambition_platformer2d_session/src/reset/mod.rs"
           ]
         }
       ],
@@ -4998,7 +4998,7 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Checkpoint request and accepted operation are separate. Commit/terminal outcome identifies the exact operation and its pinned inputs rather than treating a raw reset message as authority.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
         "docs/planning/engine/checkpoint-restoration-protocol.md"
       ],
       "evidence": [
@@ -5006,7 +5006,7 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "Checkpoint request and accepted operation are separate. Commit/terminal outcome identifies the exact operation and its pinned inputs rather than treating a raw reset message as authority.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+            "crates/ambition_platformer2d_session/src/checkpoint.rs",
             "docs/planning/engine/checkpoint-restoration-protocol.md"
           ]
         }
@@ -5025,14 +5025,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Since 2026-09-29 a New Game publishes like every checkpoint restore: the room transaction verifies, then apply_committed_checkpoint_restore runs CheckpointDomainApply with FreshRunRestore installed and publishes one terminal outcome.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
+        "crates/ambition_platformer2d_session/src/reset/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Since 2026-09-29 a New Game publishes like every checkpoint restore: the room transaction verifies, then apply_committed_checkpoint_restore runs CheckpointDomainApply with FreshRunRestore installed and publishes one terminal outcome.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
+            "crates/ambition_platformer2d_session/src/reset/mod.rs"
           ]
         }
       ],
@@ -5724,7 +5724,7 @@
       "source_paths": [
         "scripts/architecture_census.py",
         "crates/ambition_conversation/src/ledger.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "docs/planning/engine/capability-and-runtime-composition.md"
       ],
       "evidence": [
@@ -5733,7 +5733,7 @@
           "claim": "SEMANTIC REVIEW DONE 2026-09-18, and it moved the AXIS rather than the number. The row asked for per-TYPE classification before any change; the unit is the CALL SITE. `SimTick` is a hard COMPOSITION fact in `ambition_conversation/ledger.rs` and, at `durable_horizon.rs:480`, an `Option` guarding tooling compositions beside the comment \"every shipped composition has the clock\" \u2014 one type, two boundaries. \u26a0 AND THERE IS A THIRD SHAPE THE COUNT BURIES: `ParallaxThemeAttempts` is TEMPORAL, \"the difference between 'not yet' and 'never'\", which is neither composition nor defence. No clean pure-defensive example survived tracing \u2014 every candidate resolved to a composition or a temporal reason once its own call-site comment was read, which is itself the finding: the cheap classification READS those comments rather than re-deriving intent from types. \u26d4 The count is still a discovery surface and still not a defect metric, and it has now crossed THREE counting rules \u2014 732/196 under the tail cut, 820/206 under the per-item strip, 806/203 today under the comment strip. `campaign-metrics.md` carries the rule-by-rule table; do not subtract across it.",
           "sources": [
             "crates/ambition_conversation/src/ledger.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs"
+            "crates/ambition_platformer2d_session/src/durable_horizon.rs"
           ]
         }
       ],
@@ -5884,14 +5884,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Checkpoint restoration separates request/admission from commit and terminal outcome. Ordered phases keep domain restore from treating an unadmitted request as authority. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-CHECKPOINT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
+        "crates/ambition_platformer2d_session/src/checkpoint.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Checkpoint restoration separates request/admission from commit and terminal outcome. Ordered phases keep domain restore from treating an unadmitted request as authority. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-CHECKPOINT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
+            "crates/ambition_platformer2d_session/src/checkpoint.rs"
           ]
         }
       ],
@@ -5911,14 +5911,14 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "Since 2026-09-29 the dependent resets are fresh-run reducers in CheckpointDomainApply, which only the confirmed-frame commit executor runs, so the order is structural. The old decision set and commit message are deleted; the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md` records the change.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
+        "crates/ambition_platformer2d_session/src/reset/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Since 2026-09-29 the dependent resets are fresh-run reducers in CheckpointDomainApply, which only the confirmed-frame commit executor runs, so the order is structural. The old decision set and commit message are deleted; the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md` records the change.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
+            "crates/ambition_platformer2d_session/src/reset/mod.rs"
           ]
         }
       ],

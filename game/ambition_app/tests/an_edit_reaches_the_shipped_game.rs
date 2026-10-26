@@ -1571,7 +1571,7 @@ fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
             },
         );
         app.world_mut()
-            .run_system_once(ambition_platformer2d::actors::session::join::seat_a_joining_participant)
+            .run_system_once(ambition_platformer2d::session::join::seat_a_joining_participant)
             .expect("the join system runs");
         // No handle writes slot 1 in this composition, so the press would
         // stay in the slot.
@@ -3168,7 +3168,7 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
     // cold start no session root exists, so no live baseline exists either.
     assert!(
         ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline,
+            ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline,
         >(app.world())
         .is_none_or(|baseline| baseline.is_empty()),
         "the live minted baseline already describes something, so a rebuilt mint \
@@ -3542,7 +3542,7 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
     // A's baseline cannot describe M; B's save can. If preparing B installs B's
     // horizon process-wide — which is what finding 1 was about, in the resource
     // finding 2 added — A's baseline learns about M.
-    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(app.world_mut()).unwrap()
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(app.world_mut()).unwrap()
         .adopt(Default::default());
     {
         let mut save = app
@@ -3556,7 +3556,7 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
         }]);
     }
     assert!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
             .description_of(&id)
             .is_none(),
         "the premise: A's live baseline does not describe this mint"
@@ -3571,7 +3571,7 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
     }
 
     assert!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
             .description_of(&id)
             .is_none(),
         "⛔ PREPARING A CANDIDATE INSTALLED ITS MINTED BASELINE OVER THE PLAYING \

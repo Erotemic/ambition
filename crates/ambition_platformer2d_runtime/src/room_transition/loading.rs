@@ -19,7 +19,7 @@ use ambition_load::{
 use ambition_platformer2d_publication as publication;
 use ambition_platformer2d_world::rooms as world_rooms;
 
-use ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent;
+use ambition_platformer2d_session::lifecycle_commit::LifecycleIntent;
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
 const TARGET_LOOKUP_WORK: &str = "room-transition.target-lookup";
@@ -235,7 +235,7 @@ pub struct ActiveRoomTransitionLoad {
     /// recorded while a restore is outstanding prepares and commits from LIVE
     /// state, which is exactly right.
     pub checkpoint_operation: Option<
-        ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey,
+        ambition_platformer2d_session::checkpoint::CheckpointOperationKey,
     >,
     pub construction_preflight_duration: Option<Duration>,
     pub asset_manifest_duration: Option<Duration>,
@@ -511,7 +511,7 @@ pub fn fail_room_transition_commit_precondition(
 pub struct ConfirmedRoomTransitionIntent<'w, 's> {
     pending: Res<
         'w,
-        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+        ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
     >,
     host: Res<'w, crate::SimulationHost>,
     boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
@@ -579,7 +579,7 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
     /// The last withdrawal, once the frame it happened on is confirmed.
     fn withdrawn(
         &self,
-    ) -> Option<&ambition_platformer2d_actor_monolith::session::lifecycle_commit::WithdrawnIntent> {
+    ) -> Option<&ambition_platformer2d_session::lifecycle_commit::WithdrawnIntent> {
         let confirmed = confirmation_frame_for_host(
             *self.host,
             self.boundary.as_deref(),
@@ -588,7 +588,7 @@ impl ConfirmedRoomTransitionIntent<'_, '_> {
         self.pending.confirmed_withdrawal(confirmed)
     }
 
-    fn get(&self) -> Option<&ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingIntent> {
+    fn get(&self) -> Option<&ambition_platformer2d_session::lifecycle_commit::PendingIntent> {
         let confirmed = confirmation_frame_for_host(
             *self.host,
             self.boundary.as_deref(),
@@ -681,7 +681,7 @@ pub fn begin_room_transition_load_system(
         // checkpoint horizon, and "no accepted restore" is the resource's own
         // `None` (measured 2026-10-03 over app_it, the demo suites and the lib
         // tests).
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore>,
     ),
     // `Option`, and absence is a legal answer: a composition with no registered characters is
     // the ordinary case, and an empty registry means "no character states a default" — which is
@@ -895,7 +895,7 @@ pub fn begin_room_transition_load_system(
     }
 
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
-    let Some(ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingIntent {
+    let Some(ambition_platformer2d_session::lifecycle_commit::PendingIntent {
         frame: recorded_on,
         kind: intent,
     }) = pending.get()
@@ -1329,7 +1329,7 @@ pub fn begin_room_transition_load_system(
             .or(released_ledger.as_ref())
             .or(construction_services.6.as_deref());
         let door_minted = construction_services.7.as_deref().map(|save| {
-            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::minted_baseline_from_save(
+            ambition_platformer2d_items::pickup::minted_horizon::minted_baseline_from_save(
                 save.data(),
             )
         });
@@ -1604,8 +1604,8 @@ pub fn abandon_failed_checkpoint_restore_system(
     // the guard forbids — and what this system used to do — is WRITING it. The
     // note is value-complete because the live operation is right here, so a
     // caller cannot record half of an identity.
-    accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
-    mut abandoned: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation>,
+    accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore>,
+    mut abandoned: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_platformer2d_session::checkpoint::AbandonedCheckpointOperation>,
 ) {
     let Some(active) = state.active.as_mut() else {
         return;
@@ -1674,7 +1674,7 @@ mod tests {
         SimId::placement("hero")
     }
 
-    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
+    use ambition_platformer2d_session::lifecycle_commit::RoomTransitionIntent;
 
     fn request(target_room: &str) -> LifecycleIntent {
         request_by(target_room, ae::Vec2::ZERO, hero())
@@ -1694,7 +1694,7 @@ mod tests {
     /// A rebuild with nobody in it, of the same room a `request` crosses into.
     fn rebuild(target_room: &str) -> LifecycleIntent {
         LifecycleIntent::ReconstituteRoom(
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomReconstitutionIntent {
+            ambition_platformer2d_session::lifecycle_commit::RoomReconstitutionIntent {
                 target_room: target_room.to_string(),
             },
         )
@@ -1983,12 +1983,12 @@ mod tests {
 #[cfg(test)]
 mod checkpoint_failure_tests {
     use super::*;
-    use ambition_platformer2d_actor_monolith::session::checkpoint::{
+    use ambition_platformer2d_session::checkpoint::{
         AcceptedCheckpointRestore, AcceptedRestore, RestoreCancellation, SessionCheckpointOperations, SessionCheckpointOutcomes,
     };
     use crate::room_transition::commit::terminalize_abandoned_checkpoint_restore_system;
     use bevy::prelude::IntoScheduleConfigs;
-    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+    use ambition_platformer2d_session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -2032,7 +2032,7 @@ mod checkpoint_failure_tests {
         app.init_resource::<RoomTransitionLoadState>();
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointState::default(),
+            ambition_platformer2d_session::checkpoint::SessionCheckpointState::default(),
         );
         app.init_resource::<PendingLifecycleCommit>();
 
@@ -2168,7 +2168,7 @@ mod checkpoint_failure_tests {
         app.init_resource::<RoomTransitionLoadState>();
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointState::default(),
+            ambition_platformer2d_session::checkpoint::SessionCheckpointState::default(),
         );
         app.init_resource::<PendingLifecycleCommit>();
         assert!(app

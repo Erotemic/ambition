@@ -14,7 +14,6 @@ pub mod content_ownership;
 pub mod control_frame;
 pub mod determinism;
 pub mod lifecycle;
-pub mod migration_matrix;
 pub mod module_size;
 pub mod session_world;
 
@@ -22,8 +21,7 @@ use crate::model::CustomMeta;
 
 /// Uniform metadata for every custom-scanner policy, so the ownership/watch-path
 /// self-test and a future `xtask test-affected` see custom and declarative
-/// policies through one surface. (`migration_matrix` is a completeness self-check,
-/// not a scanned guard, so it has no CustomMeta.)
+/// policies through one surface.
 pub fn metas() -> Vec<CustomMeta> {
     let mut out = Vec::new();
     out.extend(module_size::metas());

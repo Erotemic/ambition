@@ -44,7 +44,7 @@ import sys
 #: qualified path wraps, and the wrapped form carries a trailing comma:
 #:
 #:     ResMut<
-#:         ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+#:         ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
 #:     >,
 #:
 #: `\s*>` cannot cross that comma, so `room_transition/commit.rs` — the system

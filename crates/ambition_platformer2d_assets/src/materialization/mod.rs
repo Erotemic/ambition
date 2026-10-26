@@ -1,0 +1,855 @@
+//! Engine-owned character loading and materialization.
+//!
+//! Applications declare characters and submit `CharacterLoadDemand`; the engine
+//! resolves those demands into `CharacterLoadStates`. Demand carries only the
+//! character tokens that require art, so room staging, match rosters, startup,
+//! and worn-identity changes share the same materialization path.
+
+use ambition_characters::prepared::PreparedCharacterRegistry;
+pub mod audit;
+pub mod definition;
+pub mod presentation;
+
+pub use audit::{
+    audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
+    CharacterCapabilityGap,
+};
+pub use definition::CharacterDefinitionAppExt;
+pub use presentation::{
+    authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
+    provider_of_character,
+    publish_body_presentation_sources,
+};
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use bevy::prelude::*;
+
+use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_persistence::settings::VisualQualityBudget;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
+
+use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
+
+use ambition_characters::load_demand::CharacterLoadDemand;
+
+// ⭐ NO START RATION (2026-10-04, `docs/planning/engine/readiness-driven-room-transitions.md`).
+//
+// Every demanded character begins loading on the frame it is demanded. The
+// ration that stood here (`MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 1`, with a
+// cost read off the quality tier) guessed a character's cost and paced the
+// STARTS of its decodes, which run off the main thread anyway. It charged a
+// part-drawn character, a few hundred thousand pixels, as much as a baked Full
+// sheet (~470 MB), and it applied behind a loading cover too: the hall of
+// characters waited 137 frames, 2.8 s of `asset_wait`, for about 0.5 s of real
+// decode work (Jon's GPU host, 2026-10-04).
+//
+// The hitch the ration was measured against (2026-08-29, 2026-09-01) is the
+// render-world upload of many finished images in one frame. That stage is paced
+// where it happens, by Bevy's per-frame upload budget
+// (`RenderAssetBytesPerFrame`, set by the app host: on while gameplay is
+// visible, lifted while a loading cover hides the frame). One pacing authority,
+// at the expensive stage, spending real bytes.
+
+/// Why a demanded character has no art.
+///
+/// These are separate variants because they need different responses, and
+/// collapsing them into one `None` is what made a typo look like a slow decode
+/// for as long as this code has existed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CharacterLoadFailure {
+    /// No loaded content declares this token under any key. A misspelling, or a
+    /// character from a provider that is not part of this composition. Waiting
+    /// will never fix it.
+    UnknownCharacter,
+    /// Content declares it, but no sheet DESCRIPTION resolved: neither a
+    /// provider-authored sheet nor the engine's baked index knows the target its
+    /// catalog row names. The character draws the marked placeholder.
+    NoSheetResolved,
+    /// The sheet resolved and the IMAGE did not — the asset catalog gated the
+    /// load, or the path it produced reaches nothing.
+    NoImageResolved,
+    /// This composition has NO asset pipeline at all — a headless simulation, an
+    /// RL rollout, an art-free shell. Legitimate, and a different fact from "the
+    /// sheet did not resolve": nothing was ever going to decode.
+    ///
+    /// It is a TERMINAL state rather than leaving the demand pending, because
+    /// §4.9's invariant forbids silence, and a headless run whose reveal barrier
+    /// waits forever on art that cannot exist is exactly that silence with extra
+    /// steps.
+    NoAssetPipeline,
+}
+
+impl CharacterLoadFailure {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::UnknownCharacter => "no loaded content declares this character",
+            Self::NoSheetResolved => {
+                "declared, but no sheet DESCRIPTION resolved: neither an authored \
+                 sheet nor the baked index knows the target its catalog row names"
+            }
+            Self::NoImageResolved => {
+                "the sheet resolved and its IMAGE did not: the asset catalog \
+                 gated the load, or its path reaches nothing"
+            }
+            Self::NoAssetPipeline => "this composition has no asset pipeline (headless / art-free)",
+        }
+    }
+}
+
+/// Terminal state of one demanded character.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CharacterLoadOutcome {
+    Ready,
+    Failed(CharacterLoadFailure),
+}
+
+/// Canonical character ids staged during this [`SessionScopeId`]. This is a cumulative
+/// session-capability set, not a live roster: presentation-source authorization only adds sources
+/// and clears them when a new session begins, so this set follows the same lifetime.
+#[derive(Default, Debug, Clone)]
+pub struct StagedCast {
+    scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ids: BTreeSet<String>,
+}
+
+impl StagedCast {
+    /// Every character id THIS SESSION has staged, in deterministic order —
+    /// including the ones whose art failed, because a fighter with no sheet is
+    /// still in the fight and still needs its cues authorized.
+    ///
+    /// Accumulates for the session's lifetime; see the type docs for why that is the
+    /// contract and not an oversight.
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.ids.iter().map(String::as_str)
+    }
+
+    pub fn contains(&self, character_id: &str) -> bool {
+        self.ids.contains(character_id)
+    }
+
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// The session this cast belongs to, once one has claimed it.
+    pub fn scope(&self) -> Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId> {
+        self.scope
+    }
+
+    /// Bind the cast to the session that is now current, dropping the previous
+    /// session's cast.
+    ///
+    /// * `None` — no session is live (startup, the title, a select screen). A
+    ///   cast bound to a session that has ended has left with it: drop it and
+    ///   become unscoped. What is staged now belongs to the NEXT session.
+    /// * the cast has no scope — ADOPT this one and keep the ids. Startup and a
+    ///   select screen stage characters before the session that uses them is
+    ///   minted, and treating that as a foreign cast would drop exactly the
+    ///   characters that are about to play.
+    /// * a different scope — this is a new session. The previous cast has left.
+    pub fn enter_scope(
+        &mut self,
+        scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ) {
+        let Some(scope) = scope else {
+            if self.scope.take().is_some() {
+                self.ids.clear();
+            }
+            return;
+        };
+        match self.scope {
+            None => self.scope = Some(scope),
+            Some(current) if current == scope => {}
+            Some(_) => {
+                self.ids.clear();
+                self.scope = Some(scope);
+            }
+        }
+    }
+
+    fn stage(&mut self, character_id: impl Into<String>) {
+        self.ids.insert(character_id.into());
+    }
+}
+
+/// Every demanded character's outcome. §4.9's readiness invariant reads this:
+/// every staged character must reach `Ready` or a NAMED terminal `Failed` before
+/// the reveal barrier opens — never "still unknown".
+///
+/// Append-only, and keyed by the demanded TOKEN rather than by character id, so a
+/// misspelled or display-name demand is reported back in the spelling the caller
+/// used. That makes it a diagnostic history and NOT a roster — see [`StagedCast`],
+/// which it carries alongside.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct CharacterLoadStates {
+    by_token: BTreeMap<String, CharacterLoadOutcome>,
+    cast: StagedCast,
+}
+
+impl CharacterLoadStates {
+    pub fn outcome(&self, token: &str) -> Option<CharacterLoadOutcome> {
+        self.by_token.get(token).copied()
+    }
+
+    pub fn is_ready(&self, token: &str) -> bool {
+        self.outcome(token) == Some(CharacterLoadOutcome::Ready)
+    }
+
+    /// Every token that reached a named failure, with its reason.
+    pub fn failures(&self) -> impl Iterator<Item = (&str, CharacterLoadFailure)> {
+        self.by_token
+            .iter()
+            .filter_map(|(token, outcome)| match outcome {
+                CharacterLoadOutcome::Failed(failure) => Some((token.as_str(), *failure)),
+                CharacterLoadOutcome::Ready => None,
+            })
+    }
+
+    /// Every token ever demanded of this process, in deterministic order.
+    ///
+    /// Named for what it is. This is NOT the cast: it accumulates across rooms and
+    /// across sessions and it is keyed by demand spelling. Ask [`Self::cast`] who
+    /// is on stage.
+    pub fn staged_tokens(&self) -> impl Iterator<Item = &str> {
+        self.by_token.keys().map(String::as_str)
+    }
+
+    /// The current session's cast, by canonical character id.
+    pub fn cast(&self) -> &StagedCast {
+        &self.cast
+    }
+
+    pub fn cast_mut(&mut self) -> &mut StagedCast {
+        &mut self.cast
+    }
+
+    pub fn len(&self) -> usize {
+        self.by_token.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_token.is_empty()
+    }
+
+    /// Settle one demanded token: its outcome into the history, its canonical id
+    /// into the cast.
+    ///
+    /// One method for both writes, because a token that reached a terminal state
+    /// without joining the cast is a character who loaded and then made no sound.
+    fn record(&mut self, character_id: String, outcome: CharacterLoadOutcome) {
+        self.cast.stage(&character_id);
+        self.by_token.insert(character_id, outcome);
+    }
+}
+
+/// Marker that the engine character-materialization service is installed.
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct CharacterMaterializationService;
+
+/// Ensure a registered character is declared in the sprite table before a
+/// synchronous materialization demand can classify its token as unknown.
+///
+/// Declaration is idempotent metadata registration, not sprite decoding.
+pub fn declare_registered_character_into(
+    sprites: &mut CharacterSpriteAssets,
+    registry: &PreparedCharacterRegistry,
+    character_id: &str,
+) {
+    if !sprites.sheet_state(character_id).is_unknown() {
+        return;
+    }
+    if let Some(prepared) = registry.get(character_id) {
+        sprites.declare(prepared.id.as_str());
+    }
+}
+
+/// Decode every outstanding demand, recording a terminal outcome for each.
+///
+/// The engine's ONE decode path. Deliberately a free function as well as a
+/// system, because a host that builds an asset manifest needs the decode to have
+/// happened *synchronously* before it enumerates handles for the reveal barrier —
+/// but the system below means an application that never calls it still gets its
+/// characters materialized.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_character_demand(
+    demand: &mut CharacterLoadDemand,
+    states: &mut CharacterLoadStates,
+    sprites: &mut CharacterSpriteAssets,
+    // The FX set, so a realized character's own effect sheets are decoded
+    // beside its pages (`demand_character_fx_sheets`): character-owned FX art
+    // follows the character, behind the same cover, instead of being resident
+    // in every room from boot.
+    fx: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
+    // Sheets this app's PROVIDERS authored. A source of sheet
+    // metadata that is not the engine's baked table, which is what lets a game
+    // outside this workspace ship a character of its own.
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    // The registered definitions. A character may be declared HERE and nowhere
+    // else — that is the point of the single seam — so this is a real source of
+    // sheets, not decoration.
+    registry: &PreparedCharacterRegistry,
+    asset_catalog: &Platformer2dAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    quality: Option<&VisualQualityBudget>,
+) {
+    // Every pending token is staged, declared and loaded on the frame it is
+    // demanded, so the cast is whole immediately and the room bills its full
+    // weight at once (see the note above: no start ration). The reveal barrier
+    // is held by `inspect_demanded_characters` in the host's
+    // `room_transition_assets` until each one is realized.
+    for character_id in demand.take() {
+        // Declared BEFORE any decode: the cast is a roster, not a report on the
+        // art, and it must be right for a character whose sheet never resolves.
+        declare_registered_character_into(sprites, registry, &character_id);
+        states.cast_mut().stage(&character_id);
+        // They are different bugs.
+        if matches!(sprites.sheet_state(&character_id), CharacterSheetState::Unknown) {
+            states.record(
+                character_id,
+                CharacterLoadOutcome::Failed(CharacterLoadFailure::UnknownCharacter),
+            );
+            continue;
+        }
+        let materialization = crate::character_sprites::materialize_declared_character_sprite(
+            sprites,
+            authored_sheets,
+            registry,
+            asset_catalog,
+            asset_server,
+            layouts,
+            quality,
+            &character_id,
+        );
+        let outcome = if materialization.is_ready() {
+            let owed = crate::character_sprites::demand_character_fx_sheets(
+                fx,
+                registry,
+                &character_id,
+                asset_server,
+                layouts,
+                // The same budget the pages beside it just used: a fighter's own
+                // effect art must not arrive at a different tier from the
+                // fighter.
+                quality,
+            );
+            if !owed.is_empty() {
+                bevy::log::info!(
+                    target: "ambition_platformer2d::fx_sheets",
+                    "character '{character_id}' realized; its moveset names FX sheets {owed:?}, \
+                     decoded with it"
+                );
+            }
+            CharacterLoadOutcome::Ready
+        } else {
+            CharacterLoadOutcome::Failed(match materialization {
+                crate::character_sprites::SpriteMaterialization::NoSheet => {
+                    CharacterLoadFailure::NoSheetResolved
+                }
+                crate::character_sprites::SpriteMaterialization::NoImage => {
+                    CharacterLoadFailure::NoImageResolved
+                }
+                crate::character_sprites::SpriteMaterialization::Ready => {
+                    unreachable!("the ready arm is handled above")
+                }
+            })
+        };
+        states.record(character_id, outcome);
+    }
+}
+
+/// The portrait TARGET a registered definition named, if any.
+///
+/// It resolves the token the way the sprite table does, so a UI asking for a
+/// character's face and the materializer asking for its body agree about which
+/// character they are talking about.
+pub fn registered_portrait_target<'a>(
+    registry: &'a PreparedCharacterRegistry,
+    sprites: &CharacterSpriteAssets,
+    token: &str,
+) -> Option<&'a str> {
+    let id = match sprites.sheet_state(token) {
+        CharacterSheetState::Declared { character_id } => character_id,
+        _ => token,
+    };
+    registry.get(id).and_then(|p| p.portrait.as_deref())
+}
+
+/// Declare every registered character into the sprite read model.
+///
+/// The prepared registry is a source of declarations, and this is where it becomes one.
+///
+/// Idempotent, and cheap: declaring does NOT decode. It only teaches the table
+/// that the id exists and which display name aliases it, which is what turns
+/// `Unknown` (a typo — waiting will not help) into `Declared` (a decode that has
+/// not happened yet). Those two answers demand different responses, which is why
+/// §7.1 separated them in the first place.
+pub fn declare_registered_characters(
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`); its change is that source's change.
+    cast: ambition_characters::prepared::SessionCast,
+    // The sheet table lives INSIDE `GameAssets`, not as a standalone resource.
+    assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
+) {
+    let (Some(registry), Some(mut assets)) = (cast.get(), assets) else {
+        // No registered characters, or no sprite table at all (an art-free
+        // composition). The demand path reports `NoAssetPipeline` for the latter,
+        // which is a named terminal state, not silence.
+        return;
+    };
+    if !cast.is_changed() {
+        return;
+    }
+    let sprites = &mut assets.characters;
+    for id in registry.ids() {
+        if matches!(sprites.sheet_state(id), CharacterSheetState::Unknown) {
+            sprites.declare(id);
+        }
+    }
+}
+
+/// A body that put on an identity needs that identity's art.
+///
+/// Every worn body, not just the primary player. The host's version of this
+/// watched `With<PrimaryPlayer>` only, which is correct for exactly one game mode
+/// and wrong for the one this plan exists to reach: in a versus match every
+/// fighter is a worn body, and only player one would have had a sheet.
+///
+/// `Changed` covers first appearance AND every later swap, so a runtime form
+/// change into another declared sheet (Mary-O growing into `mary_o_tall`) demands
+/// its art the tick the identity changes.
+/// Ask for the whole cast the moment a ROSTER names it, not when its bodies spawn.
+///
+/// ⛔⛔ THIS IS THE UPSTREAM HALF, AND ITS ABSENCE IS A MEASURED HITCH.
+/// `demand_worn_character_sheets` keys on the worn identity — the instant a
+/// BODY exists — which is the opening bell. The first hardware profile
+/// (2026-08-29) caught the consequence: **+307 megapixels of 4096x4096 sheets
+/// decoded inside a 2.5s window whose worst frame was 516ms**, because one
+/// character is ~7 sheets and ~470MB of RGBA and none of it was asked for until
+/// the fighter stood on the stage.
+///
+/// ⭐ The ROSTER knows the cast strictly earlier: `MatchParticipant::character` is
+/// a `CharacterId` and the roster is published at select/prepare time, before any
+/// body is seated. Moving the consumer upstream widens what it sees — the select
+/// screen knows who is playing, and a spawn only knows who just arrived.
+///
+/// ⚠ ADDITIVE, NOT A REPLACEMENT. `demand_worn_character_sheets` stays: a body
+/// can appear that no roster named (a summon, a possession, a dev spawn), and
+/// demand is a SET, so asking twice for the same character is free. This system
+/// makes the roster case EARLY, it does not make the spawn case wrong.
+pub fn demand_rostered_character_sheets(
+    roster: Option<Res<ambition_match::MatchParticipantRoster>>,
+    demand: Option<ResMut<CharacterLoadDemand>>,
+) {
+    let (Some(roster), Some(mut demand)) = (roster, demand) else {
+        return;
+    };
+    // Only when the roster itself moved: this walks every participant, and the
+    // answer cannot change while the roster does not.
+    if !roster.is_changed() {
+        return;
+    }
+    for participant in &roster.participants {
+        demand.request(participant.character.as_str());
+        // The look the seat is drawn in is its art: demanded with it.
+        if let Some(skin) = participant.skin.as_ref() {
+            demand.request(skin.as_str());
+        }
+    }
+}
+
+pub fn demand_worn_character_sheets(
+    worn: Query<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::actor::WornSkin>,
+    )>,
+    assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
+    states: Option<Res<CharacterLoadStates>>,
+    demand: Option<ResMut<CharacterLoadDemand>>,
+) {
+    let Some(mut demand) = demand else {
+        return;
+    };
+    // ⛔⛔ NOT `Changed<WornCharacter>`, WHICH THIS WAS, AND IT SAW NOTHING. A
+    // room's bodies arrive with change ticks older than this system's last run
+    // (measured in `gnu_ton_arena`: four worn bodies, `Changed` matched zero on
+    // the very first frame they existed), so the one road for "a body appeared
+    // that nothing staged" never fired — and a giant's hands, which no room list
+    // names, drew as flat boxes forever.
+    //
+    // ⇒ Ask the question the name promises: is a body WEARING a character whose
+    // art is not realized? Demand is a set and the lookup is a hash, so asking
+    // every frame is cheap. With a sheet table, "not realized" is a sheet that is
+    // only DECLARED (a retired realization comes back this way too); without one
+    // it is a character the ledger has no outcome for. A character whose load
+    // already FAILED is not asked again: the materializer recorded why, and
+    // re-asking would re-fail every frame.
+    // A skin is art the body wears too: its sheet is asked for the same way.
+    for id in worn
+        .iter()
+        .flat_map(|(identity, skin)| std::iter::once(identity.id()).chain(skin.map(|skin| skin.id())))
+    {
+        let sheet = assets.as_deref().map(|assets| assets.characters.sheet_state(id));
+        // A realized sheet is the steady state and needs no ledger lookup.
+        if matches!(sheet, Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(_))) {
+            continue;
+        }
+        let outcome = states.as_ref().and_then(|states| states.outcome(id));
+        let failed = outcome.is_some_and(|outcome| !matches!(outcome, CharacterLoadOutcome::Ready));
+        let unrealized = match sheet {
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Declared { .. }) => true,
+            // Asked once, so the materializer can NAME it (UnknownCharacter).
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Unknown) => outcome.is_none(),
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(_)) => false,
+            None => outcome.is_none(),
+        };
+        if unrealized && !failed {
+            demand.request(id);
+        }
+    }
+}
+
+/// A quality Apply converges the art a session is already showing.
+///
+/// The transition is three moves and no new machinery:
+///
+/// 1. compare each resident realization's TIER against the active one, and its
+///    sheet generation against the current one (a sheet publication is the
+///    same convergence: `content::sprite_reload`);
+/// 2. re-demand the stale ones a body is WEARING, without retiring them: the
+///    materializer re-realizes a `Ready`-at-another-tier sheet in place and the
+///    renderer rebinds each body once the new texture is loaded, so no body is
+///    ever between two realizations. ⛔ Retiring first (the shape until
+///    2026-09-03) put every in-use body on the placeholder rectangle for as long
+///    as the ration took to reach it -- one character per frame at Full, 129
+///    frames for the hall -- whenever the transition landed after the cover
+///    lifted, which a headless boot and a host whose settings apply a frame late
+///    both do;
+/// 3. retire the stale ones nobody wears -- dropping the
+///    [`CharacterSpriteAsset`](ambition_sprite_sheet::character::CharacterSpriteAsset)
+///    drops its strong `Handle<Image>`, and Bevy frees the image once the last
+///    strong handle goes, so residency FALLS with no evictor anywhere.
+///
+/// Logical identity never moves: the same `character_id`, the same demand token,
+/// the same body entity, the same gameplay authority. Only the physical
+/// realization is replaced.
+///
+/// `UserSettings`, the same source the materializer reads. Comparing
+/// against one authority and stamping from another is how a transition becomes a
+/// loop: every frame retires a realization that is immediately remade with the
+/// tier it just failed. The in-use half stays stale until the ration reaches it,
+/// so this runs every frame of a transition; it requests each token once
+/// (pending tokens are skipped) and logs once per token set.
+pub fn converge_character_residency_to_active_quality(
+    // NOT `Res`: this writes. But it is READ first (see below), because a
+    // `ResMut` deref-mut marks `GameAssets` changed for every reader downstream,
+    // every frame, forever.
+    assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
+    demand: Option<ResMut<CharacterLoadDemand>>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
+    // WHO STILL USES A RETIRED SHEET: a body wearing the character, or drawn
+    // in it as a skin. Only those are re-demanded; the rest stay retired until
+    // something asks for them again.
+    worn: Query<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::actor::WornSkin>,
+    )>,
+) {
+    let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
+        return;
+    };
+    // ONE AUTHORITY: the published resolution when the render side is
+    // installed, the same resolution derived from settings when it is not --
+    // never `resolved_budget()` alone, which ignores a boot override the room
+    // path honours and split one cast across two tiers (2026-09-03).
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        resolved.as_deref(),
+        settings.as_deref(),
+    );
+    let budget = Some(quality.budget.clone());
+    // ONE tier, the user's, everywhere. The room a character stands in has no
+    // say (Jon, 2026-09-02: no lower tier for gallery previews).
+    let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
+    // Read through the immutable deref: nothing is stale on almost every frame,
+    // and taking the mutable borrow anyway would republish `GameAssets` at 60Hz.
+    let stale = assets.characters.stale_realizations(active);
+    if stale.is_empty() {
+        return;
+    }
+    let in_use: std::collections::BTreeSet<&str> = worn
+        .iter()
+        .flat_map(|(worn, skin)| std::iter::once(worn.id()).chain(skin.map(|skin| skin.id())))
+        .collect();
+    let (wearing, unworn): (Vec<(String, String)>, Vec<(String, String)>) = stale
+        .into_iter()
+        .partition(|(_, id)| in_use.contains(id.as_str()));
+    let pending: std::collections::BTreeSet<String> =
+        demand.pending().map(str::to_string).collect();
+    let re_demanded: Vec<String> = wearing
+        .iter()
+        .map(|(_, id)| id.clone())
+        .filter(|id| !pending.contains(id))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let retired = if unworn.is_empty() {
+        std::collections::BTreeSet::new()
+    } else {
+        assets
+            .characters
+            .retire_realizations(unworn.into_iter().map(|(token, _)| token))
+    };
+    if re_demanded.is_empty() && retired.is_empty() {
+        // Everything stale is already on its way through the ration.
+        return;
+    }
+    bevy::log::info!(
+        target: "ambition_platformer2d::character_sprites",
+        "realizations stale at {active:?} or sheet generation {}: re-demanded {} in use \
+         (kept drawable until re-realized), retired {} unworn",
+        ambition_sprite_sheet::baked_sheet_rons::current().id(),
+        re_demanded.len(),
+        retired.len(),
+    );
+    demand.request_all(re_demanded);
+}
+
+/// A new session gets a new cast.
+///
+/// `ActiveAudioSelection` resets on session select; the cast has to reset with it or the reset
+/// means nothing.
+///
+/// Runs before the materializer so a session that begins and stages in the same
+/// frame keeps what it staged.
+pub fn retire_previous_session_cast(
+    scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+    states: Option<ResMut<CharacterLoadStates>>,
+) {
+    let (Some(scope), Some(mut states)) = (scope, states) else {
+        return;
+    };
+    let current = scope.current();
+    if states.cast().scope() != current {
+        states.cast_mut().enter_scope(current);
+    }
+}
+
+/// The standing materializer. No-ops without an asset pipeline (headless, art-free
+/// shells) exactly like the room barrier does, so a sim-only build pays nothing.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_demanded_character_sheets(
+    demand: Option<ResMut<CharacterLoadDemand>>,
+    states: Option<ResMut<CharacterLoadStates>>,
+    assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
+    // Sheets this app's providers authored. REQUIRED like the catalog and for
+    // the same reason: it is authority, and `Option<Res<..>>` on authority is
+    // how a missing registration turns into a silent placeholder instead of a
+    // loud one. `SheetRegistryPlugin` initialises it, and the engine's own
+    // characters resolve identically when it is empty.
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+    // The prepared cast: the one answer to which sheet each character wears (see
+    // `sheet_for_prepared_character`). REQUIRED, like the catalog: it holds a
+    // definition for every catalog row, so a composition with characters has it.
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`).
+    cast: ambition_characters::prepared::SessionCast,
+    asset_catalog: Option<Res<Platformer2dAssetCatalog>>,
+    asset_server: Option<Res<AssetServer>>,
+    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
+) {
+    let Some(registry) = cast.get() else {
+        return;
+    };
+    // The ledger and the demand come first and separately: the no-pipeline path
+    // still has to SETTLE what was staged, so it cannot be inside a destructuring
+    // that also consumes them.
+    let (Some(mut demand), Some(mut states)) = (demand, states) else {
+        return;
+    };
+    if demand.is_empty() {
+        return;
+    }
+
+    let (Some(mut assets), Some(asset_catalog), Some(asset_server), Some(mut layouts)) =
+        (assets, asset_catalog, asset_server, layouts)
+    else {
+        // No asset pipeline in this composition (headless sim, RL rollout, art-free
+        // shell). SETTLE the demand with a NAMED terminal state rather than leaving
+        // it pending: §4.9 forbids silence, and a reveal barrier waiting forever on
+        // art that was never going to exist is that silence with extra steps.
+        for character_id in demand.take() {
+            // An art-free composition still emits cues, and authorization is
+            // deliberately not gated on the asset pipeline, so the cast is staged
+            // here too.
+            states.record(
+                character_id,
+                CharacterLoadOutcome::Failed(CharacterLoadFailure::NoAssetPipeline),
+            );
+        }
+        return;
+    };
+    // THE SAME AUTHORITY THE ROOM PATH READS. `ResolvedVisualQuality` lives in
+    // persistence so this crate can read it without the render crate; when no
+    // publisher is installed it is derived through the same function, so the
+    // boot override wins on every road or on none.
+    let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
+        resolved.as_deref(),
+        settings.as_deref(),
+    );
+    let budget = Some(quality.budget.clone());
+    let assets = &mut *assets;
+    materialize_character_demand(
+        &mut demand,
+        &mut states,
+        &mut assets.characters,
+        &mut assets.fx,
+        &authored_sheets,
+        registry,
+        &asset_catalog,
+        &asset_server,
+        &mut layouts,
+        budget.as_ref(),
+    );
+}
+
+/// Installs the engine's character load pipeline.
+///
+/// Added unconditionally by the host simulation plugin so no application can compose the
+/// engine without it.
+pub struct CharacterMaterializationPlugin;
+
+impl Plugin for CharacterMaterializationPlugin {
+    fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
+        // The rigged-sprite switch: the composition's answer when it inserted
+        // one, else the environment's. On unless `AMBITION_RIGGED_SPRITES=0`.
+        if !app
+            .world()
+            .contains_resource::<ambition_sprite_sheet::character::rigged::RiggedSpriteAdmission>()
+        {
+            app.insert_resource(ambition_sprite_sheet::character::rigged::RiggedSpriteAdmission::from_env());
+        }
+        app.init_resource::<CharacterLoadDemand>()
+            .init_resource::<CharacterLoadStates>()
+            // The provider-authored sheet registry (U1). Initialised HERE, by
+            // the plugin that owns the decode, for the same reason this plugin
+            // is added unconditionally: a required resource that only some
+            // composition installs is a system that silently stops running, and
+            // `materialize_demanded_character_sheets` failing its parameter
+            // validation is exactly that failure wearing a panic. Empty is the
+            // correct state for an app whose providers author no sheets.
+            .init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
+            .init_resource::<CharacterMaterializationService>()
+            .init_resource::<audit::LateMatchCriticalArt>()
+            
+            .add_systems(
+                sim,
+                // The move clock is the emitter this whole attribution exists for, so a
+                // frame-scheduled publish would hand it stale (or missing) attribution on
+                // exactly the ticks a rollback resimulates.
+                (
+                    presentation::publish_body_presentation_sources,
+                    // G1/H1: the BACKSTOP for a projectile that reached the world
+                    // without a source. The materializers stamp it themselves —
+                    // this slot cannot cover a bolt that spawns and hits inside one
+                    // tick, because immediate projectile requests materialize later
+                    // in this same set and step immediately.
+                    presentation::inherit_projectile_presentation_sources,
+                )
+                    .chain()
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
+                    .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback),
+            )
+            
+            
+            
+            
+            
+            .add_systems(
+                Update,
+                (
+                    // Declare before anything asks: a character registered only
+                    // through `register_character` must not read as `Unknown`.
+                    declare_registered_characters,
+                    // The cast belongs to ONE session.
+                    retire_previous_session_cast,
+                    // EARLIEST FIRST: the roster names the cast before any body
+                    // is seated, so this is the one that gets the decode started
+                    // during preparation instead of at the opening bell.
+                    demand_rostered_character_sheets,
+                    demand_worn_character_sheets,
+                    // Before the drain: the audit reads OUTSTANDING demand, and the
+                    // materializer empties it.
+                    // Exclusive, so only while a demand is outstanding (with none
+                    // there is nothing to be unable to do).
+                    audit::report_character_capability_gaps.run_if(
+                        |demand: Option<Res<CharacterLoadDemand>>| demand.is_some_and(|demand| demand.pending().next().is_some()),
+                    ),
+                    // G4/H3: the declaration authorities, compared. Gated on any of
+                    // the THREE changing rather than run every frame — it walks all
+                    // of them, and the answer can only change when one does.
+                    //
+                    // The condition has to name every input the audit reads, or it is a claim
+                    // about invalidation that the schedule does not make.
+                    audit::report_character_authority_conflicts.run_if(
+                        bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
+                            CharacterCatalog,
+                        >
+                        .or_else(
+                            bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
+                                PreparedCharacterRegistry,
+                            >,
+                        )
+                        .or_else(
+                            bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
+                                ambition_characters::actor::character_catalog::CharacterCatalogOwners,
+                            >,
+                        ),
+                    ),
+                    // AFTER the audit and immediately BEFORE the drain: the
+                    // demand this re-raises is satisfied in the same frame, so
+                    // §4.9's readiness barrier never sees a transient unsettled
+                    // character that a quality change created.
+                    converge_character_residency_to_active_quality,
+                    // Before the decode reads it: whether a sheet drawn wholly
+                    // from parts is realized without its baked pages.
+                    crate::character_sprites::rigged::mirror_rigged_admission,
+                    materialize_demanded_character_sheets
+                        .run_if(
+                            bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,
+                        )
+                        .run_if(
+                            bevy::ecs::schedule::common_conditions::resource_exists::<
+                                PreparedCharacterRegistry,
+                            >,
+                        ),
+                    // After the materializer: a sheet it just realized gets its
+                    // flipbook pages on the same frame. Does nothing unless the
+                    // rigged-sprite trial is admitted.
+                    crate::character_sprites::rigged::attach_rigged_sprite_pages,
+                    // AFTER the materializer has settled the demand: the staged
+                    // cast is what authorizes presentation sources, and the
+                    // ledger is where "staged" is written down.
+                    presentation::authorize_staged_character_presentation_sources,
+                    // ALSO after the materializer, and for the same reason it is
+                    // a different reason: this reads the OUTCOMES the materializer
+                    // just wrote. Ahead of it, a character would be reported late
+                    // on the very frame its load completed.
+                    audit::report_late_match_critical_art.run_if(resource_exists::<ambition_match::ActiveMatch>),
+                )
+                    .chain(),
+            );
+    }
+}
+
+#[cfg(test)]
+mod tests;

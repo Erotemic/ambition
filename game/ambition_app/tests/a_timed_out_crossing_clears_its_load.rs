@@ -12,7 +12,7 @@ use ambition_platformer2d::engine_core::AabbExt as _;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
-use ambition_platformer2d::actors::rooms::passage::ZonePassage;
+use ambition_platformer2d::session::rooms::passage::ZonePassage;
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
 use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkSpec};

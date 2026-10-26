@@ -163,7 +163,7 @@ pub fn compose_ambition_visible_game(
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added by
     // `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_platformer2d::actors::assets::platformer_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_platformer2d::assets::platformer_assets::asset_source_for_profile(
             active_profile,
             &ambition_content::worlds::world_manifest(),
         ),

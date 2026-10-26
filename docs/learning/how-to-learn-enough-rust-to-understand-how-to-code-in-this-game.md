@@ -2455,7 +2455,7 @@ Source entrypoints:
 - [`../../crates/ambition_platformer2d_shared_tangle/src/`](../../crates/ambition_platformer2d_shared_tangle/src/)
 - [`../../crates/ambition_platformer2d_core/src/movement/`](../../crates/ambition_platformer2d_core/src/movement/)
 - [`../../crates/ambition_platformer2d_actor_monolith/src/schedule/`](../../crates/ambition_platformer2d_actor_monolith/src/schedule/)
-- [`../../crates/ambition_platformer2d_actor_monolith/src/session/`](../../crates/ambition_platformer2d_actor_monolith/src/session/)
+- [`../../crates/ambition_platformer2d_session/src/`](../../crates/ambition_platformer2d_session/src/)
 - [`../../crates/ambition_render/src/`](../../crates/ambition_render/src/)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
 - [`../../game/ambition_app/src/app/`](../../game/ambition_app/src/app/)

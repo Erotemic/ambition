@@ -701,7 +701,7 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         ambition_projectiles::LiveProjectile,
         kin(200.0),
         game(3),
-        crate::projectile::ProjectileAllegiance {
+        ambition_projectile_combat::ProjectileAllegiance {
             faction: ActorFaction::Enemy,
             team: Some(ambition_combat::targeting::MatchTeam::new("red")),
         },

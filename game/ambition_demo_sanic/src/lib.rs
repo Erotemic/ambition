@@ -546,7 +546,7 @@ impl Plugin for SanicRulesPlugin {
         app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
         // The act cycle restarts the room on a clear, like Mary-O's level
         // cycle.
-        app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
+        app.add_message::<ambition_platformer2d::session::reset::RoomReplayRequested>();
         // The monitor re-arm reads the admitted replay. A system that reads an
         // unregistered message fails parameter validation and is dropped, so
         // register it here and harnesses need not know.
@@ -714,7 +714,7 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::FeatureWorldOverlayContributions);
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
-        use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
+        use ambition_platformer2d::session::reset::install_attempt_scoped;
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_scoped_systems(sim, self.scope, rules);
         app.add_scoped_systems(sim, self.scope, milestone_sfx);

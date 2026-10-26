@@ -1,0 +1,401 @@
+//! Bevy systems that drive room state from the data types in sibling modules.
+//!
+//! Ticks gate-portal phases (`tick_portal_phases_system`) and detects room
+//! transitions. The portal sprite/ring PRESENTATION
+//! systems live render-side (`ambition_render::rendering::
+//! gate_portal_visuals`, E4 slices 10+20) and consume the phase registry;
+//! pure-data types/phase logic live in `gate_portal`/`metadata`/`room_graph`.
+
+use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut, Without};
+
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_world::rooms::{
+    tick_gate_portal_phase, GatePortalPhases, GatePortalRegistry, LoadingZoneActivation, RoomSet,
+    RoomSfxId,
+};
+use ambition_time::WorldTime;
+
+/// Advance every registered portal's phase based on its controlling
+/// switch's state + the per-phase timer. Pure state update — sprite
+/// visibility + ring rotation are downstream presentation systems.
+///
+/// The switch's "true / false" state is what tells the portal what
+/// it *should* be doing (boot or shutdown); the portal still runs
+/// its own one-shot Opening / Closing animations between Off and
+/// On, so the traversal check (only `On` allows it) remains stable
+/// even when the switch flickers.
+///
+/// this runs in the SIM schedule — `GgrsSchedule` under the shipped
+/// rollback host — so every line below executes on speculative frames and is
+/// re-executed on resimulation. The switch it integrates lives in the
+/// rollback-registered `AmbitionGameSave`; the integral it produces lives in the
+/// rollback-registered [`GatePortalPhases`]. Both halves must rewind together or
+/// the portal opens on a different frame for each peer, and
+/// `detect_room_transition_system` below turns that into a room transition one
+/// peer takes and the other refuses.
+pub fn tick_portal_phases_system(
+    world_time: Res<WorldTime>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
+    portals: Res<GatePortalRegistry>,
+    network: Res<ambition_platformer2d_world::rooms::GateNetworkState>,
+    mut phases: ResMut<GatePortalPhases>,
+) {
+    // Scaled dt — pause / hitstop / bullet-time naturally freezes
+    // or slows the portal boot/shutdown sequence so the ring spin
+    // and one-shot anims stay in sync with everything else.
+    let dt = world_time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    // iteration order over the authored map is arbitrary and that is FINE:
+    // each portal's tick reads only its own switch and writes only its own
+    // phase, so no portal can observe another's update. Nothing here folds an
+    // order-dependent accumulator.
+    for (zone_id, config) in portals.iter() {
+        let commanded_on = match &config.command {
+            ambition_platformer2d_world::rooms::GatePortalCommand::Switch(switch) => save.data().switch(switch),
+            ambition_platformer2d_world::rooms::GatePortalCommand::Dialed => network.holds_open(zone_id),
+        };
+        tick_gate_portal_phase(phases.phase_mut(zone_id), commanded_on, dt);
+    }
+}
+
+// The cooldown has one countdown for each seat the detector visits.
+const _: () = assert!(
+    ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::SEATS
+        == ambition_characters::control::SlotControls::MAX_SLOTS
+);
+
+/// Detect a loading-zone overlap and RECORD the crossing it describes. The host
+/// opens a readiness transaction from that record while the current room remains
+/// authoritative; the actual room load (despawn old, spawn new, place the
+/// recorded body at its arrival) commits only later, once the transaction
+/// authorizes it — and, on a rollback host, once the recording frame is
+/// confirmed.
+///
+/// Attacks may still advance on the detection frame, but replay fixtures confirm
+/// player-position determinism because attacks do not push the player.
+///
+/// Gated by `gameplay_allowed` at the registration site: transitions must not
+/// fire while paused or in dialogue. The host coordinator is unconditional and
+/// is a no-op when no transition transaction is active.
+pub fn detect_room_transition_system(
+    // The room the crossing body is in: its own live room's definition, so
+    // with two live rooms each body crosses its own room's zones (OW1 cut 6a).
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+    >,
+    portals: Res<GatePortalRegistry>,
+    phases: Res<GatePortalPhases>,
+    // A gate ring's live link: where the ring leads now, and the record that
+    // a traveller went in, which lets the link close.
+    mut network: ResMut<ambition_platformer2d_world::rooms::GateNetworkState>,
+    // The transition subjects are the DRIVEN bodies, one per seat: if a driven
+    // body (home avatar or possessed actor) enters an exit/door, THAT body
+    // transitions. Future door restrictions gate on body properties
+    // (size/shape/locomotion), never on "is this the home avatar". Nobody
+    // driving means nobody crosses.
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
+    // Use the movement kernel's `SweepSample` for boundary crossings because collision may zero
+    // velocity at time of impact — which is exactly when `vel * dt` lies, so a body without a
+    // sample travelled nothing rather than a straight line.
+    bodies: Query<
+        (
+            &ambition_platformer2d_core::BodyKinematics,
+            Option<&ae::SweepSample>,
+            Option<&ambition_characters::control::DrivingParticipant>,
+            // The frame the body faces in: the Interact reach's facing gate.
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+            // A body in a passage is already going through a door.
+            bevy::prelude::Has<super::passage::ZonePassage>,
+        ),
+        Without<ambition_combat::death_rules::OutOfPlay>,
+    >,
+    // The triggering body's rollback-stable identity, recorded into the deferred transition so
+    // the confirmed commit transports the body that CROSSED the exit — not whatever is
+    // controlled later, after a possession change.
+    // Its live identity: the stable id in the live room it crosses from, so
+    // the commit finds this body and not another instance's with the same id.
+    sim_ids: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+    // Track B: under a rollback host, defer the transition instead of engaging the
+    // (not-rollback-registered) multi-tick load machine on a speculative frame.
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
+    talkable: ambition_platformer2d_actor_monolith::features::ecs::TalkableBodies,
+    // A room whose game plays passages: a door or a gate starts one, and the
+    // passage records the crossing when its going-in ends (`passage`).
+    passage_rules: ambition_combat::governing_rules::RulesOf<super::passage::ZonePassageRules>,
+    mut commands: bevy::prelude::Commands,
+    mut sfx: ambition_sfx::SfxWriter,
+) {
+    // Each seat's driven body crosses the doors of its own live room, in slot
+    // order (OW1). The intent slot holds one crossing, so the first crossing
+    // admitted is this tick's, and another seat asks again on a later tick.
+    for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let seat = ambition_characters::control::PlayerSlot(index as u8);
+        // A seat that has just crossed waits out its own cooldown. Another
+        // seat's crossing does not hold this one (OW1, customer 2).
+        if sim_state.holds(index) {
+            continue;
+        }
+        let Some(subject_entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat) else {
+            continue;
+        };
+        let Ok((kin, sweep, driver, frame, in_passage)) = bodies.get(subject_entity) else {
+            continue;
+        };
+        if in_passage {
+            continue;
+        }
+        let Some(definition) = rooms.definition_of(subject_entity) else {
+            continue;
+        };
+        // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
+        // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
+        // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
+        // that did not move produces a zero-length sample and the test degrades to
+        // the overlap it always was. The path is read whole — its own end box and
+        // segment — and only when it ends where the body is; otherwise the body is
+        // tested where it stands.
+        let (path_end, delta) = sweep
+            .and_then(|sample| sample.ending_at(kin.pos))
+            .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
+        let wants_interact = slot_gestures.get(seat).buffered();
+        // A zone's edge is its authored link, or, for a gate ring, its live
+        // link: the far ring a terminal dialed. A ring with no link has no
+        // edge, and its portal is shut.
+        let routed = rooms
+            .rooms()
+            .zone_for_player(definition, path_end, delta, wants_interact)
+            .and_then(|zone| match network.route_from(&zone.id) {
+                Some(link) => rooms.rooms().transition_into(definition, &zone.id, &link.far_room, &link.far),
+                None => rooms.rooms().transition_through(definition, &zone.id),
+            });
+        let Some(zone) = routed else {
+            // `warn_once`: a stuck body re-enters this branch every tick, and the
+            // situation is a standing one — the first report is the whole message.
+            // and it costs nothing on the normal path: it runs only after the
+            // swept test has already declined, and only for a body actually
+            // overlapping an authored zone.
+            //
+            // Suppressing that silences the instrument in its own founding scenario.
+            //
+            //  WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
+            // when it did not (ordinary, and still one log level away). Every fact
+            // stays in the message either way. `EdgeExit`/`Walk` need no press, so
+            // they are anomalous whenever they are touched without transitioning.
+            use ae::AabbExt as _;
+            if let Some(touching) = rooms
+                .rooms()
+                .spec(definition)
+                .loading_zones
+                .iter()
+                .find(|zone| kin.collision_box(sweep).strict_intersects(zone.aabb))
+            {
+                let ordinary_unpressed = !wants_interact
+                    && matches!(
+                        touching.activation,
+                        ambition_platformer2d_world::rooms::LoadingZoneActivation::Door
+                    );
+                if ordinary_unpressed {
+                    bevy::log::debug_once!(
+                        target: "crate::rooms",
+                        "the controlled body is touching `{}` (Door) and has not \
+                         pressed interact — ordinary; raised to WARN once a press \
+                         is buffered and the transition still does not fire.",
+                        touching.id,
+                    );
+                    continue;
+                }
+                bevy::log::warn_once!(
+                    target: "crate::rooms",
+                    "the controlled body is TOUCHING loading zone `{}` ({:?}) and the \
+                     transition did not fire. path delta = {:?} (sweep sample {}), \
+                     interact buffered = {wants_interact}. A `Door` needs the press; \
+                     an `EdgeExit` does not. A zero delta on a body that moved means \
+                     the path is being reconstructed from a velocity collision has \
+                     already zeroed.",
+                    touching.id,
+                    touching.activation,
+                    delta,
+                    if sweep.is_some() { "present" } else { "ABSENT" },
+                );
+            }
+            continue;
+        };
+        // A body the press can talk to, nearer than the door, keeps the press: an
+        // NPC standing in front of a door is talked to, and the door is used from
+        // its own side. The conversation opens later this tick, in the feature
+        // interaction phase.
+        if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
+            let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
+            let reach = ambition_platformer2d_actor_monolith::features::ecs::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity));
+            if talkable.nearest_in_reach(subject_entity, &reach).is_some_and(|talk| {
+                !ambition_platformer2d_actor_monolith::features::ecs::InteractReach::a_door_keeps_the_press(Some(door), talk)
+            }) {
+                continue;
+            }
+        }
+        // Portal check: if this zone is registered as a portal, the
+        // portal's own phase must be `On` for traversal to be allowed.
+        // The switch only commands the boot/shutdown sequence — the
+        // portal itself runs the state machine. Non-portal zones pass
+        // through unchanged.
+        if !portals.lets_through(&phases, &zone.zone.id) {
+            continue;
+        }
+        let zone_sfx = match zone.zone.activation {
+            LoadingZoneActivation::Door => Some(RoomSfxId::new("world.door.open")),
+            // Walk-through zones (mid-room portals and side-edge exits)
+            // both use the portal-enter sfx — the door-open sound only
+            // fits the discrete interact door beat.
+            LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
+                Some(RoomSfxId::new("world.portal.enter"))
+            }
+        };
+        // Two descriptions of one crossing that disagreed about the body is exactly the fork exists
+        // to close, so the refusal below is now universal: a body we cannot name is a crossing we
+        // cannot describe, on any host.
+        let Some(subject) = sim_ids.id_of(subject_entity) else {
+            bevy::log::error_once!(
+                "transition subject {:?} has no SimId; refusing an ambiguous crossing",
+                subject_entity
+            );
+            continue;
+        };
+        // ONE description, recorded the same way on every host.
+        //
+        // Two descriptions of one crossing, and only the message opened the readiness transaction — so
+        // the SHIPPED game, which composes the rollback host, changed rooms with no cover, no failure
+        // reporting and no asset accounting. Now both hosts record the intent and the transaction is
+        // its only consumer; they differ only in WHEN it is safe to act on, which is the frame stamped
+        // here.
+        //
+        // the intent names the room by ID, so it needs the target's spec. A
+        // failure here leaves the press buffered on purpose (the transition is still
+        // wanted; we just cannot describe it yet), so this system re-runs every tick
+        // the body stays on the exit — `_once` keeps a stuck exit out of the log.
+        let Some(target_spec) = rooms.rooms().spec_at(zone.target_room) else {
+            bevy::log::error_once!(
+                "transition target {:?} has no room spec; leaving input buffered",
+                zone.target_room
+            );
+            continue;
+        };
+        // A door or a gate in a room whose game plays passages: the body goes
+        // in by its passage, which records this crossing when it has gone in.
+        // Its sound is the passage's, now, not the commit's.
+        if matches!(zone.zone.activation, LoadingZoneActivation::Door)
+            && passage_rules.of(subject_entity).is_some()
+        {
+            use ae::AabbExt as _;
+            let kind = if portals.is_portal(&zone.zone.id) {
+                super::passage::PassageKind::Gate
+            } else {
+                super::passage::PassageKind::Door
+            };
+            let Some(far) = target_spec.loading_zones.iter().find(|far| far.id == zone.target_zone) else {
+                bevy::log::error_once!(
+                    "the far zone `{}` of `{}` is not in its room; the door is crossed with no passage",
+                    zone.target_zone,
+                    zone.zone.id
+                );
+                continue;
+            };
+            let crossing = crate::lifecycle_commit::RoomTransitionIntent {
+                subject: subject.clone(),
+                target_room: target_spec.id.clone(),
+                arrival: zone.arrival,
+                edge_exit: false,
+                zone_sfx: None,
+                participant: driver.map(|driver| driver.0),
+            };
+            let arrival = super::passage::PassageArrival {
+                kind: if portals.is_portal(&far.id) {
+                    Some(super::passage::PassageKind::Gate)
+                } else if matches!(far.activation, LoadingZoneActivation::Door) {
+                    Some(super::passage::PassageKind::Door)
+                } else {
+                    None
+                },
+                zone: far.id.clone(),
+                foot: far.aabb.center() + ae::Vec2::new(0.0, far.aabb.half_size().y),
+                heart: far.aabb.center(),
+            };
+            network.crossed(&zone.zone.id);
+            commands.entity(subject_entity).try_insert(super::passage::ZonePassage::enter(
+                kind,
+                &zone.zone.id,
+                zone.zone.aabb,
+                kin.pos,
+                kin.size.y * 0.5,
+                kin.facing,
+                crossing,
+                arrival,
+            ));
+            sfx.write(ambition_sfx::SfxMessage::Play {
+                id: match kind {
+                    super::passage::PassageKind::Door => ambition_sfx::ids::WORLD_DOOR_OPEN,
+                    super::passage::PassageKind::Gate => ambition_sfx::ids::WORLD_PORTAL_ENTER,
+                },
+                pos: kin.pos,
+            });
+            if let Some(gestures) = slot_gestures.get_mut(seat) {
+                gestures.clear();
+            }
+            continue;
+        }
+        // ⛔⛤ **ADMIT FIRST, SPEND SECOND — AND THIS WAS THE OTHER WAY ROUND.**
+        // `record` is `#[must_use]` because the slot is earliest-sticky: *"a refused
+        // intent must not have its consequences run"*. Clearing the buffer IS a
+        // consequence. The comment that used to sit here said a refusal *"mutated
+        // nothing"*, which was true of everything except the line above it.
+        //
+        // ⚠ WHAT IT COST IS SMALL, REACHABLE AND UNRECOVERABLE. A held press is
+        // refilled by the producer next tick, so the loss is invisible while the
+        // player keeps the button down — which is what every authored door arm
+        // does. A TAP is spent: the slot says `AlreadyPending` because a checkpoint
+        // resume, a replay admission or a death respawn got there first this tick,
+        // the press is gone, and the crossing is never asked again. The other three
+        // callers of a buffered interact (`chests.rs`, and the NPC and switch loops
+        // in `features/ecs/interact.rs`) already consume only after their operation
+        // has committed; this was the one outlier.
+        let admission = pending_lifecycle.record(
+            // an eager host has no frames to be ahead of. `0` is not a
+            // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
+            // so the intent is confirmed the instant it is recorded, which is what
+            // `ConfirmedRoomTransitionIntent` reads it as.
+            boundary.map_or(0, |boundary| boundary.current),
+            crate::lifecycle_commit::LifecycleIntent::Transition(
+                crate::lifecycle_commit::RoomTransitionIntent {
+                    subject: subject.clone(),
+                    target_room: target_spec.id.clone(),
+                    arrival: zone.arrival,
+                    edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
+                    // Carried because the commit happens far from the zone that
+                    // named it.
+                    zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
+                    // Whose crossing it is, recorded now: see the field.
+                    participant: driver.map(|driver| driver.0),
+                },
+            ),
+        );
+        if !admission.admitted() {
+            // The zone re-emits every tick the body overlaps it, so a HELD press
+            // asks again next frame; a tap keeps its buffer for the rest of the
+            // window and can ask again then. Either way nothing here has mutated
+            // anything, which is now true of the whole function.
+            return;
+        }
+        network.crossed(&zone.zone.id);
+        // Consume the gesture only once the crossing is ADMITTED — not merely
+        // describable. Every invariant needed to describe it was checked above; the
+        // slot is the one that decides whether it happens.
+        if let Some(gestures) = slot_gestures.get_mut(seat) {
+            gestures.clear();
+        }
+        return;
+    }
+}

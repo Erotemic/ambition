@@ -55,7 +55,7 @@ fn session_generation(sim: &Platformer2dSimHarness) -> u64 {
 /// Whether a deferred lifecycle intent is currently recorded (rollback state).
 fn intent_pending(sim: &Platformer2dSimHarness) -> bool {
     sim.world()
-        .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .get_resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .is_some_and(|slot| slot.pending.is_some())
 }
 
@@ -136,7 +136,7 @@ fn a_room_transition_survives_the_rollback_window() {
 /// its pre-intent value, plus the codec round-trip — but a `LocalSyncTest`
 /// re-simulates with identical input and cannot mispredict, so end-to-end
 /// cancellation belongs to the External/P2P work. The
-/// `ambition_platformer2d_actor_monolith::session::lifecycle_commit` unit tests cover only
+/// `ambition_platformer2d_session::lifecycle_commit` unit tests cover only
 /// earliest-sticky recording, the confirmation comparison, and `take()`.)
 #[test]
 fn a_transition_intent_is_recorded_then_committed_exactly_once() {
@@ -346,7 +346,7 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
 /// intent names its room by id rather than carrying a zone.
 #[test]
 fn a_deferred_transition_still_plays_the_zone_cue() {
-    use ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent;
+    use ambition_platformer2d::session::lifecycle_commit::LifecycleIntent;
 
     let mut sim = repro_sim();
     sim.step(AgentAction::default());
@@ -359,7 +359,7 @@ fn a_deferred_transition_still_plays_the_zone_cue() {
         let obs = sim.step(AgentAction::move_x(1.0));
         if let Some(intent) = sim
             .world()
-            .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+            .get_resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
             .and_then(|slot| slot.pending.clone())
         {
             // ⛔ A CROSSING, not a rebuild. `LifecycleIntent` grew a bodyless

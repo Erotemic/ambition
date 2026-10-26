@@ -442,7 +442,7 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
     // THE MENU'S ROAD: a host intent, admitted as a checkpoint restore.
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     );
     for _ in 0..30 {
         sim.step(base());

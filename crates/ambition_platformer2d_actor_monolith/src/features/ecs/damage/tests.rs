@@ -1592,7 +1592,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
                 &mut c,
                 &catalog,
                 &Default::default(),
-                Some(&crate::character_runtime::fixture_cast(&["npc_puppy_slug"])),
+                Some(&crate::character_fixtures::fixture_cast(&["npc_puppy_slug"])),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),

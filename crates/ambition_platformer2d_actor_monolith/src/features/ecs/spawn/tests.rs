@@ -54,7 +54,7 @@ fn body_driven_by(
         ..Default::default()
     });
     definition.vitals.max_health = Some(4);
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );
@@ -364,7 +364,7 @@ fn smash_fixture_cast() -> ambition_characters::prepared::PreparedCharacterRegis
         ..Default::default()
     });
     definition.vitals.max_health = Some(4);
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );
@@ -478,7 +478,7 @@ fn encounter_mob_spawns_with_brain_components() {
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                &crate::character_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
                 ambition_encounter::mob_seed::EncounterMobSeed {
@@ -1017,7 +1017,7 @@ mod authored_enemy_reads_its_character {
             "Busy Beaver",
             "test",
         );
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -1111,7 +1111,7 @@ mod authored_enemy_reads_its_character {
             "test",
         )
         .with_abilities(run_jump);
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -1361,7 +1361,7 @@ mod authored_enemy_reads_its_character {
             "test",
         );
         definition.vitals.max_health = Some(9);
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -1388,7 +1388,7 @@ mod authored_enemy_reads_its_character {
             amount: 3,
         });
         definition.vitals.max_health = Some(9);
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );
@@ -1482,7 +1482,7 @@ mod authored_enemy_reads_its_character {
         });
         let mut definition = author(definition);
         definition.vitals.max_health = Some(4);
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );

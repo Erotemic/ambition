@@ -22,7 +22,7 @@ application; it does not implement it.
 
 ## Current shape
 
-All code is in `crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs`
+All code is in `crates/ambition_platformer2d_session/src/checkpoint.rs`
 unless stated otherwise.
 
 | Value | Role |

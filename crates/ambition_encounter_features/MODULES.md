@@ -6,13 +6,15 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`authored_switch_commands`](src/authored_switch_commands.rs) | Runs commands authored directly on `Switch` entities. |
 | [`conditions`](src/conditions.rs) | Authored ENCOUNTER conditions — "what became of this arena?" |
 | [`loading`](src/loading.rs) | Room → `EncounterSpec` loader plus the content-installed wave book. |
 | [`lock_walls`](src/lock_walls.rs) | Lock-wall contribution: the solid blocks that seal an arena's exits while an encounter is in flight. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for derived world state. |
 | [`switch_index`](src/switch_index.rs) | The switch INDEX rebuild, which stayed behind when the switch types left. |
 | [`systems`](src/systems.rs) | The Bevy adapters around the generic encounter lifecycle (E8/E9). |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

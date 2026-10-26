@@ -365,7 +365,7 @@ def explicit_narrow_lifetime_resources() -> dict[str, Any]:
     """Read source-owned lists of resources with a narrower semantic lifetime."""
     specs = [
         (
-            REPO / "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+            REPO / "crates/ambition_platformer2d_session/src/teardown.rs",
             "SessionScopedResources",
         ),
     ]

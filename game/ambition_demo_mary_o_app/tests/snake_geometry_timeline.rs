@@ -124,7 +124,7 @@ fn a_snake_is_geometry_complete_from_its_first_observable_snapshot() {
     // produce a complete body on arrival; a rule stated on only one of them is
     // not stated.
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     let replayed = observe(&mut app, 120, "replay");
     assert!(
         replayed.is_empty(),

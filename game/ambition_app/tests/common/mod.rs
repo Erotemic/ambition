@@ -85,7 +85,7 @@ pub fn fixed_60hz_sim() -> Platformer2dSimHarness {
 /// cooldown, the room it arrives in) takes the passage away, so a door crosses
 /// at once, as it does in a game that declares no passages.
 pub fn doors_cross_at_once(sim: &mut Platformer2dSimHarness) {
-    use ambition_platformer2d::actors::rooms::passage::ZonePassageRules;
+    use ambition_platformer2d::session::rooms::passage::ZonePassageRules;
     use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
     sim.world_mut()
         .resource_mut::<DeclaredRules<ZonePassageRules>>()
@@ -96,7 +96,7 @@ pub fn doors_cross_at_once(sim: &mut Platformer2dSimHarness) {
 /// the far door and has its control back. A walker that returns when the room
 /// changes returns while the body still comes out, holding its control.
 pub fn finish_passages(sim: &mut Platformer2dSimHarness) {
-    use ambition_platformer2d::actors::rooms::passage::ZonePassage;
+    use ambition_platformer2d::session::rooms::passage::ZonePassage;
     use ambition_platformer2d::characters::control::DrivingParticipant;
     for _ in 0..120 {
         let world = sim.world_mut();

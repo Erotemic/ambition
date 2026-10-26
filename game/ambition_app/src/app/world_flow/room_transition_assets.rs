@@ -175,7 +175,7 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// installs it unconditionally, so its absence would mean a composition with
     /// no materialization service at all — which the startup audit reports.
     pub(crate) character_load_states:
-        Option<ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>>,
+        Option<ResMut<'w, ambition_platformer2d::assets::materialization::CharacterLoadStates>>,
     /// Registered character definitions. A character may be declared ONLY through
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
@@ -358,7 +358,7 @@ pub(crate) fn room_character_tokens(room: &RoomSpec, staged_actor_names: &[Strin
 pub(crate) fn inspect_demanded_characters(
     tokens: &[String],
     assets: &GameAssets,
-    states: Option<&ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+    states: Option<&ambition_platformer2d::assets::materialization::CharacterLoadStates>,
     readiness: &mut RoomAssetReadiness,
 ) {
     use ambition_platformer2d::sprite_sheet::character::CharacterSheetState;
@@ -409,7 +409,7 @@ pub(crate) fn demand_room_character_sheets(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
-    states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    states: &mut ambition_platformer2d::assets::materialization::CharacterLoadStates,
     registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     // The provider-authored sheets — passed for the same reason the
     // catalog is: this host names what a room stages, and the ENGINE decodes it.
@@ -459,7 +459,7 @@ pub(crate) fn demand_room_character_sheets(
         .filter(|id| wanted.contains(id))
         .collect();
     demand.request_all(retired_but_wanted.iter().map(String::as_str));
-    ambition_platformer2d::actors::character_runtime::materialize_character_demand(
+    ambition_platformer2d::assets::materialization::materialize_character_demand(
         &mut demand,
         states,
         &mut assets.characters,
@@ -648,7 +648,7 @@ pub(crate) fn build_room_asset_manifest(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
-    states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    states: &mut ambition_platformer2d::assets::materialization::CharacterLoadStates,
     registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
     boss_catalog: Option<&ambition_platformer2d::boss_encounter::BossCatalog>,
@@ -1151,7 +1151,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     prepared_here: Option<Res<AppGpuPreparedImages>>,
     assets: Option<Res<GameAssets>>,
     character_load_states: Option<
-        Res<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+        Res<ambition_platformer2d::assets::materialization::CharacterLoadStates>,
     >,
     time: Res<Time<Real>>,
     mut transitions: ResMut<RoomTransitionLoadState>,
@@ -1472,7 +1472,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     ): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
-        ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+        ResMut<ambition_platformer2d::assets::materialization::CharacterLoadStates>,
         // The cast the running session was frozen with: the door builds the
         // room from it, so the prefetch demands that cast's sheets.
         Option<Res<ambition_platformer2d::characters::prepared::ActiveSessionCast>>,

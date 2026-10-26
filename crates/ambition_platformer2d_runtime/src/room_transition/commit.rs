@@ -11,7 +11,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::ClockResetRequest;
@@ -218,7 +217,7 @@ pub struct RoomTransitionApplication<'w, 's> {
         's,
         (
             Entity,
-            Option<&'static physics::PhysicsRoomEntity>,
+            Option<&'static ambition_platformer2d_physics_debris::PhysicsRoomEntity>,
             Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         RoomResident,
@@ -349,7 +348,7 @@ impl RoomTransitionApplication<'_, '_> {
         // The checkpoint restore this crossing is, if it is one: its room is
         // built from the facts its consequences will leave, and those run when
         // the publication is accepted.
-        restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+        restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
     ) -> Result<StagedRoomTransition, RoomTransitionApplyError> {
         // ── PREFLIGHT ────────────────────────────────────────────────────────
         if self.session.iter().next().is_none() {
@@ -664,7 +663,7 @@ pub struct RoomTransitionFinalize<'w, 's> {
     feel: Res<'w, Platformer2dFeelTuningMonolith>,
     /// A body that came through a passage comes out of its door or gate: it
     /// is not flashed in.
-    passages: Query<'w, 's, &'static mut ambition_platformer2d_actor_monolith::rooms::passage::ZonePassage>,
+    passages: Query<'w, 's, &'static mut ambition_platformer2d_session::rooms::passage::ZonePassage>,
 }
 
 impl RoomTransitionFinalize<'_, '_> {
@@ -763,7 +762,7 @@ impl RoomTransitionFinalize<'_, '_> {
             blink_cam.camera_snap_timer = if edge_exit {
                 0.0
             } else {
-                ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME
+                crate::ROOM_DOOR_CAMERA_SNAP_TIME
             };
             safety.last_safe_pos = arrival_pos;
         }
@@ -956,7 +955,7 @@ impl TransitBodies<'_, '_> {
 
 // The rule lives beside the claims it reads; the commit and the away
 // population (`body_whereabouts`) ask the same question.
-pub use ambition_platformer2d_actor_monolith::rooms::another_player_stays;
+pub use ambition_platformer2d_session::rooms::another_player_stays;
 
 /// The live room a crossing by participant `participant` into room `target`
 /// joins (OW1 cut 6e): a live room of `target`, other than `departing`, that
@@ -1054,7 +1053,7 @@ pub fn commit_ready_room_transition_system(
         // The crossing's own record, cleared when it lands. Sticky until then, so
         // leaving it set would wedge every later crossing.
         ResMut<
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+            ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
         >,
         // ⛔ WHERE THE STAGED CROSSING IS HANDED OVER. Not a message: a message
         // would be readable by anything, and the finalizer must be the one
@@ -1066,7 +1065,7 @@ pub fn commit_ready_room_transition_system(
     // Whether the checkpoint operation this commit carries is a fresh run (a
     // New Game): then it is a whole-session restart.
     accepted_restores: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore>,
     >,
 ) {
     let (
@@ -1425,7 +1424,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
         MessageWriter<ambition_load::LoadEvent>,
         ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         ResMut<
-            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+            ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit,
         >,
         ResMut<CommittedRoomTransitionRestore>,
         Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
@@ -1525,7 +1524,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
 #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
 pub struct CommittedRoomTransitionRestore(
     pub  Option<
-        ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey,
+        ambition_platformer2d_session::checkpoint::CheckpointOperationKey,
     >,
 );
 
@@ -1551,7 +1550,7 @@ pub fn apply_committed_room_transition_restore(world: &mut bevy::prelude::World)
     else {
         return;
     };
-    ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
+    ambition_platformer2d_session::checkpoint::apply_committed_checkpoint_restore(
         world, key,
     );
 }
@@ -1580,7 +1579,7 @@ pub fn terminalize_abandoned_checkpoint_restore_system(world: &mut bevy::prelude
     }
     // `None`: this host has no rollback, so every frame it simulates is already
     // final and there is no speculative admission to wait out.
-    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
+    let _ = ambition_platformer2d_session::checkpoint::terminalize_abandoned_checkpoint_restore(
         world, None,
     );
 }

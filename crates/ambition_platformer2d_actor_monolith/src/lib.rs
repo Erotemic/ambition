@@ -26,44 +26,38 @@ pub mod construction_fixtures;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
 pub mod control;
-pub mod host;
 pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
-pub mod assets;
 pub mod body_custody;
 pub mod body_mode;
-mod checkpoint_horizon;
-pub use checkpoint_horizon::ActorCheckpointHorizonPlugin;
-pub mod character_runtime;
-pub mod character_sprites;
+pub mod character_projection;
+#[cfg(test)]
+mod character_fixtures;
+#[cfg(test)]
+mod character_integration_tests;
 /// Swings and shots arbitrated in ONE contest, before either damage road runs.
 pub mod clash;
-pub mod config;
 #[cfg(test)]
 pub mod enemy_projectile;
-pub mod items;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-pub mod projectile;
+#[cfg(test)]
+#[path = "tests/projectile/mod.rs"]
+mod projectile_tests;
 pub mod repertoire;
-pub mod session;
 mod snapshot_impls;
-pub mod world;
-pub mod world_facts;
 
 // Public re-exports double as the external API for bins, tests, and docs.
 /// The live actor cluster view (`ActorMut`, `ActorClusterQueryData`) and the
 /// combat timing that rides it. Kernel vocabulary: every per-tick actor system
 /// reads it, so it lives here and not in the spawn capability that builds bodies.
 pub mod features;
-pub use world::rooms;
 
 // Keep generic time vocabulary in `ambition_time`; export only the local bridge.
 
-pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
 #[cfg(test)]
 mod safe_pos_tests;

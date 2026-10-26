@@ -10,6 +10,7 @@ description = "Backend-agnostic authored world IR: room graph, placement records
 default = []
 
 [dependencies]
+bevy_log = { version = "0.19.1", default-features = false }
 ambition_registry_core = { path = "../ambition_registry_core" }
 # `AssetId` — the identity of one authored world document in
 # `world_manifest::WorldSource`. A LEAF crate whose own dependency list is

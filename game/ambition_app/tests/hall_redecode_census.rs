@@ -66,7 +66,7 @@ const MINIMUM_HALL_CAST: usize = 100;
 
 fn staged_cast_len(app: &App) -> usize {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }
@@ -196,11 +196,11 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,

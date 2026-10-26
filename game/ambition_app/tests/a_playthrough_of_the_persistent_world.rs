@@ -508,19 +508,19 @@ fn a_death_sends_the_blink_back_to_where_it_lay() {
 }
 
 /// The passage the player is in, and whether its control is held.
-fn passage(app: &mut App) -> Option<(ambition_platformer2d::actors::rooms::passage::ZonePassage, bool)> {
+fn passage(app: &mut App) -> Option<(ambition_platformer2d::session::rooms::passage::ZonePassage, bool)> {
     let body = primary_body(app);
     let world = app.world();
     let held = world
         .get::<ambition_platformer2d::characters::control::ControlHolds>(body)
         .is_some_and(|holds| holds.holds(ambition_platformer2d::characters::control::ControlHold::Transit));
-    world.get::<ambition_platformer2d::actors::rooms::passage::ZonePassage>(body).map(|passage| (passage.clone(), held))
+    world.get::<ambition_platformer2d::session::rooms::passage::ZonePassage>(body).map(|passage| (passage.clone(), held))
 }
 
 /// Through `target`'s door: the player comes out of the far door in its
 /// passage, with the door open, and then is free, the door shut behind it.
 fn come_out_of_the_door_to(app: &mut App, target: &str) {
-    use ambition_platformer2d::actors::rooms::passage::{PassageKind, PassageStage};
+    use ambition_platformer2d::session::rooms::passage::{PassageKind, PassageStage};
     if let Err(why) = crate::common::walk::walk_through(&mut crate::common::walk::Keys::new(app), target) {
         panic!("the player did not walk through to `{target}`: {why}");
     }

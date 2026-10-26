@@ -83,12 +83,12 @@ fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<Entity
 /// menu's road is a host intent, so this writes one and steps until the
 /// operation publishes its outcome.
 fn request_sandbox_reset(sim: &mut Platformer2dSimHarness) {
-    use ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes;
+    use ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes;
     let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator").latest().cloned();
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     );
     for _ in 0..120 {
         sim.step(base());

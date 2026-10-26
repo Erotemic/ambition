@@ -85,7 +85,7 @@ fn assert_the_restore_committed(sim: &mut Platformer2dSimHarness) {
     let outcome = format!(
         "{:?}",
         ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes,
+            ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
         >(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
@@ -1251,7 +1251,7 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
         "the checkpoint's custody baseline has no row for the gauntlet, so          nothing will ask for it back; rows were {custody_rows:?}"
     );
 
-    let minted: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(sim.world()).unwrap()
+    let minted: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(sim.world()).unwrap()
         .rows()
         .map(|(id, description)| format!("{} = {}", id.as_str(), description.held_item))
         .collect();
@@ -1316,7 +1316,7 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
 /// releases the slot it is admitted, and the restore lands in full.
 #[test]
 fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
     use ambition_platformer2d::item::{ItemGrantRequested, OwnedItems};
@@ -1934,7 +1934,7 @@ fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_roo
 fn the_bag_after_a_new_game(
     starting: Option<ambition_platformer2d::items::OwnedItems>,
 ) -> (ambition_platformer2d::items::OwnedItems, ambition_platformer2d::items::OwnedItems) {
-    use ambition_platformer2d::actors::items::starting_bag::StartingBag;
+    use ambition_platformer2d::item_runtime::starting_bag::StartingBag;
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 10);
     let own = sim.world().resource::<StartingBag>().bag().clone();
@@ -1942,11 +1942,11 @@ fn the_bag_after_a_new_game(
         sim.world_mut().insert_resource(StartingBag::of(bag));
     }
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+        .write_message(ambition_platformer2d::session::reset::NewGameRequested);
     sim.step_n(base(), 240);
     let outcome = format!(
         "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
@@ -2371,7 +2371,7 @@ fn a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers() {
 /// the live ledger just before the death.
 #[test]
 fn a_death_keeps_the_mint_mark_of_what_it_keeps_in_another_players_room() {
-    use ambition_platformer2d::actors::session::checkpoint::AcceptedCheckpointRestore;
+    use ambition_platformer2d::session::checkpoint::AcceptedCheckpointRestore;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
     let (mut sim, javelin) = throw_after_a_checkpoint(MINTED_ITEM, "switch_lab", false);
     let before = {

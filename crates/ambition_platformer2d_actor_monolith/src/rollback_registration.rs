@@ -113,88 +113,6 @@ where
     // It is not an actor fact and not an every-game fact — it is an authoring format's. Its
     // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's opt-in `LdtkWorldPlugin`
     // installs that domain offer only for LDtk games.
-    // The shot's launch-time combat allegiance is intentionally owned here, not
-    // by `ambition_projectiles`: the reusable projectile model is forbidden to
-    // depend on the character/combat vocabulary from which this stamp is built.
-    // The old central runtime adapter reached the type through
-    // `runtime::projectile_schedule`; domain-owned registration instead follows
-    // the concrete type to the actor-side projectile integration that owns it.
-    registrar.rollback_component_canonical::<crate::projectile::ProjectileAllegiance>(
-        OWNER,
-        "projectile.allegiance",
-    );
-    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. TWO of its
-    // four fields count something local: `session` counts this App's
-    // activations, and `activated_on` its sim steps (menus included — see
-    // `MatchInstance::activation_tick`). Both must survive a rewind and neither
-    // is a fact two peers can agree on, so only the agreed seat count and the
-    // peer match ordinal are compared. `ActiveMatch::peer_stable_checksum`
-    // decides which half is which.
-    registrar.rollback_resource_optional_canonical_checksum::<ambition_match::ActiveMatch>(
-        OWNER,
-        "resource.active_match",
-        "bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match \
-         ordinal, excluding the host-local session and activation-tick stamps",
-        ambition_match::ActiveMatch::peer_stable_checksum,
-    );
-    // Which match each stamped object belongs to, so the sweep never sees a
-    // restored object without an identity. Clone-snapshotted: it is a stable
-    // identity copied at spawn.
-    registrar.rollback_component_clone_probed::<ambition_match::MatchScoped>(
-        OWNER,
-        "match.scoped",
-        ambition_match::MatchScoped::localizer_probe,
-    );
-    // ⭐ THE ORDINAL MINT. It rewinds for the same reason any counter does: a
-    // resimulated activation must draw the ordinal it drew the first time, or
-    // the match re-rolls its item table on every rollback.
-    //
-    // ⛔⛤ THE COMMENT HERE USED TO SAY the `session` half "is compared only
-    // against ITSELF" — over a `rollback_resource_canonical` registration, which
-    // compares EVERY field. The sentence described `take`; the registrar decided
-    // the checksum. A per-App session count was in the peer comparison.
-    // `SessionMatchOrdinal::peer_stable_checksum` now owns the split and states
-    // the one window that survives it.
-    registrar.rollback_resource_canonical_checksum::<ambition_match::seating::SessionMatchOrdinal>(
-        OWNER,
-        "resource.session_match_ordinal",
-        "bevy_ggrs canonical codec snapshot + checksum over the count of matches this session has \
-         activated only, excluding the host-local session stamp",
-        ambition_match::seating::SessionMatchOrdinal::peer_stable_checksum,
-    );
-    // The stocks ruleset's verdict is *the outcome for match X*, stamped with the
-    // `MatchInstance` the receipt above publishes — so a rewind that restores one and not the
-    // other would restore a verdict about a match that is not running. Registered together,
-    // they rewind together.
-    registrar.rollback_resource_canonical_checksum::<ambition_match::StocksMatchSettled>(
-        OWNER,
-        "resource.stocks_match_settled",
-        "bevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match \
-         ordinal, excluding the host-local session and activation-tick stamps",
-        ambition_match::StocksMatchSettled::peer_stable_checksum,
-    );
-    // …and whether it refused to be settled. Sudden death is entered by NOT
-    // deciding, so this latch is the only thing standing between a level timeout
-    // and re-entering the tie on every tick that follows.
-    registrar.rollback_resource_canonical_checksum::<ambition_match::SuddenDeathEntered>(
-        OWNER,
-        "resource.sudden_death_entered",
-        "bevy_ggrs canonical codec snapshot + checksum over whether a match is latched and the \
-         peer match ordinal, excluding the host-local session and activation-tick stamps",
-        ambition_match::SuddenDeathEntered::peer_stable_checksum,
-    );
-    // …and HOW LONG it has been fought. Counted, not derived: the timeout and
-    // the item cadence both read it, and "how many ticks was this paused" is
-    // written nowhere a rewind could recompute it from.
-    registrar
-        .rollback_resource_canonical_checksum::<crate::character_runtime::live_match_clock::LiveMatchTicks>(
-            OWNER,
-            "resource.live_match_ticks",
-            "bevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from \
-             the match's own start, and the peer match ordinal, excluding the host-local session \
-             and activation-tick stamps",
-            crate::character_runtime::live_match_clock::LiveMatchTicks::peer_stable_checksum,
-        );
     // …and the announcement it makes once. Written inside the sim and read
     // inside it (the stage puts its survivors on the authored damage), so a
     // reader's `Local` cursor has to rewind with the latch above — otherwise a
@@ -223,11 +141,7 @@ where
         "the one-time pickups consumed and the authored chests opened since the last checkpoint, with their room and whose horizons own each (Q151)",
         crate::features::ecs::pickups::ConsumedSinceCheckpoint::checksum,
     );
-    registrar
-        .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
-            OWNER,
-            "resource.pending_lifecycle_commit",
-        );
+
     registrar.rollback_resource_clone_entity_set::<crate::control::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
@@ -238,7 +152,6 @@ where
             OWNER,
             "map.resource.possession_state",
         );
-    registrar.rollback_component_canonical::<ambition_match::MatchSeat>(OWNER, "actor.match_seat");
     registrar.rollback_component_cursor::<ambition_body_seed::ActorMotionPath>(
         OWNER,
         "actor.motion_path",
@@ -317,15 +230,6 @@ where
                 ^ (u64::from(hold.slot.0) << 56)
                 ^ (mode << 60)
         },
-    );
-    // A passage through a door or a gate: the scene, its clock, and the
-    // crossing it records when the going-in ends. A rewind into it must
-    // resume it, and one before the press must not keep a passage the
-    // resimulation has not started. The holds are derived from it.
-    registrar.rollback_component_clone_probed::<crate::rooms::passage::ZonePassage>(
-        OWNER,
-        "actor.zone_passage",
-        crate::rooms::passage::ZonePassage::checksum,
     );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
@@ -720,101 +624,18 @@ where
         OWNER,
         "message.spawn_actor_request",
     );
-    registrar.clear_message_on_rollback::<crate::session::reset::NewGameRequested>(
-        OWNER,
-        "message.new_game_requested",
-    );
-    registrar.clear_message_on_rollback::<ambition_damage::WalletShieldSpent>(
-        OWNER,
-        "message.wallet_shield_spent",
-    );
-    registrar.clear_message_on_rollback::<crate::avatar::PlayerHealRequested>(
-        OWNER,
-        "message.player_heal_requested",
-    );
+
     registrar.clear_message_on_rollback::<crate::avatar::trail::TrailContinuityBreak>(
         OWNER,
         "message.trail_continuity_break",
     );
-    registrar.clear_message_on_rollback::<crate::session::reset::RoomReplayRequested>(
-        OWNER,
-        "message.room_replay_requested",
-    );
+
     // Save application is a rollback-relevant latch because the state it guards
     // rewinds even though the literal Update systems that set it do not resimulate.
     registrar.rollback_resource_clone::<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>(
         OWNER,
         "resource.save_restored",
     );
-    // ⭐ THE CHECKPOINT COORDINATOR LIVES ON THE SESSION ROOT (C03, 2026-10-07):
-    // the five rows below are COMPONENT registrations on the root, beside
-    // `root.room_set`, and their KEYS ARE UNCHANGED. A key is a wire identity, so
-    // the names keep their `resource.` prefix; what moved is the storage.
-    // ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM.
-    // `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, and a
-    // `Local` does not rewind: a rollback crossing the frame it routed on would
-    // resimulate with the memory already past the crossing, so one timeline asks
-    // for the crossing and the other believes it already did.
-    //
-    // ⭐ PROBED BY WHICH GENERATION, not by presence. A restore that brought
-    // back the wrong generation makes one timeline re-ask for a crossing the
-    // other already spent, and a presence probe sees none of that.
-    // ⛔⛔ A REQUEST THAT OUTLIVES ITS FRAME MUST REWIND WITH THE WORLD. The
-    // reset channel is cleared on rollback, so before this bit existed a
-    // rewound timeline simply lost the request. Now it is remembered until the
-    // slot admits it — which means a rewind past the frame it arrived on has to
-    // take it back, or one timeline restores a checkpoint the other never asked
-    // for.
-    // ⛔⛔ THE ACCEPTED OPERATION SPANS FRAMES BY DESIGN — it is pinned when the
-    // slot says yes and read by room preparation several frames later — so a
-    // rewind that crossed the admission must take it back, or the load prepares
-    // a room from a population the resimulated timeline never selected.
-    // ⛔⛔ THE OPERATION COUNTER REWINDS WITH THE WORLD, and it must not be reset
-    // at a room rebase. A rewound timeline that re-admits gets the SAME key for
-    // the same admission, which is what makes a host-side load that names a key
-    // still correct after a resimulation; a counter that drifted between
-    // timelines would authorize a load for an operation the other never made.
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionCheckpointOperations>(
-        OWNER,
-        "resource.session_checkpoint_operations",
-        "how many checkpoint restores this session has admitted",
-        crate::session::checkpoint::SessionCheckpointOperations::checksum,
-    );
-    // ⛔ THE TERMINAL ANSWER OUTLIVES THE OPERATION, and the startup road reads
-    // it several frames later to learn that its own crossing finished. A rewind
-    // that brought back a `Committed` the other timeline had not published would
-    // let one side believe a restore landed that the other never made.
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionCheckpointOutcomes>(
-        OWNER,
-        "resource.session_checkpoint_outcomes",
-        "the terminal outcome of the last answered checkpoint operation",
-        crate::session::checkpoint::SessionCheckpointOutcomes::checksum,
-    );
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
-        OWNER,
-        "resource.accepted_checkpoint_restore",
-        "which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication",
-        crate::session::checkpoint::AcceptedCheckpointRestore::checksum,
-    );
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(
-        OWNER,
-        "resource.outstanding_checkpoint_request",
-        "whether the session is still owed a checkpoint restore",
-        crate::session::checkpoint::OutstandingCheckpointRequest::checksum,
-    );
-    // ⛔ THE KEY MOVED WITH THE MEANING, and that is deliberate. A1b kept
-    // `resource.checkpoint_resume_progress` across a pure module move, because a
-    // renamed key would have made a relocation look like a format change. This
-    // is the opposite case: the VALUE changed from two per-generation latches to
-    // a state machine naming an admitted operation, so keeping the old name
-    // would let two peers agree on a key whose contents mean different things.
-    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionStartupResume>(
-        OWNER,
-        "resource.session_startup_resume",
-        "which session generation startup resolution reached, and which operation it routed",
-        crate::session::checkpoint::SessionStartupResume::checksum,
-    );
-
     // ⛔⛔ EVENT-CREATED AUTHORITATIVE STATE, AND THAT IS WHY IT WAS MISSING. The
     // boot census can only see components that exist in the INITIAL world; every
     // component below is inserted later, by an ability firing, so nothing
@@ -875,32 +696,5 @@ where
 
     // Item checkpoint baselines declare their rewind/checksum obligations beside
     // the item horizon that owns capture, restore and durable adoption.
-    crate::items::pickup::minted_horizon::register_checkpoint_rollback_state(registrar);
 
-    registrar
-        .declare_rollback_derived_resource::<crate::world::gated_lock_walls::GatedLockWallCache>(
-        OWNER,
-        "derived.gated_lock_wall_cache",
-        "authored gated walls for the active room; recomputed from the room set and LDtk project",
-    );
-    registrar
-        .declare_rollback_derived_resource::<crate::world::gated_lock_walls::GatedLockWallVerdicts>(
-            OWNER,
-            "derived.gated_lock_wall_verdicts",
-            "why each authored gated wall stands; rebuilt from the walls' verdicts every gate tick",
-        );
-    registrar.declare_rollback_derived_resource::<
-        crate::world::authored_switch_commands::AuthoredSwitchCommands,
-    >(
-        OWNER,
-        "derived.authored_switch_commands",
-        "authored switch verbs prepared for the active room; recomputed from the room set and LDtk project",
-    );
-    registrar.declare_rollback_derived_resource::<
-        crate::world::authored_room_commands::AuthoredRoomCommands,
-    >(
-        OWNER,
-        "derived.authored_room_commands",
-        "each live room's prepared `while_live` line; recomputed from the room set and the command catalog",
-    );
 }

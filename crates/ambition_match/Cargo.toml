@@ -10,6 +10,7 @@ description = "The versus match, prepared: the participant roster and its three 
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_time = { path = "../ambition_time" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_characters = { path = "../ambition_characters" }

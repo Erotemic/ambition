@@ -90,7 +90,7 @@ pub fn arbitrate_attack_clashes(
             &mut ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay,
             &ambition_projectiles::ProjectileSeq,
             Option<&ambition_projectiles::ProjectileOwner>,
-            Option<&crate::projectile::ProjectileAllegiance>,
+            Option<&ambition_projectile_combat::ProjectileAllegiance>,
         ),
         With<ambition_projectiles::LiveProjectile>,
     >,
@@ -492,7 +492,7 @@ mod tests {
                 seq,
                 ambition_projectiles::ProjectileOwner(owner),
                 ambition_projectiles::LiveProjectile,
-                crate::projectile::ProjectileAllegiance {
+                ambition_projectile_combat::ProjectileAllegiance {
                     faction: ambition_characters::actor::ActorFaction::Player,
                     team: team
                         .map(|t| ambition_combat::targeting::MatchTeam::new(t.to_string())),

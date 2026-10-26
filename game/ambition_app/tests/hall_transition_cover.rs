@@ -20,7 +20,7 @@ const MINIMUM_HALL_CAST: usize = 100;
 
 fn staged_cast_len(app: &App) -> usize {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }
@@ -180,11 +180,11 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,
@@ -359,7 +359,7 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
             let assets = app.world().resource::<GameAssets>();
             let states = app
                 .world()
-                .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+                .resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>(
             );
             let mut declared = 0;
             let mut realized = 0;
@@ -684,11 +684,11 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,
@@ -832,7 +832,7 @@ fn room_placed_character_ids(
 /// waiting fixes it.
 #[test]
 fn every_character_the_hall_places_is_reached_by_its_demand() {
-    use ambition_platformer2d::actors::character_runtime::CharacterLoadStates;
+    use ambition_platformer2d::assets::materialization::CharacterLoadStates;
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let placed = hall_character_ids(&mut app);
@@ -922,11 +922,11 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room: target_room.clone(),
                     arrival,

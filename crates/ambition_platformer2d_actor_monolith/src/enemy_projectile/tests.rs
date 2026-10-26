@@ -52,14 +52,14 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
-        (crate::projectile::step_projectiles, capture_hits).chain(),
+        (ambition_projectile_combat::step_projectiles, capture_hits).chain(),
     );
 
     let enemy_pos = ae::Vec2::new(300.0, 100.0);
@@ -172,14 +172,14 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
-        (crate::projectile::step_projectiles, capture_hits).chain(),
+        (ambition_projectile_combat::step_projectiles, capture_hits).chain(),
     );
 
     let actor_pos = ae::Vec2::new(300.0, 100.0);
@@ -243,7 +243,7 @@ fn arena_projectile_app(relations: ambition_combat::targeting::FactionRelations)
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
@@ -251,7 +251,7 @@ fn arena_projectile_app(relations: ambition_combat::targeting::FactionRelations)
     app.insert_resource(relations);
     app.add_systems(
         Update,
-        (crate::projectile::step_projectiles, capture_hits).chain(),
+        (ambition_projectile_combat::step_projectiles, capture_hits).chain(),
     );
     app
 }
@@ -929,7 +929,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
 
     // `Materialize`: the bolts exist and take their side. No step yet.
     app.world_mut()
-        .run_system_once(crate::projectile::stamp_new_projectile_allegiance)
+        .run_system_once(ambition_projectile_combat::stamp_new_projectile_allegiance)
         .expect("the stamping system runs");
 
     // `Settle`, same tick: the final stock is spent and the body leaves play.
@@ -1031,11 +1031,11 @@ fn parry_ready_player_app() -> (App, Entity) {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
-    app.add_systems(Update, crate::projectile::step_projectiles);
+    app.add_systems(Update, ambition_projectile_combat::step_projectiles);
 
     let player_pos = ae::Vec2::new(200.0, 200.0);
     let player = app
@@ -1232,7 +1232,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
     app.add_message::<ProjectileSpawnRequest>();
-    app.add_message::<crate::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
@@ -1241,7 +1241,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         Update,
         (
             ambition_projectiles::materialize_projectiles_for_this_tick,
-            crate::projectile::step_projectiles,
+            ambition_projectile_combat::step_projectiles,
             capture_hits,
         )
             .chain(),
@@ -1378,7 +1378,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
         app.add_systems(
             Update,
             crate::features::refresh_body_damageable_volumes
-                .before(crate::projectile::step_projectiles),
+                .before(ambition_projectile_combat::step_projectiles),
         );
         let pos = ae::Vec2::new(300.0, 100.0);
         let victim = app

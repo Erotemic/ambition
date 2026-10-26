@@ -67,7 +67,7 @@ fn the_shipped_cast_has_one_authority_per_character() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     ambition_platformer2d::runtime::finalize(&mut app);
     let conflicts =
-        ambition_platformer2d::actors::character_runtime::audit::audit_character_authority_parity(
+        ambition_platformer2d::assets::materialization::audit::audit_character_authority_parity(
             app.world(),
         );
     assert!(

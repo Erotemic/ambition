@@ -17,10 +17,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+use ambition_platformer2d_session::lifecycle_commit::{
     LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
 };
-use ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested;
+use ambition_platformer2d_session::reset::RoomReplayRequested;
 use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 

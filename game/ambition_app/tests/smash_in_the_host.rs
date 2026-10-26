@@ -3139,7 +3139,7 @@ fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
 /// one.
 #[test]
 fn the_match_clock_does_not_start_until_the_cast_is_released() {
-    use ambition_platformer2d::actors::character_runtime::live_match_clock::LiveMatchTicks;
+    use ambition_platformer2d::versus_match::live_match_clock::LiveMatchTicks;
 
     let mut app = open_the_lobby();
     pick_and_start(&mut app, PREPARED_FIGHTER);
@@ -8297,7 +8297,7 @@ fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
 /// the real timeout, the real tiebreak and the real announcer do the rest.
 #[test]
 fn the_sudden_death_card_outlives_the_tick_that_raised_it() {
-    use ambition_platformer2d::actors::character_runtime::live_match_clock::LiveMatchTicks;
+    use ambition_platformer2d::versus_match::live_match_clock::LiveMatchTicks;
     use ambition_platformer2d::versus_match::SuddenDeathEntered;
 
     let mut app = open_the_lobby();
@@ -8746,7 +8746,7 @@ fn visit_mary_o(app: &mut App) -> MaryOVisit {
     let after_the_pole = mary_o_reading(app);
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..30 {
         app.update();
     }

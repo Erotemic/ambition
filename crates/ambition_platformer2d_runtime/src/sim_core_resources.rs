@@ -38,7 +38,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::death_rules::ActorDiedMessage;
-use ambition_platformer2d_actor_monolith::assets;
+use ambition_platformer2d_assets as assets;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{FireworksRequest, FxRequest};
 use ambition_vfx::VfxInRoom;
@@ -93,7 +93,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_combat::events::ActorStimulus>()
             .add_message::<ambition_combat::RoomReplayAdmitted>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
-            .add_message::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>()
+            .add_message::<ambition_damage::healing::PlayerHealRequested>()
             // Staging fact: a room's contents finished spawning (JD4).
             .add_message::<ambition_platformer2d_world::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes
@@ -178,7 +178,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>()
             // Track B: the rollback-registered slot a lifecycle op records into
             // under a rollback host, committed on a confirmed frame.
-            .init_resource::<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>()
+            .init_resource::<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>()
             // The always-available input seam (RL/headless writes it
             // programmatically; the windowed host's bridge fills it from
             // devices).
@@ -259,7 +259,7 @@ impl Plugin for SimCoreResourcesPlugin {
         // A composition with a direct session root begins with the bag it
         // was built with. On a shell host the adoption of each session gives
         // it the bag of its experience (`StartingBag::begin_the_session`).
-        ambition_platformer2d_actor_monolith::items::starting_bag::install_starting_bag(app);
+        ambition_platformer2d_items::starting_bag::install_starting_bag(app);
         // The camera of a session that ended is not the camera of the next
         // one. A composition with no session lifecycle has no activation; the
         // reader then reads an empty channel.

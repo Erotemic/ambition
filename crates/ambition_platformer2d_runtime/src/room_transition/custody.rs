@@ -8,7 +8,7 @@
 
 use bevy::prelude::{Entity, Query, Res, With};
 
-use ambition_platformer2d_actor_monolith::rooms;
+use ambition_platformer2d_session::rooms;
 
 /// The away occurrences whose custody a pending crossing ends at its commit
 /// (Q38).
@@ -48,13 +48,13 @@ impl CustodyEndingAtCommit<'_, '_> {
     /// leaves, or when nothing lives away from home.
     pub fn released_by(
         &self,
-        intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
+        intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
     ) -> std::collections::BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let mut released = std::collections::BTreeSet::new();
         let Some(away) = self.away.as_deref().filter(|away| !away.0.is_empty()) else {
             return released;
         };
-        let ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(intent) = intent else {
+        let ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::Transition(intent) = intent else {
             return released;
         };
         let stamp = |entity| {
@@ -91,7 +91,7 @@ impl CustodyEndingAtCommit<'_, '_> {
     /// as carried, because the rooms they live in are not rewound.
     pub fn surviving(
         &self,
-        intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
+        intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
     ) -> std::collections::BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let Some(away) = self.away.as_deref().filter(|away| !away.0.is_empty()) else {
             return std::collections::BTreeSet::new();

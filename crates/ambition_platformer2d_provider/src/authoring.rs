@@ -504,7 +504,7 @@ pub struct PlatformerExperienceAuthoring {
     /// The bag that a session of this experience begins with. `None`: an
     /// empty bag. See [`Self::with_initial_inventory`].
     pub initial_inventory: Option<
-        ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventoryFn,
+        ambition_platformer2d_items::starting_bag::InitialInventoryFn,
     >,
 }
 
@@ -632,7 +632,7 @@ impl PlatformerExperienceAuthoring {
     /// the composition or the session before it has.
     pub fn with_initial_inventory(
         mut self,
-        bag: ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventoryFn,
+        bag: ambition_platformer2d_items::starting_bag::InitialInventoryFn,
     ) -> Self {
         self.initial_inventory = Some(bag);
         self
@@ -752,11 +752,11 @@ impl PlatformerExperienceAuthoring {
         }
         if let Some(bag) = self.initial_inventory {
             app.init_resource::<
-                ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventories,
+                ambition_platformer2d_items::starting_bag::InitialInventories,
             >();
             app.world_mut()
                 .resource_mut::<
-                    ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventories,
+                    ambition_platformer2d_items::starting_bag::InitialInventories,
                 >()
                 .declare(&self.experience_id, bag);
         }

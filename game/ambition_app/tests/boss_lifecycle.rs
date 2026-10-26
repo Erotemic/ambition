@@ -578,7 +578,7 @@ fn boss_revives_after_a_room_reset() {
     // replay's consequences without the room rebuild that makes them mean
     // anything.
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
     for _ in 0..15 {
         sim.step(AgentAction::default());
@@ -864,7 +864,7 @@ fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
     // content half (clearing the persisted attempt record) and the host half
     // (resetting the player + the room's features) both hang off it.
     sim.world_mut().write_message(
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
     );
 
     let replayed = observe_boss(&mut sim, "behemoth");
@@ -1016,18 +1016,18 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
         assert!(boss_cleared(&sim, id), "precondition: {id} is defeated and recorded cleared");
     }
 
-    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     );
     let mut committed = false;
     for _ in 0..120 {
         sim.step(AgentAction::default());
-        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
             .latest()
             .cloned();
@@ -1106,18 +1106,18 @@ fn a_new_game_brings_back_a_person_the_run_killed() {
          a dead guide"
     );
 
-    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
         .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        ambition_platformer2d::actors::session::reset::NewGameRequested,
+        ambition_platformer2d::session::reset::NewGameRequested,
     );
     let mut committed = false;
     for _ in 0..120 {
         sim.step(AgentAction::default());
-        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
             .expect("the live session root carries the checkpoint coordinator")
             .latest()
             .cloned();

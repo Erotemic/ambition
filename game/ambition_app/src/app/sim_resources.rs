@@ -13,7 +13,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::session::data;
+use ambition_platformer2d::session::data;
 
 pub struct AmbitionGameSimulationSetupPlugin;
 

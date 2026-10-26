@@ -132,7 +132,7 @@ impl Plugin for AmbitionContentPlugin {
             use ambition_combat::scoped_rules::DeclareRulesExt as _;
             app.declare_rules(
                 ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
-                ambition_platformer2d_actor_monolith::rooms::passage::ZonePassageRules,
+                ambition_platformer2d_session::rooms::passage::ZonePassageRules,
             );
         }
 

@@ -245,13 +245,13 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
                 .collect(),
             );
         ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
-            ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline,
+            ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline,
         >(world)
         .expect("A's root carries the minted-item baseline")
         .adopt(
                 [(
                     probe.clone(),
-                    ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemDescription {
+                    ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemDescription {
                         origin: ambition_platformer2d::platformer::construction::SpawnOrigin::Dynamic {
                             parent: SimId::placement("session_isolation_spawner"),
                             sequence: 0,
@@ -353,7 +353,7 @@ fn checkpoint_rows_for(
         session_world_component::<CustodyBaseline>(world)
             .is_some_and(|baseline| baseline.was_carried(id)),
         session_world_component::<
-            ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline,
+            ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline,
         >(world)
         .is_some_and(|baseline| baseline.description_of(id).is_some()),
     ]

@@ -1717,7 +1717,7 @@ the two sub-workspace lockfiles, after `ambition_portal2d` took
 from these slices: foreign ordering 84 edges (ceiling 76), the multi-writer
 baseline (`capture_scene`'s `ShieldRingsView`, `PortalEffectSelection`,
 `SlotControls`), the level-box reads at `ambition_combat/src/extension.rs:90`
-and `ambition_platformer2d_actor_monolith/src/projectile/systems.rs:902`, and
+and `ambition_projectile_combat/src/systems.rs:902`, and
 the rewind-boundary census.
 
 **Re-run 2026-10-16, later:** 1844 passed, 8 failed. Two were from the
@@ -2137,16 +2137,16 @@ a value-probed clone and the false derived declaration is deleted (schema
 343 -> 344). Witness `app_it::a_custom_brain_module_replays_the_same_under_rollback`:
 red before (GGRS mismatch at frame 38), green after. Commit d215fcbdf.
 
-### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
+### AP14 — actor kernel decomposition
 
 **Owner:** [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
 and [`actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
-Jon's 2026-10-09 order defers a full decomposition: take a cut only when a slice
-above already moves the state it names.
+Jon's current instruction selects the remaining decomposition. Move each
+responsibility to its owner and keep one body, control, and action path.
 
 | # | Item | Next step |
 |---|---|---|
-| AP14 | Semantic actor-monolith ownership and dependency cuts (continuous; full carve deferred) | K1 (`1d75719b6`, `CustodyEndingAtCommit` to the runtime's room transition) and K2 (`b4c7ab270`, `CommitFactsSource` to the room transaction) are done (2026-10-21): the largest textual qualified-reference SCC is 4 modules after K4 and K5's room sweep and rules reading (2026-10-22: `abilities features items session`); the `assets <-> character_sprites` pair is broken. This does **not** prove an extracted Cargo boundary. Keep legitimate reads such as `features -> projectile` (`ProjectileAllegiance`). Do not move state just for an SCC metric. The existing runtime owns schedule assembly; a dedicated integration implementation crate is a candidate only when the room-publication coordinator is ready. Preserve same-tick ordering, rollback, candidate publication and the count of active systems. The [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence) gives K3-K5 with evidence and tests; the [system audit](engine/system-composition-audit.md#s7--consolidate-coherent-active-ecs-systems-proposed-2026-10-20) holds the separate Android fusion experiments. Full decomposition remains deferred until an approved ownership packet is selected. |
+| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Continue with item integration, character activation and materialization, projectile execution, and world-object behavior. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`

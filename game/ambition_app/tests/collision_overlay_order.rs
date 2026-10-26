@@ -54,7 +54,7 @@ fn the_collision_overlay_is_complete_before_anything_reads_it() {
             // the overlay's id can see it. It was the writer behind the defect, so
             // its membership is checked by type.
             let lock_walls = System::system_type(&IntoSystem::into_system(
-                ambition_platformer2d::actors::world::gated_lock_walls::sync_authored_gated_lock_walls,
+                ambition_platformer2d::world::gated_lock_walls::sync_authored_gated_lock_walls,
             ));
             let member_types: Vec<std::any::TypeId> = schedule
                 .systems()

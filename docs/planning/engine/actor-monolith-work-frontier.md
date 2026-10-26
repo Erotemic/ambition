@@ -69,7 +69,7 @@ the touched invariant.
 
 **State:** closed. **Owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md).
-Restoration lives in `session::checkpoint`; healing and capture stay in
+Restoration lives in `ambition_platformer2d_session::checkpoint`; healing and capture stay in
 `shrine`. Domain reducers read one admitted operation; a refused reset changes
 no occurrence, custody or owned-item state. The P2P road stays inert below
 `commit_confirmed_lifecycle`'s `LocalSyncTest` gate. A coordinated peer-level
@@ -113,7 +113,7 @@ one generic breakable crate.
 ## A3. Move authored placement lowering to the construction boundary
 
 **State:** the lowering context lives in
-`crates/ambition_platformer2d_actor_monolith/src/construction/placements.rs`.
+`crates/ambition_platformer2d_construction/src/placements.rs`.
 `ambition_platformer2d_world` names no actor crate and `LoweringCtx<C>` is
 generic. The character catalog and authored sheets ride on
 `ActorConstructionContext`. Keep immutable room and placement records and the
@@ -229,7 +229,7 @@ mix mechanical and visual values from different revisions.
 ## A7. Separate item custody/accounting from lifecycle orchestration
 
 **State:** A1 is closed. [Item custody and accounting](item-custody-and-accounting.md)
-owns the item writers. The checkpoint baseline is written only inside the monolith;
+owns the item writers. The checkpoint baseline is written by `ambition_platformer2d_items`;
 `OwnedItems` is written from four crates. `GroundItem` is `#[non_exhaustive]`
 with `at_rest` and `released` as its only constructors. Every death drop goes
 through `spawn_death_drop` with a `DropIdentity` that has no default

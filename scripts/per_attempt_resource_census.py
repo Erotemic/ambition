@@ -18,7 +18,7 @@ rest of the run. ⭐ THE WAY IN WAS A NAME -- `SpentMonitors` reads exactly like
 and this file is that sweep, committed.
 
 ⇒ Since 2026-09-06 the retraction is a TYPE:
-`ambition_platformer2d_actor_monolith::session::reset::AttemptScoped`. This census
+`ambition_platformer2d_session::reset::AttemptScoped`. This census
 reports which collection-holding content resources implement it and which do not.
 
 ⛔⛔ WHAT THIS FILE CANNOT SEE, and once claimed it could. It reads SOURCE for

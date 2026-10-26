@@ -62,9 +62,9 @@ impl CapabilityComposition for Capability {
                 .disable::<ambition_held_items::HeldItemSimulationPlugin>()
                 .disable::<ambition_abilities::AbilitySimulationPlugin>(),
             Capability::Inventory => group
-                .disable::<ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin>()
+                .disable::<ambition_platformer2d_items::pickup::ItemPickupSimulationPlugin>()
                 .disable::<ambition_world_items::WorldItemSimulationPlugin>()
-                .disable::<ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin>(),
+                .disable::<ambition_platformer2d_items::conditions::InventoryConditionsPlugin>(),
             // Not a unit of the engine group (not in `Capability::REMOVABLE`):
             // a game crate installs it, so the group has nothing to leave out.
             Capability::FighterSpecials => group,
@@ -113,9 +113,9 @@ impl CapabilityComposition for Capability {
                     || app.is_plugin_added::<ambition_abilities::AbilitySimulationPlugin>()
             }
             Capability::Inventory => {
-                app.is_plugin_added::<ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin>()
+                app.is_plugin_added::<ambition_platformer2d_items::pickup::ItemPickupSimulationPlugin>()
                     || app.is_plugin_added::<ambition_world_items::WorldItemSimulationPlugin>()
-                    || app.is_plugin_added::<ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin>()
+                    || app.is_plugin_added::<ambition_platformer2d_items::conditions::InventoryConditionsPlugin>()
             }
             // The engine group never installs it (see `omit`).
             Capability::FighterSpecials => false,
@@ -311,7 +311,7 @@ pub const SUPPORTED_PROFILES: [EngineProfile; 9] = [
 /// parameters validate is what a witness can do without staging either event.
 pub fn session_edge_params_validate(world: &mut World) -> Result<(), String> {
     use bevy::ecs::system::SystemState;
-    let mut teardown = SystemState::<ambition_platformer2d_actor_monolith::session::teardown::SessionScopedResources>::new(world);
+    let mut teardown = SystemState::<ambition_platformer2d_session::teardown::SessionScopedResources>::new(world);
     teardown
         .get_mut(world)
         .map(|_| ())

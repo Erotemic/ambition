@@ -370,7 +370,7 @@ mod tests {
             app.update();
             let states = app
                 .world()
-                .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+                .resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>(
             );
             if forms.iter().all(|(id, _)| {
                 states.outcome(id).is_some()
@@ -381,12 +381,12 @@ mod tests {
 
         let states = app
             .world()
-            .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+            .resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>(
         );
         for (character_id, sheet_stem) in forms {
             assert_eq!(
                 states.outcome(character_id),
-                Some(ambition_platformer2d::actors::character_runtime::CharacterLoadOutcome::Ready),
+                Some(ambition_platformer2d::assets::materialization::CharacterLoadOutcome::Ready),
                 "published {sheet_stem}.png + .ron must materialize for {character_id}"
             );
         }

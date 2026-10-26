@@ -185,7 +185,7 @@ pub fn collect_ecs_pickups(
         // could still be collected on overlap.
         (With<FeatureSimEntity>, Without<PickupCollectLock>),
     >,
-    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
@@ -203,7 +203,7 @@ pub fn collect_ecs_pickups(
     // What a collected pickup gave: a retracted boss defeat takes back a
     // mint's, and a restore keeps a placed pickup's while one of the
     // participants in its room is spared (Q151).
-    mut reward_grants: Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+    mut reward_grants: Option<ResMut<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
@@ -266,13 +266,13 @@ pub fn collect_ecs_pickups(
         {
             let source = match origin {
                 Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. }) => {
-                    crate::items::pickup::GrantSource::Mint { parent: parent.clone() }
+                    ambition_platformer2d_items::pickup::GrantSource::Mint { parent: parent.clone() }
                 }
-                _ => crate::items::pickup::GrantSource::Authored {
+                _ => ambition_platformer2d_items::pickup::GrantSource::Authored {
                     owners: super::world_time_schedule::owners_beside(entity, &rooms, &participants),
                 },
             };
-            reward_grants.record(crate::items::pickup::RewardGrant {
+            reward_grants.record(ambition_platformer2d_items::pickup::RewardGrant {
                 source,
                 collector: collector.clone(),
                 granted,
@@ -323,16 +323,16 @@ pub fn collect_ecs_pickups(
 pub fn grant_pickup(
     kind: &ambition_interaction::PickupKind,
     collector: bevy::prelude::Entity,
-    heals: &mut MessageWriter<crate::avatar::PlayerHealRequested>,
+    heals: &mut MessageWriter<ambition_damage::healing::PlayerHealRequested>,
     wallets: &mut Query<&mut ambition_characters::actor::BodyWallet>,
     set_flag: &mut MessageWriter<SetFlagRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
     items: &ambition_items::ItemCatalog,
-) -> crate::items::pickup::PickupGranted {
-    let mut granted = crate::items::pickup::PickupGranted::default();
+) -> ambition_platformer2d_items::pickup::PickupGranted {
+    let mut granted = ambition_platformer2d_items::pickup::PickupGranted::default();
     match kind {
         ambition_interaction::PickupKind::Health { amount } => {
-            heals.write(crate::avatar::PlayerHealRequested::for_target(
+            heals.write(ambition_damage::healing::PlayerHealRequested::for_target(
                 *amount, collector,
             ));
         }

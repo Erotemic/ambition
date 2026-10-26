@@ -128,7 +128,7 @@ def test_a_write_through_a_binding_that_never_names_the_type_is_a_production(tmp
 
     A real producer writes `request.0 = true` and never mentions the type at
     all — `outstanding.0 = true` in
-    `crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs:414`
+    `crates/ambition_platformer2d_session/src/checkpoint.rs:414`
     is the shape, and it is what the deleted `SpawnPlayerCloneRequest` producer
     looked like too. So "no assignment names the type" must
     mean CANNOT DEMOTE, not "clears" — a `_only_clears` that returned True on an
@@ -726,7 +726,7 @@ def test_no_message_system_is_classified_only_by_an_opaque_schedule_parameter():
 
     `schedules_by_system` records the LABEL as written, so a generic installer
     such as `install_attempt_scoped(app, schedule, when)`
-    (`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:125`)
+    (`crates/ambition_platformer2d_session/src/reset/mod.rs:125`)
     contributes the parameter's NAME. `is_non_rewinding` treats any schedule
     variable as rewinding, so an opaque label reads as `sim` — the safe
     direction for a sim READER and the unsafe one for a host WRITER, which

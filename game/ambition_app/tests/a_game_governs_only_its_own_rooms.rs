@@ -357,7 +357,7 @@ fn each_game_draws_its_own_line_between_light_and_heavy_hits() {
 /// Ambition in the hub every game's door played Ambition's passage.
 #[test]
 fn only_ambitions_doors_play_a_passage() {
-    use ambition_platformer2d::actors::rooms::passage::ZonePassageRules;
+    use ambition_platformer2d::session::rooms::passage::ZonePassageRules;
     use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
 
     let app = compose_the_shipped_host();

@@ -32,7 +32,7 @@ use ambition_portal2d::{
 };
 
 /// Facade: the equip/unequip pair lives in
-/// [`ambition_platformer2d_actor_monolith::items::pickup`] (pure item-equip
+/// [`ambition_platformer2d_items::pickup`] (pure item-equip
 /// machinery, the twins of `equip_held_spec` / `unequip_held`). The content
 /// adapter keeps the world-side systems below: when a body may take or release
 /// the gun, and what it leaves on the floor. All callers use this one pair, so

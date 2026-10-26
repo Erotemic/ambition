@@ -96,7 +96,7 @@ pub fn register_cast(app: &mut bevy::prelude::App) {
 /// row's sheet at its `posed_body` scale, the hurtbox inset from that body, and
 /// the pack's move table. Everything else is the row, folded at preparation.
 pub fn register_characters(app: &mut bevy::prelude::App) {
-    use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+    use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
     // ⭐ THE APP'S PACK, READ ONCE. Selecting here rather than per character is
     // what makes "which pack did this cast come from" one fact: a selection that
@@ -1397,7 +1397,7 @@ mod assembled_provider_tests {
         expected = "character `player_robot_v3` is authored by both `foreign_provider` and `ambition`"
     )]
     fn a_character_id_another_provider_registered_stops_the_composition() {
-        use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+        use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
         let mut app = bevy::prelude::App::new();
         app.register_character(ambition_platformer2d::character::CharacterDefinition::new(
             crate::character_catalog::shipped_starting_character(),

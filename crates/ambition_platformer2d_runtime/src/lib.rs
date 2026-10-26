@@ -178,7 +178,7 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
-    pub use ambition_platformer2d_actor_monolith::session::setup::{
+    pub use ambition_platformer2d_session::setup::{
         simulation_world, SimulationSetup,
     };
     // The first room is published before the session's bodies are built.
@@ -500,7 +500,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             // A sheet-authored body adopts the box for the pose it is showing, in
             // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
-            .add(ambition_platformer2d_actor_monolith::character_runtime::CharacterRuntimePlugin)
+            .add(ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin)
+            .add(ambition_platformer2d_actor_monolith::character_projection::ActorCharacterPlugin)
+            .add(ambition_platformer2d_session::MatchLifecyclePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
             // Traversal ability/weapon kit + shared app state.
@@ -530,7 +532,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // chain and no members; with only the domains', members and no
             // chain. Order between the three does not matter — each configures
             // its own sets.
-            .add(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSimulationPlugin)
+            .add(ambition_platformer2d_items::pickup::ItemPickupSimulationPlugin)
             // ⭐ ITS SIBLING, AND THE TWO ARE COMPOSED HERE RATHER THAN ONE
             // ADDING THE OTHER: the TOUCHED collectible — where it is, whether
             // it is moving, and that walking into it collects it. Split out of
@@ -571,7 +573,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // items/shots, marks, shrines, gravity switches, gun-swords.
             .add(ambition_sim_view::SimViewPlugin)
             // Sandbox reset schedule.
-            .add(ambition_platformer2d_actor_monolith::session::reset::NewGameResetPlugin)
+            .add(ambition_platformer2d_session::reset::NewGameResetPlugin)
             // Deterministic sim traces.
             .add(ambition_platformer2d_trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
@@ -674,17 +676,17 @@ impl PluginGroup for PlatformerEnginePlugins {
             // and names no domain — it performs whatever the composed catalog
             // happens to know, which is why it can live here beside the
             // machinery rather than inside whichever domain a level asks for.
-            .add(ambition_platformer2d_actor_monolith::world::authored_switch_commands::AuthoredSwitchCommandPlugin)
+            .add(ambition_encounter_features::authored_switch_commands::AuthoredSwitchCommandPlugin)
             // The second consumer: a room's `while_live` line, asked for on each
             // tick while the room is live.
-            .add(ambition_platformer2d_actor_monolith::world::authored_room_commands::AuthoredRoomCommandPlugin)
-            .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
+            .add(ambition_platformer2d_world::authored_room_commands::AuthoredRoomCommandPlugin)
+            .add(crate::world_facts::WorldFactConditionsPlugin)
             // The inventory domain's provider, added for the same reason and in
             // the same way. it is the THIRD provider and it cost one line of
             // composition — which is the acceptance clause, restated as code.
-            .add(ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin)
+            .add(ambition_platformer2d_items::conditions::InventoryConditionsPlugin)
             .add(
-                ambition_platformer2d_actor_monolith::items::wallet_conditions::WalletConditionsPlugin,
+                ambition_platformer2d_items::wallet_conditions::WalletConditionsPlugin,
             )
             // The body domain's provider — `body.can(verb)`, the route-facing
             // reader of `AbilitySet`. FOURTH provider, one line, and it is only
@@ -827,3 +829,10 @@ pub use session_world::{
     PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld,
     PreparedPlatformerSource,
 };
+
+const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
+
+#[cfg(test)]
+mod gated_lock_wall_tests;
+
+pub mod world_facts;

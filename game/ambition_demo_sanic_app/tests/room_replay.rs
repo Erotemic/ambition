@@ -124,7 +124,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     app.update();
 
     let home = player_pos(&mut app).expect("he is still in the world");
@@ -231,7 +231,7 @@ fn one_replay_request_is_processed_exactly_once() {
     );
 
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        .write_message(ambition_platformer2d::session::reset::RoomReplayRequested::manual());
     for _ in 0..4 {
         app.update();
     }
@@ -261,7 +261,7 @@ fn one_replay_request_is_processed_exactly_once() {
 #[test]
 fn a_pit_death_rearms_a_broken_monitor() {
     use ambition_demo_sanic::monitors::{SpentMonitors, SPEED_MONITOR};
-    use ambition_platformer2d::actors::session::reset::AttemptScoped;
+    use ambition_platformer2d::session::reset::AttemptScoped;
     use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
     let live_room = |app: &App| {
         *ambition_platformer2d::session::sole_live_room_component::<LiveRoomInstance>(app.world())

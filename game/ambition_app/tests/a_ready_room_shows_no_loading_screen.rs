@@ -66,7 +66,7 @@ struct Crossing {
 
 /// Stage Alice's crossing to `target` and run it to its end.
 fn cross(app: &mut bevy::prelude::App, target: &str) -> Crossing {
-    use ambition_platformer2d::actors::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
+    use ambition_platformer2d::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
     use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase;
 
     let body = alice(app);

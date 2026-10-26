@@ -633,7 +633,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::world::FeatureEcsWorldOverlay;
     // ⛔ `ProjectileBody` belongs to the projectile MODEL crate; the monolith's
     // glob forward of it was deleted, and no gate builds this target.
-    use ambition_platformer2d::actors::projectile::step_projectiles;
+    use ambition_platformer2d::projectile_combat::step_projectiles;
     use ambition_platformer2d::characters::actor::{
         character_catalog::CharacterCatalog, BodyHealth,
     };
@@ -684,7 +684,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
-    app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_platformer2d::damage::healing::PlayerHealRequested>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
     ambition_demo_mary_o::register_mary_o_cast(&mut app);

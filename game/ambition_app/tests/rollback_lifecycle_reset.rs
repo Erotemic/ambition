@@ -609,11 +609,11 @@ fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
 /// terminal answer at the far end.
 #[test]
 fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
-    use ambition_platformer2d::actors::session::checkpoint::{
+    use ambition_platformer2d::session::checkpoint::{
         AcceptedCheckpointRestore, AcceptedRestore, RestoreCancellation,
         SessionCheckpointOperations, SessionCheckpointOutcomes,
     };
-    use ambition_platformer2d::actors::session::lifecycle_commit::{
+    use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
 

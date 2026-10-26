@@ -1,0 +1,27 @@
+[package]
+name = "ambition_platformer2d_items"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Item custody restoration, inventory persistence, and item simulation integration."
+
+[dependencies]
+ambition_abilities = { path = "../ambition_abilities" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_damage = { path = "../ambition_damage" }
+ambition_held_items = { path = "../ambition_held_items" }
+ambition_items = { path = "../ambition_items" }
+ambition_match = { path = "../ambition_match" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_shrine = { path = "../ambition_shrine" }
+bevy = { version = "0.19.1", default-features = false }
+
+[dev-dependencies]
+ambition_items = { path = "../ambition_items", features = ["test-support"] }

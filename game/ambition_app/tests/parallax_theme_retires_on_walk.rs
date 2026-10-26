@@ -166,11 +166,11 @@ fn a_theme_the_player_walked_away_from_leaves_assets_image() {
     };
 
     let _ = app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
-            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+            ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     subject: subject.clone(),
                     target_room,
                     arrival,

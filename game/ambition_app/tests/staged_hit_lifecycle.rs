@@ -119,7 +119,7 @@ fn arm(stage_a_hit: bool, cross_a_boundary: bool) -> i32 {
     }
     if cross_a_boundary {
         sim.world_mut().write_message(
-            ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+            ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
         );
     }
     // Two frames: the boundary frame stages and (should) void; the next frame is

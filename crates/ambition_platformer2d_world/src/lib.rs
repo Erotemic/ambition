@@ -31,3 +31,10 @@ pub mod prelude {
 // (repository structure, not a crate-local behavioral invariant):
 // `engine.world-ir-dependency-allowlist` in
 // `tests/ambition_workspace_policy/policies/engine.toml`.
+
+pub mod authored_room_commands;
+
+pub mod gated_lock_walls;
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

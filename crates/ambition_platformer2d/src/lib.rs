@@ -632,7 +632,7 @@ pub mod content {
         /// Register the catalog and every character in it.
         pub fn register(self, app: &mut bevy::prelude::App) {
             use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
-            use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+            use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
             let pack = self.pack.prepared();
             let catalog = self.fragment.catalog();
@@ -803,7 +803,7 @@ pub use ambition_platformer2d_publication as publication;
 pub use ambition_platformer2d_construction as construction;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
-#[cfg(feature = "ambition_platformer2d_ldtk")]
+#[cfg(any(feature = "ldtk", feature = "ldtk_runtime", feature = "static_map"))]
 pub use ambition_platformer2d_ldtk as ldtk_map;
 pub use ambition_platformer2d_runtime as runtime;
 
@@ -1095,7 +1095,7 @@ pub mod character {
     /// third-party game must be able to state how its own autonomous character
     /// moves and decides without importing the engine's internal crates.
     pub use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};
-    pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+    pub use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
     /// The pieces a match needs to author a fighter's kit — see
     /// `MatchParticipant::action_set`.
@@ -1119,14 +1119,14 @@ pub mod character {
     /// What a provider REGISTERED, so a screen can ask what a character
     /// declared rather than only what a catalog derived.
     pub use ambition_characters::prepared::PreparedCharacterRegistry;
-    pub use ambition_platformer2d_actor_monolith::character_runtime::registered_portrait_target;
+    pub use ambition_platformer2d_assets::materialization::registered_portrait_target;
     /// What a character looks like, and whether its art has arrived.
-    pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterLoadStates;
+    pub use ambition_platformer2d_assets::materialization::CharacterLoadStates;
     /// The sheet tier every character is realized at: the user's setting, and
     /// nothing else — no room, view or distance may lower it (Jon, 2026-09-02).
-    pub use ambition_platformer2d_actor_monolith::character_sprites::character_sprite_tier;
-    pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
-    pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_prepared_character;
+    pub use ambition_platformer2d_assets::character_sprites::character_sprite_tier;
+    pub use ambition_platformer2d_assets::character_sprites::portrait_for_declared_character;
+    pub use ambition_platformer2d_assets::character_sprites::sheet_for_prepared_character;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
@@ -1324,6 +1324,8 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
+    pub use ambition_platformer2d_runtime::world_facts as facts;
+    pub use ambition_platformer2d_physics_debris as physics;
     /// A room's damaging volumes, as simulation state.
     pub use ambition_combat::hazard_runtime::HazardFeature;
     /// The derived solids/hazards a room contributes on top of its authored base.
@@ -1347,7 +1349,7 @@ pub mod world {
     pub use ambition_platformer2d_world::prelude;
 
     pub use ambition_platformer2d_world::{
-        collision, debug_label, navigation, placements, platforms, rooms, world_manifest,
+        authored_room_commands, collision, debug_label, gated_lock_walls, navigation, placements, platforms, rooms, world_manifest,
     };
 }
 // Re-exported so a game can name bevy TYPES through `crate::bevy::…`. NOTE:
@@ -1985,3 +1987,11 @@ macro_rules! __content_pack_text {
         }
     };
 }
+
+/// Item simulation and checkpoint integration.
+pub use ambition_platformer2d_items as item_runtime;
+/// Projectile contacts and combat execution.
+pub use ambition_projectile_combat as projectile_combat;
+
+/// Asset catalog assembly and character materialization.
+pub use ambition_platformer2d_assets as assets;

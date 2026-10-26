@@ -1224,7 +1224,7 @@ def validate(
             # Classify by shape: wider-than-tall = top/bottom seam
             # (inset Y), taller-than-wide = left/right seam (inset X).
             # Must mirror `edge_arrival` in
-            # crates/ambition_platformer2d_actor_monolith/src/world/rooms/spawn.rs so
+            # crates/ambition_platformer2d_session/src/rooms/spawn.rs so
             # the validator's arrival math matches what the runtime
             # actually computes.
             zw, zh = local_zone[2], local_zone[3]

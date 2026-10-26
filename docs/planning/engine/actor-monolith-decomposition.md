@@ -611,9 +611,20 @@ Persistence owns durable NPC provocation facts, their reducer, and the saved
 NPC dialogue flag name. Runtime keeps their existing ordering. No system
 invocation is added.
 
-**Remaining D33 work:** expose the owned body API and remove the old
-`features::ecs` topology and foreign forwarding exports. Capability profiles
-remain a separate C2/SDK exit.
+### K19 — Owned public body API
+
+The crate root exports owned body operations and semantic modules.
+`features` is private, and foreign forwarding exports are removed
+(`bcf1bda65`). Rust visibility rejects the former `features::ecs` imports.
+Call lower domain owners directly. Do not restore the forwarding surface.
+
+Outlander's default-feature tests and renderer-free consumer tests pass. Its
+visible test targets compile. Combined-feature workspace, minimal-game and
+visible-consumer behavior checks remain open.
+
+Jon stopped the combined-feature run after 757 reported passes and no reported
+failures. This partial run does not close acceptance.
+Capability profiles remain a separate C2/SDK exit.
 
 ### Migration acceptance for each packet
 

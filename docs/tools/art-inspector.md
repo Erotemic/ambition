@@ -61,6 +61,7 @@ Desktop development builds read sprites from disk; their sprite watcher can
 defer metadata publication until the session ends. Restarting the same binary
 also reads the new files. Static-content builds embed sprite metadata.
 
-The [character coverage plan](../planning/engine/art-inspector-and-character-coverage.md)
-describes the current townsfolk death gap and the proposed coverage and
-character views. Those inspection commands are not implemented yet.
+The [art inventory and coverage plan](../planning/engine/art-inspector-and-character-coverage.md)
+describes the townsfolk correction and the proposed coverage, lineage and
+generation queries for all art kinds. Those inspection commands are not
+implemented yet.

@@ -13,7 +13,7 @@
 //! frame's draws where any set of joint frames says, so the flipbook's own
 //! transform table is a cache of what the rig's pose and these bindings derive.
 
-use bevy::math::{Affine2, Vec2};
+use bevy::math::{Affine2, Mat2, Vec2};
 
 use ambition_characters::actor::PreparedBodyRig;
 
@@ -28,9 +28,8 @@ pub struct TrackBinding {
     pub at: Vec2,
     /// The draw's angle less the joint's, in radians (clockwise, +y down).
     pub rotation: f32,
-    /// How far the measured placements spread around these: the largest
-    /// distance of the pivot from `at`, in sheet pixels, over every frame the
-    /// two files share.
+    /// The largest placement error in sheet pixels over the shared frames.
+    /// Each joint's transform converts the local error to sheet pixels.
     pub spread_px: f32,
     /// The same for the angle, in radians.
     pub spread_rad: f32,
@@ -45,6 +44,13 @@ pub struct PosedParts {
     bindings: Vec<Option<TrackBinding>>,
     /// The frames both files share that the measurement read.
     frames: usize,
+}
+
+#[derive(Clone, Copy)]
+struct BindingSample {
+    at: Vec2,
+    rotation: f32,
+    basis: Mat2,
 }
 
 /// A joint frame's angle, in radians: the `rotation` of the pose that built
@@ -76,8 +82,7 @@ impl PosedParts {
     /// pixels and its angle no more than `tolerance_rad`.
     pub fn bind(flipbook: &RiggedSpriteAsset, rig: &PreparedBodyRig, tolerance_px: f32, tolerance_rad: f32) -> Self {
         let joints = rig.joint_names().len();
-        // samples[track][joint] = (pivot, angle) in the joint's frame, per frame.
-        let mut samples: Vec<Vec<Vec<(Vec2, f32)>>> = vec![vec![Vec::new(); joints]; flipbook.tracks.len()];
+        let mut samples: Vec<Vec<Vec<BindingSample>>> = vec![vec![Vec::new(); joints]; flipbook.tracks.len()];
         let mut frames = 0;
         let mut world = Vec::new();
         for row in flipbook.clip_names() {
@@ -101,7 +106,11 @@ impl PosedParts {
                     };
                     for (joint, frame) in world.iter().enumerate() {
                         let local = frame.inverse().transform_point2(draw.at);
-                        samples[track][joint].push((local, wrapped(draw.rotation - angle_of(frame))));
+                        samples[track][joint].push(BindingSample {
+                            at: local,
+                            rotation: wrapped(draw.rotation - angle_of(frame)),
+                            basis: frame.matrix2,
+                        });
                     }
                 }
             }
@@ -115,11 +124,11 @@ impl PosedParts {
                     .filter(|(_, samples)| !samples.is_empty())
                     .map(|(joint, samples)| {
                         let n = samples.len() as f32;
-                        let at = samples.iter().map(|(at, _)| *at).sum::<Vec2>() / n;
-                        let reference = samples[0].1;
-                        let rotation = reference + samples.iter().map(|(_, angle)| wrapped(angle - reference)).sum::<f32>() / n;
-                        let spread_px = samples.iter().map(|(p, _)| p.distance(at)).fold(0.0, f32::max);
-                        let spread_rad = samples.iter().map(|(_, angle)| wrapped(angle - rotation).abs()).fold(0.0, f32::max);
+                        let at = samples.iter().map(|sample| sample.at).sum::<Vec2>() / n;
+                        let reference = samples[0].rotation;
+                        let rotation = reference + samples.iter().map(|sample| wrapped(sample.rotation - reference)).sum::<f32>() / n;
+                        let spread_px = samples.iter().map(|sample| (sample.basis * (sample.at - at)).length()).fold(0.0, f32::max);
+                        let spread_rad = samples.iter().map(|sample| wrapped(sample.rotation - rotation).abs()).fold(0.0, f32::max);
                         TrackBinding {
                             joint: joint as u16,
                             at,

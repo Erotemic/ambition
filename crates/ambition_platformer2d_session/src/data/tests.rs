@@ -189,7 +189,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
             )),
         );
     let boss_catalog = ambition_boss_encounter::BossCatalog::default();
-    let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_platformer2d_asset_catalog(
+    let catalog = ambition_platformer2d_assets::platformer_assets::build_platformer2d_asset_catalog(
         &config,
         &character_catalog,
         &boss_catalog,
@@ -199,7 +199,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
 
     let mut missing: Vec<String> = Vec::new();
     for track in &music.tracks {
-        let id = ambition_platformer2d_actor_monolith::assets::platformer_assets::ids::music_track(&track.id);
+        let id = ambition_asset_manager::platformer_assets::ids::music_track(&track.id);
         let path = catalog.path_for(&id);
         if path.is_none() {
             missing.push(track.id.clone());

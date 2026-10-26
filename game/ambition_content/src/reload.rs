@@ -638,7 +638,7 @@ fn stage_cast_from_catalog(
     let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
     for definition in crate::character_catalog::buildable_definitions(catalog, pack, rigs_admitted)
     {
-        let bindings = ambition_platformer2d_actor_monolith::character_runtime::definition::with_engine_vocabularies(
+        let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(
             ambition_characters::prepared::CharacterBindings::default(),
         );
         ambition_characters::prepared::stage_character_revision_in(world, definition, &bindings)

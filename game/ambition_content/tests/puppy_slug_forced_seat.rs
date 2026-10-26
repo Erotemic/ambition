@@ -19,7 +19,7 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d::versus_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
 };
-use ambition_platformer2d_actor_monolith::character_runtime::{
+use ambition_platformer2d_assets::materialization::{
     activate_the_prepared_match, prepare_the_match, release_the_opening_hold,
 };
 

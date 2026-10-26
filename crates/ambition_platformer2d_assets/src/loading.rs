@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::AssetCollection;
 
-use crate::assets::gameplay_defaults::Platformer2dGameplayDefaults;
+use crate::gameplay_defaults::Platformer2dGameplayDefaults;
 
 /// First asset collection for the sandbox.
 ///

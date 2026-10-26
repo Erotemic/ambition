@@ -2289,7 +2289,7 @@ mod tests {
             .expect("Solid Snake is a catalog row");
         assert_eq!(snake.display_name, pack::PACK.display_name("solid_snake"), "the installed row is the pack's");
         assert!(
-            ambition_platformer2d::actors::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d::assets::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
                 catalog,
                 "solid_snake"
@@ -2302,7 +2302,7 @@ mod tests {
         let ai_slop_row = catalog.get("ai_slop").expect("AI Slop is a catalog row");
         assert_eq!(ai_slop_row.display_name, pack::PACK.display_name("ai_slop"), "the installed row is the pack's");
         assert!(
-            ambition_platformer2d::actors::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d::assets::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
                 catalog,
                 "ai_slop"

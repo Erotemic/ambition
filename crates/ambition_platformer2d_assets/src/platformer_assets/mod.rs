@@ -1,10 +1,4 @@
-//! Gameplay adapter for the reusable sandbox asset catalog.
-//!
-//! `ambition_asset_manager::platformer_assets` owns catalog/resource/profile
-//! behavior. This module only gathers Ambition-game rows from gameplay/content
-//! registries and delegates to that crate, preserving the historical
-//! `crate::assets::platformer_assets` import path while the
-//! surrounding asset presentation code is still being carved.
+//! Build asset catalog inputs from the selected content registries.
 
 use ambition_asset_manager::platformer_assets as core;
 use ambition_asset_manager::{AssetManifest, AssetProfile};
@@ -13,44 +7,24 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_sprite_sheet::game_assets::sandbox_image_manifest;
 use ambition_sprite_sheet::game_assets::GameAssetConfig;
 
-pub use core::embedded_core;
-pub use core::ids;
-pub use core::{
+use core::{
     AssetScaleVariant, BossSpriteCatalogRow, CharacterSpriteCatalogRow, EmbeddedWorldAsset,
     MusicCatalogRow, Platformer2dAssetCatalog, Platformer2dAssetCatalogConfig, Platformer2dAssetCatalogInputs,
     WorldCatalogRow,
 };
 
-/// Bevy plugin that registers embedded asset bytes under the paths emitted by
-/// the shared sandbox catalog.
-pub struct AmbitionAssetSourcePlugin(core::AmbitionAssetSourcePlugin);
-
-impl AmbitionAssetSourcePlugin {
-    /// Built BEFORE the `App` exists (it is a plugin value passed to
-    /// `add_plugins`), so the manifest arrives as a parameter — a `Res`
-    /// cannot reach here.
-    pub fn for_profile(profile: AssetProfile, manifest: &ambition_platformer2d_world::world_manifest::WorldManifest) -> Self {
-        let embedded_worlds = manifest
-            .worlds
-            .iter()
-            .filter_map(|source| {
-                Some(EmbeddedWorldAsset {
-                    bevy_path: source.embedded_bevy_path?,
-                    text: source.embedded_text?,
-                })
-            })
-            .collect();
-        Self(core::AmbitionAssetSourcePlugin::with_embedded_worlds(
-            profile,
-            embedded_worlds,
-        ))
-    }
-}
-
-impl bevy::prelude::Plugin for AmbitionAssetSourcePlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        self.0.build(app);
-    }
+/// Build the asset source from the selected profile and world manifest.
+pub fn asset_source_for_profile(
+    profile: AssetProfile,
+    manifest: &ambition_platformer2d_world::world_manifest::WorldManifest,
+) -> core::AmbitionAssetSourcePlugin {
+    let embedded_worlds = manifest.worlds.iter().filter_map(|source| {
+        Some(EmbeddedWorldAsset {
+            bevy_path: source.embedded_bevy_path?,
+            text: source.embedded_text?,
+        })
+    }).collect();
+    core::AmbitionAssetSourcePlugin::with_embedded_worlds(profile, embedded_worlds)
 }
 
 /// Convenience: build a desktop-dev catalog from the embedded sandbox spec,
@@ -94,13 +68,6 @@ pub fn build_platformer2d_asset_catalog(
         worlds,
         |_| {},
     )
-}
-
-pub fn scaled_asset_id(
-    id: &ambition_asset_manager::AssetId,
-    scale: ambition_persistence::settings::TextureResolutionScale,
-) -> Option<ambition_asset_manager::AssetId> {
-    core::scaled_asset_id(id, scale.asset_id_suffix())
 }
 
 pub fn build_sandbox_catalog_with(

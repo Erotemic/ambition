@@ -38,7 +38,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::death_rules::ActorDiedMessage;
-use ambition_platformer2d_actor_monolith::assets;
+use ambition_platformer2d_assets as assets;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{FireworksRequest, FxRequest};
 use ambition_vfx::VfxInRoom;

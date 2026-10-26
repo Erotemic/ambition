@@ -152,7 +152,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
 #[test]
 fn the_engine_plugin_installs_the_pipeline_without_any_application() {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins(CharacterMaterializationPlugin);
 
     assert!(
         app.world().get_resource::<CharacterLoadDemand>().is_some(),
@@ -172,7 +172,7 @@ fn the_engine_plugin_installs_the_pipeline_without_any_application() {
 fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
     // A versus match is several worn bodies and only player one would ever have had a sheet.
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins(CharacterMaterializationPlugin);
     app.world_mut()
         .spawn(ambition_characters::actor::WornCharacter("mary_o".into()));
     app.world_mut()
@@ -192,7 +192,7 @@ fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
 #[test]
 fn a_later_identity_swap_demands_the_new_sheet() {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins(CharacterMaterializationPlugin);
     let body = app
         .world_mut()
         .spawn(ambition_characters::actor::WornCharacter("mary_o".into()))
@@ -259,7 +259,7 @@ fn every_entry_route_materializes_the_same_character() {
     let mut outcomes = Vec::new();
     for (label, tokens) in routes {
         let mut app = App::new();
-        app.add_plugins(CharacterRuntimePlugin);
+        app.add_plugins(CharacterMaterializationPlugin);
         {
             let mut demand = app.world_mut().resource_mut::<CharacterLoadDemand>();
             demand.request_all(tokens);
@@ -353,7 +353,7 @@ fn character_materialization_capability_audit_names_the_missing_service() {
     // The audit is also honest in the other direction: with the engine plugin
     // installed, the same staging produces NO service gap.
     let mut proper = App::new();
-    proper.add_plugins(CharacterRuntimePlugin);
+    proper.add_plugins(CharacterMaterializationPlugin);
     proper
         .world_mut()
         .resource_mut::<CharacterLoadDemand>()
@@ -373,7 +373,7 @@ fn character_materialization_capability_audit_names_the_missing_service() {
 #[test]
 fn a_missing_character_catalog_is_named_rather_than_read_as_no_art() {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins(CharacterMaterializationPlugin);
     app.world_mut()
         .resource_mut::<CharacterLoadDemand>()
         .request("mary_o");
@@ -412,10 +412,10 @@ fn an_app_that_stages_no_characters_reports_no_gaps() {
 /// must respond differently.
 #[test]
 fn a_character_registered_only_through_register_character_gets_art() {
-    use crate::character_runtime::definition::CharacterDefinitionAppExt;
+    use crate::materialization::definition::CharacterDefinitionAppExt;
 
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins(CharacterMaterializationPlugin);
     // A catalog with NO characters in it: the only declaration is the registration.
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -543,13 +543,13 @@ mod live_quality_apply {
         app.add_plugins(bevy::asset::AssetPlugin::default());
         app.init_asset::<Image>();
         app.init_asset::<bevy::image::TextureAtlasLayout>();
-        app.add_plugins(CharacterRuntimePlugin);
+        app.add_plugins(CharacterMaterializationPlugin);
 
         let config = GameAssetConfig {
             asset_profile: AssetProfile::AndroidBundle,
             ..Default::default()
         };
-        let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+        let catalog = crate::platformer_assets::build_platformer2d_asset_catalog(
             &config,
             &characters,
             &ambition_boss_encounter::BossCatalog::default(),

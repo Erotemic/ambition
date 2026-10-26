@@ -739,7 +739,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # kept the seam would have watched the wrong half of its own subject, which is the
         # "instrument that measures nothing" shape this file's header names.
         "paths": [
-            "crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            "crates/ambition_platformer2d_assets/src/materialization/definition.rs",
             "crates/ambition_characters/src/prepared.rs",
         ],
         "patterns": [r"CharacterLoadDemand::request", r"\bdemand\.request\("],
@@ -1031,7 +1031,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "crates/",
             "game/",
             "fixtures/",
-            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
+            ":!crates/ambition_platformer2d_assets/src/materialization/presentation.rs",
         ],
         "patterns": [r"\bprovider_of_character\("],
         "reason": (
@@ -1064,7 +1064,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "fixtures/",
             ":!crates/ambition_characters/src/actor/character_catalog/registry.rs",
-            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs",
+            ":!crates/ambition_platformer2d_assets/src/materialization/audit.rs",
             ":!game/ambition_app/tests/app_local_catalog_composition.rs",
         ],
         "patterns": [r"\.provider_for\("],

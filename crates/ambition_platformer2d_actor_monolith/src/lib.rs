@@ -30,11 +30,13 @@ pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
-pub mod assets;
 pub mod body_custody;
 pub mod body_mode;
-pub mod character_runtime;
-pub mod character_sprites;
+pub mod character_projection;
+#[cfg(test)]
+mod character_fixtures;
+#[cfg(test)]
+mod character_integration_tests;
 /// Swings and shots arbitrated in ONE contest, before either damage road runs.
 pub mod clash;
 #[cfg(test)]

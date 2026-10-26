@@ -469,7 +469,7 @@ mod default_profile_tests {
         definition.autonomous_policy = profile
             .map(ambition_characters::brain::BrainProfile::from_template)
             .map(ambition_characters::actor::AutonomousPolicy::Inline);
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );

@@ -66,7 +66,7 @@ const MINIMUM_HALL_CAST: usize = 100;
 
 fn staged_cast_len(app: &App) -> usize {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }

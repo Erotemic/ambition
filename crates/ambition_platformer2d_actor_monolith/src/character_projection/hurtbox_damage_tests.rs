@@ -408,7 +408,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
         .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
         ));
-    app.add_plugins(crate::character_runtime::CharacterRuntimePlugin);
+    app.add_plugins((ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
     // A2a: the damage-facing publication covers BOSSES as well as ordinary
     // bodies now, and the boss publisher reads the catalog. This fixture has no
     // boss, so the empty catalog is all it owes — but it owes it explicitly

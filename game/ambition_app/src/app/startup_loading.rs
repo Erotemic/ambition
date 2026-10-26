@@ -197,7 +197,7 @@ struct StartupAssetInputs<'w, 's> {
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states:
-        ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+        ResMut<'w, ambition_platformer2d::assets::materialization::CharacterLoadStates>,
     /// Sheets this app's providers authored — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
@@ -690,7 +690,7 @@ fn inspect_startup_manifest(
         &ambition_platformer2d::asset_manager::image_stages::AppGpuPreparedImages,
     >,
     game_assets: &GameAssets,
-    character_load_states: &ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    character_load_states: &ambition_platformer2d::assets::materialization::CharacterLoadStates,
     manifest: &mut StartupAssetManifest,
 ) -> StartupReadinessSummary {
     // Sheets realize one per frame after the first build; each brings pages

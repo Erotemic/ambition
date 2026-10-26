@@ -911,6 +911,7 @@ fn a_catalog_save_that_adds_or_removes_a_character_is_played() {
 
 /// The hurt material of every goblin the room built: a raw catalog fact (the
 /// row's tags), not a prepared-cast one.
+#[cfg(not(feature = "static_content"))]
 fn goblin_materials(
     sim: &mut ambition_sim_harness::Platformer2dSimHarness,
 ) -> Vec<ambition_platformer2d::vfx::vfx::ImpactMaterial> {
@@ -1008,7 +1009,7 @@ fn a_catalog_tag_saved_while_the_game_runs_is_built_from_the_candidate_catalog()
 #[test]
 fn a_movement_tuning_saved_while_the_game_runs_is_played() {
     use ambition_app::app::movement_defaults_watch::MovementDefaultsWatch;
-    use ambition_platformer2d::actors::assets::gameplay_defaults::PLATFORMER_DEFAULTS_FILE;
+    use ambition_platformer2d::assets::gameplay_defaults::PLATFORMER_DEFAULTS_FILE;
     use ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning;
     let mut sim = common::fixed_60hz_room_sim("proving_grounds");
     for _ in 0..40 {

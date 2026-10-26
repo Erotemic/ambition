@@ -21,7 +21,7 @@ pub use crate::dialog;
 pub use crate::encounter;
 #[cfg(feature = "ambition_menu")]
 pub use crate::menu;
-#[cfg(feature = "ambition_platformer2d_ldtk")]
+#[cfg(any(feature = "ldtk", feature = "ldtk_runtime", feature = "static_map"))]
 pub use crate::ldtk_map;
 pub use crate::persistence;
 pub use crate::projectiles;

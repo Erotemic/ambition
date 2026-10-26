@@ -41,7 +41,7 @@ pub struct Platformer2dGameplayDefaults {
 /// The defaults file in the source tree. A development build reads it at boot
 /// and watches it while it runs.
 pub const PLATFORMER_DEFAULTS_FILE: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ambition/platformer_defaults.ron");
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron");
 
 /// The defaults text, when the build embeds it (`static_content`).
 ///
@@ -50,7 +50,7 @@ pub const PLATFORMER_DEFAULTS_FILE: &str =
 /// measured, 2026-10-01).
 #[cfg(feature = "static_content")]
 const PLATFORMER_DEFAULTS_RON: Option<&str> =
-    Some(include_str!("../../assets/ambition/platformer_defaults.ron"));
+    Some(include_str!("../../ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron"));
 #[cfg(not(feature = "static_content"))]
 const PLATFORMER_DEFAULTS_RON: Option<&str> = None;
 

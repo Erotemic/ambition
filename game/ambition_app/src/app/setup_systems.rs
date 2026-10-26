@@ -70,7 +70,7 @@ pub(crate) fn setup_host_presentation_system(
     // host code. Direct-entry apps register only Ambition, so their frozen
     // catalog is already complete and no rebuild happens.
     let rebuilt_catalog = hosted.is_some().then(|| {
-        ambition_platformer2d::actors::assets::platformer_assets::build_platformer2d_asset_catalog(
+        ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
             &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
@@ -140,7 +140,7 @@ pub(crate) fn setup_host_presentation_system(
         .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
         .unwrap_or_else(|error| panic!("host asset composition failed: {error}"));
     let rebuilt_catalog = hosted.is_some().then(|| {
-        ambition_platformer2d::actors::assets::platformer_assets::build_platformer2d_asset_catalog(
+        ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
             &asset_config,
             &catalogs.characters,
             &catalogs.bosses,

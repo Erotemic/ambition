@@ -8,66 +8,18 @@
 use ambition_characters::prepared::PreparedCharacterRegistry;
 pub mod audit;
 pub mod definition;
-#[cfg(test)]
-mod hurtbox_damage_tests;
 pub mod presentation;
 
-#[cfg(test)]
-// Test-only preparation seams supplied by `ambition_characters::test-support`.
-#[cfg(test)]
-pub(crate) use ambition_characters::prepared::{
-    prepare_and_finalize_against_for_test, prepare_and_finalize_for_test,
-};
 pub use audit::{
     audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
     CharacterCapabilityGap,
 };
-// ⛔⛔ DO NOT REPUBLISH `ambition_characters::prepared`'s NAMES HERE. A
-// re-export gives them an address that names the monolith as their owner, and
-// every coupling census reads it that way — nine of them once accounted for ~250
-// call sites, 57 outside this crate. Callers name the crate that owns the thing.
 pub use definition::CharacterDefinitionAppExt;
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
-    project_prepared_character_definitions, provider_of_character,
+    provider_of_character,
     publish_body_presentation_sources,
 };
-
-#[cfg(test)]
-use ambition_characters::actor::definition::CharacterDefinition;
-
-/// Body-complete fixture cast for tests that need registered characters but do
-/// not care which creatures they are.
-#[cfg(test)]
-pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
-    let mut registry = PreparedCharacterRegistry::default();
-    for id in ids {
-        let mut definition = CharacterDefinition::new(*id, *id, "test")
-            .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-                run_speed: 155.0,
-                move_style: ambition_characters::brain::MoveStyleSpec::Walk,
-                ..Default::default()
-            })
-            .with_contact_damage(ambition_characters::actor::ContactDamage {
-                strength: 0.70,
-                amount: 1,
-            })
-            .with_autonomous_profile(ambition_characters::brain::BrainProfile {
-                patrol_effort: 0.6774,
-                chase_effort: 1.0,
-                aggro_radius: 460.0,
-                attack_range: 150.0,
-                ..Default::default()
-            });
-        definition.vitals.max_health = Some(4);
-        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
-            definition,
-            &ambition_characters::prepared::CharacterBindings::default(),
-        );
-        registry.insert_prepared(finalized.prepared);
-    }
-    registry
-}
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -78,7 +30,7 @@ use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
 
-use crate::assets::platformer_assets::Platformer2dAssetCatalog;
+use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
 
 use ambition_characters::load_demand::CharacterLoadDemand;
 
@@ -773,9 +725,9 @@ pub fn materialize_demanded_character_sheets(
 ///
 /// Added unconditionally by the host simulation plugin so no application can compose the
 /// engine without it.
-pub struct CharacterRuntimePlugin;
+pub struct CharacterMaterializationPlugin;
 
-impl Plugin for CharacterRuntimePlugin {
+impl Plugin for CharacterMaterializationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         // The rigged-sprite switch: the composition's answer when it inserted
@@ -798,51 +750,7 @@ impl Plugin for CharacterRuntimePlugin {
             .init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .init_resource::<CharacterMaterializationService>()
             .init_resource::<audit::LateMatchCriticalArt>()
-            .add_systems(
-                // The SIM schedule, not `Update`. (§4.11)
-                //
-                // These two read and write simulation state — a pose clock and the volumes
-                // damage resolves against — so under rollback they must recompute on every
-                // resimulated tick. In `Update` they ran once per FRAME while the sim re-ran
-                // many times, which left `ResolvedHurtboxes` stale for every rewound tick even
-                // though it is declared rollback-DERIVED on the promise that the sim rebuilds
-                // it.
-                sim,
-                (
-                    // Gated, not `Option<Res<..>>`: a world with no clock has no
-                    // pose elapsed to advance, and a system that quietly treats a
-                    // missing clock as dt=0 would freeze every pose timeline
-                    // without saying so.
-                    ambition_combat::hurtbox_resolution::advance_body_pose_clocks.run_if(
-                        bevy::ecs::schedule::common_conditions::resource_exists::<
-                            ambition_time::WorldTime,
-                        >,
-                    ),
-                    // The rigged body's pose, from the clocks just advanced and
-                    // before anything reads a joint: hurt parts below, and an
-                    // attachment (a hand muzzle) that orders after this set.
-                    // Iterates nothing where no body has a rig.
-                    ambition_combat::body_rig::resolve_body_rig_poses
-                        .in_set(ambition_combat::body_rig::BodyRigPoseResolved),
-                    // ⭐ INTO THE PUBLISHED SET, so the volume refresher in
-                    // `features` can order against a phase rather than against
-                    // this function's identity. The domain owns the vocabulary;
-                    // this composition decides which window it sits in.
-                    ambition_combat::hurtbox_resolution::resolve_body_hurtboxes
-                        .in_set(ambition_combat::hurtbox_resolution::BodyHurtboxesResolved),
-                )
-                    .chain()
-                    // Pinned to one exact window inside `Combat`: AFTER the move
-                    // clock advances, BEFORE damage resolves.
-                    //
-                    // Both edges are load-bearing. And every body's position is already
-                    // post-movement here (`PlayerSimulation` and `WorldPrep` both precede
-                    // `Combat`), so this is the one slot where clocks and positions are
-                    // simultaneously current.
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
-                    .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
-                    .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve),
-            )
+            
             .add_systems(
                 sim,
                 // The move clock is the emitter this whole attribution exists for, so a
@@ -862,19 +770,7 @@ impl Plugin for CharacterRuntimePlugin {
                     .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback),
             )
             
-            .add_systems(
-                sim,
-                // C3/I1: a registered character's authored moveset and silhouette
-                // land on the body BEFORE the PERSONA construction, which builds a
-                // worn body's action set, moveset and identity baseline together
-                // and then has equipment overlaid onto it. Landing after that pair
-                // erased equipment-granted moves; the two agree now because
-                // `apply_worn_character_kit` consults the same registry.
-                //
-                // A phase name cannot make that mistake: the set says where it runs.
-                presentation::project_prepared_character_definitions
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection),
-            )
+            
             
             
             
@@ -955,7 +851,5 @@ impl Plugin for CharacterRuntimePlugin {
     }
 }
 
-#[cfg(test)]
-mod fight_tests;
 #[cfg(test)]
 mod tests;

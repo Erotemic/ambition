@@ -500,7 +500,8 @@ impl PluginGroup for PlatformerEnginePlugins {
             // A sheet-authored body adopts the box for the pose it is showing, in
             // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
-            .add(ambition_platformer2d_actor_monolith::character_runtime::CharacterRuntimePlugin)
+            .add(ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin)
+            .add(ambition_platformer2d_actor_monolith::character_projection::ActorCharacterPlugin)
             .add(ambition_platformer2d_session::MatchLifecyclePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)

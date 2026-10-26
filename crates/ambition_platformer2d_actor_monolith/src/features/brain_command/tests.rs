@@ -494,7 +494,7 @@ fn provoked_policy() -> ambition_characters::brain::BrainProfile {
 /// performs.
 fn app_with_cast() -> App {
     let mut app = app();
-    use crate::character_runtime::CharacterDefinitionAppExt;
+    use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
     app.register_character(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_villager",

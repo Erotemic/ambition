@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use crate::assets::platformer_assets::{ids, Platformer2dAssetCatalog};
+use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 use ambition_characters::actor::character_catalog::{
     CharacterCatalog, CharacterPortraitRef,
 };
@@ -394,7 +394,7 @@ fn resolve_variant_pair(
         let scale = q.sprites.effective_scale();
         if scale != TextureResolutionScale::Full {
             if let Some(variant_id) =
-                crate::assets::platformer_assets::scaled_asset_id(base_id, scale)
+                ambition_asset_manager::platformer_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
             {
                 if catalog.try_path_for_load(&variant_id).is_some() {
                     if let Some(spec) = sheets::try_load_spec_for_target_scaled(
@@ -677,7 +677,7 @@ pub fn build_prop_sprite_asset_packed(
     // Profile-gate page 0 through the sandbox catalog like every other
     // sprite; sibling pages resolve from the spec's page_images against
     // page 0's directory (the pack pages all share the tier dir).
-    let id = crate::assets::platformer_assets::ids::sprite_pack_page0(tier);
+    let id = ambition_asset_manager::platformer_assets::ids::sprite_pack_page0(tier);
     let path = catalog.try_path_for_load(&id)?;
     Some(load_sprite_pages(
         asset_server,

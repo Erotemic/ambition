@@ -23,7 +23,7 @@ audio = ["ambition_audio/kira"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
 # the loader's embedded paths light up together.
-static_map = ["ambition_platformer2d_actor_monolith/static_map"]
+static_map = ["ambition_platformer2d/static_map"]
 # Embed GENERATED content RON into the binary, the same way `static_map` embeds
 # the world JSON. OFF by default so desktop development reads it off disk: an
 # `include_str!` is a compilation input, so embedding the tool-generated music
@@ -33,7 +33,7 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 static_content = []
 # The LDtk runtime that paints this game's rooms, which the provider installs
 # where the host has a render app, and the startup collection it loads.
-ldtk_runtime = ["ambition_platformer2d_ldtk/ldtk_runtime", "dep:bevy_asset_loader", "bevy/bevy_render"]
+ldtk_runtime = ["ambition_platformer2d_assets/ldtk_runtime", "ambition_platformer2d_ldtk/ldtk_runtime", "dep:bevy_asset_loader", "bevy/bevy_render"]
 # The LDtk world watcher's status names Bevy's file watching (the app's
 # `dev_hot_reload` forwards here).
 dev_hot_reload = []
@@ -50,6 +50,7 @@ ron = { workspace = true }
 serde = { workspace = true }
 
 [dependencies]
+ambition_platformer2d_assets = { path = "../../crates/ambition_platformer2d_assets" }
 ambition_platformer2d_items = { path = "../../crates/ambition_platformer2d_items" }
 ambition_platformer2d_session = { path = "../../crates/ambition_platformer2d_session" }
 # Ambition's own schemas (`ambition_rules`), beside the engine's. A crate with
@@ -80,7 +81,6 @@ ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk",
 ambition_mount = { path = "../../crates/ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../../crates/ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
-    "ldtk_runtime",
     "input",
     "portal",
 ] }

@@ -1812,7 +1812,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // gameplay decision reads them. ⛔ If anything ever does, this waiver is void
     // and the counters become rollback state.
     (
-        "ambition_platformer2d_actor_monolith::character_runtime::audit::LateMatchCriticalArt",
+        "ambition_platformer2d_assets::materialization::audit::LateMatchCriticalArt",
         "a loading-punctuality instrument: monotone counters plus a name set, read          by no simulation system, never fed back into gameplay",
     ),
     (

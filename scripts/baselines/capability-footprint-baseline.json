@@ -67,6 +67,7 @@
     "ambition_platformer2d",
     "ambition_platformer2d_actor_monolith",
     "ambition_platformer2d_actor_spawn",
+    "ambition_platformer2d_assets",
     "ambition_platformer2d_construction",
     "ambition_platformer2d_core",
     "ambition_platformer2d_host",
@@ -97,7 +98,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "closure_size": 66,
+  "closure_size": 67,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",
@@ -133,7 +134,6 @@
   "never_asked_for_count": 30,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_abilities",
-    "ambition_audio",
     "ambition_body_seed",
     "ambition_boss_encounter",
     "ambition_boss_special_port",
@@ -142,11 +142,9 @@
     "ambition_damage",
     "ambition_dialog",
     "ambition_encounter",
-    "ambition_encounter_features",
     "ambition_held_items",
     "ambition_items",
     "ambition_match",
-    "ambition_menu",
     "ambition_mount",
     "ambition_persistence",
     "ambition_platformer2d_actor_spawn",
@@ -229,5 +227,6 @@
   "physics_debris_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the shrine row's shape: `ambition_platformer2d_physics_debris` is the Avian debris adapter (the avian install paused while no debris exists, each live room's floor, debris bursts, lifetimes and safe retirement), moved out of the actor monolith's `world::physics` (2026-10-23), which now re-exports it. The monolith names it unconditionally (room transitions retire its bodies; without `physics_debris` only the marker and a no-op retirement remain, and avian is not linked), so every consumer of the monolith links it. The sentinel links the code it linked before, in one more node. In `never_asked_for`: a movement-only game did not ask for debris physics. 61 -> 62, never-asked-for 26 -> 27.",
   "construction_entered_the_closure_2026_10_23": "DECLARED GROWTH IN NAMES, A CARVE IN CODE, the shrine row's shape: `ambition_platformer2d_construction` is actor construction planning (placements and staged actors lowered into one checked plan, its recipes and relations), moved out of the actor monolith's `construction` module (K3 named it a leaf that could become its own owner once K4 landed; 2026-10-23). The monolith names it (its features lower placements into it and build its plans), so every consumer of the monolith links it. The sentinel links the code it linked before, in one more node. In `never_asked_for`, beside `ambition_platformer2d_actor_spawn`, whose actors it plans: a movement-only game did not ask for authored actors, chests and shrines. 62 -> 63, never-asked-for 27 -> 28.",
   "session_entered_the_closure_2026_10_25": "Session lifecycle and room-crossing policy moved from the actor kernel to ambition_platformer2d_session. The runtime and publication coordinator call it above the kernel. This adds one package and no scheduled system.",
-  "item_and_projectile_owners_entered_the_closure_2026_10_25": "Two owner crates replace code already linked from the actor kernel. This move does not prune capability dependencies."
+  "item_and_projectile_owners_entered_the_closure_2026_10_25": "Two owner crates replace code already linked from the actor kernel. This move does not prune capability dependencies.",
+  "asset_owner_entered_the_closure_2026_10_26": "Asset catalog assembly and character materialization move above the body kernel. The new package contains code the consumer already linked. The kernel has no production edge to this owner or to the audio catalog."
 }

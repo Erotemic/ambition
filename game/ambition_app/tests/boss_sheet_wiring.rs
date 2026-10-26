@@ -33,7 +33,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
         );
     let world_manifest = ambition_content::worlds::world_manifest();
     let catalog =
-        ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
+        ambition_platformer2d::assets::platformer_assets::desktop_dev_default_catalog(
             &character_catalog,
             &boss_catalog,
             &ambition_content::audio_registries::shipped_music_registry(),
@@ -317,7 +317,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         );
     let world_manifest = ambition_content::worlds::world_manifest();
     let catalog =
-        ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
+        ambition_platformer2d::assets::platformer_assets::desktop_dev_default_catalog(
             &character_catalog,
             &boss_catalog,
             &ambition_content::audio_registries::shipped_music_registry(),

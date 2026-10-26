@@ -67,7 +67,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
         // `None` for a character whose sheet publishes no body metrics — the
         // probe falls back to the engine default rather than inventing a size,
         // and the count below keeps that from quietly becoming everybody.
-        let body = ambition_platformer2d::actors::character_sprites::sprite_body_collision_for_character_id_in(
+        let body = ambition_platformer2d::assets::character_sprites::sprite_body_collision_for_character_id_in(
             &Default::default(),
             catalog,
             id,

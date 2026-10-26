@@ -941,7 +941,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // present (sprites are gitignored/regenerated; a fresh clone has none).
     if ambition_sprite_sheet::character::sheets::record_for_sheet_key("giant_gnu").is_some() {
         assert!(
-            crate::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d_assets::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
                 &crate::character_roster::catalog(),
                 "npc_giant_gnu",

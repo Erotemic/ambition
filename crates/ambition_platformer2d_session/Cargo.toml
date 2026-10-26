@@ -11,6 +11,7 @@ default = []
 portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
+ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_abilities = { path = "../ambition_abilities" }

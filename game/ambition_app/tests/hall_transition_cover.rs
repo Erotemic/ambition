@@ -20,7 +20,7 @@ const MINIMUM_HALL_CAST: usize = 100;
 
 fn staged_cast_len(app: &App) -> usize {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }
@@ -359,7 +359,7 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
             let assets = app.world().resource::<GameAssets>();
             let states = app
                 .world()
-                .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+                .resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>(
             );
             let mut declared = 0;
             let mut realized = 0;
@@ -832,7 +832,7 @@ fn room_placed_character_ids(
 /// waiting fixes it.
 #[test]
 fn every_character_the_hall_places_is_reached_by_its_demand() {
-    use ambition_platformer2d::actors::character_runtime::CharacterLoadStates;
+    use ambition_platformer2d::assets::materialization::CharacterLoadStates;
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let placed = hall_character_ids(&mut app);

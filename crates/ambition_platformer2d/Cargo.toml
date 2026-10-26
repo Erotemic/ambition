@@ -11,7 +11,7 @@ description = "Facade crate for composing Ambition-derived platformer games from
 # them through this umbrella, so its dependency list stays the umbrella.
 test-support = ["ambition_items/test-support"]
 # Optional LDtk integration; movement-only games leave it disabled.
-ldtk = ["ambition_platformer2d_provider/ldtk"]
+ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_provider/ldtk"]
 # The causal inspector, off by default: a game that never opens one must not
 # link one. Forwards to the runtime's host half and the foundation vocabulary.
 causal = ["ambition_platformer2d_runtime/causal", "dep:ambition_causal"]
@@ -87,7 +87,6 @@ all_capabilities = [
     "ambition_inventory_ui",
     "ambition_menu",
     # This closes the FACADE's own edge, which is one of the four that hold it, not the footprint.
-    "ambition_platformer2d_ldtk",
     "ambition_portal2d",
     "ambition_portal2d_presentation",
     "ambition_render",
@@ -115,7 +114,7 @@ ambition_menu = ["dep:ambition_menu", "ambition_platformer2d_runtime/map"]
 # `visible` implies the render edge: a visible face draws through
 # `ambition_platformer2d::presentation`, which is `ambition_render`.
 visible = ["physics_debris", "ambition_platformer2d_actor_monolith/visible", "ambition_render"]
-visible_web_base = ["ambition_platformer2d_actor_monolith/visible_web_base"]
+visible_web_base = ["ldtk_runtime", "static_map", "portal_ldtk", "ambition_platformer2d_actor_monolith/visible_web_base"]
 desktop_platform = ["ambition_platformer2d_actor_monolith/desktop_platform"]
 android_platform = ["ambition_platformer2d_actor_monolith/android_platform"]
 web_platform = [
@@ -123,7 +122,7 @@ web_platform = [
     # The rollback backend owns the wasm clock requirement.
     "ambition_platformer2d_rollback_ggrs?/web_platform",
 ]
-web_served = ["ambition_platformer2d_actor_monolith/web_served"]
+web_served = ["visible_web_base", "ambition_platformer2d_actor_monolith/web_served"]
 web_audio = ["audio"]
 headless = ["ambition_platformer2d_actor_monolith/headless"]
 dev_tools = [
@@ -134,11 +133,11 @@ dev_tools = [
     "ambition_settings_menu?/dev_tools",
 ]
 dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
-static_map = ["ambition_platformer2d_actor_monolith/static_map"]
-static_core_assets = ["ambition_platformer2d_actor_monolith/static_core_assets"]
-static_content = ["ambition_platformer2d_actor_monolith/static_content", "ambition_sprite_sheet/static_content"]
+static_map = ["ambition_asset_manager/static_map", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/static_map"]
+static_core_assets = ["ambition_asset_manager/static_core_assets", "ambition_sprite_sheet/static_core_assets"]
+static_content = ["ambition_platformer2d_assets/static_content", "ambition_sprite_sheet/static_content"]
 static_sfx_bank = ["ambition_platformer2d_actor_monolith/static_sfx_bank"]
-ldtk_runtime = ["ambition_platformer2d_actor_monolith/ldtk_runtime"]
+ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime", "ambition_platformer2d_assets/ldtk_runtime"]
 # Load procedural modules from `.wasm` files at startup, so a module edit
 # rebuilds the module and not the engine. Off by default: see the runtime's
 # feature of the same name.
@@ -148,7 +147,7 @@ frame_pacing = ["ambition_platformer2d_actor_monolith/frame_pacing"]
 profile = ["ambition_platformer2d_actor_monolith/profile"]
 # Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
 perf_probe = ["ambition_dev_tools/perf_probe"]
-portal_ldtk = ["ambition_platformer2d_actor_monolith/portal_ldtk"]
+portal_ldtk = ["portal", "ldtk_runtime", "ambition_platformer2d_ldtk/portal_ldtk"]
 input = [
     "ambition_platformer2d_actor_monolith/input",
     "ambition_menu?/input",
@@ -185,6 +184,7 @@ basic_shell_presentation = [
 ]
 
 [dependencies]
+ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 ambition_projectile_combat = { path = "../ambition_projectile_combat" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_platformer2d_physics_debris = { path = "../ambition_platformer2d_physics_debris" }

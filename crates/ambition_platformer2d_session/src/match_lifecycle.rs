@@ -57,7 +57,7 @@ impl Plugin for MatchLifecyclePlugin {
                         ambition_characters::actor::character_catalog::CharacterCatalog,
                     >)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection)
-                    .before(ambition_platformer2d_actor_monolith::character_runtime::project_prepared_character_definitions),
+                    .before(ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions),
             )
             .add_systems(
                 sim,

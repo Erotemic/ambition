@@ -27,8 +27,7 @@ The session lifecycle and room-crossing policy now have a separate owner,
 `ambition_platformer2d_session`, above the actor kernel. Publication and runtime
 call that owner directly. The actor kernel has no production dependency on it.
 
-The remaining work is responsibility separation. Move asset materialization,
-world-object behavior, and device input assembly to their owners. Keep accepted control, body custody,
+The remaining work is responsibility separation. Move world-object behavior and device input assembly to their owners. Keep accepted control, body custody,
 body motion, and action execution together. A dependency on a lower domain is
 valid when the kernel needs that domain's facts.
 
@@ -595,6 +594,21 @@ The runtime composes it beside character materialization. Match activation tests
 move with the session and use public body construction. No production API is
 widened for a test. The actor character module exports no match activation path.
 
+### K13 — Character materialization leaves the body kernel
+
+`ambition_platformer2d_assets` owns character declarations, asset demand and
+readiness, atlas residency, source attribution, catalog assembly, and startup
+asset loading. The body kernel owns live mechanical projection and deterministic
+pose resolution in `character_projection`. The runtime composes both installers
+with the session's match lifecycle installer. The same systems retain their
+phases, gates, chains, and ordering edges.
+
+The asset owner has no dependency on the body kernel. The kernel uses the asset
+owner only in integration tests. Core asset catalog types stay at
+`ambition_asset_manager`; forwarding type exports and the source-plugin wrapper
+are deleted. The public facade owns asset profile features. The actor crate's
+asset, character-sprite, and character-runtime modules are deleted.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved
@@ -655,8 +669,8 @@ because it is durable decomposition doctrine.
 | `tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py` or `tools/ambition_ldtk_tools/tests/test_ldtk_core_helpers.py` | `the-worlds-path-is-confined-to-ldtk-paths` |
 | `crates/ambition_characters/src/prepared.rs`, `crates/ambition_combat/src/worn_kit.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-default-action-set-is-confined-to-one-file` |
 | `crates/ambition_characters/src/smash_fighter/` | `the-smash-fighter-facet-is-read-only-by-its-owner` |
-| `crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
-| `crates/ambition_characters/src/actor/character_catalog/registry.rs`, `crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs`, or `game/ambition_app/tests/app_local_catalog_composition.rs` | `the-catalog-owners-map-is-not-a-provider-authority` |
+| `crates/ambition_platformer2d_assets/src/materialization/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
+| `crates/ambition_characters/src/actor/character_catalog/registry.rs`, `crates/ambition_platformer2d_assets/src/materialization/audit.rs`, or `game/ambition_app/tests/app_local_catalog_composition.rs` | `the-catalog-owners-map-is-not-a-provider-authority` |
 | `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
 | `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs` or `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
 | `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_publication/src/stage.rs` | `only-the-candidate-builder-hides-a-root` |

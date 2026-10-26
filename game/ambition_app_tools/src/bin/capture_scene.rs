@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 
 use ambition_app::app::{PresentationSetupSet, StartRoomOverride};
-use ambition_platformer2d::actors::character_runtime::CharacterLoadStates;
+use ambition_platformer2d::assets::materialization::CharacterLoadStates;
 use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
@@ -3105,7 +3105,7 @@ fn world_is_ready(
     }
     match art {
         Some((demand, states)) => {
-            ambition_platformer2d::actors::character_runtime::character_reveal_ready(demand, states)
+            ambition_platformer2d::assets::materialization::character_reveal_ready(demand, states)
         }
         // A composition with no character-load seam has no art to wait for.
         None => true,

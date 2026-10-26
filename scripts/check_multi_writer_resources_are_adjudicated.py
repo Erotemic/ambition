@@ -274,8 +274,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets/mod.rs",
         "crates/ambition_platformer2d/src/game_assets/sheets.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/character_sprites/rigged.rs",
+        "crates/ambition_platformer2d_assets/src/materialization/mod.rs",
+        "crates/ambition_platformer2d_assets/src/character_sprites/rigged.rs",
         "crates/ambition_render/src/rendering/parallax.rs",
         "game/ambition_app/src/app/setup_systems.rs",
         "game/ambition_app/src/app/startup_loading.rs",
@@ -517,7 +517,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_audio/src/bank_asset.rs",
         "crates/ambition_audio/src/catalog.rs",
         "crates/ambition_game_shell/src/session.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
+        "crates/ambition_platformer2d_assets/src/materialization/presentation.rs",
     ),
     "AudioLibrary": (
         "crates/ambition_audio/src/catalog.rs",
@@ -526,7 +526,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
     "CharacterLoadDemand": (
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "crates/ambition_platformer2d_assets/src/materialization/mod.rs",
         "crates/ambition_render/src/rendering/actors/boss.rs",
         "game/ambition_app/src/app/versus.rs",
     ),
@@ -592,7 +592,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "CharacterLoadStates": (
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "crates/ambition_platformer2d_assets/src/materialization/mod.rs",
         "game/ambition_app/src/app/startup_loading.rs",
         "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
     ),
@@ -3272,7 +3272,7 @@ ADJUDICATED: dict[str, str] = {
     "CharacterLoadStates": (
         "THREE WRITER FILES, ONE OWNING FUNCTION. "
         "`materialize_character_demand` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:436`) "
+        "(`crates/ambition_platformer2d_assets/src/materialization/mod.rs:436`) "
         "is documented as \"the engine's ONE decode path\" and is the only "
         "place `record` (the by_token/cast write) is called. "
         "`demand_room_character_sheets` "
@@ -3300,7 +3300,7 @@ ADJUDICATED: dict[str, str] = {
         "`track_versus_roster` (`:455`) call — is `demand.request_all(...)` "
         "and nothing else. The only two "
         "`.take()`/`.take_within_budget()` sites in the whole tree are "
-        "`crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:493` "
+        "`crates/ambition_platformer2d_assets/src/materialization/mod.rs:493` "
         "and `:896`, both inside `materialize_character_demand`. Every "
         "producer is commutative; the sole consumer is a single function. "
         "Measured by CalculexAmbition, 2026-09-18. "
@@ -3445,7 +3445,7 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_audio/src/bank_asset.rs`) calls it keyed to each "
         "provider whose bank finished loading. "
         "`authorize_staged_character_presentation_sources` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:58`) "
+        "(`crates/ambition_platformer2d_assets/src/materialization/presentation.rs:58`) "
         "documents itself as \"Idempotent by construction: ... merges by "
         "union\" and no-ops when `selection.current()` is `None`. Measured "
         "by CalculexAmbition, 2026-09-18. ⭐ ADDED 2026-10-01, MOVED "

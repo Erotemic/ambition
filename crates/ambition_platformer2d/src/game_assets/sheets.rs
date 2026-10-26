@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use ambition_sprite_sheet::boss as sprites;
-use ambition_platformer2d_actor_monolith::character_sprites;
+use ambition_platformer2d_assets::character_sprites;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;
 use ambition_sprite_sheet::game_assets::GameAssetConfig;
@@ -94,7 +94,7 @@ fn sprite_folder_row(kind: &str, row: &ambition_sprite_sheet::prop_sheets::Autho
 fn load_prop_sheet(
     source: &PropSheetSource,
     config: &GameAssetConfig,
-    catalog: Option<&ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog>,
+    catalog: Option<&ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
@@ -144,7 +144,7 @@ pub fn load_the_prop_sheets_in_reach(
     network: Option<Res<ambition_platformer2d_world::rooms::GateNetworkState>>,
     sheets: Res<PropSheets>,
     config: Res<GameAssetConfig>,
-    catalog: Res<ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog>,
+    catalog: Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>,
     asset_server: Res<AssetServer>,
     (quality, settings): (
         Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
@@ -300,7 +300,7 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
         return;
     }
     let sheets = world.get_resource::<PropSheets>().cloned().unwrap_or_default();
-    let catalog = world.get_resource::<ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog>().cloned();
+    let catalog = world.get_resource::<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>().cloned();
     // The tier the materializer reads (`converge_character_residency_to_active_quality`).
     let quality = ambition_persistence::settings::ResolvedVisualQuality::current(
         world.get_resource::<ambition_persistence::settings::ResolvedVisualQuality>(),
@@ -345,7 +345,7 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
 fn load_prop_sheets(
     sheets: &PropSheets,
     config: &GameAssetConfig,
-    catalog: &ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
@@ -374,7 +374,7 @@ pub fn load_game_assets(
     // Provider-authored sheets (U1).
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    catalog: &ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     active_room_metadata: &RoomMetadata,
@@ -479,7 +479,7 @@ pub fn ensure_boss_sheets_loaded(
     assets: &mut GameAssets,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
     keys: Option<&std::collections::BTreeSet<String>>,
-    catalog: &ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,

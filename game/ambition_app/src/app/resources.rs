@@ -12,7 +12,7 @@ use ambition_platformer2d::ldtk_map as ldtk_world;
 use super::cli::cli_start_room_arg;
 
 pub fn init_sandbox_resources(app: &mut App) {
-    let sandbox_data = ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
+    let sandbox_data = ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
     if !super::hub_games::installs("ambition") {
         init_host_resources_without_ambition(app);
         insert_host_resources(app, sandbox_data);
@@ -93,7 +93,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .cloned()
         .unwrap_or_default();
     let sandbox_catalog =
-        ambition_platformer2d::actors::assets::platformer_assets::build_platformer2d_asset_catalog(
+        ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
             &asset_config,
             &character_catalog,
             &boss_catalog,
@@ -112,7 +112,7 @@ pub fn init_sandbox_resources(app: &mut App) {
 /// hub installs these whatever games it carries.
 fn insert_host_resources(
     app: &mut App,
-    sandbox_data: ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults,
+    sandbox_data: ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults,
 ) {
     let feel: Platformer2dFeelTuningMonolith = sandbox_data.feel;
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
@@ -207,7 +207,7 @@ fn init_host_resources_without_ambition(app: &mut App) {
         )
     };
     let sandbox_catalog =
-        ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
+        ambition_platformer2d::assets::platformer_assets::build_sandbox_catalog_with(
             &asset_config,
             &character_catalog,
             &boss_catalog,

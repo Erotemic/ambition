@@ -50,7 +50,7 @@ impl std::fmt::Display for CharacterCapabilityGap {
                 "character(s) {} were staged, but the CharacterMaterialization engine \
                  service is not installed — every one of them will draw the placeholder \
                  rectangle. Add the engine plugin group (it installs \
-                 CharacterRuntimePlugin unconditionally) rather than the materializer \
+                 CharacterMaterializationPlugin unconditionally) rather than the materializer \
                  by hand.",
                 quoted(staged)
             ),
@@ -349,7 +349,7 @@ pub fn report_character_capability_gaps(world: &mut World) {
 #[cfg(test)]
 mod authority_parity_tests {
     use super::*;
-    use crate::character_runtime::CharacterDefinitionAppExt;
+    use crate::materialization::CharacterDefinitionAppExt;
     use ambition_characters::actor::character_catalog::parse_catalog;
     use ambition_characters::actor::definition::CharacterDefinition;
 

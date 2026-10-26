@@ -225,7 +225,7 @@ fn every_reachable_sheet_loads() {
 /// time instead of at game startup.
 #[test]
 fn every_spritesheet_ron_parses_into_sheet_record() {
-    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_platformer2d_actor_monolith/assets/sprites");
 
     let mut parsed_files = 0usize;
     let mut failures: Vec<String> = Vec::new();
@@ -237,7 +237,7 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
     // generator rescales pixel rects; this is the drift guard on that output).
     for suffix in ["_0_5x", "_0_25x", "_potato"] {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("assets/sprites{suffix}"));
+            .join(format!("../ambition_platformer2d_actor_monolith/assets/sprites{suffix}"));
         if dir.is_dir() {
             parse_spritesheets_under(&dir, false, &mut parsed_files, &mut failures);
         }

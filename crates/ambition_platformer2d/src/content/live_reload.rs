@@ -311,7 +311,7 @@ impl CastReload {
             .collect();
         let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
         for definition in super::cast_definitions(pack, catalog, &self.provider, &self.carried, rigs_admitted) {
-            let bindings = crate::actors::character_runtime::definition::with_engine_vocabularies(CharacterBindings::default());
+            let bindings = crate::assets::materialization::definition::with_engine_vocabularies(CharacterBindings::default());
             if let Err(problem) = stage_character_revision_in(world, definition, &bindings) {
                 // Nothing of this revision stays staged for a later one.
                 world.remove_resource::<StagedCastRevision>();

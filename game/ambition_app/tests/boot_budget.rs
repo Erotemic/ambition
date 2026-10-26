@@ -373,7 +373,7 @@ const SESSION_STAGED_CAST_BUDGET: usize = 40;
 
 fn staged_cast_len(app: &bevy::app::App) -> usize {
     app.world()
-        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }

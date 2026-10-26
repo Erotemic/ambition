@@ -107,3 +107,7 @@ scope = "engine"
 [[root]]
 path = "crates/ambition_projectile_combat"
 scope = "engine"
+
+[[root]]
+path = "crates/ambition_platformer2d_assets"
+scope = "engine"

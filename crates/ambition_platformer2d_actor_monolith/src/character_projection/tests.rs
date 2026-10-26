@@ -9,14 +9,15 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d_shared_tangle::app_finalization::finalize_and_update;
 
 use super::*;
-use crate::character_runtime::{CharacterDefinitionAppExt, CharacterRuntimePlugin};
+use ambition_platformer2d_assets::materialization::*;
+use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 use ambition_characters::actor::definition::CharacterDefinition;
 use ambition_sfx::PresentationSourceId;
 
 /// One gameplay session owning the speakers, with `ambition_platformer2d` as the primary.
 fn session_app() -> App {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins((CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
     app.add_plugins(crate::repertoire::EffectiveRepertoirePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -156,7 +157,7 @@ fn a_new_session_does_not_inherit_the_previous_casts_providers() {
     );
     let states = app
         .world()
-        .resource::<crate::character_runtime::CharacterLoadStates>();
+        .resource::<ambition_platformer2d_assets::materialization::CharacterLoadStates>();
     assert!(
         states.staged_tokens().any(|token| token == "mary_o"),
         "the load HISTORY still remembers her — it is a diagnostic ledger, and \
@@ -376,7 +377,7 @@ fn a_second_room_in_one_session_adds_to_the_cast_rather_than_replacing_it() {
 
     let states = app
         .world()
-        .resource::<crate::character_runtime::CharacterLoadStates>();
+        .resource::<ambition_platformer2d_assets::materialization::CharacterLoadStates>();
     assert_eq!(
         states.cast().ids().collect::<Vec<_>>(),
         ["mary_o", "sanic"],
@@ -622,7 +623,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
 
     // THE CAST IS REPLACED. Same id, same display name, different moves — a hot
     // reload, or a second composition's registry landing on a running session.
-    let replacement = crate::character_runtime::prepare_and_finalize_for_test(
+    let replacement = ambition_characters::prepared::prepare_and_finalize_for_test(
         CharacterDefinition::new("hero", "Hero", "demo").with_moveset(one_move("new_swing")),
         &ambition_characters::prepared::CharacterBindings::default(),
     )
@@ -678,7 +679,7 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
     );
 
     // Same id, new cast, authoring NOTHING.
-    let stripped = crate::character_runtime::prepare_and_finalize_for_test(
+    let stripped = ambition_characters::prepared::prepare_and_finalize_for_test(
         CharacterDefinition::new("armored", "Armored", "demo"),
         &ambition_characters::prepared::CharacterBindings::default(),
     )
@@ -744,7 +745,7 @@ fn a_character_that_stops_authoring_a_body_rig_has_it_retracted() {
     assert_eq!(rig.0.joint_names(), ["torso"]);
     assert!(app.world().get::<ambition_combat::body_rig::BodyRigPose>(body).is_some());
 
-    let stripped = crate::character_runtime::prepare_and_finalize_for_test(
+    let stripped = ambition_characters::prepared::prepare_and_finalize_for_test(
         CharacterDefinition::new("jointed", "Jointed", "demo"),
         &ambition_characters::prepared::CharacterBindings::default(),
     )
@@ -768,7 +769,7 @@ fn a_character_that_stops_authoring_a_body_rig_has_it_retracted() {
 fn a_malformed_body_rig_is_reported_and_not_granted() {
     let mut broken = one_joint_rig();
     broken.joints[0].parent = Some("pelvis".to_string());
-    let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+    let prepared = ambition_characters::prepared::prepare_and_finalize_for_test(
         CharacterDefinition::new("broken", "Broken", "demo").with_body_rig(broken),
         &ambition_characters::prepared::CharacterBindings::default(),
     )
@@ -1057,7 +1058,7 @@ fn a_carried_component_goes_when_the_body_stops_wearing_a_character_that_carries
 
     *app.world_mut().get_mut::<Shell>(body).unwrap() = Shell(7);
     // The same character, granted again by a new cast.
-    let again = crate::character_runtime::prepare_and_finalize_for_test(
+    let again = ambition_characters::prepared::prepare_and_finalize_for_test(
         CharacterDefinition::new("shelled", "Shelled", "demo").carrying(carried()),
         &ambition_characters::prepared::CharacterBindings::default(),
     )

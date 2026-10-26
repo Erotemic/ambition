@@ -23,7 +23,9 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 // per step costs a set lookup after the first.
 use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
 
-use super::*;
+use bevy::prelude::*;
+use ambition_characters::load_demand::CharacterLoadDemand;
+use ambition_platformer2d_assets::materialization::*;
 use ambition_characters::actor::definition::CharacterDefinition;
 use ambition_combat::hurtbox_resolution::{
     resolve_hurtboxes, HurtboxSelection, POSE_HITSTUN, POSE_IDLE,
@@ -161,7 +163,7 @@ fn register_two_providers_characters(app: &mut App) {
 #[test]
 fn two_providers_stage_into_one_session_and_both_reach_readiness() {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins((CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
     // A real session always has an assembled character catalog: the materializer
     // REQUIRES it (`engine.character-authority-is-app-local` forbids making it
     // optional), and a composition without one is named by the capability audit
@@ -252,7 +254,7 @@ fn two_providers_stage_into_one_session_and_both_reach_readiness() {
 #[test]
 fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins((CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
     app.register_character(
         CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo")
             .with_moveset(moveset("stomp", 3))
@@ -464,7 +466,7 @@ fn spawn_fighter(
 /// The production chain, in production order.
 fn fight_app() -> App {
     let mut app = App::new();
-    app.add_plugins(CharacterRuntimePlugin);
+    app.add_plugins((CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
     // The generation the damage path reads: a fixture states an empty one.
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.insert_resource(
@@ -527,7 +529,7 @@ fn fight_app() -> App {
             decay_reaction_timers,
         )
             .chain()
-            .after(crate::character_runtime::project_prepared_character_definitions),
+            .after(crate::character_projection::project_prepared_character_definitions),
     );
     app.init_resource::<Traded>();
     app.init_resource::<Heard>();

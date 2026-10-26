@@ -9,7 +9,7 @@
 //! It asks the rule the press asks
 //! ([`ambition_platformer2d_interaction::InteractReach`]): the
 //! same reach, live room, facing gate and door rule as
-//! [`ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches`]
+//! [`ambition_platformer2d_actor_monolith::interact_ecs_actors_and_switches`]
 //! and [`ambition_platformer2d_items::chests::open_ecs_chests`]. So
 //! the label says "Talk" only where the press talks.
 
@@ -109,7 +109,7 @@ type Reaching = (
 /// press reaches.
 ///
 /// The prompt follows the body the player is DRIVING (the home avatar, or a
-/// possessed actor), matching [`ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches`],
+/// possessed actor), matching [`ambition_platformer2d_actor_monolith::interact_ecs_actors_and_switches`],
 /// which resolves the interaction against the same controlled subject — so the
 /// "Talk / Open / Activate" label appears exactly where the interact would fire.
 pub fn update_nearest_interactable(

@@ -310,7 +310,7 @@ pub fn run(args: CaptureProbeArgs) {
                 Option<&ambition_platformer2d::characters::actor::BodyHealth>,
                 Option<&ambition_platformer2d::characters::actor::BodyCombat>,
                 Option<&ambition_platformer2d::engine_core::BodyFlightState>,
-                Option<&ambition_platformer2d::actors::features::ActorSurfaceState>,
+                Option<&ambition_platformer2d::engine_core::body_clusters::ActorSurfaceState>,
                 Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
             )>();
             let mut rows: Vec<String> = query

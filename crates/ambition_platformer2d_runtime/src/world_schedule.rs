@@ -4,8 +4,12 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(test)]
 use ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet;
-use ambition_platformer2d_actor_monolith::features::*;
-use ambition_platformer2d_actor_monolith::features::ecs;
+use ambition_platformer2d_actor_monolith::*;
+use ambition_platformer2d_actor_monolith as body;
+use ambition_boss_encounter::ecs::{
+    drive_boss_animators, project_boss_attack_state_from_move, update_ecs_bosses,
+};
+use ambition_combat::hazards::{advance_hazards, apply_hazard_contacts};
 use ambition_breakables::{refresh_breakable_damageable_volumes, update_ecs_breakables};
 use ambition_platformer2d_items::chests::open_ecs_chests;
 use ambition_platformer2d_items::pickups::{PickupCollect, PickupMagnetize, collect_ecs_pickups, magnetize_pickups};
@@ -34,36 +38,36 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // A challenge, a pet, a look to wear and the talkers' spacing
                 // are asked for only by a conversation (the Yarn vocabulary),
                 // so they sleep with dialogue where a game uses none.
-                ecs::arm_requested_challenges
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ecs::ChallengeRequested>)
+                body::arm_requested_challenges
+                    .run_if(ambition_platformer2d_core::a_message_waits::<body::ChallengeRequested>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // Before the pet: a pet asked for in the conversation puts its
                 // own walk on the initiator after this has moved its step,
                 // so the pet's walk is the one that stays.
-                ecs::space_the_talkers.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
-                ecs::apply_pet_requests
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ecs::PetRequested>)
+                body::space_the_talkers.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                body::apply_pet_requests
+                    .run_if(ambition_platformer2d_core::a_message_waits::<body::PetRequested>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The pet's script: the walk's arrival, the gesture's end, and
                 // its interruption. After the request, so a petter already on
                 // the mark starts the gesture on the tick it asked.
-                ecs::advance_pet_beats
-                    .run_if(bevy::prelude::any_with_component::<ecs::PetBeat>)
+                body::advance_pet_beats
+                    .run_if(bevy::prelude::any_with_component::<body::PetBeat>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The holds and the two poses, from the beats as this tick
                 // leaves them: the next control gate reads the pet's state
                 // and not the state one tick before it.
-                ecs::project_pet_holds.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
+                body::project_pet_holds.in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // A look a conversation asked a body to wear. The template is
                 // applied by the wear system on the tick after.
-                ecs::apply_wear_requests
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ecs::WearRequested>)
+                body::apply_wear_requests
+                    .run_if(ambition_platformer2d_core::a_message_waits::<body::WearRequested>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
                 // The row a character rests in, when its catalog row states
                 // one (the giant gnu whole, with its arms on it).
-                ecs::pin_rest_rows,
+                body::pin_rest_rows,
                 // The rows of a body that fades between its attacks.
-                ecs::pin_fade_rows,
+                body::pin_fade_rows,
                 // Each applier of a request runs on its request.
                 ambition_platformer2d_items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
                 ambition_platformer2d_items::narrative::apply_shop_transactions
@@ -84,16 +88,16 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
-                ecs::tick_pending_challenges
-                    .run_if(bevy::prelude::any_with_component::<ecs::PendingChallenge>)
+                body::tick_pending_challenges
+                    .run_if(bevy::prelude::any_with_component::<body::PendingChallenge>)
                     .in_set(GameplayGated)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Dialogue)),
-                ecs::apply_actor_stimuli.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::ActorStimulus>),
+                body::apply_actor_stimuli.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::ActorStimulus>),
                 // After the flip that announces a provocation, and after the
                 // release that announces its end, so both land this tick.
                 ambition_persistence::npc_provocation::record_npc_provocations
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::npc_provocation::NpcProvocationChanged>)
-                    .after(ambition_platformer2d_actor_monolith::features::apply_release_provocations),
+                    .after(ambition_platformer2d_actor_monolith::apply_release_provocations),
                 crate::effect_bus::apply_gameplay_sfx_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::GameplaySfxRequested>),
             )
@@ -191,11 +195,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             // the conversation plugin. the CHANNEL is untouched — chests, pickups and
             // interactions still write it from inside the simulation, and `sim_core_resources`
             // registers it.
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::features::ChallengeRequested>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::features::BrainCommand>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::features::ReleaseProvocation>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::features::PetRequested>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::features::WearRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::ChallengeRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::BrainCommand>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::ReleaseProvocation>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::PetRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::WearRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
@@ -251,7 +255,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // the temporal twin of the `ConversationCutBark` message port.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::speak_conversation_cut_barks
+            ambition_platformer2d_actor_monolith::speak_conversation_cut_barks
                 .run_if(ambition_platformer2d_core::a_message_waits::<ambition_conversation::ConversationCutBark,
                     >,
                 )
@@ -416,7 +420,7 @@ pub struct WorldPrepSchedulePlugin;
 impl Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        app.add_plugins(ambition_platformer2d_actor_monolith::features::BodySimulationPlugin);
+        app.add_plugins(ambition_platformer2d_actor_monolith::BodySimulationPlugin);
         // AE6: the rules a MATCH plays under, resolved from its declaration
         // folded over those baselines — so a stage never writes them. In
         // WorldPrep because every reader is later (PlayerSimulation/Combat),

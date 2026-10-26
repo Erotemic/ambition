@@ -748,7 +748,7 @@ fn ask_bodies_to_wear(
     tick: Res<ambition_platformer2d::time::SimTick>,
     ids: ambition_platformer2d::platformer::lifecycle::LiveBodies,
     bodies: Query<(Entity, &ambition_platformer2d::characters::actor::WornCharacter)>,
-    mut requests: MessageWriter<ambition_platformer2d::actors::features::WearRequested>,
+    mut requests: MessageWriter<ambition_platformer2d::actors::WearRequested>,
 ) {
     for (wearer, look, on_tick) in &config.wears {
         if tick.get() != *on_tick {
@@ -762,7 +762,7 @@ fn ask_bodies_to_wear(
             eprintln!("capture_scene: --wear found no body wearing {wearer} on tick {on_tick}");
             continue;
         };
-        requests.write(ambition_platformer2d::actors::features::WearRequested {
+        requests.write(ambition_platformer2d::actors::WearRequested {
             body,
             character: ambition_platformer2d::characters::actor::WornCharacter::new(look.as_str())
                 .character()

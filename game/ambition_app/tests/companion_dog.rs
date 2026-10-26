@@ -21,7 +21,7 @@ use bevy::prelude::{Entity, Messages};
 /// the dog STANDS on it.
 #[test]
 fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
-    use ambition_platformer2d::actors::features::ecs::navigation::RoomNavigation;
+    use ambition_platformer2d::actors::navigation::RoomNavigation;
     use ambition_platformer2d::engine_core::BodyGroundState;
     use std::collections::BTreeSet;
 
@@ -132,7 +132,7 @@ fn act_from_outside_the_timeline(
     what: bevy::prelude::Res<FromOutsideTheTimeline>,
     mut runs: bevy::prelude::Local<u32>,
     mut navigation: bevy::prelude::ResMut<
-        ambition_platformer2d::actors::features::ecs::navigation::RoomNavigation,
+        ambition_platformer2d::actors::navigation::RoomNavigation,
     >,
     mut bodies: bevy::prelude::Query<(&mut BodyKinematics, &WornCharacter)>,
 ) {
@@ -161,7 +161,7 @@ fn the_dog_under_a_sync_test(
     what: FromOutsideTheTimeline,
 ) -> (usize, usize, bool, Result<(), String>) {
     use crate::common::fixed_60hz_room_options;
-    use ambition_platformer2d::actors::features::ecs::navigation::RoomNavigation;
+    use ambition_platformer2d::actors::navigation::RoomNavigation;
     use ambition_platformer2d::engine_core::BodyGroundState;
     use ambition_platformer2d::sim::SimScheduleExt;
 
@@ -467,7 +467,7 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     // ⭐ THE WALK IS THE SUBJECT. The pet used to write the player's position
     // to the mark in one tick, which read as a teleport. Every tick of the walk
     // must move the player no farther than the walk's own speed allows.
-    let per_tick = ambition_platformer2d::actors::features::ecs::PET_WALK_SPEED / 60.0;
+    let per_tick = ambition_platformer2d::actors::PET_WALK_SPEED / 60.0;
     let mut path = vec![pos(&sim, player).x];
     for _ in 0..180 {
         if anim(&sim, player).petting {
@@ -479,7 +479,7 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     assert!(
         anim(&sim, player).petting && anim(&sim, dog).petted,
         "the choice pets the dog: beat {:?}, walk {:?}, dog at {:?}, player at {:?}",
-        sim.world().get::<ambition_platformer2d::actors::features::ecs::PetBeat>(player),
+        sim.world().get::<ambition_platformer2d::actors::PetBeat>(player),
         sim.world().get::<ambition_platformer2d::characters::control::CommandedMove>(player),
         pos(&sim, dog),
         pos(&sim, player),
@@ -566,7 +566,7 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
 fn a_pet_holds_both_bodies_from_its_first_tick_and_lets_go_on_the_tick_it_breaks() {
     use ambition_platformer2d::characters::actor::{BodyAnimFacts, BodyCombat};
     use ambition_platformer2d::characters::control::{ControlHold, ControlHolds};
-    use ambition_platformer2d::actors::features::ecs::PetBeat;
+    use ambition_platformer2d::actors::PetBeat;
 
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     sim.step_n(base(), 10);
@@ -835,7 +835,8 @@ fn talk_to_the_dog(sim: &mut ambition_app::Platformer2dSimHarness, dog: Entity) 
 /// the reach a conversation breaks outside of.
 #[test]
 fn talking_from_on_top_of_the_dog_steps_the_player_out_to_a_talking_distance() {
-    use ambition_platformer2d::actors::features::ecs::{TalkSpacing, TALK_GAP};
+    use ambition_platformer2d::actors::TalkSpacing;
+use ambition_platformer2d::actors::TALK_GAP;
 
     let (mut sim, dog, player) = the_dog_and_the_player();
     let here = sim.world().get::<BodyKinematics>(dog).expect("a live dog").pos;

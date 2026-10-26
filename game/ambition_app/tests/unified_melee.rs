@@ -21,7 +21,7 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::features::Hitbox;
+use ambition_platformer2d::combat::hitbox::Hitbox;
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorTarget, FeatureId};

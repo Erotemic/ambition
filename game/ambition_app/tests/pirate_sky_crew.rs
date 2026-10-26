@@ -141,7 +141,7 @@ fn defeat_the_crew_leave_and_come_back_and_riders_and_mounts_are_all_back() {
         let mut q = world.query::<(&ambition_platformer2d::combat::components::ActorIdentity, &ambition_platformer2d::actor::ActorConfig)>();
         for (identity, config) in q.iter(world).filter(|(identity, _)| identity.id.starts_with("EnemySpawn")) {
             assert!(
-                matches!(config.tuning.respawn, ambition_platformer2d::actors::features::RespawnPolicy::OnRoomReenter),
+                matches!(config.tuning.respawn, ambition_platformer2d::entity_catalog::placements::RespawnPolicy::OnRoomReenter),
                 "{} is built {:?}: the zone's policy did not reach it",
                 identity.id,
                 config.tuning.respawn

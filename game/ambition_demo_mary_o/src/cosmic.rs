@@ -27,7 +27,9 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::features::transform_beat::{TransformBeat, TransformBeatPolicy, TransformBeatRequested};
+use ambition_platformer2d::actors::transform_beat::TransformBeat;
+use ambition_platformer2d::actors::transform_beat::TransformBeatPolicy;
+use ambition_platformer2d::actors::transform_beat::TransformBeatRequested;
 use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
 use ambition_platformer2d::characters::actor::{RecharacterizeBody, WornCharacter};
 use ambition_platformer2d::characters::equipment::WornEquipment;

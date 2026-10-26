@@ -131,7 +131,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // overlay ADVANCE mutates sim components, so it stays defined
                 // in the sim heart; this plugin only schedules it.
                 (
-                    ambition_platformer2d_actor_monolith::features::advance_body_anim_overlay_clocks,
+                    ambition_platformer2d_actor_monolith::advance_body_anim_overlay_clocks,
                     rebuild_actor_anim_index,
                 )
                     .chain(),

@@ -1,9 +1,7 @@
-//! Body-mode driver: facade re-exporting [`update_body_mode`].
+//! Body-mode transitions from accepted control and contact facts.
 //!
-//! [`mechanics`] owns the whole driver — the crouch / climb / morph-ball
-//! / stand-up state transitions read from input + contact state and ask
-//! the engine to flip the player's `BodyMode`. (Morph-ball sprite visuals
-//! live elsewhere, not in this module.)
+//! The driver applies crouch, climb, ball, and standing geometry to one body.
+//! Presentation reads the resulting body state.
 
 mod mechanics;
 

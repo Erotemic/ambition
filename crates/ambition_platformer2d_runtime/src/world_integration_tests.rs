@@ -5,7 +5,7 @@
 //! invariants. Extracted from `ecs/mod.rs` to keep the implementation
 //! file focused on systems.
 
-use ambition_platformer2d_actor_monolith::features::*;
+use ambition_platformer2d_actor_monolith::*;
 use crate::world_overlay::rebuild_feature_ecs_world_overlay;
 use ambition_vfx::vfx::VfxInRoom;
 use ambition_platformer2d_items::chests::open_ecs_chests;

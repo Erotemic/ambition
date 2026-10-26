@@ -560,7 +560,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // the actor crate.
             .add(ambition_encounter_features::EncounterSpawnServicePlugin)
             // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
-            .add(ambition_platformer2d_actor_monolith::features::BrainCommandPlugin)
+            .add(ambition_platformer2d_actor_monolith::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)
             // The observation-boundary view resources (E4): HUD facts, held
             // items/shots, marks, shrines, gravity switches, gun-swords.
@@ -575,7 +575,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_actor_monolith::repertoire::EffectiveRepertoirePlugin)
             // Which bodies' wallets absorb a hit: the worn character and the
             // room's rules, derived before any hit is resolved.
-            .add(ambition_platformer2d_actor_monolith::features::wallet_shield::WalletShieldPlugin)
+            .add(ambition_platformer2d_actor_monolith::wallet_shield::WalletShieldPlugin)
             // The camera OBSERVATION seam (E4-17): ONE follow-camera
             // snapshot per rendered frame (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.
@@ -605,7 +605,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(PlayerSchedulePlugin)
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
-            .add(ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatPlugin)
+            .add(ambition_platformer2d_actor_monolith::transform_beat::TransformBeatPlugin)
             // The empowerment LIFECYCLE — the clock that ends a timed grant and
             // the release that follows the component out of the world. Both are
             // invariants of what `Empowered::for_seconds(…, 2.0)` means, not
@@ -613,7 +613,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // is the ORDER (against `EmpowermentExpiry`) and whether it wants
             // `apply_contact_harm` at all.
             .add(
-                ambition_platformer2d_actor_monolith::features::empowerment::EmpowermentLifecyclePlugin,
+                ambition_platformer2d_actor_monolith::empowerment::EmpowermentLifecyclePlugin,
             )
             .add(RoomTransitionSchedulePlugin)
             .add(RoomTransitionComposerPlugin)

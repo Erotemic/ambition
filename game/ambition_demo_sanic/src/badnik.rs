@@ -62,7 +62,7 @@ pub fn defeat_badniks(
             Option<&crate::ball_dash::Rolling>,
             // What is true of this body: its grant and the character it
             // wears. Optional so the thin test harnesses need not dress the body.
-            Option<&ambition_platformer2d::actors::features::empowerment::Empowered>,
+            Option<&ambition_platformer2d::actors::empowerment::Empowered>,
             Option<&ambition_platformer2d::characters::actor::WornCharacter>,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
         ),
@@ -80,8 +80,8 @@ pub fn defeat_badniks(
     let everyone = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
         players.iter().map(|(player, kin, rolling, grant, worn, id)| {
             let harms_on_contact =
-                ambition_platformer2d::actors::features::empowerment::empowerment_of(grant, worn, cast.get())
-                    .holds(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
+                ambition_platformer2d::actors::empowerment::empowerment_of(grant, worn, cast.get())
+                    .holds(ambition_platformer2d::character::Empowerment::HARMS_ON_CONTACT);
             (player, rooms.of(player), kin.aabb(), kin.vel, rolling.is_some(), harms_on_contact, id.cloned())
         }),
         |_| 0.0,
@@ -247,8 +247,8 @@ mod tests {
         app.world_mut().spawn((
             PrimaryPlayer,
             PlayerEntity,
-            ambition_platformer2d::actors::features::empowerment::Empowered::held(
-                ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT,
+            ambition_platformer2d::actors::empowerment::Empowered::held(
+                ambition_platformer2d::character::Empowerment::HARMS_ON_CONTACT,
             ),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));

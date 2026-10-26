@@ -21,7 +21,6 @@ default = []
 input = ["ambition_render?/input", "dep:leafwing-input-manager"]
 mobile_touch = [
     "input",
-    "dep:ambition_platformer2d_actor_monolith",
     "ambition_input/input",
     "dep:ambition_sim_view",
     "dep:ambition_render",
@@ -37,10 +36,7 @@ mobile_touch = [
 ambition_input = { path = "../ambition_input" }
 ambition_geometry = { path = "../ambition_geometry" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-# The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers.
-# All OPTIONAL (track 7): only the `mobile_touch` overlay/adapter half needs
-# them; the pure state vocabulary stands on the input seam alone.
-ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, optional = true }
+# The overlay dependencies are optional. The input state has no renderer.
 # The control-prompt read-model the overlay renders (label source; the actors
 # reach for glyph/pressed stays until P5).
 ambition_sim_view = { path = "../ambition_sim_view", optional = true }

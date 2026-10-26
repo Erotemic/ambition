@@ -483,7 +483,8 @@ fn a_pad_that_disconnects_on_the_select_screen_moves_no_other_hand() {
 /// brained body in the real host, seated or not.
 #[test]
 fn a_seated_fighter_keeps_its_omniscient_senses() {
-    use ambition_platformer2d::actors::features::ecs::perception::{perception_of, SenseExtent};
+    use ambition_platformer2d::actors::perception::perception_of;
+use ambition_platformer2d::actors::perception::SenseExtent;
     use ambition_platformer2d::versus_match::MatchSeat;
     use bevy::ecs::system::RunSystemOnce;
 

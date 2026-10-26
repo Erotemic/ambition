@@ -1653,7 +1653,7 @@ impl Plugin for MaryORulesPlugin {
         // `CombatSet::Resolve`, inside `CoreSimulation` — which precedes BOTH
         // phases, so the hit lands on the next frame either way.
         let after_the_star = (
-            ambition_platformer2d::actors::features::empowerment::apply_contact_harm,
+            ambition_platformer2d::actors::empowerment::apply_contact_harm,
             // Before the theme is decided, not after: victory ENDS the quasar,
             // so by the time `play_star_music` looks there is one claimant
             // rather than two racing for one slot. See
@@ -1663,7 +1663,7 @@ impl Plugin for MaryORulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
-            .after(ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry);
+            .after(ambition_platformer2d::actors::empowerment::EmpowermentExpiry);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // sustained control slot off the body's freshly-produced `ActorControl`,
         // so they sit after the brain tick and before the shared movement phase
@@ -1715,7 +1715,7 @@ impl Plugin for MaryORulesPlugin {
                 cosmic::toggle_cosmic_form,
                 // Only a body whose form is changing has a beat.
                 cosmic::come_back_from_the_form
-                    .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::actors::features::transform_beat::TransformBeat>),
+                    .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::actors::transform_beat::TransformBeat>),
                 cosmic::lend_the_jump_in_the_air,
             )
                 .chain()
@@ -1858,7 +1858,7 @@ fn spend_lives_on_death(
     // clearing the rows above cannot reach it.
     commands
         .entity(body)
-        .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>();
+        .remove::<ambition_platformer2d::actors::empowerment::Empowered>();
 }
 
 /// Running out of time is a death, so it goes out the same door.

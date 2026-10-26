@@ -314,14 +314,27 @@ the windowed sentinel. `scripts/measure_minimum_profile_closure.py --minimum`
 prices a profile; cutting one edge saves little because the hubs reach the same
 crates.
 
-**Maintainer ruling needed (Q108):** the capability set of the minimum profile.
-Each capability is a pair of edits: manifest feature gates and hub gates.
+Sprite metadata selects Bevy's asset, image, log and sprite data features.
+It does not select a rendering pipeline. The headless fixture's package closure
+fell from 414 to 386 on 2026-10-26; Bevy's renderer and `wgpu` left the graph.
+Measure with `cargo tree --manifest-path fixtures/headless_profile/Cargo.toml
+--locked --offline`. Rendering owners select the rendering features.
 
-**Open:** separate tests for headless body and world; windowed body and world;
-combat without inventory, bosses or dialogue; collection without held use;
-generic encounters without boss content. A missing prerequisite fails with a
-diagnostic, not a dummy sibling. Then migrate consumers off internal mirrors and
-delete them. Measure build time and binary size separately.
+**Composition ruling:** Q108 and Q106 are resolved with Q146 and Q144 in
+[maintainer decisions](../maintainer-decisions.md). Direct and shell hosts use
+the same mechanics. Reduced tools can omit capabilities; content that needs an
+omitted capability is refused.
+
+**Covered:** the registry in `ambition_platformer2d_runtime::profile` names the
+supported profiles. The `supported_profiles` host tests step real bodies, check
+capability omissions and admission refusal, and repeat a session in one process.
+The tests pass with the host's default features off, including the renderer-free
+dependency cut above.
+
+**Open:** several capability domains remain mandatory compile dependencies even
+when a profile does not install them. Keep installation and compile-closure
+claims distinct. Cut a dependency only with its complete installation and
+lifetime contract. Measure build time and binary size separately.
 
 ## A10. Constrain candidate construction for reliable development reload
 

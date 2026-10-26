@@ -376,7 +376,7 @@ fn release_provocation_pacifies_and_restores_default() {
     let mut app = App::new();
     app.add_message::<BrainCommand>();
     app.add_message::<ReleaseProvocation>();
-    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
     app.insert_resource(catalog());
     app.init_resource::<crate::control::possession::PossessionState>();
     app.add_systems(

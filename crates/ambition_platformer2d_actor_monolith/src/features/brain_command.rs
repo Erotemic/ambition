@@ -419,7 +419,7 @@ fn apply_catalog_mode(
 pub fn apply_release_provocations(
     mut releases: MessageReader<ReleaseProvocation>,
     mut brain_commands: MessageWriter<BrainCommand>,
-    mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
+    mut provocations: MessageWriter<ambition_persistence::npc_provocation::NpcProvocationChanged>,
     mut actors: Query<(
         &SimId,
         (Option<&InRoomInstance>, Option<&LiveRoomInstance>),
@@ -441,7 +441,7 @@ pub fn apply_release_provocations(
         // Durable authority: a freed person stays freed across a room replay,
         // which rebuilds them from the save's provocation fact.
         if let (Some(identity), Some(_)) = (identity, interaction) {
-            provocations.write(crate::features::NpcProvocationChanged {
+            provocations.write(ambition_persistence::npc_provocation::NpcProvocationChanged {
                 id: identity.id.clone(),
                 provoked: false,
             });

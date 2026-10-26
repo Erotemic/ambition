@@ -160,9 +160,8 @@ pub mod demo_fixture {
     pub use ambition_boss_encounter::BossCatalog;
     pub use ambition_characters::prepared::PreparedCharacterRegistry;
     pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
-    pub use ambition_platformer2d_actor_monolith::avatar::{
-        HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
-    };
+    pub use ambition_platformer2d_actor_monolith::avatar::{HomeBodyAbilities};
+pub use ambition_platformer2d_session::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
     pub use ambition_platformer2d_construction::ActorConstructionRegistry;
     // A direct-entry demo has one experience, so its first room reads the
     // save of the world it lands in, and says so.

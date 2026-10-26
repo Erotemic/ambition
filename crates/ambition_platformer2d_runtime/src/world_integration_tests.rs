@@ -376,10 +376,6 @@ fn interact_buffered_starts_npc_dialogue() {
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        <ambition_platformer2d_actor_monolith::avatar::StartingCharacter>::default(),
-    );
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();

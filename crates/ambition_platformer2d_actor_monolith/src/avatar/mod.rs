@@ -8,7 +8,7 @@ pub mod bundles;
 pub mod components;
 pub mod fall_rescue;
 pub mod movement_components;
-pub mod starting_character;
+pub mod character_execution;
 pub mod systems;
 pub mod trail;
 
@@ -18,11 +18,11 @@ pub use body_integration::{
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use fall_rescue::rescue_falling_bodies;
-pub use starting_character::{
+pub use character_execution::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
     gate_body_control, motion_model_spec_for_character,
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
-    HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter, WornControlGateSet,
+    HomeBodyAbilities, WornControlGateSet,
 };
 // Body-generic vocabulary stays under `crate::actor`; this module exports only home-avatar policy.
 pub use systems::{

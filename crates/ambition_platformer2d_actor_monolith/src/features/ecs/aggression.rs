@@ -42,7 +42,7 @@ pub fn apply_actor_stimuli(
     // Whose side a striker is on: only the PLAYER's provocation is durable,
     // because that is the only grudge construction can rebuild.
     factions: Query<&ambition_characters::actor::ActorFaction>,
-    mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
+    mut provocations: MessageWriter<ambition_persistence::npc_provocation::NpcProvocationChanged>,
 ) {
     for stimulus in stimuli.read().copied() {
         // A `Challenged` stimulus is the player's explicit consent to fight, so
@@ -130,7 +130,7 @@ pub fn apply_actor_stimuli(
             || source.and_then(|source| factions.get(source).ok())
                 == Some(&ambition_characters::actor::ActorFaction::Player);
         if was_peaceful && interaction.is_some() && players_provocation {
-            provocations.write(crate::features::NpcProvocationChanged {
+            provocations.write(ambition_persistence::npc_provocation::NpcProvocationChanged {
                 id: em.identity.id.clone(),
                 provoked: true,
             });

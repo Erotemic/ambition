@@ -1,21 +1,4 @@
-//! Which character the local player STARTS as.
-//!
-//! The player entity is a *control box*: it carries `DrivingParticipant(slot)`, the
-//! home-body integration loop, the player markers, and the full traversal
-//! ability kit. WHICH character that box *wears* — its sprite, its combat
-//! moveset, and its name — is chosen by the session-owned [`StartingCharacter`] component.
-//! With no override the component is EMPTY and resolves (at spawn) to the
-//! CONTENT-installed default character (C2) — the engine names no specific
-//! character — so an untouched build spawns exactly as it did before.
-//!
-//! [`StartingCharacter`] is the session-owned startup selection. At spawn
-//! ([`crate::session::setup`]) the chosen id is both overlaid onto the body
-//! (moveset + name) AND recorded as the canonical [`WornCharacter`] identity
-//! component ON the player entity. From then on the entity's component — not
-//! this component — is the single source both gameplay and presentation derive
-//! from: [`apply_worn_character_gameplay`] re-applies the kit on any change, and
-//! the reusable `ambition_render` binder installs the sprite from the same
-//! identity. Presentation reads the same session-owned identity rather than process state.
+//! Apply worn character mechanics and gate each body's action controls.
 
 use bevy::ecs::system::{Commands, Local, Query};
 use bevy::prelude::{Component, Entity, Has, Name, Res, With};
@@ -28,106 +11,10 @@ use ambition_combat::moveset::ActorMoveset;
 use ambition_combat::worn_kit::WornKit;
 use ambition_platformer2d_core::movement::MotionModel;
 
-/// The catalog `character_id` the local player spawns as.
-///
-/// Read at session setup by both the simulation (moveset + name) and
-/// presentation (sprite) halves. An EMPTY `character_id` means "no override —
-/// wear the provider-relative default supplied by the session builder.
-/// [`Default`] is exactly that. The engine names no specific character (C2):
-/// which row is the default is CONTENT's choice, resolved lazily at spawn.
-#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
-pub struct StartingCharacter {
-    /// A `character_catalog.ron` row id, or EMPTY for the content default.
-    /// Ids without a renderable sheet still spawn a controllable player (the
-    /// sprite falls back to the colored rectangle) — the sim side never depends
-    /// on presentation.
-    ///
-    /// typed (P0.3): this is the RUNTIME seam of the same rule the prepared
-    /// registry and the match participant already hold — an id is an id, and a
-    /// display name passed here is a mistake the compiler can catch. empty
-    /// still means *the content default*; `CharacterId` carries an empty string
-    /// as happily as `String` did, so that meaning is unchanged (see
-    /// `is_content_default` below, which is the ONE reader of the emptiness).
-    pub character_id: ambition_entity_catalog::CharacterId,
-}
 
-impl StartingCharacter {
-    pub fn new(character_id: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
-        Self {
-            character_id: character_id.into(),
-        }
-    }
 
-    /// True when the player spawns as the canonical protagonist (no override) —
-    /// an empty id routes through the untouched `from_scratch` bundle.
-    pub fn is_default(&self) -> bool {
-        self.character_id.as_str().is_empty()
-    }
 
-    /// The concrete catalog id to wear: the explicit override, or the
-    /// content-installed default when unset. Resolve at spawn time, never at
-    /// component construction (the content default installs at the catalog choke point).
-    pub fn effective_id<'a>(&'a self, default_character_id: &'a str) -> &'a str {
-        if self.character_id.as_str().is_empty() {
-            default_character_id
-        } else {
-            self.character_id.as_str()
-        }
-    }
-}
 
-/// Does this session build a home body at all?
-///
-/// A MATCH is not that shape — it realizes its own cast from a roster — so the engine handed
-/// one an extra controllable actor it had no use for, and match seating grew a whole adoption
-/// path to reinterpret that body as a fighter.
-///
-/// NOT an `Option<StartingCharacter>`, and not an empty id. An empty
-/// [`StartingCharacter::character_id`] already means *"wear the provider-relative
-/// default"* — absence is taken, and a second meaning on the same emptiness is
-/// exactly how a silent default becomes a silent bug.
-///
-/// and it is a different question from `starting_character`, which is why
-/// both exist. That field also names the experience's catalog DEFAULT — the id a
-/// worn body falls back to, which a match experience legitimately still has even
-/// though it builds no body of its own.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub enum InitialBodyPolicy {
-    /// Spawn the session's home body wearing this character. Every exploration
-    /// experience, and the default.
-    SpawnCharacter(StartingCharacter),
-    /// Build no session body. The experience realizes whatever actors it
-    /// needs — a match builds its cast from a prepared roster — and there is no
-    /// privileged avatar for anything to adopt, re-dress, or follow by accident.
-    NoInitialBody,
-}
-
-/// What the session's home body HOLDS, as the experience declared it — the
-/// resources it is built with and resets to (Ambition's Mana pool, say).
-///
-/// Empty is a complete answer: a home body that holds nothing. It sits beside
-/// [`InitialBodyPolicy`] on the session root for the same reason that does —
-/// an activation input the experience authors, read once when the body is
-/// built — and is a separate component because a match, which builds no home
-/// body, has nothing to say here.
-///
-/// It holds the PREPARED bank, so a bad declaration is refused where the
-/// experience wrote it and setup only clones a finished answer.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct HomeBodyResources(Option<ambition_platformer2d_core::resources::ActorResources>);
-
-impl HomeBodyResources {
-    pub fn declared(
-        declarations: &[ambition_resource_spec::ResourceDeclaration],
-    ) -> Result<Self, ambition_platformer2d_core::resources::ResourceLayoutError> {
-        ambition_platformer2d_core::resources::ActorResources::declared(declarations).map(Self)
-    }
-
-    /// The bank the home body is built holding, at its declared start.
-    pub fn bank(&self) -> Option<&ambition_platformer2d_core::resources::ActorResources> {
-        self.0.as_ref()
-    }
-}
 
 /// What the experience GRANTS and PERMITS its home body, over the verbs the worn
 /// character authors: `effective = (authored ∪ granted) ∩ permitted`, the rule
@@ -179,30 +66,7 @@ impl HomeBodyAbilities {
     }
 }
 
-impl Default for InitialBodyPolicy {
-    fn default() -> Self {
-        Self::SpawnCharacter(StartingCharacter::default())
-    }
-}
 
-impl InitialBodyPolicy {
-    /// The character the home body wears, or `None` when there is no home body.
-    pub fn starting_character(&self) -> Option<&StartingCharacter> {
-        match self {
-            Self::SpawnCharacter(character) => Some(character),
-            Self::NoInitialBody => None,
-        }
-    }
-
-    pub fn spawns_a_body(&self) -> bool {
-        matches!(self, Self::SpawnCharacter(_))
-    }
-}
-
-// Which characters a game can build, and which one it starts as, is CONTENT: it
-// lives with the game's catalog (`ambition_content::character_catalog`,
-// R3.2, residue #10). This module keeps only the engine machinery: the
-// StartingCharacter component + the moveset overlay.
 
 // NOTE: the old `overlay_character_moveset` fallback — empty worn slots kept the player's
 // swipe/bolt/shield — is GONE, and being the content default no longer implies "keep the

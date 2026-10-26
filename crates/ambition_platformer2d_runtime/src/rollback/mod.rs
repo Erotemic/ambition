@@ -46,6 +46,11 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // registrar; each capability names its own concrete types and projections.
     // This is composition, not a type census: adding state to an existing domain
     // edits only that domain, and the runtime contains no gameplay type paths.
+    ambition_held_items::register_rollback_state(registrar);
+    ambition_shrine::register_rollback_state(registrar);
+    ambition_abilities::register_rollback_state(registrar);
+    ambition_body_seed::register_rollback_state(registrar);
+    ambition_platformer2d_actor_spawn::register_rollback_state(registrar);
     ambition_encounter::register_rollback_state(registrar);
     ambition_combat::register_rollback_state(registrar);
     ambition_breakables::register_rollback_state(registrar);

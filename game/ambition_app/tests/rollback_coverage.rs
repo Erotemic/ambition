@@ -169,11 +169,11 @@ const WAIVED: &[(&str, &str)] = &[
          session rather than moving inside it",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::starting_character::StartingCharacter",
+        "ambition_platformer2d_actor_monolith::avatar::character_execution::StartingCharacter",
         "session activation input, resolved once at player spawn",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::starting_character::InitialBodyPolicy",
+        "ambition_platformer2d_actor_monolith::avatar::character_execution::InitialBodyPolicy",
         "the same session activation input one level up: WHETHER this session \
          lowers a home avatar at all, and which one. Authored by the experience \
          definition, written onto the session world root when the session is \
@@ -182,7 +182,7 @@ const WAIVED: &[(&str, &str)] = &[
          changed mid-flight would be a different session",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::starting_character::HomeBodyResources",
+        "ambition_platformer2d_actor_monolith::avatar::character_execution::HomeBodyResources",
         "the same activation input for what the home body HOLDS: the prepared \
          bank the experience declared, on the session root beside \
          `InitialBodyPolicy`, read only by `simulation_world` when it builds the \
@@ -190,7 +190,7 @@ const WAIVED: &[(&str, &str)] = &[
          component-canonical",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::starting_character::HomeBodyAbilities",
+        "ambition_platformer2d_actor_monolith::avatar::character_execution::HomeBodyAbilities",
         "the same activation input for what the experience GRANTS and PERMITS its \
          home body, read only by `simulation_world` when it builds the body. The \
          abilities it seeds (AbilityBase, BodyAbilities) are registered",

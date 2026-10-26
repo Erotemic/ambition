@@ -20,3 +20,6 @@ pub mod character_body;
 
 pub use actor_spawn::*;
 pub use character_body::{grant_prepared_character_body, KitOwnership, ProjectedCharacterKit};
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

@@ -20,6 +20,11 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.clear_message_on_rollback::<crate::npc_provocation::NpcProvocationChanged>(
+        OWNER,
+        "message.npc_provocation_changed",
+    );
+
     // ⭐ CHECKSUMMED, NOT MERELY CLONED, SINCE 2026-08-29. Both of these were
     // registered with `rollback_resource_clone`, which saves and restores but
     // installs a PRESENCE-ONLY probe and no checksum projection. So a rewind

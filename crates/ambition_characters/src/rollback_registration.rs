@@ -12,7 +12,16 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{
+{    registrar.rollback_component_canonical::<crate::perception::PerceptionMemory>(
+        OWNER,
+        "actor.perception_memory",
+    );
+    registrar.declare_rollback_derived_component::<crate::actor::BodyWalletShield>(
+        OWNER,
+        "derived.wallet_shield",
+        "re-derived from the worn character and the room's rules every tick, before any hit is resolved",
+    );
+
     registrar.rollback_component_canonical::<crate::actor::BodyHealth>(OWNER, "body.health");
     registrar
         .rollback_component_canonical::<crate::actor::WornCharacter>(OWNER, "actor.worn_character");

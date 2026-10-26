@@ -43,9 +43,9 @@ pub struct SimulationSetup<'a> {
     /// from a prepared roster, and a privileged avatar beside that cast is an
     /// actor nobody owns — the camera follows it and input drives it while the
     /// fighter the player chose stands somewhere else.
-    pub initial_body: &'a ambition_platformer2d_actor_monolith::avatar::InitialBodyPolicy,
+    pub initial_body: &'a crate::initial_body::InitialBodyPolicy,
     /// What the home body holds, when there is one.
-    pub home_body_resources: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyResources,
+    pub home_body_resources: &'a crate::initial_body::HomeBodyResources,
     /// What the experience grants and permits the home body.
     pub home_body_abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
     /// The prepared cast, when this composition registered one.
@@ -107,7 +107,7 @@ pub fn simulation_world(
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
     ));
 
-    let ambition_platformer2d_actor_monolith::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
+    let crate::initial_body::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
         return SimulationWorld { player: None };
     };
 
@@ -162,13 +162,13 @@ pub struct HomeBody<'a> {
     pub world: &'a RoomGeometry,
     pub tuning: &'a ae::ActiveMovementTuning,
     /// The character the body wears. Empty is the default of the provider.
-    pub character: &'a ambition_platformer2d_actor_monolith::avatar::StartingCharacter,
+    pub character: &'a crate::initial_body::StartingCharacter,
     /// Provider-selected default used only when `character` is empty.
     pub default_character_id: &'a str,
     /// The prepared cast, when this composition registered one.
     pub prepared_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     /// What the home body holds.
-    pub resources: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyResources,
+    pub resources: &'a crate::initial_body::HomeBodyResources,
     /// What the experience grants and permits the home body.
     pub abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
 }

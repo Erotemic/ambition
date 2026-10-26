@@ -580,6 +580,8 @@ before this cut. Independent input profiles remain a separate exit.
 
 ### K17 — Cross-domain schedules belong to runtime
 
+Commit: `feb474c84`.
+
 Runtime owns the world-object, match, collection, interaction, and effect
 schedule composition. `BodySimulationPlugin` keeps accepted control, body
 execution, and their private state in the actor kernel. Existing chains, gates,
@@ -593,6 +595,25 @@ world-overlay paths are deleted.
 Schedule, silhouette, and projectile integration fixtures move to runtime and
 use the public prepared-body builder. The actor and view crates have no runtime
 dev dependency. Private body constructors remain private to their tests.
+
+### K18 — Startup policy and rollback declarations follow their owners
+
+Session owns `initial_body`: startup character selection, whether to build a
+home body, and its prepared resource bank. The kernel keeps live character
+execution and body ability grants. The old startup module is deleted.
+
+Each domain declares its own rollback state. Runtime composes the offers from
+abilities, held items, body seeds, actor construction, shrines, and the existing
+domain owners. Registration keys, probes, codecs, and wire versions stay the same.
+The kernel registrar names only kernel state.
+
+Persistence owns durable NPC provocation facts, their reducer, and the saved
+NPC dialogue flag name. Runtime keeps their existing ordering. No system
+invocation is added.
+
+**Remaining D33 work:** expose the owned body API and remove the old
+`features::ecs` topology and foreign forwarding exports. Capability profiles
+remain a separate C2/SDK exit.
 
 ### Migration acceptance for each packet
 
@@ -656,8 +677,8 @@ because it is durable decomposition doctrine.
 | `crates/ambition_characters/src/smash_fighter/` | `the-smash-fighter-facet-is-read-only-by-its-owner` |
 | `crates/ambition_platformer2d_assets/src/materialization/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
 | `crates/ambition_characters/src/actor/character_catalog/registry.rs`, `crates/ambition_platformer2d_assets/src/materialization/audit.rs`, or `game/ambition_app/tests/app_local_catalog_composition.rs` | `the-catalog-owners-map-is-not-a-provider-authority` |
-| `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
-| `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs` or `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
+| `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
+| `crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs` or `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
 | `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_publication/src/stage.rs` | `only-the-candidate-builder-hides-a-root` |
 | `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_publication/src/transaction.rs`, or `crates/ambition_platformer2d_provider/src/lifecycle.rs` | `only-the-publication-authority-publishes-a-candidate` |
 | `crates/ambition_platformer2d_provider/src/authoring.rs` or `crates/ambition_game_shell/` | `one-registrar-installs-the-session-teardown` |

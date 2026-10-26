@@ -19,7 +19,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
-use ambition_platformer2d_actor_monolith::avatar::{HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter};
+use ambition_platformer2d_actor_monolith::avatar::{HomeBodyAbilities};
+use crate::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
 use crate::setup::{spawn_home_body, HomeBody};
 
 /// Build the home body of each seat that presses Start and has no body yet.

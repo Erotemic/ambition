@@ -1,5 +1,6 @@
 //! Body decisions, accepted controls, movement, and action execution.
 
+use ambition_persistence::save_data::npc_talked_flag;
 use ambition_characters::actor::limb::fan_out_limb_intents;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -28,7 +29,7 @@ pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
 pub use npcs::{
-    NpcProvocationChanged, npc_talk_dialogue_id, npc_talked_flag, record_npc_provocations,
+    npc_talk_dialogue_id,
 };
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.

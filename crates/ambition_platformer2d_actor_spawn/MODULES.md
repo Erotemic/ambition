@@ -9,8 +9,9 @@
 | [`actor_bundles`](src/actor_bundles.rs) | Component bundles for a simulated feature entity. |
 | [`actor_spawn`](src/actor_spawn/mod.rs) | Actor spawn helpers for ECS feature entities. |
 | [`character_body`](src/character_body.rs) | Complete prepared-character body construction. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

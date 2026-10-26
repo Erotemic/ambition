@@ -64,54 +64,6 @@ use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCata
 use ambition_combat::events::NpcDialogueRequest;
 use ambition_interaction::{Interactable, InteractionKind};
 
-
-/// A talkable NPC's durable provocation changed: the player provoked it (a
-/// strike past its threshold, or a `<<challenge>>`), or a `<<restore_brain>>`
-/// released it.
-///
-/// ⛔ The save flag is what room construction BUILDS the person from, so every
-/// road that changes the live fact must change the durable one too, or a room
-/// replay silently undoes it. The two transitions that own the fact —
-/// `apply_actor_stimuli`'s flip and `apply_release_provocations` — announce it
-/// here, and [`record_npc_provocations`] is the one writer of the flag, so
-/// aggression code never names a save key.
-#[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
-pub struct NpcProvocationChanged {
-    /// The NPC's `ActorIdentity::id` — the placement identity construction
-    /// looks the fate up by.
-    pub id: String,
-    pub provoked: bool,
-}
-
-/// Record each [`NpcProvocationChanged`] as the NPC's persisted-hostile flag.
-pub fn record_npc_provocations(
-    mut changes: bevy::prelude::MessageReader<NpcProvocationChanged>,
-    mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
-    mut quests: bevy::prelude::ResMut<ambition_persistence::quest::QuestRegistry>,
-) {
-    for change in changes.read() {
-        ambition_persistence::quest::write_flag(
-            &mut save,
-            &mut quests,
-            ambition_persistence::save_data::npc_hostile_flag(&change.id),
-            change.provoked,
-        );
-    }
-}
-
-/// The save flag that records the player has spoken to this dialogue's NPC.
-///
-/// ⭐ IT WAS SPELLED TWICE, IN TWO CRATES. The runtime writes it from
-/// `features/ecs/interact.rs` when an interaction resolves; `ambition_content`'s
-/// `content_validation` builds the SAME id from the authored `dialogue_id` to
-/// enumerate which flags the content can set. The validator's model of the
-/// runtime is only as good as those two literals agreeing, and nothing compared
-/// them — a rename on one side turns the validator's set into a claim about a
-/// flag nobody writes, while every test on both sides stays green.
-pub fn npc_talked_flag(dialogue_id: &str) -> String {
-    format!("npc_{dialogue_id}_talked")
-}
-
 /// The catalog `character_id` carried by an NPC interaction payload, if any.
 /// This is the identity key the catalog `barks` pools are authored against.
 fn npc_character_id(interactable: &Interactable) -> Option<&str> {

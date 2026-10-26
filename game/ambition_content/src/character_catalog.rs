@@ -545,7 +545,7 @@ mod tests {
              — which is exactly how its roster-side ancestor went quietly vacuous"
         );
     }
-    use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
+    use ambition_platformer2d_session::initial_body::StartingCharacter;
 
     /// What the mounts and their riders ARE, through preparation: the admiral
     /// and the raiders board a shark and are not ridden, the shark and the giant

@@ -184,6 +184,6 @@ fn insert_starting_character_override(app: &mut App) {
         "starting as character '{id}' (AMBITION_START_CHARACTER)"
     );
     app.insert_resource(super::StartingCharacterOverride(
-        ambition_platformer2d::actors::avatar::StartingCharacter::new(id),
+        ambition_platformer2d::session::initial_body::StartingCharacter::new(id),
     ));
 }

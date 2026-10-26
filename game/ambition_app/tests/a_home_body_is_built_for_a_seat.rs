@@ -12,9 +12,8 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::avatar::{
-    HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
-};
+use ambition_platformer2d::actors::avatar::{HomeBodyAbilities};
+use ambition_platformer2d::session::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
 use ambition_platformer2d::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
 use ambition_platformer2d::session::setup::{spawn_home_body, HomeBody};
 use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};

@@ -37,7 +37,7 @@ pub struct StartRoomMustResolve;
 ///
 /// This resource is consumed during sandbox preparation and never becomes gameplay authority.
 #[derive(Resource, Clone, Debug, Default)]
-pub struct StartingCharacterOverride(pub ambition_platformer2d_actor_monolith::avatar::StartingCharacter);
+pub struct StartingCharacterOverride(pub ambition_platformer2d_session::initial_body::StartingCharacter);
 
 /// Host composition input: this composition SEATS A MATCH into Ambition's
 /// world, so it must not also lower a home avatar.

@@ -11,7 +11,42 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{
+{    // Every live claim, shadowed ones included: restoring only a winner would
+    // forget a ride under a possession across a rewind.
+    registrar
+        .rollback_component_canonical::<crate::temporary_control::ControlClaims>(
+            OWNER,
+            "actor.control_claims",
+        );
+    // The body a reset hands back, split out of `actor.config` (2026-08-26) so a
+    // mount dismount can restore a rider without naming the monolith's authored
+    // actor definition. Same shape as the row above: authored, immutable after
+    // spawn, cloned rather than encoded.
+    registrar.rollback_component_clone::<crate::body::SpawnBaseline>(
+        OWNER,
+        "actor.spawn_baseline",
+    );
+    // ⛔ THE STABLE NAME STAYS `mount.mass` THOUGH THE TYPE LEFT `mount`. It is
+    // an IDENTITY on the wire, not an address: renaming it to match the new home
+    // would be a declared schema change bought for tidiness, and every peer would
+    // have to agree to it. The type moved to `shared_tangle::body` because two
+    // domains share it; the wire does not care where a type lives.
+    registrar.rollback_component_clone::<crate::body::Mass>(
+        OWNER,
+        "mount.mass",
+    );
+    registrar.rollback_component_clone::<crate::lifecycle::SpawnedThisAttempt>(
+        OWNER,
+        "lifecycle.spawned_this_attempt",
+    );
+
+    // Save application is a rollback-relevant latch because the state it guards
+    // rewinds even though the literal Update systems that set it do not resimulate.
+    registrar.rollback_resource_clone::<crate::lifecycle::SaveRestored>(
+        OWNER,
+        "resource.save_restored",
+    );
+
     // ⛔⛔ THE SAFE-POSITION MECHANIC'S DECLARATIONS, AND THEY ARRIVED A COMMIT
     // LATE. `6dca281` moved the types, the snapshot codecs and every consumer
     // here and left these two rows behind in the actor monolith — whose header

@@ -1069,7 +1069,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # The exemption is the same ONE file it always was; only its address changed, and this
             # guard catching the move is the guard working.
             ":!crates/ambition_characters/src/prepared.rs",
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
         "patterns": [r"\baxis_tuning\("],
@@ -1095,7 +1095,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "fixtures/",
             # The ONE production caller, and the re-export that lets it be one.
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs",
             ":!crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs",
         ],
         "patterns": [r"\bmovement_tuning_for_character\("],

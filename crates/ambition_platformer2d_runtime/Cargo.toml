@@ -7,6 +7,8 @@ authors.workspace = true
 description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app."
 
 [dependencies]
+ambition_shrine = { path = "../ambition_shrine" }
+ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_interaction = { path = "../ambition_interaction" }
 leafwing-input-manager = "0.21"
 ambition_world_returns = { path = "../ambition_world_returns" }
@@ -112,7 +114,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_items = { path = "../ambition_items", features = ["test-support"] }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }

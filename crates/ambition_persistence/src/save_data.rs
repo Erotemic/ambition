@@ -1385,3 +1385,8 @@ mod tests {
         let _ = items;
     }
 }
+
+/// The saved flag for a dialogue that an interaction has started.
+pub fn npc_talked_flag(dialogue_id: &str) -> String {
+    format!("npc_{dialogue_id}_talked")
+}

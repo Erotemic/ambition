@@ -19,7 +19,7 @@ pub mod time_control;
 /// The time of day: the world clock that turns through morning, day,
 /// evening and night.
 pub mod day;
-pub use day::{advance_day_clock, DayClock, DayCycle, DayPhase};
+pub use day::{DayClock, DayCycle, DayPhase, advance_day_clock};
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;
@@ -441,3 +441,19 @@ mod tests {
         assert!((observed.entity_dt - 0.004).abs() < 1e-7);
     }
 }
+
+
+mod gameplay_elapsed_snapshot;
+
+/// Accumulating sim-time (seconds), advanced by the gameplay clock so it slows
+/// under bullet-time / freezes on pause alongside every other sim timer
+/// (ADR 0010/0011 time-domains discipline). This is the monotone "now" the
+/// per-actor brain perception reads: the Smash brain's reaction latency
+/// (`obs_history` lookback by `reaction_delay_s`) is inert without it. Distinct
+/// from `time_control::SimClock` (a time-*scale* request) — this is elapsed time.
+///
+/// A component of the session root (C03): each session's clock starts at zero
+/// with its root, so two peers that reach one route by different shell
+/// histories agree on it, and no reset is owed at a session edge.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct GameplayElapsed(pub f32);

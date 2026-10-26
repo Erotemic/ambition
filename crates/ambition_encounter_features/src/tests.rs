@@ -6,11 +6,10 @@
 use crate::*;
 use ambition_encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use ambition_encounter::{
-    active_encounter_camera_zoom, encounter_reward_chest_pos, Encounter, EncounterCommandKind,
+    ENCOUNTER_INTER_WAVE_DELAY_SECONDS, Encounter, EncounterCommandKind,
     EncounterEvent, EncounterLifecycle, EncounterMobSpec, EncounterParticipant,
     EncounterParticipants, EncounterPhase, EncounterRole, EncounterSpec,
-    EncounterWaveSpec, EncounterWaves, LockWallSpec, SwitchActivation,
-    ENCOUNTER_INTER_WAVE_DELAY_SECONDS, WAVES_EXHAUSTED_SIGNAL,
+    EncounterWaveSpec, EncounterWaves, LockWallSpec, SwitchActivation, WAVES_EXHAUSTED_SIGNAL, active_encounter_camera_zoom, encounter_reward_chest_pos,
 };
 use ambition_entity_catalog::placements::PlacementSchema;
 use ambition_persistence::save_data::PersistedEncounterState;
@@ -18,6 +17,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_ldtk::LdtkProject;
 use ambition_platformer2d_world::rooms::InteractionKindSpec;
+use ambition_world_items::containers::ChestFeature;
 use bevy::math::bounding::IntersectsVolume;
 
 /// The sandbox world these tests read, as a plain value. No install, no
@@ -52,7 +52,8 @@ struct WaveEncounter {
 impl WaveEncounter {
     fn new(spec: EncounterSpec) -> Self {
         let lifecycle =
-            EncounterLifecycle::from_persisted(spec.intro_seconds, PersistedEncounterState::Untouched);
+            EncounterLifecycle::from_persisted(spec.intro_seconds, PersistedEncounterState::Untouched,
+        );
         Self {
             lifecycle,
             waves: EncounterWaves::new(spec),
@@ -711,11 +712,11 @@ fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
 // ── Ownership-driven cleanup (E10) ─────────────────────────────
 
 mod cleanup {
-    use crate::apply_encounter_cleanup;
     use super::*;
+    use crate::apply_encounter_cleanup;
     use ambition_encounter::{
-        reduce_encounter_lifecycles, EncounterCleanupPolicy, EncounterCommand,
-        EncounterCommandKind, EncounterEventMsg, EncounterLifecycle, Ownership, SpawnedCleanup,
+        EncounterCleanupPolicy, EncounterCommand,
+        EncounterCommandKind, EncounterEventMsg, EncounterLifecycle, Ownership, SpawnedCleanup, reduce_encounter_lifecycles,
     };
     use bevy::prelude::*;
 
@@ -893,7 +894,7 @@ mod cleanup {
 /// someone makes that move.
 #[test]
 fn a_reset_does_not_retire_the_reward_chest() {
-    use ambition_combat::components::{ChestFeature, EncounterRewardChest, FeatureId};
+    use ambition_combat::components::{EncounterRewardChest, FeatureId};
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -1140,7 +1141,8 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
 /// room, it did not run while two rooms were live, and nothing started.
 #[test]
 fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     use bevy::prelude::*;
 
     let first = LiveRoomInstance::ACTIVATION;
@@ -1148,7 +1150,8 @@ fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
     let room = |id: &str| {
         ambition_platformer2d_world::rooms::RoomSpec::new(
             id,
-            ae::World::new(id, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+            ae::World::new(id, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new(),
+            ),
         )
     };
     let started = |player_room: LiveRoomInstance| {
@@ -1218,7 +1221,8 @@ fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
 /// every in-flight encounter, a death in #0 ended the fight in #1.
 #[test]
 fn a_death_fails_only_the_encounter_of_its_own_live_room() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     use bevy::prelude::*;
 
     let first = LiveRoomInstance::ACTIVATION;
@@ -1226,7 +1230,8 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
     let room = |id: &str| {
         ambition_platformer2d_world::rooms::RoomSpec::new(
             id,
-            ae::World::new(id, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+            ae::World::new(id, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new(),
+            ),
         )
     };
     let fails = |died_in: LiveRoomInstance| {
@@ -1314,7 +1319,8 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
 #[test]
 fn two_live_rooms_of_one_room_run_their_encounters_apart() {
     use ambition_encounter::{EncounterCommand, EncounterEvent, EncounterEventMsg};
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     use bevy::prelude::*;
 
     let (hall, first, second) = {
@@ -1323,7 +1329,8 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
     };
     let mut goblin_room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "goblin_encounter",
-        ae::World::new("goblin_encounter", ae::Vec2::new(1600.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+        ae::World::new("goblin_encounter", ae::Vec2::new(1600.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new(),
+        ),
     );
     goblin_room.encounter_triggers.push(ambition_platformer2d_world::rooms::EncounterTriggerSpec {
         id: "goblin_encounter".into(),
@@ -1333,7 +1340,8 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
     });
     let hall_room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "hall",
-        ae::World::new("hall", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+        ae::World::new("hall", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new(),
+        ),
     );
 
     let mut app = App::new();
@@ -1467,15 +1475,20 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
 /// each occurrence then holds for the served ids, by room. Two occurrences
 /// mint the same mob ids, so a lookup by id alone reads one room's mob for
 /// both.
-fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Vec<bool>)> {
+fn liveness_by_room(dead: usize,
+) -> Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Vec<bool>,
+)> {
     use ambition_encounter::{EncounterCommand, EncounterEvent, EncounterEventMsg};
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     use bevy::prelude::*;
 
-    let rooms = [LiveRoomInstance::ACTIVATION.next(), LiveRoomInstance::ACTIVATION.next().next()];
+    let rooms = [LiveRoomInstance::ACTIVATION.next(), LiveRoomInstance::ACTIVATION.next().next(),
+    ];
     let mut goblin_room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "goblin_encounter",
-        ae::World::new("goblin_encounter", ae::Vec2::new(1600.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+        ae::World::new("goblin_encounter", ae::Vec2::new(1600.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new(),
+        ),
     );
     goblin_room.encounter_triggers.push(ambition_platformer2d_world::rooms::EncounterTriggerSpec {
         id: "goblin_encounter".into(),
@@ -1485,7 +1498,8 @@ fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tan
     });
     let hall_room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "hall",
-        ae::World::new("hall", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+        ae::World::new("hall", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new(),
+        ),
     );
     let mut app = App::new();
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
@@ -1499,7 +1513,8 @@ fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tan
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic("hall", vec![hall_room, goblin_room], Vec::new()),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic("hall", vec![hall_room, goblin_room], Vec::new(),
+        ),
     );
     let goblin = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
         ambition_platformer2d_world::rooms::RoomSet,
@@ -1568,7 +1583,8 @@ fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tan
     }
     app.update();
     let world = app.world_mut();
-    let mut query = world.query::<(&ambition_encounter::EncounterParticipants, Option<&InRoomInstance>)>();
+    let mut query = world.query::<(&ambition_encounter::EncounterParticipants, Option<&InRoomInstance>,
+    )>();
     let mut liveness: Vec<_> = query
         .iter(world)
         .map(|(participants, room)| {
@@ -1576,7 +1592,9 @@ fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tan
             let served: Vec<bool> = participants
                 .members
                 .iter()
-                .filter(|member| requested.iter().any(|(asked, id)| *asked == room && *id == member.id))
+                .filter(|member| {
+                    requested.iter().any(|(asked, id)| *asked == room && *id == member.id)
+                })
                 .map(|member| member.alive)
                 .collect();
             (room, served)

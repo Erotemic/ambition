@@ -153,18 +153,30 @@ pub fn restore_checkpoint_on_session_start(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // ⛔⛔ NOT `Local`s. See [`SessionStartupResume`].
-    mut progress: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionStartupResume>,
+    mut progress: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionStartupResume,
+    >,
     // The SAME operation state the reset road uses. A startup crossing and a
     // death crossing are one operation asked twice, so they are admitted,
     // pinned, applied and answered by one mechanism.
-    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
-    mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations>,
-    outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<SessionCheckpointOutcomes>,
+    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore,
+    >,
+    mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations,
+    >,
+    outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<SessionCheckpointOutcomes,
+    >,
     baselines: (
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline,
+            >,
+        >,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline,
+            >,
+        >,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline,
+            >,
+        >,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::OwnedItemsBaseline,
+            >,
+        >,
     ),
 ) {
     let Some(room_set) = room_set.as_ref() else {
@@ -229,11 +241,13 @@ pub fn restore_checkpoint_on_session_start(
             Ok(subject) => subject,
             Err(bevy::ecs::query::QuerySingleError::NoEntities(_)) => return,
             Err(bevy::ecs::query::QuerySingleError::MultipleEntities(_)) => {
-                end_a_resume_that_names_no_subject(&mut progress, generation, subjects.iter().count());
+                end_a_resume_that_names_no_subject(&mut progress, generation, subjects.iter().count(),
+                );
                 return;
             }
         };
-        let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
+        let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
+        );
         // The intent can: a resume is a body, a destination and an arrival, which is all a
         // crossing ever was. The synthetic zone is deleted with the message, and so is the
         // room-INDEX lookup that only existed to fill it.
@@ -395,7 +409,8 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint,
     >,
     mut new_games: bevy::prelude::MessageReader<crate::reset::NewGameRequested>,
-    mut outstanding: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<OutstandingCheckpointRequest>,
+    mut outstanding: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<OutstandingCheckpointRequest,
+    >,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // The subject's own live room (OW1 Cut A). The sole live room was read,
     // so while two rooms were live a death was owed and never served.
@@ -419,24 +434,35 @@ pub fn resume_at_checkpoint_on_reset(
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     )>,
-    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
-    mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations>,
+    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore,
+    >,
+    mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations,
+    >,
     // The answer of a request that is refused before it is an operation.
-    mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes>,
+    mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes,
+    >,
     // WHOSE operation. Absent only in an explicit standalone profile, which has
     // one declared lifetime and cannot retain operations across destruction.
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     // The pinned inputs, read ONCE on acceptance. `Option` because a composition
     // can install the session offer without the lifecycle or item ones.
     baselines: (
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline,
+            >,
+        >,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline,
+            >,
+        >,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline,
+            >,
+        >,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_items::pickup::minted_horizon::OwnedItemsBaseline,
+            >,
+        >,
         // What a new game's starter bag is made of (which items stack).
         ambition_items::ItemCatalogRead<'_>,
         // The one-time pickups consumed since the checkpoint, with their owners.
-        Option<Res<ambition_platformer2d_actor_monolith::features::ecs::pickups::ConsumedSinceCheckpoint>>,
+        Option<Res<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>>,
         // What the rewards since the checkpoint gave, and the defeats they
         // came from: the restore keeps those of a defeat it keeps (Q151).
         Option<Res<ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
@@ -520,12 +546,14 @@ pub fn resume_at_checkpoint_on_reset(
             return;
         }
     };
-    let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
+    let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
+    );
     let subject_body = Some(subject_body);
     // The dying participant: the one who drives the primary body, or, while
     // that participant possesses another body, the seat the primary body is
     // the home of.
-    let dying = Some(driver.map_or(ambition_characters::control::PlayerSlot::PRIMARY, |driver| driver.0));
+    let dying = Some(driver.map_or(ambition_characters::control::PlayerSlot::PRIMARY, |driver| driver.0,
+    ));
     // The room the subject is in; an unstamped subject is in the sole live room.
     let Some(definition) = room_set.definition_named(subject.room) else {
         return;
@@ -687,12 +715,16 @@ pub fn resume_at_checkpoint_on_reset(
         )> = objects
             .iter()
             .filter_map(|(id, custody, stamp, root)| match *custody {
-                ambition_held_items::ItemCustody::InWorld => spared_room(stamp, root).then(|| (id.clone(), None)),
+                ambition_held_items::ItemCustody::InWorld => {
+                    spared_room(stamp, root).then(|| (id.clone(), None))
+                }
                 ambition_held_items::ItemCustody::Held { holder } => holders
                     .get(holder)
                     .ok()
                     .filter(|(_, stamp, root)| spared_room(*stamp, *root))
-                    .and_then(|(holder, ..)| holder.map(|holder| (id.clone(), Some(holder.clone())))),
+                    .and_then(|(holder, ..)| {
+                        holder.map(|holder| (id.clone(), Some(holder.clone())))
+                    }),
             })
             .collect();
         // The ledger this restore promises: the checkpoint's, and the
@@ -936,7 +968,7 @@ impl CheckpointOperationKey {
     /// four carriers are registered `rollback_resource_clone_checksum`, so the
     /// SNAPSHOT is a `Clone` of the struct and never goes through here.
     pub fn write_peer_stable_into(&self, bytes: &mut Vec<u8>) {
-        use ambition_platformer2d_core::snapshot::{put_u64, put_u8};
+        use ambition_platformer2d_core::snapshot::{put_u8, put_u64};
         put_u8(bytes, u8::from(self.scope.is_some()));
         put_u64(bytes, self.sequence);
     }
@@ -1015,8 +1047,12 @@ impl SessionCheckpointOperations {
 /// composition error. It pins
 /// `None` and logs it, and does not fill the missing half with an empty one.
 fn pin_lifecycle_inputs(
-    occurrences: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
-    custody: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+    occurrences: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline,
+        >,
+    >,
+    custody: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline,
+        >,
+    >,
 ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs> {
     if occurrences.is_some() != custody.is_some() {
         bevy::log::error!(
@@ -1160,7 +1196,7 @@ impl AcceptedRestore {
     /// on: the sequence counter rewinds, so a discarded branch's key can be
     /// minted again for something else.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u64, put_u8};
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u8, put_u64};
         let AcceptedRestore {
             key,
             frame,
@@ -1213,14 +1249,16 @@ impl AcceptedRestore {
                 put_u8(&mut bytes, match reason {
                     ambition_combat::RoomResetReason::PlayerDeath => 0,
                     ambition_combat::RoomResetReason::Manual => 1,
-                });
+                },
+                );
                 match subject {
                     None => put_u8(&mut bytes, 0),
                     Some(subject) => {
                         put_u8(&mut bytes, 1);
                         bytes.extend_from_slice(subject.sim_id.as_str().as_bytes());
                         put_u8(&mut bytes, 0);
-                        put_i32(&mut bytes, subject.room.map_or(-1, |room| room.ordinal() as i32));
+                        put_i32(&mut bytes, subject.room.map_or(-1, |room| room.ordinal() as i32),
+                        );
                     }
                 }
                 put_u8(&mut bytes, u8::from(*refight));
@@ -1271,9 +1309,10 @@ pub fn prospective_commit_fates(
     world: &bevy::prelude::World,
     key: CheckpointOperationKey,
 ) -> ambition_platformer2d_construction::PersistedFates {
-    use ambition_platformer2d_actor_monolith::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
+    use ambition_world_returns::{WorldTimeSchedule, remaining_in, remaining_scheduled_returns};
     let facts = ambition_platformer2d_construction::PersistedFates::of_world(world);
-    let accepted = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
+    let accepted = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore,
+    >(world)
         .and_then(|accepted| accepted.inputs_for_key(key));
     if accepted.is_some_and(|accepted| accepted.fresh) {
         return facts
@@ -1294,7 +1333,8 @@ pub fn prospective_commit_fates(
         >(world)
         .map(|rooms| rooms.spec(definition).id.clone())
     });
-    let remaining = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<WorldTimeSchedule>(world)
+    let remaining = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<WorldTimeSchedule,
+    >(world)
         .map(|schedule| {
             let mut schedule = schedule.clone();
             if let Some(room) = &replayed_room {
@@ -1332,7 +1372,8 @@ pub fn prospective_commit_fates(
 /// ([`ambition_combat::events::AdmittedReplays`]); it is removed again on
 /// every path.
 pub fn run_restore_consequences(world: &mut bevy::prelude::World, key: CheckpointOperationKey) {
-    let Some(replay) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
+    let Some(replay) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore,
+    >(world)
         .and_then(|accepted| accepted.inputs_for_key(key))
         .and_then(|accepted| accepted.replay.clone())
     else {
@@ -1350,9 +1391,11 @@ pub fn run_restore_consequences(world: &mut bevy::prelude::World, key: Checkpoin
 /// inputs have no operation left to describe, and holding them would let a
 /// later unrelated transition match a stale intent by value.
 pub fn retire_accepted_checkpoint_restore(
-    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
+    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore,
+    >,
     pending: Res<crate::lifecycle_commit::PendingLifecycleCommit>,
-    mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes>,
+    mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes,
+    >,
 ) {
     let still_pending = accepted.accepted().is_some_and(|accepted| {
         pending
@@ -1450,7 +1493,8 @@ pub fn apply_committed_checkpoint_restore(
         CheckpointDomainApply, CheckpointRestoreInputs,
     };
 
-    let Some(accepted) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
+    let Some(accepted) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore,
+    >(world)
         .and_then(|accepted| accepted.inputs_for_key(key))
         .cloned()
     else {
@@ -1505,8 +1549,8 @@ pub fn apply_committed_checkpoint_restore(
             bevy::log::error!(
                 target: "ambition_platformer2d::session",
                 "checkpoint restore {:?} failed verification in {}: {}. Gameplay is \
-                 blocked; the world was NOT returned to its previous state, which \
-                 this contract does not offer",
+                     blocked; the world was NOT returned to its previous state, which \
+                     this contract does not offer",
                 accepted.key,
                 failure.failure.domain(),
                 failure.detail,
@@ -1524,13 +1568,15 @@ pub fn apply_committed_checkpoint_restore(
     };
     // ⛔ EXACTLY ONE TERMINAL OUTCOME PER OPERATION, and the session is its sole
     // writer. `publish` refuses a second one for a key it has already answered.
-    if let Some(mut outcomes) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<SessionCheckpointOutcomes>(world) {
+    if let Some(mut outcomes) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<SessionCheckpointOutcomes,
+        >(world) {
         outcomes.publish(outcome);
     }
     // The accepted operation is answered. Retiring it here rather than waiting
     // for the slot means a later transaction cannot be opened against an
     // operation that has already had its terminal outcome.
-    if let Some(mut accepted_state) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world) {
+    if let Some(mut accepted_state) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore,
+        >(world) {
         if accepted_state
             .accepted()
             .is_some_and(|outstanding| outstanding.key == accepted.key)
@@ -1666,7 +1712,8 @@ pub fn terminalize_abandoned_checkpoint_restore(
     world: &mut World,
     confirmed_through: Option<i32>,
 ) -> AbandonmentVerdict {
-    let Some(note) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AbandonedCheckpointOperation>(world)
+    let Some(note) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AbandonedCheckpointOperation,
+    >(world)
         .and_then(|abandoned| abandoned.0)
     else {
         return AbandonmentVerdict::Nothing;
@@ -1675,12 +1722,14 @@ pub fn terminalize_abandoned_checkpoint_restore(
     // A rewind can leave a note about an operation this timeline never admitted,
     // or admitted differently; the key alone cannot tell those apart because the
     // sequence counter rewinds with everything else.
-    let live = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
+    let live = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore,
+    >(world)
         .and_then(|accepted| accepted.accepted().cloned());
     let Some(live) = live.filter(|live| {
         live.key == note.key && live.frame == note.admitted_frame && live.checksum() == note.operation
     }) else {
-        if let Some(mut abandoned) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AbandonedCheckpointOperation>(world) {
+        if let Some(mut abandoned) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AbandonedCheckpointOperation,
+            >(world) {
             abandoned.clear();
         }
         return AbandonmentVerdict::Stale;
@@ -1691,7 +1740,8 @@ pub fn terminalize_abandoned_checkpoint_restore(
         // this boundary will be asked again.
         return AbandonmentVerdict::NotYetConfirmed;
     }
-    if let Some(mut abandoned) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AbandonedCheckpointOperation>(world) {
+    if let Some(mut abandoned) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AbandonedCheckpointOperation,
+        >(world) {
         abandoned.clear();
     }
     let Some(root) = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world) else {
@@ -1707,7 +1757,8 @@ pub fn terminalize_abandoned_checkpoint_restore(
         // The accepted operation and its outcome are two components of the
         // one session root, so one borrow holds both.
         let Ok((mut accepted, mut outcomes)) = root
-            .get_components_mut::<(&mut AcceptedCheckpointRestore, &mut SessionCheckpointOutcomes)>()
+            .get_components_mut::<(&mut AcceptedCheckpointRestore, &mut SessionCheckpointOutcomes,
+            )>()
         else {
             return AbandonmentVerdict::Stale;
         };
@@ -1723,7 +1774,8 @@ pub fn terminalize_abandoned_checkpoint_restore(
         } else {
             AbandonmentVerdict::Stale
         }
-    })
+    },
+    )
 }
 
 /// What went wrong, and the sentence that explains it.
@@ -2097,7 +2149,9 @@ impl CheckpointRestoreOutcome {
         match self {
             Self::Committed { key }
             | Self::Cancelled { key, .. }
-            | Self::Failed { key, .. } => *key,
+            | Self::Failed { key, .. } => {
+                *key
+            }
         }
     }
 
@@ -2320,7 +2374,8 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         // nothing that mutates a domain.
         app.add_systems(
             sim,
-            (resume_at_checkpoint_on_reset, retire_accepted_checkpoint_restore)
+            (resume_at_checkpoint_on_reset, retire_accepted_checkpoint_restore,
+            )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
         );

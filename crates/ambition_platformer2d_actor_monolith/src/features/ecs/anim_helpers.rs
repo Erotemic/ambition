@@ -5,7 +5,6 @@
 //! every feature family itself.
 
 use super::*;
-use ambition_combat::components::{BreakableFeature, ChestFeature, FeatureId, Opened};
 
 /// Advance all body animation overlays once per simulation tick using
 /// `WorldTime::sim_dt`, including primary and remote player bodies.
@@ -21,28 +20,6 @@ pub fn advance_body_anim_overlay_clocks(
     for (facts, mut anim) in &mut bodies {
         ambition_characters::actor::advance_body_anim_overlays(facts.dashing, &mut anim, dt);
     }
-}
-
-/// ECS chest-opened lookup for sprite swapping.
-pub fn ecs_chest_opened(
-    id: &str,
-    chests: &Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
-) -> Option<bool> {
-    chests
-        .iter()
-        .find(|(feature_id, _)| feature_id.as_str() == id)
-        .map(|(_, opened)| opened.is_some())
-}
-
-/// ECS breakable-state lookup for sprite swapping.
-pub fn ecs_breakable_state(
-    id: &str,
-    breakables: &Query<(&FeatureId, &BreakableFeature)>,
-) -> Option<ambition_interaction::BreakableState> {
-    breakables
-        .iter()
-        .find(|(feature_id, _)| feature_id.as_str() == id)
-        .map(|(_, breakable)| breakable.breakable.state)
 }
 
 // `ecs_boss_name` is GONE: the boss's static identity (name + behavior id) is
@@ -185,7 +162,8 @@ mod every_player_slot_gets_its_overlays_ticked {
         app.init_resource::<ambition_time::WorldTime>();
         app.add_systems(
             Update,
-            (ambition_time::refresh_world_time, crate::control::cleanup_timers_system).chain(),
+            (ambition_time::refresh_world_time, crate::control::cleanup_timers_system,
+            ).chain(),
         );
         app.update();
 

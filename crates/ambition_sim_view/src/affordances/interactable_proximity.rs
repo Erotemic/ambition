@@ -7,21 +7,23 @@
 //! the affordance compute system builds each frame.
 //!
 //! It asks the rule the press asks
-//! ([`ambition_platformer2d_actor_monolith::features::InteractReach`]): the
+//! ([`ambition_platformer2d_interaction::InteractReach`]): the
 //! same reach, live room, facing gate and door rule as
 //! [`ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches`]
-//! and [`ambition_platformer2d_actor_monolith::features::open_ecs_chests`]. So
+//! and [`ambition_platformer2d_items::chests::open_ecs_chests`]. So
 //! the label says "Talk" only where the press talks.
 
 use bevy::prelude::*;
 
 use super::variants::InteractVariant;
-use ambition_combat::{ActorDisposition, ActorInteraction, ChestFeature, Opened};
+use ambition_combat::{ActorDisposition, ActorInteraction};
 use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::CenteredAabb;
+use ambition_platformer2d_interaction::InteractReach;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
-use ambition_platformer2d_actor_monolith::features::InteractReach;
+use ambition_world_items::containers::ChestFeature;
+use ambition_world_items::containers::Opened;
 
 /// Resource: the nearest live interactable overlapping the controlled
 /// subject's AABB, classified into an [`InteractVariant`]. Default is
@@ -79,7 +81,7 @@ type Chests<'w, 's> = Query<
         Entity,
         &'static CenteredAabb,
         Option<&'static Opened>,
-        bevy::prelude::Has<ambition_combat::components::FallingChest>,
+        bevy::prelude::Has<ambition_world_items::containers::FallingChest>,
     ),
     (With<FeatureSimEntity>, With<ChestFeature>),
 >;

@@ -129,7 +129,9 @@ impl BossDefeatsSinceCheckpoint {
     ) -> Vec<(String, BossDefeatSinceCheckpoint)> {
         let (mut kept, taken): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(&mut self.defeats)
             .into_iter()
-            .partition(|(_, defeat)| Self::a_restore_keeps(defeat, spared, spared_participants, dying_room));
+            .partition(|(_, defeat)| {
+                Self::a_restore_keeps(defeat, spared, spared_participants, dying_room)
+            });
         for defeat in kept.values_mut() {
             defeat.present.retain(|seat| spared_participants.contains(seat));
         }
@@ -148,7 +150,9 @@ impl BossDefeatsSinceCheckpoint {
     ) -> impl Iterator<Item = (&'a String, &'a BossDefeatSinceCheckpoint)> + 'a {
         self.defeats
             .iter()
-            .filter(move |(_, defeat)| !Self::a_restore_keeps(defeat, spared, spared_participants, dying_room))
+            .filter(move |(_, defeat)| {
+            !Self::a_restore_keeps(defeat, spared, spared_participants, dying_room)
+        })
     }
 
     /// The one rule of what a checkpoint restore keeps (Q151): a defeat in a
@@ -242,7 +246,8 @@ pub fn retract_defeat_records(
     placement: &str,
 ) {
     if crate::placement_is_cleared(save, placement) {
-        save.set_boss(placement, ambition_persistence::save_data::PersistedEncounterState::Untouched);
+        save.set_boss(placement, ambition_persistence::save_data::PersistedEncounterState::Untouched,
+        );
     }
     // The chest was not looted either: a defeat after the replay drops it
     // closed. The item domain takes back what it gave.
@@ -302,7 +307,8 @@ pub fn retract_boss_defeats_on_replay(
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
-    chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_combat::ChestFeature>>,
+    chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_world_items::containers::ChestFeature>,
+    >,
     mut retracted: MessageWriter<BossDefeatRetracted>,
 ) {
     for replay in replays.read() {
@@ -383,7 +389,8 @@ mod tests {
         since.record("no_room", BossDefeatSinceCheckpoint {
             room: None,
             ..defeat(0, "arena")
-        });
+        },
+        );
         let mut whole = since.clone();
         let taken: Vec<String> = since
             .take_for_restore(&[LiveRoomInstance::from_ordinal(5)], &[], None)

@@ -13,6 +13,19 @@ pub mod starting_bag;
 pub mod wallet_conditions;
 
 /// Register the item horizon state for rollback.
-pub fn register_rollback_state<R: ambition_platformer2d_core::snapshot::RollbackRegistrar>(registrar: &mut R) {
+pub fn register_rollback_state<R: ambition_platformer2d_core::snapshot::RollbackRegistrar>(registrar: &mut R,
+) {
     pickup::minted_horizon::register_checkpoint_rollback_state(registrar);
+    rollback_registration::register_rollback_state(registrar);
 }
+
+pub mod bundles;
+pub mod chests;
+pub mod encounter_rewards;
+pub mod loot;
+pub mod pickups;
+pub mod regrowth;
+
+pub mod construction;
+
+mod rollback_registration;

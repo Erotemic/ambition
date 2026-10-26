@@ -4,18 +4,20 @@
 //! shared `min_app()` fixture's `dummy_world` carries a far-side wall
 //! that interferes with controlled-collision setups.
 
+use ambition_breakables::BreakableFeature;
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 use ambition_projectiles::ProjectileKind;
 
-use super::{advance_time, min_app, projectile_test_app, BodyHealth};
+use super::{BodyHealth, advance_time, min_app, projectile_test_app};
 use ambition_combat::components::ActorIdentity;
 
 /// Fire the fireball of `fireball_damages_enemy_on_intersect` from live
 /// room #0 with a second live room (#1) beside it, the target stamped
 /// `target_room`, and return the target's `(health, max)`.
-fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> (i32, i32) {
+fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+) -> (i32, i32) {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
     };
@@ -47,7 +49,8 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
     );
     app.update();
     let second = LiveRoomInstance::ACTIVATION.next();
-    let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![]);
+    let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![],
+    );
     app.world_mut().spawn((
         RoomInstanceRoot,
         second,
@@ -69,7 +72,8 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
     };
     app.world_mut().entity_mut(target).insert(InRoomInstance(target_room));
     {
-        let spec = ProjectileKind::Fireball.spec(ae::Vec2::new(395.0, 300.0), ae::Vec2::new(1.0, 0.0), 1.0);
+        let spec = ProjectileKind::Fireball.spec(ae::Vec2::new(395.0, 300.0), ae::Vec2::new(1.0, 0.0), 1.0,
+        );
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(395.0, 300.0);
         body.kin.vel = ae::Vec2::new(50.0, 0.0);
@@ -113,13 +117,16 @@ fn with_the_portal_transit(app: &mut App) {
 /// of a portal pair in live room #1, with live room #0 beside it, and
 /// crosses the blue's plane on the second.
 #[cfg(feature = "portal")]
-fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> f32 {
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+) -> f32 {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
     let mut app = open_lane_app();
     with_the_portal_transit(&mut app);
     let second = LiveRoomInstance::ACTIVATION.next();
-    let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![]);
+    let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![],
+    );
     app.world_mut().spawn((
         RoomInstanceRoot,
         second,
@@ -129,8 +136,10 @@ fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle
     let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     app.world_mut().entity_mut(shooter).insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
     for (channel, pos, normal) in [
-        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
-        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0),
+        ),
+        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
+        ),
     ] {
         app.world_mut().spawn((
             PlacedPortal::fixed(channel, pos, normal, 40.0),
@@ -156,21 +165,26 @@ fn a_body_behind_a_portal_is_hit(portals: bool) -> bool {
 
     #[derive(bevy::prelude::Resource, Default)]
     struct Struck(Vec<HitTarget>);
-    fn record(mut reader: bevy::prelude::MessageReader<HitEvent>, mut seen: bevy::prelude::ResMut<Struck>) {
+    fn record(mut reader: bevy::prelude::MessageReader<HitEvent>, mut seen: bevy::prelude::ResMut<Struck>,
+    ) {
         seen.0.extend(reader.read().map(|event| event.target));
     }
 
     let mut app = open_lane_app();
     with_the_portal_transit(&mut app);
     app.init_resource::<Struck>();
-    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles),
+    );
     let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     // Its left edge is at 616.
-    let target = spawn_boss(&mut app, "behind", ae::Vec2::new(630.0, 200.0), ae::Vec2::new(14.0, 23.0));
+    let target = spawn_boss(&mut app, "behind", ae::Vec2::new(630.0, 200.0), ae::Vec2::new(14.0, 23.0),
+    );
     if portals {
         for (channel, pos, normal) in [
-            (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
-            (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+            (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0),
+            ),
+            (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
+            ),
         ] {
             app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
         }
@@ -206,22 +220,27 @@ fn a_fast_shot_through_a_portal_reaches_a_body_just_past_the_exit() {
 
     #[derive(bevy::prelude::Resource, Default)]
     struct Struck(Vec<HitTarget>);
-    fn record(mut reader: bevy::prelude::MessageReader<HitEvent>, mut seen: bevy::prelude::ResMut<Struck>) {
+    fn record(mut reader: bevy::prelude::MessageReader<HitEvent>, mut seen: bevy::prelude::ResMut<Struck>,
+    ) {
         seen.0.extend(reader.read().map(|event| event.target));
     }
     let mut app = open_lane_app();
     with_the_portal_transit(&mut app);
     app.init_resource::<Struck>();
-    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles),
+    );
     let shooter = crate::projectile_tests::primary_player_entity(&mut app);
     for (channel, pos, normal) in [
-        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
-        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0),
+        ),
+        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
+        ),
     ] {
         app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
     }
     // 8 wide, 40 in front of the orange: inside a step of 96.
-    let target = spawn_boss(&mut app, "past", ae::Vec2::new(1240.0, 800.0), ae::Vec2::new(4.0, 23.0));
+    let target = spawn_boss(&mut app, "past", ae::Vec2::new(1240.0, 800.0), ae::Vec2::new(4.0, 23.0),
+    );
     let shot = spawn_owned_shot(&mut app, shooter, ae::Vec2::new(590.0, 200.0));
     app.world_mut().get_mut::<ae::BodyKinematics>(shot).unwrap().vel = ae::Vec2::new(6000.0, 0.0);
     for _ in 0..4 {
@@ -713,7 +732,7 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
 /// happened" is satisfied by a projectile road that does nothing.
 #[test]
 fn a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     // The shot: box half-extent 12 in x, so its leading edge starts at 372 and
     // travels 64 px in one 0.016 s tick at 4000 px/s.
@@ -795,7 +814,7 @@ fn a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is() {
 /// one that always picked the body.
 #[test]
 fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     /// Returns `(crate_broken, body_hurt)` for a crate at `crate_x`. The body
     /// stands at 440 and the shot's leading edge starts at 372, covering 64 px.
@@ -1113,7 +1132,7 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
 /// moment it starts. Measured, not reasoned: the poison was run and passed.
 #[test]
 fn a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     let world = ae::World::new(
         "open_lane",
@@ -1143,7 +1162,8 @@ fn a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box() {
     let b = spawn_crate(&mut app, "crate_b", 366.0);
     {
         let spec =
-            ProjectileKind::Fireball.spec(ae::Vec2::new(360.0, 300.0), ae::Vec2::new(1.0, 0.0), 1.0);
+            ProjectileKind::Fireball.spec(ae::Vec2::new(360.0, 300.0), ae::Vec2::new(1.0, 0.0), 1.0,
+        );
         let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(360.0, 300.0);
         body.kin.vel = ae::Vec2::new(600.0, 0.0);
@@ -1193,7 +1213,8 @@ fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Enti
                         ambition_boss_encounter::test_boss_catalog(),
                         id,
                     ),
-                seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), id, id, 18),
+                seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), id, id, 18,
+                ),
             },
             BodyHealth::new(ambition_characters::actor::Health::new(9)),
             ambition_characters::actor::ActorFaction::Enemy,
@@ -1241,7 +1262,8 @@ fn open_lane_app() -> App {
 #[test]
 fn a_shot_born_inside_its_throwers_hull_flies_out_of_it() {
     let mut app = open_lane_app();
-    let boss = spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0));
+    let boss = spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0),
+    );
     let shot = spawn_owned_shot(&mut app, boss, ae::Vec2::new(600.0, 300.0));
     advance_time(&mut app, 0.016);
     app.update();
@@ -1282,12 +1304,15 @@ fn a_shot_leaving_its_throwers_hull_still_reaches_the_boss_beyond_it() {
 
     let mut app = open_lane_app();
     app.init_resource::<EmittedTargets>();
-    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles),
+    );
     let thrower =
-        spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0));
+        spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0),
+    );
     // Inside the thrower's hull too, ahead of the shot on this tick's leg.
     let beyond =
-        spawn_boss(&mut app, "beyond", ae::Vec2::new(625.0, 300.0), ae::Vec2::new(8.0, 40.0));
+        spawn_boss(&mut app, "beyond", ae::Vec2::new(625.0, 300.0), ae::Vec2::new(8.0, 40.0),
+    );
     spawn_owned_shot(&mut app, thrower, ae::Vec2::new(600.0, 300.0));
     advance_time(&mut app, 0.016);
     app.update();
@@ -1323,7 +1348,7 @@ fn a_shot_leaving_its_throwers_hull_still_reaches_the_boss_beyond_it() {
 /// against a target with none.
 #[test]
 fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
     use ambition_combat::events::{HitEvent, HitTarget};
 
     #[derive(bevy::prelude::Resource, Default)]
@@ -1344,7 +1369,8 @@ fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.init_resource::<EmittedTargets>();
-    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles),
+    );
     app.world_mut().spawn((
         ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
         ambition_combat::components::FeatureId::new("crate"),
@@ -1405,7 +1431,7 @@ fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
 /// that never despawns anything.
 #[test]
 fn a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     fn shot_survived_hitting_a_crate(returning: bool) -> bool {
         let world = ae::World::new(
@@ -1471,7 +1497,7 @@ fn a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not() 
 /// stays green through all of it.
 #[test]
 fn a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     fn crate_broken_after_a_shot_at(speed: f32) -> bool {
         let world = ae::World::new(
@@ -1738,7 +1764,8 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
     }
 
     let (expiring, max) =
-        victim_hp_after_a_shot_through_a_one_way(ambition_projectiles::WorldHitPolicy::ExpireOnContact);
+        victim_hp_after_a_shot_through_a_one_way(ambition_projectiles::WorldHitPolicy::ExpireOnContact,
+    );
     assert_eq!(
         expiring, max,
         "an `ExpireOnContact` shot damaged a body through a one-way platform. Its \
@@ -2187,8 +2214,7 @@ fn a_closed_parry_window_lets_the_shot_through() {
         },
         ae::CenteredAabb::from_center_size(
             ae::Vec2::new(500.0, 300.0),
-            ae::Vec2::new(28.0, 46.0),
-        ),
+            ae::Vec2::new(28.0, 46.0)),
         BodyHealth::restored(ambition_characters::actor::Health::new(100), 0, default()),
         // The ONE difference from the reflect arm: no window is open.
         BodyShieldState {
@@ -2256,8 +2282,7 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
         },
         ae::CenteredAabb::from_center_size(
             ae::Vec2::new(500.0, 300.0),
-            ae::Vec2::new(28.0, 46.0),
-        ),
+            ae::Vec2::new(28.0, 46.0)),
         BodyHealth::restored(ambition_characters::actor::Health::new(100), 0, default()),
         // Both armed: the window that CATCHES and the mode that decides what
         // catching does. A stance with only the mode absorbs nothing.
@@ -2392,9 +2417,9 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
                 ae::Vec2::new(504.0, 300.0),
                 ae::Vec2::new(12.0, 46.0),
             ),
-            ambition_combat::components::BreakableFeature::new(
-                ambition_interaction::Breakable::new("crate", 1),
-            ),
+            ambition_breakables::BreakableFeature::new(
+                ambition_interaction::Breakable::new("crate", 1,
+            )),
         ));
 
         {
@@ -2481,7 +2506,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
 /// are satisfied by a splash centred anywhere in the room.
 #[test]
 fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
     use ambition_combat::events::{HitEvent, HitTarget};
 
     #[derive(bevy::prelude::Resource, Default)]
@@ -2508,7 +2533,8 @@ fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.init_resource::<SplashCentres>();
-    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles),
+    );
     app.world_mut().spawn((
         ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
         ambition_combat::components::FeatureId::new("crate"),
@@ -2585,7 +2611,8 @@ fn a_shot_that_ends_inside_a_later_wall_still_resolves_against_the_one_it_reache
         ae::Vec2::new(4000.0, 2000.0),
         ae::Vec2::new(200.0, 200.0),
         vec![
-            ae::Block::solid("near", ae::Vec2::new(0.0, 400.0), ae::Vec2::new(2000.0, 8.0)),
+            ae::Block::solid("near", ae::Vec2::new(0.0, 400.0), ae::Vec2::new(2000.0, 8.0),
+            ),
             ae::Block::solid("far", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(2000.0, 8.0)),
         ],
     );
@@ -2792,8 +2819,8 @@ fn the_same_two_victims_with_identities_do_not() {
 }
 
 fn stacked_unidentified_victims(identified: bool) {
-    use ambition_combat::components::CenteredAabb;
     use ambition_characters::actor::ActorFaction;
+    use ambition_combat::components::CenteredAabb;
     use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
     let world = ae::World::new(
@@ -2863,7 +2890,7 @@ fn stacked_unidentified_victims(identified: bool) {
 /// for the wrong reason. The control arm below is what proves it did run.
 #[test]
 fn a_shot_breaks_a_solid_crate_rather_than_stopping_on_its_own_wall() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     let broke = |solid: bool| -> bool {
         let world = ae::World::new(
@@ -2955,7 +2982,7 @@ fn a_shot_breaks_a_solid_crate_rather_than_stopping_on_its_own_wall() {
 /// straight through a solid object standing in the room.
 #[test]
 fn a_crate_no_shot_can_break_still_stops_the_shot() {
-    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::components::FeatureName;
 
     let flew_past = |solid: bool| -> bool {
         let world = ae::World::new(

@@ -9,13 +9,13 @@
 //! boundary and are removed as real consumers stop naming them.
 
 pub mod app;
+pub mod autopilot;
 pub mod demo_shell;
 /// Asset install for a game that DRAWS — rides the `ambition_render` capability
 /// edge, because its Startup ordering anchor is `ambition_render`'s.
 #[cfg(feature = "ambition_render")]
 pub mod game_assets;
 pub mod prelude;
-pub mod autopilot;
 pub mod scripted_input;
 pub mod session;
 
@@ -55,7 +55,7 @@ pub mod causal {
     /// never turns itself on: an instrument that is on by default is one
     /// somebody switches off, and then it is not there when it is needed.
     pub use ambition_platformer2d_runtime::causal::{
-        assert_no_offthread_loss, record_domains, CausalPlugin, RecordingSet,
+        CausalPlugin, RecordingSet, assert_no_offthread_loss, record_domains,
     };
 }
 
@@ -246,7 +246,8 @@ pub mod content {
             sources: &'static [(&'static str, &'static str)],
         ) -> Self {
             Self {
-                texts: PackTexts::Embedded { manifest_ron, sources },
+                texts: PackTexts::Embedded { manifest_ron, sources,
+                },
                 schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
                 live: std::sync::RwLock::new(None),
@@ -303,12 +304,14 @@ pub mod content {
             &self,
             profile: &ambition_platformer2d_runtime::profile::EngineProfile,
         ) -> Result<PreparedContentPack, CompileFailure> {
-            self.compile_with(&ambition_engine_schemas::engine_schemas_without(&profile.omitted_content_capabilities()))
+            self.compile_with(&ambition_engine_schemas::engine_schemas_without(&profile.omitted_content_capabilities(),
+            ))
         }
 
         /// Compile the pack against `schemas`: the road a composition takes,
         /// with the schemas of what it installed (`PlatformerApp::profile`).
-        pub fn compile_with(&self, schemas: &SchemaRegistry) -> Result<PreparedContentPack, CompileFailure> {
+        pub fn compile_with(&self, schemas: &SchemaRegistry,
+        ) -> Result<PreparedContentPack, CompileFailure> {
             let draft = self.compile_draft()?;
             self.compile_against(draft, schemas)
         }
@@ -336,25 +339,27 @@ pub mod content {
         /// The pack's draft, from its texts.
         fn compile_draft(&self) -> Result<ContentPackDraft, CompileFailure> {
             Ok(match &self.texts {
-                PackTexts::Embedded { manifest_ron, sources } => ContentPackDraft::from_manifest_ron(
+                PackTexts::Embedded { manifest_ron, sources,
+                } => ContentPackDraft::from_manifest_ron(
                     manifest_ron,
                     sources
                         .iter()
                         .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
                 )?,
-                PackTexts::Rooted { embedded: Some((manifest_ron, sources)), .. } => {
-                    ContentPackDraft::from_manifest_ron(
+                PackTexts::Rooted { embedded: Some((manifest_ron, sources)), .. } => ContentPackDraft::from_manifest_ron(
                         manifest_ron,
                         sources
                             .iter()
                             .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
-                    )?
-                }
-                PackTexts::Rooted { root, embedded: None } => {
+                    )?,
+                PackTexts::Rooted { root, embedded: None,
+                } => {
                     let root = std::path::Path::new(root);
                     let file = |declared: &str| read_declared(&root.join(declared), declared);
                     let manifest = file("pack.ron")
-                        .map_err(|unreadable| CompileFailure::new(CompileStage::Parse, vec![unreadable]))?;
+                        .map_err(|unreadable| {
+                        CompileFailure::new(CompileStage::Parse, vec![unreadable])
+                    })?;
                     let mut read = Vec::new();
                     let mut unreadable = Vec::new();
                     for declared in ambition_content_pack::embed::declared_paths(&manifest) {
@@ -385,7 +390,9 @@ pub mod content {
             }
             self.compiled.get_or_init(|| {
                 self.compile()
-                    .unwrap_or_else(|failure| panic!("an embedded content pack does not compile:\n{failure}"))
+                    .unwrap_or_else(|failure| {
+                    panic!("an embedded content pack does not compile:\n{failure}")
+                })
             })
         }
 
@@ -394,7 +401,8 @@ pub mod content {
         /// can change while the game runs.
         pub fn root_on_disk(&self) -> Option<&'static str> {
             match self.texts {
-                PackTexts::Rooted { root, embedded: None } => Some(root),
+                PackTexts::Rooted { root, embedded: None,
+                } => Some(root),
                 _ => None,
             }
         }
@@ -523,8 +531,7 @@ pub mod content {
         pub fn cast(
             &'static self,
             provider: &str,
-            default_character: Option<&str>,
-        ) -> PackCast {
+            default_character: Option<&str>) -> PackCast {
             use ambition_characters::actor::character_catalog::lowered_catalog;
             let pack = self.prepared();
             assert!(
@@ -554,7 +561,9 @@ pub mod content {
         default_character: Option<&str>,
         actor_default_abilities: Option<ambition_platformer2d_core::AbilitySet>,
     ) -> Result<ambition_characters::actor::character_catalog::CharacterCatalogFragment, String> {
-        use ambition_characters::actor::character_catalog::{lowered_catalog, CharacterCatalogFragment};
+        use ambition_characters::actor::character_catalog::{
+            CharacterCatalogFragment, lowered_catalog,
+        };
         let catalog = lowered_catalog(pack).ok_or_else(|| "the pack states no cast".to_string())?;
         let fragment = CharacterCatalogFragment::from_prepared(
             format!("{}:character_catalog", pack.id.0),
@@ -574,7 +583,8 @@ pub mod content {
 
     /// The `world_item_art` rows of `pack`, as the entries the render layer
     /// resolves: the one lowering for a registration and a reload.
-    pub fn world_item_art_entries(pack: &PreparedContentPack) -> Vec<crate::platformer::world_item_art::WorldItemArtEntry> {
+    pub fn world_item_art_entries(pack: &PreparedContentPack,
+    ) -> Vec<crate::platformer::world_item_art::WorldItemArtEntry> {
         ambition_items::content_schema::world_item_art::lowered_world_item_art(pack)
             .map(|rows| {
                 rows.iter()
@@ -667,9 +677,8 @@ pub mod content {
             // restater stages the whole cast, so one is enough.
             if let Some(restater) = reload.restated.first() {
                 let (restate, embedded) = (restater.restate.clone(), self.pack);
-                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| {
-                    restate(world, embedded.prepared())
-                });
+                sprite_reload::restate_with_the_sheets(app, format!("the cast of `{}`", pack.id.0), move |world| restate(world, embedded.prepared()),
+                );
             }
             app.add_plugins(reload);
         }
@@ -698,7 +707,8 @@ pub mod content {
                 // contact damage and the policy come from the catalog row at
                 // preparation, so the definition names only what the row
                 // cannot say.
-                let mut definition = CharacterDefinition::new(id.clone(), row.display_name.clone(), provider.to_string());
+                let mut definition = CharacterDefinition::new(id.clone(), row.display_name.clone(), provider.to_string(),
+                );
                 for (_, carried) in carried.iter().filter(|(character, _)| character == id) {
                     definition = definition.carrying(*carried);
                 }
@@ -726,10 +736,6 @@ pub mod content {
 
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
-/// The platformer's audio runtime and music direction: what a game with
-/// audio installs (`Platformer2dAudioPlugin`).
-#[cfg(feature = "audio")]
-pub use ambition_platformer2d_audio as platformer_audio;
 pub use ambition_boss_encounter as boss_encounter;
 /// Derivations from a character sheet — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.
@@ -739,6 +745,10 @@ pub use ambition_combat as combat;
 /// The gameplay TRACE: the buffer a headless run records into, its dump road
 /// and the reasons a dump is taken. Named from its owning crate.
 pub use ambition_gameplay_trace as gameplay_trace;
+/// The platformer's audio runtime and music direction: what a game with
+/// audio installs (`Platformer2dAudioPlugin`).
+#[cfg(feature = "audio")]
+pub use ambition_platformer2d_audio as platformer_audio;
 /// The gameplay trace RECORDER: the systems that sample each frame into that
 /// buffer, the F8 hotkey and the headless driver's `record_simulation_frame`.
 pub use ambition_platformer2d_trace as trace_recorder;
@@ -771,7 +781,6 @@ pub use ambition_encounter as encounter;
 /// reach it here rather than through `actors`, which IS the monolith.
 pub use ambition_encounter_features as encounter_features;
 pub use ambition_entity_catalog as entity_catalog;
-pub use ambition_resource_spec as resource_spec;
 pub use ambition_game_shell as game_shell;
 /// The PRESSED collectible: `GroundItem`, `ItemCustody`, the held specs and
 /// the pickup / use / throw / physics / residency chain it owns (D33,
@@ -792,12 +801,8 @@ pub use ambition_match as versus_match;
 #[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
 pub use ambition_mount as mount;
-pub use ambition_shrine as shrine;
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
-/// Room publication: prepare a hidden candidate room, check its receipt, and
-/// publish or refuse it as one operation.
-pub use ambition_platformer2d_publication as publication;
 /// Actor construction planning: a room's placements and staged actors lowered
 /// into one checked plan.
 pub use ambition_platformer2d_construction as construction;
@@ -805,7 +810,12 @@ pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
 #[cfg(any(feature = "ldtk", feature = "ldtk_runtime", feature = "static_map"))]
 pub use ambition_platformer2d_ldtk as ldtk_map;
+/// Room publication: prepare a hidden candidate room, check its receipt, and
+/// publish or refuse it as one operation.
+pub use ambition_platformer2d_publication as publication;
 pub use ambition_platformer2d_runtime as runtime;
+pub use ambition_resource_spec as resource_spec;
+pub use ambition_shrine as shrine;
 
 /// Procedural extensions: a game's own algorithms with their own rollback
 /// state, run by the engine's extension host (fast-iteration I4) and, with
@@ -817,15 +827,16 @@ pub use ambition_platformer2d_runtime as runtime;
 /// reading what the host admitted.
 pub mod extension {
     pub use ambition_extension_host::{
-        AdmittedExtensions, BodyRecords, DeclaredModule, SessionRecords, EntryRunner, ExtensionAppExt, ExtensionFaults,
+        AdmittedExtensions, BodyRecords, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
         ExtensionHostPlugin, ExtensionSet, ModuleBackend, ModuleCode,
+        SessionRecords,
     };
     pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;
-    #[cfg(feature = "wasm_modules")]
-    pub use ambition_extension_wasm::{build_module_crate, LoadError, WasmModules};
+#[cfg(feature = "wasm_modules")]
+pub use ambition_extension_wasm::{LoadError, WasmModules, build_module_crate};
     pub use ambition_platformer2d_runtime::extension_composition::{
-        ExtensionGeneration, ExtensionModuleFiles, EXTENSION_MODULES_SECTION, EXTENSION_MODULES_VAR,
+        EXTENSION_MODULES_SECTION, EXTENSION_MODULES_VAR, ExtensionGeneration, ExtensionModuleFiles,
     };
 }
 pub use ambition_platformer2d_shared_tangle as platformer;
@@ -834,8 +845,8 @@ pub use ambition_portal2d as portal;
 #[cfg(feature = "ambition_portal2d_presentation")]
 pub use ambition_portal2d_presentation as portal_presentation;
 pub use ambition_projectiles as projectiles;
-#[cfg(feature = "relativity")]
-pub use ambition_relativity as relativity;
+    #[cfg(feature = "relativity")]
+    pub use ambition_relativity as relativity;
 #[cfg(feature = "relativity")]
 pub use ambition_relativity2d as relativity2d;
 #[cfg(feature = "ambition_render")]
@@ -866,8 +877,8 @@ pub use ambition_world_items as world_items;
 /// know that device discovery currently lives in `ambition_input`.
 pub mod participant {
     pub use ambition_input::{
-        InstalledActions, LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
-        ParticipantId, SemanticActionId, GAMEPLAY_CONTEXT,
+        GAMEPLAY_CONTEXT, InstalledActions, LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
+        ParticipantId, SemanticActionId,
     };
 }
 
@@ -876,7 +887,7 @@ pub mod item {
     pub use ambition_held_items::{
         GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
     };
-    pub use ambition_items::{shop, Inventory, Item, ItemGrantRequested, OwnedItems};
+    pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems, shop};
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.
@@ -896,6 +907,10 @@ pub mod settings {
 /// Closed list, like [`world`]. Adding a type to a mirrored crate does not
 /// silently become public API.
 pub mod actor {
+    /// The main game's Mana declaration — the name a reader asks a bank for.
+    pub use ambition_entity_catalog::mana;
+    /// What a body holds: its declared resources, read by name.
+    pub use ambition_platformer2d_core::resources::{ActorResources, ResourceLevel};
     /// WHICH gameplay session owns the world right now. A resource that names an
     /// earlier scope is a leftover, and reading one is how a retired match's
     /// verdict gets applied to the match that replaced it.
@@ -904,10 +919,6 @@ pub mod actor {
     pub use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
-    /// What a body holds: its declared resources, read by name.
-    pub use ambition_platformer2d_core::resources::{ActorResources, ResourceLevel};
-    /// The main game's Mana declaration — the name a reader asks a bank for.
-    pub use ambition_entity_catalog::mana;
     /// The query filter for "the body this player already has", which a game
     /// needs to re-dress it — see `WornCharacter` and the seating contract.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
@@ -972,25 +983,19 @@ pub mod actor {
     pub use ambition_platformer2d_construction::ActorConstructionRegistry;
 
     pub use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
-    /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that
-    /// has to know whether the press it made became the move it asked for.
-    pub use ambition_combat::moveset::MovePlayback;
     /// THE MOVES THE BODY WEARS, with the verbs of the game it is in. A seat
     /// on a platform-fighter stage wears its fighter's verbs; the prepared
     /// character has those of its home game. A driver that asks which move a
     /// press should become reads the body.
     pub use ambition_combat::moveset::ActorMoveset;
+    /// WHICH MOVE THE BODY IS PLAYING, and where in it. Read by any driver that
+    /// has to know whether the press it made became the move it asked for.
+    pub use ambition_combat::moveset::MovePlayback;
     /// WHAT THE BODY IS RIDING, when it is riding something. An observer that
     /// cannot see this reports a mounted body's own locomotion as if it were
     /// driving.
     pub use ambition_mount::RidingOn;
-    /// Canonical fallback body size for a body not yet materialized.
-    pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
-    /// Where the body is, and how it moves.
-    pub use ambition_platformer2d_core::movement::{transit_body, TransitVelocity};
     pub use ambition_platformer2d_core::BodyClusterQueryData;
-    /// Diagnostic counters beside a body (time since restart, restart count).
-    pub use ambition_platformer2d_core::BodyLifeStats;
     /// ⭐ WHETHER THE BODY IS STANDING ON SOMETHING — the companion to
     /// [`BodyFlightState`], and a question every observer of a body asks.
     ///
@@ -1001,8 +1006,14 @@ pub mod actor {
     /// what to do about it: *"if it needs crate-shaped facade paths, those are
     /// SDK gaps."* These three rows are those gaps, closed rather than waived.
     pub use ambition_platformer2d_core::BodyGroundState;
-    pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
     pub use ambition_platformer2d_core::BodyKinematics;
+    /// Diagnostic counters beside a body (time since restart, restart count).
+    pub use ambition_platformer2d_core::BodyLifeStats;
+    /// Canonical fallback body size for a body not yet materialized.
+    pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
+    /// Where the body is, and how it moves.
+    pub use ambition_platformer2d_core::movement::{TransitVelocity, transit_body};
+    pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
     /// The body-local safe-position state used by reset/hazard observers.
     ///
     /// The implementation type still carries its historical player-centric name;
@@ -1038,13 +1049,13 @@ pub mod actor {
     pub use ambition_boss_encounter::BossOverrides;
     pub use ambition_entity_catalog::placements::BossBrain;
 
+    pub use ambition_characters::actor::ActorFaction;
     /// What a game spawns and configures.
     pub use ambition_combat::actor_tuning::ActorConfig;
     /// The policy a spawned body's autonomous driver plays it by.
     pub use ambition_combat::actor_tuning::ActorPolicy;
     /// Who a spawned body is: its stable id and display name.
     pub use ambition_combat::components::ActorIdentity;
-    pub use ambition_characters::actor::ActorFaction;
     pub use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
     /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
     /// movement kernel's own type; the monolith re-exported it twice
@@ -1078,7 +1089,7 @@ pub mod actor {
 pub mod character {
     /// The cast, as authored content.
     pub use ambition_characters::actor::character_catalog::{
-        parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
+        CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment, parse_catalog,
     };
     /// What providers have authored, for a game that wants to inspect its own
     /// content before a session exists.
@@ -1097,6 +1108,8 @@ pub mod character {
     pub use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};
     pub use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
+    /// What a character can do, and how it decides.
+    pub use ambition_characters::brain::ActionSet;
     /// The pieces a match needs to author a fighter's kit — see
     /// `MatchParticipant::action_set`.
     pub use ambition_characters::brain::action_set::{
@@ -1107,8 +1120,6 @@ pub mod character {
     /// drawn weapon's shot, so anything reasoning about what a move can do has
     /// to be able to follow that edge.
     pub use ambition_characters::brain::held_item_by_id;
-    /// What a character can do, and how it decides.
-    pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;
 
     /// WHICH character a placement is, and it is authoring vocabulary rather than a mirror
@@ -1119,17 +1130,17 @@ pub mod character {
     /// What a provider REGISTERED, so a screen can ask what a character
     /// declared rather than only what a catalog derived.
     pub use ambition_characters::prepared::PreparedCharacterRegistry;
-    pub use ambition_platformer2d_assets::materialization::registered_portrait_target;
-    /// What a character looks like, and whether its art has arrived.
-    pub use ambition_platformer2d_assets::materialization::CharacterLoadStates;
     /// The sheet tier every character is realized at: the user's setting, and
     /// nothing else — no room, view or distance may lower it (Jon, 2026-09-02).
     pub use ambition_platformer2d_assets::character_sprites::character_sprite_tier;
     pub use ambition_platformer2d_assets::character_sprites::portrait_for_declared_character;
     pub use ambition_platformer2d_assets::character_sprites::sheet_for_prepared_character;
-    pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
-    pub use ambition_sprite_sheet::character::CharacterSheetState;
+    /// What a character looks like, and whether its art has arrived.
+    pub use ambition_platformer2d_assets::materialization::CharacterLoadStates;
+    pub use ambition_platformer2d_assets::materialization::registered_portrait_target;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
+    pub use ambition_sprite_sheet::character::CharacterSheetState;
+    pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::{PortraitSheetRegistry, PortraitSheetRegistryPlugin};
 }
 
@@ -1261,8 +1272,9 @@ pub mod sim {
 #[cfg(feature = "capture")]
 pub mod capture {
     pub use ambition_render::capture::{
+        CaptureAdopted, CaptureProgress, CaptureSettings, CaptureTarget,
         adopt_cameras_into_capture_target, finish_after_capture, request_capture,
-        setup_capture_target, CaptureAdopted, CaptureProgress, CaptureSettings, CaptureTarget,
+        setup_capture_target,
     };
 }
 
@@ -1287,7 +1299,7 @@ pub mod view {
 
     /// Where the art comes from: every asset path/source policy the
     /// presentation reads.
-    pub use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
+    pub use ambition_asset_manager::platformer_assets::{Platformer2dAssetCatalog, ids};
 
     /// The marker on a generated background layer.
     ///
@@ -1324,10 +1336,10 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
-    pub use ambition_platformer2d_runtime::world_facts as facts;
-    pub use ambition_platformer2d_physics_debris as physics;
     /// A room's damaging volumes, as simulation state.
     pub use ambition_combat::hazard_runtime::HazardFeature;
+    pub use ambition_platformer2d_physics_debris as physics;
+    pub use ambition_platformer2d_runtime::world_facts as facts;
     /// The derived solids/hazards a room contributes on top of its authored base.
     /// Named here for the same reason `ResolvedMotionFrame` is: it is a world
     /// fact, and reaching it through the actor crate is how a census mistakes it
@@ -1342,8 +1354,9 @@ pub mod world {
     pub use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
     /// The authored/base gravity and its resolved live field.
     pub use ambition_platformer2d_shared_tangle::gravity::{
-        gravity_dir_or_default, AmbientGravityRequest, BaseGravity, GravityField, GravityZone,
+        AmbientGravityRequest, BaseGravity, GravityField, GravityZone,
         TemporaryZone,
+        gravity_dir_or_default,
     };
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;
@@ -1397,9 +1410,8 @@ pub mod observation {
 /// Engine assembly helpers most games need first.
 pub mod engine {
     pub use ambition_platformer2d_runtime::{
-        add_headless_foundation, init_engine_states, Platformer2dSimulationFoundationPlugin,
-        PlatformerEnginePlugins, SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
-        SIM_TICK_HZ,
+        Platformer2dSimulationFoundationPlugin,
+        PlatformerEnginePlugins, SIM_TICK_HZ, SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt, add_headless_foundation, init_engine_states,
     };
 }
 
@@ -1415,13 +1427,13 @@ pub mod windowed_host {
     /// catch. The two other `ambition_persistence` re-exports in this file
     /// carry the same gate.
     pub use ambition_persistence::host::windowing::DisplayModeState;
-    #[cfg(feature = "input")]
-    pub use ambition_platformer2d_host::HostInputBindingsPlugin;
     /// The camera follow/shake cluster. Gated with the renderer it wires: the
     /// host installs it only under its own `render` feature, so a composition
     /// that selected no presentation has nothing here to name.
     #[cfg(feature = "ambition_render")]
     pub use ambition_platformer2d_host::HostCameraPlugin;
+    #[cfg(feature = "input")]
+    pub use ambition_platformer2d_host::HostInputBindingsPlugin;
     pub use ambition_platformer2d_host::PlatformerHostPlugins;
 }
 
@@ -1455,7 +1467,7 @@ pub mod presentation {
         HudReadouts, HudSlotId, HudSlotSpec, HudStanding, SurroundRegion,
     };
     pub use ambition_render::hud::declared::{
-        declared_hud_owns, DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot,
+        DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot, declared_hud_owns,
     };
 }
 
@@ -1472,8 +1484,8 @@ pub mod presentation {
 #[cfg(all(test, feature = "causal"))]
 mod causal_sdk_tests {
     use crate::causal::{
-        domains, record_domains, CausalFact, CausalPlugin, CausalRecording, FactDetail,
-        RecordingPolicy, RecordingSet, SubjectKey,
+        CausalFact, CausalPlugin, CausalRecording, FactDetail,
+        RecordingPolicy, RecordingSet, SubjectKey, domains, record_domains,
     };
     use bevy::prelude::*;
 
@@ -1556,9 +1568,9 @@ mod causal_sdk_tests {
 #[cfg(all(test, feature = "content_pack"))]
 mod content_sdk_tests {
     use crate::content::{
-        compile, engine_schemas, AssetsUnchecked, CompileStage, ContentPackDraft,
+        AssetsUnchecked, CompileStage, ContentPackDraft,
         ContentPackManifest, DiagnosticCode, ModuleNamespace, PackId, PackVersion, SchemaId,
-        SchemaVersion, SourceDeclaration,
+        SchemaVersion, SourceDeclaration, compile, engine_schemas,
     };
 
     const CATALOG: &str = r#"(
@@ -1688,7 +1700,9 @@ mod content_sdk_tests {
         let jab = |pack: &EmbeddedPack, id: &str| {
             pack.compile()
                 .ok()
-                .and_then(|_| pack.moveset(id).move_by_id(&format!("{id}_jab")).map(|jab| jab.duration_s))
+                .and_then(|_| {
+                pack.moveset(id).move_by_id(&format!("{id}_jab")).map(|jab| jab.duration_s)
+            })
         };
 
         // The file as it is when the pack compiles, not when the crate did.
@@ -1700,7 +1714,8 @@ mod content_sdk_tests {
 
         // A source line added to the manifest is a source: no Rust names it.
         std::fs::write(dir.join("moves/rival.ron"), mover("rival", 0.75)).unwrap();
-        std::fs::write(dir.join("pack.ron"), manifest(&["moves/hero.ron", "moves/rival.ron"])).unwrap();
+        std::fs::write(dir.join("pack.ron"), manifest(&["moves/hero.ron", "moves/rival.ron"]),
+        ).unwrap();
         assert_eq!(jab(&EmbeddedPack::rooted(root, None), "rival"), Some(0.75));
 
         std::fs::write(
@@ -1799,10 +1814,12 @@ mod content_sdk_tests {
             fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
                 match facet.text.trim().parse::<u8>() {
                     Ok(rounds) => {
-                        out.define(facet.content_id_in("probe_rounds", "rounds"), rounds.to_string());
+                        out.define(facet.content_id_in("probe_rounds", "rounds"), rounds.to_string(),
+                        );
                         out.lower(rounds);
                     }
-                    Err(error) => out.report(facet.diagnostic(DiagnosticCode::MalformedSource, error.to_string())),
+                    Err(error) => out.report(facet.diagnostic(DiagnosticCode::MalformedSource, error.to_string()),
+                    ),
                 }
             }
         }
@@ -1838,7 +1855,9 @@ mod content_sdk_tests {
         assert_eq!(lowered(OWNS.prepared()), Some(3), "the game's schema lowers its file");
         // A check binary gives the content CLI this list, so the CLI checks
         // the pack against the schemas the game compiles it with.
-        let ids = |schemas: fn() -> Vec<SchemaRegistration>| schemas().into_iter().map(|s| s.id).collect::<Vec<_>>();
+        let ids = |schemas: fn() -> Vec<SchemaRegistration>| {
+            schemas().into_iter().map(|s| s.id).collect::<Vec<_>>()
+        };
         assert_eq!(ids(OWNS.game_schemas()), vec![SchemaId::new("probe_rounds")]);
         assert!(ids(EmbeddedPack::new(MANIFEST, SOURCES).game_schemas()).is_empty());
         // The composition's road: a profile's schemas, plus the game's own.
@@ -1964,7 +1983,8 @@ macro_rules! content_asset {
             [b's', b'r', b'c', b'/', ..] => $file.split_at(4).1,
             _ => panic!(concat!("content_asset!: ", $file, " is not under src/")),
         };
-        $crate::__content_pack_text!($file).serve_embedded($app, env!("CARGO_CRATE_NAME"), ASSET_PATH)
+        $crate::__content_pack_text!($file).serve_embedded($app, env!("CARGO_CRATE_NAME"), ASSET_PATH,
+        )
     }};
 }
 
@@ -1995,3 +2015,10 @@ pub use ambition_projectile_combat as projectile_combat;
 
 /// Asset catalog assembly and character materialization.
 pub use ambition_platformer2d_assets as assets;
+
+/// Destructible transitions and collision state.
+pub use ambition_breakables as breakables;
+/// Live-room interaction reach and gestures.
+pub use ambition_platformer2d_interaction as interaction_runtime;
+/// Authored occurrence return times.
+pub use ambition_world_returns as world_returns;

@@ -148,7 +148,7 @@ fn calibrate_targets(sim: &mut Platformer2dSimHarness) -> OracleTargets {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
             &ambition_platformer2d::combat::components::FeatureName,
-            &ambition_platformer2d::combat::components::BreakableFeature,
+            &ambition_platformer2d::breakables::BreakableFeature,
         )>();
         q.iter(world)
             .map(|(id, name, feature)| (id.0.clone(), name.0.clone(), feature.broken()))
@@ -235,7 +235,7 @@ fn observe(
     {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::combat::components::BreakableFeature,
+            &ambition_platformer2d::breakables::BreakableFeature,
         )>();
         if q.iter(world)
             .any(|(id, feature)| id.0 == targets.brick && feature.broken())
@@ -330,7 +330,7 @@ fn target_positions(
     let brick = {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::combat::components::BreakableFeature,
+            &ambition_platformer2d::breakables::BreakableFeature,
             &ambition_platformer2d::engine_core::geometry::CenteredAabb,
         )>();
         q.iter(world)
@@ -568,11 +568,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "the death beat: its row length is authored, its clock advances only while the body is dead",
         ),
         (
-            "ambition_combat::components::features::BreakableFeature",
+            "ambition_breakables::BreakableFeature",
             "authored breakable payload; the mutable half is its broken flag",
         ),
         (
-            "ambition_combat::components::features::ChestFeature",
+            "ambition_world_items::containers::ChestFeature",
             "authored chest payload; the mutable half is the Opened marker",
         ),
         (
@@ -588,7 +588,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored name; immutable at runtime",
         ),
         (
-            "ambition_combat::components::features::PickupFeature",
+            "ambition_platformer2d_items::pickups::PickupFeature",
             "authored pickup payload; the mutable half is the Collected marker",
         ),
         (
@@ -1338,7 +1338,7 @@ fn which_population_does_the_rollback_divergence_need() {
                 }
                 "no_brick" => {
                     let mut q = world
-                        .query_filtered::<Entity, With<ambition_platformer2d::combat::components::BreakableFeature>>();
+                        .query_filtered::<Entity, With<ambition_platformer2d::breakables::BreakableFeature>>();
                     q.iter(world).collect()
                 }
                 "no_switch" => {
@@ -1349,7 +1349,7 @@ fn which_population_does_the_rollback_divergence_need() {
                 }
                 "no_pickups" => {
                     let mut q = world
-                        .query_filtered::<Entity, With<ambition_platformer2d::combat::components::PickupFeature>>();
+                        .query_filtered::<Entity, With<ambition_platformer2d::item_runtime::pickups::PickupFeature>>();
                     q.iter(world).collect()
                 }
                 _ => Vec::new(),

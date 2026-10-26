@@ -12,18 +12,26 @@ use bevy::time::{Fixed, Time};
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
+pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;
 mod combat_schedule;
-pub mod extension_composition;
 pub mod content_identity;
+/// The cutscene player: triggers, playback and its save effects (the
+/// `Cutscenes` capability; a profile without it leaves the plugin out).
+pub mod cutscene;
 pub mod durable_save_horizon;
-pub mod module_save_road;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.
 pub mod encounter_spawn_service;
+#[cfg(test)]
+mod executor_tests;
+pub mod extension_composition;
 /// Holding external effects (audio, VFX) at the host's confirmed-frame boundary
 /// so a rollback cannot duplicate one or leave a mispredicted one standing.
 pub mod external_effects;
+/// The gravity-zone mechanic: the zone snapshot, each body's motion frame,
+/// and the reset on a room reset.
+pub mod gravity;
 #[cfg(test)]
 mod host_invariant_tests;
 pub mod input_drive;
@@ -32,6 +40,7 @@ pub mod input_stream;
 #[cfg(feature = "ldtk")]
 pub mod ldtk_world;
 mod mode_scope;
+pub mod module_save_road;
 mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_body;
@@ -39,40 +48,31 @@ mod portal_body;
 mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
-mod progression_schedule;
-/// The room-entered quest producer: the progression schedule installs it.
-pub mod quest;
-/// The cutscene player: triggers, playback and its save effects (the
-/// `Cutscenes` capability; a profile without it leaves the plugin out).
-pub mod cutscene;
-/// The simulation clock's scale and its bridge into the neutral `SimDt`: time
-/// control (intents, smoothing, reporting) and the sim-dt mirror.
-pub mod sim_clock;
-/// The gravity-zone mechanic: the zone snapshot, each body's motion frame,
-/// and the reset on a room reset.
-pub mod gravity;
 pub mod posed_limbs;
 pub mod profile;
+mod progression_schedule;
 pub mod projectile_schedule;
+/// The room-entered quest producer: the progression schedule installs it.
+pub mod quest;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.
 pub mod rollback;
-pub mod authored_verdict_timeline;
-pub mod verdict_census;
-pub mod runtime_census;
-mod room_schedule;
 pub mod room_departure;
+mod room_schedule;
 pub mod room_transition;
+pub mod runtime_census;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
 /// `RoomReplayRequested` consumer every host drains.
 pub mod sandbox_reset;
 pub mod session_world;
+/// The simulation clock's scale and its bridge into the neutral `SimDt`: time
+/// control (intents, smoothing, reporting) and the sim-dt mirror.
+pub mod sim_clock;
 mod sim_core_resources;
 /// Stable simulation identity maintenance shared by every host.
 pub mod sim_identity;
 #[cfg(test)]
 mod sim_identity_tests;
-#[cfg(test)]
-mod executor_tests;
+pub mod verdict_census;
 pub mod world_gating;
 
 // Re-export the shared finalization seam without moving its ownership up the dependency graph.
@@ -84,6 +84,9 @@ pub use combat_schedule::CombatSchedulePlugin;
 // `add_systems` — which declares nothing, and is why a misspelled authored key
 // still reaches the runtime as a mid-fight warning. Exporting it is what lets
 // the strict unknown-key pass become reachable at all.
+pub use ambition_combat::governing_rules::CurrentRoom;
+/// The one road a host input takes into the simulation. See the module docs.
+pub use ambition_platformer2d_shared_tangle::host_intents;
 pub use combat_schedule::{install_module_technique, install_technique, install_techniques};
 pub use content_identity::{
     ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,
@@ -95,18 +98,17 @@ pub use content_identity::{
 };
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
 pub use mode_scope::{
+    ModeOwnersSpawned, ModeScopePlugin, ModeScopes, RulesScopeSet, ScopedSystemsAppExt,
     despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, install_mode_owner,
-    project_room_rule, room_uses, ModeOwnersSpawned, ModeScopePlugin, ModeScopes, RulesScopeSet,
-    ScopedSystemsAppExt,
+    project_room_rule, room_uses,
 };
-pub use ambition_combat::governing_rules::CurrentRoom;
-/// The one road a host input takes into the simulation. See the module docs.
-pub use ambition_platformer2d_shared_tangle::host_intents;
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
-pub use portal_schedule::PortalSchedulePlugin;
+pub use portal_body::{
+    apply_portal_carried_momentum, rotate_projectile_acceleration_after_portal_transit,
+};
 #[cfg(feature = "portal")]
-pub use portal_body::{apply_portal_carried_momentum, rotate_projectile_acceleration_after_portal_transit};
+pub use portal_schedule::PortalSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_seat::{
     guard_the_driven_body_after_portal_transit, turn_the_driven_body_around_after_portal_transit,
@@ -116,8 +118,7 @@ pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
 pub use room_transition::RoomTransitionComposerPlugin;
 pub use sandbox_reset::{
-    admit_room_replay, reset_sandbox, return_the_replay_subject_to_spawn, RoomReplayAdmission,
-    RoomReplayConsequences, RoomReplaySchedulePlugin,
+    RoomReplayAdmission, RoomReplayConsequences, RoomReplaySchedulePlugin, admit_room_replay, reset_sandbox, return_the_replay_subject_to_spawn,
 };
 pub use sim_core_resources::SimCoreResourcesPlugin;
 
@@ -125,7 +126,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 /// schedule this crate assembles is what advances it.
 pub use ambition_time::SimTick;
 /// The per-tick input recorder (netcode N0.2).
-pub use input_stream::{input_stream_recording, record_input_stream, InputStreamRecorder};
+pub use input_stream::{InputStreamRecorder, input_stream_recording, record_input_stream};
 #[cfg(feature = "ldtk")]
 pub use ldtk_world::LdtkWorldPlugin;
 
@@ -138,6 +139,7 @@ pub mod causal;
 
 pub mod host_input {
     pub use ambition_platformer2d_actor_monolith::schedule::{
+        MenuFrameConsume, MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
         commit_seat_raw_frames,
         declare_gameplay_input_context, declare_in_session_input_contexts,
         freeze_local_seating_for_the_decided_match, install_latched_slot_publication,
@@ -146,15 +148,14 @@ pub mod host_input {
         populate_seat_menu_frames, publish_latched_slot_controls,
         publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,
         spawn_primary_input_participant, sync_primary_recipe_from_settings,
-        toggle_player_trail_emission_from_actions, MenuFrameConsume,
-        MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
+        toggle_player_trail_emission_from_actions,
     };
     pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;
     // Publication boundary re-exported with the host-facing shaping systems.
     pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
     // Frame-to-tick latch re-exported through the host-facing input seam.
     pub use ambition_characters::control::SlotControlLatches;
-    pub use ambition_dialog::{dialog_pointer_input, DialogState};
+    pub use ambition_dialog::{DialogState, dialog_pointer_input};
 }
 
 pub mod host_seams {
@@ -174,18 +175,16 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_construction::ActorConstructionRegistry;
     // A direct-entry demo has one experience, so its first room reads the
     // save of the world it lands in, and says so.
-    pub use ambition_platformer2d_publication::CommitFactsSource;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
+    pub use ambition_platformer2d_publication::CommitFactsSource;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
-    pub use ambition_platformer2d_session::setup::{
-        simulation_world, SimulationSetup,
-    };
+    pub use ambition_platformer2d_session::setup::{SimulationSetup, simulation_world};
     // The first room is published before the session's bodies are built.
-    pub use ambition_platformer2d_publication::{publish_first_room, FirstRoom};
+    pub use ambition_platformer2d_publication::{FirstRoom, publish_first_room};
     // A direct-entry demo drops the first room's receipt, so it says so.
-    pub use ambition_platformer2d_publication::PublicationRetention;
     pub use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
+    pub use ambition_platformer2d_publication::PublicationRetention;
     pub use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
     // Demo simulation reads the neutral movement-tuning authority, not dev-tools mirror state.
     pub use ambition_platformer2d_core::ActiveMovementTuning;
@@ -444,7 +443,8 @@ pub struct PlatformerEnginePlugins {
 
 impl PlatformerEnginePlugins {
     pub fn new(host: SimulationHost) -> Self {
-        Self { host, omitted: Vec::new() }
+        Self { host, omitted: Vec::new(),
+        }
     }
 
     /// Leave a capability out of the group.
@@ -457,7 +457,9 @@ impl PlatformerEnginePlugins {
 
     /// The group a supported profile names.
     pub fn for_profile(host: SimulationHost, profile: &profile::EngineProfile) -> Self {
-        profile.omits.iter().fold(Self::new(host), |group, capability| group.without(*capability))
+        profile.omits.iter().fold(Self::new(host), |group, capability| {
+                group.without(*capability)
+            })
     }
 
     /// See the type docs for the ordering rule.
@@ -561,7 +563,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Reward chests react to the encounter domain's published cleared
             // list; composed beside its siblings so no registration for it
             // lands back in the encounter adapter.
-            .add(ambition_platformer2d_actor_monolith::features::EncounterRewardSyncPlugin)
+            .add(ambition_platformer2d_items::encounter_rewards::EncounterRewardSyncPlugin)
             // The kernel serves the encounter domain's spawn requests; the
             // registration is here so the domain's own plugin names nothing in
             // the actor crate.

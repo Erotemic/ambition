@@ -10,6 +10,7 @@ description = "The physical life of a collectible in the world: its presence, it
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_interaction = { path = "../ambition_interaction" }
 # Geometry, the world, and the shared `BodyKinematics` body component. The
 # motion step resolves against `ae::World` per axis, so this is not optional.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }

@@ -4,22 +4,23 @@
 //! `ambition_platformer2d_shared_tangle::construction`.
 
 use ambition_characters::actor::limb::LimbSlot;
+use ambition_platformer2d_construction::*;
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionError, ConstructionPlan, ConstructionScope, SpawnOrigin,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Update, World};
-use ambition_platformer2d_construction::*;
 // What the planner's module brought in when these lived inside it.
 use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d_shared_tangle::construction::ContentBinding;
+
+use crate::construction_fixtures::*;
 use crate::features::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::construction::RelationRequest;
-use crate::construction_fixtures::*;
 
 /// The authored ground item and the provider-staged actors land in ONE plan, each stating the
 /// origin category it actually has.
@@ -317,7 +318,8 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
 
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None,
+        ),
         vec![request],
         &live,
         &recipes,
@@ -361,7 +363,8 @@ fn two_summons_from_one_summoner_do_not_collide() {
     };
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None,
+        ),
         vec![
             summoned_minion_request(&summoner, 0, params()),
             summoned_minion_request(&summoner, 1, params()),
@@ -381,7 +384,8 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
     let recipes = engine_construction_registry();
     let summoner = SimId::placement("ghost_boss");
     let error = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None,
+        ),
         vec![summoned_minion_request(
             &summoner,
             0,
@@ -783,7 +787,8 @@ fn a_companion_summon_is_built_passive_marked_and_named_under_its_identity() {
     let built: Vec<_> = companions
         .iter(&world)
         .map(|(id, aggression, faction, called)| {
-            (id.as_str().to_string(), *aggression == ambition_combat::components::ActorAggression::passive(), *faction, called)
+            (id.as_str().to_string(), *aggression == ambition_combat::components::ActorAggression::passive(), *faction, called,
+            )
         })
         .collect();
     assert_eq!(built.len(), 2, "two companions built and marked: {built:?}");
@@ -1238,9 +1243,8 @@ fn a_character_states_which_character_its_hands_are() {
     let hands: Vec<_> = requests
         .iter()
         .filter_map(|request| match &request.parameters {
-            ActorConstructionParams::GiantHand { authored, .. } => {
-                Some((authored.payload.character_id.as_str().to_string(), authored.name.clone()))
-            }
+            ActorConstructionParams::GiantHand { authored, .. } => Some((authored.payload.character_id.as_str().to_string(), authored.name.clone(),
+            )),
             _ => None,
         })
         .collect();
@@ -1254,7 +1258,8 @@ fn a_character_states_which_character_its_hands_are() {
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
     let requests =
-        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()),
+    );
 
     // One host + two hands.
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -1296,7 +1301,8 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
     let requests =
-        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()),
+    );
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -1422,7 +1428,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let root = {
         let mut commands = world.commands();
-        crate::features::ecs::spawn_runtime_minion(
+        ambition_platformer2d_actor_spawn::spawn_runtime_minion(
             &mut commands,
             &catalog,
             &Default::default(),
@@ -1643,9 +1649,11 @@ fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
                         },
                     },
                 }]
-            })
+            },
+            )
             .expect("stager registers");
-        prepare(&empty_room("hall"), &staging, &engine_construction_registry())
+        prepare(&empty_room("hall"), &staging, &engine_construction_registry(),
+        )
     };
     let error = prepare_staged(false).expect_err("a staged behemoth needs its anvil");
     assert!(
@@ -1784,7 +1792,8 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
 
 /// A room with one person, `npc_1`, who names `character` (or nobody).
 fn person_room(character: Option<&str>) -> ambition_platformer2d_world::rooms::RoomSpec {
-    use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec, PlacementSchema};
+    use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec, PlacementSchema,
+    };
     let mut room = empty_room("parlour");
     room.placements.push(
         ambition_platformer2d_world::placements::PlacementRecord::new(
@@ -1855,7 +1864,8 @@ fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_plan
         "the fixture does not have a character that only the catalog has"
     );
 
-    let refused = prepare(&person_room(Some("a_stranger")), &nobody, Some(fixture_cast()))
+    let refused = prepare(&person_room(Some("a_stranger")), &nobody, Some(fixture_cast()),
+    )
         .expect_err("a person who names a character in no cast and no catalog was planned");
     assert!(
         matches!(
@@ -1873,10 +1883,14 @@ fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_plan
     );
 
     for (what, room, catalog, cast) in [
-        ("a character of the cast", person_room(Some("fixture_walker")), &nobody, Some(fixture_cast())),
-        ("a person who names nobody", person_room(None), &nobody, Some(fixture_cast())),
-        ("a character that only the catalog has", person_room(Some(CATALOG_ONLY)), &catalog, Some(fixture_cast())),
-        ("a composition with no cast", person_room(Some("a_stranger")), &nobody, None),
+        ("a character of the cast", person_room(Some("fixture_walker")), &nobody, Some(fixture_cast()),
+        ),
+        ("a person who names nobody", person_room(None), &nobody, Some(fixture_cast()),
+        ),
+        ("a character that only the catalog has", person_room(Some(CATALOG_ONLY)), &catalog, Some(fixture_cast()),
+        ),
+        ("a composition with no cast", person_room(Some("a_stranger")), &nobody, None,
+        ),
     ] {
         if let Err(error) = prepare(&room, catalog, cast) {
             panic!("control, {what}: the NPC road can build this person and the plan was refused: {error}");
@@ -2160,9 +2174,7 @@ fn a_practice_room_plans_its_bosses_as_practice_copies() {
         ambition_platformer2d_construction::authored_actor_requests(&room, &[], None)
             .into_iter()
             .find_map(|request| match request.parameters {
-                ActorConstructionParams::AuthoredBoss { authored, practice, .. } if authored.id == "hall_copy" => {
-                    Some(practice)
-                }
+                ActorConstructionParams::AuthoredBoss { authored, practice, .. } if authored.id == "hall_copy" => Some(practice),
                 _ => None,
             })
             .expect("the boss is a plan row")
@@ -2184,7 +2196,8 @@ fn a_placement_is_planned_where_its_body_starts() {
     let mut flyer = ambition_characters::prepared::PreparedCharacterRegistry::default();
     flyer.insert_prepared(
         ambition_characters::prepared::prepare_and_finalize_for_test(
-            ambition_characters::actor::definition::CharacterDefinition::new("fixture_flyer", "Flyer", "test")
+            ambition_characters::actor::definition::CharacterDefinition::new("fixture_flyer", "Flyer", "test",
+            )
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     baseline_free_flight: Some(true),
                     ..Default::default()
@@ -2211,7 +2224,8 @@ fn a_placement_is_planned_where_its_body_starts() {
         room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
             "placed",
             "Placed",
-            ae::aabb_from_min_size(ae::Vec2::new(100.0, placed_feet - 28.0), ae::Vec2::splat(28.0)),
+            ae::aabb_from_min_size(ae::Vec2::new(100.0, placed_feet - 28.0), ae::Vec2::splat(28.0),
+                ),
             payload,
         ));
         if rides {

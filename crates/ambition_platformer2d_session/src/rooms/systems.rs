@@ -10,8 +10,9 @@ use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut, Without};
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_world::rooms::{
-    tick_gate_portal_phase, GatePortalPhases, GatePortalRegistry, LoadingZoneActivation, RoomSet,
+    GatePortalPhases, GatePortalRegistry, LoadingZoneActivation, RoomSet,
     RoomSfxId,
+    tick_gate_portal_phase,
 };
 use ambition_time::WorldTime;
 
@@ -53,8 +54,12 @@ pub fn tick_portal_phases_system(
     // order-dependent accumulator.
     for (zone_id, config) in portals.iter() {
         let commanded_on = match &config.command {
-            ambition_platformer2d_world::rooms::GatePortalCommand::Switch(switch) => save.data().switch(switch),
-            ambition_platformer2d_world::rooms::GatePortalCommand::Dialed => network.holds_open(zone_id),
+            ambition_platformer2d_world::rooms::GatePortalCommand::Switch(switch) => {
+                save.data().switch(switch)
+            }
+            ambition_platformer2d_world::rooms::GatePortalCommand::Dialed => {
+                network.holds_open(zone_id)
+            }
         };
         tick_gate_portal_phase(phases.phase_mut(zone_id), commanded_on, dt);
     }
@@ -161,7 +166,9 @@ pub fn detect_room_transition_system(
         // tested where it stands.
         let (path_end, delta) = sweep
             .and_then(|sample| sample.ending_at(kin.pos))
-            .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
+            .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| {
+                (path.end_aabb(), path.delta())
+            });
         let wants_interact = slot_gestures.get(seat).buffered();
         // A zone's edge is its authored link, or, for a gate ring, its live
         // link: the far ring a terminal dialed. A ring with no link has no
@@ -170,7 +177,9 @@ pub fn detect_room_transition_system(
             .rooms()
             .zone_for_player(definition, path_end, delta, wants_interact)
             .and_then(|zone| match network.route_from(&zone.id) {
-                Some(link) => rooms.rooms().transition_into(definition, &zone.id, &link.far_room, &link.far),
+                Some(link) => {
+                    rooms.rooms().transition_into(definition, &zone.id, &link.far_room, &link.far)
+                }
                 None => rooms.rooms().transition_through(definition, &zone.id),
             });
         let Some(zone) = routed else {
@@ -231,9 +240,11 @@ pub fn detect_room_transition_system(
         // interaction phase.
         if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
             let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
-            let reach = ambition_platformer2d_actor_monolith::features::ecs::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity));
+            let reach = ambition_platformer2d_interaction::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity),
+            );
             if talkable.nearest_in_reach(subject_entity, &reach).is_some_and(|talk| {
-                !ambition_platformer2d_actor_monolith::features::ecs::InteractReach::a_door_keeps_the_press(Some(door), talk)
+                !ambition_platformer2d_interaction::InteractReach::a_door_keeps_the_press(Some(door), talk,
+                    )
             }) {
                 continue;
             }

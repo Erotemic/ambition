@@ -11,9 +11,9 @@
 //! third acts author their loops in LDtk. The windowed shell loads the shared
 //! Ambition art tree through the public facade.
 
+use ambition_platformer2d::content::PackText;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::prelude::*;
-use ambition_platformer2d::content::PackText;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 /// Stable room id for the momentum speedway.
@@ -138,8 +138,8 @@ pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 pub fn is_ring_placement(
     record: &ambition_platformer2d::world::placements::PlacementRecord,
 ) -> bool {
-    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     use ambition_platformer2d::entity_catalog::PickupKind;
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     record.name == "ring"
         && matches!(
             &record.schema,
@@ -243,7 +243,8 @@ pub fn sanic_speedway() -> RoomSpec {
             crate::text::line("sign.loop"),
             ae::Vec2::new(loop_top.x, loop_top.y - 36.0),
         ),
-        ("finish".to_string(), crate::text::line("sign.finish"), finish_sign(&room.world)),
+        ("finish".to_string(), crate::text::line("sign.finish"), finish_sign(&room.world),
+        ),
     ];
     room.debug_labels.extend(signs.into_iter().map(|(id, text, position)| {
         ambition_platformer2d::world::rooms::Authored::new(
@@ -268,7 +269,8 @@ pub fn sanic_speedway() -> RoomSpec {
 /// (`SurfaceLoop` with `attach_to`); nothing is grafted here. The layout is
 /// `tools/author_highway_ldtk.py`'s docstring.
 pub fn sanic_highway() -> RoomSpec {
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&HIGHWAY_WORLD))
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&HIGHWAY_WORLD,
+    ))
         .expect(
         "sanic_highway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_highway_ldtk.py)",
     );
@@ -348,18 +350,17 @@ fn loop_top(world: &ae::World) -> ae::Vec2 {
 pub mod badnik;
 pub mod ball_dash;
 pub mod monitors;
-pub mod provider;
-pub mod scenery;
-pub mod trail;
 pub mod pack;
+pub mod provider;
 pub mod rules;
-pub mod text;
+pub mod scenery;
 #[cfg(test)]
 mod smash_moveset;
-
+pub mod text;
+pub mod trail;
 pub use provider::{
-    sanic_session_world, SanicExperiencePlugin, SanicSessionWorld, SANIC_EXPERIENCE,
-    SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
+    SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE, SanicExperiencePlugin,
+    SanicSessionWorld, sanic_session_world,
 };
 
 /// Register Sanic's authored definitions in one Bevy `App`: the character
@@ -376,7 +377,8 @@ pub fn install_sanic_content(app: &mut App) {
     // a provider fact.
     pack::PACK
         .cast(provider::SANIC_EXPERIENCE, Some(SANIC_CHARACTER_ID))
-        .with_actor_default_abilities(ambition_platformer2d::engine_core::AbilitySet::classic_actor())
+        .with_actor_default_abilities(ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
+        )
         .register(app);
     // A build that reads his pack off disk plays an edit to his tuning from
     // the next session. His cast, audio and prop sheets are read here, once.
@@ -386,7 +388,8 @@ pub fn install_sanic_content(app: &mut App) {
         // are read once, when the launcher and the room are built.
         live: &[rules::SANIC_RULES_SCHEMA, text::SANIC_TEXT_SCHEMA],
         restated: Vec::new(),
-    });
+    },
+    );
     // His pack states his music and his SFX, his own Dash and Jump among
     // them. His moves name bank cues as well.
     app.register_audio_catalog_fragment(
@@ -394,17 +397,22 @@ pub fn install_sanic_content(app: &mut App) {
             .audio(provider::SANIC_EXPERIENCE)
             .with_resident_sfx_bank(),
     );
-    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::audio(&pack::PACK, provider::SANIC_EXPERIENCE));
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::audio(&pack::PACK, provider::SANIC_EXPERIENCE,
+        ),
+    );
     // The prop sheets (the ring, the monitors' boxes, the goal post) are the
     // pack's `data/prop_sheets.ron`. Registered here, they load the same way
     // standalone or hosted (both add `SanicExperiencePlugin`).
     {
         use ambition_platformer2d::game_assets::PropSheetsAppExt;
         app.register_prop_sheet_rows(
-            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(pack::PACK.prepared())
+            ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(pack::PACK.prepared(),
+            )
                 .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
         );
-        app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&pack::PACK));
+        app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&pack::PACK,
+            ),
+        );
         // Presentation reads sim state and writes render components, in
         // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).
         // Asleep while another game is on screen in the hub: no Sanic room is
@@ -413,7 +421,8 @@ pub fn install_sanic_content(app: &mut App) {
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::run_if(
                 (monitors::dress_monitor_boxes, scenery::dress_goal_posts),
-                ambition_platformer2d::game_shell::shell_scope_is_on_screen_or_routing(provider::SANIC_EXPERIENCE),
+                ambition_platformer2d::game_shell::shell_scope_is_on_screen_or_routing(provider::SANIC_EXPERIENCE,
+                ),
             ),
         );
     }
@@ -563,7 +572,8 @@ impl Plugin for SanicRulesPlugin {
         {
             use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
-            ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());
+            ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules(),
+            );
             app.add_plugins(crate::pack::room_rules_reload(scope));
             // In Sanic's rooms: no named boss encounters (his badniks are
             // enemy bodies), no dialogue, no held items, no fighter
@@ -573,8 +583,7 @@ impl Plugin for SanicRulesPlugin {
             // are portals.
             app.declare_rules(
                 scope,
-                crate::USED_CAPABILITIES,
-            );
+                crate::USED_CAPABILITIES);
             // Whoever the player drives here can spin dash and transform.
             app.declare_rules(
                 scope,
@@ -623,9 +632,9 @@ impl Plugin for SanicRulesPlugin {
         // Pinning `PlayerInput` here would create a schedule cycle.
         let sanic_post_gate = (
             ball_dash::capture_ball_dash_input,
-            toggle_sanic_form,
-        )
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
+            toggle_sanic_form)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep,
+            )
             .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
         // In his `RulesScopeSet`: one condition a run, not one a system
         // (findings F34, P18).
@@ -689,7 +698,8 @@ impl Plugin for SanicRulesPlugin {
         // that edge the order against `integrate_sim_bodies` was not stated,
         // and the schedule's sort decided which tick's positions the defeat read.
         let badniks = badnik::defeat_badniks
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep,
+            )
             .after(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
             .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The shared player resolver spends wallet armor before death and emits
@@ -702,8 +712,8 @@ impl Plugin for SanicRulesPlugin {
         // sees the ring at its arc, not on the knocked-back body.
         let scatter_arc = arc_scattered_rings
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureCollection)
-            .after(ambition_platformer2d::actors::features::PickupMagnetize)
-            .before(ambition_platformer2d::actors::features::PickupCollect);
+            .after(ambition_platformer2d::item_runtime::pickups::PickupMagnetize)
+            .before(ambition_platformer2d::item_runtime::pickups::PickupCollect);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll. Broken
         // monitors contribute to the overlay's
         // `removed_block_names` after the engine's per-frame rebuild clears it
@@ -942,7 +952,8 @@ fn sync_super_form_traits(
             speed: sparkle.puffs.speed,
             color: sparkle.puffs.color,
             kind: ambition_platformer2d::vfx::ParticleKind::Spark,
-        });
+        },
+        );
     }
 }
 
@@ -1131,7 +1142,7 @@ pub fn scatter_rings_on_hit(
                     spec
                 },
             };
-            let ring = ambition_platformer2d::actors::features::ecs::spawn_static::spawn_pickup(
+            let ring = ambition_platformer2d::item_runtime::construction::spawn_pickup(
                 &mut commands,
                 scope,
                 &authored,
@@ -1149,14 +1160,15 @@ pub fn scatter_rings_on_hit(
                     lock: loss.lock_seconds,
                     life: loss.life_seconds,
                 },
-                ambition_platformer2d::actors::features::PickupCollectLock,
+                ambition_platformer2d::item_runtime::pickups::PickupCollectLock,
             ));
         }
 
         // At the rings' own launch speed, so the sparkle reads as the same
         // event and not a separate, smaller puff at the centre.
         vfx.for_room(rooms.of(event.victim))
-            .write(crate::rules::sanic_rules().effects.ring_loss.at(event.pos, loss.burst_speed));
+            .write(crate::rules::sanic_rules().effects.ring_loss.at(event.pos, loss.burst_speed),
+        );
         // H2: losing your rings is the struck body's cue.
         sfx.write_for(
             event.victim,
@@ -1217,7 +1229,7 @@ pub fn arc_scattered_rings(
                 // the rest of its life, on the shared collection path.
                 commands
                     .entity(entity)
-                    .remove::<ambition_platformer2d::actors::features::PickupCollectLock>();
+                    .remove::<ambition_platformer2d::item_runtime::pickups::PickupCollectLock>();
             }
         }
     }

@@ -18,21 +18,20 @@
 //! both answer from published `DamageableVolumes`; breakables answer from their
 //! coarse box, which is their current gameplay precision policy.
 
+use ambition_breakables::BreakableFeature;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Entity, Query, With};
 
 use ambition_boss_encounter::BossConfig;
 
-use ambition_combat::components::{
-    BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId,
-};
+use ambition_combat::components::{CenteredAabb, DamageableVolumes, FeatureId};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Whether this breakable can receive a projectile contact at all.
 fn breakable_is_eligible(feature: &BreakableFeature) -> bool {
     !feature.broken()
-        && feature.breakable.trigger.allows_hit()
-        && !feature.breakable.pogo_refresh
+        && feature.state().trigger.allows_hit()
+        && !feature.state().pogo_refresh
 }
 
 /// The earliest point along a projectile's travel at which it reaches an
@@ -274,7 +273,8 @@ mod tests {
                     ambition_boss_encounter::test_boss_catalog(),
                     "gnu_ton",
                 ),
-                seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), "gnu_ton", "GNU-ton", 18),
+                seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), "gnu_ton", "GNU-ton", 18,
+                ),
             },
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(9)),
             volumes,
@@ -344,7 +344,8 @@ mod tests {
         // ⭐ AND IT IS SWEPT, which the discrete predicate this replaces was not.
         // A part 40 px away is missed by an overlap test and reached by a leg that
         // crosses it.
-        let far = Aabb::new(strike_box().center() + Vec2::new(40.0, 0.0), Vec2::splat(4.0));
+        let far = Aabb::new(strike_box().center() + Vec2::new(40.0, 0.0), Vec2::splat(4.0),
+        );
         assert!(
             !shot_reaches_boss(DamageableVolumes::single(far), still),
             "a stationary shot reached a part 40 px away"

@@ -5,9 +5,9 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
-use ambition_encounter::mob_seed::EncounterMobSeed;
 use ambition_boss_encounter::BossCatalog;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_encounter::mob_seed::EncounterMobSeed;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 use std::collections::BTreeSet;
@@ -22,8 +22,6 @@ mod content_staging;
 pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
 };
-
-pub(crate) use ambition_platformer2d_actor_spawn::{spawn_runtime_minion, summon_cast};
 
 /// A room's authored paths under every spelling they answer to, for the
 /// lowering roads that resolve a path reference by string.
@@ -708,7 +706,11 @@ impl RoomFeatureConstructionPlan {
                 let owed_placements: Vec<_> = foreign
                     .placements
                     .iter()
-                    .filter(|record| owed.contains_key(&ambition_platformer2d_shared_tangle::sim_id::SimId::placement(record.id.as_str())))
+                    .filter(|record| {
+                        owed.contains_key(&ambition_platformer2d_shared_tangle::sim_id::SimId::placement(record.id.as_str(),
+                            ),
+                        )
+                    })
                     .cloned()
                     .collect();
                 if !owed_placements.is_empty() {
@@ -837,7 +839,8 @@ impl RoomFeatureConstructionPlan {
             construction.characters,
         )
         .map_err(RoomFeatureConstructionError::ActorConstruction)?;
-        ambition_platformer2d_construction::preflight_encounter_scripts(room, &requests, boss_catalog)
+        ambition_platformer2d_construction::preflight_encounter_scripts(room, &requests, boss_catalog,
+        )
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_scope =
             ambition_platformer2d_shared_tangle::construction::ConstructionScope::replacing(
@@ -1016,8 +1019,7 @@ impl RoomFeatureConstructionPlan {
     /// ⛔ What `transaction::open` declares it is RECONSTRUCTING. See that
     /// function for the measurement that nothing declared anything at all.
     pub fn planned_sim_ids(
-        &self,
-    ) -> BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        &self) -> BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let mut all: BTreeSet<_> = self.construction.planned_ids().into_iter().collect();
         self.capability_lanes.planned_sim_ids(&mut all);
         all
@@ -1046,7 +1048,7 @@ impl RoomFeatureConstructionPlan {
         session: SessionSpawnScope,
     ) -> Vec<ambition_platformer2d_shared_tangle::construction::RosterViolation> {
         use ambition_platformer2d_shared_tangle::construction::{
-            verify_committed_roster, AuthoritativeScope,
+            AuthoritativeScope, verify_committed_roster,
         };
 
         let actor_transaction = self.construction.transaction(session);
@@ -1135,7 +1137,8 @@ impl RoomFeatureConstructionPlan {
         let mut names: Vec<String> = self.content_requests.iter().filter_map(character_of).collect();
         for entity in self.construction.entities() {
             match entity.parameters() {
-                ambition_platformer2d_construction::ActorConstructionParams::StagedActor(request) => {
+                ambition_platformer2d_construction::ActorConstructionParams::StagedActor(request,
+                ) => {
                     names.extend(character_of(request));
                 }
                 // A giant's hands are planned from the giant, not placed, so no
@@ -1370,7 +1373,8 @@ pub fn serve_encounter_spawn_commands(
     // The sheets of the running session, as every construction road reads
     // them (`GenerationMechanics::sheets`). `None`: no session runs, see
     // `SessionMechanics`.
-    generation: Option<bevy::prelude::Res<ambition_platformer2d_construction::mechanics::SessionMechanics>>,
+    generation: Option<bevy::prelude::Res<ambition_platformer2d_construction::mechanics::SessionMechanics>,
+    >,
     // The room each mob is built in: it starts on the ground there, as a
     // placed enemy does. `None`: a composition with no rooms.
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
@@ -1401,7 +1405,9 @@ pub fn serve_encounter_spawn_commands(
         };
         let spec = rooms
             .as_ref()
-            .and_then(|rooms| msg.room.and_then(|room| rooms.definition_in(room)).map(|d| rooms.rooms().spec(d)));
+            .and_then(|rooms| {
+            msg.room.and_then(|room| rooms.definition_in(room)).map(|d| rooms.rooms().spec(d))
+        });
         let pos = ambition_platformer2d_core::Vec2::new(pos[0], pos[1]);
         let size = ambition_platformer2d_core::Vec2::new(size[0], size[1]);
         let flies = character
@@ -1410,7 +1416,9 @@ pub fn serve_encounter_spawn_commands(
             .and_then(|character| character.locomotion.as_ref())
             .and_then(|locomotion| locomotion.baseline_free_flight)
             .unwrap_or(false);
-        let pos = spec.map_or(pos, |spec| wave_mob_start(spec, &msg.encounter, id, pos, size, flies));
+        let pos = spec.map_or(pos, |spec| {
+            wave_mob_start(spec, &msg.encounter, id, pos, size, flies)
+        });
         spawn_encounter_mob(
             &mut commands,
             &catalog,

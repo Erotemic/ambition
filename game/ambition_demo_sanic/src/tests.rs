@@ -56,7 +56,8 @@ fn enter_room(app: &mut App, room: ambition_platformer2d::world::rooms::RoomSpec
     let entry = room.id.clone();
     ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
-        ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(entry, vec![room], Vec::new()),
+        ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(entry, vec![room], Vec::new(),
+        ),
     );
 }
 
@@ -206,7 +207,9 @@ fn sanic_speedway_composes_through_the_umbrella() {
     // Each is a row of the cast, and they are not all one kind. The first is
     // the plain badnik: the tests that need "a badnik" take that one.
     let catalog = {
-        use ambition_platformer2d::characters::actor::character_catalog::{lowered_catalog, CharacterCatalog};
+        use ambition_platformer2d::characters::actor::character_catalog::{
+            CharacterCatalog, lowered_catalog,
+        };
         CharacterCatalog::from_data(
             lowered_catalog(crate::pack::PACK.prepared()).expect("the Sanic pack states its cast").clone(),
         )
@@ -382,10 +385,14 @@ fn sanic_speedway_composes_through_the_umbrella() {
     let revolution = &loop_chain.points[LOOP_ENTRY_POINT_INDEX..=LOOP_CLOSURE_POINT_INDEX];
     let (min_x, max_x) = revolution
         .iter()
-        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| (lo.min(p.x), hi.max(p.x)));
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| {
+            (lo.min(p.x), hi.max(p.x))
+        });
     let (min_y, max_y) = revolution
         .iter()
-        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| (lo.min(p.y), hi.max(p.y)));
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| {
+            (lo.min(p.y), hi.max(p.y))
+        });
     let radius = (max_x - min_x) * 0.5;
     let center_x = (max_x + min_x) * 0.5;
 
@@ -705,7 +712,9 @@ fn the_speedway_start_sign_is_the_world_files_label() {
         .iter()
         .flat_map(|level| &level.layer_instances)
         .flat_map(|layer| &layer.entity_instances)
-        .filter(|entity| entity.identifier == "DebugLabel" && field(entity, "name").as_deref() == Some("start_sign"))
+        .filter(|entity| {
+            entity.identifier == "DebugLabel" && field(entity, "name").as_deref() == Some("start_sign")
+        })
         .filter_map(|entity| field(entity, "text"))
         .collect();
     assert_eq!(authored.len(), 1, "the file authors one start sign: {authored:?}");
@@ -757,7 +766,7 @@ fn an_act_without_markers_sounds_no_milestone() {
 #[test]
 fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     use ambition_platformer2d::characters::action_scheme::{
-        derive_action_scheme, resolve_control_slots, ActorTechniques, ResolvedTechniqueEdges,
+        ActorTechniques, ResolvedTechniqueEdges, derive_action_scheme, resolve_control_slots,
     };
 
     let mut app = App::new();
@@ -969,8 +978,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
-            rooms_in_mode(mode),
-        );
+            rooms_in_mode(mode));
         app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.5));
         app.add_plugins(rules);
         app
@@ -1007,8 +1015,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     assert!(elapsed(&mut app).is_some());
     ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
-        rooms_in_mode(None),
-    ); // left the Sanic rooms
+        rooms_in_mode(None)); // left the Sanic rooms
     app.world_mut()
         .run_system_once(ambition_platformer2d::runtime::despawn_departed_mode_entities)
         .expect("the engine's mode sweep runs");
@@ -1054,8 +1061,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     // Ambition's own rooms carry no mode, so the demo's rules sleep there.
     ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
-        rooms_in_mode(None),
-    );
+        rooms_in_mode(None));
     let awake = app
         .world_mut()
         .run_system_once(in_mode(SANIC_MODE))
@@ -1261,7 +1267,7 @@ fn the_super_row_authors_a_real_movement_boost() {
     // The transformation is more than a sprite swap: the super row's authored
     // momentum strictly dominates the base row's.
     use ambition_platformer2d::characters::actor::character_catalog::{
-        lowered_catalog, CharacterCatalog,
+        CharacterCatalog, lowered_catalog,
     };
     let catalog = CharacterCatalog::from_data(
         lowered_catalog(crate::pack::PACK.prepared())
@@ -1365,8 +1371,8 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
 
 #[test]
 fn the_speedway_authors_a_field_of_collectible_rings() {
-    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     use ambition_platformer2d::entity_catalog::PickupKind;
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     let room = sanic_speedway();
     let rings = room
         .placements
@@ -1551,14 +1557,18 @@ fn the_three_acts_form_one_course() {
 #[test]
 fn each_act_says_its_mode_and_look_in_its_world_file() {
     let acts = [
-        (sanic_speedway(), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge"),
-        (sanic_highway(), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove"),
-        (sanic_darkness(), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse"),
+        (sanic_speedway(), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge",
+        ),
+        (sanic_highway(), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove",
+        ),
+        (sanic_darkness(), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse",
+        ),
     ];
     for (room, world, id, biome, theme) in acts {
         let converted = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(world)
             .expect("the act's world parses")
-            .to_room_set_with_entry(id, &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine())
+            .to_room_set_with_entry(id, &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
+            )
             .expect("the act's world converts")
             .rooms
             .into_iter()
@@ -1646,7 +1656,9 @@ fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
     );
     assert!(sizes
         .iter()
-        .all(|size| (*size - ae::Vec2::splat(crate::rules::sanic_rules().ring_loss.ring_size)).abs().max_element() < 0.01));
+        .all(|size| {
+        (*size - ae::Vec2::splat(crate::rules::sanic_rules().ring_loss.ring_size)).abs().max_element() < 0.01
+    }));
 }
 
 #[test]
@@ -1741,7 +1753,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     fn dropped(app: &mut App) -> usize {
         let mut q = app
             .world_mut()
-            .query::<&ambition_platformer2d::combat::components::PickupFeature>();
+            .query::<&ambition_platformer2d::item_runtime::pickups::PickupFeature>();
         q.iter(app.world()).count()
     }
 
@@ -1827,7 +1839,8 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
         .iter_current_update_messages()
         .filter_map(|message| crate::rules::burst_shape(&message.vfx))
         .collect();
-    let stated = crate::rules::burst_shape(&rules.effects.ring_loss.at(body, rules.ring_loss.burst_speed));
+    let stated = crate::rules::burst_shape(&rules.effects.ring_loss.at(body, rules.ring_loss.burst_speed),
+    );
     assert_eq!(played, stated.into_iter().collect::<Vec<_>>(), "the ring scatter's sparkle is not the file's");
 
     // Every lost ring launches with a real outward speed (not a static placement)
@@ -1903,7 +1916,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let pickups = {
         let mut q = app
             .world_mut()
-            .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::combat::components::PickupFeature>>();
+            .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::item_runtime::pickups::PickupFeature>>();
         q.iter(app.world()).count()
     };
     assert_eq!(
@@ -1948,7 +1961,8 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
         ae::RoomGeometry(world),
     ));
     app.world_mut().spawn((
-        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+        ),
     ));
     let ring = app
         .world_mut()
@@ -1997,7 +2011,8 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
 /// bounced.
 #[test]
 fn each_scattered_ring_bounces_off_the_floor_of_its_own_live_room() {
-    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     let floor_y = 260.0;
     let room = |blocks| {
         ae::RoomGeometry(ae::World::new(
@@ -2007,8 +2022,10 @@ fn each_scattered_ring_bounces_off_the_floor_of_its_own_live_room() {
             blocks,
         ))
     };
-    let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, floor_y), ae::Vec2::new(800.0, 40.0));
-    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, floor_y), ae::Vec2::new(800.0, 40.0),
+    );
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
+    ];
 
     let mut app = App::new();
     app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
@@ -2082,16 +2099,17 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
         )),
     ));
     app.world_mut().spawn((
-        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(session,
+        ),
     ));
     // The real production order: magnet, then the burst arc, then collect.
     app.add_systems(
         bevy::prelude::Update,
         (
             crate::scatter_rings_on_hit,
-            ambition_platformer2d::actors::features::magnetize_pickups,
+            ambition_platformer2d::item_runtime::pickups::magnetize_pickups,
             crate::arc_scattered_rings,
-            ambition_platformer2d::actors::features::collect_ecs_pickups,
+            ambition_platformer2d::item_runtime::pickups::collect_ecs_pickups,
         )
             .chain(),
     );
@@ -2116,7 +2134,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let locked = |app: &mut App| {
         let mut q = app
             .world_mut()
-            .query_filtered::<(), With<ambition_platformer2d::actors::features::PickupCollectLock>>(
+            .query_filtered::<(), With<ambition_platformer2d::item_runtime::pickups::PickupCollectLock>>(
             );
         q.iter(app.world()).count()
     };
@@ -2155,7 +2173,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let ring_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&ae::CenteredAabb, With<ambition_platformer2d::combat::components::PickupFeature>>();
+            .query_filtered::<&ae::CenteredAabb, With<ambition_platformer2d::item_runtime::pickups::PickupFeature>>();
         q.iter(app.world()).next().map(|a| a.center)
     };
     if let Some(pos) = ring_pos {
@@ -2633,7 +2651,9 @@ fn the_act_clock_counts_hundredths_and_each_act_has_a_title() {
     assert_eq!(act_clock_text(83.5), "1:23.50");
     let numbers: Vec<u8> = [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID]
         .into_iter()
-        .map(|room| act_title(room).unwrap_or_else(|| panic!("`{room}` has no title")).1)
+        .map(|room| {
+            act_title(room).unwrap_or_else(|| panic!("`{room}` has no title")).1
+        })
         .collect();
     assert_eq!(numbers, [1, 2, 3]);
     assert_eq!(act_title("somewhere_else"), None);

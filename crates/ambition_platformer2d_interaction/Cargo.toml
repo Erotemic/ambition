@@ -1,0 +1,14 @@
+[package]
+name = "ambition_platformer2d_interaction"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Live-room interaction reach and body gestures."
+
+[dependencies]
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+bevy = { version = "0.19.1", default-features = false }

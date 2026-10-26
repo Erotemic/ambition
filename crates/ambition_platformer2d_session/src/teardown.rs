@@ -37,10 +37,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
-use ambition_platformer2d_actor_monolith::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 use ambition_persistence::quest::QuestRegistry;
+use ambition_platformer2d_actor_monolith::control::possession::PossessionState;
 
 /// The process-global resources that mirror ONE live session's state.
 ///
@@ -69,7 +69,7 @@ pub struct SessionScopedResources<'w> {
     /// The one-time pickups consumed since the last checkpoint, with their
     /// owners. The next session's file is its baseline.
     consumed_since_checkpoint:
-        Option<ResMut<'w, ambition_platformer2d_actor_monolith::features::ecs::pickups::ConsumedSinceCheckpoint>>,
+        Option<ResMut<'w, ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>>,
     /// The grants of the mints collected since the last checkpoint. The next
     /// session's file is its baseline, so a retraction there must take back
     /// none of this session's.
@@ -324,8 +324,7 @@ pub fn reset_session_scoped_resources_on_activation(
 pub fn reset_session_scoped_resources_on_retire(
     mut retired: MessageReader<SessionScopeRetired>,
     active: bevy::prelude::Res<
-        ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope,
-    >,
+        ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>,
     resources: SessionScopedResources,
     mut commands: bevy::prelude::Commands,
 ) {

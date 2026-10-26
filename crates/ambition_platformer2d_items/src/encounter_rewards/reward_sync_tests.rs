@@ -117,7 +117,9 @@ fn a_fight_cleared_in_one_room_gives_no_chest_in_another() {
 /// were live, and no chest stood.
 #[test]
 fn a_cleared_encounters_chest_stands_in_its_own_live_room() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
     let second = LiveRoomInstance::ACTIVATION.next();
     let chests_in = |both_live: bool| {
         let mut app = App::new();
@@ -132,7 +134,12 @@ fn a_cleared_encounters_chest_stands_in_its_own_live_room() {
         let room = |id: &str| {
             ambition_platformer2d_world::rooms::RoomSpec::new(
                 id,
-                ae::World::new(id, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+                ae::World::new(
+                    id,
+                    ae::Vec2::new(800.0, 600.0),
+                    ae::Vec2::new(16.0, 16.0),
+                    Vec::new(),
+                ),
             )
         };
         ambition_platformer2d_world::rooms::insert_room_set(
@@ -156,8 +163,19 @@ fn a_cleared_encounters_chest_stands_in_its_own_live_room() {
         let mut chests = app
             .world_mut()
             .query_filtered::<Option<&InRoomInstance>, With<EncounterRewardChest>>();
-        chests.iter(app.world()).map(|room| room.map(|room| room.0)).collect::<Vec<_>>()
+        chests
+            .iter(app.world())
+            .map(|room| room.map(|room| room.0))
+            .collect::<Vec<_>>()
     };
-    assert_eq!(chests_in(false), Vec::new(), "control: a chest stood for an encounter whose room is not live");
-    assert_eq!(chests_in(true), vec![Some(second)], "the cleared encounter's chest does not stand in its own live room");
+    assert_eq!(
+        chests_in(false),
+        Vec::new(),
+        "control: a chest stood for an encounter whose room is not live"
+    );
+    assert_eq!(
+        chests_in(true),
+        vec![Some(second)],
+        "the cleared encounter's chest does not stand in its own live room"
+    );
 }

@@ -5,7 +5,6 @@
 //! Player identity is not a simulation path: driving authority selects the body,
 //! and the same body mechanics apply regardless of controller kind.
 
-pub mod acting;
 pub mod authority;
 pub mod components;
 pub mod input_systems;
@@ -13,13 +12,11 @@ pub mod possession;
 pub mod queries;
 pub mod slots;
 
-pub use acting::ActingParticipant;
 pub use ambition_characters::control::DrivingParticipant;
 pub use authority::project_driving_participant;
 pub use input_systems::{
-    cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,
-    tick_home_body_reaction_timers, tick_room_transition_cooldown, InputTimersAdvanced,
-    InteractionInputBuffered,
+    InputTimersAdvanced, InteractionInputBuffered, cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,
+    tick_home_body_reaction_timers, tick_room_transition_cooldown,
 };
 pub use queries::{
     another_authority_publishes, body_driving_seat, controlled_frame_down, primary_player_entity,

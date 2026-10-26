@@ -184,6 +184,9 @@ basic_shell_presentation = [
 ]
 
 [dependencies]
+ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
+ambition_world_returns = { path = "../ambition_world_returns" }
+ambition_breakables = { path = "../ambition_breakables" }
 ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 ambition_projectile_combat = { path = "../ambition_projectile_combat" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }

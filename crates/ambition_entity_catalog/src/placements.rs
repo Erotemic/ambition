@@ -159,7 +159,7 @@ pub enum InteractionKindSpec {
 /// Authored pickup reward, respawn policy, and optional presentation.
 ///
 /// There is no authored "collected" flag. The live authority is the
-/// `ambition_combat::components::Collected` marker, which `pickups.rs` inserts
+/// `ambition_platformer2d_items::pickups::Collected` marker, which `pickups.rs` inserts
 /// and queries (`Without<Collected>`). A second, authored representation that
 /// the runtime ignored would let an author state a fact the runtime
 /// contradicts. If "starts already taken" is ever needed, add it as an insert
@@ -200,7 +200,7 @@ impl PickupSpec {
 /// An authored chest: its optional reward, and whether it starts opened.
 ///
 /// The live authority for "is this chest opened" is the
-/// `ambition_combat::Opened` marker (`feature.opened`). `opened` LOWERS INTO
+/// `ambition_world_items::containers::Opened` marker (`feature.opened`). `opened` LOWERS INTO
 /// THAT MARKER (`spawn_chest_into`), and so does a chest the world remembers
 /// opened: construction sets `opened` on its record
 /// (`construction::spend_request`, Q105). An authored state that did not lower
@@ -269,7 +269,7 @@ impl BreakableCollisionSpec {
 /// Authored breakable health, collision, trigger, and respawn behavior.
 ///
 /// There is no authored debris cue. What a breaking wall emits is fixed in
-/// `ambition_combat::breakables::emit_breakable_destroyed`, which takes no cue
+/// `ambition_breakables::emit_breakable_destroyed`, which takes no cue
 /// argument. To support per-breakable debris, add the field and the lookup
 /// there together.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

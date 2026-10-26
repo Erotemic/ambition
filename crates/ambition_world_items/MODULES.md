@@ -6,10 +6,12 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`containers`](src/containers.rs) | Falling-chest physics for ECS reward chests. |
 | [`item_motion`](src/item_motion.rs) | Authored pickup motion plans stepped by the engine. |
+| [`rollback_registration`](src/rollback_registration.rs) | Register physical container state for rollback. |
 | [`world_item`](src/world_item.rs) | `WorldItem` — a walk-into collectible that grants EQUIPMENT. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

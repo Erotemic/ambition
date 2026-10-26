@@ -14,9 +14,7 @@ use bevy::prelude::*;
 use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_persistence::quest::QuestRegistry;
 
-use super::{
-    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry,
-};
+use super::{BossCatalog, BossEncounterRegistry, default_boss_profiles, events::publish_events};
 
 /// This system's claim on the encounter layer's priority music tier.
 pub const BOSS_MUSIC_OWNER: &str = "boss_encounter";
@@ -82,10 +80,10 @@ pub fn update_boss_encounters(
             Entity,
             &ambition_combat::BossRewardChest,
             &ambition_combat::FeatureId,
-            Option<&ambition_combat::Opened>,
-            Option<&ambition_combat::FallingChest>,
+            Option<&ambition_world_items::containers::Opened>,
+            Option<&ambition_world_items::containers::FallingChest>,
         ),
-        With<ambition_combat::ChestFeature>,
+        With<ambition_world_items::containers::ChestFeature>,
     >,
     // P0.2: the phase machine's own edge, announced where it is committed.
     mut phase_changes: MessageWriter<super::events::BossPhaseChanged>,
@@ -274,7 +272,8 @@ pub fn update_boss_encounters(
                 name: &feature.config.name,
                 title: feature.config.behavior.title.as_deref(),
             };
-            publish_events(&archetype_id, &bill, ev, cutscene_queue.as_deref_mut(), &mut banner);
+            publish_events(&archetype_id, &bill, ev, cutscene_queue.as_deref_mut(), &mut banner,
+            );
             // the transition edge, from the authority that commits it. Every
             // consumer of "this boss just changed phase" reads this, not a
             // diff against its own memory (see `BossPhaseChanged`).
@@ -293,8 +292,7 @@ pub fn update_boss_encounters(
             (
                 p.phase,
                 p.death_settled(),
-                p.boss_invulnerable(),
-            )
+                p.boss_invulnerable())
         };
 
         // Suppress the death-flash overlay during invulnerable beats.
@@ -415,12 +413,12 @@ pub fn update_boss_encounters(
         let Some((archetype, practice)) = rooms.rooms().rooms.iter().find_map(|boss_room| {
             boss_room.boss_spawns.iter().find(|boss| boss.id == placement).map(|boss| {
                 let archetype = match &boss.payload {
-                    ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id } => {
-                        script_id.clone()
-                    }
-                    _ => boss.name.to_lowercase(),
+                    ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id,
+                        } => script_id.clone(),
+                        _ => boss.name.to_lowercase(),
                 };
-                (archetype, boss_room.metadata.practice || spec.metadata.practice)
+                (archetype, boss_room.metadata.practice || spec.metadata.practice,
+                    )
             })
         }) else {
             continue;
@@ -436,7 +434,9 @@ pub fn update_boss_encounters(
             continue;
         };
         let offset = match &reward {
-            crate::BossRewardProfile::DropChest { offset, size, .. } => *offset - ae_vec(0.0, size.y),
+            crate::BossRewardProfile::DropChest { offset, size, .. } => {
+                *offset - ae_vec(0.0, size.y)
+            }
             _ => continue,
         };
         boss_anchors.entry(room).or_default().push(crate::BossRewardAnchor {
@@ -563,12 +563,16 @@ pub fn boss_phase_transition_feedback(
                 let until = tick.0 + BOSS_DEFEAT_FREEZE_TICKS;
                 hold.until_tick = Some(hold.until_tick.map_or(until, |held| held.max(until)));
             }
-            zoom.write(ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest { closeness: 1.0 });
+            zoom.write(ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest { closeness: 1.0,
+                },
+            );
             shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
                 amplitude_px: BOSS_DEFEAT_SHAKE_PX,
-            });
+            },
+            );
             for cue in ["boss.generic.defeat", "cutscene.dramatic_chord.defeat"] {
-                sfx.write(ambition_sfx::SfxMessage::Play { id: ambition_sfx::SfxId::new(cue), pos: kin.pos });
+                sfx.write(ambition_sfx::SfxMessage::Play { id: ambition_sfx::SfxId::new(cue), pos: kin.pos,
+                });
             }
             let mut room_vfx = vfx.for_room(rooms.of(entity));
             for (count, speed, color) in [
@@ -641,8 +645,8 @@ pub fn boss_phase_transition_feedback(
 mod phase_feedback_tests {
     //! The feedback fires from the announced edge, not from its own memory.
     use super::*;
-    use crate::test_support::{test_boss_config, test_boss_status};
     use crate::BossEncounterPhase;
+    use crate::test_support::{test_boss_config, test_boss_status};
     use ambition_combat::{CenteredAabb, FeatureId};
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
@@ -822,8 +826,8 @@ mod mount_death_bridge_tests {
     //! `notify_bosses_on_mount_death` is the first production caller of
     //! `PhaseTriggerCondition::External`.
     use super::*;
-    use crate::test_support::{test_boss_config, test_boss_status_with};
     use crate::BossEncounter;
+    use crate::test_support::{test_boss_config, test_boss_status_with};
     use crate::{BossEncounterPhase, PhaseTrigger};
     use ambition_platformer2d_shared_tangle::body::MountDied;
 

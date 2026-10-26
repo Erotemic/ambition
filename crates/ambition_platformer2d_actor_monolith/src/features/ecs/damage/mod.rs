@@ -10,26 +10,25 @@
 //! pre-check whether a queued hit will actually land before kicking off
 //! cues.
 
+use ambition_breakables::{BreakableFeature, emit_breakable_destroyed};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{
     Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
 };
 
-use super::damage_drops::drop_currency_coin;
 use super::BodyCombat;
 use ambition_combat::components::{
-    ActorDisposition, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
-};
+    ActorDisposition, CenteredAabb, FeatureId, FeatureName};
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::approximately_same_aabb;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 #[cfg(test)]
-use super::damage_drops::EXPLODER_BLAST_DAMAGE;
-#[cfg(test)]
-use ambition_combat::components::PickupFeature;
+use super::death_effects::EXPLODER_BLAST_DAMAGE;
 use ambition_combat::events::ActorStimulus;
+#[cfg(test)]
+use ambition_platformer2d_items::pickups::PickupFeature;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -136,7 +135,7 @@ pub struct FeatureHitWriters<'w, 's> {
     /// bundled here for the same reason `body_sources` is: all three drop sites
     /// (actor, boss, breakable) already take `writers`, and a coin, a heart and
     /// an ability pickup each have to state their parent's identity or no render
-    /// family will claim them — see `damage_drops::dynamic_drop_origin`.
+    /// family will claim them — see `ambition_platformer2d_items::loot::dynamic_drop_origin`.
     pub identities: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
     /// The live room each body is in, by its stamp: what falls out of a death
     /// lands in the dead body's room (see [`Self::spawn_scope_from`]). Read
@@ -371,10 +370,6 @@ pub struct FeatureHitCatalogs<'w> {
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
 /// (kill -> coin -> wallet -> merchant), not a balanced economy.
 pub const ENEMY_BOUNTY: i32 = 5;
-
-/// Coins a smashed crate/pot drops — smaller than an enemy kill, so combat still
-/// pays best, but the environment is worth poking.
-pub const BREAKABLE_BOUNTY: i32 = 2;
 
 /// Coins a defeated boss drops, beyond its ability reward — a jackpot for the
 /// hardest fights (one boss kill ~= ten standard enemies).
@@ -670,7 +665,7 @@ pub fn apply_feature_hit_events(
         let friendly_fire = resolved_rules.friendly_fire();
         if matches!(event.source, HitSource::Pogo) {
             for (entity, _id, name, aabb, mut feature) in &mut breakables {
-                if feature.broken() || !feature.breakable.pogo_refresh {
+                if feature.broken() || !feature.state().pogo_refresh {
                     continue;
                 }
                 if rooms.of(entity) != event_room {
@@ -679,10 +674,14 @@ pub fn apply_feature_hit_events(
                 if !approximately_same_aabb(aabb.aabb(), event.volume.bounds()) {
                     continue;
                 }
-                let broke = feature.breakable.apply_damage(event.damage.max(1));
+                let broke = ambition_breakables::strike(
+                    &mut writers.commands,
+                    entity,
+                    &mut feature,
+                    event.damage.max(1),
+                );
                 writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center });
                 if broke {
-                    begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
                         aabb.center,
@@ -865,8 +864,7 @@ pub fn apply_feature_hit_events(
                 // same answer or the bubble flickers on a rewind.
                 bark_draw.allows(
                     &resolved_rules,
-                    writers.identities.get(actor_entity).ok(),
-                ),
+                    writers.identities.get(actor_entity).ok()),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
@@ -925,7 +923,8 @@ pub fn apply_feature_hit_events(
             // Structural tangibility gate: a defeated boss is intangible — no hit
             // lands and no bark answers. (`apply_boss_hit` also guards on `alive()`
             // as defense-in-depth.)
-            if ambition_combat::util::body_is_untouchable(Some(&*health), boss_out_of_play, boss_plane) {
+            if ambition_combat::util::body_is_untouchable(Some(&*health), boss_out_of_play, boss_plane,
+            ) {
                 continue;
             }
             let hurt = boss_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
@@ -1077,18 +1076,24 @@ pub fn apply_feature_hit_events(
             if target_is_ignored(&event.ignored_targets, "breakable", id.as_str()) {
                 continue;
             }
-            if feature.broken() || !feature.breakable.trigger.allows_hit() {
+            if feature.broken() || !feature.state().trigger.allows_hit() {
                 continue;
             }
-            if feature.breakable.pogo_refresh {
+            if feature.state().pogo_refresh {
                 continue;
             }
             if !event.meets_aabb(aabb.aabb()) {
                 continue;
             }
-            let broke = feature.breakable.apply_damage(event.damage.max(1));
+            let broke = ambition_breakables::strike(
+                &mut writers.commands,
+                entity,
+                &mut feature,
+                event.damage.max(1),
+            );
             breakable_keys.push(format!("breakable:{}", id.as_str()));
-            let impact = event.impact_on(aabb.center, &ambition_platformer2d_core::CombatVolume::aabb(aabb.aabb()));
+            let impact = event.impact_on(aabb.center, &ambition_platformer2d_core::CombatVolume::aabb(aabb.aabb()),
+            );
             // CM8 on a prop: a breakable has no `HurtFeedback` of its own (no
             // spray, no debris — breaking already has its own FX), so it only
             // borrows the ATTACK's half of the rule. An attack that authored a
@@ -1110,19 +1115,17 @@ pub fn apply_feature_hit_events(
             }
             writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact });
             if broke {
-                begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
                 let session_scope = writers.spawn_scope_from(entity);
                 if let Some(parent) = drop_parent(&writers, entity, "breakable", id.as_str()) {
-                    drop_currency_coin(
+                    ambition_breakables::drop_destroyed_loot(
                         &mut writers.commands,
                         session_scope,
                         &parent,
                         id.as_str(),
                         aabb.center,
-                        BREAKABLE_BOUNTY,
                     );
                 }
                 emit_breakable_destroyed(

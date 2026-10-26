@@ -38,10 +38,10 @@ pub mod item_motion;
 pub mod world_item;
 
 pub use item_motion::{
-    step_item_motion, ItemEmerge, ItemMotion, ItemMotionPlan, DEFAULT_ITEM_GRAVITY,
+    DEFAULT_ITEM_GRAVITY, ItemEmerge, ItemMotion, ItemMotionPlan, step_item_motion,
 };
 pub use world_item::{
-    collect_world_items, spawn_moving_world_item, spawn_world_item, WorldItem, WorldItemPayload,
+    WorldItem, WorldItemPayload, collect_world_items, spawn_moving_world_item, spawn_world_item,
 };
 
 /// Steps moving world items, then collects the ones a body is touching.
@@ -83,7 +83,8 @@ impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
         // correct only for one plugin insertion order.
         app.configure_sets(
             sim,
-            (WorldItemSet::Motion, WorldItemSet::PreCollect, WorldItemSet::Collect)
+            (WorldItemSet::Motion, WorldItemSet::PreCollect, WorldItemSet::Collect,
+            )
                 .chain()
                 .in_set(Platformer2dSimulationPhase::PlayerSimulation)
                 .in_set(GameplayGated),
@@ -98,7 +99,8 @@ impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
                 .run_if(bevy::prelude::any_with_component::<ItemMotion>)
                 .in_set(WorldItemSet::Motion),
         );
-        app.add_systems(sim, world_item::collect_world_items.in_set(WorldItemSet::Collect));
+        app.add_systems(sim, world_item::collect_world_items.in_set(WorldItemSet::Collect),
+        );
     }
 }
 
@@ -227,8 +229,7 @@ mod simulation_phase_tests {
         with_graph(|graph| {
             let phase = set_key(
                 graph,
-                Platformer2dSimulationPhase::PlayerSimulation,
-            );
+                Platformer2dSimulationPhase::PlayerSimulation);
             for set in [
                 WorldItemSet::Motion,
                 WorldItemSet::PreCollect,
@@ -287,3 +288,8 @@ mod simulation_phase_tests {
         });
     }
 }
+
+pub mod containers;
+
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

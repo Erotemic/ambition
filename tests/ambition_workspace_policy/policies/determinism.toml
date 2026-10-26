@@ -111,3 +111,15 @@ scope = "engine"
 [[root]]
 path = "crates/ambition_platformer2d_assets"
 scope = "engine"
+
+[[root]]
+path = "crates/ambition_breakables"
+scope = "engine"
+
+[[root]]
+path = "crates/ambition_world_returns"
+scope = "engine"
+
+[[root]]
+path = "crates/ambition_platformer2d_interaction"
+scope = "engine"

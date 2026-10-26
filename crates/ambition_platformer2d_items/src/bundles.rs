@@ -5,9 +5,10 @@
 //! actor body is built on it too), but WHAT a pickup or chest is made of is this
 //! layer's fact: it owns the systems that collect and open them.
 
-use ambition_combat::components::{ChestFeature, PickupFeature};
+use crate::pickups::PickupFeature;
 use ambition_platformer2d_actor_spawn::actor_bundles::FeatureRenderedBundle;
 use ambition_platformer2d_core::CenteredAabb;
+use ambition_world_items::containers::ChestFeature;
 use bevy::prelude::*;
 
 /// Bundle for pickup feature entities.

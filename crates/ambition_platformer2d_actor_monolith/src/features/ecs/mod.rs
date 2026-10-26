@@ -24,13 +24,12 @@
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
 use super::*;
-use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hitbox, targeting};
+use ambition_combat::{banner, hazards, held_items, hitbox, targeting};
 // `BodyCombat`/`BodyHealth` live on the reusable actor crate. This module surfaces them to the
 // `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
 // since the `features` facade stopped re-exporting the shared body vocabulary.
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
-use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
 #[cfg(test)]
 use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With, Without};
@@ -50,49 +49,44 @@ pub(crate) use ambition_platformer2d_actor_spawn::brain_builders::enemy_default_
 pub(crate) mod autonomous_reconcile;
 mod brain_effects;
 pub(crate) mod character_policy;
-pub mod chests;
 mod damage;
 pub mod death_beat;
+mod death_effects;
 pub mod dismounted_rider;
 pub mod fighter_ladder;
 // ⛔ `damage_apply` LEFT FOR `crates/ambition_damage`, 2026-08-26. It named no
 // monolith type by the time it went — five re-export facades had been hiding
 // what it actually depended on — so the carve was a move rather than a design.
-mod attempt;
-mod damage_drops;
 pub mod dormancy;
 pub mod effect_bus;
-mod encounter_rewards;
+pub mod errand;
+mod fade_rows;
 #[cfg(test)]
 mod fighter_harness;
 mod interact;
-mod pet;
-mod talk_spacing;
-mod fade_rows;
-mod rest_row;
-mod wear;
-pub mod errand;
 pub mod navigation;
 pub mod perception;
-pub mod pickups;
+mod pet;
+mod rest_row;
 pub(crate) mod spawn;
-mod summon;
 pub mod spawn_static;
+mod summon;
+mod talk_spacing;
 mod target_volumes;
+mod wear;
+
+pub(crate) use actors::{
+    ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state,
+    observe_actor_decision_inputs, publish_actor_decision_frames,
+};
 
 pub use actors::{
-    apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
+    ActorSteering, AxisSweptMotion, MomentumMotion, MotionModel, apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
     snapshot_body_contact,
-    tick_actor_brains, tick_npc_idle_barks, ActorSteering, AxisSweptMotion, MomentumMotion,
-    MotionModel,
-};
-pub(crate) use actors::{
-    maintain_actor_pre_decision_state, observe_actor_decision_inputs,
-    publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
+    tick_actor_brains, tick_npc_idle_barks,
 };
 pub use aggression::{
-    apply_actor_stimuli, arm_requested_challenges, tick_pending_challenges, ChallengeRequested,
-    PendingChallenge, CHALLENGE_GRACE_S,
+    CHALLENGE_GRACE_S, ChallengeRequested, PendingChallenge, apply_actor_stimuli, arm_requested_challenges, tick_pending_challenges,
 };
 pub use ambition_boss_encounter::anim::{
     boss_anim_state_for, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
@@ -102,7 +96,6 @@ pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
 pub mod world_overlay;
-pub mod world_time_schedule;
 pub use world_overlay::rebuild_feature_ecs_world_overlay;
 // ⭐ THE BOSS ECS MODULE LIVES IN `ambition_boss_encounter` NOW, beside the boss
 // profiles, catalog and anim helpers it was already calling. These stay as the
@@ -116,28 +109,23 @@ pub use ambition_boss_encounter::ecs::{
 // ⛔ EXCEPT THIS ONE, which did not go: see `boss_bodies`.
 pub use boss_bodies::integrate_boss_bodies;
 pub use brain_effects::spawn_projectiles_from_brain_actions;
-pub use breakables::update_ecs_breakables;
-pub use chests::open_ecs_chests;
 pub use damage::apply_feature_hit_events;
-pub use encounter_rewards::{
-    clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs, EncounterRewardSyncPlugin,
-};
-pub use falling_chest::update_ecs_falling_chests;
-pub use hazards::{advance_hazards, apply_hazard_contacts, HazardTickSet};
+pub use fade_rows::{FADE_ROW_WRITER, pin_fade_rows, withdraw_faded_contact};
+pub use hazards::{HazardTickSet, advance_hazards, apply_hazard_contacts};
 pub use held_items::HeldItem;
 pub use hitbox::{
-    apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxKnockback, HitboxLifetime,
+    Hitbox, HitboxAnchor, HitboxHits,
+    HitboxKnockback, HitboxLifetime, apply_hitbox_damage,
+    tick_and_despawn_hitboxes,
 };
-pub use interact::{interact_ecs_actors_and_switches, InteractReach, TalkableBodies};
+pub use interact::{TalkableBodies, interact_ecs_actors_and_switches};
 pub use pet::{
-    advance_pet_beats, apply_pet_requests, project_pet_holds, PetBeat, PetRequested, PetStage,
-    PET_SECONDS, PET_WALK_SPEED,
+    PET_SECONDS, PET_WALK_SPEED, PetBeat, PetRequested, PetStage, advance_pet_beats,
+    apply_pet_requests, project_pet_holds,
 };
-pub use talk_spacing::{space_the_talkers, TalkSpacing, TALK_GAP};
-pub use fade_rows::{pin_fade_rows, withdraw_faded_contact, FADE_ROW_WRITER};
-pub use rest_row::{pin_rest_rows, REST_ROW_WRITER};
-pub use wear::{apply_wear_requests, WearRequested};
+pub use rest_row::{REST_ROW_WRITER, pin_rest_rows};
+pub use talk_spacing::{TALK_GAP, TalkSpacing, space_the_talkers};
+pub use wear::{WearRequested, apply_wear_requests};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.
 #[cfg(test)]
@@ -147,24 +135,17 @@ mod mount_pair_tests;
 // `ambition_mount` owns it; a `pub use` here would let every caller keep
 // spelling it `ambition_mount::MountSlot` and hide whose domain it is — the same rule
 // `Mass`, `MountDied` and `ControlClaims` each moved under.
-pub use attempt::SpawnedThisAttempt;
-pub use pickups::{
-    collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,
-    PickupMagnetize,
-};
 pub use spawn::{
-    serve_encounter_spawn_commands, spawn_encounter_mob,
     ActorConstructionContext,
     OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan, serve_encounter_spawn_commands, spawn_encounter_mob,
 };
-pub(crate) use spawn::{spawn_runtime_minion, summon_cast};
 // ⛔ The room construction boundary and the receipt it produces are consumed
 // only by the room coordinator (`ambition_platformer2d_publication`), which
 // spawns a plan inside a publication transaction and verifies the receipt.
 // The absence contract `only-the-room-coordinator-spawns-a-room-plan` keeps
 // every other crate off it.
-pub use spawn::{spawn_room_feature_entities_from_plan, RoomFeatureConstructionReceipt};
+pub use spawn::{RoomFeatureConstructionReceipt, spawn_room_feature_entities_from_plan};
 // ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
 // is unchanged (`features::apply_summon_effects`) — the schedule in
 // `ambition_platformer2d_runtime` and an ordering in `ambition_demo_smash` both
@@ -177,11 +158,9 @@ pub use summon::apply_summon_effects;
 // compiler said so. A carve that leaves its shims behind has only moved files.
 pub use target_volumes::{
     derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
-    refresh_breakable_damageable_volumes,
 };
 pub use targeting::{
-    can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets, FactionRelations,
-    FriendlyFire,
+    FactionRelations, FriendlyFire, can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets,
 };
 
 #[cfg(test)]

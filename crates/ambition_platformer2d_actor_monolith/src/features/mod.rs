@@ -27,7 +27,13 @@
 // ⭐ Callers name the crate that owns the thing. What is left below is what this
 // module actually declares.
 
+use ambition_breakables::{refresh_breakable_damageable_volumes, update_ecs_breakables};
 use ambition_characters::actor::limb::fan_out_limb_intents;
+use ambition_platformer2d_items::chests::open_ecs_chests;
+use ambition_platformer2d_items::pickups::{
+    PickupCollect, PickupMagnetize, collect_ecs_pickups, magnetize_pickups,
+};
+use ambition_world_items::containers::update_ecs_falling_chests;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -57,7 +63,7 @@ pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
 pub use npcs::{
-    npc_talk_dialogue_id, npc_talked_flag, record_npc_provocations, NpcProvocationChanged,
+    NpcProvocationChanged, npc_talk_dialogue_id, npc_talked_flag, record_npc_provocations,
 };
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
@@ -87,17 +93,14 @@ pub use movement_fx::{
 // outward references to zero: one module spelling one crate two ways. Callers
 // name the crate that owns the thing.
 
+pub use ecs::body_identity::{BodyIdentityCensus, install_body_identity_census};
+pub use ecs::boss_component_snapshot;
+pub use ecs::dismounted_rider::install_dismounted_rider_rebuild;
 pub use ecs::effect_bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
-pub use ecs::boss_component_snapshot;
-pub use ecs::body_identity::{install_body_identity_census, BodyIdentityCensus};
-pub use ecs::dismounted_rider::install_dismounted_rider_rebuild;
-mod feature_bundles;
-pub use feature_bundles::{ChestBundle, PickupBundle};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
-pub(crate) use ecs::{spawn_runtime_minion, summon_cast};
 // the CAST half of the conversation port: a bark line for a character in
 // a situation. Named explicitly rather than opening the whole `npcs` module,
 // because when the conversation module is carved out this single function is
@@ -112,45 +115,39 @@ pub use npcs::speak_conversation_cut_barks;
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 
 pub use brain_command::{
-    apply_brain_commands, apply_release_provocations, BrainCommand, BrainCommandKind,
-    BrainCommandPlugin, ReleaseProvocation,
+    BrainCommand, BrainCommandKind,
+    BrainCommandPlugin, ReleaseProvocation, apply_brain_commands, apply_release_provocations,
 };
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.
-pub use ecs::anim_helpers::{advance_body_anim_overlay_clocks, ecs_breakable_state, ecs_chest_opened};
+pub use ecs::anim_helpers::advance_body_anim_overlay_clocks;
 pub use ecs::{
+    ActorConstructionContext, ActorSteering, CHALLENGE_GRACE_S, ChallengeRequested, FactionRelations, FriendlyFire,
+    HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
+    OccurrenceContinuity, PendingChallenge, PetRequested, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan, WearRequested, advance_hazards,
     apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
-    apply_gameplay_banner_requests, apply_hitbox_damage,
+    apply_gameplay_banner_requests, apply_hazard_contacts, apply_hitbox_damage,
     apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes,
-    can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands,
+    can_damage, damage_lands,
     derive_pogo_target_volumes, dissolve_settled_grudges,
     drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample,
     integrate_boss_bodies, integrate_sim_bodies,
-    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests, InteractReach,
-    project_boss_attack_state_from_move,
+    interact_ecs_actors_and_switches, project_boss_attack_state_from_move,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
-    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
-    route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
-    snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
-    sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
+    refresh_boss_damageable_volumes, route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
+    snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
-    trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested, PetRequested, WearRequested,
-    EncounterRewardSyncPlugin, FactionRelations, FriendlyFire,
-    HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
-    OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
-    PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    CHALLENGE_GRACE_S,
+    trigger_boss_attack_moves, update_ecs_bosses,
 };
 // ⛔ The room coordinator's only: see `features::ecs`.
-pub use ecs::{spawn_room_feature_entities_from_plan, RoomFeatureConstructionReceipt};
+pub use ecs::{RoomFeatureConstructionReceipt, spawn_room_feature_entities_from_plan};
 
 pub(crate) use ecs::{
-    maintain_actor_pre_decision_state, observe_actor_decision_inputs,
-    publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
+    ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state, observe_actor_decision_inputs,
+    publish_actor_decision_frames,
 };
 // ⛔ `MotionModel`, `AxisSweptMotion` and `MomentumMotion` LEFT THIS FACADE,
 // 2026-08-26. All three are `ambition_platformer2d_core::movement`'s, re-exported
@@ -265,28 +262,6 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     }
 }
 
-/// Accumulating sim-time (seconds), advanced by the gameplay clock so it slows
-/// under bullet-time / freezes on pause alongside every other sim timer
-/// (ADR 0010/0011 time-domains discipline). This is the monotone "now" the
-/// per-actor brain perception reads: the Smash brain's reaction latency
-/// (`obs_history` lookback by `reaction_delay_s`) is inert without it. Distinct
-/// from `time_control::SimClock` (a time-*scale* request) — this is elapsed time.
-///
-/// A component of the session root (C03): each session's clock starts at zero
-/// with its root, so two peers that reach one route by different shell
-/// histories agree on it, and no reset is owed at a session edge.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct GameplayElapsed(pub f32);
-
-/// Advance [`GameplayElapsed`] by the scaled gameplay dt each frame. Runs at the
-/// head of `WorldPrep`, before any actor brain reads the snapshot.
-pub fn advance_gameplay_elapsed(
-    mut elapsed: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<GameplayElapsed>,
-    world_time: bevy::prelude::Res<ambition_time::WorldTime>,
-) {
-    elapsed.0 += world_time.sim_dt();
-}
-
 /// Advance each body's diagnostic [`ae::BodyLifeStats`].
 ///
 /// Reads the restart latch just before `announce_body_restarts` consumes it,
@@ -337,10 +312,13 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
         (
             refresh_body_damageable_volumes,
             // Only named bosses have boss volumes.
-            refresh_boss_damageable_volumes.run_if(any_with_component::<ambition_characters::brain::BossAttackState>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
+            refresh_boss_damageable_volumes.run_if(any_with_component::<ambition_characters::brain::BossAttackState>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                    ),
+                ),
         )
             .in_set(ambition_combat::components::DamageFacingVolumesPublished)
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat,
+            )
             // Victim geometry is published between the move clock and the damage pass: AFTER
             // `Playback`, because a move's first active frame must not publish the previous frame's
             // volumes, and BEFORE `Resolve`, because that is what reads them.
@@ -360,10 +338,12 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     // the move and pose clocks, before the sweep that asks the guards first.
     app.add_systems(
         sim,
-        (ambition_combat::guard::tick_guard_states, ambition_combat::guard::publish_guard_volumes)
+        (ambition_combat::guard::tick_guard_states, ambition_combat::guard::publish_guard_volumes,
+        )
             .chain()
             .in_set(ambition_combat::components::DamageFacingVolumesPublished)
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat,
+            )
             .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
             .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve)
             .after(ambition_combat::hurtbox_resolution::BodyHurtboxesResolved),
@@ -806,7 +786,8 @@ mod actor_decision_phase_tests {
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         let graph = schedules.get(sim).expect("sim schedule must exist").graph();
-        for leaf in ["integrate_boss_bodies", "update_ecs_bosses", "tick_boss_brains_system", "drive_boss_animators"] {
+        for leaf in ["integrate_boss_bodies", "update_ecs_bosses", "tick_boss_brains_system", "drive_boss_animators",
+        ] {
             assert_membership(graph, leaf, CapabilitySet(Capability::BossEncounters));
         }
     }
@@ -989,7 +970,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             ambition_combat::stocks::tick_respawn_grace
                 .run_if(any_with_component::<ambition_combat::stocks::RespawnGrace>)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks))
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks,
+                    ),
+                )
                 .in_set(ambition_combat::stocks::RespawnGraceTicked)
                 .after(ambition_combat::stocks::FighterRespawnsDue)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
@@ -1056,21 +1039,21 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             "ambition_platformer2d_actor_monolith",
             "WorldPrepSchedulePlugin",
             "placement.pickup.v1",
-            crate::features::ecs::spawn_static::lower_pickup_placement,
+            ambition_platformer2d_items::construction::lower_pickup_placement,
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Chest,
             "ambition_platformer2d_actor_monolith",
             "WorldPrepSchedulePlugin",
             "placement.chest.v1",
-            crate::features::ecs::spawn_static::lower_chest_placement,
+            ambition_platformer2d_items::construction::lower_chest_placement,
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Breakable,
             "ambition_platformer2d_actor_monolith",
             "WorldPrepSchedulePlugin",
             "placement.breakable.v1",
-            crate::features::ecs::spawn_static::lower_breakable_placement,
+            ambition_breakables::construction::lower_breakable_placement,
         );
         #[cfg(feature = "portal")]
         app.register_placement_interpreter(
@@ -1081,7 +1064,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             crate::features::ecs::spawn_static::lower_portal_placement,
         );
         // Accumulating sim-time for brain perception (reaction latency).
-        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<GameplayElapsed>(app);
+        app.add_plugins(ambition_platformer2d_shared_tangle::lifecycle::SessionElapsedPlugin);
         // ⭐ THE WORLD-SOURCE HOT-RELOAD WATCHER MOVED OUT, resource and system
         // together, to `ambition_dev_tools::DevToolsSimPlugin` — the crate that
         // owns it. A simulation package registering a developer facility is the
@@ -1143,11 +1126,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // perception snapshot, so reaction-latency lookback is live. Registered
         // separately (not in the chain above) only because that tuple is already
         // at Bevy's chain-length ceiling; the `.before` keeps the ordering exact.
-        app.add_systems(
+        app.configure_sets(
             sim,
-            advance_gameplay_elapsed
-                .before(select_actor_targets)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+            ambition_platformer2d_shared_tangle::lifecycle::GameplayElapsedAdvanced
+                .before(select_actor_targets),
         );
         // R1.3: the SIM owns the boss animation frame + writes the geometry sample
         // (retiring the render→sim write-back in `animate_bosses`). Runs after the
@@ -1158,7 +1140,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             drive_boss_animators
                 .run_if(any_with_component::<ambition_sprite_sheet::boss::BossAnimFrame>)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                    ),
+                )
                 .after(project_boss_attack_state_from_move)
                 // ⛔ IT WRITES AN INPUT OF THE DAMAGE-FACING PUBLICATION. The
                 // frame sample decides which hurtbox row a boss exposes, and
@@ -1175,7 +1159,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // and is true in hosts that have no catalog.
                 .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
                     ambition_boss_encounter::BossCatalog,
-                >)
+                >,
+                )
                 // ⛔⛤ **AND THE SET IS THE GATE, NEVER `WorldPrep`.** This system
                 // also runs `.after(project_boss_attack_state_from_move)`, which
                 // is `.in_set(CombatSet::Playback)` — LATER in the sim schedule
@@ -1326,7 +1311,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             ambition_combat::capture::systems::tick_capture_holds
                 .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_combat::capture::systems::CaptureHoldsTicked)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures))
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures,
+                    ),
+                )
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
@@ -1344,8 +1331,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                     .run_if(
                         |rooms: Query<
                             &ambition_platformer2d_world::collision::MovingPlatformSet,
-                            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
-                        >| rooms.iter().any(|platforms| !platforms.0.is_empty()),
+                            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
+                            >,
+                        >| {
+                            rooms.iter().any(|platforms| !platforms.0.is_empty())
+                        },
                     )
                     .in_set(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
                 // The platforms moved: free the walls composed from where they were.
@@ -1406,7 +1396,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             ambition_combat::capture::systems::maintain_existing_capture_pose
                 .run_if(ambition_combat::capture::a_capture_stands)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures,
+                    ),
+                ),
         );
         app.add_systems(
             sim,
@@ -1472,7 +1464,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 // A boss's limbs exist only where named bosses do.
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                    ),
+                )
                 .after(ambition_mount::MountsSteeredByRiders)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
@@ -1650,21 +1644,23 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
             sim,
             npcs::speak_conversation_cut_barks
-                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_conversation::ConversationCutBark>)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_conversation::ConversationCutBark,
+                    >,
+                )
                 .in_set(FeatureInteractionSet::CutBarkCast),
         );
         app.add_systems(
             sim,
             (
                 open_ecs_chests,
-                update_ecs_breakables.run_if(any_with_component::<ambition_combat::components::BreakableFeature>),
+                update_ecs_breakables.run_if(any_with_component::<ambition_breakables::BreakableFeature>),
                 // OW5: the respawn's due time, after the timer has ticked.
-                ecs::world_time_schedule::mirror_breakable_respawns,
+                ambition_breakables::mirror_breakable_respawns,
                 // Q152: a collected pickup comes back when its regrowth is due.
-                ecs::world_time_schedule::regrow_pickups,
+                ambition_platformer2d_items::regrowth::regrow_pickups,
                 // Q154: a collected pickup authored `Never` is gone for good.
-                ecs::pickups::record_consumed_pickups,
-                update_ecs_falling_chests.run_if(any_with_component::<ambition_combat::components::FallingChest>),
+                ambition_platformer2d_items::pickups::record_consumed_pickups,
+                update_ecs_falling_chests.run_if(any_with_component::<ambition_world_items::containers::FallingChest>),
             )
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),
@@ -1674,48 +1670,50 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // (OW5). The replay set is in `PlayerInput`, before the mirror's
         // phase; see the system's doc.
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<
-            ecs::world_time_schedule::WorldTimeSchedule,
+            ambition_world_returns::WorldTimeSchedule,
         >(app);
         app.add_systems(
                 sim,
                 (
-                    ecs::world_time_schedule::forget_scheduled_returns_on_replay
+                ambition_world_returns::forget_scheduled_returns_on_replay
                         .run_if(ambition_combat::events::a_replay_is_admitted),
-                    ecs::world_time_schedule::disown_scheduled_returns_on_restore
+                ambition_world_returns::disown_scheduled_returns_on_restore
                         .run_if(ambition_combat::events::a_replay_is_admitted),
                 )
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet),
             )
             .add_systems(
                 ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
-                ecs::world_time_schedule::forget_scheduled_returns_on_restore,
+            ambition_world_returns::forget_scheduled_returns_on_restore,
             )
             // The same two, and the consumed occurrences' owners below, for a
             // checkpoint restore at its publication.
             .add_systems(
                 ambition_combat::events::RestoreConsequences,
                 (
-                    ecs::world_time_schedule::forget_scheduled_returns_on_replay,
-                    ecs::world_time_schedule::disown_scheduled_returns_on_restore,
-                    ecs::pickups::disown_consumed_pickups_on_restore,
+                ambition_world_returns::forget_scheduled_returns_on_replay,
+                ambition_world_returns::disown_scheduled_returns_on_restore,
+                ambition_platformer2d_items::pickups::disown_consumed_pickups_on_restore,
                 )
                     .in_set(ambition_combat::events::RestoreConsequenceSet::ReplayContent),
             );
         // Q151: who owns each one-time pickup consumed since the checkpoint.
         // The restore's acceptance pins the owned rows into the ledger it
         // restores, and its admission takes the dying participant out.
-        app.init_resource::<ecs::pickups::ConsumedSinceCheckpoint>()
+        app.init_resource::<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>()
             .add_systems(
                 sim,
-                ecs::pickups::forget_consumed_pickups_at_checkpoint
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>),
+                ambition_platformer2d_items::pickups::forget_consumed_pickups_at_checkpoint
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted,
+                    >,
+                ),
             )
             // An occurrence lying in a live room that ended there, read after
             // the placement producers wrote this tick's rows and before the
             // custody leg retracts an `InCustody` row.
             .add_systems(
                 sim,
-                ecs::pickups::record_ended_occurrences
+                ambition_platformer2d_items::pickups::record_ended_occurrences
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Residency)
                     .after(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record)
@@ -1723,9 +1721,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             )
             .add_systems(
                 sim,
-                ecs::pickups::disown_consumed_pickups_on_restore
+                ambition_platformer2d_items::pickups::disown_consumed_pickups_on_restore
                     .run_if(ambition_combat::events::a_replay_is_admitted)
-                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet),
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::ContentRoomReplayResetSet,
+                    ),
             );
         // ⭐ The encounter switch index registers itself from
         // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`
@@ -1739,49 +1738,6 @@ mod actor_movement_tests;
 
 #[cfg(test)]
 mod feature_interaction_order_tests;
-
-#[cfg(test)]
-mod sim_clock_tests {
-    use super::{advance_gameplay_elapsed, GameplayElapsed};
-    use ambition_platformer2d_shared_tangle::lifecycle::{
-        require_on_session_root, session_world_component, SessionRoot, SessionScopeId,
-    };
-    use bevy::prelude::*;
-
-    fn clock(app: &App) -> f32 {
-        session_world_component::<GameplayElapsed>(app.world())
-            .expect("the session root carries the clock")
-            .0
-    }
-
-    #[test]
-    fn gameplay_clock_accumulates_scaled_dt() {
-        let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
-        require_on_session_root::<GameplayElapsed>(&mut app);
-        app.world_mut().spawn(SessionRoot(SessionScopeId(1)));
-        app.add_systems(Update, advance_gameplay_elapsed);
-
-        app.update();
-        app.update();
-        app.update();
-        let elapsed = clock(&app);
-        assert!(
-            (elapsed - 3.0 / 60.0).abs() < 1e-6,
-            "three ticks at 1/60 s must accumulate 3/60 s; got {elapsed}"
-        );
-
-        // Paused (sim_dt == 0) the clock freezes — reaction latency, hitstun,
-        // and every other sim timer that reads it stop together.
-        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 0.0));
-        app.update();
-        let after_pause = clock(&app);
-        assert_eq!(
-            elapsed, after_pause,
-            "a paused frame must not advance sim-time"
-        );
-    }
-}
 
 #[cfg(test)]
 mod body_life_stats_tests {
@@ -1801,7 +1757,8 @@ mod body_life_stats_tests {
         );
         let body = app
             .world_mut()
-            .spawn((ae::BodyRestartLatch::default(), ae::BodyLifeStats::default()))
+            .spawn((ae::BodyRestartLatch::default(), ae::BodyLifeStats::default(),
+            ))
             .id();
         app.update();
         app.update();

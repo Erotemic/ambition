@@ -13,12 +13,12 @@ use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
 use ambition_combat::components::DeathBeat;
 use ambition_combat::components::BossPhase;
-use ambition_combat::components::BreakableFeature;
-use ambition_combat::components::ChestFeature;
-use ambition_combat::components::Collected;
+use ambition_breakables::BreakableFeature;
+use ambition_world_items::containers::ChestFeature;
+use ambition_platformer2d_items::pickups::Collected;
 use ambition_combat::components::FeatureId;
-use ambition_combat::components::Opened;
-use ambition_combat::components::PickupFeature;
+use ambition_world_items::containers::Opened;
+use ambition_platformer2d_items::pickups::PickupFeature;
 use ambition_encounter::switches::SwitchFeature;
 use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_platformer2d_core::ActorSurfaceState;
@@ -445,8 +445,8 @@ pub fn rebuild_feature_view_index(
             line_anchor: None,
             limb_host: None,
             depth_plane: Default::default(),
-                flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
-                breakable_state: Some(breakable.breakable.state),
+                flash: breakable.state().state == ambition_interaction::BreakableState::Cracking,
+                breakable_state: Some(breakable.state().state),
                 chest_opened: false,
                 fighting: false,
                 switch_on: false,
@@ -454,8 +454,8 @@ pub fn rebuild_feature_view_index(
                 alive: !breakable.broken(),
                 hit_flash_secs: 0.0,
                 parry_flash_secs: 0.0,
-                hp_current: breakable.breakable.health.current,
-                hp_max: breakable.breakable.health.max,
+                hp_current: breakable.state().health.current,
+                hp_max: breakable.state().health.max,
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,

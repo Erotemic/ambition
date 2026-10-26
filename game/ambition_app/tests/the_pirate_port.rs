@@ -13,10 +13,10 @@ use ambition_platformer2d::characters::control::PlayerSlot;
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::{App, KeyCode};
 
-use crate::common::walk::{walk_through, walk_through_zone, walk_to, Keys};
+use crate::common::walk::{Keys, walk_through, walk_through_zone, walk_to};
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room_of};
 use crate::the_note_travels_from_alice_to_bob::{
-    the_shipped_session, dialog_active, first_choice, flag, npc, tap,
+    dialog_active, first_choice, flag, npc, tap, the_shipped_session,
 };
 
 const PLAZA: &str = "pirate_port_gate_plaza";
@@ -116,14 +116,16 @@ pub(crate) fn quest_completed(app: &App, id: &str) -> bool {
     app.world()
         .resource::<ambition_content::quest::QuestRegistry>()
         .get(id)
-        .is_some_and(|state| state.progression == ambition_platformer2d::persistence::save_data::PersistedQuestState::Completed)
+        .is_some_and(|state| {
+            state.progression == ambition_platformer2d::persistence::save_data::PersistedQuestState::Completed
+        })
 }
 
 /// Where the pickup that sets `flag` lies in the live room.
 pub(crate) fn pickup_at(app: &mut App, flag_id: &str) -> ae::Vec2 {
     let world = app.world_mut();
     world
-        .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ae::geometry::CenteredAabb)>()
+        .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ae::geometry::CenteredAabb)>()
         .iter(world)
         .find(|(feature, _)| {
             matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag } if flag == flag_id)
@@ -150,7 +152,8 @@ fn the_pirate_port_is_walked_round_its_loop_and_its_people_talk() {
     talk(&mut app, "npc_port_agnes", "Ginger for the gate-sick?");
     go(&mut app, TAVERN, None);
     talk(&mut app, "npc_port_wren", "What do you serve?");
-    talk(&mut app, "npc_pirate_heavy_broadside_bess", "Do you crew from the cove?");
+    talk(&mut app, "npc_pirate_heavy_broadside_bess", "Do you crew from the cove?",
+    );
     go(&mut app, WATERFRONT, None);
     go(&mut app, DOCKS, Some("waterfront_east_low"));
     talk(&mut app, "npc_port_jory", "What do you catch?");

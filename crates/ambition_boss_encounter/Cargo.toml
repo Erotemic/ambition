@@ -19,6 +19,7 @@ test-support = []
 content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
+ambition_world_items = { path = "../ambition_world_items" }
 # The boss domain owns the adapter of its extension trigger port
 # (`extension.rs`); the port's pure values are a leaf so modules need no Bevy.
 ambition_boss_special_port = { path = "../ambition_boss_special_port" }

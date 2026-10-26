@@ -372,7 +372,8 @@ pub fn rebuild_held_item_view(
                     },
                 },
             )
-        })
+        },
+        )
         .collect();
     rows.sort_by(|a, b| a.0.cmp(&b.0));
     view.0.clear();
@@ -413,7 +414,8 @@ pub fn rebuild_worn_gear_view(
     )>,
 ) {
     let gear = manifest.as_deref().filter(|manifest| !manifest.0.is_empty());
-    let mut rows: Vec<(Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>, WornGearFact)> = Vec::new();
+    let mut rows: Vec<(Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>, WornGearFact,
+    )> = Vec::new();
     if let Some(gear) = gear {
         for (body, worn, id, feature) in &bodies {
             for row in worn.rows.iter().filter(|row| gear.get(&row.id).is_some()) {
@@ -470,7 +472,8 @@ pub struct ControlledBodyFact {
 pub fn rebuild_controlled_bodies_view(
     mut view: ResMut<ControlledBodiesView>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    bodies: Query<(Entity, &BodyKinematics), With<ambition_characters::control::DrivingParticipant>>,
+    bodies: Query<(Entity, &BodyKinematics), With<ambition_characters::control::DrivingParticipant>,
+    >,
 ) {
     // AMBITION_REVIEW(determinism): query order is not stable, and this Vec is
     // built in it. Safe: the only consumer asks "does any of these boxes
@@ -599,7 +602,8 @@ pub fn rebuild_world_items_view(
 /// dropped in (for a mark with no room, its player's room).
 #[derive(Resource, Default, Clone, Debug)]
 pub struct MarkBeaconsView(
-    pub Vec<(ae::Vec2, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)>,
+    pub Vec<(ae::Vec2, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    )>,
 );
 
 pub fn rebuild_mark_beacons_view(
@@ -931,7 +935,7 @@ pub fn rebuild_dynamic_feature_views(
             bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::CenteredAabb,
-            &ambition_combat::components::ChestFeature,
+            &ambition_world_items::containers::ChestFeature,
         ),
         bevy::prelude::Or<(
             With<ambition_combat::components::EncounterRewardChest>,
@@ -950,11 +954,11 @@ pub fn rebuild_dynamic_feature_views(
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::FeatureName,
             &ambition_combat::components::CenteredAabb,
-            &ambition_combat::components::PickupFeature,
+            &ambition_platformer2d_items::pickups::PickupFeature,
             &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
-            Option<&ambition_platformer2d_actor_monolith::features::PickupArt>,
+            Option<&ambition_platformer2d_items::pickups::PickupArt>,
         ),
-        Without<ambition_combat::components::Collected>,
+        Without<ambition_platformer2d_items::pickups::Collected>,
     >,
 ) {
     use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
@@ -1184,7 +1188,8 @@ pub fn rebuild_blink_preview_fact(
         .into_iter()
         .filter_map(|(subject, controls)| {
             let (kin, abilities, motion_facts) = player_q.get(subject).ok()?;
-            blink_reticle(&collision, &live, subject, kin, abilities, motion_facts, controls)
+            blink_reticle(&collision, &live, subject, kin, abilities, motion_facts, controls,
+            )
         })
         .collect();
     if fact.reticles != reticles {
@@ -1269,7 +1274,8 @@ row_views!(
 /// Run condition of a row view's rebuild: an entity with `C`, a source of
 /// its rows, exists, or the view still holds rows to clear. While neither
 /// holds, a rebuild would leave the view as it is.
-pub fn sources_or_rows<C: Component, V: RowView>(sources: Query<(), With<C>>, view: Res<V>) -> bool {
+pub fn sources_or_rows<C: Component, V: RowView>(sources: Query<(), With<C>>, view: Res<V>,
+) -> bool {
     !sources.is_empty() || view.has_rows()
 }
 
@@ -1428,17 +1434,19 @@ mod tests {
     #[test]
     fn each_view_shows_the_meters_of_the_seat_it_follows() {
         use crate::local_view::{
-            resolve_view_subjects, LocalView, LocalViewId, ResolvedViewSubject, ViewParticipant,
+            LocalView, LocalViewId, ResolvedViewSubject, ViewParticipant, resolve_view_subjects,
         };
         use ambition_characters::actor::Health;
         use ambition_characters::control::{DrivingParticipant, PlayerSlot};
         let mut app = App::new();
-        app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain());
+        app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain(),
+        );
         let body = |world: &mut World, slot: u8, damage: i32, balance: i32| {
             let mut health = BodyHealth::new(Health::new(5));
             health.damage(damage);
             world
-                .spawn((health, BodyWallet { balance }, DrivingParticipant(PlayerSlot(slot))))
+                .spawn((health, BodyWallet { balance }, DrivingParticipant(PlayerSlot(slot)),
+                ))
                 .id()
         };
         let alice = body(app.world_mut(), 0, 2, 7);
@@ -1486,12 +1494,13 @@ mod tests {
     #[test]
     fn a_shared_view_shows_each_seat_on_it() {
         use crate::local_view::{
-            resolve_view_subjects, LocalView, LocalViewId, ResolvedViewSubject, ViewParticipant,
+            LocalView, LocalViewId, ResolvedViewSubject, ViewParticipant, resolve_view_subjects,
         };
         use ambition_characters::actor::Health;
         use ambition_characters::control::{DrivingParticipant, PlayerSlot};
         let mut app = App::new();
-        app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain());
+        app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain(),
+        );
         use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
         let here = LiveRoomInstance::ACTIVATION;
         let body = |world: &mut World, slot: u8, balance: i32, room: LiveRoomInstance| {
@@ -1627,7 +1636,8 @@ mod tests {
         );
         let shrine = app
             .world_mut()
-            .spawn(ambition_shrine::HealShrine { pos: ae::Vec2::ZERO, half_extent: ae::Vec2::ONE })
+            .spawn(ambition_shrine::HealShrine { pos: ae::Vec2::ZERO, half_extent: ae::Vec2::ONE,
+            })
             .id();
         app.update();
         assert_eq!(app.world().resource::<ShrinesView>().0.len(), 1, "the premise: the shrine has a row");
@@ -1850,7 +1860,8 @@ mod held_item_view_tests {
 mod blink_preview_room_tests {
     use super::*;
     use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
 
     /// The reticle of a subject aiming a blink 100 px right from x=100, in
     /// live room `room`. #0 has a wall at x 150..170 and #1 has none.
@@ -1859,13 +1870,16 @@ mod blink_preview_room_tests {
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<ambition_platformer2d_shared_tangle::schedule::GameMode>();
         app.init_resource::<BlinkPreviewFact>();
-        let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
-        let wall = ae::Block::solid("wall", ae::Vec2::new(150.0, 0.0), ae::Vec2::new(20.0, 400.0));
+        let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
+        ];
+        let wall = ae::Block::solid("wall", ae::Vec2::new(150.0, 0.0), ae::Vec2::new(20.0, 400.0),
+        );
         for (instance, blocks) in live.into_iter().zip([vec![wall], Vec::new()]) {
             app.world_mut().spawn((
                 RoomInstanceRoot,
                 instance,
-                ae::RoomGeometry(ae::World::new("blink", ae::Vec2::new(400.0, 400.0), ae::Vec2::ZERO, blocks)),
+                ae::RoomGeometry(ae::World::new("blink", ae::Vec2::new(400.0, 400.0), ae::Vec2::ZERO, blocks,
+                )),
             ));
         }
         let mut facts = ae::BodyMotionFacts::default();
@@ -1926,8 +1940,12 @@ mod mark_beacon_room_tests {
         app.init_resource::<MarkBeaconsView>();
         app.add_systems(Update, rebuild_mark_beacons_view);
         let pos = ae::Vec2::new(10.0, 20.0);
-        app.world_mut().spawn((PlayerMark { pos: Some(pos), room: Some(first) }, InRoomInstance(second)));
-        app.world_mut().spawn((PlayerMark { pos: Some(pos), room: None }, InRoomInstance(second)));
+        app.world_mut().spawn((PlayerMark { pos: Some(pos), room: Some(first),
+            }, InRoomInstance(second),
+        ));
+        app.world_mut().spawn((PlayerMark { pos: Some(pos), room: None,
+            }, InRoomInstance(second),
+        ));
         app.update();
         let mut rows: Vec<_> = app.world().resource::<MarkBeaconsView>().0.iter().map(|(_, room)| *room).collect();
         rows.sort();
@@ -1975,7 +1993,8 @@ mod wielded_aim_tests {
                 ambition_characters::brain::held_item_by_id("gun_sword").expect("test gun"),
             ),
             ActorControl(control),
-            ActorTarget { entity: Some(target), pos: ae::Vec2::new(-200.0, 40.0) },
+            ActorTarget { entity: Some(target), pos: ae::Vec2::new(-200.0, 40.0),
+                },
         )).id();
         app.update();
         let view = app.world().resource::<HostileWieldedItemsView>();
@@ -2016,7 +2035,8 @@ mod wielded_aim_tests {
             frame.to_world(ae::Vec2::NEG_Y),
         );
         control.fire = Some(ActorFireRequest::world_space(ae::Vec2::X));
-        assert_direction(held_item_world_aim(Some(&control), -1.0, frame), ae::Vec2::X);
+        assert_direction(held_item_world_aim(Some(&control), -1.0, frame), ae::Vec2::X,
+        );
     }
 }
 
@@ -2025,7 +2045,8 @@ mod worn_gear_tests {
     use super::*;
     use ambition_characters::equipment::{EquipmentRow, WornEquipment};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    use ambition_platformer2d_shared_tangle::worn_gear::{GearAnchor, WornGearAppExt, WornGearEntry};
+    use ambition_platformer2d_shared_tangle::worn_gear::{GearAnchor, WornGearAppExt, WornGearEntry,
+    };
 
     fn row(id: &str, slot: &str) -> EquipmentRow {
         EquipmentRow { id: id.into(), exclusive_slot: Some(slot.into()), ..Default::default() }
@@ -2057,8 +2078,10 @@ mod worn_gear_tests {
                 ambition_combat::components::FeatureId("giant_gnu".into()),
             ))
             .id();
-        let robot = app.world_mut().spawn((WornEquipment::new(vec![row("space_helmet", "head")]), SimId::placement("a_robot"))).id();
-        app.world_mut().spawn((WornEquipment::new(vec![row("mushroom", "power")]), SimId::placement("b_plumber")));
+        let robot = app.world_mut().spawn((WornEquipment::new(vec![row("space_helmet", "head")]), SimId::placement("a_robot"),
+            )).id();
+        app.world_mut().spawn((WornEquipment::new(vec![row("mushroom", "power")]), SimId::placement("b_plumber"),
+        ));
         app.update();
         let facts: Vec<_> = app.world().resource::<WornGearView>().0.iter().map(|fact| (fact.body, fact.feature.clone(), fact.gear.clone())).collect();
         assert_eq!(

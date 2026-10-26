@@ -1,31 +1,29 @@
 //! The Bevy gameplay system that ticks projectiles, samples motion
 //! input, and routes hits through ECS-native feature damage messages.
 
+use ambition_breakables::BreakableFeature;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
 use ambition_boss_encounter::BossConfig;
-use ambition_combat::components::{
-    ActorAggression,
-    BreakableFeature,
-    CenteredAabb,
-    FeatureId,
-};
 use ambition_characters::actor::ActorFaction;
+use ambition_combat::components::{
+    ActorAggression, CenteredAabb,
+    FeatureId};
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_projectiles::ProjectileGameplay;
 use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
-use ambition_projectiles::ProjectileGameplay;
 use ambition_projectiles::{
-    resolve_world_collision, ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome,
+    ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome, resolve_world_collision,
 };
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
@@ -118,7 +116,8 @@ pub fn charge_projectile_input(
     // A refused press says why (`Q33`), as the action road's refusal does.
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
     // How the fireball flies in the firer's room: each game states its own.
-    fireball_flight: ambition_combat::governing_rules::RulesOf<ambition_projectiles::FireballFlight>,
+    fireball_flight: ambition_combat::governing_rules::RulesOf<ambition_projectiles::FireballFlight,
+    >,
 ) {
     // Sim clock: spawner pacing freezes in bullet-time alongside the world.
     let dt = world_time.sim_dt();
@@ -281,7 +280,8 @@ pub fn charge_projectile_input(
         if tick_info.released {
             if let Some(hold) = state.charging.take() {
                 let tier = state.charge_tuning.tier_for_hold(hold);
-                firing.ask(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, tier);
+                firing.ask(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, tier,
+                );
             }
         } else if tick_info.intent && state.charging.is_none() && state.unlocked.fireball {
             // An autonomous driver's "shoot" is a tap: an uncharged Fireball.
@@ -418,7 +418,8 @@ impl Firing<'_, '_, '_> {
     /// ⭐ THE REFUSAL IS A FACT (`Q33`): a refused press and no press must
     /// not look the same downstream. A failed `try_spawn` changes nothing, so
     /// the readiness read here is the readiness the press was refused on.
-    fn refuse(&mut self, state: &PlayerProjectileState, kind: ambition_projectiles::ProjectileKind) {
+    fn refuse(&mut self, state: &PlayerProjectileState, kind: ambition_projectiles::ProjectileKind,
+    ) {
         self.refused.write(ambition_combat::RangedFireRefused {
             actor: self.owner,
             readiness: ambition_combat::WeaponReadiness::of_spawner(&state.spawner, kind),
@@ -771,7 +772,8 @@ pub fn step_projectiles(
     let dt = world_time.sim_dt();
     // Each live room's projectile world, composed once per tick the first
     // time a shot in it asks.
-    let mut composed: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
+    let mut composed: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<std::borrow::Cow<'_, ae::World>>,
+    )> = Vec::new();
     // The pairs a shot's leg can enter, by live room.
     #[cfg(feature = "portal")]
     let portals_by_room = carved.portals_by_room();
@@ -838,7 +840,8 @@ pub fn step_projectiles(
         };
         // The room's walls with the portal holes this shot opened cut.
         let holes = carved.holes_for(shot_room, proj_entity);
-        let met = ambition_platformer2d_world::collision::as_met_by(room_world, &[], &holes.iter().collect::<Vec<_>>(), &[]);
+        let met = ambition_platformer2d_world::collision::as_met_by(room_world, &[], &holes.iter().collect::<Vec<_>>(), &[],
+        );
         let collision_world: &ambition_platformer2d_core::World = &met;
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
         // Projectile allegiance is frozen launch authority and rollback state. Parry may
@@ -896,7 +899,8 @@ pub fn step_projectiles(
         let shot_world_hit = game.world_hit;
         if !game.tick(&mut kin, dt, gravity_dir) {
             if let Some(burst) = expiry_burst {
-                outcome_fx.write(said_by(burst.request(shot_room, kin.pos), bolt_source.as_ref()));
+                outcome_fx.write(said_by(burst.request(shot_room, kin.pos), bolt_source.as_ref(),
+                ));
             } else {
                 trace.push_event(ProjectileTraceEvent::Expired { kind }.into_trace_event(tick));
             }
@@ -1167,8 +1171,7 @@ pub fn step_projectiles(
                     // the rule the field documents.
                     .then_with(|| {
                         ambition_combat::hitbox::victim_identity_key(
-                            a.sim_id.map(|id| id.as_str()),
-                        )
+                            a.sim_id.map(|id| id.as_str()))
                         .cmp(&ambition_combat::hitbox::victim_identity_key(
                             b.sim_id.map(|id| id.as_str()),
                         ))
@@ -1258,7 +1261,8 @@ pub fn step_projectiles(
                             ))
                             .cmp(&ambition_combat::hitbox::victim_identity_key(
                                 victim.sim_id.map(|id| id.as_str()),
-                            ))
+                            ),
+                            )
                         })
                         .is_lt()
                 }) {
@@ -1354,7 +1358,8 @@ pub fn step_projectiles(
                         &super::intercept::ProjectileInterception::Consume,
                     );
                     if victim.is_player {
-                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL));
+                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL,
+                        ));
                     }
                     // ⛔⛔ A SWALLOWED SHOT IS GONE, AND THIS USED TO `continue`
                     // THE VICTIM LOOP. `intercept_projectile` returns whether the
@@ -1399,7 +1404,8 @@ pub fn step_projectiles(
                         &mut vfx,
                     );
                     if victim.is_player {
-                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL));
+                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL,
+                        ));
                     }
                     reflected = true;
                     break;
@@ -1491,7 +1497,8 @@ pub fn step_projectiles(
                 //
                 // The shot's own look of landing is the shot's: its hit burst.
                 if let Some(burst) = hit_burst {
-                    outcome_fx.write(said_by(burst.request(shot_room, impact_pos), bolt_source.as_ref()));
+                    outcome_fx.write(said_by(burst.request(shot_room, impact_pos), bolt_source.as_ref(),
+                    ));
                 }
                 already_hit.hit.insert(victim.entity);
                 struck_at = Some(leg_start + travel_leg * *contact_time);

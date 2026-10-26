@@ -2,13 +2,14 @@
 //! built, verified and published or refused as one operation.
 
 use ambition_characters::actor::limb::{Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
+use ambition_platformer2d_construction::*;
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionPlan, ConstructionScope, SpawnOrigin,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Entity, Update, World};
-use ambition_platformer2d_construction::*;
+use ambition_platformer2d_actor_monolith::construction_fixtures::*;
 use ambition_platformer2d_actor_monolith::features::{
     ActorConstructionContext, RoomFeatureConstructionPlan,
 };
@@ -17,7 +18,6 @@ use ambition_platformer2d_shared_tangle::construction::{
     ConstructionReceipt, RelationCheck,
     RelationRequest, RosterViolation, TransactionBaseline,
 };
-use ambition_platformer2d_actor_monolith::construction_fixtures::*;
 
 /// Commit a prepared room plan into a real `App` and hand back the world.
 ///
@@ -291,7 +291,8 @@ fn every_parameter_variant_constructs_its_root() {
 
     let live: std::collections::BTreeSet<SimId> = [summoner].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None,
+        ),
         requests,
         &live,
         &recipes,
@@ -360,7 +361,8 @@ fn a_summoned_minion_takes_its_characters_name() {
     );
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None,
+        ),
         vec![request],
         &live,
         &recipes,
@@ -437,7 +439,9 @@ fn a_room_that_fails_verification_is_not_published() {
     let mut app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default()));
+            crate::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default(),
+            ),
+        );
     });
 
     let verification = app
@@ -881,7 +885,8 @@ fn a_mount_link_with_an_incompatible_class_is_detected() {
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
     let requests =
-        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()),
+    );
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -963,7 +968,8 @@ fn committed_giant() -> (
     TransactionBaseline,
 ) {
     let requests =
-        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
+        ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()),
+    );
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -1116,7 +1122,8 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
 
         let rebuilt = {
             let mut commands = world.commands();
-            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), seed)
+            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), seed,
+            )
         };
         assert!(rebuilt, "the closure of `{seed}` rebuilds");
         world.flush();
@@ -1353,7 +1360,8 @@ fn a_boss_respawns_through_the_planner() {
     world.despawn(old);
     let rebuilt = {
         let mut commands = world.commands();
-        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), "warden")
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), "warden",
+        )
     };
     assert!(rebuilt, "the planned boss row rebuilds");
     world.flush();
@@ -1419,7 +1427,8 @@ fn a_placement_respawns_through_the_planner() {
     world.despawn(old);
     let rebuilt = {
         let mut commands = world.commands();
-        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), "ring_1")
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(), "ring_1",
+        )
     };
     assert!(rebuilt, "the planned placement row rebuilds");
     world.flush();
@@ -1535,7 +1544,8 @@ fn a_stale_plans_room_is_refused_publication() {
     let app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
+            crate::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()),
+        );
     });
     let verification = app
         .world()
@@ -1564,7 +1574,8 @@ fn a_plan_matching_the_live_binding_publishes() {
     let app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
+            crate::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()),
+        );
     });
     let verification = app
         .world()
@@ -1900,7 +1911,8 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
         ActorConstructionContext::for_content_replacement(
             &recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
+            &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast(),
+            ),
             // The world it is being committed into, which is still N.
             live.0,
             // The INCOMING generation — what a reload is publishing.
@@ -1962,7 +1974,8 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
             ActorConstructionContext::for_content_replacement(
                 &recipes,
                 &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-                &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
+                &ambition_platformer2d_construction::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast(),
+                ),
                 // … to be committed INTO a world running 4.
                 expected.0,
                 // built FROM generation 5 …
@@ -1978,7 +1991,8 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     let app = commit_over(replacement(&expected_live), |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
+            crate::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()),
+        );
     });
     let verification = app
         .world()
@@ -2012,7 +2026,8 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     let app = commit_over(replacement(&expected_live), |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
+            crate::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()),
+        );
     });
     let verification = app
         .world()

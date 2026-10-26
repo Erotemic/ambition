@@ -29,9 +29,9 @@ fn room(id: &str) -> Platformer2dSimHarness {
 /// The gate solids that stand in the live room, by name: a gated wall is
 /// `gated_lock:<its id>` and the wall of a fight is `lockwall:<its encounter>`.
 fn standing(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
-    ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay>(
-        sim.world_mut(),
-    )
+    ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay,
+    >(
+        sim.world_mut())
     .expect("the live room has a collision overlay")
     .gate_solids
     .iter()
@@ -76,9 +76,13 @@ fn the_temple_is_a_hall_with_a_door_to_each_room_and_back() {
     let manifest = ambition_content::worlds::world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
     let rooms = project.to_room_set(&manifest, &ambition_app::composed_ldtk_vocabulary()).expect("the world composes");
-    let index = |id: &str| rooms.room_index_by_id(id).unwrap_or_else(|| panic!("the world has no room `{id}`"));
-    let mut pairs = vec![("central_hub_complex", "noodly_narthex"), ("noodly_narthex", "noodly_nave")];
-    for wing in ["noodly_scullery", "noodly_cistern", "noodly_belfry", "noodly_reliquary", "noodly_sanctum"] {
+    let index = |id: &str| {
+        rooms.room_index_by_id(id).unwrap_or_else(|| panic!("the world has no room `{id}`"))
+    };
+    let mut pairs = vec![("central_hub_complex", "noodly_narthex"), ("noodly_narthex", "noodly_nave"),
+    ];
+    for wing in ["noodly_scullery", "noodly_cistern", "noodly_belfry", "noodly_reliquary", "noodly_sanctum",
+    ] {
         pairs.push(("noodly_nave", wing));
     }
     for (a, b) in pairs {
@@ -110,7 +114,7 @@ fn a_key_that_is_taken_opens_its_doors_and_no_other() {
     let key = {
         let world = sim.world_mut();
         world
-            .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
+            .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
             .iter(world)
             .find(|(feature, _)| {
                 matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag } if flag == "noodly_key_marinara")
@@ -139,7 +143,8 @@ fn a_key_that_is_taken_opens_its_doors_and_no_other() {
 fn a_wheel_opens_one_gate_and_shuts_another() {
     let mut sim = room("noodly_cistern");
     let read = |sim: &mut Platformer2dSimHarness| {
-        ["noodly_cistern_gate_low", "noodly_cistern_gate_well", "noodly_cistern_gate_lock_a", "noodly_cistern_gate_high"]
+        ["noodly_cistern_gate_low", "noodly_cistern_gate_well", "noodly_cistern_gate_lock_a", "noodly_cistern_gate_high",
+        ]
             .map(|wall| stands(sim, wall))
     };
     assert_eq!(read(&mut sim), [true, false, false, true], "with each wheel off: {:?}", standing(&mut sim));
@@ -205,7 +210,9 @@ fn the_monster_is_in_the_sanctum() {
     let there = world
         .query::<(&BossConfig, &BodyHealth)>()
         .iter(world)
-        .any(|(config, health)| config.behavior.id == "flying_spaghetti_monster_boss" && health.alive());
+        .any(|(config, health)| {
+            config.behavior.id == "flying_spaghetti_monster_boss" && health.alive()
+        });
     assert!(there, "the Flying Spaghetti Monster is in the sanctum, alive");
 }
 
@@ -230,7 +237,9 @@ fn a_pool_noodle_by_the_pools_is_taken_and_swung() {
     for _ in 0..30 {
         sim.step(base());
     }
-    let held = |sim: &Platformer2dSimHarness| matches!(sim.world().get::<ItemCustody>(noodle), Some(ItemCustody::Held { .. }));
+    let held = |sim: &Platformer2dSimHarness| {
+        matches!(sim.world().get::<ItemCustody>(noodle), Some(ItemCustody::Held { .. }))
+    };
     assert!(!held(&sim), "the noodle is on the floor until it is taken");
     sim.step(AgentAction { attack: true, ..base() });
     sim.step(base());
@@ -258,7 +267,8 @@ fn a_pool_noodle_by_the_pools_is_taken_and_swung() {
             clip = playback.spec.clip.clip.clone();
             for volume in playback.spec.windows.iter().flat_map(|window| &window.volumes) {
                 blade_arc |= volume.vfx.is_some();
-                if let ambition_platformer2d::entity_catalog::VolumeShape::Rect { offset, half_extents } = volume.shape {
+                if let ambition_platformer2d::entity_catalog::VolumeShape::Rect { offset, half_extents,
+                } = volume.shape {
                     reach = reach.max(offset.0 + half_extents.0);
                 }
             }
@@ -272,7 +282,8 @@ fn a_pool_noodle_by_the_pools_is_taken_and_swung() {
 }
 
 /// The swing the view shows for the pool noodle in the player's hand.
-fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer2d::sim_view::ItemSwingFact> {
+fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness,
+) -> Option<ambition_platformer2d::sim_view::ItemSwingFact> {
     sim.world_mut()
         .resource::<ambition_platformer2d::sim_view::HeldItemView>()
         .0
@@ -296,7 +307,7 @@ fn swing_of_the_noodle(sim: &mut Platformer2dSimHarness) -> Option<ambition_plat
 /// controls for each part.
 #[test]
 fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
-    use crate::common::walk::{fight, walk_through, walk_to, Pad, Walker as _};
+    use crate::common::walk::{Pad, Walker as _, fight, walk_through, walk_to};
     use ambition_platformer2d::combat::components::EncounterMob;
     use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
     const FIGHT: &str = "noodly_scullery_brawl";
@@ -304,11 +315,13 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
     let mut sim = room("central_hub_complex");
     let key = {
         let mut pad = Pad::new(&mut sim);
-        for (to, why) in [("noodly_narthex", "the hub"), ("noodly_nave", "the narthex"), ("noodly_scullery", "the nave")] {
+        for (to, why) in [("noodly_narthex", "the hub"), ("noodly_nave", "the narthex"), ("noodly_scullery", "the nave"),
+        ] {
             walk_through(&mut pad, to).unwrap_or_else(|e| panic!("from {why} to `{to}`: {e}"));
         }
         // Into the strip that starts the fight.
-        walk_to(&mut pad, ambition_platformer2d::engine_core::Vec2::new(352.0, 560.0))
+        walk_to(&mut pad, ambition_platformer2d::engine_core::Vec2::new(352.0, 560.0),
+        )
             .unwrap_or_else(|e| panic!("to the strip of the fight: {e}"));
         let cleared = |world: &bevy::prelude::World| {
             world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().encounter(FIGHT)
@@ -316,7 +329,8 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
         };
         // In the strip of the fight, where the walk above put the body.
         const STRIP: ambition_platformer2d::engine_core::Vec2 = ambition_platformer2d::engine_core::Vec2::new(352.0, 560.0);
-        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, STRIP, 60 * 120)
+        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, STRIP, 60 * 120,
+        )
             .unwrap_or_else(|e| panic!("the fight of the scullery: {e}"));
         eprintln!("[temple] the fight of the scullery was won in {frames} frames");
         // The grille of the pantry and the lock walls fall a few frames after
@@ -327,7 +341,7 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
         let key = {
             let world = pad.world_mut();
             world
-                .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
+                .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
                 .iter(world)
                 .find(|(feature, _)| {
                     matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag } if flag == "noodly_key_marinara")
@@ -360,7 +374,8 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
     {
         let mut pad = Pad::new(&mut sim);
         walk_through(&mut pad, "noodly_cistern").unwrap_or_else(|e| panic!("from the nave to the cistern: {e}"));
-        for wheel in ["noodly_wheel_a", "noodly_wheel_b", "noodly_wheel_a", "noodly_wheel_c"] {
+        for wheel in ["noodly_wheel_a", "noodly_wheel_b", "noodly_wheel_a", "noodly_wheel_c",
+        ] {
             turn(&mut pad, wheel);
         }
         let key = key_at(pad.world_mut(), "noodly_key_pesto");
@@ -404,12 +419,14 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
             world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().encounter(VIGIL)
                 == PersistedEncounterState::Cleared
         };
-        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, STRIP, 60 * 120)
+        let frames = fight(&mut pad, |world, body| world.get::<EncounterMob>(body).is_some(), cleared, STRIP, 60 * 120,
+        )
             .unwrap_or_else(|e| {
                 // The phase of the vigil: a fight that stalls in its intro
                 // and one that waits for its last foe read the same above.
                 let world = pad.world_mut();
-                let mut vigils = world.query::<(&ambition_platformer2d::encounter::Encounter, &ambition_platformer2d::encounter::EncounterLifecycle)>();
+                let mut vigils = world.query::<(&ambition_platformer2d::encounter::Encounter, &ambition_platformer2d::encounter::EncounterLifecycle,
+            )>();
                 let phases: Vec<_> = vigils.iter(world).filter(|(encounter, _)| encounter.id == VIGIL).map(|(_, life)| life.phase()).collect();
                 panic!("the vigil of the reliquary: {e}; its phase {phases:?}")
             });
@@ -448,7 +465,8 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
         let mut pad = Pad::new(&mut sim);
         walk_through(&mut pad, "noodly_sanctum").unwrap_or_else(|e| panic!("from the nave to the sanctum: {e}"));
         const FLOOR: ambition_platformer2d::engine_core::Vec2 = ambition_platformer2d::engine_core::Vec2::new(480.0, 700.0);
-        let frames = fight(&mut pad, |world, body| world.get::<BossConfig>(body).is_some(), beaten, FLOOR, 60 * 240)
+        let frames = fight(&mut pad, |world, body| world.get::<BossConfig>(body).is_some(), beaten, FLOOR, 60 * 240,
+        )
             .unwrap_or_else(|e| panic!("the fight of the sanctum: {e}"));
         eprintln!("[temple] the monster was beaten in {frames} frames");
     }
@@ -456,9 +474,10 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
 }
 
 /// Where the key that sets `flag` lies in the live room.
-fn key_at(world: &mut bevy::prelude::World, flag: &str) -> ambition_platformer2d::engine_core::Vec2 {
+fn key_at(world: &mut bevy::prelude::World, flag: &str,
+) -> ambition_platformer2d::engine_core::Vec2 {
     world
-        .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
+        .query::<(&ambition_platformer2d::item_runtime::pickups::PickupFeature, &ambition_platformer2d::engine_core::geometry::CenteredAabb)>()
         .iter(world)
         .find(|(feature, _)| {
             matches!(&feature.pickup.kind, ambition_platformer2d::interaction::PickupKind::StoryFlag { flag: f } if f == flag)
@@ -470,7 +489,7 @@ fn key_at(world: &mut bevy::prelude::World, flag: &str) -> ambition_platformer2d
 /// Walk to the lever `id` with the player's own inputs and turn it with one
 /// press of Interact.
 fn turn(pad: &mut crate::common::walk::Pad<'_>, id: &str) {
-    use crate::common::walk::{walk_to, Press, Walker as _};
+    use crate::common::walk::{Press, Walker as _, walk_to};
     let at = {
         let world = pad.world_mut();
         world

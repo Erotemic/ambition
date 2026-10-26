@@ -1,8 +1,6 @@
 //! Tests for the ECS feature spawn paths: authored actors/bosses, dynamic
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
-use ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain;
-use ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into;
 use super::*;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
@@ -13,6 +11,8 @@ use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorIdentity, AggressionMode,
 };
+use ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain;
+use ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
 
@@ -84,10 +84,10 @@ fn body_driven_by(
 /// then yields the marker, which the deleted default-six helper never could.
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
-    use ambition_platformer2d_construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
+    use ambition_platformer2d_construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_platformer2d_core::Vec2;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
     use ambition_platformer2d_world::placements::PlacementRecord;
@@ -159,7 +159,8 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         // marker it counts is found by an ORDINARY query, and this rig never
         // calls `register_inactive_candidate_filter`, so the `InactiveCandidate`
         // stamp is inert here and the query sees its subject.
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(),
+        );
     });
     app.update();
 
@@ -181,9 +182,9 @@ fn room_features_lower_through_the_caller_supplied_registry() {
 /// closed, in the same room.
 #[test]
 fn a_chest_authored_open_is_built_with_the_opened_marker() {
-    use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
-    use ambition_entity_catalog::placements::{ChestSpec, PlacementKind, PlacementSchema};
     use ambition_entity_catalog::PickupKind;
+    use ambition_entity_catalog::placements::{ChestSpec, PlacementKind, PlacementSchema};
+    use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
     use ambition_platformer2d_core::Vec2;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
     use ambition_platformer2d_world::placements::PlacementRecord;
@@ -195,7 +196,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
             "test",
             "spawn_test",
             "chest.v1",
-            crate::features::ecs::spawn_static::lower_chest_placement,
+            ambition_platformer2d_items::construction::lower_chest_placement,
         )
         .unwrap();
     let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
@@ -232,7 +233,8 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded());
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &ambition_platformer2d_construction::PersistedFates::unrecorded(),
+        );
     });
     app.update();
 
@@ -240,7 +242,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
         .world_mut()
         .query::<(
             &ambition_combat::components::FeatureId,
-            Option<&ambition_combat::components::Opened>,
+            Option<&ambition_world_items::containers::Opened>,
         )>()
         .iter(app.world())
         .map(|(id, opened)| (id.as_str().to_string(), opened.is_some()))
@@ -716,7 +718,8 @@ fn an_npc_with_a_recorded_death_is_built_dead() {
 
     for (fate, expect_alive) in [
         (ambition_platformer2d_actor_spawn::RecordedFate::Dead, false),
-        (ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored, true),
+        (ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored, true,
+        ),
     ] {
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
@@ -1845,11 +1848,11 @@ mod authored_enemy_reads_its_character {
 /// construction` dropping it: every plan carries all four).
 #[test]
 fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
-    use ambition_platformer2d_construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_characters::actor::AuthoredPopulationCap;
     use ambition_entity_catalog::placements::{
         InteractableSpec, InteractionKindSpec, PlacementKind, PlacementSchema,
     };
+    use ambition_platformer2d_construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_platformer2d_core::Vec2;
     use ambition_platformer2d_world::placements::PlacementRecord;
 
@@ -1857,7 +1860,8 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     fn inert(_record: &PlacementRecord, _ctx: &mut LoweringCtx<'_, '_, '_>) {}
     let mut registry = PlacementLoweringRegistry::default();
     registry
-        .try_register(PlacementKind::Interactable, "test", "spawn_test", "interactable.v1", inert)
+        .try_register(PlacementKind::Interactable, "test", "spawn_test", "interactable.v1", inert,
+        )
         .unwrap();
     let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "capped_room",

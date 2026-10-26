@@ -3,8 +3,23 @@
 //! Reward chests spawned mid-air by `sync_boss_reward_chests_ecs` carry a [`FallingChest`] until
 //! they land on a solid floor.
 
-use super::*;
-use super::{CHEST_FALL_GRAVITY, CHEST_FALL_MAX_SPEED};
+use ambition_platformer2d_core as ae;
+use bevy::prelude::*;
+
+/// Seconds a player must stand on a breakable before it shatters.
+
+/// Gravity (px/s²) used by the falling-chest tick. Lighter than the
+/// player's GRAVITY (2250) so a treasure chest reads as a heavy-but-
+/// floaty drop, not a brick. Tuned by feel against the mockingbird
+/// arena: at 1400 px/s² and 80 px of fall, the drop lands in ~0.34 s.
+const CHEST_FALL_GRAVITY: f32 = 1400.0;
+
+/// Terminal-velocity cap so a chest dropped from a tall arena doesn't
+/// blast through the floor sweep before the sub-step kicks in.
+const CHEST_FALL_MAX_SPEED: f32 = 900.0;
+
+use ambition_platformer2d_core::CenteredAabb;
+use ambition_time::WorldTime;
 
 /// Tick ECS reward chests that are still falling to the floor.
 ///
@@ -120,10 +135,16 @@ mod falling_chest_tests {
     /// were live.
     #[test]
     fn each_chest_lands_on_the_floor_of_its_own_live_room() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
         let first = LiveRoomInstance::ACTIVATION;
         let mut lower = world_with_floor();
-        lower.blocks[0] = ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(400.0, 100.0));
+        lower.blocks[0] = ae::Block::solid(
+            "floor",
+            ae::Vec2::new(0.0, 500.0),
+            ae::Vec2::new(400.0, 100.0),
+        );
         let bottoms = |rooms: Vec<(LiveRoomInstance, ae::World)>| {
             let mut app = bevy::prelude::App::new();
             app.insert_resource(WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
@@ -131,8 +152,11 @@ mod falling_chest_tests {
             let chests: Vec<_> = rooms
                 .into_iter()
                 .map(|(room, geometry)| {
-                    app.world_mut()
-                        .spawn((RoomInstanceRoot, room, ambition_platformer2d_core::RoomGeometry(geometry)));
+                    app.world_mut().spawn((
+                        RoomInstanceRoot,
+                        room,
+                        ambition_platformer2d_core::RoomGeometry(geometry),
+                    ));
                     app.world_mut()
                         .spawn((
                             ChestFeature::new(ambition_interaction::Chest::new("chest", None)),
@@ -154,13 +178,23 @@ mod falling_chest_tests {
                 .map(|chest| {
                     let world = app.world();
                     let aabb = world.get::<CenteredAabb>(chest).expect("the chest stands");
-                    (world.get::<FallingChest>(chest).is_none(), (aabb.center.y + aabb.half_size.y).ceil())
+                    (
+                        world.get::<FallingChest>(chest).is_none(),
+                        (aabb.center.y + aabb.half_size.y).ceil(),
+                    )
                 })
                 .collect::<Vec<_>>()
         };
-        let landed_on = |floor: f32| move |(landed, bottom): &(bool, f32)| *landed && *bottom <= floor && *bottom > floor - 13.0;
+        let landed_on = |floor: f32| {
+            move |(landed, bottom): &(bool, f32)| {
+                *landed && *bottom <= floor && *bottom > floor - 13.0
+            }
+        };
         let control = bottoms(vec![(first, world_with_floor())]);
-        assert!(control.iter().all(landed_on(300.0)), "control: the chest did not land on the floor: {control:?}");
+        assert!(
+            control.iter().all(landed_on(300.0)),
+            "control: the chest did not land on the floor: {control:?}"
+        );
         let both = bottoms(vec![(first, world_with_floor()), (first.next(), lower)]);
         assert!(
             landed_on(300.0)(&both[0]) && landed_on(500.0)(&both[1]),
@@ -224,8 +258,11 @@ mod falling_chest_tests {
             )],
         );
         let half = ae::Vec2::new(12.0, 12.0);
-        let settled =
-            settled_chest_center(&world, ae::Vec2::new(200.0, 50.0), ae::Vec2::new(24.0, 24.0));
+        let settled = settled_chest_center(
+            &world,
+            ae::Vec2::new(200.0, 50.0),
+            ae::Vec2::new(24.0, 24.0),
+        );
 
         // ⛔ ANTI-VACUITY: a chest that never moved also "did not fall through".
         assert!(
@@ -261,3 +298,35 @@ mod falling_chest_tests {
         );
     }
 }
+
+/// Marker/state component for chests that are falling toward the room floor.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct FallingChest {
+    pub vel_y: f32,
+}
+
+impl FallingChest {
+    pub fn new(vel_y: f32) -> Self {
+        Self { vel_y }
+    }
+}
+
+/// ECS-native chest payload.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct ChestFeature {
+    pub chest: ambition_interaction::Chest,
+}
+
+impl ChestFeature {
+    pub fn new(chest: ambition_interaction::Chest) -> Self {
+        Self { chest }
+    }
+
+    pub fn reward(&self) -> Option<&ambition_interaction::PickupKind> {
+        self.chest.reward.as_ref()
+    }
+}
+
+/// Marker inserted once a chest is opened.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Opened;

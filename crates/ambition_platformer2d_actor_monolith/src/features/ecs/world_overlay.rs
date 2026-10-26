@@ -7,9 +7,10 @@
 //! with this resource;
 //! rebuilding it once per frame keeps the augment cheap.
 
+use ambition_breakables::BreakableFeature;
+use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays;
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
-use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_combat::*;
@@ -64,10 +65,10 @@ pub fn rebuild_feature_ecs_world_overlay(
         if feature.broken() {
             continue;
         }
-        if feature.breakable.pogo_refresh {
+        if feature.state().pogo_refresh {
             continue;
         }
-        let kind = match feature.breakable.collision {
+        let kind = match feature.state().collision {
             ambition_interaction::BreakableCollision::None => continue,
             // A barrier, not a hard blink wall: no blink upgrade passes an
             // unbroken crate (Q102).
@@ -200,10 +201,9 @@ mod overlay_set_membership {
 
 #[cfg(test)]
 mod breakable_geometry_agreement {
-    use ambition_combat::components::{
-        BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureName,
-    };
+    use ambition_breakables::BreakableFeature;
     use ambition_combat::FeatureSimEntity;
+    use ambition_combat::components::{CenteredAabb, DamageableVolumes, FeatureId, FeatureName};
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     use bevy::prelude::*;
@@ -311,8 +311,9 @@ mod breakable_geometry_agreement {
 
 #[cfg(test)]
 mod a_solid_breakable_is_a_barrier {
-    use ambition_combat::components::{BreakableFeature, CenteredAabb, FeatureId, FeatureName};
+    use ambition_breakables::BreakableFeature;
     use ambition_combat::FeatureSimEntity;
+    use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     use bevy::prelude::*;
@@ -399,12 +400,13 @@ mod a_solid_breakable_is_a_barrier {
 
 #[cfg(test)]
 mod room_keyed_contributions {
-    use ambition_combat::components::{BreakableFeature, CenteredAabb, FeatureId, FeatureName};
+    use ambition_breakables::BreakableFeature;
     use ambition_combat::FeatureSimEntity;
+    use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        activation_room_root, InRoomInstance, LiveRoomInstance, RoomInstanceRoot, SessionScopeId,
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot, SessionScopeId, activation_room_root,
     };
     use bevy::prelude::*;
 

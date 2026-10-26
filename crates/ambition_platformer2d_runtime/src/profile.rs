@@ -133,7 +133,7 @@ impl CapabilityComposition for Capability {
                     || world.contains_resource::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailEnabled>()
             }
             Capability::MatchStocks => {
-                app.is_plugin_added::<ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin>()
+                app.is_plugin_added::<crate::WorldPrepSchedulePlugin>()
             }
         }
     }

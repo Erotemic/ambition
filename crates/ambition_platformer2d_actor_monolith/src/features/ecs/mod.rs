@@ -29,8 +29,6 @@ use ambition_combat::{banner, hazards, held_items, hitbox, targeting};
 // `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
 // since the `features` facade stopped re-exporting the shared body vocabulary.
 use ambition_characters::actor::BodyCombat;
-#[cfg(test)]
-use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With, Without};
 
 use ambition_time::WorldTime;
@@ -57,7 +55,6 @@ pub mod fighter_ladder;
 // monolith type by the time it went — five re-export facades had been hiding
 // what it actually depended on — so the carve was a move rather than a design.
 pub mod dormancy;
-pub mod effect_bus;
 pub mod errand;
 mod fade_rows;
 #[cfg(test)]
@@ -92,8 +89,6 @@ pub use ambition_boss_encounter::anim::{
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
-pub mod world_overlay;
-pub use world_overlay::rebuild_feature_ecs_world_overlay;
 // ⭐ THE BOSS ECS MODULE LIVES IN `ambition_boss_encounter` NOW, beside the boss
 // profiles, catalog and anim helpers it was already calling. These stay as the
 // monolith's façade rows so its schedule registration and its callers did not
@@ -144,6 +139,3 @@ pub use target_volumes::{
 pub use targeting::{
     FactionRelations, FriendlyFire, can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets,
 };
-
-#[cfg(test)]
-mod tests;

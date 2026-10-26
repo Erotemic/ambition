@@ -823,7 +823,7 @@ mod stage_rule_tests {
             (
                 ambition_platformer2d::game_shell::release_departed_experience_state,
                 track_versus_roster,
-                ambition_platformer2d::actors::features::combat_rules::project_combat_rules,
+                ambition_platformer2d::runtime::combat_rules::project_combat_rules,
             )
                 .chain(),
         );

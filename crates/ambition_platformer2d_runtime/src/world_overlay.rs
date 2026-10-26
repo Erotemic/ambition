@@ -159,7 +159,7 @@ mod overlay_set_membership {
     #[test]
     fn the_overlay_rebuild_is_a_member_of_the_set_its_consumers_order_against() {
         let mut app = App::new();
-        app.add_plugins(crate::features::WorldPrepSchedulePlugin);
+        app.add_plugins(crate::world_schedule::WorldPrepSchedulePlugin);
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         let schedule = schedules
@@ -261,7 +261,7 @@ mod breakable_geometry_agreement {
         app.add_systems(
             Update,
             (
-                crate::features::ecs::refresh_breakable_damageable_volumes,
+                ambition_breakables::refresh_breakable_damageable_volumes,
                 super::rebuild_feature_ecs_world_overlay,
             ),
         );

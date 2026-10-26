@@ -15,6 +15,20 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;
 mod combat_schedule;
+pub mod combat_rules;
+pub mod stocks_match;
+pub mod effect_bus;
+pub mod world_overlay;
+mod world_schedule;
+pub use world_schedule::{WorldPrepSchedulePlugin, GameplayEffectsSchedulePlugin, FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin, register_damage_facing_volume_publication};
+#[cfg(test)]
+mod world_integration_tests;
+#[cfg(test)]
+mod hurtbox_damage_tests;
+#[cfg(test)]
+mod view_schedule_tests;
+#[cfg(test)]
+mod feature_interaction_order_tests;
 pub mod content_identity;
 /// The cutscene player: triggers, playback and its save effects (the
 /// `Cutscenes` capability; a profile without it leaves the plugin out).
@@ -476,7 +490,7 @@ impl PluginGroup for PlatformerEnginePlugins {
         let builder = builder
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_platformer2d_publication::construction::RoomConstructionPlugin)
-            .add(ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin)
+            .add(crate::WorldPrepSchedulePlugin)
             // A sheet-authored body adopts the box for the pose it is showing, in
             // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
@@ -521,8 +535,8 @@ impl PluginGroup for PlatformerEnginePlugins {
             // does is INSIDE this one (step before collect), and it says so.
             .add(ambition_world_items::WorldItemSimulationPlugin)
             // Feature (room-entity) collection + interaction schedules.
-            .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
-            .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
+            .add(crate::FeatureCollectionSchedulePlugin)
+            .add(crate::FeatureInteractionSchedulePlugin)
             // CONVERSATION IS A MEMBER OF THIS GROUP, not something the interaction
             // schedule installs from inside its own `build`: a plugin added from
             // another plugin's `build` is invisible to `PluginGroupBuilder::disable`,
@@ -537,7 +551,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(crate::authored_verdict_timeline::AuthoredVerdictTimelinePlugin)
             .add(crate::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
-            .add(ambition_platformer2d_actor_monolith::features::GameplayEffectsSchedulePlugin)
+            .add(crate::GameplayEffectsSchedulePlugin)
             // Reward chests react to the encounter domain's published cleared
             // list; composed beside its siblings so no registration for it
             // lands back in the encounter adapter.
@@ -816,3 +830,10 @@ const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 mod gated_lock_wall_tests;
 
 pub mod world_facts;
+
+#[cfg(test)]
+#[path = "tests/projectile/mod.rs"]
+mod projectile_tests;
+
+#[cfg(test)]
+mod test_body;

@@ -1,12 +1,4 @@
-//! The ruleset-facing half of the stocks loop: when is the match over? (S4)
-//!
-//! The engine owns the COUNT (`ambition_combat::stocks`) and this owns the
-//! QUESTION it makes answerable — which side is the last one with a fighter in
-//! play. It lives in `ambition_platformer2d_actor_monolith` rather than beside the count because it
-//! needs `MatchSeat`, which is this crate's, and the predicate it calls
-//! (`last_side_standing`) is the same one the versus stage settles rounds with.
-//! One predicate, two liveness inputs: a round asks "is this fighter's health
-//! above zero", a stocks match asks "does this fighter have a stock left".
+//! Resolve match outcomes and sudden-death entry.
 
 use bevy::prelude::{Has, MessageWriter, Query, Res, ResMut};
 

@@ -1312,7 +1312,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // and the next match ignores it because the instance differs. The scoping is
     // pinned by `stocks::a_stop_request_ends_the_match_it_names_and_no_other`.
     (
-        "ambition_platformer2d_actor_monolith::features::stocks_match::MatchAbandonRequest",
+        "ambition_platformer2d_runtime::stocks_match::MatchAbandonRequest",
         "an ask made outside the sim cannot be re-made by a resim; it is scoped by MatchInstance instead of rewound",
     ),
     // The condition catalog: which questions the installed domains can

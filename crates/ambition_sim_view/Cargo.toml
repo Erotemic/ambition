@@ -61,6 +61,5 @@ bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"]
 bevy_math = "0.19.1"
 
 [dev-dependencies]
-ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 # The boss fixture reads Ambition's encounter files from its pack manifest.
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }

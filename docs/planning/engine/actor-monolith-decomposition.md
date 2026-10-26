@@ -564,6 +564,8 @@ character test support. No scheduled invocation or rollback state is added.
 
 ### K16 — Device input and phase order belong to runtime
 
+Commit: `f06fc1f87`.
+
 Device decoding, participant seating, context claims, frame adapters, and their
 behavior tests move to `ambition_platformer2d_runtime::input`. Runtime owns the
 concrete phase graph. The actor `schedule` module and runtime `host_input`
@@ -575,6 +577,22 @@ rollback, and frame-step hosts retain their publication rules. Chains, gates,
 flushes, wire keys, and active system counts stay the same. Device dependencies
 move out of the actor manifest. Runtime still selects device input, as it did
 before this cut. Independent input profiles remain a separate exit.
+
+### K17 — Cross-domain schedules belong to runtime
+
+Runtime owns the world-object, match, collection, interaction, and effect
+schedule composition. `BodySimulationPlugin` keeps accepted control, body
+execution, and their private state in the actor kernel. Existing chains, gates,
+phase membership, and deferred visibility stay the same. No invocation is added.
+
+Runtime owns the world overlay, combat-rule projection, match outcomes, and
+sudden-death announcement. The announcement keeps its rollback key and bytes.
+Persistence owns the shared flag-and-quest write. The actor effect-bus and
+world-overlay paths are deleted.
+
+Schedule, silhouette, and projectile integration fixtures move to runtime and
+use the public prepared-body builder. The actor and view crates have no runtime
+dev dependency. Private body constructors remain private to their tests.
 
 ### Migration acceptance for each packet
 

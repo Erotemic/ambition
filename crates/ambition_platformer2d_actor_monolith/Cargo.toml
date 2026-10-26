@@ -383,7 +383,6 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
-ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_audio = { path = "../ambition_audio" }
 ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 # The two-game session fixture the per-room rule readers' tests share.

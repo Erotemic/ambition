@@ -112,18 +112,6 @@ where
         "derived.module_entity_touchers",
         "written again in each tick's module_entity_tick collect and read only by that tick's lowering",
     );
-    // It is not an actor fact and not an every-game fact — it is an authoring format's. Its
-    // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's opt-in `LdtkWorldPlugin`
-    // installs that domain offer only for LDtk games.
-    // …and the announcement it makes once. Written inside the sim and read
-    // inside it (the stage puts its survivors on the authored damage), so a
-    // reader's `Local` cursor has to rewind with the latch above — otherwise a
-    // rewind across the entering frame leaves a match in sudden death whose
-    // fighters were never placed.
-    registrar.clear_message_on_rollback::<crate::features::stocks_match::SuddenDeathBegan>(
-        OWNER,
-        "message.sudden_death_began",
-    );
     registrar.rollback_resource_clone_entity_set::<crate::control::possession::PossessionState>(
             OWNER,
             "resource.possession_state",

@@ -8,7 +8,7 @@ effect enum, or a parallel side-effect vector.
 
 Four focused messages carry effects that cross into save, quest, encounter or
 standalone audio routing. Each has one consumer system in
-`crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs`:
+`crates/ambition_platformer2d_runtime/src/effect_bus.rs`:
 
 | Message | Owner crate | Consumer |
 |---|---|---|

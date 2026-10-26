@@ -255,7 +255,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_menu/src/map/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_persistence/src/save.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
         "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_items/src/persist.rs",
@@ -388,7 +388,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -886,11 +886,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash/src/select_screen.rs",
     ),
     "StocksMatchSettled": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
+        "crates/ambition_platformer2d_runtime/src/stocks_match.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "SuddenDeathEntered": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
+        "crates/ambition_platformer2d_runtime/src/stocks_match.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "VersusMatch": (
@@ -1883,7 +1883,7 @@ ADJUDICATED: dict[str, str] = {
         "(`ambition_boss_encounter/src/systems.rs::update_boss_encounters`, "
         "`ambition_encounter_features/src/systems.rs::{drive_wave_encounters, "
         "apply_wave_encounter_effects}`, "
-        "`actor_monolith/src/features/ecs/effect_bus.rs::{apply_flag_effects, "
+        "`runtime/src/effect_bus.rs::{apply_flag_effects, "
         "apply_quest_effects}`, "
         "`ambition_platformer2d_runtime/src/quest.rs::push_room_entered_quest_events`, "
         "`actor_monolith/src/features/npcs.rs::record_npc_provocations` — which "
@@ -3817,7 +3817,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SwitchActivationQueue": (
         "crates/ambition_encounter/src/switches.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
     ),
     "CustodyBaseline": (
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",

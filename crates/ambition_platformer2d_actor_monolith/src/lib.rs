@@ -36,9 +36,6 @@ pub mod enemy_projectile;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-#[cfg(test)]
-#[path = "tests/projectile/mod.rs"]
-mod projectile_tests;
 pub mod repertoire;
 
 // Public re-exports double as the external API for bins, tests, and docs.

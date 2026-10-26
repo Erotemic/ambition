@@ -5,7 +5,11 @@
 //! invariants. Extracted from `ecs/mod.rs` to keep the implementation
 //! file focused on systems.
 
-use super::*;
+use ambition_platformer2d_actor_monolith::features::*;
+use crate::world_overlay::rebuild_feature_ecs_world_overlay;
+use ambition_vfx::vfx::VfxInRoom;
+use ambition_platformer2d_items::chests::open_ecs_chests;
+use ambition_platformer2d_core as ae;
 use ambition_breakables::BreakableFeature;
 use ambition_combat::components::{
     CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy, PogoTargetContributor, PogoTargetVolumes,
@@ -17,7 +21,7 @@ use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_world_items::containers::ChestFeature;
 use ambition_world_items::containers::Opened;
-use bevy::prelude::{App, IntoScheduleConfigs, Update};
+use bevy::prelude::*;
 
 /// Spawn the canonical player entity used by interaction system tests.
 ///
@@ -29,9 +33,9 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     // `PlayerEntity` (and reads interact_buffer_timer);
     // `PlayerSimulationBundle` covers all of that.
     let mut scratch =
-        crate::avatar::home_body_scratch(player_pos, ae::AbilitySet::sandbox_all());
+        ambition_platformer2d_actor_monolith::avatar::home_body_scratch(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;
-    let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
+    let bundle = crate::test_body::home_body(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
@@ -374,7 +378,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        <crate::avatar::StartingCharacter>::default(),
+        <ambition_platformer2d_actor_monolith::avatar::StartingCharacter>::default(),
     );
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
@@ -451,7 +455,7 @@ fn interact_buffered_starts_npc_dialogue() {
 /// fallback.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use ambition_platformer2d_runtime::schedule::configure_platformer2d_simulation_phases;
+    use crate::schedule::configure_platformer2d_simulation_phases;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};

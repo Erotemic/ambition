@@ -2905,7 +2905,7 @@ fn a_shot_breaks_a_solid_crate_rather_than_stopping_on_its_own_wall() {
         // wall to coalesce with.
         app.add_systems(
             Update,
-            crate::features::ecs::world_overlay::rebuild_feature_ecs_world_overlay
+            crate::world_overlay::rebuild_feature_ecs_world_overlay
                 .before(ambition_projectile_combat::step_projectiles),
         );
 
@@ -2994,7 +2994,7 @@ fn a_crate_no_shot_can_break_still_stops_the_shot() {
         let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
         app.add_systems(
             Update,
-            crate::features::ecs::world_overlay::rebuild_feature_ecs_world_overlay
+            crate::world_overlay::rebuild_feature_ecs_world_overlay
                 .before(ambition_projectile_combat::step_projectiles),
         );
 

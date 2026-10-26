@@ -24,7 +24,7 @@ use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-use crate::features::refresh_body_damageable_volumes;
+use ambition_platformer2d_actor_monolith::features::refresh_body_damageable_volumes;
 use ambition_combat::hurtbox_resolution::{AuthoredHurtboxes, ResolvedHurtboxes};
 use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
 
@@ -401,14 +401,14 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     };
 
     let mut app = App::new();
-    ambition_platformer2d_runtime::schedule::configure_platformer2d_simulation_phases(&mut app);
+    crate::schedule::configure_platformer2d_simulation_phases(&mut app);
     // The session gate (`simulation_authorized`) requires EXACTLY ONE `SessionRoot`, and every
     // gameplay set is nested inside it.
     app.world_mut()
         .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
         ));
-    app.add_plugins((ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
+    app.add_plugins((ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin, ambition_platformer2d_actor_monolith::character_projection::ActorCharacterPlugin));
     // A2a: the damage-facing publication covers BOSSES as well as ordinary
     // bodies now, and the boss publisher reads the catalog. This fixture has no
     // boss, so the empty catalog is all it owes — but it owes it explicitly
@@ -416,7 +416,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     // the catalog and publish no boss geometry at all, silently.
     app.insert_resource(ambition_boss_encounter::BossCatalog::default());
     // The PRODUCTION registration of the publication, ordering included.
-    crate::features::register_damage_facing_volume_publication(&mut app);
+    crate::world_schedule::register_damage_facing_volume_publication(&mut app);
     let sim = app.sim_schedule();
     app.add_systems(
         sim,

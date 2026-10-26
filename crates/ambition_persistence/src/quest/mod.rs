@@ -454,3 +454,16 @@ mod tests {
 /// Feed a structured quest event into `QuestRegistry`.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
 pub struct QuestAdvanceRequested(pub QuestAdvanceEvent);
+
+/// Set a saved flag and report an enabled flag to quest progression.
+pub fn write_flag(
+    save: &mut crate::save::AmbitionGameSave,
+    quests: &mut crate::quest::QuestRegistry,
+    id: String,
+    on: bool,
+) {
+    if on {
+        quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(id.clone()));
+    }
+    save.data_mut().set_flag(id, on);
+}

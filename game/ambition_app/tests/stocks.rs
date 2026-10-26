@@ -284,7 +284,7 @@ fn a_stop_request_ends_the_match_it_names_and_no_other() {
          below cannot distinguish them"
     );
     app.world_mut().insert_resource(
-        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&other),
+        ambition_platformer2d::runtime::stocks_match::MatchAbandonRequest::stop(&other),
     );
     app.update();
     assert!(
@@ -295,7 +295,7 @@ fn a_stop_request_ends_the_match_it_names_and_no_other() {
 
     // And the live one does end it.
     app.world_mut().insert_resource(
-        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&live),
+        ambition_platformer2d::runtime::stocks_match::MatchAbandonRequest::stop(&live),
     );
     app.update();
     assert_eq!(

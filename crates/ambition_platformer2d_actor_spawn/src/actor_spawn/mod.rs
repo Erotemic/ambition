@@ -1495,6 +1495,9 @@ pub fn spawn_runtime_minion_into(
             mount.saddle,
             mount.back,
             &mount.ledges,
+            &mount.drawn_ledges,
+            mount.saddle_on.as_deref(),
+            published_surfaces_of(definition),
             &mount.slope,
             1.0,
             &mount.pilotable_classes,
@@ -1730,6 +1733,9 @@ pub fn spawn_enemy_with_faction_into(
                 mount.saddle,
                 mount.back,
                 &mount.ledges,
+                &mount.drawn_ledges,
+                mount.saddle_on.as_deref(),
+                published_surfaces_of(definition),
                 &mount.slope,
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
@@ -1882,6 +1888,20 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 /// AC6 deleted the sibling with the rows, so a CHARACTER that states it is rideable is the only
 /// thing that produces a `Mountable` ( group A: the shark family).
 #[allow(clippy::too_many_arguments)]
+/// The standing surfaces `definition`'s sheet publishes, at the scale its
+/// body is drawn at (`ambition_sprite_sheet::surfaces`), or `None` for a body
+/// that is not drawn from its sheet at an authored scale.
+fn published_surfaces_of(
+    definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+) -> Option<std::sync::Arc<ambition_characters::actor::SurfaceTable>> {
+    let sheet = definition.sheet.as_deref()?;
+    let Some(&ambition_characters::actor::definition::BodySource::SpriteAuthored { world_per_pixel }) = definition.body.as_ref()
+    else {
+        return None;
+    };
+    ambition_sprite_sheet::surfaces::published_surfaces(sheet, world_per_pixel).map(std::sync::Arc::new)
+}
+
 fn attach_mount_role_from(
     scope: &mut EntityScope,
     mount_class: Option<&str>,
@@ -1890,6 +1910,9 @@ fn attach_mount_role_from(
     saddle: Option<(f32, f32)>,
     back: Option<ambition_characters::actor::MountBack>,
     ledges: &[ambition_characters::actor::MountBack],
+    drawn_ledges: &[String],
+    saddle_on: Option<&str>,
+    surfaces: Option<std::sync::Arc<ambition_characters::actor::SurfaceTable>>,
     slope: &[(f32, f32)],
     mass: f32,
     pilotable: &[String],
@@ -1921,6 +1944,10 @@ fn attach_mount_role_from(
             scope.insert(ambition_mount::BackLedge {
                 back,
                 ledges: ledges.to_vec(),
+                drawn: drawn_ledges.iter().map(ambition_mount::DrawnLedge::new).collect(),
+                // A drawn ledge with no published surface is not ground.
+                surfaces: surfaces.filter(|_| !drawn_ledges.is_empty()),
+                saddle_on: saddle_on.map(str::to_string),
                 slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
             });
         }

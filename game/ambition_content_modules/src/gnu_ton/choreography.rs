@@ -594,13 +594,90 @@ pub mod arms {
         from + (to - from) * u - Vec2::new(0.0, (std::f32::consts::PI * u).sin() * HOP_HEIGHT)
     }
 
+    /// The places on the giant's back he can stand, from the saddle: each
+    /// shoulder, from its left end to its right end, left first. Over the
+    /// neck between two shoulders is no ground: he hops it (`hop_across`).
+    #[derive(Clone, Debug, Default, PartialEq)]
+    pub struct Shoulders(pub Vec<(f32, f32)>);
+
+    impl Shoulders {
+        /// The ledges of the mount (`[left x, left y, right x, right y]`)
+        /// that are on the line of its back (`[min x, min y, max x, max y]`),
+        /// from `from`. A back with no ledge on its line is one shoulder.
+        pub fn of(ledges: &[[f32; 4]], back: Option<[f32; 4]>, from: Vec2) -> Self {
+            let Some([x0, top, x1, _]) = back else {
+                return Self::default();
+            };
+            let mut out: Vec<(f32, f32)> = ledges
+                .iter()
+                .filter(|[ax, ay, bx, by]| ax.max(*bx) > x0 && ax.min(*bx) < x1 && (ay.min(*by) - top).abs() <= BACK_LINE)
+                .map(|[ax, _, bx, _]| (ax.min(*bx) - from.x, ax.max(*bx) - from.x))
+                .collect();
+            if out.is_empty() {
+                out.push((x0 - from.x, x1 - from.x));
+            }
+            out.sort_by(|a, b| a.0.total_cmp(&b.0));
+            Self(out)
+        }
+
+        /// The shoulder `x` is over, if it is over one.
+        pub fn under(&self, x: f32) -> Option<usize> {
+            self.0.iter().position(|(lo, hi)| (*lo..=*hi).contains(&x))
+        }
+
+        /// The shoulder nearest to `x`.
+        pub fn nearest(&self, x: f32) -> Option<usize> {
+            (0..self.0.len()).min_by(|&a, &b| self.gap_to(a, x).total_cmp(&self.gap_to(b, x)))
+        }
+
+        fn gap_to(&self, i: usize, x: f32) -> f32 {
+            let (lo, hi) = self.0[i];
+            (lo - x).max(x - hi).max(0.0)
+        }
+
+        /// Where he can stand on shoulder `i`: `inset` in from each end (its
+        /// middle when it is narrower than that).
+        pub fn span(&self, i: usize, inset: f32) -> (f32, f32) {
+            let (lo, hi) = self.0[i];
+            if hi - lo > 2.0 * inset {
+                (lo + inset, hi - inset)
+            } else {
+                let mid = (lo + hi) * 0.5;
+                (mid, mid)
+            }
+        }
+
+        /// The place nearest to `x` that he can stand on, `inset` in.
+        pub fn nearest_place(&self, x: f32, inset: f32) -> f32 {
+            self.nearest(x).map_or(x, |i| {
+                let (lo, hi) = self.span(i, inset);
+                x.clamp(lo, hi)
+            })
+        }
+    }
+
+    /// A ledge is on the line of the back when its top is this near the
+    /// back's top (a drawn shoulder leans and lifts by less).
+    pub const BACK_LINE: f32 = 60.0;
+    /// A hop over the neck from one shoulder to the other: its time and how
+    /// high it goes. A real jump: across at one speed, up and down on a
+    /// parabola.
+    pub const HOP_ACROSS: f32 = 0.5;
+    pub const HOP_ACROSS_HEIGHT: f32 = 64.0;
+
+    /// Where he is at `u` (0 to 1) of a hop from `from` to `to`.
+    pub fn hop_across(from: Vec2, to: Vec2, u: f32) -> Vec2 {
+        let u = u.clamp(0.0, 1.0);
+        from + (to - from) * u - Vec2::new(0.0, 4.0 * HOP_ACROSS_HEIGHT * u * (1.0 - u))
+    }
+
     /// The back is a platform, and on it he is a fighter: he goes to the
     /// player, he rolls through him, a blow launches him, and he comes back
     /// when it throws him off. The numbers of that.
     ///
     /// He goes to a player that is out of his reach at `WALK`, and at `RUN`
     /// from farther than `RUN_FROM`. He comes no nearer than `EDGE` to an end
-    /// of the back.
+    /// of a shoulder.
     pub const WALK: f32 = 120.0;
     pub const RUN: f32 = 270.0;
     pub const RUN_FROM: f32 = 200.0;

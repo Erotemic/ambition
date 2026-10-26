@@ -45,6 +45,7 @@ pub mod frame_space;
 pub use frame_space::{art_is_mirrored, frame_at, FrameToBody, SampledBox};
 
 pub mod baked_body_rigs;
+pub mod surfaces;
 pub mod baked_landmarks;
 // The scan of the published tree; `build.rs` includes the same file, and
 // reaches the two schema modules as `super::published` and
@@ -561,7 +562,10 @@ pub struct FrameRect {
     pub off: (i32, i32),
     /// Per-frame named anchors emitted by `frame_meta_fn` (e.g.
     /// `hand_anchor`, `muzzle_anchor`). Generators that don't use
-    /// `frame_meta_fn` leave this empty.
+    /// `frame_meta_fn` leave this empty. Two families are read by name: a
+    /// portal SEAM of a limb (`seam:<slot>:a` / `:b`, presentation) and a
+    /// standing SURFACE (`surface:<name>:a` / `:b`, simulation:
+    /// [`crate::surfaces`]; the sheet's mechanical projection carries it).
     #[serde(default)]
     /// A `BTreeMap` for the same reason as [`BodyMetrics::animations`]:
     /// deterministic iteration order.

@@ -544,7 +544,9 @@ fn hall_of(r: &mut WireReader<'_>) -> Result<Option<RoomHall>, WireError> {
 /// * **Operation** — the body the boss rides (its `RidingOn`): where it is,
 ///   how fast it moves, its size, the side it faces and whether its art
 ///   turns with it; its back, when its character authors one
-///   (`ambition_mount::BackLedge`), as a world box; the floor and walls
+///   (`ambition_mount::BackLedge`), as a world box, and each ledge of
+///   one-way ground in it where it is now (a ledge that follows the art
+///   where the art has put it); the floor and walls
 ///   under it in its own live room; and its limbs (its `LimbRig`), each with
 ///   where it is, its size, where it rests about the mount
 ///   (`Limb::home_offset`), the health it lost since it was last full,
@@ -555,7 +557,8 @@ fn hall_of(r: &mut WireReader<'_>) -> Result<Option<RoomHall>, WireError> {
 /// * **Time** — `boss_conduct`, at the read cut: after the riders are
 ///   synced to their mounts.
 /// * **Read model** — world units, +Y down; a box is `[min x, min y, max x,
-///   max y]`. Limbs are in the rig's slot order.
+///   max y]`, a ledge is a line `[left x, left y, right x, right y]`. Limbs
+///   are in the rig's slot order.
 /// * **Absence** — no value when the boss rides nothing, or its mount has no
 ///   body. `back` is `None` for a mount whose character authors no back;
 ///   `hall` is `None` when the room cannot be told or has no floor under it.
@@ -596,12 +599,16 @@ pub struct MountView {
     /// Its art does not turn with it (`Unmirrored`).
     pub unmirrored: bool,
     pub back: Option<[f32; 4]>,
+    /// Each ledge of one-way ground of its back where it is now, as a line
+    /// from its left end to its right end: where a body can stand on it.
+    /// Empty for a mount whose character authors no back.
+    pub ledges: Vec<[f32; 4]>,
     pub hall: Option<RoomHall>,
     pub limbs: Vec<MountLimb>,
 }
 
 impl Port for MountViewPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.mount", 3);
+    const KEY: PortKey = PortKey::new("ambition.boss.mount", 4);
     const ROLE: PortRole = PortRole::Observation;
     type Value = MountView;
 
@@ -616,6 +623,12 @@ impl Port for MountViewPort {
                 wire::put_f32(out, c);
             }
         });
+        wire::put_u32(out, v.ledges.len() as u32);
+        for ledge in &v.ledges {
+            for c in ledge {
+                wire::put_f32(out, *c);
+            }
+        }
         put_hall(out, v.hall);
         wire::put_u32(out, v.limbs.len() as u32);
         for limb in &v.limbs {
@@ -637,6 +650,11 @@ impl Port for MountViewPort {
         let facing = r.f32()?;
         let unmirrored = r.bool()?;
         let back = r.opt(|r| Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?]))?;
+        let ledge_count = r.u32()?;
+        let mut ledges = Vec::new();
+        for _ in 0..ledge_count {
+            ledges.push([r.f32()?, r.f32()?, r.f32()?, r.f32()?]);
+        }
         let hall = hall_of(r)?;
         let count = r.u32()?;
         let mut limbs = Vec::new();
@@ -652,7 +670,7 @@ impl Port for MountViewPort {
                 struck: r.u32()?,
             });
         }
-        Ok(MountView { position, velocity, size, facing, unmirrored, back, hall, limbs })
+        Ok(MountView { position, velocity, size, facing, unmirrored, back, ledges, hall, limbs })
     }
 }
 
@@ -1140,11 +1158,12 @@ mod tests {
             facing: -1.0,
             unmirrored: true,
             back: Some([692.0, 1030.25, 1069.0, 1044.25]),
+            ledges: vec![[692.0, 1030.25, 800.0, 1030.25], [960.0, 1028.0, 1069.0, 1032.0]],
             hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
             limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, contact: None, struck: 0, ..fist }],
         };
         assert_eq!(round::<MountViewPort>(&view), view);
-        let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };
+        let bare = MountView { back: None, ledges: Vec::new(), hall: None, limbs: Vec::new(), ..view };
         assert_eq!(round::<MountViewPort>(&bare), bare);
         for flinchless in [false, true] {
             let launch = MountLaunch { velocity: [0.0, -520.0], flinchless };

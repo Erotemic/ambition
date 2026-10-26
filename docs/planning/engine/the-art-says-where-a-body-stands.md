@@ -5,7 +5,22 @@ work that put it in was "fine for now"; the debts are to be written down,
 with the architecture they should have, so that an agent can make it right
 later. The content of the fight comes first.
 
-Status of each debt: OPEN. Nothing here is built.
+Status of each debt: OPEN, except as the receipts below say.
+
+**Built 2026-10-25 (Jon: "let's make it possible for platforms to follow the
+art"): standing surfaces per frame (A `ground`, B for flat lines).** A sheet
+publishes a standing surface as two anchors of each frame,
+`surface:<name>:a` and `:b` (left end first, parts of the frame, as the
+portal seams `seam:<slot>:a` / `:b` are); the sheet's mechanical digest
+carries them (`ambition_sprite_sheet::surfaces`). A mount's
+`drawn_ledges` names surfaces; `BackLedge` holds the table and, per ledge,
+where it was drawn at the end of the last tick and the tick before
+(rollback state, read after every row pin: `follow_drawn_ledges`). The
+ground is a one-way line moved by the mount's step and the drawing's.
+`SurfaceTable::segment` puts a surface at its frame in the middle of the
+frame's time and goes smoothly to the next. The giant's two shoulders are
+the first (`giant_art.surfaces`). `mount.back` is now a span, not ground.
+Tests: `gnu_ton_fight::a_body_on_a_shoulder_rides_it_through_the_giants_blows`.
 
 ## The rule the debts break
 

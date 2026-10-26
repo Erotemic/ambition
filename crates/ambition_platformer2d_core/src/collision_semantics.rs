@@ -222,9 +222,16 @@ pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32)) -> bool 
 /// toward its feet, have started on the passable (anti-gravity) side within
 /// [`ONE_WAY_CROSSING_SLOP`], and share perpendicular overlap. `drop_through`
 /// — or absent gravity — suppresses the landing so the body falls through.
+///
+/// `block_velocity` is how far the surface moved this tick
+/// ([`crate::world::Block::velocity`]). A surface that rose toward the body
+/// is crossed from where it WAS: a body that stood on it is still on its
+/// passable side, however fast it rose (a giant's shoulder that lifts under
+/// the body on it), and is not dropped through it.
 pub fn one_way_landing_from_previous_feet(
     body: Aabb,
     block: Aabb,
+    block_velocity: Vec2,
     delta: Vec2,
     gravity_dir: Vec2,
     drop_through: bool,
@@ -233,8 +240,9 @@ pub fn one_way_landing_from_previous_feet(
     if drop_through || gravity_dir == Vec2::ZERO {
         return false;
     }
+    let rose = (-block_velocity.dot(gravity_dir)).max(0.0);
     moving_toward_feet(delta, gravity_dir)
-        && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
+        && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP + rose
         && perpendicular_overlap(body, block, gravity_dir)
 }
 

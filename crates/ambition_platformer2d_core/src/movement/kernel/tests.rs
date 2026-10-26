@@ -1749,3 +1749,12 @@ fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
         "(airborne, pushed, hit, landed): the grabs left counted"
     );
 }
+
+/// A body taller than it is wide rides a circle whose bottom is the bottom of
+/// its box, so its feet are on the surface it rides. On the smaller
+/// half-extent a 30x48 body (Sanic, 2026-09-24) stood 9 units into the track.
+#[test]
+fn a_tall_body_rides_a_circle_whose_bottom_is_its_feet() {
+    let size = Vec2::new(30.0, 48.0);
+    assert_eq!(surface_ride_radius(size), size.y * 0.5);
+}

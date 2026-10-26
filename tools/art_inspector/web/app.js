@@ -410,7 +410,7 @@
     }
     const files = Object.entries(w.files);
     return `<section class="box"><h2>Authorship of the generator</h2>
-      <p>${confChip(w.confidence)} ${fmt(w.lines)} lines in ${files.length} file${files.length === 1 ? "" : "s"} at renderer <code>${esc(w.commit.slice(0, 10))}</code> (files from ${esc(w.files_from || w.found_by)}). Each line's commit names its author: a ledger session (measured), a <code>Co-Authored-By</code> trailer (declared), a model named in the message, or, when no model signed the commit, GPT (inferred: Claude Code signs its commits, GPT mostly does not).</p>
+      <p>${confChip(w.confidence)} ${fmt(w.lines)} lines in ${files.length} file${files.length === 1 ? "" : "s"} at renderer <code>${esc(w.commit.slice(0, 10))}</code> (files from ${esc(w.files_from || w.found_by)}). Each line's commit names its author: a ledger session (measured), a <code>Co-Authored-By</code> trailer (declared), a model named in the message, or, when no model signed the commit, GPT (no trailer: Claude Code signs its commits, GPT does not).</p>
       ${rows.length ? `<div class="tablebox"><table><tr><th>part</th><th>author</th><th class="num">lines</th><th class="num">share</th><th>basis</th><th>commits</th></tr>${rows.join("")}</table></div>` : '<p class="empty">No generator file found.</p>'}
       ${files.length ? `<details><summary>${files.length} files</summary>${files.map(([f, n]) => `<div>${source("tools/ambition_sprite2d_renderer/" + f)} <span class="controls">${fmt(n)} lines</span></div>`).join("")}</details>` : ""}</section>`;
   }

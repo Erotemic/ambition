@@ -100,14 +100,15 @@ pub struct CharacterMount {
     /// `false`: the hands are the mount's own, ridden or not.
     #[serde(default)]
     pub rider_conducts: bool,
-    /// The mount's back is one-way ground while it is ridden: a body can climb
-    /// onto it to reach the rider. `None` = its back is not ground.
+    /// The span of the mount's back: what a rider's conductor reads as "on
+    /// its back" while it is ridden. It is NOT ground by itself: a body
+    /// stands on the `ledges` and the `slope` in it. `None` = the mount has
+    /// no back to climb, and its `ledges` and `slope` are not ground.
     #[serde(default)]
     pub back: Option<MountBack>,
-    /// More one-way ground on a mount that has a `back`: each place its art
-    /// shows that a body can stand (the steps of a sloped back, the level
-    /// part of a horn). The `back` is the one a rider's conductor reads as
-    /// "on its back"; these are ground and no more.
+    /// The one-way ground of a mount that has a `back`, while it is ridden:
+    /// each place its art shows that a body can stand (a shoulder, the level
+    /// part of a horn). A gap between two ledges is not ground.
     #[serde(default)]
     pub ledges: Vec<MountBack>,
     /// A slope of the mount that a body walks while it is ridden (the rump up
@@ -118,9 +119,9 @@ pub struct CharacterMount {
     pub slope: Vec<(f32, f32)>,
 }
 
-/// A mount's back as one-way ground, in world units about the mount's centre
-/// (+y down), authored for a mount FACING RIGHT and mirrored with the side it
-/// is drawn facing, as [`CharacterMount::saddle`] is.
+/// A span of a mount (its back, or a ledge of one-way ground), in world units
+/// about the mount's centre (+y down), authored for a mount FACING RIGHT and
+/// mirrored with the side it is drawn facing, as [`CharacterMount::saddle`] is.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MountBack {

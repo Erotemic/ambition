@@ -662,38 +662,106 @@ fn a_body_stands_where_the_giant_has_moss() {
     }
 }
 
-/// The slope of the giant's back is walked, not hopped: from the rump up to
-/// the shoulders with no tick in the air (it was ten steps a body hopped).
+fn player_on_ground(sim: &mut Platformer2dSimHarness) -> bool {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&ae::BodyGroundState, PrimaryPlayerOnly>();
+    q.iter(world).next().expect("the player").on_ground
+}
+
+/// The hump of the giant's back is walked, not hopped: from the rump up to
+/// where the torso covers it with no tick in the air. From there the
+/// shoulders are a double jump up (Jon, 2026-10-25: the back is a hump that
+/// joins a centaur-like torso, and the way up to the shoulders must not be
+/// hard): a body that walks the hump and jumps twice stands on them.
 #[test]
-fn a_body_walks_up_the_giants_back_to_his_shoulders() {
+fn a_body_walks_up_the_giants_hump_and_jumps_to_his_shoulders() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     let s = scene(&mut sim);
-    let slope = s.giant_back.slope_line(&s.giant, s.giant_unmirrored).expect("the giant's back has a slope");
+    let slope = s.giant_back.slope_line(&s.giant, s.giant_unmirrored).expect("the giant's back has a hump");
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
-    // The low end of the slope is the rump; walk toward the high end.
+    // The rump is the low end; the end the torso covers is under the
+    // shoulders.
     let (low, high) = if slope[0].y > slope[slope.len() - 1].y { (slope[0], slope[slope.len() - 1]) } else { (slope[slope.len() - 1], slope[0]) };
     let toward = (high.x - low.x).signum();
+    let crest = slope.iter().map(|p| p.y).fold(f32::MAX, f32::min);
+    assert!(
+        (back.min.x..=back.max.x).contains(&high.x),
+        "the premise: the hump ends under the shoulders {back:?}, at {high:?}"
+    );
     place_player(&mut sim, ae::Vec2::new(low.x + toward * 30.0, low.y - 60.0));
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }
+    // Walk to the end of the hump, and stop on it.
     let mut airborne = 0;
+    let mut at_end = false;
     for _ in 0..240 {
         sim.step(AgentAction { move_x: toward, ..AgentAction::default() });
-        let (kin, _) = player(&mut sim);
-        let world = sim.world_mut();
-        let mut q = world.query_filtered::<&ae::BodyGroundState, PrimaryPlayerOnly>();
-        if !q.iter(world).next().expect("the player").on_ground {
+        if !player_on_ground(&mut sim) {
             airborne += 1;
         }
-        if (kin.pos.y + kin.size.y * 0.5 - back.min.y).abs() < 2.0 && kin.pos.x > back.min.x && kin.pos.x < back.max.x {
-            assert_eq!(airborne, 0, "the walk up the slope left the ground {airborne} ticks");
-            return;
+        // The giant may walk between his blows: its hump where it is now.
+        let now = scene(&mut sim);
+        let shift = now.giant.pos - s.giant.pos;
+        let (kin, _) = player(&mut sim);
+        if (high.x + shift.x - kin.pos.x) * toward < 24.0 {
+            at_end = true;
+            break;
         }
     }
     let (kin, _) = player(&mut sim);
-    panic!("the body did not reach the giant's shoulders: it is at {:?}, the back at {back:?}", kin.pos);
+    assert!(at_end, "the body did not walk to the end of the hump: it is at {:?}, the hump ends at {high:?}", kin.pos);
+    assert_eq!(airborne, 0, "the walk up the hump left the ground {airborne} ticks");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let (kin, _) = player(&mut sim);
+    let start_feet = kin.pos.y + kin.size.y * 0.5;
+    assert!(player_on_ground(&mut sim), "the premise: the body stands on the end of the hump");
+    let now = scene(&mut sim);
+    let back = now.giant_back.aabb(&now.giant, now.giant_unmirrored);
+    println!(
+        "hump: the shoulders are {:.1} over the end of the hump ({:.1} over its crest); the body is {:.1} tall",
+        start_feet - back.min.y,
+        crest - back.min.y,
+        kin.size.y
+    );
+
+    // Two jumps, straight up and on toward the shoulders.
+    let press = AgentAction { move_x: toward, jump: true, jump_held: true, ..AgentAction::default() };
+    let held = AgentAction { move_x: toward, jump_held: true, ..AgentAction::default() };
+    let mut highest = start_feet;
+    let mut single_rise = 0.0;
+    for jump in 0..2 {
+        sim.step(press.clone());
+        for _ in 0..(if jump == 0 { 22 } else { 60 }) {
+            sim.step(held.clone());
+            let (kin, _) = player(&mut sim);
+            let feet = kin.pos.y + kin.size.y * 0.5;
+            highest = highest.min(feet);
+            if jump == 1 && player_on_ground(&mut sim) {
+                break;
+            }
+        }
+        if jump == 0 {
+            single_rise = start_feet - highest;
+        }
+    }
+    let (kin, _) = player(&mut sim);
+    let feet = kin.pos.y + kin.size.y * 0.5;
+    let now = scene(&mut sim);
+    let back = now.giant_back.aabb(&now.giant, now.giant_unmirrored);
+    println!(
+        "hump: one jump rose {single_rise:.1}, two rose {:.1}; the body ended with its feet at {feet:.1}, the shoulders' top at {:.1}",
+        start_feet - highest,
+        back.min.y
+    );
+    assert!(
+        (feet - back.min.y).abs() < 2.0 && (back.min.x..=back.max.x).contains(&kin.pos.x),
+        "two jumps from the end of the hump did not put the body on the shoulders {back:?}: it is at {:?}, feet at {feet}",
+        kin.pos
+    );
 }
 
 /// Hit him from the gnu's back and the gnu answers at once: it throws you off.

@@ -119,17 +119,8 @@ pub fn dialog_pointer_input(
     // A touch device never writes the window cursor, so `RowPress`'s drag test
     // reads the finger's position instead. Also read the just-released finger:
     // on the frame it lifts, Bevy has already removed it from `pressed`.
-    let pointer_position = touches
-        .as_deref()
-        .and_then(|touches| {
-            touches
-                .iter()
-                .next()
-                .or_else(|| touches.iter_just_released().next())
-                .map(|touch| touch.position())
-        })
-        .or(cursor_position);
-    let pointer_up = resolve_pointer_up(touches.as_deref(), mouse_buttons.as_deref());
+    let pointer_position = ambition_ui_nav::pointer_position(touches.as_deref(), cursor_position);
+    let pointer_up = ambition_ui_nav::pointer_up(touches.as_deref(), mouse_buttons.as_deref());
 
     let option_count = dialogue.options().len();
     for (interaction, slot) in &choices {
@@ -234,7 +225,7 @@ pub fn dialog_pointer_input(
             // A touch that came up this frame tells them apart. A mouse release over
             // the pressed row reports `Hovered`, so a mouse `None` is always a leave.
             Interaction::None => {
-                if pointer_up != PointerUp::Touch {
+                if pointer_up != ambition_ui_nav::PointerUp::Touch {
                     // Only the armed row can be left. Asked first: each rebuilt
                     // row arrives as `None`, and a write would rebuild the box.
                     if dialogue.row_press.armed() == Some(&index) {
@@ -254,72 +245,6 @@ pub fn dialog_pointer_input(
 
 #[cfg(not(feature = "input"))]
 pub fn dialog_pointer_input() {}
-
-/// Whether a pointer actually came UP this frame, and which one.
-///
-/// Bevy's `Interaction` carries no release event, so every activation rule here
-/// has to ask the live input state instead. The two answers are not
-/// interchangeable: a mouse release over the row it pressed arrives as
-/// `Hovered`, a finger lift arrives as `None`.
-#[cfg(feature = "input")]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PointerUp {
-    /// A finger came up this frame and none is left down.
-    Touch,
-    /// A mouse button was released this frame.
-    Mouse,
-    /// Whatever moved this row, it was not a pointer coming up.
-    Nothing,
-    /// Neither backend is present to ask.
-    Unknown,
-}
-
-#[cfg(feature = "input")]
-impl PointerUp {
-    /// Did a pointer come up — treating "cannot say" as yes.
-    ///
-    ///  this is the direction [`ambition_ui_nav::RowPress::origin`] already argues for: *no
-    /// position is not evidence of a drag*.
-    ///
-    ///  the `Interaction::None` arm deliberately does NOT use this. There,
-    /// "cannot say" resolves the other way, and for a reason rather than a
-    /// convention: no `Touches` means no touch backend, so no finger can have
-    /// lifted, so the only pointer that could have produced `None` is a mouse
-    /// leaving the row.
-    fn came_up(self) -> bool {
-        !matches!(self, Self::Nothing)
-    }
-}
-
-/// Classify the frame's release edge from the live input resources.
-///
-/// Both arguments are `None` when the backend is absent, which is a different
-/// answer from "present and quiet" — see [`PointerUp::came_up`].
-#[cfg(feature = "input")]
-fn resolve_pointer_up(
-    touches: Option<&Touches>,
-    mouse_buttons: Option<&ButtonInput<MouseButton>>,
-) -> PointerUp {
-    //  the lift must be the LAST finger up. Bevy's own focus system forces
-    // every pressed node to `None` on any `any_just_released()` frame, so with a
-    // second finger still down that `None` says nothing about the row's own
-    // finger. Requiring the screen to be empty keeps a multi-touch frame from
-    // activating a row nobody released.
-    let touch_lifted = touches.map(|touches| {
-        touches.iter_just_released().next().is_some() && touches.iter().next().is_none()
-    });
-    let mouse_released = mouse_buttons.map(|buttons| buttons.get_just_released().next().is_some());
-
-    if touch_lifted == Some(true) {
-        PointerUp::Touch
-    } else if mouse_released == Some(true) {
-        PointerUp::Mouse
-    } else if touch_lifted.is_none() && mouse_released.is_none() {
-        PointerUp::Unknown
-    } else {
-        PointerUp::Nothing
-    }
-}
 
 /// Resolve the configured pointer policy for the device that actually issued
 /// the interaction.

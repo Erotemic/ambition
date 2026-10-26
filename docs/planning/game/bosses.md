@@ -1024,10 +1024,14 @@ it was. The fight was not tuned again for this: that is the rework.
 
 **The body.** A giant like a gnu, almost a centaur: a beast on four long
 legs, a chest that stands up at its front, two arms to two fists, a gnu's
-horns. Its back is a slope from a low rump to the left shoulder, not a flat
-floor. It has two stances: on all fours, and reared up (the slope steeper,
-the shoulders higher). Moss shows where an actor can stand (the slope, the
-level part of each horn); each shoulder has an epaulet.
+horns. Its back is a low hump from the rump to the foot of an upright,
+centaur-like torso; the torso leans over the hump and the hump does not lean
+with it (Jon, 2026-10-25). The hump ends under the left shoulder, about 93 under
+the shoulders' top: a double jump goes up through the one-way shoulders
+(`gnu_ton_fight::a_body_walks_up_the_giants_hump_and_jumps_to_his_shoulders`).
+It has two stances: on all fours, and reared up (the hump steeper, the
+shoulders higher). Moss shows where an actor can stand (the hump, the level
+part of each horn); each shoulder has an epaulet.
 
 **The fight Jon proposed.**
 

@@ -1889,14 +1889,16 @@
                     (left: 28.3, right: 76.3, top: -417.4, thickness: 12.0),
                     (left: 221.4, right: 269.4, top: -417.4, thickness: 12.0),
                 ],
-                // And the slope of its back, from the rump up to the left
-                // shoulder, where the back begins: one line a body walks up
-                // (`walkable_lines`; until 2026-10-15 ten steps a body hopped).
-                // The points are where the steps of the drawing turn.
+                // And the hump of its back, from the rump up to its crest and
+                // on to where the torso covers it: one line a body walks
+                // (`walkable_lines`). It ends under the left end of the
+                // shoulders, about 93 lower: a double jump goes up through the
+                // one-way shoulders onto them. The points are the renderer's
+                // `giant_art.hump_line_world()`: change the two together.
                 slope: [
-                    (-294.4, -27.0), (-266.9, -39.3), (-239.3, -55.1), (-211.8, -73.3),
-                    (-184.2, -93.5), (-156.7, -115.3), (-129.1, -138.6), (-101.5, -163.1),
-                    (-74.0, -188.9), (-46.4, -215.7), (-14.0, -232.05),
+                    (-294.4, -25.7), (-263.8, -50.6), (-233.1, -74.4), (-202.4, -95.8),
+                    (-171.7, -113.9), (-141.1, -127.8), (-110.4, -136.8), (-79.7, -140.5),
+                    (-49.0, -140.4), (-18.3, -139.3), (12.3, -137.4),
                 ],
                 // Whoever rides it conducts its fists and chooses its rows: in
                 // the arena, the fists are GNU-ton's.

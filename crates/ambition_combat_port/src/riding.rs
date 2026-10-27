@@ -19,10 +19,9 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   its hitboxes refused.
 /// * **Time** — offered in `boss_conduct`; the hitbox exists for this tick's
 ///   combat.
-/// * **Read model** — world units, +Y down; a launch's `x` is AWAY from the
-///   hitbox's source (the side of the owner the struck body is on), whichever
-///   way the owner faces. The engine lowers it to a world direction when the
-///   hitbox lands (`HitboxLaunch::AwayFromSource`).
+/// * **Read model** — world units, +Y down. The launch declares either world
+///   axes or an X axis away from the source. The engine resolves it when the
+///   hitbox lands.
 pub struct RidingHitboxPort;
 
 /// How a riding hitbox launches what it hits.
@@ -41,13 +40,13 @@ pub struct RidingHitbox {
     pub circle_radius: Option<f32>,
     pub damage: i32,
     pub knockback: RidingKnockback,
-    pub launch_dir: Option<[f32; 2]>,
+    pub launch_dir: Option<crate::LaunchDirection>,
     pub lifetime_s: f32,
     pub name: String,
 }
 
 impl Port for RidingHitboxPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.riding_hitbox", 1);
+    const KEY: PortKey = PortKey::new("ambition.combat.riding_hitbox", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = RidingHitbox;
 
@@ -67,7 +66,7 @@ impl Port for RidingHitboxPort {
                 wire::put_opt(out, growth, wire::put_f32);
             }
         }
-        wire::put_opt(out, v.launch_dir, wire::put_vec2);
+        wire::put_opt(out, v.launch_dir, |out, direction| direction.put(out));
         wire::put_f32(out, v.lifetime_s);
         wire::put_str(out, &v.name);
     }
@@ -91,7 +90,7 @@ impl Port for RidingHitboxPort {
             circle_radius,
             damage,
             knockback,
-            launch_dir: r.opt(WireReader::vec2)?,
+            launch_dir: r.opt(crate::LaunchDirection::read)?,
             lifetime_s: r.f32()?,
             name: r.str()?.to_owned(),
         })
@@ -245,7 +244,7 @@ mod tests {
                 circle_radius: Some(34.0),
                 damage: 2,
                 knockback,
-                launch_dir: Some([-0.5, -0.87]),
+                launch_dir: Some(crate::LaunchDirection::AwayFromSource([-0.5, -0.87])),
                 lifetime_s: 0.3,
                 name: "fsm_grasp".into(),
             };

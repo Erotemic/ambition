@@ -2718,33 +2718,30 @@ fn apply_capture_snapshot(
     // `CameraViewState` is a component on the local view. A capture app
     // stages one view, so write that one.
     mut view_states: Query<
-        (Entity, &mut CameraViewState),
+        (
+            Entity,
+            &mut CameraViewState,
+            &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot,
+        ),
         With<ambition_platformer2d::sim_view::LocalView>,
     >,
-    // The sim body, not the render visual. `PlayerVisual` is a render-side
-    // marker on an entity with no kinematics, so querying it would never
-    // match and `player` focus would fall back to the origin.
-    // With its standing size, so a crouch is framed as the game frames it
-    // (`CameraFocus2d::stable_center`), not as a step down.
-    player_q: Query<
-        (&ambition_platformer2d::actor::BodyKinematics, Option<&ae::BodyBaseSize>),
-        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-    >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
-    host_view: Option<ResMut<ambition_platformer2d::portal_presentation::PortalCameraContinuityHostView>>,
-    mut observer_views: Option<ResMut<ambition_platformer2d::portal_presentation::PortalObserverViews>>,
+    host_view: Option<
+        ResMut<ambition_platformer2d::portal_presentation::PortalCameraContinuityHostView>,
+    >,
+    mut observer_views: Option<
+        ResMut<ambition_platformer2d::portal_presentation::PortalObserverViews>,
+    >,
     portals: Query<&ambition_platformer2d::portal::PlacedPortal>,
     tuning: Option<Res<ambition_platformer2d::portal::PortalTuning>>,
 ) {
+    // Player focus retains the live camera and its presentation effects.
+    if config.follow_player && !config.fit_room && config.seam.is_none() {
+        return;
+    }
     let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
-    // A fixed focus is a point; a followed player is its body.
-    let followed = player_q.iter().next().filter(|_| config.follow_player);
-    let (focus_center, focus_size, focus_base) = match followed {
-        Some((kin, base)) => (kin.pos, kin.size, base.map_or(kin.size, |b| b.base_size)),
-        None => (config.focus, ae::Vec2::new(30.0, 48.0), ae::Vec2::new(30.0, 48.0)),
-    };
     // `--fit-room`: the whole room, centred, scaled to fit. The resolver below
     // clamps to the room and to camera zones, so it cannot give a wide shot.
     if config.fit_room {
@@ -2766,41 +2763,51 @@ fn apply_capture_snapshot(
         return;
     }
 
-    let snapshot = resolve_follow_camera_snapshot(
-        CameraSnapshotResolveInput {
-            world: &world.0,
-            camera_zones: &active_spec.camera_zones,
-            focus: CameraFocus2d {
-                center_world: focus_center,
-                tick_center_world: focus_center,
-                size: focus_size,
-                base_size: focus_base,
-                facing: 1.0,
-                velocity_world: ae::Vec2::ZERO,
+    // Player focus uses the live frame, including companions and easing.
+    // A fixed focus resolves a point at the requested coordinates.
+    let snapshot = if config.follow_player {
+        let Some(frame) = view_states
+            .iter()
+            .find_map(|(_, _, resolved)| resolved.frame())
+        else {
+            return;
+        };
+        frame.snapshot.clone()
+    } else {
+        resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world: &world.0,
+                camera_zones: &active_spec.camera_zones,
+                focus: CameraFocus2d {
+                    center_world: config.focus,
+                    tick_center_world: config.focus,
+                    size: ae::Vec2::new(30.0, 48.0),
+                    base_size: ae::Vec2::new(30.0, 48.0),
+                    facing: 1.0,
+                    velocity_world: ae::Vec2::ZERO,
+                },
+                base_view,
+                viewport_px: ae::Vec2::new(config.size.x as f32, config.size.y as f32),
+                aspect_policy: user_settings.video.camera_aspect,
+                framing: user_settings.video.camera_framing,
+                overview_scale: 1.0,
+                encounter_scale: 1.0,
+                overview_camera: false,
+                snap_camera: true,
+                blink: None,
+                dt: 0.0,
+                mode: CameraSnapshotResolveMode::Instant,
+                extra_clamp_center_world: None,
+                chart_transit: None,
+                must_frame_world: None,
+                ease_tuning: *ease_tuning,
+                screen_framing: None,
+                reference_frame: Default::default(),
+                subject_down: None,
             },
-            base_view,
-            viewport_px: ae::Vec2::new(config.size.x as f32, config.size.y as f32),
-            aspect_policy: user_settings.video.camera_aspect,
-            framing: user_settings.video.camera_framing,
-            overview_scale: 1.0,
-            encounter_scale: 1.0,
-            overview_camera: false,
-            snap_camera: true,
-            blink: None,
-            dt: 0.0,
-            mode: CameraSnapshotResolveMode::Instant,
-            extra_clamp_center_world: None,
-            chart_transit: None,
-            // This path bypasses the live resolve. A captured match goes
-            // through `resolve_camera_observation`, which frames the cast.
-            must_frame_world: None,
-            ease_tuning: *ease_tuning,
-            screen_framing: None,
-            reference_frame: Default::default(),
-            subject_down: None,
-        },
-        None,
-    );
+            None,
+        )
+    };
 
     let x = snapshot.center_world.x - world.0.size.x * 0.5;
     let y = world.0.size.y * 0.5 - snapshot.center_world.y;
@@ -2810,7 +2817,7 @@ fn apply_capture_snapshot(
     // sample (`PortalObserverViews`), so pin both. A window drawn for the
     // follow camera's centre shows its far side's backdrop for the wrong eye
     // (29 px off on the c146/c147 corridor, 2026-10-16).
-    for (view_entity, mut view_state) in &mut view_states {
+    for (view_entity, mut view_state, _) in &mut view_states {
         *view_state = CameraViewState::from(&snapshot);
         if let Some(observer_views) = observer_views.as_deref_mut() {
             let view = observer_views.of_mut(view_entity);
@@ -2834,9 +2841,18 @@ fn apply_capture_snapshot(
         None => (x, y, snapshot.rotation_radians),
         Some(seam) => {
             let portals: Vec<_> = portals.iter().cloned().collect();
-            let convention = tuning.as_deref().map(|t| t.convention.map_convention()).unwrap_or_default();
+            let convention = tuning
+                .as_deref()
+                .map(|t| t.convention.map_convention())
+                .unwrap_or_default();
             let Some(through) = seam.pick(&portals).ok().and_then(|portal| {
-                camera_through(&portals, portal, convention, snapshot.center_world, snapshot.rotation_radians)
+                camera_through(
+                    &portals,
+                    portal,
+                    convention,
+                    snapshot.center_world,
+                    snapshot.rotation_radians,
+                )
             }) else {
                 return;
             };

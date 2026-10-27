@@ -272,6 +272,13 @@ impl ae::snapshot::SnapshotCursor for HeldDamageBoxes {
     }
 }
 
+fn port_launch_direction(direction: ambition_combat_port::LaunchDirection) -> crate::strike::HitboxLaunch {
+    match direction {
+        ambition_combat_port::LaunchDirection::World(dir) => crate::strike::HitboxLaunch::World(ae::Vec2::from(dir)),
+        ambition_combat_port::LaunchDirection::AwayFromSource(dir) => crate::strike::HitboxLaunch::AwayFromSource(ae::Vec2::from(dir)),
+    }
+}
+
 /// One held volume a module asked for this tick: a box, or a ray cast now.
 struct AskedHeld {
     scope: Entity,
@@ -284,6 +291,7 @@ struct AskedHeld {
     ray: Option<crate::strike::RayStrike>,
     damage: i32,
     knockback: f32,
+    launch_dir: Option<ambition_combat_port::LaunchDirection>,
     lifetime_s: f32,
 }
 
@@ -360,6 +368,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             ray: None,
             damage: s.value.damage,
             knockback: s.value.knockback,
+            launch_dir: None,
             lifetime_s: s.value.lifetime_s,
         })
         .collect();
@@ -383,6 +392,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             ray: Some(ray),
             damage: s.value.damage,
             knockback: s.value.knockback,
+            launch_dir: s.value.launch_dir,
             lifetime_s: s.value.lifetime_s,
         });
     }
@@ -437,6 +447,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
                 .map(|r| r.entity);
             if let Some((mut hitbox, ray)) = entity.and_then(|e| hitboxes.get_mut(e).ok()) {
                 hitbox.anchor = crate::strike::HitboxAnchor::World { center: s.center };
+                hitbox.launch_dir = s.launch_dir.map(port_launch_direction);
                 if let (Some(mut held_ray), Some(cast)) = (ray, &s.ray) {
                     hitbox.shape = s.shape.clone();
                     hitbox.half_extent = s.half_extent;
@@ -469,6 +480,11 @@ fn lower_held_damage_boxes<P: LowersIn>(
                 name: None,
             },
         );
+        if let Some(direction) = s.launch_dir {
+            commands.entity(entity).entry::<crate::strike::Hitbox>().and_modify(move |mut hitbox| {
+                hitbox.launch_dir = Some(port_launch_direction(direction));
+            });
+        }
         if let Some(ray) = &s.ray {
             commands.entity(entity).insert(ray.clone());
         }
@@ -540,11 +556,7 @@ fn lower_riding_hitboxes(
                         crate::strike::HitboxKnockback::LaunchSpeed { base, growth }
                     }
                 },
-                // The port's card: world units, +Y down, `x` away from the
-                // source. The owner's facing is not asked.
-                launch_dir: h
-                    .launch_dir
-                    .map(|dir| crate::strike::HitboxLaunch::AwayFromSource(ae::Vec2::from(dir))),
+                launch_dir: h.launch_dir.map(port_launch_direction),
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
                 guard: Default::default(),

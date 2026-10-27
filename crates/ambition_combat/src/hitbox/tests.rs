@@ -1482,6 +1482,25 @@ const LAUNCH_CARDINALS: [ae::Vec2; 4] = [
     ae::Vec2::new(-1.0, 0.0),
 ];
 
+#[test]
+fn a_world_launch_keeps_its_direction_after_the_attacker_passes_the_victim() {
+    let owner_at = ae::Vec2::new(100.0, 100.0);
+    let forward = ae::Vec2::new(-0.8, -0.6);
+    for down in LAUNCH_CARDINALS {
+        for facing in [-1.0, 1.0] {
+            for side in [-1.0, 1.0] {
+                let (world, velocity) = landed_launch(
+                    crate::strike::HitboxLaunch::World(forward),
+                    owner_at, facing, down,
+                    owner_at + ae::Vec2::new(side * 30.0, 0.0), down,
+                );
+                assert!((world - forward).length() < 1e-4);
+                assert!((velocity - forward * 200.0).length() < 1e-2);
+            }
+        }
+    }
+}
+
 /// AN AUTHORED LAUNCH IS ON THE AXES OF THE BODY THAT STRIKES.
 ///
 /// `HitVolume::launch_dir` is owner-local: +x the way the owner faces, +y

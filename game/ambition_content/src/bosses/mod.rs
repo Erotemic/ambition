@@ -267,6 +267,7 @@ impl Plugin for AmbitionBossContentPlugin {
         );
 
         app.insert_resource(ambition_boss_encounter::BossEncounterRegistry::default());
+        app.add_systems(Update, inugami::frame_the_pursuit.before(ambition_sim_view::camera_snapshot::CameraObservationSet));
 
         // Cut-rope arena state is CONTENT state — owned and initialized here,
         // never by the host's sim plugin (anti-god rule 5).

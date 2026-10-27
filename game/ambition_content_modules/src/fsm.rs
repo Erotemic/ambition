@@ -377,7 +377,7 @@ fn riding(
         circle_radius: circle,
         damage,
         knockback,
-        launch_dir,
+        launch_dir: launch_dir.map(ambition_combat_port::LaunchDirection::AwayFromSource),
         lifetime_s: life,
         name: name.into(),
     })

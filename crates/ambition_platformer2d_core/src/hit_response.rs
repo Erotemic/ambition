@@ -61,6 +61,11 @@ impl HitKnockbackMagnitude {
 pub struct WorldLaunchDir(Vec2);
 
 impl WorldLaunchDir {
+    /// A direction already expressed on world axes.
+    pub fn from_world(direction: Vec2) -> Self {
+        Self(direction)
+    }
+
     /// THE lowering of a vector on the source body's own axes: mirror `x` by
     /// the facing of the source, then turn into the frame whose DOWN is
     /// `source_down`. The same two steps place a body-local volume and an

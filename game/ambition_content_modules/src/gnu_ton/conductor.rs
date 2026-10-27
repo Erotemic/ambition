@@ -830,7 +830,7 @@ fn buck(inv: &mut Invocation<'_>, scholar: Vec2, back: Option<[f32; 4]>) -> Resu
         circle_radius: None,
         damage: BUCK_DAMAGE,
         knockback: RidingKnockback::LaunchSpeed { base: BUCK_THROW_SPEED, growth: None },
-        launch_dir: Some(BUCK_THROW_DIR),
+        launch_dir: Some(ambition_combat_port::LaunchDirection::AwayFromSource(BUCK_THROW_DIR)),
         lifetime_s: BUCK_WINDOW,
         name: "gnu_ton_buck_throw".into(),
     })

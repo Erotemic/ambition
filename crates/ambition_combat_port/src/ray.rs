@@ -61,7 +61,8 @@ impl Spot {
 ///   is the direction), as far as `reach` or the first wall, `width` wide,
 ///   through the portal pairs it enters. It hurts what it meets for
 ///   `damage`, launching by `knockback` (a multiplier over the victim's
-///   feel-tuned launch) away from where it starts. It is drawn as `look`.
+///   feel-tuned launch). `launch_dir` selects the axes; absence launches away
+///   from the source. It is drawn as `look`.
 /// * **Owner** — `ambition_combat::extension`, with the held damage boxes:
 ///   the same slots, generations and lifetimes. Held and asked again, it is
 ///   cast again: it follows its `from` and `toward`.
@@ -86,6 +87,7 @@ pub struct HeldRay {
     pub width: f32,
     pub damage: i32,
     pub knockback: f32,
+    pub launch_dir: Option<crate::LaunchDirection>,
     pub lifetime_s: f32,
     /// How it is drawn: a name of the presentation's ray looks (`"strike"`,
     /// `"force"`, `"laser"`).
@@ -93,7 +95,7 @@ pub struct HeldRay {
 }
 
 impl Port for HeldRayPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 1);
+    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldRay;
 
@@ -106,6 +108,7 @@ impl Port for HeldRayPort {
         wire::put_f32(out, v.width);
         wire::put_i32(out, v.damage);
         wire::put_f32(out, v.knockback);
+        wire::put_opt(out, v.launch_dir, |out, direction| direction.put(out));
         wire::put_f32(out, v.lifetime_s);
         wire::put_str(out, &v.look);
     }
@@ -120,6 +123,7 @@ impl Port for HeldRayPort {
             width: r.f32()?,
             damage: r.i32()?,
             knockback: r.f32()?,
+            launch_dir: r.opt(crate::LaunchDirection::read)?,
             lifetime_s: r.f32()?,
             look: r.str()?.to_owned(),
         })
@@ -141,6 +145,7 @@ mod tests {
             width: 30.0,
             damage: 1,
             knockback: 1.3,
+            launch_dir: Some(crate::LaunchDirection::World([-1.0, -0.4])),
             lifetime_s: 0.3,
             look: "force".into(),
         };

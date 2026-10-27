@@ -177,6 +177,10 @@ impl Default for CameraSnapshot2d {
     }
 }
 
+/// Include this body in each view that follows the named subject in the same room.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FrameAlongside(pub bevy::prelude::Entity);
+
 /// The body/focus that a follow camera should frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraFocus2d {
@@ -1217,7 +1221,7 @@ fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_ste
 /// is a frame with a live fighter outside it. The camera has to move.
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
-    bodies: &bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
+    bodies: &bevy::prelude::Query<(bevy::prelude::Entity, &ambition_platformer2d_core::BodyKinematics, Option<&FrameAlongside>)>,
     last_seen: &mut Vec<(bevy::prelude::Entity, ae::Vec2)>,
 ) -> Option<CastFraming> {
     let mut anchor = None;
@@ -1228,7 +1232,7 @@ fn frame_the_cast(
         ae::Vec2::new(f32::MIN, f32::MIN),
     );
     for entity in cast {
-        let Ok(kin) = bodies.get(*entity) else {
+        let Ok((_, kin, _)) = bodies.get(*entity) else {
             continue;
         };
         anchor.get_or_insert(*entity);
@@ -1345,7 +1349,7 @@ pub fn resolve_camera_observation(
     // the sprite must sample the same frame-clock position, or they disagree by
     // up to a tick of travel and the subject shudders — see `presented_pose`.
     followed_body: (
-        bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
+        bevy::prelude::Query<(bevy::prelude::Entity, &ambition_platformer2d_core::BodyKinematics, Option<&FrameAlongside>)>,
         bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
         // The frame the followed body resolved this tick (ADR 0024), for a
         // view that presents in its subject's frame rather than the world's. Read
@@ -1388,7 +1392,7 @@ pub fn resolve_camera_observation(
             // published the cast already knows.
             match controlled
                 .0
-                .and_then(|subject| body_kinematics.get(subject).ok().map(|kin| (*kin, subject)))
+                .and_then(|subject| body_kinematics.get(subject).ok().map(|(_, kin, _)| (*kin, subject)))
             {
                 Some((kin, subject)) => (
                     kin,
@@ -1536,7 +1540,7 @@ pub fn resolve_camera_observation(
     // home avatar's presentation state; only the follow point tracks the
     // driven body.
     if let Some(subject) = controlled.0 {
-        if let Ok(kin) = body_kinematics.get(subject) {
+        if let Ok((_, kin, _)) = body_kinematics.get(subject) {
             player_body.pos = kin.pos;
             // Soft framing leads the DRIVEN body; leading the home avatar's
             // velocity while possessing something else would aim the camera at
@@ -1614,7 +1618,7 @@ pub fn resolve_camera_observation(
     // `CameraFocus2d::stable_center` subtracts `(base_size.y - size.y) / 2`, and
     // there is no baseline pose to compare a spectated body against.
     let view_focus = |subject: bevy::prelude::Entity| {
-        let kin = body_kinematics.get(subject).ok()?;
+        let (_, kin, _) = body_kinematics.get(subject).ok()?;
         // The PRESENTED position, on the frame clock, for the same reason the
         // session subject uses it: framing the tick pose while the sprite is
         // drawn on the frame clock makes the subject shudder at speed.
@@ -1683,6 +1687,26 @@ pub fn resolve_camera_observation(
         };
         let (Some(room_geometry), Some(definition)) = (geometry.in_room(room), room_specs.definition_in(room)) else {
             continue;
+        };
+        let mut bounds = must_frame_world.unwrap_or_else(|| ae::Aabb::new(focus.center_world, focus.size * 0.5));
+        let mut companions = false;
+        for (entity, kin, relation) in &body_kinematics {
+            if !relation.is_some_and(|relation| relation.0 == framed) || geometry.room_of(entity) != Some(room) {
+                continue;
+            }
+            companions = true;
+            let at = kin.pos + presented.get(entity).map_or(ae::Vec2::ZERO, |pose| pose.delta());
+            bounds.min = bounds.min.min(at - kin.size * 0.5);
+            bounds.max = bounds.max.max(at + kin.size * 0.5);
+        }
+        let (base_view, must_frame_world) = if companions {
+            let span: ae::Vec2 = (bounds.max - bounds.min).into();
+            (
+                cast_view_target(base_view, span + ae::Vec2::splat(CAST_FRAMING_MARGIN * 2.0)).max(base_view),
+                Some(bounds),
+            )
+        } else {
+            (base_view, must_frame_world)
         };
         let active_spec = room_specs.rooms().spec(definition);
         let room_changed = match last_camera_room.iter_mut().find(|(seen, _)| *seen == view) {
@@ -3443,6 +3467,33 @@ mod resolved_snapshot_lifetime_tests {
         let view = views.next().expect("the plugin spawns one view");
         assert!(views.next().is_none(), "one view in this fixture");
         view.frame().cloned()
+    }
+
+    #[test]
+    fn a_companion_stays_visible_only_in_views_of_its_subject() {
+        let mut app = app_with_a_framed_cast();
+        let subject = cast_member(&mut app, ae::Vec2::new(2000.0, 2000.0));
+        let companion = cast_member(&mut app, ae::Vec2::new(1300.0, 1600.0));
+        app.world_mut().entity_mut(companion).insert(FrameAlongside(subject));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+            .0 = Some(subject);
+        app.update();
+        let paired = frame_of(&app).expect("the subject has a view").snapshot;
+        for entity in [subject, companion] {
+            let kin = app.world().get::<ambition_platformer2d_core::BodyKinematics>(entity).unwrap();
+            let extent = (kin.pos - paired.center_world).abs() + kin.size * 0.5;
+            assert!(extent.x <= paired.visible_view.x * 0.5 + 0.01);
+            assert!(extent.y <= paired.visible_view.y * 0.5 + 0.01);
+        }
+        let other = cast_member(&mut app, ae::Vec2::new(2000.0, 2000.0));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+            .0 = Some(other);
+        app.update();
+        let alone = frame_of(&app).expect("the other subject has a view").snapshot;
+        assert!(alone.visible_view.x < paired.visible_view.x);
+        assert!(alone.visible_view.y < paired.visible_view.y);
     }
 
     #[test]

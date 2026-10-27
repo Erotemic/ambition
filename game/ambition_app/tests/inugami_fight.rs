@@ -155,7 +155,17 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
                 kin.vel = (b - a).normalize() * 260.0;
             }
             sim.step(AgentAction::default());
-            let now = head(&mut sim).kin.pos;
+            let h = head(&mut sim);
+            if h.view.is_some_and(|v| v.running) {
+                let world = sim.world_mut();
+                let view = ambition_platformer2d::sim_view::the_only_view(world);
+                let snap = &world.get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(view)
+                    .and_then(|s| s.frame()).expect("the chase has a camera frame").snapshot;
+                let extent = (h.kin.pos - snap.center_world).abs() + h.kin.size * 0.5;
+                assert!(extent.x <= snap.visible_view.x * 0.5 + 1.0 && extent.y <= snap.visible_view.y * 0.5 + 1.0,
+                    "the live pursuer is outside the camera: head={:?}, camera={snap:?}", h.kin);
+            }
+            let now = h.kin.pos;
             if (now - last).length() > jump.0 {
                 jump = ((now - last).length(), last, now);
             }
@@ -242,10 +252,7 @@ fn guarded(sim: &mut Platformer2dSimHarness) -> bool {
     sim.world_mut().get::<BossEncounter>(entity).expect("an encounter").guarded
 }
 
-/// The most the head flies in one tick: its lunge at your back darts up to
-/// 560 px in 0.35 s, eased out, so it starts at twice that pace (39 px a
-/// tick, measured 2026-10-24); its fastest run (`RUN_SPEED` times its catch
-/// up, 594 px/s) is 10. A teleport is hundreds.
+/// A bounded flight or lunge must not become a teleport.
 const MOST_IN_A_TICK: f32 = 56.0;
 
 /// Wound the boss `id` to `fraction` of its health.
@@ -260,6 +267,64 @@ fn wound(sim: &mut Platformer2dSimHarness, id: &str, fraction: f32) {
 fn health(sim: &mut Platformer2dSimHarness, id: &str) -> i32 {
     let entity = boss_entity(sim, id);
     sim.world_mut().get::<BodyHealth>(entity).expect("health").health.current
+}
+
+#[test]
+fn a_stopped_runner_takes_ghost_fire_and_lightning_with_a_forward_launch() {
+    use ambition_platformer2d::combat::{hitbox::LandedBodyHit, strike::{Hitbox, RayStrike}};
+    let mut sim = arena();
+    kill(&mut sim, WOLFENSTEIN_ID);
+    step_until(&mut sim, 60 * 14, "the spirit to rise", |sim| head(sim).view.is_some_and(|v| v.woke));
+    sim.teleport_player((8800.0, 808.0));
+    wound(&mut sim, INUGAMI_ID, 0.45);
+    step_until(&mut sim, 60 * 8, "the chase to start", |sim| head(sim).view.is_some_and(|v| v.running));
+    let pursuer = boss_entity(&mut sim, INUGAMI_ID);
+    let body = {
+        let world = sim.world_mut();
+        let body = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+        world.get_mut::<BodyHealth>(body).unwrap().health.invulnerable.set(Invulnerability::SCRIPTED, false);
+        body
+    };
+    let mut cursor = bevy::ecs::message::MessageCursor::<LandedBodyHit>::default();
+    let mut contact = None;
+    let mut connected = [false; 2];
+    let mut before = sim.world().get::<BodyHealth>(body).unwrap().health.current;
+    for tick in 0..60 * 18 {
+        // Hold the runner in the open corridor. Each catch must move it forward.
+        {
+            let world = sim.world_mut();
+            let mut kin = world.get_mut::<ae::BodyKinematics>(body).unwrap();
+            kin.pos = ae::Vec2::new(8800.0, 808.0);
+            kin.vel = ae::Vec2::ZERO;
+        }
+        sim.step(AgentAction::default());
+        let world = sim.world();
+        for hit in cursor.read(world.resource::<Messages<LandedBodyHit>>()) {
+            if hit.attacker != pursuer || hit.victim != body { continue; }
+            let Some(strike) = world.get::<Hitbox>(hit.hitbox) else { continue; };
+            let kind = if world.get::<RayStrike>(hit.hitbox).is_some() { 1 }
+                else if world.get::<Name>(hit.hitbox).is_some_and(|name| name.as_str() == "Inugami ghost fire") { 0 }
+                else { continue; };
+            let source = world.get::<ae::BodyKinematics>(pursuer).unwrap().pos;
+            let victim = world.get::<ae::BodyKinematics>(body).unwrap().pos;
+            let launch = strike.launch_world(source, victim).expect("a catch authors its launch").world();
+            assert!(launch.x > 0.0 && launch.y < 0.0, "the catch sends the runner back: {launch:?}");
+            contact = Some((tick, kind));
+        }
+        let after = world.get::<BodyHealth>(body).unwrap().health.current;
+        if after < before {
+            if let Some((_, kind)) = contact.filter(|(when, _)| tick - when <= 3) {
+                let pending = world.get::<ae::BodyFlightState>(body).unwrap().pending_launch;
+                let velocity = world.get::<ae::BodyKinematics>(body).unwrap().vel;
+                let launch = if pending.length_squared() > 0.0 { pending } else { velocity };
+                assert!(launch.x > 0.0 && launch.y < 0.0, "the damage did not launch the runner forward: {launch:?}");
+                connected[kind] = true;
+            }
+        }
+        before = after;
+        if connected == [true, true] { return; }
+    }
+    panic!("the stopped runner was not hurt by both attacks: fire={}, lightning={}", connected[0], connected[1]);
 }
 
 /// Kagero's body, while she is in the world.
@@ -322,12 +387,15 @@ fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
     let hp = |sim: &mut Platformer2dSimHarness| sim.world_mut().get::<BodyHealth>(wolf).unwrap().health.current;
     // From 160 px, facing him, for each shot (near enough that his own moves
     // do not take him out of its way).
-    let aim = |sim: &mut Platformer2dSimHarness| {
+    let aim = |sim: &mut Platformer2dSimHarness, held: bool| {
         let at = sim.world_mut().get::<ae::BodyKinematics>(wolf).unwrap().pos;
-        sim.teleport_player((at.x - 160.0, 792.0));
-        sim.step(AgentAction { move_x: 1.0, ..AgentAction::default() });
+        // Keep the shot inside the arena and retain its charge while aiming.
+        let hall = head(sim).view.and_then(|view| view.hall).expect("the arena was measured");
+        let side = if at.x - 160.0 < hall.left + 32.0 { -1.0 } else { 1.0 };
+        sim.teleport_player((at.x - side * 160.0, 792.0));
+        sim.step(AgentAction { move_x: side, projectile_held: held, ..AgentAction::default() });
     };
-    aim(&mut sim);
+    aim(&mut sim, false);
     let before = hp(&mut sim);
     sim.step(AgentAction { projectile: true, projectile_held: true, ..AgentAction::default() });
     sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
@@ -335,12 +403,12 @@ fn the_robots_shot_reaches_wolfenstein_past_the_sleeping_inugami() {
         sim.step(AgentAction::default());
     }
     assert!(hp(&mut sim) < before, "a tap shot from 160 px did not hurt him");
-    aim(&mut sim);
+    aim(&mut sim, false);
     sim.step(AgentAction { projectile: true, projectile_held: true, ..AgentAction::default() });
     for _ in 0..60 * 2 {
         sim.step(AgentAction { projectile_held: true, ..AgentAction::default() });
     }
-    aim(&mut sim);
+    aim(&mut sim, true);
     let before = hp(&mut sim);
     sim.step(AgentAction { projectile_released: true, ..AgentAction::default() });
     for _ in 0..90 {

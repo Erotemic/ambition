@@ -71,6 +71,7 @@ use ambition_extension_sdk::{
 use bevy_math::Vec2;
 
 use crate::wolfenstein;
+mod chase;
 
 /// The behaviour id of the boss it conducts.
 pub const INUGAMI_ID: &str = "wolfenstein_inugami";
@@ -169,28 +170,16 @@ const FLARE_S: f32 = 0.9;
 const CRASH_SPEED: f32 = 1300.0;
 const RECOIL: f32 = 320.0;
 const RECOIL_SPEED: f32 = 520.0;
-/// THE RUN. When you have hurt it enough (its transition), it hunts you to
-/// the final hall (Jon, 2026-10-21: "There is also no chase sequence, when you
-/// beat him after the first part (24/48 health) he just kinda disappears and
-/// I have to fly to the other section of the castle to find him"). It was a
-/// vanish and a return in the hall; now it comes after you, `RUN_GAP` behind
-/// and `RUN_OVER` above you, at `RUN_SPEED` (faster when it is `RUN_FAR`
-/// behind): stand and its burning head reaches you. Its ward turns every blow
-/// and its pattern waits while it runs. On your heels, every `RUN_BEAT_S` it
-/// lunges at your back (gather, dart past, skid) or calls lightning down on
-/// the way ahead of you, in turn. It comes into the final hall on its own
-/// wings. `RUN_GAP` is wide (Jon, 2026-10-24: "You are not given much
-/// distance from the boss in the chase").
+/// The pursuit follows the target's route. Its speed follows the target's
+/// measured pace, with a continuous correction toward this separation.
+/// A stopped body is caught; no camera state affects pursuit.
 const RUN_GAP: f32 = 220.0;
-const RUN_OVER: f32 = 40.0;
 /// It hunts over the floor, its bottom this far over your feet: a head of
 /// its size that kept to your height dragged along the floor and was held
 /// on a 48 px step at the throne room's door (measured, 2026-10-22), and at
 /// 64 over your feet it was held on the run's 80 px barricades (measured,
 /// 2026-10-24). The run is 640 clear.
 const RUN_CLEAR: f32 = 120.0;
-const RUN_SPEED: f32 = 270.0;
-const RUN_CATCH_UP: f32 = 2.2;
 const RUN_FAR: f32 = 520.0;
 const RUN_BEAT_S: f32 = 2.4;
 /// Its lunge in the run: it gathers this long, then darts this long past you.
@@ -396,7 +385,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 4);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 5);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -457,7 +446,7 @@ record! {
     /// Its crash into the arena's wall has hit the wall.
     38 crashed: bool,
     /// Your scent while it hunts you: where your feet were, a point every
-    /// `SCENT_STEP`, oldest first. It flies along it (`hunt_goal`).
+    /// `SCENT_STEP`, oldest first. It follows these points in order.
     39 scent: Vec<[f32; 2]> [max SCENT_MAX],
     /// Where the run's bolt will strike, while it sparks: its x, its floor and
     /// seconds into its tell.
@@ -500,6 +489,10 @@ record! {
     /// turns (`turned`).
     58 drawn_side: f32,
     59 turning: Option<f32>,
+    /// The target's last feet, measured pace and route direction.
+    60 run_last_feet: Option<[f32; 2]>,
+    61 run_pace: f32,
+    62 run_forward: [f32; 2],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -684,6 +677,11 @@ fn riding(
 /// `floor` down to the floor: a ray in `slot` that hurts for `life`, drawn as
 /// a strike, and the sparks where it lands.
 fn bolt_down(inv: &mut Invocation<'_>, slot: u32, generation: u32, x: f32, floor: f32, high: f32, life: f32) -> Result<(), Fault> {
+    bolt_down_with_launch(inv, slot, generation, x, floor, high, life, None)
+}
+
+fn bolt_down_with_launch(inv: &mut Invocation<'_>, slot: u32, generation: u32, x: f32, floor: f32, high: f32, life: f32,
+    launch_dir: Option<ambition_combat_port::LaunchDirection>) -> Result<(), Fault> {
     inv.submit::<HeldRayPort>(HeldRay {
         slot,
         generation,
@@ -693,6 +691,7 @@ fn bolt_down(inv: &mut Invocation<'_>, slot: u32, generation: u32, x: f32, floor
         width: BOLT_WIDTH,
         damage: BOLT_DAMAGE,
         knockback: BOLT_KNOCKBACK,
+        launch_dir,
         lifetime_s: life,
         look: "strike".into(),
     })?;
@@ -910,7 +909,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let ground = hall.floor - h.lying_low();
     c.clock += dt;
     c.ticks = c.ticks.wrapping_add(1);
-    let target = inu.target.map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
+    let target = inu.target_body.as_ref().map(|body| body.position).or(inu.target).map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
     let clamp = |p: Vec2| {
         Vec2::new(
             within(p.x, hall.left + half.x + 8.0, hall.right - half.x - 8.0),
@@ -1156,6 +1155,24 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // gap, the way it crashed.
             c.run = Some(0.0);
             c.run_dir = crash_dir;
+            c.run_forward = [crash_dir, 0.0];
+            c.run_last_feet = None;
+            c.run_pace = 0.0;
+            c.scent.clear();
+        }
+    }
+
+    let pursuit = c.run.map(|_| {
+        chase::Trail {
+            points: &mut c.scent,
+            last_feet: &mut c.run_last_feet,
+            pace: &mut c.run_pace,
+            forward: &mut c.run_forward,
+        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt)
+    });
+    if let Some(step) = &pursuit {
+        if step.forward.x.abs() > 0.2 {
+            c.run_dir = step.forward.x.signum();
         }
     }
 
@@ -1178,7 +1195,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         } else {
             // On your heels, a beat every `RUN_BEAT_S`: a lunge at your back,
             // or lightning on the way ahead of you, in turn.
-            let on_heels = c.scent.len() <= 2 && (target - at).length() < RUN_FAR;
+            let on_heels = pursuit.as_ref().is_some_and(|step| step.distance < RUN_FAR);
             let beat = (t / RUN_BEAT_S).floor() != ((t - dt) / RUN_BEAT_S).floor();
             if c.lunge.is_none() && c.run_bolt.is_none() && on_heels && beat {
                 if c.run_beats % 2 == 0 {
@@ -1187,7 +1204,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     c.from_y = at.y;
                 } else {
                     c.run_bolt = Some(0.0);
-                    c.run_bolt_x = target.x + c.run_dir * RUN_BOLT_AHEAD;
+                    c.run_bolt_x = target.x + c.run_dir * (c.run_pace * 0.25).min(RUN_BOLT_AHEAD);
                     c.run_bolt_floor = feet;
                     play(inv, SFX_ZAP, Vec2::new(c.run_bolt_x, feet))?;
                 }
@@ -1203,7 +1220,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     let to = clamp(from + aim * ((target - from).length() + 120.0).min(BITE_REACH));
                     c.to_x = to.x;
                     c.to_y = to.y;
-                    riding(inv, h.jaws(), if aim.x < 0.0 { -1.0 } else { 1.0 }, None, BITE_DAMAGE, BITE_KNOCKBACK, RUN_DART_S, "inu_bite")?;
+                    inv.submit::<RidingHitboxPort>(RidingHitbox {
+                        offset: [0.0, 0.0],
+                        half_extent: half.into(),
+                        circle_radius: None,
+                        damage: BITE_DAMAGE,
+                        knockback: RidingKnockback::LaunchSpeed { base: 420.0, growth: None },
+                        launch_dir: Some(ambition_combat_port::LaunchDirection::World(
+                            chase::escape_launch(Vec2::from(c.run_forward)).into(),
+                        )),
+                        lifetime_s: RUN_DART_S,
+                        name: "Inugami ghost fire".into(),
+                    })?;
                     play(inv, SFX_DART, at)?;
                     play(inv, SFX_BITE, at)?;
                 }
@@ -1215,11 +1243,14 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let b = b + dt;
                 if b < RUN_BOLT_TELL_S {
                     mark(inv, c.run_bolt_x, c.run_bolt_floor, 0, c.ticks)?;
-                } else if b - dt < RUN_BOLT_TELL_S {
-                    c.bolt_generation = c.bolt_generation.wrapping_add(1);
-                    bolt_down(inv, SLOT_RUN_BOLT, c.bolt_generation, c.run_bolt_x, c.run_bolt_floor, RUN_BOLT_HIGH, BOLT_S)?;
-                    play(inv, SFX_STRIKE, Vec2::new(c.run_bolt_x, c.run_bolt_floor))?;
-                    shake(inv, SHAKE_HOWL)?;
+                } else if b < RUN_BOLT_TELL_S + BOLT_S {
+                    if b - dt < RUN_BOLT_TELL_S {
+                        c.bolt_generation = c.bolt_generation.wrapping_add(1);
+                        play(inv, SFX_STRIKE, Vec2::new(c.run_bolt_x, c.run_bolt_floor))?;
+                        shake(inv, SHAKE_HOWL)?;
+                    }
+                    bolt_down_with_launch(inv, SLOT_RUN_BOLT, c.bolt_generation, c.run_bolt_x, c.run_bolt_floor, RUN_BOLT_HIGH, RUN_BOLT_TELL_S + BOLT_S - b,
+                        Some(ambition_combat_port::LaunchDirection::World(chase::escape_launch(Vec2::from(c.run_forward)).into())))?;
                 }
                 c.run_bolt = if b >= RUN_BOLT_TELL_S + BOLT_S { None } else { Some(b) };
             }
@@ -1380,29 +1411,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         None if c.appear.is_some() || c.binding.is_some() => at,
         None if c.run.is_some() => {
-            // Your scent: where your feet were, and the head over them.
-            let over = |p: Vec2| Vec2::new(p.x, p.y - RUN_CLEAR - half.y);
-            if c.scent.last().is_none_or(|last| Vec2::from(*last).distance(Vec2::new(target.x, feet)) >= SCENT_STEP) {
-                // The way you run: it hunts on the side you came from.
-                if let Some(last) = c.scent.last() {
-                    if (target.x - last[0]).abs() > 8.0 {
-                        c.run_dir = (target.x - last[0]).signum();
-                    }
-                }
-                if c.scent.len() >= SCENT_MAX as usize {
-                    c.scent.remove(0);
-                }
-                c.scent.push([target.x, feet]);
-            }
-            // It has the points it has come to.
-            while c.scent.first().is_some_and(|p| over(Vec2::from(*p)).distance(at) < SCENT_REACH) {
-                c.scent.remove(0);
-            }
-            // On your heels it closes behind you; else it runs your scent.
-            let behind = Vec2::new(target.x - c.run_dir * RUN_GAP, (target.y - RUN_OVER).min(feet - RUN_CLEAR - half.y) + bob);
-            let heels = c.scent.len() <= 2;
-            let goal = if heels { behind } else { over(Vec2::from(c.scent[0])) };
-            side = if goal.x < at.x { -1.0 } else { 1.0 };
+            let hunt = pursuit.as_ref().expect("a running head has a pursuit step");
+            side = if hunt.position.x < at.x { -1.0 } else { 1.0 };
             // Its lunge at your back: it gathers back, darts past you, skids.
             if let Some(l) = c.lunge {
                 let from = Vec2::new(c.from_x, c.from_y);
@@ -1420,13 +1430,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     at + along * (MISS_DRIFT / MISS_S) * (1.0 - skid).max(0.0) * dt
                 });
             }
-            let step = goal - at;
-            let speed = RUN_SPEED * if !heels && c.scent.len() as f32 * SCENT_STEP > RUN_FAR { RUN_CATCH_UP } else { 1.0 };
-            let stride = speed * dt;
-            return_pos.take().map_or_else(
-                || clamp(if step.length() > stride { at + step.normalize() * stride } else { goal }),
-                clamp,
-            )
+            if c.lunge.is_some() && c.ticks % 2 == 0 {
+                burst(inv, at, 5, 180.0, WARD_FIRE, "spark")?;
+            }
+            clamp(return_pos.take().unwrap_or(hunt.position))
         }
         None => {
             side = face(at.x);

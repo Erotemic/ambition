@@ -19,6 +19,7 @@ pub mod blast;
 pub mod contact;
 pub mod force;
 pub mod hold;
+mod launch;
 pub mod ledge;
 pub mod lightning;
 pub mod module_entity;
@@ -56,6 +57,7 @@ pub use special::{
     ParryWindowPort, RefillResource, RefillResourcePort, SleepArea, SleepAreaPort, SpecialParam,
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};
+pub use launch::LaunchDirection;
 pub use ray::{HeldRay, HeldRayPort, Spot};
 pub use motion::{
     Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, Place, SetVelocity,

@@ -1032,7 +1032,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     damage: SERUM_THROW_DAMAGE,
                     // `x` is away from him, whichever way he faces.
                     knockback: RidingKnockback::LaunchSpeed { base: SERUM_THROW.0, growth: None },
-                    launch_dir: Some([1.0, SERUM_THROW.1]),
+                    launch_dir: Some(ambition_combat_port::LaunchDirection::AwayFromSource([1.0, SERUM_THROW.1])),
                     lifetime_s: 0.1,
                     name: "wolf_keep_off".into(),
                 })?;
@@ -1273,6 +1273,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     width: b.len(BOLT_WIDTH),
                     damage: BOLT_DAMAGE,
                     knockback: BOLT_KNOCKBACK,
+                    launch_dir: None,
                     lifetime_s: BOLT_S,
                     look: "strike".into(),
                 })?;
@@ -1321,6 +1322,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     width: b.len(LASH_WIDTH),
                     damage: LASH_DAMAGE,
                     knockback: LASH_KNOCKBACK,
+                    launch_dir: None,
                     lifetime_s: BOLT_S,
                     look: "force".into(),
                 })?;

@@ -62,3 +62,35 @@ pub fn conductor_of(world: &World, head: Entity) -> Option<InugamiView> {
         running: c.running(),
     })
 }
+
+/// The warded pursuer stays in views of its target. Ending the ward removes the relation.
+pub fn frame_the_pursuit(
+    mut commands: Commands,
+    heads: Query<(
+        Entity,
+        &ambition_boss_encounter::BossConfig,
+        &ambition_extension_host::BodyRecords,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_combat::components::ActorTarget,
+        Option<&ambition_sim_view::camera_snapshot::FrameAlongside>,
+    )>,
+) {
+    use ambition_content_modules::inugami::Conductor;
+    use ambition_sim_view::camera_snapshot::FrameAlongside;
+    for (entity, config, records, health, target, framed) in &heads {
+        if config.behavior.id != INUGAMI_ID {
+            continue;
+        }
+        let follows = records.get(&Conductor::KEY)
+            .and_then(|record| Conductor::from_record(record).ok())
+            .filter(|state| health.alive() && state.warded())
+            .and(target.entity)
+            .map(FrameAlongside);
+        match (follows, framed) {
+            (Some(want), Some(have)) if want == *have => {}
+            (Some(want), _) => { commands.entity(entity).insert(want); }
+            (None, Some(_)) => { commands.entity(entity).remove::<FrameAlongside>(); }
+            (None, None) => {}
+        }
+    }
+}

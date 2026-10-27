@@ -91,6 +91,8 @@ pub struct Hitbox {
 /// direction and does not ask which of these it was.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HitboxLaunch {
+    /// A direction on world axes, independent of either body's frame or facing.
+    World(ae::Vec2),
     /// On the owner's own axes, as a move volume authors it
     /// (`HitVolume::launch_dir`): `+x` is the way the owner faced when it
     /// threw the strike (`Hitbox::facing`), `+y` is toward its feet
@@ -115,6 +117,7 @@ impl Hitbox {
         victim_pos: ae::Vec2,
     ) -> Option<ae::hit_response::WorldLaunchDir> {
         Some(match self.launch_dir? {
+            HitboxLaunch::World(direction) => ae::hit_response::WorldLaunchDir::from_world(direction),
             HitboxLaunch::OwnerLocal(local) => {
                 ae::hit_response::WorldLaunchDir::from_source_local(local, self.facing, self.frame_down)
             }

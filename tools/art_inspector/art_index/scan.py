@@ -40,8 +40,9 @@ class HashCache:
     """sha256 by (real path, mtime, size), kept between builds so a rebuild
     reads only the files that changed."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, deep: bool = False) -> None:
         self.path = path
+        self.deep = deep
         try:
             self.data: dict[str, list] = json.loads(path.read_text())
         except (OSError, ValueError):
@@ -51,11 +52,11 @@ class HashCache:
     def digest(self, file: Path) -> str:
         real = os.path.realpath(file)
         st = os.stat(real)
-        key = [st.st_mtime_ns, st.st_size]
+        key = [st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns]
         hit = self.data.get(real)
-        if hit and hit[:2] == key:
+        if not self.deep and hit and hit[:5] == key:
             self.used[real] = hit
-            return hit[2]
+            return hit[5]
         h = hashlib.sha256()
         with open(real, "rb") as f:
             for block in iter(lambda: f.read(1 << 20), b""):

@@ -59,6 +59,17 @@ impl CharacterSheetSpec {
     }
 
     pub fn resolve_anim(&self, anim: CharacterAnim) -> CharacterAnim {
+        self.resolve_anim_with(anim, |_| {})
+    }
+
+    /// Explain the same pose resolution that the animator uses.
+    pub fn explain_anim(&self, anim: CharacterAnim) -> (CharacterAnim, Vec<CharacterAnim>) {
+        let mut steps = Vec::new();
+        let resolved = self.resolve_anim_with(anim, |step| steps.push(step));
+        (resolved, steps)
+    }
+
+    fn resolve_anim_with(&self, anim: CharacterAnim, mut visit: impl FnMut(CharacterAnim)) -> CharacterAnim {
         // Draw the most specific pose in this actor's anim set (the rows in
         // the manifest, [`Self::maps`]). Walk the pose taxonomy toward the base
         // until the sheet has a row; `Idle` is always present. So the sheet
@@ -66,6 +77,7 @@ impl CharacterSheetSpec {
         // pose that has a relative.
         let mut cur = anim;
         loop {
+            visit(cur);
             if self.maps(cur) {
                 return cur;
             }

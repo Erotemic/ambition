@@ -24,26 +24,38 @@
 
 # The runtime roots a publish writes. Each one is staged and swapped whole.
 staged_root_names=(sprites sprites_0_5x sprites_0_25x sprites_potato sprite_packs)
+if [ -n "${staged_provenance_root:-}" ]; then
+    staged_root_names+=(_art_provenance)
+fi
+
+staged_destination() {
+    if [ "$1" = "_art_provenance" ]; then
+        printf '%s' "$staged_provenance_root"
+    else
+        printf '%s' "$asset_root/$1"
+    fi
+}
 
 # Make the staged copy, or continue the one a stopped run left. A root that
 # the copy does not have is copied from the runtime root, starting from the
 # mirror when there is one. This also repairs a swap that stopped part way:
 # the roots it moved are copied back.
 begin_staging() {
-    local name
+    local name destination
     mkdir -p "$staging_root"
     if [ -n "$(ls -A "$staging_root" 2>/dev/null)" ]; then
         echo "==> staging root: continuing the copy a stopped run left ($staging_root)"
     fi
     for name in "${staged_root_names[@]}"; do
+        destination="$(staged_destination "$name")"
         [ -d "$staging_root/$name" ] && continue
         # A copy that stopped part way is a good start too: rsync finishes it.
         if [ ! -d "$staging_root/$name.partial" ] && [ -d "$mirror_root/$name" ]; then
             mv "$mirror_root/$name" "$staging_root/$name.partial"
         fi
         mkdir -p "$staging_root/$name.partial"
-        if [ -d "$asset_root/$name" ]; then
-            rsync -a --delete "$asset_root/$name/" "$staging_root/$name.partial/"
+        if [ -d "$destination" ]; then
+            rsync -a --delete "$destination/" "$staging_root/$name.partial/"
         else
             rm -rf "$staging_root/$name.partial"
             mkdir -p "$staging_root/$name.partial"
@@ -56,14 +68,15 @@ begin_staging() {
 # Move each staged root into place, keep the root it replaces as the mirror
 # for the next run, and remove the staging root.
 finish_staging() {
-    local name
+    local name destination
     mkdir -p "$mirror_root"
     for name in "${staged_root_names[@]}"; do
+        destination="$(staged_destination "$name")"
         rm -rf "$staging_root/$name.old"
-        if [ -e "$asset_root/$name" ]; then
-            mv "$asset_root/$name" "$staging_root/$name.old"
+        if [ -e "$destination" ]; then
+            mv "$destination" "$staging_root/$name.old"
         fi
-        mv "$staging_root/$name" "$asset_root/$name"
+        mv "$staging_root/$name" "$destination"
         rm -rf "$mirror_root/$name"
         if [ -e "$staging_root/$name.old" ]; then
             mv "$staging_root/$name.old" "$mirror_root/$name"

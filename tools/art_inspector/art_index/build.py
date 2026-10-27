@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory
 from .paths import repo_root, roots
 from .scan import HashCache, scan
 
@@ -44,7 +44,11 @@ def build(
     prune: bool = False,
     python: str | None = None,
     targets: dict[str, Any] | None = None,
-    lineages: bool = True,
+    lineages: bool = False,
+    profile: str = "ambition",
+    binary: Path | None = None,
+    deep: bool = False,
+    runtime_path: Path | None = None,
     log=print,
 ) -> dict[str, Any]:
     """Index the art of `repo` into `out`. `targets` stands in for the
@@ -55,13 +59,17 @@ def build(
     def step(message: str) -> None:
         log(f"[{time.perf_counter() - started:6.1f}s] {message}")
 
-    hashes = HashCache(out / "hash_cache.json")
+    hashes = HashCache(out / "hash_cache.json", deep=deep)
     step("scanning the art roots")
     products = scan(roots(repo), hashes)
     step(f"{len(products)} files; reading the generators")
     warnings: list[str] = []
+    inspection = None
     if targets is None:
-        targets, warnings = generators.renderer_targets(repo, python)
+        inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path)
+        targets = {uid[7:]: dict(unit["generator"], outputs=unit["required"] + unit["optional"])
+                   for uid, unit in inspection["units"].items() if uid.startswith("target:")}
+        warnings = inspection["warnings"]
     ev = generators.load_evidence(repo, targets)
     ev.warnings += warnings
     actor_targets: dict[str, str] = {}
@@ -108,7 +116,21 @@ def build(
             catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
     step("related assets")
     related.relate(catalog["assets"], catalog["generators"], repo)
-    related.generations(catalog["assets"])
+    if inspection is not None:
+        catalog["inventory"] = inspection
+        for asset in catalog["assets"].values():
+            unit = inspection["units"].get(asset.get("generator"))
+            if not unit:
+                continue
+            asset["inspection_unit"] = unit["id"]
+            asset["identities"] = [cid for cid in unit["identities"]
+                if inspection["identities"][cid]["catalog"].get("manifest") in asset["products"]]
+            asset["art_label"] = asset["display"]
+            if asset["identities"]:
+                identities = [inspection["identities"][cid] for cid in asset["identities"]]
+                asset["display"] = " / ".join(dict.fromkeys(identity["display"] for identity in identities))
+                asset["tags"] = sorted(set(asset["tags"] + [tag for identity in identities for tag in identity["catalog"].get("tags", [])]))
+            unit.setdefault("assets", []).append(asset["id"])
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
     text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)
@@ -116,7 +138,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css"):
+    for name in ("index.html", "app.js", "app.css", "inventory.js"):
         shutil.copyfile(WEB / name, out / name)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog
@@ -245,13 +267,56 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
     b.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
     b.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
-    b.add_argument("--no-lineage", action="store_true", help="skip the lineages and the authorship (git blame) of the design history")
+    b.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
     b.add_argument("--open", action="store_true", help="open the page in a browser when built")
+    for command in ("status", "list", "inspect", "coverage"):
+        query = sub.add_parser(command, help="query the shared art inspection model")
+        if command == "inspect":
+            query.add_argument("query")
+        else:
+            query.add_argument("--query", default="")
+        query.add_argument("--kind", default="")
+        query.add_argument("--lineage", nargs="?", const="", default="")
+        query.add_argument("--needs-generation", action="store_true")
+        query.add_argument("--current-game", action="store_true")
+        query.add_argument("--animation", default="")
+        query.add_argument("--missing", default="")
+        query.add_argument("--json", action="store_true")
+        query.add_argument("--out", type=Path)
+        query.add_argument("--renderer-python")
+    for command_parser in (b, *[sub.choices[name] for name in ("status", "list", "inspect", "coverage")]):
+        command_parser.add_argument("--profile", default="ambition", help="ambition, or a content pack directory")
+        command_parser.add_argument("--content-binary", type=Path, help="prebuilt check binary for this provider")
+        command_parser.add_argument("--deep", action="store_true", help="rehash accepted inputs and outputs")
+        command_parser.add_argument("--runtime-snapshot", type=Path)
     args = parser.parse_args(argv)
     repo = repo_root()
     out = (args.out or repo / ".agent" / "art_inspector").resolve()
+    if args.command != "build":
+        report = inventory.collect(repo, out, profile=args.profile, python=args.renderer_python, binary=args.content_binary,
+                                   deep=args.deep, runtime_path=args.runtime_snapshot)
+        rows = inventory.select(report, query=args.query, kind=args.kind, needs=args.needs_generation,
+                                game_only=args.current_game, lineage=args.lineage, missing=args.missing)
+        selected = {cid: report["identities"][cid] for unit in rows for cid in unit["identities"]}
+        if args.animation:
+            selected = {cid: dict(row, coverage=[c for c in row["coverage"] if c["action"] == args.animation]) for cid, row in selected.items()}
+        scope = inventory.select(report, query=args.query, kind=args.kind, game_only=args.current_game, lineage=args.lineage)
+        gaps = [unit["id"] for unit in scope if unit["status"]["state"] == "unknown" or any(tier["state"] == "unknown" for tier in unit["status"].get("tiers", {}).values())]
+        result = dict(report, units={row["id"]: row for row in rows}, identities=selected, summary=inventory.summary(rows),
+                      scope_summary=inventory.summary(scope), generation_evidence_gaps=gaps)
+        if args.json:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("Profile: " + json.dumps({k: report["profile"].get(k) for k in ("provider", "pack", "fingerprint", "state")}, sort_keys=True))
+            for warning in report["warnings"]:
+                print("WARNING: " + warning)
+            for row in rows:
+                print(f"{row['id']}: {row['status']['state']} | {row['game_use']} | {row['repair']}")
+            print(json.dumps(result["summary"], sort_keys=True))
+            print(f"{len(gaps)} bundle(s) in this scope have unknown generation evidence.")
+        return 0
     build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
-          lineages=not args.no_lineage)
+          lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep, runtime_path=args.runtime_snapshot)
     if args.open:
         webbrowser.open((out / "index.html").as_uri())
     return 0

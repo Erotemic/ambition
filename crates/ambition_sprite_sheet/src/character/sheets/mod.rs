@@ -70,7 +70,7 @@ pub struct CharacterSheetSpec {
     /// assignment, and trim. Every atlas / flat-index / trim query delegates to
     /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
     /// one implementation with the boss, prop, and projectile readers.
-    record: SheetRecord,
+    pub(crate) record: SheetRecord,
     /// Used only by the fallback in [`sprite_render_size_scaled`], for a sheet
     /// that publishes no body (almost every sheet publishes one).
     ///
@@ -671,7 +671,7 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
 /// `frame_sample_inset = 1` matches most tunings.
 const DEFAULT_TUNING: SheetTuning = SheetTuning::new(1.5, 1);
 
-fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterSheetSpec {
+pub(crate) fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterSheetSpec {
     // Manifest-authored tuning overrides Rust fallback tuning.
     let (collision_scale, frame_sample_inset) = match record.tuning {
         Some(t) => (t.collision_scale, t.frame_sample_inset),

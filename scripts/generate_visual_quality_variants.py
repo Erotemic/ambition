@@ -42,8 +42,8 @@ and decodes its page PNGs once for all three tiers instead of three times.
     --clean             delete each selected tier root first (whole-tier only)
     --jobs N            build on N processes [default: 1]
 
-Without ``--force`` a sheet is rebuilt only when its authored RON, one of its
-page PNGs, or this script is newer than the variant it already published. An
+Without ``--force``, the publication owner checks the accepted conversion
+receipt against its source bundles, converter inputs, parameters, and outputs. An
 unfiltered run also prunes variant files whose source no longer exists, so
 dropping the tier-wide ``rmtree`` did not trade freshness for orphans.
 """
@@ -108,13 +108,6 @@ VARIANTS: tuple[Variant, ...] = (
     Variant("0_25x", 0.25, 1),
     Variant("potato", 1.0 / 16.0, POTATO_MIN_FRAME_PX),
 )
-
-# Editing this file changes every variant's pixels, so its own mtime is part of
-# every freshness comparison. Nothing else in the repo is: a target's generator
-# code reaches the tiers only through the published sheet, which regen_sprites
-# rewrites when that code changes.
-_SCRIPT_MTIME = Path(__file__).resolve().stat().st_mtime
-
 
 # ──────────────────────────────────────────────────────────────────────────
 # Phase timing
@@ -1524,35 +1517,6 @@ class SheetUnit:
     target: Target | None  # not None => render this tier from source art
 
 
-def _mtime(path: Path) -> float | None:
-    try:
-        return path.stat().st_mtime
-    except OSError:
-        return None
-
-
-def _input_stamp(inputs: tuple[Path, ...]) -> float:
-    """Newest mtime among a unit's inputs (this script always counts)."""
-    stamps = [_SCRIPT_MTIME]
-    stamps.extend(m for m in (_mtime(path) for path in inputs) if m is not None)
-    return max(stamps)
-
-
-def _published_and_current(ron_dst: Path, stamp: float) -> bool:
-    """True when this tier's RON and every page it names post-date `stamp`."""
-    published = _mtime(ron_dst)
-    if published is None or published < stamp:
-        return False
-    names = page_filenames_safe(ron_dst)
-    if not names:
-        return False
-    for name in names:
-        page = _mtime(ron_dst.parent / name)
-        if page is None or page < stamp:
-            return False
-    return True
-
-
 def _source_counterpart(rel: Path) -> Path:
     """The authored file a variant file mirrors.
 
@@ -1627,20 +1591,44 @@ def verify_published_sheets(
     raise SystemExit("\n".join(lines))
 
 
+def _conversion(inputs: tuple[Path, ...], destination: Path, variant: Variant, kind: str, target=None) -> dict:
+    from ambition_sprite2d_renderer.products import conversion_evidence, parents_of
+    from ambition_sprite2d_renderer.provenance import read_record, provenance_root, repo_root
+    paths = list(inputs) + [Path(__file__).resolve()]
+    complete = True
+    if target is not None:
+        record = read_record(provenance_root() / "sprites" / f"{target.name}.json") or {}
+        generation = record.get("generation") or {}
+        paths += [repo_root() / row["path"] for row in generation.get("inputs", [])]
+        complete = generation.get("complete", False)
+    return conversion_evidence(paths, {"kind": kind, "tier": variant.suffix,
+        "scale": variant.nominal_scale, "minimum": variant.min_frame_px, "parents": parents_of(list(inputs)),
+        "source_members": sorted(str(path.resolve()) for path in inputs)}, complete=complete)
+
+
+def _accept_variant(destination: Path, evidence: dict) -> None:
+    from ambition_sprite2d_renderer.products import accept_conversion
+    outputs = [destination]
+    if destination.suffix == ".ron":
+        outputs += [destination.parent / name for name in page_filenames_safe(destination)]
+    accept_conversion(destination.parent, destination.stem, evidence, outputs)
+
+
 def _variant_task(task: tuple, asset_root: Path, src: Path, force: bool, clock: PhaseClock) -> dict:
     """Do one task of `generate_sprite_variants`; return `{suffix: (sheets
     built, sheets current, loose images built)}`."""
+    from ambition_sprite2d_renderer.products import conversion_current
     kind, subject, tiers = task
     counts = {variant.suffix: [0, 0, 0] for variant in tiers}
     if kind in ("source", "sheet"):
         unit = subject
         source: SheetSource | None = None
-        stamp = _input_stamp((unit.ron,) + unit.pages)
         try:
             for variant in tiers:
                 dst_root = asset_root / f"sprites_{variant.suffix}"
                 ron_dst = dst_root / unit.rel
-                if not force and _published_and_current(ron_dst, stamp):
+                evidence = _conversion((unit.ron,) + unit.pages, ron_dst, variant, kind, unit.target)
+                if not force and conversion_current(ron_dst.parent, ron_dst.stem, evidence):
                     counts[variant.suffix][1] += 1
                     continue
                 # the phases are DISJOINT — nesting the parse inside the build
@@ -1656,37 +1644,38 @@ def _variant_task(task: tuple, asset_root: Path, src: Path, force: bool, clock: 
                             source.pages  # decode here so this phase owns the cost
                     with clock.phase("frame-local fallback", unit=unit.stem):
                         build_sheet_variant(source, ron_dst, variant)
+                _accept_variant(ron_dst, evidence)
                 counts[variant.suffix][0] += 1
         finally:
             if source is not None:
                 source.close()
     elif kind == "flipbook":
         ron, pages = subject
-        stamp = _input_stamp((ron, *pages))
         for variant in tiers:
             ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
-            if not force and _published_and_current(ron_dst, stamp):
+            evidence = _conversion((ron, *pages), ron_dst, variant, kind)
+            if not force and conversion_current(ron_dst.parent, ron_dst.stem, evidence):
                 continue
             with clock.phase("part flipbook", unit=ron.stem):
                 build_parts_variant(ron, ron_dst, variant)
+            _accept_variant(ron_dst, evidence)
     elif kind == "portrait":
         ron, png = subject
-        stamp = _input_stamp((ron, png))
         for variant in tiers:
             ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
-            outputs = (_mtime(ron_dst), _mtime(ron_dst.parent / png.name))
-            if not force and all(m is not None and m >= stamp for m in outputs):
+            evidence = _conversion((ron, png), ron_dst, variant, kind)
+            if not force and conversion_current(ron_dst.parent, ron_dst.stem, evidence):
                 continue
             with clock.phase("portrait", unit=ron.stem):
                 build_portrait_variant(ron, png, ron_dst, variant)
+            _accept_variant(ron_dst, evidence)
     else:
         png = subject
         rel = png.relative_to(src)
-        stamp = _input_stamp((png,))
         for variant in tiers:
             dst = asset_root / f"sprites_{variant.suffix}" / rel
-            dst_mtime = _mtime(dst)
-            if not force and dst_mtime is not None and dst_mtime >= stamp:
+            evidence = _conversion((png,), dst, variant, kind)
+            if not force and conversion_current(dst.parent, dst.stem, evidence):
                 continue
             # Loose props/icons still load as standalone images. A future prop
             # atlas should be added at this seam and reuse the renderer packer,
@@ -1700,6 +1689,7 @@ def _variant_task(task: tuple, asset_root: Path, src: Path, force: bool, clock: 
                     min_px=variant.min_frame_px,
                     resampling=resampling_for_variant(variant),
                 )
+            _accept_variant(dst, evidence)
             counts[variant.suffix][2] += 1
     return {suffix: tuple(values) for suffix, values in counts.items()}
 
@@ -1910,6 +1900,7 @@ def generate_parallax_variants(
     packed.) Same per-image outer / tier inner shape as the sheets, for the
     same reason: one image's three tiers are its own business.
     """
+    from ambition_sprite2d_renderer.products import conversion_current
     clock = clock or PhaseClock()
     src = asset_root / "backgrounds" / "parallax_layers"
     if not src.exists():
@@ -1932,11 +1923,10 @@ def generate_parallax_variants(
     missing: list[Path] = []
     for png in layers:
         rel = png.relative_to(src)
-        stamp = _input_stamp((png,))
         for variant in tiers:
             dst = asset_root / "backgrounds" / f"parallax_layers_{variant.suffix}" / rel
-            dst_mtime = _mtime(dst)
-            if force or dst_mtime is None or dst_mtime < stamp:
+            evidence = _conversion((png,), dst, variant, "parallax")
+            if force or not conversion_current(dst.parent, dst.stem, evidence):
                 with clock.phase("parallax png", unit=rel.as_posix()):
                     resize_png(
                         png,
@@ -1945,6 +1935,7 @@ def generate_parallax_variants(
                         min_px=variant.min_frame_px,
                         resampling=resampling_for_variant(variant),
                     )
+                _accept_variant(dst, evidence)
                 built[variant.suffix] += 1
             if not dst.is_file():
                 missing.append(dst)

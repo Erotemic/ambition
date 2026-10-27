@@ -1,83 +1,134 @@
 # Art inspector
 
-One offline page over all of Ambition's art: each file, the generator that
-made it, the asset it belongs to and where the game uses it.
+Use the inspector to find required art, inspect animation coverage, and compare
+published art with its source and design history. The CLI and offline page use
+one derived report. The report does not publish art or start a Cargo build.
+
+Build the content inspection binary once:
 
 ```bash
-python3 scripts/art_inspector.py build --open   # first build ~1.5 min, then ~25 s
+cargo build -p ambition_content_schemas --bin ambition_content_check
 ```
 
-The build writes `.agent/art_inspector/` (git-ignored): `index.html`,
-`app.js`, `app.css`, `catalog.js` and the previews. Open `index.html` from
-disk; it needs no server and no network. `--no-previews` rebuilds only the
-index, `--prune` deletes previews that the index no longer names, `--jobs N`
-sets the preview processes (at most 6), `--no-lineage` skips the
-lineages and the authorship (`git blame`; about 10 s when its cache is warm,
-about 2 min the first time).
+Reuse this binary after content or art edits. Rebuild it after changes to its
+Rust owners. This command builds the content and sheet readers. It needs no
+window, graphics device, or game host.
 
-## Views
+## Common queries
 
-- **Gallery**: one card per asset (a character with all its files and
-  quality tiers, a parallax theme, a terrain skin, an image). Search
-  (`/`), facets for family, generator link and use, sort by frames, size,
-  placements or findings.
-- **Asset**: an animation player and a pose grid for a sheet, a layer
-  viewer with a camera for a parallax theme, portraits, part tracks and body
-  rig joints. The generator (source file, drawing function with its line,
-  the regen command, the record and the files the render read), where the
-  game uses it (content rows with their line, LDtk placements per level),
-  every file with its confidence, and the findings.
-- **Related** (on each asset page): the other forms of the character
-  (its lineage, its catalog id, names with a form suffix such as
-  `alice_v2` or `alice_strike_fx`), the art made by the same generator
-  module, the same character-generator family, species or base body, and
-  the same tags. Each group opens as a filtered gallery. `←` and `→` step
-  through the gallery list the asset came from, or its family by name.
-  The relations are made by `art_index/related.py` from the index; they
-  are a way to navigate, not an authority.
-- **Lineage and authorship** (on a character's asset page): each lineage
-  of the design history that claims the character, with its eras (the
-  commit, who made it, who wrote the generator's code and art at that
-  commit, and the still when the design-history cache has it; the last era
-  of each target links to that target's asset today), and who wrote
-  the lines of the character's generator files now. See
-  `tools/ambition_sprite2d_renderer/design_history/README.md`.
-- **Generators**, **Findings** (copy as CSV), **Coverage** (how many files
-  of each root link to a generator).
+```bash
+python3 scripts/art_inspector.py status --current-game --needs-generation --json
+python3 scripts/art_inspector.py inspect npc_tower_voss --animation death --json
+python3 scripts/art_inspector.py coverage --missing death --json
+python3 scripts/art_inspector.py list --kind actor,prop,background,terrain --lineage --json
+python3 scripts/art_inspector.py build --open
+```
 
-## How each file links to its generator
+`--profile ambition` selects `game/ambition_content/assets`. To inspect another
+provider, pass its pack directory and its prebuilt schema check binary with
+`--profile PATH --content-binary BINARY`. `AMBITION_ART_CONTENT_BIN` also selects
+the binary. `--renderer-python` selects the renderer interpreter.
 
-Each file gets one link and one confidence:
+Use `--current-game` to limit generation work to referenced bundles and enabled
+looks. Without it, the query includes registered units with no known game use.
+`--query TEXT`, `--kind LIST`, and `--lineage ID` narrow list, status, and coverage
+queries. `inspect ID` also accepts a target, game label, tag, or source trait.
+`--animation NAME` limits its coverage table. JSON retains owner warnings and
+evidence gaps when a query has no results.
 
-| confidence | evidence |
-|---|---|
-| verified | a provenance record or `.cache/sheets` has the file's current digest |
-| declared | a record or the renderer registry names the file; nothing vouches for its bytes |
-| derived | a quality tier copy of another file (`generate_visual_quality_variants.py`) |
-| inferred | only a name points at a generator |
-| reference | authored or imported art under `assets/` |
-| unknown | no generator found: a finding |
+The build writes `.agent/art_inspector/index.html`, its scripts, and previews.
+Open the page from disk. It needs no web server. `--no-previews` updates the
+index and names preview paths without drawing new strips. `--jobs N` sets the
+preview process count, to a maximum of six. `--prune` removes unused previews.
+`--authorship` adds Git blame and cached era previews. Normal status queries do
+not decode pixels, draw previews, read blame, or walk Git history. `--deep`
+rehashes generation inputs and outputs instead of using cached file digests.
 
-The evidence comes from the generators, not from this tool:
+## Report and browser
 
-- the provenance records that each publish writes into
-  `crates/ambition_platformer2d_actor_monolith/asset_provenance/`
-  (`ambition_sprite2d_renderer/provenance.py`; `python -m
-  ambition_sprite2d_renderer.provenance backfill` records older art);
-- the renderer registry, `ambition-sprite2d-renderer list --json`;
-- the renderer cache, `tools/ambition_sprite2d_renderer/.cache/sheets/`.
+The inventory starts with registered publication plans, prepared identities,
+curated concepts and lineages, and local products. A missing bundle remains a
+normal record. The prepared provider and catalog ID identify a game character.
+The game label and art label remain separate values. Explicit `form_of`,
+`part_of`, and `derived_from` relations keep their different meanings. A name
+suffix does not establish identity or a generation.
 
-Uses come from the tracked content data (`game/*/assets/**/*.ron`), the LDtk
-worlds (`character_id`, prop looks, boss brains, `parallax_theme`) and Rust
-string literals (a heuristic). The index is derived on each build and is
-never an authority.
+The page has Current game, Needs generation, Registered with no known use,
+All targets, Concepts, History, Unregistered products, and Live snapshot views.
+Expand identities to see forms and parts. Filter by visual family, generator
+family, species, body base, naming class, lineage, catalog tags, animation gaps,
+and metadata state. Tags carry roles and regions where the game authors them.
+The raw gallery, file links, generator evidence, and findings remain available.
 
-## Layout
+A bundle page shows required members, optional claims, quality tiers,
+dependents, source support, selected rows, the accepted receipt, lineage, and a
+repair operation. Coverage separates source support, profile selection, valid
+runtime rows and pages, aliases, and fallbacks. The Rust sheet owner supplies
+fallback steps. Authored move clip chains use the same row binding as runtime.
+YAML preview rows and frame counts are compared with runtime RON metadata.
+A separate corpse row is optional: a death can hold its final frame.
 
-- `art_index/`: the indexer (`scan`, `sheets`, `generators`, `assets`,
-  `usage`, `diagnostics`, `thumbs`, `lineage`, `related`, `build`). Pillow and PyYAML;
-  `scripts/art_inspector.py` runs it in the sprite renderer's interpreter
-  when the current one lacks them.
-- `web/`: the page, plain JavaScript with no libraries.
-- `tests/`: a synthetic repository; `./run_tests.sh --tool-tests --only-job
-  'art inspector tests'`.
+Select bundles to compare one published action at a common phase or elapsed
+time. The player supports play once with a final hold, loops, scrubbing, and a
+death-to-corpse sequence. Source Studio links select the chargen spec and pose.
+Start Studio with `./scripts/chargen_studio.sh --open` before using those links.
+A source preview does not replace a missing published clip.
+
+## Generation evidence
+
+Game use, registration, generation state, and design history are separate axes.
+Game use comes from the selected prepared pack and explicit references in its
+worlds. Reports include content fingerprints, world digests, repository
+revisions, and local changes. Compiled bindings that an owner does not export
+remain outside this reference closure. A registered unit with no known use is
+not proof that no runtime path can use it.
+
+The renderer owns the current/missing/partial/stale/unknown decision. Publication
+and inspection call that owner. Accepted receipts record file inputs, directory
+membership, render parameters, toolchain versions, and output digests. Sprite
+publication stages receipts with the corresponding pixels. Quality conversions
+and atlases record their inputs and conversion parameters in the same provenance
+root, outside runtime asset roots.
+
+Legacy receipts with no complete input record stay unknown. A known changed
+input or changed output can still prove staleness. `--needs-generation` selects
+positive missing or stale evidence; unknown generation evidence needs review.
+A focused publish records evidence for that bundle:
+
+```bash
+./scripts/regen/sprites.sh --target tower_voss
+./scripts/regen/quality_variants.sh --target tower_voss
+python3 scripts/check_quality_variants_are_fresh.py
+```
+
+The quality check reports legacy evidence gaps. Add `--require-evidence` to fail
+on those gaps. Do not run asset publication with a Cargo build.
+
+Metadata is sparse. Chargen reports source traits and profile rows. The crypto
+crew and training equipment supply authored concepts and naming classes. The
+other groups can remain unknown. Conflicting facts retain their candidates.
+A failed discovery does not classify its omitted products as unregistered.
+
+## Live evidence
+
+An opt-in capture writes a read-only art snapshot beside the image:
+
+```bash
+target/debug/capture_scene military_tower player /tmp/art.png --art-snapshot
+python3 scripts/art_inspector.py build --runtime-snapshot /tmp/art.0000.art.json --open
+```
+
+Use an existing room ID and the snapshot file the capture produced. The snapshot
+contains stable actor IDs, worn character IDs, session and tick, liveness, death
+beat, requested pose and clip, selected row and frame, realization, quality,
+loaded sheet generation, and build/content identity. The page compares the
+loaded manifest fingerprint with local manifests. It does not claim that local
+pixel bytes are already uploaded to the live graphics device.
+
+## Validation
+
+Run the inspector tests with `python3 -m pytest tools/art_inspector/tests -q`.
+Renderer tests cover accepted bundles, source changes, missing pages, and failed
+conversion acceptance. Sprite staging tests exercise receipt and pixel
+publication together. Rust sheet tests cover the original `Death -> Hit -> Idle`
+failure and direct death resolution. No test freezes the cast roster.

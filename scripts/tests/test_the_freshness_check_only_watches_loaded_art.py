@@ -60,15 +60,21 @@ def _publish(directory: Path, stem: str, *, mtime: float) -> None:
         os.utime(directory / name, (mtime, mtime))
 
 
-def test_a_stale_sheet_the_runtime_loads_is_still_reported(tmp_path) -> None:
+def test_a_stale_sheet_the_runtime_loads_is_still_reported(tmp_path, monkeypatch) -> None:
     module = _checker()
     source, tier = tmp_path / "sprites", tmp_path / "sprites_0_5x"
     _publish(source, "officer_spritesheet", mtime=2_000_000)
     _publish(tier, "officer_spritesheet", mtime=1_000_000)
 
+    from ambition_sprite2d_renderer import products, provenance
+    monkeypatch.setenv(provenance.ENV, str(tmp_path / 'receipts'))
+    evidence = products.conversion_evidence([source / 'officer_spritesheet.ron', source / 'officer_spritesheet.png'], {})
+    products.accept_conversion(tier, 'officer_spritesheet', evidence,
+        [tier / 'officer_spritesheet.ron', tier / 'officer_spritesheet.png'])
+    (source / 'officer_spritesheet.png').write_bytes(b'changed pixels')
     stale = module.stale_pairs(source, tier)
     assert [path.name for path, _ in stale] == ["officer_spritesheet.ron"], (
-        "a tier sheet older than its source is the defect this check exists for; "
+        "a tier sheet made from other source bytes must be reported; "
         f"narrowing it must not remove that. Got {stale}"
     )
 

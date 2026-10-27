@@ -6,9 +6,8 @@ license.workspace = true
 authors.workspace = true
 description = "The schemas Ambition's own pack names beside the engine's, and the content check binary that composes both."
 
-# NO BEVY, AND NO GAME CRATE. The package guard builds the check binary
-# (`cargo run -p ambition_content_schemas`) to read Ambition's pack, so this
-# crate's closure is the content CLI's plus serde: seconds, not the game.
+# The check binary composes content schemas and the runtime sheet inspector.
+# It needs no window, renderer device or game host.
 [dependencies]
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_content_cli = { path = "../../crates/ambition_content_cli" }

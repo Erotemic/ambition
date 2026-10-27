@@ -63,7 +63,7 @@
     const g = gens[a.generator] || {};
     haystack.set(a.id, [a.id, a.name, a.display, a.family, a.character_id, (a.tags || []).join(" "), a.generator, g.source, g.module,
       (a.uses || []).map((u) => u.path + " " + (u.row || "")).join(" "), (a.placements || []).map((p) => p.level + " " + p.field).join(" "),
-      a.products.join(" "), (a.lineages || []).map((l) => l.lineage + " " + l.name).join(" "),
+      JSON.stringify(a.chargen || {}), (a.layout?.rows || []).map(r => r.name).join(" "), a.products.join(" "), (a.lineages || []).map((l) => l.lineage + " " + l.name).join(" "),
       a.authorship ? a.authorship.shares.map((x) => x.who).join(" ") : ""].join(" ").toLowerCase());
   }
   function matches(a) {
@@ -86,7 +86,7 @@
       && (!state.tag.size || [...state.tag].every((t) => (a.tags || []).includes(t)))
       && (!state.use || (state.use === "used" ? used(a) : state.use === "unused" ? !used(a) : a.findings > 0)));
     // Of two sheets of one character, the one the game draws comes first.
-    const older = (a) => (a.generation && a.generation.state !== "current" ? 1 : 0);
+    const older = (a) => (a.inspection_unit && C.inventory?.units[a.inspection_unit]?.game_use === "referenced" ? 0 : 1);
     const sorts = {
       name: (a, b) => a.display.localeCompare(b.display) || older(a) - older(b),
       frames: (a, b) => b.frames - a.frames,
@@ -136,13 +136,11 @@
   function card(a) {
     const counts = a.animations ? `${a.animations} anim · ${fmt(a.frames)} fr` : `${a.products.length} file${a.products.length > 1 ? "s" : ""}`;
     return `<a class="card" href="#asset/${enc(a.id)}"><div class="img checker">${img(a.cover, a.display)}</div>
-      <div class="meta"><div class="nm">${esc(a.display)}${a.generation ? ` <code class="gen">${esc(a.name)}</code>` : ""}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}${generationChip(a)}</div></div></a>`;
+      <div class="meta"><div class="nm">${esc(a.display)}${a.art_label && a.art_label !== a.display ? ` <code class="gen">${esc(a.art_label)}</code>` : ""}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}${unitChip(a)}</div></div></a>`;
   }
-  function generationChip(a) {
-    if (!a.generation) return "";
-    return a.generation.state === "current" ? ' <span class="chip c-verified" title="the catalog row draws this sheet">in the game</span>'
-      : a.generation.state === "older" ? ' <span class="chip c-info" title="another generation of this character is the one the game draws">older generation</span>'
-      : ' <span class="chip c-info" title="the catalog row draws another sheet of this character">another sheet</span>';
+  function unitChip(a) {
+    const unit = C.inventory?.units[a.inspection_unit];
+    return unit ? ` ${chip(unit.game_use)} ${chip(unit.status.state)}` : "";
   }
 
   // ---- asset detail ------------------------------------------------------------------
@@ -166,10 +164,10 @@
     app.innerHTML = `<div class="detail">
       ${navBar(a)}
       <h1>${esc(a.display)}</h1>
-      <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${a.character_id ? ` · character <code>${esc(a.character_id)}</code>` : ""}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}${generationChip(a)}</p>
-      ${a.generation && a.generation.state !== "current" ? `<p class="lede">${a.generation.state === "older" ? "An older generation" : "Another sheet"} of <code>${esc(a.generation.character_id)}</code>: the game draws ${assetLink(a.generation.current, (assets[a.generation.current] || {}).name)} for it.</p>` : ""}
+      <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${a.character_id ? ` · character <code>${esc(a.character_id)}</code>` : ""}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}${unitChip(a)}</p>
       ${a.description ? `<p class="lede">${esc(a.description)}</p>` : ""}
       ${a.tags && a.tags.length ? `<div class="chips" style="margin-bottom:12px">${a.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
+      ${a.inspection_unit ? `<p><a href="#inventory/unit/${enc(a.inspection_unit)}">Inventory, coverage, and generation evidence</a></p>` : ""}
       ${relatedBox(a)}
       ${(a.lineages || []).map((l) => lineageBox(l, a)).join("")}
       <div class="cols"><div>${left.join("")}</div><div>${right.join("")}</div></div></div>`;
@@ -190,6 +188,8 @@
     return `<section class="box"><h2>Animations (${rows.length} · ${fmt(a.frames)} frames · frame ${a.layout.frame.join("×")})</h2>
       <div class="stage checker" id="stage"><canvas id="player"></canvas></div>
       <div class="controls"><button id="play" type="button">pause</button><button id="step" type="button">step</button>
+        <label>mode <select id="playmode"><option value="once">play once / hold</option><option value="loop">loop</option><option value="death">death → corpse</option></select></label>
+        <label>frame <input id="scrub" type="range" min="0" value="0"></label>
         <label>speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option></select></label>
         <label>scale <select id="scale"><option>1</option><option selected>2</option><option>3</option></select></label>
         <a id="pagelink" href="#">full-resolution page</a>
@@ -213,10 +213,13 @@
     function draw() {
       canvas.width = cw * scale; canvas.height = ch * scale; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (strip) ctx.drawImage(strip, frame * cw, 0, cw, ch, 0, 0, cw * scale, ch * scale);
+      document.getElementById("scrub").max = Math.max(0, rows[row].frames - 1);
+      document.getElementById("scrub").value = frame;
+      document.getElementById("play").textContent = playing ? "pause" : "play";
       info.textContent = `${rows[row].name}  ${frame + 1}/${rows[row].frames}`;
     }
     function select(i) {
-      row = i; frame = 0; strip = null;
+      row = i; frame = 0; strip = null; playing = true;
       document.querySelectorAll("#anims .anim").forEach((el) => el.classList.toggle("on", +el.dataset.row === i));
       const src = rows[i].strip;
       if (src) loadStrip(src).then((im) => { if (row === i) { strip = im; draw(); } }, () => { info.textContent = "preview not drawn: run the build without --no-previews"; });
@@ -225,12 +228,30 @@
     function restart() {
       stopTimers();
       const ms = Math.max(30, (rows[row].ms || 100) / speed);
-      timers.push(setInterval(() => { if (playing && strip) { frame = (frame + 1) % Math.max(1, rows[row].frames); draw(); } }, ms));
+      timers.push(setInterval(() => { if (playing && strip) { const mode = document.getElementById("playmode").value;
+        if (frame + 1 < rows[row].frames) frame += 1;
+        else if (mode === "loop") frame = 0;
+        else if (mode === "death" && rows[row].name === "death") {
+          const corpse = rows.findIndex(r => r.name === "death_idle");
+          if (corpse >= 0) { select(corpse); return; }
+          playing = false;
+        } else playing = false;
+        draw(); } }, ms));
     }
     document.getElementById("anims").addEventListener("click", (e) => { const el = e.target.closest("[data-row]"); if (el) select(+el.dataset.row); });
     document.getElementById("poses").addEventListener("click", (e) => { const el = e.target.closest("[data-row]"); if (el) { select(+el.dataset.row); window.scrollTo({ top: 0 }); } });
-    document.getElementById("play").addEventListener("click", (e) => { playing = !playing; e.target.textContent = playing ? "pause" : "play"; });
+    document.getElementById("play").addEventListener("click", () => {
+      if (!playing && document.getElementById("playmode").value === "death") {
+        const death = rows.findIndex(r => r.name === "death");
+        if (death >= 0) { select(death); return; }
+      }
+      playing = !playing;
+      if (playing && frame === rows[row].frames - 1) frame = 0;
+      draw();
+    });
     document.getElementById("step").addEventListener("click", () => { playing = false; document.getElementById("play").textContent = "play"; frame = (frame + 1) % Math.max(1, rows[row].frames); draw(); });
+    document.getElementById("scrub").addEventListener("input", e => { playing = false; frame = +e.target.value; draw(); });
+    document.getElementById("playmode").addEventListener("change", e => { const death = rows.findIndex(r => r.name === "death"); select(e.target.value === "death" && death >= 0 ? death : row); });
     document.getElementById("speed").addEventListener("change", (e) => { speed = +e.target.value; restart(); });
     document.getElementById("scale").addEventListener("change", (e) => { scale = +e.target.value; draw(); });
     const page0 = a.products.map((p) => products[p]).find((p) => p.role === "sheet_page:0" && p.tier === "full");
@@ -536,7 +557,8 @@
     const [view, ...rest] = h.split("/");
     const id = rest.join("/");
     document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === (view === "asset" ? "gallery" : view === "gen" ? "generators" : view || "gallery")));
-    if (view === "asset") detail(id);
+    if (view === "inventory" || !view) window.renderArtInventory(id || "current");
+    else if (view === "asset") detail(id);
     else if (view === "gen") generatorDetail(id);
     else if (view === "generators") generatorList();
     else if (view === "findings") findings();

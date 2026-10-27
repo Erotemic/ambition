@@ -7,6 +7,7 @@
 //! wrong.
 
 use std::path::PathBuf;
+pub mod art;
 
 use ambition_content_pack::{
     compile_dir, AdvisoryAssets, AssetSource, AssetsUnchecked, CapabilityId, CompileFailure,
@@ -67,6 +68,8 @@ pub struct Invocation {
     pub fingerprint_only: bool,
     /// Print only the files a package needs (`PreparedContentPack::package_inputs`).
     pub package_inputs_only: bool,
+    pub inspect_art: bool,
+    pub sheet_roots: Vec<PathBuf>,
     /// The schemas the game owns, beside the engine's: what its
     /// `content_pack! { schemas: [..] }` names. A game's check binary passes
     /// them through [`main_with`]; this binary has none.
@@ -124,6 +127,8 @@ OPTIONS:
                           line per asset a schema required. The package asset
                           guard reads this.
     --list-schemas        List the installed schemas and exit.
+    --inspect-art         Export prepared art identities and dependencies as JSON.
+    --sheet-root <dir>    Inspect published RON sheets through their runtime owner.
     -h, --help            This text.
 
 EXIT CODE:
@@ -143,6 +148,8 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
     let mut list_schemas = false;
     let mut fingerprint_only = false;
     let mut package_inputs_only = false;
+    let mut inspect_art = false;
+    let mut sheet_roots = Vec::new();
 
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
@@ -163,6 +170,8 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             "--list-schemas" => list_schemas = true,
             "--fingerprint" => fingerprint_only = true,
             "--package-inputs" => package_inputs_only = true,
+            "--inspect-art" => inspect_art = true,
+            "--sheet-root" => sheet_roots.push(PathBuf::from(args.next().ok_or_else(|| ArgError::MissingValue("--sheet-root".into()))?)),
             other if other.starts_with('-') => return Err(ArgError::Unknown(other.to_string())),
             other => pack_root = Some(PathBuf::from(other)),
         }
@@ -179,6 +188,8 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             list_schemas,
             fingerprint_only,
             package_inputs_only,
+            inspect_art,
+            sheet_roots,
             game_schemas: no_game_schemas,
         });
     }
@@ -193,6 +204,8 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         list_schemas,
         fingerprint_only,
         package_inputs_only,
+        inspect_art,
+        sheet_roots,
         game_schemas: no_game_schemas,
     })
 }
@@ -285,7 +298,9 @@ pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process:
 
     match invocation.run() {
         Ok(pack) => {
-            if invocation.fingerprint_only {
+            if invocation.inspect_art {
+                println!("{}", art::describe(&pack, &invocation.sheet_roots));
+            } else if invocation.fingerprint_only {
                 println!("{}", pack.fingerprint);
             } else if invocation.package_inputs_only {
                 print!("{}", pack.package_inputs());

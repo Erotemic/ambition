@@ -115,7 +115,7 @@ def relate(rows: dict[str, dict], generators: dict[str, dict], repo: Path) -> No
     for aid, row in rows.items():
         found = []
         for kind, key, ids in member.get(aid, []):
-            if (kind == "chargen_species" and key == ("human",)) or (kind == "tag" and len(ids) > MAX_GROUP):
+            if (kind == "tag" and len(ids) > MAX_GROUP):
                 continue  # every person, every prop: a type, not a relation (the gallery's facets)
             found.append({"kind": kind, "title": titles[kind](key), "assets": _ordered(ids - {aid}, rows)})
         if alike.get(aid):
@@ -133,32 +133,6 @@ def relate(rows: dict[str, dict], generators: dict[str, dict], repo: Path) -> No
         row["related"] = found
         if traits.get(aid):
             row["chargen"] = traits[aid]
-
-
-def generations(rows: dict[str, dict]) -> None:
-    """Mark which sheet the game draws for a character id. Two sheets can
-    claim one character (`carl_runga` and its redesign `carl_runga_v2` both
-    name `npc_carl_runga`): the one the catalog row's manifest names is
-    `current`; another generation of it is `older`, any other sheet `other`,
-    and both point at it."""
-    by_id: dict[str, list[str]] = defaultdict(list)
-    for aid, row in rows.items():
-        if row.get("character_id"):
-            by_id[row["character_id"]].append(aid)
-    for cid, ids in by_id.items():
-        drawn = [aid for aid in ids
-                 if any(u.get("row") == cid and u.get("path", "").endswith("character_catalog.ron") for u in rows[aid].get("uses") or [])]
-        if len(ids) < 2 or not drawn:
-            continue
-        now = stem(rows[drawn[0]]["name"])
-        for aid in ids:
-            if aid in drawn:
-                rows[aid]["generation"] = {"state": "current", "character_id": cid}
-            else:
-                # The same name but for a `_vN` is a generation; another name
-                # is another sheet of the character (a boss's sauce).
-                state = "older" if stem(rows[aid]["name"]) == now else "other"
-                rows[aid]["generation"] = {"state": state, "character_id": cid, "current": drawn[0]}
 
 
 def _ordered(ids: set, rows: dict[str, dict]) -> list[str]:

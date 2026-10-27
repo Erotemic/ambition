@@ -31,6 +31,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use bevy::prelude::*;
 use serde::Deserialize;
+pub mod inspection;
 use tracing::{info, warn};
 
 pub mod actor_sprite_metrics;

@@ -24,6 +24,8 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraSnapshotResolveMode,
 };
 use bevy::app::AppExit;
+#[path = "capture_scene/art_snapshot.rs"]
+mod art_snapshot;
 use bevy::camera::{ImageRenderTarget, RenderTarget};
 use bevy::ecs::system::SystemParam;
 use bevy::input::touch::{TouchInput, TouchPhase};
@@ -36,6 +38,7 @@ use bevy::render::render_resource::{TextureFormat, TextureUsages};
 
 #[derive(Resource, Clone, Debug)]
 struct SceneCaptureConfig {
+    art_snapshot: bool,
     room_id: String,
     focus: ae::Vec2,
     output: PathBuf,
@@ -300,6 +303,7 @@ USAGE:
     capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
 
 OPTIONS:
+    --art-snapshot      write OUT.art.json with live identities and sprite selection
     --warmup N          frames to settle before the first shot [default: 60]
     --frames N          take N shots, numbered <stem>.NNNN.png [default: 1]
     --stride K          sim frames between shots of a sequence [default: 1]
@@ -1540,6 +1544,7 @@ impl SceneCaptureConfig {
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
         let mut frames: usize = 1;
+        let mut art_snapshot = false;
         let mut stride: u32 = 1;
         let mut fit_room = false;
         let mut character: Option<String> = None;
@@ -1600,6 +1605,7 @@ impl SceneCaptureConfig {
                     );
                     2
                 }
+                "--art-snapshot" => { art_snapshot = true; 1 }
                 "--look-depth" => {
                     let numbers: Vec<f32> = args
                         .get(i + 1)
@@ -2057,6 +2063,7 @@ impl SceneCaptureConfig {
             let output = output.unwrap_or_else(|| PathBuf::from(format!("/tmp/route_{route}.png")));
             let size = size.unwrap_or(UVec2::new(1280, 720));
             return Ok(Self {
+                art_snapshot,
                 room_id: String::new(),
                 focus: ae::Vec2::ZERO,
                 output,
@@ -2131,6 +2138,7 @@ impl SceneCaptureConfig {
             .and_then(|text| parse_image_size(text))
             .unwrap_or(UVec2::new(1280, 720));
         Ok(Self {
+            art_snapshot,
             room_id,
             focus,
             output,
@@ -3474,6 +3482,15 @@ fn request_capture(
     commands
         .spawn(Readback::texture(target.image.clone()))
         .observe(save_readback_to_disk);
+    if config.art_snapshot {
+        let path = config.output.with_extension(format!("{:04}.art.json", runtime.shot));
+        commands.queue(move |world: &mut World| {
+            let report = art_snapshot::snapshot(world);
+            if let Err(error) = std::fs::write(&path, serde_json::to_vec_pretty(&report).expect("snapshot JSON")) {
+                eprintln!("capture_scene: cannot write {}: {error}", path.display());
+            }
+        });
+    }
     runtime.requested = true;
     // The sim tick of the shot, so a film lines up with a sim trace.
     eprintln!(

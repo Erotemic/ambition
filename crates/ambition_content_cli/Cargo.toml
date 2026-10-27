@@ -12,19 +12,13 @@ description = "The content-pack validator's diagnostic front door. Composes the 
 # it would do so silently: the tool would still work, just slowly, and nobody
 # would notice until someone timed it.
 [dependencies]
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_content_pack = { path = "../ambition_content_pack" }
-# ⭐⭐ THE SIX CAPABILITY CRATES ARE GONE FROM HERE, AND THAT IS THE OTHER HALF OF
-# THE COLLAPSE. They were declared so this manifest's own `default_registry()`
-# could spell each registration; that list moved to `ambition_engine_schemas`,
-# and leaving the deps behind would have been the SAME defect one level down —
-# two hand-kept copies of "which six crates own the engine's schemas", one in
-# each manifest, with nothing holding them equal.
-#
-# ⚠ The composition is unchanged: this binary still links all six, transitively
-# and by exactly one declaration. MEASURED by member, not by count: the closure
-# goes 324 -> 325 and the single addition is `ambition_engine_schemas` itself.
-# Every other member is identical and `ambition_platformer2d` is still absent.
+# The schema registry owns composition. Inspection reads lowered owner types.
 ambition_engine_schemas = { path = "../ambition_engine_schemas" }
+ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+serde_json = "1"
 
 [[bin]]
 name = "ambition_content"

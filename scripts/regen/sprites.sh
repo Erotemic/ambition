@@ -50,10 +50,7 @@ asset_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets"
 publish_asset_root="$asset_root"
 sprites_dir="$asset_root/sprites"
 entities_dir="$sprites_dir/entities"
-# Which target made each published file is recorded beside the runtime roots,
-# never in them and never in the staging root the publish installs into
-# (`ambition_sprite2d_renderer/provenance.py`).
-export AMBITION_ART_PROVENANCE_DIR="$repo_root/crates/ambition_platformer2d_actor_monolith/asset_provenance/sprites"
+staged_provenance_root="$repo_root/crates/ambition_platformer2d_actor_monolith/asset_provenance"
 
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/tool_python.sh"
@@ -416,6 +413,12 @@ use_publish_root() {
     publish_asset_root="$1"
     sprites_dir="$1/sprites"
     entities_dir="$sprites_dir/entities"
+    export AMBITION_ART_ASSET_ROOT="$1"
+    if [ "$1" = "$asset_root" ]; then
+        export AMBITION_ART_PROVENANCE_ROOT="$staged_provenance_root"
+    else
+        export AMBITION_ART_PROVENANCE_ROOT="$1/_art_provenance"
+    fi
 }
 
 # Ultrapack tiers. tier: <name> <scale> <min_frame_px> <page_size>
@@ -510,6 +513,7 @@ if [ "${#target_names[@]}" -gt 0 ]; then
     # the next run continues the staged copy.
     begin_staging
     use_publish_root "$staging_root"
+    export AMBITION_SPRITE_READS_DIR="$renderer_dir/.cache/reads"
     # Each target owns its installed paths under the shared sprite root.
     echo "==> sprite targets: ${target_names[*]} → $sprites_dir"
     run_renderer_python "publish-focused" -m ambition_sprite2d_renderer publish-many \
@@ -1396,26 +1400,7 @@ from pathlib import Path
 
 from ambition_sprite2d_renderer.registry import discover_all_targets
 
-DIAGNOSTIC_SUFFIXES = (
-    "_canonical.png",
-    "_canonical_transparent.png",
-    "_preview_labeled.png",
-    "_parts_debug.png",
-    "_debug.png",
-)
-
-
-def runtime_required(rel: str) -> bool:
-    name = Path(rel).name
-    if name == "canonicals_contact_sheet.png" or name.endswith(DIAGNOSTIC_SUFFIXES):
-        return False
-    if name.endswith("_parts.png"):
-        return False
-    if rel.endswith(".ron") and not (
-        rel.endswith("_spritesheet.ron") or rel.endswith("_portraits.ron")
-    ):
-        return False
-    return True
+from ambition_sprite2d_renderer.products import runtime_required
 
 
 report = discover_all_targets()
@@ -1680,16 +1665,7 @@ publish_cached_batch() {
     # when the resolution fails, `records_ok` is 0. Requiring a row made all
     # 74 such targets stale on every run (measured 2026-10-13).
     #
-    # One process answers every target: the same key as `unit_key`, the same
-    # digests as `sheet_output_digests`, each file hashed once. Asked one
-    # target at a time it was 15 s of keys and 5 s of digests for 245 targets
-    # (measured 2026-10-15); `sprite_freshness.py` says why the key is the
-    # same bytes.
-    local installs_tsv portraits_tsv verdict
-    installs_tsv="$(mktemp "${TMPDIR:-/tmp}/sprite-installs.XXXXXX")"
-    portraits_tsv="$(mktemp "${TMPDIR:-/tmp}/sprite-portraits.XXXXXX")"
-    printf '%s\n' "$install_lines" >"$installs_tsv"
-    printf '%s\n' "${records-}" >"$portraits_tsv"
+    # The renderer owns the batch decision and the accepted input receipts.
     local -a freshness_flags=()
     [ "$force_regen" -ne 1 ] || freshness_flags+=(--force)
     [ "$records_ok" -eq 1 ] || freshness_flags+=(--portraits-failed)
@@ -1697,7 +1673,7 @@ publish_cached_batch() {
     if ! freshness="$(
         cd "$renderer_dir" && "$python_bin" "$repo_root/scripts/lib/sprite_freshness.py" \
             --repo-root "$repo_root" --cache-dir "$cache_dir" --sprites-dir "$sprites_dir" \
-            --core "$unit_core_fingerprint" --installs "$installs_tsv" --portraits "$portraits_tsv" \
+            --installs "$installs_tsv" --portraits "$portraits_tsv" \
             "${freshness_flags[@]}" "${candidates[@]}"
     )"; then
         echo "  warning: could not judge the freshness of batch '$label'; republishing it" >&2
@@ -1869,7 +1845,8 @@ started_authored_fingerprint="$(compute_authored_fingerprint)"
 if [ "$force_regen" -ne 1 ] \
     && [ -n "$cached_fingerprint" ] \
     && [ "$cached_fingerprint" = "$current_fingerprint" ] \
-    && all_outputs_present
+    && all_outputs_present \
+    && (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer.products --check-sprites)
 then
     echo "==> regen cache hit: renderer sources + outputs unchanged — skipping sprite publication."
     echo "    Cache key: $fingerprint_file"

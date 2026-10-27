@@ -19,6 +19,7 @@
 | [`frames`](src/frames.rs) | The single frame-addressing algebra for every sprite sheet. |
 | [`fx`](src/fx.rs) | The effect sheets the engine ships, and the mapping from effect name to sheet row. |
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring for character sheets, entity sprites, and parallax art. |
+| [`inspection`](src/inspection.rs) | Read published sheets through the runtime parser and pose resolver. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
 | [`prop_sheets`](src/prop_sheets.rs) | The `prop_sheets` schema: the prop sheets a game draws, as data in its pack. |
@@ -31,7 +32,7 @@
 | [`sprite_tree`](src/sprite_tree.rs) | The published sprite tree: which files the sprite publisher wrote, and the key each one is read by. |
 | [`surfaces`](src/surfaces.rs) | The standing surfaces a sheet publishes, as the simulation reads them ([`ambition_characters::actor::SurfaceTable`]). |
 
-_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

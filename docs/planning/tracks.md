@@ -130,8 +130,8 @@ here.
 - ▢ **Inspection/diagnostics/workbench.** Build read-only discoverability from
   domain-contributed descriptors rather than a new simulation authority. Owner:
   [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md).
-- ▢ **Art inventory and coverage.** Expose exact missing or stale bundles for
-  actors, props and backgrounds; join game use, registration and design history.
+- ✓ **Art inventory and coverage.** The shared CLI and offline page report
+  missing or stale bundles, identities, lineage, and animation coverage.
   Owner: [`engine/art-inspector-and-character-coverage.md`](engine/art-inspector-and-character-coverage.md).
 - ▢ **Moveset observatory M3 — art/geometry agreement.** Do not build a parallel
   projection helper: measure the rendered frame through the camera that drew it.

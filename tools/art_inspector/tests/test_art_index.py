@@ -187,7 +187,7 @@ def test_a_character_page_names_its_lineage_from_the_design_history(built, tmp_p
         monkeypatch.delitem(sys.modules, name)
     monkeypatch.syspath_prepend(str(pkg.parent))
     targets = {"foo": {"family": "sprite_target", "id": "foo", "category": "characters", "source": "tools/foo.py", "outputs": []}}
-    c = build.build(repo, tmp_path / "out", jobs=1, previews=False, targets=targets, log=lambda *_: None)
+    c = build.build(repo, tmp_path / "out", jobs=1, previews=False, targets=targets, lineages=True, log=lambda *_: None)
     (lineage,) = c["assets"]["sheet:foo"]["lineages"]
     assert lineage["lineage"] == "foo" and lineage["found_via"] == "target foo"
     assert [e["label"] for e in lineage["eras"]] == ["First", "Second"]
@@ -226,29 +226,9 @@ def test_related_assets_join_forms_lineages_generators_and_specs(tmp_path):
     by_title = {g["title"]: g["assets"] for g in rows["sheet:ann_v2"]["related"]}
     assert by_title["Lineage: Ann · Game character npc_ann"] == ["sheet:ann"]
     assert by_title["Named alike"] == ["sheet:ann", "sheet:ann_strike_fx"]
-    assert by_title["Chargen base body slim_female"] == ["sheet:bea", "sheet:cid"]
+    assert next(v for k, v in by_title.items() if "Chargen base body slim_female" in k) == ["sheet:bea", "sheet:cid"]
     assert rows["sheet:ann_v2"]["chargen"] == {"family": "cast", "species": "human", "base": "slim_female"}
     bea = {g["title"]: g["assets"] for g in rows["sheet:bea"]["related"]}
     assert bea["Made by townsfolk · Chargen family crew"] == ["sheet:cid"]
-    assert not any("species" in g["title"] for g in rows["sheet:bea"]["related"])
+    assert any("species human" in g["title"] for g in rows["sheet:bea"]["related"])
     assert rows["sheet:dot"]["related"] == []
-
-
-def test_the_sheet_the_catalog_draws_is_the_current_generation():
-    """Two sheets name one character (a redesign beside the first design):
-    the one the catalog row's manifest names is current, the other an older
-    generation; a sheet of another name is another sheet, not a generation."""
-    from art_index import related
-
-    use = [{"path": "game/x/assets/data/character_catalog.ron", "row": "npc_carl"}]
-    rows = {
-        "sheet:carl": {"name": "carl", "character_id": "npc_carl", "uses": []},
-        "sheet:carl_v2": {"name": "carl_v2", "character_id": "npc_carl", "uses": use},
-        "sheet:carl_sauce": {"name": "carl_sauce", "character_id": "npc_carl", "uses": []},
-        "sheet:solo": {"name": "solo", "character_id": "npc_solo", "uses": []},
-    }
-    related.generations(rows)
-    assert rows["sheet:carl_v2"]["generation"]["state"] == "current"
-    assert rows["sheet:carl"]["generation"] == {"state": "older", "character_id": "npc_carl", "current": "sheet:carl_v2"}
-    assert rows["sheet:carl_sauce"]["generation"]["state"] == "other"
-    assert "generation" not in rows["sheet:solo"]

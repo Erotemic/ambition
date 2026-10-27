@@ -16,12 +16,13 @@ LIB = REPO / "scripts/lib/sprite_staging.sh"
 REGEN = REPO / "scripts/regen/sprites.sh"
 
 
-def _bash(tmp_path: Path, body: str) -> str:
+def _bash(tmp_path: Path, body: str, *, provenance=False) -> str:
     script = f"""
 set -euo pipefail
 asset_root={tmp_path / "assets"}
 staging_root={tmp_path / "stage"}
 mirror_root={tmp_path / "mirror"}
+{("staged_provenance_root=" + str(tmp_path / "records")) if provenance else ""}
 source {LIB}
 {body}
 """
@@ -120,3 +121,17 @@ def test_the_publish_swaps_after_the_sprite_phases_and_before_the_ldtk_phases() 
         assert text.index('use_publish_root "$asset_root"', swap) < text.index(reader), reader
     # Only a set that every sprite phase passed is swapped in.
     assert 'if [ "${#regen_failures[@]}" -eq 0 ]; then\n    finish_staging' in text
+
+
+def test_a_failed_publish_keeps_the_accepted_receipt_with_the_live_pixels(tmp_path):
+    assets = _tree(tmp_path)
+    records = tmp_path / 'records/sprites'
+    records.mkdir(parents=True)
+    receipt = records / 'sandbag.json'
+    receipt.write_text('old accepted receipt')
+    _bash(tmp_path, 'begin_staging; echo "new sheet" > "$staging_root/sprites/sandbag_spritesheet.png"; echo "new receipt" > "$staging_root/_art_provenance/sprites/sandbag.json"', provenance=True)
+    assert receipt.read_text() == 'old accepted receipt'
+    assert (assets / 'sprites/sandbag_spritesheet.png').read_text() == 'old sheet'
+    _bash(tmp_path, 'begin_staging; finish_staging', provenance=True)
+    assert receipt.read_text() == 'new receipt\n'
+    assert (assets / 'sprites/sandbag_spritesheet.png').read_text() == 'new sheet\n'

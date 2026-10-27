@@ -131,6 +131,11 @@ pub fn light_the_boss_stage(
                 BossStageVeil { flash: is_flash },
                 Sprite { color, custom_size: Some(Vec2::splat(VEIL_SIZE)), ..Default::default() },
                 Transform::from_translation(at.extend(BOSS_STAGE_Z + if is_flash { 0.05 } else { 0.0 })),
+                // Apply camera-relative light once, over the portal windows.
+                // Captures and carries must not treat it as world geometry.
+                bevy::camera::visibility::RenderLayers::layer(
+                    ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
+                ),
                 Name::new(if is_flash { "Boss stage: flash" } else { "Boss stage: dark" }),
             ));
         }
@@ -292,6 +297,34 @@ pub fn show_boss_name_card(
 mod name_card_tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+
+    #[test]
+    fn stage_light_follows_the_view_without_entering_world_captures() {
+        use ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER;
+        use bevy::camera::visibility::RenderLayers;
+
+        let mut app = App::new();
+        let view_layers = RenderLayers::layer(0).with(PARALLAX_BACKGROUND_LAYER);
+        let camera = app.world_mut().spawn((
+            MainCamera,
+            Transform::from_xyz(100.0, 200.0, 0.0),
+            view_layers.clone(),
+        )).id();
+        app.add_systems(Update, light_the_boss_stage);
+        for at in [Vec2::new(100.0, 200.0), Vec2::new(500.0, -300.0)] {
+            app.world_mut().get_mut::<Transform>(camera).unwrap().translation = at.extend(0.0);
+            app.update();
+            let world = app.world_mut();
+            let mut veils = world.query_filtered::<(&Transform, Option<&RenderLayers>), With<BossStageVeil>>();
+            assert_eq!(veils.iter(world).count(), 2);
+            for (transform, layers) in veils.iter(world) {
+                let layers = layers.cloned().unwrap_or_default();
+                assert_eq!(transform.translation.truncate(), at);
+                assert!(layers.intersects(&view_layers));
+                assert!(!layers.intersects(&RenderLayers::layer(0)), "view light must not enter portal captures or carries");
+            }
+        }
+    }
 
     /// The name card is kept as it comes in: its words are not spawned and
     /// shaped again each frame, its colour follows how far it has come. When

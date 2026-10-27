@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews
 from .paths import repo_root, roots
 from .scan import HashCache, scan
 
@@ -131,6 +131,7 @@ def build(
                 asset["display"] = " / ".join(dict.fromkeys(identity["display"] for identity in identities))
                 asset["tags"] = sorted(set(asset["tags"] + [tag for identity in identities for tag in identity["catalog"].get("tags", [])]))
             unit.setdefault("assets", []).append(asset["id"])
+    catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
     text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)
@@ -138,7 +139,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js"):
+    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js"):
         shutil.copyfile(WEB / name, out / name)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog
@@ -262,13 +263,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="art_index", description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
     b = sub.add_parser("build", help="index the art and write the inspector page")
-    b.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/art_inspector")
-    b.add_argument("--jobs", type=int, default=4, help=f"preview processes (at most {thumbs.MAX_JOBS})")
-    b.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
-    b.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
-    b.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
-    b.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
-    b.add_argument("--open", action="store_true", help="open the page in a browser when built")
+    s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
+    s.add_argument("--port", type=int, default=8767)
+    for page in (b, s):
+        page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/art_inspector")
+        page.add_argument("--jobs", type=int, default=4, help=f"preview processes (at most {thumbs.MAX_JOBS})")
+        page.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
+        page.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
+        page.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
+        page.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
+        page.add_argument("--open", action="store_true", help="open the page in a browser when built")
+    n = sub.add_parser("notes", help="read the review backlog or save a review note")
+    n.add_argument("action", choices=("backlog", "list", "add", "resolve", "reopen"))
+    n.add_argument("id", nargs="?", help="full character identity for add; note UUID for resolve or reopen")
+    n.add_argument("--text", default="")
+    n.add_argument("--priority", choices=reviews.PRIORITIES, default="normal")
+    n.add_argument("--animation", default="")
+    n.add_argument("--resolution", default="")
+    n.add_argument("--json", action="store_true")
+    n.add_argument("--out", type=Path)
     for command in ("status", "list", "inspect", "coverage"):
         query = sub.add_parser(command, help="query the shared art inspection model")
         if command == "inspect":
@@ -284,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
         query.add_argument("--json", action="store_true")
         query.add_argument("--out", type=Path)
         query.add_argument("--renderer-python")
-    for command_parser in (b, *[sub.choices[name] for name in ("status", "list", "inspect", "coverage")]):
+    for command_parser in (b, s, *[sub.choices[name] for name in ("status", "list", "inspect", "coverage")]):
         command_parser.add_argument("--profile", default="ambition", help="ambition, or a content pack directory")
         command_parser.add_argument("--content-binary", type=Path, help="prebuilt check binary for this provider")
         command_parser.add_argument("--deep", action="store_true", help="rehash accepted inputs and outputs")
@@ -292,7 +305,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     repo = repo_root()
     out = (args.out or repo / ".agent" / "art_inspector").resolve()
-    if args.command != "build":
+    if args.command == "serve" and not out.is_relative_to(repo):
+        parser.error("serve --out must be inside the repository")
+    if args.command == "notes":
+        return reviews.cli(repo, out, args)
+    if args.command not in ("build", "serve"):
         report = inventory.collect(repo, out, profile=args.profile, python=args.renderer_python, binary=args.content_binary,
                                    deep=args.deep, runtime_path=args.runtime_snapshot)
         rows = inventory.select(report, query=args.query, kind=args.kind, needs=args.needs_generation,
@@ -317,7 +334,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
           lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep, runtime_path=args.runtime_snapshot)
-    if args.open:
+    if args.command == "serve":
+        from .server import serve
+        serve(repo, out, port=args.port, open_browser=args.open)
+    elif args.open:
         webbrowser.open((out / "index.html").as_uri())
     return 0
 

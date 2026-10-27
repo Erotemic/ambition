@@ -564,6 +564,7 @@
     document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === (view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters" : view || "characters")));
     if (view === "characters" || view === "character" || !view) window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
     else if (view === "inventory") window.renderArtInventory(id || "current");
+    else if (view === "reviews") window.ArtReviews.backlog();
     else if (view === "asset") detail(id);
     else if (view === "gen") generatorDetail(id);
     else if (view === "generators") generatorList();
@@ -601,5 +602,6 @@
   const stamp = document.getElementById("stamp");
   stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Rebuild: python3 scripts/art_inspector.py build`;
   window.addEventListener("hashchange", route);
+  window.addEventListener("art-reviews-changed", route);
   route();
 })();

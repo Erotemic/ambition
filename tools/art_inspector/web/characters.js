@@ -25,7 +25,8 @@
       <div class="img checker">${art ? `<img src="${esc(art.cover)}" loading="lazy" alt="${esc(actor.display)}">` : '<span class="empty">No published preview</span>'}</div>
       <div class="meta"><div class="nm">${esc(actor.display)}</div><code>${esc(actor.id)}</code>
         <div class="sub">${familiesFor(actor).map(name => badge(name)).join(' ')}${actor.relations.form_of ? badge('form') : actor.relations.part_of ? badge('part') : ''}
-          ${needsArt(actor) ? badge('Needs generation', true) : ''}${gaps.length ? badge('Check ' + gaps.join(', '), true) : ''}</div>
+          ${needsArt(actor) ? badge('Needs generation', true) : ''}${gaps.length ? badge('Check ' + gaps.join(', '), true) : ''}
+          ${window.ArtReviews.openCount(actor.key) ? badge(window.ArtReviews.openCount(actor.key) + ' open notes', true) : ''}</div>
         <span class="character-lineage-label">${esc(lineages.length ? lineages.join(' · ') : 'Lineage unknown')}</span>
       </div></a>`;
   }
@@ -35,7 +36,7 @@
     const query = document.getElementById('q').value.trim().toLowerCase();
     const shown = actors.filter(actor => (!filters.family || familiesFor(actor).includes(filters.family)) &&
       (!filters.lineage || lineagesFor(actor).includes(filters.lineage)) &&
-      (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : gapsFor(actor).length)) &&
+      (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'notes' ? window.ArtReviews.openCount(actor.key) : gapsFor(actor).length)) &&
       JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor),
         lineagesFor(actor).map(id => [id, I.lineages[id]?.name])]).toLowerCase().includes(query));
     function select(name, label, values) {
@@ -45,7 +46,7 @@
       <div class="controls character-controls">
         ${select('family', 'Art family', [...new Set(actors.flatMap(familiesFor))].sort().map(name => [name, name]))}
         ${select('lineage', 'Lineage', [...new Set(actors.flatMap(lineagesFor))].sort().map(id => [id, I.lineages[id]?.name || id]))}
-        ${select('attention', 'Art status', [['generation', 'Needs generation'], ['coverage', 'Animation gaps']])}
+        ${select('attention', 'Art status', [['generation', 'Needs generation'], ['coverage', 'Animation gaps'], ['notes', 'Open review notes']])}
         <button id="clear-character-filters" type="button">Clear filters</button>
       </div><p id="character-count">${shown.length} of ${actors.length} current characters</p>
       ${I.profile.state !== 'available' ? '<p class="empty">The prepared game catalog is unavailable. Rebuild the inspector with its content inspection binary.</p>' : ''}
@@ -94,9 +95,10 @@
       <h1>${esc(actor.display)}</h1><p class="lede"><code>${esc(actor.key)}</code> ${familiesFor(actor).map(name => badge(name)).join(' ')}</p>
       ${descriptions.map(text => `<p class="lede">${esc(text)}</p>`).join('')}
       <div class="chips">${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
-      <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
+      <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#character-notes" data-jump="character-notes">Review notes</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
       <section class="box"><h2>Forms, parts, and derivations</h2>${relations(actor)}</section>
       ${lineage(actor, ui)}
+      ${window.ArtReviews.section(actor.key)}
       <section class="box" id="character-products"><h2>Current character art</h2>
         <p>Manifest: <code>${esc(actor.catalog.manifest || 'Not declared')}</code></p>
         ${assets.length > 1 ? `<label>Published sheet <select id="character-art">${assets.map(asset => `<option value="${esc(asset.id)}">${esc(asset.art_label || asset.name)}</option>`).join('')}</select></label>` : ''}
@@ -124,6 +126,7 @@
       event.preventDefault(); document.getElementById(element.dataset.jump).scrollIntoView({behavior: 'smooth'});
     });
     if (actor) {
+      window.ArtReviews.wire(app);
       const assets = assetsFor(actor);
       if (assets[0]) ui.wireAnimation(assets[0]);
       const select = document.getElementById('character-art');

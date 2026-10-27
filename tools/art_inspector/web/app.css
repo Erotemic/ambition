@@ -157,4 +157,8 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); bor
 .lineage-timeline h3, .lineage-timeline p { margin: 4px 0; }
 .character-detail > .chips { margin-bottom: 12px; }
 .character-detail [id] { scroll-margin-top: 100px; }
+#review-text { display: block; width: 100%; margin-top: 6px; padding: 8px; color: var(--fg); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; font: inherit; }
+.review-note { border-top: 1px solid var(--rule); margin-top: 12px; padding-top: 6px; }
+.review-note code { overflow-wrap: anywhere; }
+.review-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .characters-grid { --card: 145px; } .character-card .img { height: 150px; } }

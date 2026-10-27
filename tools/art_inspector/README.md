@@ -22,6 +22,7 @@ python3 scripts/art_inspector.py inspect npc_tower_voss --animation death --json
 python3 scripts/art_inspector.py coverage --missing death --json
 python3 scripts/art_inspector.py list --kind actor,prop,background,terrain --lineage --json
 python3 scripts/art_inspector.py build --open
+python3 scripts/art_inspector.py serve --open
 ```
 
 `--profile ambition` selects `game/ambition_content/assets`. To inspect another
@@ -81,6 +82,41 @@ time. The player supports play once with a final hold, loops, scrubbing, and a
 death-to-corpse sequence. Source Studio links select the chargen spec and pose.
 Start Studio with `./scripts/chargen_studio.sh --open` before using those links.
 A source preview does not replace a missing published clip.
+
+## Character review notes
+
+Use `serve --open` to build the page and start its local review service. On a
+character page, write a note, select its priority and optional animation, then
+save it. Character cards show open-note counts. **Review notes** opens the
+backlog, sorted by priority, with an export for offline work.
+
+Notes are JSON files in `tools/art_inspector/reviews/notes/`. These are authored
+review data. Commit them with other review changes. They are outside the
+generated page directory and browser storage. The service writes them at once.
+The page opened from disk can show the notes included at build time; use the
+service to save changes or read new notes.
+
+Each note records the catalog identity, exact product hashes, manifest, bundle
+sources, repair commands, lineage IDs, priority, and optional animation. The
+generation key includes required and optional bundle members, including part
+atlases. Unrelated catalog edits do not change it. If published bytes change
+before a save, rebuild the inspector first. A note on older art stays open
+until someone reviews the fix and resolves it.
+
+Read and update the same files from the CLI:
+
+```bash
+python3 scripts/art_inspector.py notes backlog --json
+python3 scripts/art_inspector.py notes add ambition:npc_general --animation death --priority high --text "The cap clips during the fall."
+python3 scripts/art_inspector.py notes resolve NOTE_UUID --resolution "Fixed the cap joint and reviewed the new fall."
+python3 scripts/art_inspector.py notes reopen NOTE_UUID
+```
+
+For an overnight task, read `notes backlog --json`, inspect each note's recorded
+generation and current bundle sources, make the source edits, and publish the
+affected bundles. Rebuild the inspector after publication to compare against the
+new generation. Resolve a note after the result has been checked. Backlog art
+facts describe the last inspector build; the note files remain live shared data.
 
 ## Generation evidence
 

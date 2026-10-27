@@ -32,6 +32,15 @@ profile, at Ultra, 320x180, on llvmpipe, gave frames of 6.3, 7.2, 8.3 and
 53 transfers. After startup, its largest recorded frame was 53 ms. These
 times describe the VM, not a hardware GPU.
 
+The same 600-tick GNU-ton fight at Ultra, 320x180, on a quiet VM reached
+808 ms per frame with the original code. After startup, the corrected run
+stayed below 90 ms. The two runs took 32.1 and 26.7 seconds. Moving the boss
+overlays to the view layer alone did not materially change the fight timing
+after the clipping repair. In the remaining cost, about 79% of sampled CPU
+cycles were software rasterization work. This does not measure a hardware GPU.
+
+The repairs are `1ceef4a67` (clipping) and `a33e0a75d` (view light).
+
 The regression tests cover opposite planes at all integer degree angles,
 translated volumes, both map conventions, and both piece budgets. The carry
 test moves and rotates a pair while the body changes ends. It requires two

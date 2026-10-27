@@ -53,7 +53,7 @@ def content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> 
     # Page membership and metadata changes invalidate the Rust owner's loose-sheet view.
     files += [p for root in sheet_roots for p in root.rglob("*") if p.suffix in (".ron", ".png")]
     signature = [_stamp(p) for p in sorted(set(files))]
-    if old.get("signature") == signature and binary.is_file():
+    if old.get("signature") == signature and binary.is_file() and old.get("report", {}).get("schema") == "ambition.art_content.v3":
         return old["report"] | {"cache": "matching-inputs"}
     if not binary.is_file():
         return {"state": "unavailable", "characters": [], "sheets": {}, "assets": [],
@@ -66,7 +66,7 @@ def content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> 
         if result.returncode:
             raise ValueError(result.stderr[-1800:])
         report = json.loads(result.stdout)
-        if report.get("schema") != "ambition.art_content.v2":
+        if report.get("schema") != "ambition.art_content.v3":
             raise ValueError("The content inspection protocol changed. Rebuild the selected content check binary.")
     except ValueError as error:
         return {"state": "unavailable", "characters": [], "sheets": {}, "assets": [], "warnings": [f"Content export failed: {error}"]}

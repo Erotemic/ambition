@@ -191,6 +191,7 @@
     return `<section class="box"><h2>Animations (${rows.length} · ${fmt(a.frames)} frames · frame ${a.layout.frame.join("×")})</h2>
       <div class="stage checker" id="stage"><canvas id="player"></canvas></div>
       <div class="controls"><button id="play" type="button">pause</button><button id="step" type="button">step</button>
+        <label>view <select id="framing"><option value="subject">Body</option><option value="frame">Full animation frame</option></select></label>
         <label>mode <select id="playmode"><option value="once">play once / hold</option><option value="loop">loop</option><option value="death">death → corpse</option></select></label>
         <label>frame <input id="scrub" type="range" min="0" value="0"></label>
         <label>speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option></select></label>
@@ -198,8 +199,8 @@
         <a id="pagelink" href="#">full-resolution page</a>
         <span id="frameinfo" class="mono"></span></div>
       <div class="anims" id="anims">${rows.map((r, i) => `<div class="anim${i === start ? " on" : ""}" data-row="${i}"><span>${esc(r.name)}${r.mirror_of ? " ⇋" : ""}</span><span class="n">${r.frames}${r.ms ? ` · ${r.ms}ms` : ""}</span></div>`).join("")}</div>
-      <p class="controls">Previews are ${a.layout.cell ? a.layout.cell.join("×") : ""} px cells cut from the published pages (${a.layout.pages.map(esc).join(", ")}; YAML schema <code>${esc(a.layout.schema)}</code>).</p>
-      <h2 style="margin-top:12px">Pose grid</h2><div class="poses" id="poses">${rows.map((r, i) => `<div class="pose" data-row="${i}"><canvas width="1" height="1" data-strip="${esc(r.strip || "")}" data-frames="${r.frames}"></canvas>${esc(r.name)}</div>`).join("")}</div></section>`;
+      <p class="controls">Body view uses one camera and foot baseline for every action. Full frame retains the authored room for movement, weapons, and effects. Metadata: <code>${esc(a.layout.schema)}</code> · framing: ${esc(a.layout.framing?.basis || 'not drawn')} · feet: ${esc(a.layout.framing?.feet_basis || 'unknown')}.</p>
+      <h2 style="margin-top:12px">Pose grid</h2><div class="poses" id="poses">${rows.map((r, i) => `<div class="pose" data-row="${i}"><canvas width="1" height="1" data-strip="${esc(r.strip || "")}" data-subject-strip="${esc(r.subject_strip || "")}" data-frames="${r.frames}"></canvas>${esc(r.name)}</div>`).join("")}</div></section>`;
   }
 
   const stripCache = new Map();
@@ -211,23 +212,27 @@
     stopTimers();
     const canvas = document.getElementById("player");
     if (!canvas || !a.layout) return;
-    const rows = a.layout.rows, [cw, ch] = a.layout.cell || [96, 96];
+    const rows = a.layout.rows;
+    let [cw, ch] = a.layout.framing?.cell || [128, 128], loadVersion = 0;
     let row = Math.max(0, rows.findIndex((r) => ["idle", "rest", "stand"].includes(r.name))), frame = 0, playing = true, strip = null, speed = 1, scale = 2;
     const info = document.getElementById("frameinfo"), ctx = canvas.getContext("2d");
     function draw() {
       if (document.getElementById("player") !== canvas) return;
       canvas.width = cw * scale; canvas.height = ch * scale; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (strip) ctx.drawImage(strip, frame * cw, 0, cw, ch, 0, 0, cw * scale, ch * scale);
+      const columns = document.getElementById("framing").value === "subject" ? rows[row].subject_columns : rows[row].strip_columns;
+      if (strip) ctx.drawImage(strip, (frame % columns) * cw, Math.floor(frame / columns) * ch, cw, ch, 0, 0, cw * scale, ch * scale);
       document.getElementById("scrub").max = Math.max(0, rows[row].frames - 1);
       document.getElementById("scrub").value = frame;
       document.getElementById("play").textContent = playing ? "pause" : "play";
       info.textContent = `${rows[row].name}  ${frame + 1}/${rows[row].frames}`;
     }
     function select(i) {
+      const version = ++loadVersion, subject = document.getElementById("framing").value === "subject";
+      [cw, ch] = subject ? a.layout.framing?.cell || [128, 128] : a.layout.cell || [96, 96];
       row = i; frame = 0; strip = null; playing = true;
       document.querySelectorAll("#anims .anim").forEach((el) => el.classList.toggle("on", +el.dataset.row === i));
-      const src = rows[i].strip;
-      if (src) loadStrip(src).then((im) => { if (row === i) { strip = im; draw(); } }, () => { info.textContent = "preview not drawn: run the build without --no-previews"; });
+      const src = subject ? rows[i].subject_strip : rows[i].strip;
+      if (src) loadStrip(src).then((im) => { if (version === loadVersion) { strip = im; draw(); } }, () => { info.textContent = "preview not drawn: run the build without --no-previews"; });
       restart();
     }
     function restart() {
@@ -267,13 +272,22 @@
     const io = new IntersectionObserver((entries) => entries.forEach((en) => {
       if (!en.isIntersecting) return;
       const c = en.target; io.unobserve(c);
-      if (!c.dataset.strip) return;
-      loadStrip(c.dataset.strip).then((im) => {
+      const subject = document.getElementById("framing").value === "subject";
+      const src = subject ? c.dataset.subjectStrip : c.dataset.strip;
+      const [w, h] = subject ? a.layout.framing?.cell || [128, 128] : a.layout.cell || [96, 96];
+      if (!src) return;
+      loadStrip(src).then((im) => {
+        if (!c.isConnected || subject !== (document.getElementById("framing").value === "subject")) return;
         const n = +c.dataset.frames || 1, mid = Math.floor(n / 2);
-        c.width = cw; c.height = ch; c.getContext("2d").drawImage(im, mid * cw, 0, cw, ch, 0, 0, cw, ch);
+        const row = rows[+c.parentElement.dataset.row], columns = subject ? row.subject_columns : row.strip_columns;
+        c.width = w; c.height = h; c.getContext("2d").drawImage(im, (mid % columns) * w, Math.floor(mid / columns) * h, w, h, 0, 0, w, h);
       }, () => {});
     }));
     document.querySelectorAll("#poses canvas").forEach((c) => { c.classList.add("checker"); io.observe(c); });
+    document.getElementById("framing").addEventListener("change", () => {
+      select(row);
+      document.querySelectorAll("#poses canvas").forEach(c => { c.width = 1; c.height = 1; io.observe(c); });
+    });
   }
 
   function parallaxBox(a) {

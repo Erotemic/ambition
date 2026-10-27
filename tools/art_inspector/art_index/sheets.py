@@ -9,6 +9,7 @@ names `image`; an older generator sidecar names `images` (and the generator's
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,23 @@ def read_layout(path: Path) -> dict[str, Any]:
         "schema": "image" if data.get("image") else "images" if data.get("images") else "pages",
         "generator_spec": {k: data.get(k) for k in ("seed", "archetype", "variant", "held_item") if data.get(k) is not None},
     }
+
+
+def use_runtime_layouts(assets, products, inspection: dict) -> None:
+    """Use the runtime owner's frame geometry for each published manifest."""
+    layouts = {}
+    for unit in inspection["units"].values():
+        for sheet in unit.get("published", []):
+            layout = sheet.pop("layout", None)
+            if sheet["tier"] == "full" and layout is not None:
+                layouts.setdefault(Path(sheet["path"]).resolve(), {})[sheet["key"]] = layout
+    for asset in assets.values():
+        records = [products[key] for key in asset.products
+                   if products[key].role == "sheet_record" and products[key].root.of is None]
+        matches = [layout for product in records for layout in layouts.get(product.file.resolve(), {}).values()]
+        if len(matches) == 1:
+            authored = asset.data.get("layout") or {}
+            asset.data["layout"] = {key: authored[key] for key in ("description", "generator_spec") if key in authored} | deepcopy(matches[0])
 
 
 _STR = r'"((?:[^"\\]|\\.)*)"'

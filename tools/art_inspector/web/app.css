@@ -144,8 +144,8 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); bor
 .controls { flex-wrap: wrap; gap: .75rem; }
 #comparison canvas { max-width: 100%; }
 .characters-grid { --card: 190px; }
-.character-card .img { height: 190px; aspect-ratio: auto; padding: 14px; }
-.character-card img { width: 100%; height: 100%; object-fit: contain; }
+.character-card .img { height: 190px; aspect-ratio: auto; padding: 14px; grid-template: minmax(0, 1fr) / minmax(0, 1fr); overflow: hidden; }
+.character-card img { width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
 .character-card code { font-size: 11px; overflow-wrap: anywhere; }
 .character-card .meta { flex: 1; padding: 10px; }
 .character-card .chip { white-space: normal; overflow-wrap: anywhere; }

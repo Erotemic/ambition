@@ -61,7 +61,7 @@
       const looks=(u.assets || []).map(id=>C.assets[id]).filter(a=>a.layout);
       return looks.length?looks.map(a=>({...u,compare_asset:a})):[u];
     });
-    area.innerHTML = `<h2>Compare published action (${selected.length})</h2><p><label>action <input id="compare-action" value="death"></label> <label>clock <select id="compare-clock"><option value="time">elapsed time</option><option value="phase">common phase</option></select></label> <label>scale <select id="compare-scale"><option>1</option><option selected>2</option><option>3</option></select></label> <button id="compare-play">restart / play</button> <button id="compare-pause">pause</button> <input id="compare-scrub" aria-label="Comparison time" type="range" min="0" max="5000" value="0"></p><div class="thumbs">${selected.map((u,i) => `<figure><canvas id="compare-${i}" class="checker"></canvas><figcaption>${link(u.id, u.compare_asset?.display || u.id)} ${esc(u.compare_asset?.name || "")} <span id="compare-state-${i}"></span></figcaption></figure>`).join('')}</div>`;
+    area.innerHTML = `<h2>Compare published action (${selected.length})</h2><p><label>action <input id="compare-action" value="death"></label> <label>view <select id="compare-framing"><option value="subject">Body</option><option value="frame">Full animation frame</option></select></label> <label>clock <select id="compare-clock"><option value="time">elapsed time</option><option value="phase">common phase</option></select></label> <label>scale <select id="compare-scale"><option>1</option><option selected>2</option><option>3</option></select></label> <button id="compare-play">restart / play</button> <button id="compare-pause">pause</button> <input id="compare-scrub" aria-label="Comparison time" type="range" min="0" max="5000" value="0"></p><div class="thumbs">${selected.map((u,i) => `<figure><canvas id="compare-${i}" class="checker"></canvas><figcaption>${link(u.id, u.compare_asset?.display || u.id)} ${esc(u.compare_asset?.name || "")} <span id="compare-state-${i}"></span></figcaption></figure>`).join('')}</div>`;
     let origin = performance.now(), elapsed = 0, playing = true, generation = 0;
     const images=new Map();
     function load(src) { if(!images.has(src)) images.set(src,new Promise(resolve=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>resolve(null);im.src=src;})); return images.get(src); }
@@ -79,13 +79,16 @@
       await Promise.all(cells.map(async (c,i) => {
         const canvas = get(`compare-${i}`); if (!canvas) return;
         get(`compare-state-${i}`).textContent = c.resolution ? `${c.resolution.state}: ${c.resolution.row}` : 'runtime resolution unknown';
-        if (!c.row?.strip) { canvas.width=1;canvas.height=1;return; }
-        const image = await load(c.row.strip);
+        const subject = get('compare-framing').value === 'subject';
+        const src = subject ? c.row?.subject_strip : c.row?.strip;
+        if (!src) { canvas.width=1;canvas.height=1;return; }
+        const image = await load(src);
         if (request !== generation || !image) return;
-        const [w,h] = c.asset.layout.cell || [96,96], scale = +get('compare-scale').value;
+        const [w,h] = subject ? c.asset.layout.framing.cell : c.asset.layout.cell, scale = +get('compare-scale').value;
         canvas.width=w*scale;canvas.height=h*scale;
         const frame = Math.min(c.row.frames-1,Math.floor(get('compare-clock').value === 'phase' ? elapsed/period*c.row.frames : elapsed/(c.row.ms || 100)));
-        canvas.getContext('2d').drawImage(image,frame*w,0,w,h,0,0,w*scale,h*scale);
+        const columns = subject ? c.row.subject_columns : c.row.strip_columns;
+        canvas.getContext('2d').drawImage(image,(frame%columns)*w,Math.floor(frame/columns)*h,w,h,0,0,w*scale,h*scale);
       }));
     }
     const timer = setInterval(() => { if (playing) { elapsed=performance.now()-origin; get('compare-scrub').value=Math.min(5000,elapsed); draw(); } },100);
@@ -93,7 +96,7 @@
     get('compare-play').onclick=()=>{elapsed=0;origin=performance.now();playing=true;draw();};
     get('compare-pause').onclick=()=>{playing=false;};
     get('compare-scrub').oninput=e=>{playing=false;elapsed=+e.target.value;draw();};
-    ['compare-action','compare-clock','compare-scale'].forEach(id=>get(id).onchange=()=>{origin=performance.now();elapsed=0;draw();});
+    ['compare-action','compare-clock','compare-scale','compare-framing'].forEach(id=>get(id).onchange=()=>{origin=performance.now();elapsed=0;draw();});
     draw();
   }
   window.renderArtInventory = function (route) {

@@ -62,6 +62,15 @@ the optional authorship scan. Missing art does not remove a catalog character.
 Search by name, catalog ID, tag, family, or lineage. Use the family, lineage,
 and art status filters to find related characters or art that needs work.
 
+Character previews use one camera derived from the neutral pose's published
+body bounds, visible art, and foot anchor. Transparent room for an attack does
+not set the roster scale. The camera and baseline stay fixed across action
+frames. Playback and comparison offer Body and Full animation frame views.
+Full frame preserves the authored room for movement, weapons, and effects.
+The preview reports whether its bounds and feet came from metadata or pixels.
+Runtime RON supplies page, trim, frame, body, and foot geometry, including sheets
+without a YAML sidecar. YAML remains an independent metadata comparison.
+
 Inventory has Current game, Needs generation, Registered with no known use,
 All targets, Concepts, History, Unregistered products, and Live snapshot views.
 Expand identities to see forms and parts. Filter by visual family, generator

@@ -88,6 +88,7 @@ pub fn sheet(path: &Path, actions: &[String], bindings: &std::collections::BTree
         sheets.push(json!({"key": record.key, "product": product, "target": record.target, "fingerprint": fingerprint(&spec), "pages": pages,
             "rows": record.rows.iter().map(|row| json!({"name": row.animation, "frames": row.frame_count,
                 "ms": row.duration_ms, "valid": row.frame_count > 0 && (row.rects.is_empty() || row.rects.len() == row.frame_count as usize)})).collect::<Vec<_>>(),
+            "layout": layout(&record),
             "actions": names.iter().map(|name| (name.clone(), action(&spec, name))).collect::<serde_json::Map<_, _>>(),
             "bindings": bindings.get(product).into_iter().flat_map(|table| table.iter()).map(|(id, chain)| {
                 let row = spec.clip_slot(chain.iter().map(String::as_str)).and_then(|slot| spec.row_name(slot));
@@ -99,9 +100,50 @@ pub fn sheet(path: &Path, actions: &[String], bindings: &std::collections::BTree
     Ok(json!(sheets))
 }
 
+fn layout(record: &crate::SheetRecord) -> Value {
+    let atlases: std::collections::BTreeMap<_, _> = record.used_pages().into_iter()
+        .map(|page| (page, record.atlas_page(page, 0))).collect();
+    let rows: Vec<_> = record.rows.iter().enumerate().map(|(slot, row)| {
+        let rects: Vec<_> = (0..row.frame_count as usize).filter_map(|frame| {
+            let page = record.frame_page_of(slot, frame);
+            let rect = atlases.get(&page)?.rects.get(record.flat_index_in_page(slot, frame))?;
+            let trim = record.frame_trim(slot, frame);
+            Some(json!([rect.min.x, rect.min.y, rect.width(), rect.height(), page, trim.offset.x, trim.offset.y]))
+        }).collect();
+        json!({"name": row.animation, "frames": row.frame_count, "ms": row.duration_ms,
+            "mirror_of": row.mirror_of, "rects": rects})
+    }).collect();
+    let bbox = record.body_metrics.as_ref().and_then(|metrics| metrics.pose_body_bbox(CharacterAnim::Idle));
+    let feet = record.body_metrics.as_ref().and_then(|metrics| metrics.feet_pixel);
+    let parts: Vec<_> = record.body_metrics.as_ref().into_iter().flat_map(|metrics| &metrics.body_pixel_parts)
+        .map(|part| json!({"x": part.x, "y": part.y, "w": part.w, "h": part.h})).collect();
+    json!({"frame": [record.frame_width, record.frame_height],
+        "pages": if record.images.is_empty() { vec![record.image.clone()] } else { record.images.clone() },
+        "body_bbox": bbox.map(|b| json!({"x": b.x, "y": b.y, "w": b.w, "h": b.h})),
+        "body_parts": parts,
+        "feet": feet.map(|p| json!({"x": p.x, "y": p.y})), "rows": rows, "schema": "runtime-ron"})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preview_geometry_keeps_packed_pages_trim_and_grid_offsets() {
+        let packed: crate::SheetRecord = ron::from_str(r#"(target: "fixture", image: "a.png", images: ["a.png", "b.png"],
+            frame_width: 20, frame_height: 30, label_width: 0,
+            body_metrics: Some((body_pixel_bbox: Some((x: 6, y: 7, w: 4, h: 5)), feet_pixel: Some((x: 8.0, y: 12.0)))),
+            rows: [(animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1,
+                rects: [(x: 2, y: 3, w: 4, h: 5, page: 1, off: (6, 7))])])"#).unwrap();
+        let report = layout(&packed);
+        assert_eq!(report["rows"][0]["rects"][0], json!([2, 3, 4, 5, 1, 6, 7]));
+        assert_eq!(report["body_bbox"], json!({"x": 6, "y": 7, "w": 4, "h": 5}));
+        assert_eq!(report["feet"], json!({"x": 8.0, "y": 12.0}));
+        let grid: crate::SheetRecord = ron::from_str(r#"(target: "grid", image: "grid.png",
+            frame_width: 8, frame_height: 10, label_width: 3, y_offset: 7,
+            rows: [(animation: "idle", row_index: 2, frame_count: 2, duration_ms: 100, duration_secs: 0.1)])"#).unwrap();
+        assert_eq!(layout(&grid)["rows"][0]["rects"][1], json!([11, 27, 8, 10, 0, 0, 0]));
+    }
 
     #[test]
     fn a_missing_death_explains_its_idle_fallback_and_a_published_death_is_direct() {

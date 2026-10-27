@@ -59,7 +59,7 @@ pub fn describe(pack: &PreparedContentPack, roots: &[PathBuf]) -> Value {
     let worlds = ambition_content_pack::lowered_rules::<ambition_platformer2d_world::world_manifest::AuthoredWorldManifest>(
         pack, ambition_platformer2d_world::world_manifest::WORLD_MANIFEST_SCHEMA)
         .map(|manifest| manifest.worlds.iter().map(|world| json!({"id": world.id, "file": world.file, "required": world.required})).collect::<Vec<_>>());
-    json!({"semantics": semantics, "tool_version": env!("CARGO_PKG_VERSION"), "worlds": worlds, "schema": "ambition.art_content.v2", "provider": pack.namespace.to_string(), "pack": pack.id.to_string(),
+    json!({"semantics": semantics, "tool_version": env!("CARGO_PKG_VERSION"), "worlds": worlds, "schema": "ambition.art_content.v3", "provider": pack.namespace.to_string(), "pack": pack.id.to_string(),
         "fingerprint": pack.fingerprint.hex(), "characters": characters, "sheets": sheets, "failures": failures,
         "sources": pack.sources.iter().map(|source| json!({"path": source.declared_path, "schema": source.schema.to_string(),
             "fingerprint": source.content_fingerprint})).collect::<Vec<_>>(),

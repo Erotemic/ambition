@@ -26,6 +26,9 @@ python3 scripts/art_inspector.py build --open
 The offline page opens at Characters. This page shows the prepared game roster.
 Each card opens a character page with art playback, animation coverage, forms,
 parts, derivations, and design lineage. Recorded eras appear on normal builds.
+Previews frame the neutral body and use a fixed foot baseline. Playback and
+comparison can switch to the full animation frame. Runtime RON supplies the
+geometry; the preview reports its measured framing basis.
 Use `python3 scripts/art_inspector.py serve --open` to save review notes on a
 character page. The Review notes page and `notes backlog --json` expose the
 same durable task queue. Each note keeps its exact art generation and source

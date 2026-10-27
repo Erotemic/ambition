@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews, sheets
 from .paths import repo_root, roots
 from .scan import HashCache, scan
 
@@ -78,6 +78,8 @@ def build(
     generators.resolve(products, ev, actor_targets)
     assets = assets_mod.group(products, ev.generators)
     assets_mod.read_sidecars(assets, products)
+    if inspection is not None:
+        sheets.use_runtime_layouts(assets, products, inspection)
     for asset in assets.values():
         actor = asset.data.get("actor") or {}
         if actor.get("renderer_target"):

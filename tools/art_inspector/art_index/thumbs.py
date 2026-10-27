@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -22,6 +23,7 @@ VERSION = 3
 THUMB = 192
 CELL = 128
 MAX_JOBS = 6
+WEBP_MAX_SIDE = 16383
 
 
 def _key(*parts: Any) -> str:
@@ -56,6 +58,56 @@ def _cell(frame: tuple[int, int]) -> tuple[int, int, float]:
     return max(1, round(fw * scale)), max(1, round(fh * scale)), scale
 
 
+def _columns(frames: int, width: int, height: int) -> int:
+    """Keep preview grids inside the WebP image extent."""
+    frames = max(1, frames)
+    columns = min(frames, WEBP_MAX_SIDE // width, max(32, math.ceil(frames / (WEBP_MAX_SIDE // height))))
+    if math.ceil(frames / columns) * height > WEBP_MAX_SIDE:
+        raise ValueError("The animation has too many frames for one preview image")
+    return columns
+
+
+def subject_camera(image: Image.Image, body: dict | None, feet: dict | None, parts=()) -> dict:
+    """Fit the neutral subject once. Keep this camera for all action frames."""
+    visible = image.getchannel("A").point(lambda alpha: 255 if alpha > 16 else 0).getbbox()
+    boxes = []
+    for box in [body, *parts]:
+        if box and all(math.isfinite(box.get(key, float("nan"))) for key in ("x", "y", "w", "h")) and box["w"] > 0 and box["h"] > 0:
+            boxes.append((box["x"], box["y"], box["x"] + box["w"], box["y"] + box["h"]))
+    basis = "body-and-visible" if boxes else "visible" if visible else "empty"
+    if feet and all(math.isfinite(feet.get(key, float("nan"))) for key in ("x", "y")):
+        anchor, feet_basis = [feet["x"], feet["y"]], "authored"
+    elif boxes:
+        anchor = [(min(box[0] for box in boxes) + max(box[2] for box in boxes)) / 2, max(box[3] for box in boxes)]
+        feet_basis = "body-bounds"
+    else:
+        anchor = [(visible[0] + visible[2]) / 2, visible[3]] if visible else [image.width / 2, image.height]
+        feet_basis = "visible" if visible else "empty"
+    if visible:
+        boxes.append(visible)
+    bounds = [min(box[0] for box in boxes), min(box[1] for box in boxes), max(box[2] for box in boxes), max(box[3] for box in boxes)] if boxes else [0, 0, image.width, image.height]
+    # The feet share one baseline. The neutral art must fit above and beside it.
+    extents = [anchor[0] - bounds[0], bounds[2] - anchor[0], anchor[1] - bounds[1], bounds[3] - anchor[1]]
+    scale = min(room / extent for room, extent in zip((0.42, 0.42, 0.78, 0.08), extents) if extent > 0)
+    return {"basis": basis, "feet_basis": feet_basis, "bounds": bounds, "anchor": anchor, "scale": scale, "baseline": 0.9}
+
+
+def subject_frame(image: Image.Image, camera: dict, size: int) -> Image.Image:
+    """Draw a logical frame through the sheet's fixed subject camera."""
+    scale = camera["scale"] * size
+    inverse = (1 / scale, 0, camera["anchor"][0] - size * 0.5 / scale,
+               0, 1 / scale, camera["anchor"][1] - size * camera["baseline"] / scale)
+    return image.convert("RGBa").transform((size, size), Image.Transform.AFFINE, inverse,
+                                           Image.Resampling.BICUBIC).convert("RGBA")
+
+
+def _frame(page: Image.Image, rect: list, size: list) -> Image.Image:
+    x, y, w, h, _page, ox, oy = rect
+    image = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
+    image.alpha_composite(page.crop((x, y, x + w, y + h)), (int(ox), int(oy)))
+    return image
+
+
 def sheet_task(spec: dict[str, Any]) -> str | None:
     """Draw the strips of one sheet: `spec` has the page files, the frame
     size, each row's rects and the destination of each strip."""
@@ -66,24 +118,29 @@ def sheet_task(spec: dict[str, Any]) -> str | None:
         for r, row in enumerate(spec["rows"]):
             for i, rect in enumerate(row["rects"]):
                 by_page.setdefault(rect[4], []).append((r, i, rect))
-        strips = [Image.new("RGBA", (cw * max(1, len(row["rects"])), ch), (0, 0, 0, 0)) for row in spec["rows"]]
-        cover = None
+        frame_columns = [_columns(len(row["rects"]), cw, ch) for row in spec["rows"]]
+        subject_columns = [_columns(len(row["rects"]), CELL, CELL) for row in spec["rows"]]
+        strips = [Image.new("RGBA", (cw * cols, ch * math.ceil(max(1, len(row["rects"])) / cols)), (0, 0, 0, 0)) for row, cols in zip(spec["rows"], frame_columns)]
+        subjects = [Image.new("RGBA", (CELL * cols, CELL * math.ceil(max(1, len(row["rects"])) / cols)), (0, 0, 0, 0)) for row, cols in zip(spec["rows"], subject_columns)]
+        neutral_rect = spec["rows"][spec["cover_row"]]["rects"][spec["cover_frame"]]
+        with Image.open(spec["pages"][neutral_rect[4]]) as page:
+            cover = _frame(page.convert("RGBA"), neutral_rect, spec["frame"])
+        camera = subject_camera(cover, spec.get("body"), spec.get("feet"), spec.get("parts", []))
         for page in sorted(by_page):
             if page >= len(spec["pages"]):
                 continue
             with Image.open(spec["pages"][page]) as im:
                 sheet = im.convert("RGBA")
-            for r, i, (x, y, w, h, _p, ox, oy) in by_page[page]:
-                frame = Image.new("RGBA", (spec["frame"][0], spec["frame"][1]), (0, 0, 0, 0))
-                frame.alpha_composite(sheet.crop((x, y, x + w, y + h)), (int(ox), int(oy)))
-                if r == spec["cover_row"] and i == spec["cover_frame"]:
-                    cover = frame
-                strips[r].alpha_composite(frame.resize((cw, ch), Image.LANCZOS), (i * cw, 0))
+            for r, i, rect in by_page[page]:
+                frame = _frame(sheet, rect, spec["frame"])
+                strips[r].alpha_composite(frame.resize((cw, ch), Image.LANCZOS), ((i % frame_columns[r]) * cw, (i // frame_columns[r]) * ch))
+                subjects[r].alpha_composite(subject_frame(frame, camera, CELL), ((i % subject_columns[r]) * CELL, (i // subject_columns[r]) * CELL))
             del sheet
-        for row, strip in zip(spec["rows"], strips):
+        for row, strip, subject in zip(spec["rows"], strips, subjects):
             _save(strip, Path(row["dest"]))
-        if cover is not None:
-            _save(_thumb(cover, THUMB), Path(spec["cover_dest"]))
+            _save(subject, Path(row["subject_dest"]))
+        _save(subject_frame(cover, camera, THUMB), Path(spec["cover_dest"]))
+        Path(spec["framing_dest"]).write_text(json.dumps(camera))
         return None
     except Exception as ex:  # noqa: BLE001
         return f"{spec['pages'][0] if spec['pages'] else '?'}: {type(ex).__name__}: {ex}"
@@ -129,6 +186,8 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
         return draw and not path.exists()
 
     planned: set[Path] = set()
+    framing_outputs = []
+    full_files = {product.file.resolve(): product for product in products.values() if product.root.of is None}
     for product in products.values():
         if product.root.of is None and product.file.suffix.lower() in (".png", ".webp", ".jpg", ".jpeg", ".gif"):
             dest = out_dir / "thumbs" / f"{product.sha256[:2]}" / f"{product.sha256}.webp"
@@ -141,13 +200,17 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
     for asset in assets.values():
         layout = asset.data.get("layout")
         if layout and layout["rows"]:
-            pages_by_name = {Path(products[p].rel).name: products[p] for p in asset.products if products[p].root.of is None}
-            pages = [pages_by_name.get(name) for name in layout["pages"]]
-            if not all(pages):
+            metadata = next(products[key] for key in asset.products
+                            if products[key].root.of is None and products[key].role in ("sheet_record", "sheet_layout"))
+            pages = [full_files.get((metadata.file.parent / name).resolve()) for name in layout["pages"]]
+            used = {rect[4] for row in layout["rows"] for rect in row["rects"]}
+            if any(page >= len(pages) or pages[page] is None for page in used):
                 asset.data.setdefault("errors", []).append("a page the layout names is not published")
-                pages = [p for p in pages if p]
+                pages = []
             if pages:
-                key = _key([p.sha256 for p in pages], layout["rows"])
+                format_key = "subject-grid-v1" if any(len(row["rects"]) > 32 for row in layout["rows"]) else "subject-view-v1"
+                key = _key(format_key, [p.sha256 if p else None for p in pages], layout["frame"], layout.get("body_bbox"),
+                           layout.get("body_parts"), layout.get("feet"), layout["rows"])
                 base = out_dir / "strips" / key
                 names = [r["name"] for r in layout["rows"]]
                 cover_row = next((names.index(n) for n in COVER_ROWS if n in names), 0)
@@ -157,14 +220,23 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
                 for i, row in enumerate(layout["rows"]):
                     dest = base / f"{i}.webp"
                     row["strip"] = rel(dest)
-                    spec_rows.append({"rects": row["rects"], "dest": str(dest)})
+                    row["strip_columns"] = _columns(len(row["rects"]), cw, ch)
+                    row["subject_columns"] = _columns(len(row["rects"]), CELL, CELL)
+                    subject_dest = base / f"{i}-subject.webp"
+                    row["subject_strip"] = rel(subject_dest)
+                    spec_rows.append({"rects": row["rects"], "dest": str(dest), "subject_dest": str(subject_dest)})
                 layout["cell"] = [cw, ch]
+                framing_dest = base / "framing.json"
+                layout["framing"] = {"cell": [CELL, CELL], "metadata": rel(framing_dest)}
+                framing_outputs.append((layout["framing"], framing_dest))
                 cover_dest = base / "cover.webp"
                 asset.cover = rel(cover_dest)
-                if needed(cover_dest) or any(needed(Path(r["dest"])) for r in spec_rows):
+                if needed(cover_dest) or needed(framing_dest) or any(needed(Path(r[name])) for r in spec_rows for name in ("dest", "subject_dest")):
                     tasks.append((sheet_task, ({
-                        "pages": [str(p.file) for p in pages], "frame": layout["frame"], "rows": spec_rows,
+                        "pages": [str(p.file) if p else None for p in pages], "frame": layout["frame"], "rows": spec_rows,
                         "cover_row": cover_row, "cover_frame": cover_frame, "cover_dest": str(cover_dest),
+                        "body": layout.get("body_bbox"), "feet": layout.get("feet"), "parts": layout.get("body_parts", []),
+                        "framing_dest": str(framing_dest),
                     },)))
         portraits = asset.data.get("portraits")
         if portraits:
@@ -205,6 +277,9 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
                     errors.append(result)
                 if n % 200 == 0:
                     print(f"  {n}/{len(tasks)}", flush=True)
+    for framing, path in framing_outputs:
+        if path.is_file():
+            framing.update(json.loads(path.read_text()))
     return errors
 
 
@@ -214,6 +289,8 @@ def prune(out_dir: Path, products: dict[str, Any], assets: dict[str, Any]) -> in
     for a in assets.values():
         for row in (a.data.get("layout") or {}).get("rows", []):
             keep.add(row.get("strip"))
+            keep.add(row.get("subject_strip"))
+        keep.add((a.data.get("layout") or {}).get("framing", {}).get("metadata"))
         for clip in (a.data.get("portraits") or {}).get("clips", {}).values():
             keep.add(clip.get("thumb"))
     removed = 0

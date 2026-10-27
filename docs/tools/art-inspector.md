@@ -23,7 +23,10 @@ python3 scripts/art_inspector.py coverage --missing death --json
 python3 scripts/art_inspector.py build --open
 ```
 
-The offline page has identity trees, metadata filters, bundle and tier evidence,
+The offline page opens at Characters. This page shows the prepared game roster.
+Each card opens a character page with art playback, animation coverage, forms,
+parts, derivations, and design lineage. Recorded eras appear on normal builds.
+The page also has identity trees, metadata filters, bundle and tier evidence,
 source/profile/runtime coverage, lineage, published action comparison, and a
 player with scrubbing and death-to-corpse playback. Source Studio links remain
 separate from published previews. `--no-previews` updates the report without

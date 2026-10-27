@@ -53,7 +53,15 @@ The game label and art label remain separate values. Explicit `form_of`,
 `part_of`, and `derived_from` relations keep their different meanings. A name
 suffix does not establish identity or a generation.
 
-The page has Current game, Needs generation, Registered with no known use,
+The page opens at **Characters**. It shows one card for each identity in the
+selected game's prepared catalog. Click a card to open its character page.
+The page includes animation playback, coverage, current products, forms, parts,
+derivations, and a design lineage with its recorded eras. Lineage does not need
+the optional authorship scan. Missing art does not remove a catalog character.
+Search by name, catalog ID, tag, family, or lineage. Use the family, lineage,
+and art status filters to find related characters or art that needs work.
+
+Inventory has Current game, Needs generation, Registered with no known use,
 All targets, Concepts, History, Unregistered products, and Live snapshot views.
 Expand identities to see forms and parts. Filter by visual family, generator
 family, species, body base, naming class, lineage, catalog tags, animation gaps,

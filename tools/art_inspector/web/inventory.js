@@ -27,7 +27,7 @@
     return `<h1>${esc(unit.id)}</h1><p>${chip(unit.kind)} ${chip(unit.game_use)} ${chip(unit.registration)} ${chip(unit.status.state)}</p>
       <p>Publish: <code>${esc(unit.repair)}</code></p><p>${source ? repoLink(source) : 'Source path unknown'} ${studio}</p>
       <p>${(unit.assets || []).map(a => `<a href="#asset/${enc(a)}">Published preview: ${esc(C.assets[a].name)}</a>`).join(' · ')}</p>
-      <h2>Identities and relations</h2>${table(['Identity','Game label','Art manifest','Relations','Tags'], unit.identities.map(cid => { const a = I.identities[cid]; return [esc(cid),esc(a.display),esc(a.catalog.manifest),json(a.relations),esc((a.catalog.tags || []).join(' '))]; }))}
+      <h2>Identities and relations</h2>${table(['Identity','Game label','Art manifest','Relations','Tags'], unit.identities.map(cid => { const a = I.identities[cid]; return [`<a href="#character/${enc(cid)}">${esc(cid)}</a>`,esc(a.display),esc(a.catalog.manifest),json(a.relations),esc((a.catalog.tags || []).join(' '))]; }))}
       <h2>Metadata</h2>${table(['Fact','Value','Evidence','Owner'], Object.entries(unit.facts).map(([name,f]) => [esc(name),esc(value(f)),esc(f.state + ' / ' + f.evidence),esc(f.source)]))}
       <h2>Required products</h2>${table(['Member','Required'], unit.status.required.map(p => [repoLink('crates/ambition_platformer2d_actor_monolith/assets/' + unit.root + '/' + p), 'yes']))}
       <details><summary>Optional outputs</summary>${json(unit.optional)}</details><h2>Generation and tiers</h2>${json(unit.status)}<h3>Runtime metadata defects</h3>${json(unit.runtime_defects || [])}<h2>Dependents</h2>${json(unit.dependents)}
@@ -48,7 +48,7 @@
       if (seen.has(actor.key)) return '';
       seen.add(actor.key);
       const cover=(I.units[actor.units[0]]?.assets || []).map(id=>C.assets[id]).find(a=>a.identities?.includes(actor.key))?.cover;
-      return `<li>${cover?`<img src="${esc(cover)}" loading="lazy" width="36" height="48" style="object-fit:contain;vertical-align:middle" alt="">`:''}<b>${esc(actor.display)}</b> <code>${esc(actor.key)}</code> ${actor.relations.form_of ? chip('form') : actor.relations.part_of ? chip('part') : ''}
+      return `<li>${cover?`<img src="${esc(cover)}" loading="lazy" width="36" height="48" style="object-fit:contain;vertical-align:middle" alt="">`:''}<b><a href="#character/${enc(actor.key)}">${esc(actor.display)}</a></b> <code>${esc(actor.key)}</code> ${actor.relations.form_of ? chip('form') : actor.relations.part_of ? chip('part') : ''}
         ${actor.units.map(uid => link(uid)).join(' · ')} ${actor.relations.derived_from ? `<span>derived from ${esc(actor.relations.derived_from)} (independent identity)</span>` : ''}
         ${(children.get(actor.key) || []).length ? `<details><summary>Forms and parts</summary><ul>${children.get(actor.key).map(show).join('')}</ul></details>` : ''}</li>`;
     }

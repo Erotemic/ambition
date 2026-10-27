@@ -144,9 +144,7 @@
   }
 
   // ---- asset detail ------------------------------------------------------------------
-  function detail(id) {
-    const a = assets[id];
-    if (!a) { app.innerHTML = `<p class="empty">No asset ${esc(id)}.</p>`; return; }
+  function assetPanels(a) {
     const g = gens[a.generator] || null;
     const left = [], right = [];
     if (a.layout && a.layout.rows && a.layout.rows.length) left.push(animationBox(a));
@@ -161,6 +159,11 @@
     const finds = C.findings.filter((f) => f.asset === a.id || a.products.includes(f.subject));
     if (finds.length) right.push(`<section class="box"><h2>Findings (${finds.length})</h2>${findingTable(finds)}</section>`);
     right.push(productBox(a));
+    return `<div class="cols"><div>${left.join("")}</div><div>${right.join("")}</div></div>`;
+  }
+  function detail(id) {
+    const a = assets[id];
+    if (!a) { app.innerHTML = `<p class="empty">No asset ${esc(id)}.</p>`; return; }
     app.innerHTML = `<div class="detail">
       ${navBar(a)}
       <h1>${esc(a.display)}</h1>
@@ -170,7 +173,7 @@
       ${a.inspection_unit ? `<p><a href="#inventory/unit/${enc(a.inspection_unit)}">Inventory, coverage, and generation evidence</a></p>` : ""}
       ${relatedBox(a)}
       ${(a.lineages || []).map((l) => lineageBox(l, a)).join("")}
-      <div class="cols"><div>${left.join("")}</div><div>${right.join("")}</div></div></div>`;
+      ${assetPanels(a)}</div>`;
     wireAnimation(a); wireParallax(a);
   }
 
@@ -205,12 +208,14 @@
     return stripCache.get(src);
   }
   function wireAnimation(a) {
+    stopTimers();
     const canvas = document.getElementById("player");
     if (!canvas || !a.layout) return;
     const rows = a.layout.rows, [cw, ch] = a.layout.cell || [96, 96];
     let row = Math.max(0, rows.findIndex((r) => ["idle", "rest", "stand"].includes(r.name))), frame = 0, playing = true, strip = null, speed = 1, scale = 2;
     const info = document.getElementById("frameinfo"), ctx = canvas.getContext("2d");
     function draw() {
+      if (document.getElementById("player") !== canvas) return;
       canvas.width = cw * scale; canvas.height = ch * scale; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (strip) ctx.drawImage(strip, frame * cw, 0, cw, ch, 0, 0, cw * scale, ch * scale);
       document.getElementById("scrub").max = Math.max(0, rows[row].frames - 1);
@@ -556,8 +561,9 @@
     const h = decodeURIComponent(location.hash.slice(1));
     const [view, ...rest] = h.split("/");
     const id = rest.join("/");
-    document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === (view === "asset" ? "gallery" : view === "gen" ? "generators" : view || "gallery")));
-    if (view === "inventory" || !view) window.renderArtInventory(id || "current");
+    document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === (view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters" : view || "characters")));
+    if (view === "characters" || view === "character" || !view) window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
+    else if (view === "inventory") window.renderArtInventory(id || "current");
     else if (view === "asset") detail(id);
     else if (view === "gen") generatorDetail(id);
     else if (view === "generators") generatorList();
@@ -572,7 +578,8 @@
     debounce = setTimeout(() => {
       state.q = q.value; state.page = 0;
       const v = location.hash.slice(1).split("/")[0];
-      if (v === "asset" || v === "gen") location.hash = "#gallery"; else route();
+      if (v === "character") location.hash = "#characters";
+      else if (v === "asset" || v === "gen") location.hash = "#gallery"; else route();
     }, 120);
   });
   document.addEventListener("keydown", (e) => {

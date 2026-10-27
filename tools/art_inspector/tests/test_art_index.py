@@ -195,6 +195,48 @@ def test_a_character_page_names_its_lineage_from_the_design_history(built, tmp_p
     assert any(f["code"] == "lineage-warning" for f in c["findings"])
 
 
+def test_normal_build_shows_cached_variations_when_curated_eras_are_empty(built, tmp_path, monkeypatch):
+    repo, _out, _c = built
+    real = Path(__file__).resolve().parents[2] / "ambition_sprite2d_renderer" / "design_history"
+    package = repo / "tools/ambition_sprite2d_renderer/design_history"
+    package.mkdir(parents=True, exist_ok=True)
+    for source in real.glob("*.py"):
+        (package / source.name).write_text(source.read_text())
+    (package / "lineages.yaml").write_text("lineages:\n  foo:\n    name: Foo\n    ids: [foo]\n    eras: []\n")
+    (package / "variations.yaml").write_text("""lineages:
+  foo:
+    tracks:
+      foo:
+        ids: [foo]
+        variations:
+          - {commit: abc123456789, date: '2026-05-01', holistic: true, target: foo, by: recorded}
+          - {commit: def123456789, date: '2026-06-01', holistic: true, target: foo, by: recorded}
+""")
+    cache = tmp_path / "history-cache"
+    for sha, color in [("abc123456789", (20, 210, 20, 255)), ("def123456789", (20, 20, 210, 255))]:
+        _png(cache / "stills" / f"{sha}-foo.png", (24, 40), color)
+    monkeypatch.setenv("AMBITION_HISTORY_STORE", str(tmp_path / "no-store"))
+    monkeypatch.setenv("AMBITION_DESIGN_HISTORY_CACHE", str(cache))
+    for name in [name for name in sys.modules if name == "design_history" or name.startswith("design_history.")]:
+        monkeypatch.delitem(sys.modules, name)
+    monkeypatch.syspath_prepend(str(package.parent))
+    targets = {"foo": {"family": "sprite_target", "id": "foo", "category": "characters", "source": "tools/foo.py", "outputs": []}}
+    out = tmp_path / "visual-inspector"
+    catalog = build.build(repo, out, jobs=1, targets=targets, log=lambda *_: None)
+    history = catalog["lineages"]["foo"]
+    assert history["eras"] == []
+    looks = history["tracks"][0]["variations"]
+    for look, color in zip(looks, [(20, 210, 20), (20, 20, 210)]):
+        with Image.open(out / look["still"]) as original:
+            assert original.convert("RGB").getpixel((0, 0)) == color
+        assert (out / look["preview"]).is_file()
+    assert catalog["assets"]["sheet:foo"]["lineages"][0]["tracks"] == history["tracks"]
+    (cache / "stills/def123456789-foo.png").unlink()
+    missing = build.build(repo, out, jobs=1, previews=False, targets=targets, log=lambda *_: None)
+    absent = missing["lineages"]["foo"]["tracks"][0]["variations"][1]
+    assert absent["still"] is None and absent["preview"] is None
+
+
 def test_related_assets_join_forms_lineages_generators_and_specs(tmp_path):
     """Each relation comes from evidence the index holds: a lineage's
     targets, a shared catalog id, a name with a form suffix, one generator

@@ -68,21 +68,13 @@
     return rows.length ? `<dl class="kv">${rows.map(([label, key]) => `<dt>${label}</dt><dd>${I.identities[key] ? characterLink(key) : esc(key)}</dd>`).join('')}</dl>` : '<p class="empty">No forms, parts, or derivations are declared.</p>';
   }
 
-  function lineage(actor, ui) {
+  function lineage(actor) {
     const ids = lineagesFor(actor), assets = assetsFor(actor);
-    if (!ids.length) return '<section class="box" id="character-lineage"><h2>Character lineage</h2><p class="empty">No design lineage is recorded for this character.</p></section>';
+    const current = assets[0] ? {...assets[0], display: actor.display} : {id: '', display: actor.display, identities: [actor.key]};
+    if (!ids.length) return `<div id="character-lineage">${window.ArtLineage.render({name: actor.display, eras: [], tracks: []}, current)}</div>`;
     return `<div id="character-lineage">${ids.map(id => {
-      const rich = assets.flatMap(asset => asset.lineages || []).find(row => row.lineage === id);
-      if (rich) return ui.lineageBox(rich, assets[0]);
-      const row = I.lineages[id];
-      if (!row) return `<section class="box"><h2>Character lineage: ${esc(id)}</h2><p class="empty">The lineage record is unavailable.</p></section>`;
-      const targets = (row.ids || []).map(target => {
-        const asset = Object.values(C.assets).find(asset => asset.generator === 'target:' + target);
-        return asset ? `<a href="#asset/${enc(asset.id)}">${esc(target)}</a>` : `<code>${esc(target)}</code>`;
-      });
-      return `<section class="box"><h2>Character lineage: ${esc(row.name || id)}</h2>${row.summary ? `<p>${esc(row.summary)}</p>` : ''}
-        <ol class="lineage-timeline">${(row.eras || []).map(era => `<li><h3>${esc(era.label || 'Design era')}</h3><code>${esc(era.commit || 'Commit unknown')}</code>${era.note ? `<p>${esc(era.note)}</p>` : ''}</li>`).join('')}</ol>
-        ${!row.eras?.length ? '<p class="empty">No design eras are recorded.</p>' : ''}<p>Art targets: ${targets.join(' · ') || 'unknown'}</p></section>`;
+      const record = C.lineages?.[id] || I.lineages[id] || {name: id};
+      return window.ArtLineage.render({...record, lineage: id}, current);
     }).join('')}</div>`;
   }
 
@@ -97,7 +89,7 @@
       <div class="chips">${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
       <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#character-notes" data-jump="character-notes">Review notes</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
       <section class="box"><h2>Forms, parts, and derivations</h2>${relations(actor)}</section>
-      ${lineage(actor, ui)}
+      ${lineage(actor)}
       ${window.ArtReviews.section(actor.key)}
       <section class="box" id="character-products"><h2>Current character art</h2>
         <p>Manifest: <code>${esc(actor.catalog.manifest || 'Not declared')}</code></p>

@@ -112,10 +112,11 @@ def build(
     found += [{"code": "ldtk-unresolved", "severity": "info", "subject": f"{u['field']}={u['value']}", "message": f"{u['count']} placement(s) in {u['world']} name no asset the index can resolve.", **u} for u in unresolved_ldtk]
 
     catalog = _catalog(repo, out, products, assets, ev, content + literals, placements, found)
-    if lineages:
-        step("lineages and authorship (design history)")
-        for warning in lineage.attach(repo, out, assets, catalog["assets"], targets, log=log):
-            catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
+    step("visual lineages" + (" and authorship" if lineages else " (cached history)"))
+    catalog["lineages"], history_warnings = lineage.attach(repo, out, assets, catalog["assets"], targets,
+                                                        authorship=lineages, previews=previews, log=log)
+    for warning in history_warnings:
+        catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
     step("related assets")
     related.relate(catalog["assets"], catalog["generators"], repo)
     if inspection is not None:

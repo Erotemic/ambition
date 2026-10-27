@@ -406,8 +406,9 @@
     // last era of a target is that target's asset today.
     const targetOf = (e) => e.target || (e.ids && e.ids.length === 1 ? e.ids[0] : "");
     const last = {};
-    l.eras.forEach((e, i) => { if (targetOf(e)) last[targetOf(e)] = i; });
-    const eras = l.eras.map((e, i) => {
+    const curatedEras = l.eras || [];
+    curatedEras.forEach((e, i) => { if (targetOf(e)) last[targetOf(e)] = i; });
+    const eras = curatedEras.map((e, i) => {
       const now = last[targetOf(e)] === i ? byTarget[targetOf(e)] : null;
       const gen = e.generator;
       const lines = [`<b>${esc(e.label)}</b>`, `${esc((e.date || "").slice(0, 10))} · <code>${esc(e.commit.slice(0, 9))}</code>${targetOf(e) ? ` · <code>${esc(targetOf(e))}</code>` : ""}`];
@@ -418,30 +419,32 @@
         lines.push(confChip(gen.confidence));
       } else if (!e.in_store) lines.push("not in the history store");
       if (e.drawn_by) lines.push(`drawn by: ${esc(e.drawn_by.join(", "))}`);
-      if (now) lines.push(now === a.id ? '<span class="chip c-info">this asset</span>' : `today: ${assetLink(now)}`);
-      const still = e.still ? img(e.still, e.label) : '<span class="controls">no still</span>';
-      return `<figure title="${esc(e.note || "")}"${now === a.id ? ' class="here"' : ""}><div class="checker">${now && now !== a.id ? `<a href="#asset/${enc(now)}">${still}</a>` : still}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
+      if (now) lines.push(now === a?.id ? '<span class="chip c-info">this asset</span>' : `today: ${assetLink(now)}`);
+      const still = e.still ? `<a href="${esc(e.still)}" target="_blank" rel="noopener">${img(e.preview || e.still, e.label)}</a>` : '<span class="controls">Historical preview not cached</span>';
+      return `<figure title="${esc(e.note || "")}"><div class="checker">${still}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
     }).join("");
-    return `<section class="box"><h2>Lineage: ${esc(l.name)} (${l.eras.length} era${l.eras.length === 1 ? "" : "s"})</h2>
-      <p class="controls">${esc(l.summary)} · found via ${esc(l.found_via || "")} · targets ${l.targets.map((t) => `<code>${esc(t)}</code>`).join(" ")}</p>
-      <div class="thumbs">${eras}</div>
-      ${(l.tracks || []).map(trackBox).join("")}
-      <p class="controls">An era is a commit (<code>design_history/lineages.yaml</code>). "commit" names who made the commit that pins the era; "code" and "art" are the lines of its generator files at that commit, by author (git blame). <code>python -m design_history build ${esc(l.lineage)}</code> draws the stills.</p></section>`;
+    const variations = (l.tracks || []).flatMap(track => (track.variations || []).map(v => ({...v, target: v.target || track.track})));
+    const dated = entries => entries.sort((x, y) => (Date.parse(x.date) || 0) - (Date.parse(y.date) || 0));
+    const unique = entries => [...new Map(entries.map(e => [(e.sha || e.commit).slice(0, 12) + ':' + (e.target || e.ids?.join('+') || ''), e])).values()];
+    const all = dated(unique([...variations, ...curatedEras.filter(e => e.still).map(e => ({...e, target: targetOf(e), subject: e.note, by: e.pin?.label, holistic: true}))]));
+    const major = all.filter(e => e.holistic && e.still);
+    const visible = major.length ? major : all.filter(e => e.still);
+    const current = a ? `<figure class="history-current"><div class="checker">${a.cover ? `<a href="#asset/${enc(a.id)}">${img(a.cover, a.display)}</a>` : '<span class="controls">Current preview unavailable</span>'}</div><figcaption><b>${a.identities?.length ? 'Current published look' : 'Selected art'}</b><br>${esc(a.display)}${C.built_at ? `<br>Inspected ${esc(C.built_at.slice(0, 10))}` : ''}</figcaption></figure>` : '';
+    return `<section class="box visual-lineage" data-lineage="${esc(l.lineage || '')}"><h2>Character lineage: ${esc(l.name)}</h2>
+      ${l.summary ? `<p>${esc(l.summary)}</p>` : ''}<p class="controls">Recorded looks, oldest first. Open an image to inspect the original.</p>
+      <div class="thumbs lineage-previews history-summary">${visible.map(variationFig).join('')}${current}</div>
+      ${!visible.length ? '<p class="empty">No earlier snapshots are cached for this lineage.</p>' : ''}
+      ${all.length > visible.length ? `<details><summary>All recorded variations (${all.length})</summary><div class="thumbs lineage-previews">${all.map(variationFig).join('')}</div></details>` : ''}
+      ${curatedEras.length ? `<details><summary>Curated milestones (${curatedEras.length})</summary><div class="thumbs lineage-previews">${eras}</div></details>` : ''}
+      ${l.targets?.length ? `<p class="controls">Art targets: ${l.targets.map(t => `<code>${esc(t)}</code>`).join(' · ')}</p>` : ''}</section>`;
   }
   // The survey's variations of one track (`design_history/variations.yaml`):
   // the holistic looks, and every variation behind a toggle.
   function variationFig(v) {
-    const lines = [`${esc(v.date.slice(0, 10))} · <code>${esc(v.commit.slice(0, 9))}</code>`, esc(v.by)];
-    if (v.change !== null && v.change !== undefined) lines.push(`change ${v.change}`);
-    return `<figure title="${esc(v.subject)}"${v.holistic ? ' class="holistic"' : ""}><div class="checker">${v.still ? img(v.still, v.subject) : '<span class="controls">no still</span>'}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
+    const lines = [v.label ? `<b>${esc(v.label)}</b>` : '', `${esc((v.date || '').slice(0, 10))} · <code>${esc(v.commit.slice(0, 9))}</code>`, esc(v.target), esc(v.by)].filter(Boolean);
+    return `<figure title="${esc(v.subject || v.note || '')}"><div class="checker">${v.still ? `<a href="${esc(v.still)}" target="_blank" rel="noopener">${img(v.preview || v.still, v.label || v.subject || 'Historical look')}</a>` : '<span class="controls">Historical preview not cached</span>'}</div><figcaption>${lines.join("<br>")}</figcaption></figure>`;
   }
-  function trackBox(tr) {
-    const all = tr.variations || [], whole = all.filter((v) => v.holistic);
-    return `<h2 style="margin-top:12px">Looks of <code>${esc(tr.track)}</code>: ${whole.length} holistic of ${all.length} variation${all.length === 1 ? "" : "s"}</h2>
-      <p class="controls">${fmt(tr.candidates)} commits drawn${tr.failed ? `, ${fmt(tr.failed)} could not draw it` : ""}. A holistic look ends a burst of work and is not a redraw of the look before it.</p>
-      <div class="thumbs">${whole.map(variationFig).join("") || '<p class="empty">none</p>'}</div>
-      ${all.length > whole.length ? `<details><summary>every variation (${all.length})</summary><div class="thumbs">${all.map(variationFig).join("")}</div></details>` : ""}`;
-  }
+  window.ArtLineage = {render: lineageBox};
   function authorshipBox(w) {
     const rows = [];
     for (const part of ["code", "art"]) {

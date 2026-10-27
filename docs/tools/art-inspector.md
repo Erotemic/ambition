@@ -25,7 +25,10 @@ python3 scripts/art_inspector.py build --open
 
 The offline page opens at Characters. This page shows the prepared game roster.
 Each card opens a character page with art playback, animation coverage, forms,
-parts, derivations, and design lineage. Recorded eras appear on normal builds.
+parts, derivations, and a visual design lineage. Cached historical looks appear
+in date order beside the current sprite on normal builds. Recorded variations
+remain visible when a character has no curated eras. The History inventory view
+uses the same timeline. The optional authorship scan is separate.
 Previews frame the neutral body and use a fixed foot baseline. Playback and
 comparison can switch to the full animation frame. Runtime RON supplies the
 geometry; the preview reports its measured framing basis.
@@ -37,7 +40,7 @@ The page also has identity trees, metadata filters, bundle and tier evidence,
 source/profile/runtime coverage, lineage, published action comparison, and a
 player with scrubbing and death-to-corpse playback. Source Studio links remain
 separate from published previews. `--no-previews` updates the report without
-new strips. `--authorship` adds the optional Git blame and cached era previews.
+new strips. `--authorship` adds the optional Git blame and model attribution.
 
 Normal queries do not draw art, decode pixels, or walk history. `--deep`
 rehashes bytes. The renderer owns the status decision used by publication.

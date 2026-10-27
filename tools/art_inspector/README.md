@@ -41,7 +41,7 @@ The build writes `.agent/art_inspector/index.html`, its scripts, and previews.
 Open the page from disk. It needs no web server. `--no-previews` updates the
 index and names preview paths without drawing new strips. `--jobs N` sets the
 preview process count, to a maximum of six. `--prune` removes unused previews.
-`--authorship` adds Git blame and cached era previews. Normal status queries do
+`--authorship` adds Git blame and model attribution. Normal status queries do
 not decode pixels, draw previews, read blame, or walk Git history. `--deep`
 rehashes generation inputs and outputs instead of using cached file digests.
 
@@ -57,8 +57,13 @@ suffix does not establish identity or a generation.
 The page opens at **Characters**. It shows one card for each identity in the
 selected game's prepared catalog. Click a card to open its character page.
 The page includes animation playback, coverage, current products, forms, parts,
-derivations, and a design lineage with its recorded eras. Lineage does not need
-the optional authorship scan. Missing art does not remove a catalog character.
+derivations, and a visual design lineage. Normal builds show cached historical
+looks in date order, followed by the current published sprite. The recorded
+variations remain available when the curated era list is empty. Expand the
+timeline to see all variations or curated milestones. Open a thumbnail to
+inspect the original historical image. The History inventory view uses the
+same visual timeline. Lineage does not need the optional authorship scan.
+Missing art does not remove a catalog character.
 Search by name, catalog ID, tag, family, or lineage. Use the family, lineage,
 and art status filters to find related characters or art that needs work.
 
@@ -91,6 +96,13 @@ time. The player supports play once with a final hold, loops, scrubbing, and a
 death-to-corpse sequence. Source Studio links select the chargen spec and pose.
 Start Studio with `./scripts/chargen_studio.sh --open` before using those links.
 A source preview does not replace a missing published clip.
+
+Historical images come from the renderer's design-history cache. The inspector
+frames review thumbnails from these images; it does not redraw past art with
+today's renderer. Missing snapshots stay marked as unavailable. Prepare missing
+historical renders with `python -m design_history build LINEAGE` from the sprite
+renderer directory, then rebuild the inspector. Status, list, inspect, and
+coverage queries do not prepare or read this visual timeline.
 
 ## Character review notes
 

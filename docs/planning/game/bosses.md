@@ -434,6 +434,10 @@ The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
 
 ## The Inugami — the wolf unsewn (Jon, 2026-10-20)
 
+**Open report (2026-10-26):** Inugami Wolfenstein no longer chases the
+controlled body. Reproduce the failure in the arena or on the chase route;
+the completed rework below does not close this report.
+
 Jon: "add an additional phase to Wolfenstein where the head resurrects as an
 inugami and you fight the floating spectral head as an additional boss".
 Then: "I think a red spectral glow would be better".

@@ -1,4 +1,4 @@
-# Art inspector and character coverage
+# Art inspector improvement plan
 
 **State:** death publication corrected; inventory and inspector changes
 proposed, 2026-10-26. Parent programs:
@@ -8,10 +8,13 @@ proposed, 2026-10-26. Parent programs:
 
 ## Goal
 
-An author can find a character, compare related art, find missing animations,
-and explain a fallback without building the game. The same report serves the
-offline page and command-line queries. Game data, renderer targets and design
-history keep their present ownership. The inspector stores derived results.
+An author can enumerate the art required by a selected game revision and find
+exactly which bundles are missing or stale without building the game. The
+inventory includes actors, props, backgrounds and their lineages. It also
+supports related-art comparison, animation coverage and fallback explanations.
+The same report serves the offline page and command-line queries. Game data,
+renderer targets and design history keep their present ownership. The inspector
+stores derived results.
 
 ## Evidence and present limits
 

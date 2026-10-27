@@ -27,6 +27,8 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 
+use bevy_math::DVec2;
+
 use super::{Iso2, MapConvention, PortalAperture, PortalFrame};
 use crate::{AabbExt, CombatVolume, Vec2};
 
@@ -331,10 +333,12 @@ fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink, reach: Option<V
 /// The partitioner's working memory, kept between calls on a thread so that a
 /// test of a box piece allocates nothing: the outline being clipped (and, in
 /// `WORK`, the work list). What is in it never reaches a result.
+/// Keep intersections in double precision until the area test. Rounding each
+/// cut to world-space floats can turn a shared edge into another fragment.
 #[derive(Default)]
 struct Scratch {
-    outline: Vec<Vec2>,
-    kept: Vec<Vec2>,
+    outline: Vec<DVec2>,
+    kept: Vec<DVec2>,
 }
 
 thread_local! {
@@ -347,13 +351,13 @@ fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool
     SCRATCH.with_borrow_mut(|Scratch { outline, kept }| {
         outline.clear();
         match volume {
-            CombatVolume::Aabb(b) => outline.extend(box_corners(*b)),
+            CombatVolume::Aabb(b) => outline.extend(box_corners(*b).map(Vec2::as_dvec2)),
             CombatVolume::Obb { center, half, rotation } => {
                 let (x, y) = (Vec2::from_angle(*rotation) * half.x, Vec2::from_angle(*rotation).perp() * half.y);
-                outline.extend([*center - x - y, *center + x - y, *center + x + y, *center - x + y]);
+                outline.extend([*center - x - y, *center + x - y, *center + x + y, *center - x + y].map(Vec2::as_dvec2));
             }
-            CombatVolume::Circle { .. } => outline.extend(box_corners(volume.bounds())),
-            CombatVolume::Convex { .. } => outline.extend(volume.polygon().into_iter().flatten()),
+            CombatVolume::Circle { .. } => outline.extend(box_corners(volume.bounds()).map(Vec2::as_dvec2)),
+            CombatVolume::Convex { .. } => outline.extend(volume.polygon().into_iter().flatten().map(Vec2::as_dvec2)),
         }
         for plane in planes {
             clip_into(outline, plane, kept);
@@ -362,12 +366,12 @@ fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool
                 return false;
             }
         }
-        if twice_area(outline).abs() <= EPS {
+        if twice_area(outline).abs() <= f64::from(EPS) {
             return false;
         }
         match volume {
             // The box's part only bounds the disc's: test the disc itself.
-            CombatVolume::Circle { .. } => volume.intersects(&CombatVolume::convex(outline.clone())),
+            CombatVolume::Circle { .. } => volume.intersects(&CombatVolume::convex(outline.iter().map(|p| p.as_vec2()).collect())),
             _ => true,
         }
     })
@@ -649,7 +653,8 @@ pub fn face_rect_planes(rect: &super::FaceRect) -> [HalfPlane; 4] {
     ]
 }
 
-fn cut(mut outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
+fn cut(outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
+    let mut outline: Vec<DVec2> = outline.into_iter().map(Vec2::as_dvec2).collect();
     let mut kept = Vec::with_capacity(outline.len() + planes.len());
     for plane in planes {
         clip_into(&outline, *plane, &mut kept);
@@ -658,15 +663,16 @@ fn cut(mut outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
             return None;
         }
     }
-    (twice_area(&outline).abs() > EPS).then_some(outline)
+    (twice_area(&outline).abs() > f64::from(EPS)).then(|| outline.into_iter().map(|p| p.as_vec2()).collect())
 }
 
 /// `outline`'s part on `plane`'s inward side, into `kept`.
-fn clip_into(outline: &[Vec2], plane: HalfPlane, kept: &mut Vec<Vec2>) {
+fn clip_into(outline: &[DVec2], plane: HalfPlane, kept: &mut Vec<DVec2>) {
     kept.clear();
+    let (point, inward) = (plane.point.as_dvec2(), plane.inward.as_dvec2());
     for i in 0..outline.len() {
         let (a, b) = (outline[i], outline[(i + 1) % outline.len()]);
-        let (sa, sb) = (plane.side(a), plane.side(b));
+        let (sa, sb) = ((a - point).dot(inward), (b - point).dot(inward));
         if sa >= 0.0 {
             kept.push(a);
         }
@@ -676,8 +682,11 @@ fn clip_into(outline: &[Vec2], plane: HalfPlane, kept: &mut Vec<Vec2>) {
     }
 }
 
-fn twice_area(outline: &[Vec2]) -> f32 {
-    (0..outline.len()).map(|i| outline[i].perp_dot(outline[(i + 1) % outline.len()])).sum()
+fn twice_area(outline: &[DVec2]) -> f64 {
+    let Some(origin) = outline.first() else { return 0.0 };
+    (1..outline.len().saturating_sub(1))
+        .map(|i| (outline[i] - origin).perp_dot(outline[i + 1] - origin))
+        .sum()
 }
 
 /// Do two discs and the half planes share a point? Their common part, when

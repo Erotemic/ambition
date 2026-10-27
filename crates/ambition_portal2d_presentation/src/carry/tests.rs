@@ -281,3 +281,48 @@ fn a_body_stays_visible_on_the_first_frame_of_an_authored_or_new_gun_pair() {
         );
     }
 }
+
+#[test]
+fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
+    let mut app = test_app();
+    let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(Rectangle::default());
+    app.insert_resource(crate::clip_material::PortalPieceQuad(mesh));
+    let entry = authored_entry();
+    let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0)).id();
+    let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0)).id();
+    let visual = spawn_body(&mut app, Some(PieceBudget::COMPOSED), 300.0, entry);
+    app.world_mut().entity_mut(visual).insert(Aabb {
+        center: Vec3::ZERO.into(),
+        half_extents: Vec3::new(24.0, 24.0, 0.0).into(),
+    });
+    app.update();
+    app.update();
+    let images = app.world().resource::<Assets<Image>>().len();
+    let materials = app.world().resource::<Assets<PortalClipMaterial>>().len();
+    let meshes = app.world().resource::<Assets<Mesh>>().len();
+
+    for degree in 0..360 {
+        let angle = (degree as f32).to_radians();
+        let center = Vec2::new(2200.0 + 40.0 * angle.sin(), 876.0 + 20.0 * angle.cos());
+        for (entity, pos, normal) in [
+            (a, center, Vec2::from_angle(angle)),
+            (b, center + Vec2::new(350.0, -196.0), Vec2::from_angle(angle * 0.7)),
+        ] {
+            let mut portal = app.world_mut().get_mut::<PlacedPortal>(entity).unwrap();
+            portal.pos = pos;
+            portal.normal = normal;
+        }
+        let side = app.world().get::<PlacedPortal>(if degree < 180 { a } else { b }).unwrap().clone();
+        app.world_mut().get_mut::<crate::PortalBodyView>(visual).unwrap().pos = side.pos + side.normal * 3.0;
+        app.world_mut().get_mut::<crate::PortalTransitView>(visual).unwrap().straddling = side.channel;
+        *app.world_mut().get_mut::<Transform>(visual).unwrap() =
+            Transform::from_translation(PortalWorldFrame { size: WORLD }.to_render(side.pos, 20.0));
+        app.update();
+        let drawn = outcome(&mut app, visual);
+        assert!(drawn.active_capture && !drawn.on_world, "degree={degree}: {drawn:?}");
+        assert_eq!(drawn.pieces.len(), 2, "degree={degree}: {drawn:?}");
+        assert_eq!(app.world().resource::<Assets<Image>>().len(), images);
+        assert_eq!(app.world().resource::<Assets<PortalClipMaterial>>().len(), materials);
+        assert_eq!(app.world().resource::<Assets<Mesh>>().len(), meshes);
+    }
+}

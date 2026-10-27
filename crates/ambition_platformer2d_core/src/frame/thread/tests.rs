@@ -1,6 +1,57 @@
 use super::*;
 use crate::{Aabb, AabbExt};
 
+#[test]
+fn opposed_portal_planes_leave_no_area_at_any_position_or_angle() {
+    for center in [Vec2::ZERO, Vec2::new(2200.0, 876.0)] {
+        for degree in 0..360 {
+            let normal = Vec2::from_angle((degree as f32).to_radians());
+            let plane = HalfPlane { point: center, inward: normal };
+            let volume = CombatVolume::aabb(crate::Aabb::new(center, Vec2::splat(24.0)));
+            let clipped = clip_convex(volume.polygon().unwrap(), &[plane, plane.flipped()]);
+            assert!(clipped.is_none(), "center={center:?}, degree={degree}, clipped={clipped:?}");
+        }
+    }
+}
+
+#[test]
+fn an_isolated_rotated_pair_cuts_a_translated_body_once() {
+    for center in [Vec2::ZERO, Vec2::new(2200.0, 876.0)] {
+        for degree in 0..360 {
+            let normal = Vec2::from_angle((degree as f32).to_radians());
+            let pair = (
+                PortalAperture { frame: PortalFrame::fixed(center, normal), half_length: 100.0 },
+                PortalAperture {
+                    frame: PortalFrame::fixed(center + Vec2::new(350.0, -196.0), Vec2::from_angle((degree as f32 * 0.7).to_radians())),
+                    half_length: 100.0,
+                },
+            );
+            let root = center + normal * 3.0;
+            let volume = CombatVolume::convex(box_corners(crate::Aabb::new(center, Vec2::splat(24.0))).to_vec());
+            for convention in [MapConvention::Reflection, MapConvention::Rotation] {
+                for budget in [PieceBudget::SINGLE_HOP, PieceBudget::COMPOSED] {
+                    let cut = partition(&volume, root, &links(&[pair]), Some(0), budget, convention);
+                    assert!(
+                        cut.pieces.len() == 2
+                            && cut.refused.is_empty()
+                            && cut.pieces.iter().all(|piece| piece.bounds.len() <= 3 && piece.path.len() <= 1),
+                        "center={center:?}, degree={degree}, {convention:?}, {budget:?}: pieces={}, refusals={}, bounds={:?}",
+                        cut.pieces.len(), cut.refused.len(), cut.pieces.iter().map(|p| p.bounds.len()).collect::<Vec<_>>()
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_small_real_region_keeps_its_area_away_from_the_world_origin() {
+    for center in [Vec2::ZERO, Vec2::new(2200.0, 876.0), Vec2::new(20_000.0, 10_000.0)] {
+        let square = box_corners(crate::Aabb::new(center, Vec2::splat(0.125))).to_vec();
+        assert_eq!(clip_convex(square.clone(), &[]), Some(square), "center={center:?}");
+    }
+}
+
 // y is down. A floor portal at the origin (its front is up) and its partner,
 // a ceiling portal at (500, -200) (its front is down): what goes down into the
 // floor comes down out of the ceiling.

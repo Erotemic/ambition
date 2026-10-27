@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-26
+last_verified: 2026-10-27
 related_docs:
   - docs/tools/generated-visual-tools.md
   - docs/concepts/asset-management.md

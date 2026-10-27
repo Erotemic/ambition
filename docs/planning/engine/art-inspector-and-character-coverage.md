@@ -1,8 +1,11 @@
 # Art inspector and character coverage
 
-**State:** implemented, 2026-10-26. Parent programs:
+**State:** implemented, 2026-10-27. Parent programs:
 [authoring](authoring-and-tools.md) and
 [inspection](inspection-diagnostics-and-workbench.md).
+Implementation: superproject `5a6a8b035e9c3af51f40c1ec4da111fbec9e0628`;
+renderer `e744ec2`.
+
 See the [inspector guide](../../../tools/art_inspector/README.md) for commands,
 evidence states, and limits.
 
@@ -51,3 +54,11 @@ render art, draw previews, or walk history. Use the owner's status decision.
 Compiled bindings that owners do not export have no asserted reference closure.
 Live manifest evidence does not prove a graphics device has uploaded local
 pixels. Keep these limits explicit.
+
+Validation: 51 focused Python tests, 140 Rust owner tests, and 35 workspace
+policy tests passed. The assembled capture tool compiled and produced a live
+snapshot. Voss reports current at all four tiers; its loaded Half manifest
+matches the local manifest. The offline browser exercised comparison, corpse
+hold, and snapshot import. The quality check found no defects and reported
+2,325 legacy conversions with unknown input evidence. Broader repository checks
+still have unrelated documentation, census, and content findings.

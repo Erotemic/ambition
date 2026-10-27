@@ -5937,7 +5937,7 @@
         // soldiers made by the character generator (renderer
         // `data/townsfolk/tower_*.chargen.yaml`); their talk is `military_tower.yarn`.
         "npc_tower_voss": (
-            display_name: "Drill Sergeant Voss",
+            display_name: "Drill Sergeant Casey",
             // The drill sergeant of the parade deck.
             manifest: "sprites/tower_voss_spritesheet.ron",
             tier: MainHall,

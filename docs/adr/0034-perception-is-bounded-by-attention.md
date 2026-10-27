@@ -27,21 +27,12 @@ PerceptionMemory   rollback_component_canonical, "actor.perception_memory"
 
 ### These are two different classes, and only one of them is durable
 
-`Perception` is a **policy**: `Omniscient | Sighted { viewport_half }`. The only
-runtime construction of a value is `perception.rs:449`, always
-`Sighted { DEFAULT_VIEWPORT_HALF }`; `Omniscient` is reached exclusively through
-`Default` on an absent component. Every instance in the world holds the same
-value, and its presence is *by construction* the same fact as
-`PerceptionMemory`'s — `ensure_perception` inserts both together behind
-`Without<PerceptionMemory>`, and says so: *"Missing memory ⟺ missing
-perception"*. The per-body override its doc comment advertises has no user.
-
-⭐ **UPDATE 2026-09-26 (AP57): `Perception` IS NO LONGER STORED.** The brain tick
-derives it when a body decides (`perception::perception_of`): a body seated in a
-match is `Omniscient`, any other body is `Sighted` with the session's one extent
-(`SenseExtent`). `ensure_perception`, the `Perception` component and its
-rollback row are deleted, and `Brain` requires `PerceptionMemory`, so a body is
-built with its memory. The durable class below is unchanged.
+**Historical design, before the 2026-09-26 implementation correction:**
+`Perception` was a stored policy component with an invariant default; its
+presence coincided with `PerceptionMemory`, and both had rollback rows.
+That is no longer the implementation. The 2026-09-26 AP57 change deleted
+the `Perception` component and its registration and derives effective policy
+from match membership or `SenseExtent` when a brain decides.
 
 `PerceptionMemory` is **accumulated history**. It cannot be re-derived from the
 current tick — surviving the loss of sight of a foe is the entire point — so it
@@ -110,12 +101,12 @@ written into it is a replay-compatibility change.**
    this. It gets the ADR 0023 treatment — a baseline move, recorded — never a
    benchmark and a merge.
 
-4. **`Perception` stays as it is.** Its value is invariant and its presence is
-   already implied by `PerceptionMemory`'s, so it is redundant on the wire — but
-   it is the seam a per-character sense override would use, and deleting a
-   checksummed name to save nothing measurable is the wrong trade. Do not
-   remove it as an optimization; revisit only if the override stays unused when
-   attention lands.
+4. **Perception policy is derived, not a stored `Perception` component.**
+   The 2026-09-26 implementation removed the component and its rollback row;
+   the effective policy comes from match membership or `SenseExtent` at the
+   decision point. Per-character overrides, if later required, need an
+   explicit new authoritative policy/input contract rather than resurrecting a
+   stale component solely to match this ADR's historical draft.
 
 5. **The crowd summary is derived, and is NOT rollback state.** The aggregate is
    rebuilt every tick from rollback-authoritative state, so it must not be
@@ -142,9 +133,7 @@ written into it is a replay-compatibility change.**
 - Do not register the crowd summary, the spatial grid, or any aggregate for
   rollback. They are derived every tick; registering them puts a derived value
   on the wire and invites the desync class this ADR is being careful about.
-- `Perception` and `PerceptionMemory` are not interchangeable. Policy is
-  invariant; belief accumulates. A change that touches one usually does not
-  touch the other.
+- Derived perception policy and `PerceptionMemory` are not interchangeable: policy is computed for the tick, belief accumulates and remains authoritative; do not re-register the deleted `Perception` component.
 - ⛔ Do not make dormancy the answer. Sleeping distant actors is a legitimate
   policy later; it does not solve the representation problem, and applied to the
   hall it deletes the benchmark that finds these defects.

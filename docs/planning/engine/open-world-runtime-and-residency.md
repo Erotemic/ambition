@@ -1,5 +1,11 @@
 # Open-world runtime and residency
 
+**2026-10-26 scope:** Multi-room residency and canonical lifecycle exist, but several live rooms
+do **not** imply independently advancing network islands. Existing GGRS host history is
+App/session-wide; independent-region authority, committed transfer and replication are [research
+goals](architecture-reassessment-and-composable-multiplayer.md), not a shipped consequence of
+`RoomInstanceRoot`. Design ordinary body and object transfer without globally pausing unrelated
+players; preserve the current correct lifecycle while proving a replacement.
 **State:** OPEN. A session can hold more than one live room, and the shipped
 app simulates and draws each one. Two live rooms exist when two seats' driven
 bodies are in different rooms. Ambition's join road for a second seat is being

@@ -1,5 +1,10 @@
 # Track M — Super Mary-O (classic platformer acceptance demo)
 
+**2026-10-26 synchronization scope:** Multiplayer, if selected for this game, is **one level**
+with a required-all-participants finish gate; do not require persistent-world multi-room
+replication. Compare level-level lockstep and bounded rollback as separate optional
+synchronization choices rather than inheriting the flagship GGRS configuration. See [ADR
+0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
 Parody-original classic tile platforming: a teach-by-play opening, pipe secrets,
 powerups, enemies and a flag sequence, without copied art or layout.
 

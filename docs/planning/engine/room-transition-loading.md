@@ -1,5 +1,12 @@
 # Room-transition loading
 
+**2026-10-26 multiplayer distinction:** The current readiness/commit sequence remains valid for
+its existing one-session implementation; it must not become a universal requirement that one
+client waiting on a new room's assets pauses a different participant's authoritative simulation.
+Target separately scoped prepare, admission, committed body/custody handoff, and viewer-specific
+loading cover. Current GGRS rebases remain safe until an alternative passes a multi-participant
+test; see [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md)
+and [ADR 0029](../../adr/0029-direct-gameplay-reveal-is-readiness-gated.md).
 **State:** OPEN. The readiness/authorization transaction is implemented for
 room transitions. Remaining work: transition latency and residency quality, and
 the external peer lifecycle barrier.

@@ -1,25 +1,24 @@
-# Multiplayer network topology and authority — research, not a decision
+# Multiplayer network topology and authority — requirements fixed, topology in research
 
-**Status: IN RESEARCH / UNDECIDED.**  
-**Recorded:** 2026-10-25 (discussion and source review, 2026-10-24–25).  
-**Scope:** Architecture options and experiments; **not** an implementation mandate, ADR,
-queue entry, or change in accepted networking policy.
+**Status: TOPOLOGY STILL UNDECIDED; requirements clarified 2026-10-26.**
+**Recorded:** 2026-10-25; updated following the maintainer's 2026-10-26 architecture discussion.
+**Scope:** Comparative research, not an implementation mandate or queue entry.
 
-> **Maintainer intent (explicit):** I have **not decided** whether Ambition should use
-> GGRS P2P, player-hosted authoritative networking, both as separate session modes,
-> or some later hybrid. I want to retain the research and promising directions
-> while doing more investigation and planning. **Do not treat any option below as
-> selected, or begin replacing GGRS based on this document.**
+**Explicit constraints now recorded:** no mandatory company-operated service or central game server; independent-room Ambition multiplayer; deterministic simulation; rollback optional for games with unbounded world state and required as an option for Smash. A player temporarily hosting authoritative state is a candidate topology, not a company-run service. See [ADRs 0035-0037](../../adr/README.md) and [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 
-This is a new research note, not a replacement for
-[`netcode.md`](netcode.md),
-[`multiplayer-and-multiview.md`](multiplayer-and-multiview.md),
-[`local-coop-integration.md`](local-coop-integration.md), or
-[ADR 0027](../../adr/0027-ggrs-is-the-sole-rollback-authority.md).
-Those documents remain authoritative for **current** implementation and accepted
-contracts. If a future design changes a contract, make a deliberate ADR and
-planning update *after* a decision. Do not quietly edit the existing GGRS
-policy to fit this exploratory note.
+> **Maintainer position updated 2026-10-26:** The absence of a required
+> company-operated server is a firm constraint. Whether the world uses
+> GGRS P2P, a temporary peer authority, or a hybrid remains open.
+> **Do not treat a candidate protocol as selected, or replace working GGRS
+> based only on this research document.**
+
+This research complements the existing [GGRS implementation plan](netcode.md),
+[multiplayer and multiview](multiplayer-and-multiview.md),
+[local co-op](local-coop-integration.md), and [ADR 0027](../../adr/0027-ggrs-is-the-sole-rollback-authority.md).
+The current GGRS contract remains authoritative **when that backend is installed**;
+[ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md) explicitly reopens
+whether it should be present for a particular game at all. The options below
+are comparison candidates, not approved rollout work.
 
 ## Product shape being investigated
 

@@ -1,5 +1,11 @@
 # Planning status
 
+**2026-10-26 correction:** The source and planning snapshots below are not blanket architectural
+commitments. The [reassessment](engine/architecture-reassessment-and-composable-multiplayer.md)
+records the requirement for optional rollback and peer-play without any company-run server,
+while preserving open network-topology and crate-consolidation choices. Current source has an
+in-memory two-peer GGRS harness; it has **not** demonstrated a player-facing networked
+persistent world or independent region rollback.
 This page is a short orientation snapshot. Live execution is in
 [`queue.md`](queue.md). Rulings are in
 [`maintainer-decisions.md`](maintainer-decisions.md). Open choices are in
@@ -21,7 +27,7 @@ construction/publication, session ownership, and persistence/custody.
 
 ## Converged shapes
 
-These are settled. Code against them; do not reopen them without a new ruling.
+These are implemented shapes as of their cited baselines, not irrevocable choices; re-examine the source and maintainer's updated direction before extending them.
 
 - **One constructor, candidate publication.** Fresh session, room transition,
   same-room replay, New Game and save restore use one construction model. A new
@@ -59,14 +65,12 @@ These are settled. Code against them; do not reopen them without a new ruling.
 | Campaign | Where it is tracked |
 | --- | --- |
 | One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09) (C11, closed on a fresh census 2026-10-09) |
-| Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — in progress |
+| Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — OPEN, not started in the consolidation ledger; reassess from HEAD before scheduling |
 | Safe reload across every registry | [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload) |
 | Truthful minimal engine profiles | A9 in the queue |
 | Persistent world | OW cuts in [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md) |
 
-Netplay is not a goal this year. No session in this repository observes a real
-peer: `SyncTestSession` is the only one constructed. A green local rollback lane
-says nothing about two peers agreeing.
+The older statement that netplay is "not a goal this year" is no longer a reliable constraint. The source now includes an in-memory two-App GGRS P2P harness in `game/ambition_app/tests/two_peers.rs`; a local `SyncTestSession` alone is not the extent of the networking tests. Neither proves real-process remote transport, host-authoritative replication, or independent-room session authority. Selection of implementation work still goes through the queue.
 
 ## Current execution
 

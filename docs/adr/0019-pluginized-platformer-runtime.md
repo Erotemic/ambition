@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted as a historical migration technique; superseded as a general crate-creation rule by proposed [ADR 0039](0039-evidence-based-crate-boundaries.md) (2026-10-26).
 
 ## Context
 
@@ -63,6 +63,10 @@ to be lower than. `PlatformerRuntimeSet` never gained a member and was deleted: 
 ./run_tests.sh -p ambition_app -k portal
 ./run_tests.sh -p ambition_app -k gravity
 ```
+
+## 2026-10-26 scope amendment
+
+Same-crate proto-boundaries remain an effective *technique*, not a mandatory pipeline requiring every subsystem to become a crate. Establish a Cargo boundary only where independent ownership, dependency closure, portability, compile isolation, or a real consumer justifies it; otherwise a Rust module and a composable plugin can be sufficient. The crate names and implementation facts below are historical receipts and must be checked against the current workspace, not accepted as a live enumeration.
 
 ## Current implications for agents
 

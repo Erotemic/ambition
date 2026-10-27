@@ -1,5 +1,11 @@
 # Instance lifetime, provenance and persistence
 
+**2026-10-26 future boundary:** Stable identity and canonical occurrence disposition can outlive
+a rollback island and a room's residency. The proposed multi-region design uses identified
+confirmed transfers for bodies, custody and props; an active GGRS frame history must not become
+the source of truth for durable world facts outside its scope. No general cross-region
+transaction protocol is claimed implemented. See [ADR
+0037](../../adr/0037-causally-isolated-simulation-islands.md).
 **State:** DISTILLED. The provenance and lifetime foundation is implemented.
 The open-world, custody and reconstitution plans own the remaining product
 semantics.

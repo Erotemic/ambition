@@ -1,5 +1,13 @@
 # Public SDK 1.0
 
+**2026-10-26 compatibility direction:** Keep the semantic `ambition_platformer2d` facade as the
+primary supported game API while permitting explicitly reviewed, independently useful focused
+headless/simulation and portable extension SDK surfaces. A facade import test does not prove
+Cargo feature absence. Require real external consumers for a minimum deterministic no-GGRS game,
+Smash with GGRS, and alternate physics configurations; see [ADR
+0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md), [ADR
+0039](../../adr/0039-evidence-based-crate-boundaries.md), and [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** OPEN. The supported product is an ergonomic programmatic engine API, with validated
 agent-native authoring and an explicit build/package path. Internal crate names
 are not the public capability model.

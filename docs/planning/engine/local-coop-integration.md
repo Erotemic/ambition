@@ -1,5 +1,11 @@
 # Local co-op integration: input, bodies and adaptive multiview
 
+**2026-10-26 multiplayer scope:** Correct participant/seat/body/view identity is necessary but
+not sufficient for remote peers. Local co-op can still share one simulation; remote Ambition
+players in independent rooms need region interest, an explicit authority model and room
+transfers that do not hold unrelated peers. Loading covers and dialogue input are scoped to the
+initiating participant/view where possible. See [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **Scope:** The Ambition game's BG3-style adaptive shared/split-screen couch co-op,
 using the engine's ordinary participant, live-room and view systems. This is a
 focused integration/acceptance design, not an independent work queue or a new

@@ -1,6 +1,6 @@
 # `docs/planning` — live planning control plane
 
-This directory contains current work, not repository history. Git history is the
+This directory contains current work and open proposals, not binding decisions or repository history. Git history is the
 archive. Before you treat a locally absent commit as lost evidence, read
 [repository history and reconstruction](repository-history.md).
 
@@ -17,6 +17,10 @@ A planning document is here because it answers one of four questions:
 [`tracks.md`](tracks.md) holds valuable work that is not selected now.
 [`status.md`](status.md) is a short orientation snapshot. Neither is an
 execution diary.
+
+## Decision status versus implementation status
+
+Accepted ADRs can be revisited deliberately; an agent-written roadmap is not an explicit maintainer constraint. Treat **implemented**, **proposed**, **measured**, **tentative**, and **maintainer-required** as distinct statuses. The 2026-10-26 architecture reassessment is linked above; it does not silently approve large code migrations. See [ADR 0001](../adr/0001-source-of-truth-docs.md).
 
 ## Where the open work is
 
@@ -61,6 +65,7 @@ links to.
   restructuring candidates and their triggers.
 - [`moveset-inspector.md`](moveset-inspector.md) — combat inspection and the
   moveset observatory.
+- [`test-corpus-static-audit-phase2.md`](test-corpus-static-audit-phase2.md) — static test-corpus audit and its follow-up evidence.
 
 ### Game (`game/`)
 
@@ -69,10 +74,13 @@ links to.
   customer.
 - [`game/open-world-roadmap.md`](game/open-world-roadmap.md) — open-world
   milestones.
+- [`game/gate-network.md`](game/gate-network.md) — gate-network design and integration questions.
 - [`game/systemic-progression.md`](game/systemic-progression.md) —
   capability-first progression.
 - [`game/reactive-characters-and-dialogue.md`](game/reactive-characters-and-dialogue.md)
   — character reactions to world state.
+- [`game/inhabited-world-dialogue-pass.md`](game/inhabited-world-dialogue-pass.md) —
+  inhabited-world dialogue and presentation follow-up.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
@@ -94,6 +102,7 @@ links to.
 
 ### Engine: architecture
 
+- [`engine/architecture-reassessment-and-composable-multiplayer.md`](engine/architecture-reassessment-and-composable-multiplayer.md) — cross-document review of optional rollback, peer multiplayer, simulation islands, physical objects and crate-boundary tradeoffs (proposed; not queued).
 - [`engine/architecture.md`](engine/architecture.md) — the owner page: converged
   shape, the rules workspace policies cite, decomposition doctrine, target
   authorities, standing decisions and the Engine 1.0 program map.

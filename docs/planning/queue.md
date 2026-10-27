@@ -1,5 +1,11 @@
 # The queue — live execution order
 
+**2026-10-26 note:** [Architecture
+reassessment](engine/architecture-reassessment-and-composable-multiplayer.md) and proposed ADRs
+0035-0039 reopen previous networking/rollback/physics/crate assumptions, but **do not
+automatically enqueue** island-scoped rollback, network-host migration, props, or bulk crate
+consolidation. Existing executable rows keep their own status and validation; reconsider their
+architecture-related prerequisites against the new constraints before assigning major work.
 This file is the current executable engineering queue. It is not a work log, a
 review transcript or an archive. Git history keeps completed investigations.
 Durable design and measurements belong in the linked owner document. Product

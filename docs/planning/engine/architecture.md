@@ -1,5 +1,12 @@
 # Engine architecture: current shape, doctrine and target authorities
 
+**2026-10-26 review note:** The current code facts and guard references below remain useful, but
+the *target* design and old D33/A9 ordering are open to reassessment: [composable multiplayer
+and crate-boundary review](architecture-reassessment-and-composable-multiplayer.md). Existing
+global GGRS lifecycle and platformer composition are current implementations, not requirements
+on every future game. New proposals [ADRs 0035-0039](../../adr/README.md) separate deterministic
+stepping, synchronization, region authority, persistence, physics and package boundaries. No
+island-host implementation is claimed.
 **Scope:** the planning owner for engine architecture. It states the shape the
 engine has converged on, the decomposition doctrine, the target logical
 authorities and the rules that workspace policies cite.
@@ -78,7 +85,7 @@ created, restored and retired.
 **Capability composability** asks whether a consumer can select or omit a
 capability with only its declared prerequisites.
 
-Authority decomposition is necessary for composition but does not prove it.
+Authority and composition must both be proven, but neither has a universal sequencing prerequisite; a minimal consumer can reveal a needed authority boundary before an extraction campaign finishes. Authority decomposition alone does not prove composability.
 Measure composability along four independent axes:
 
 | Axis | Falsifiable question |
@@ -156,12 +163,7 @@ abstraction. A cycle inside one control or custody authority can be correct.
 
 ### Public API and naming
 
-Keep one ergonomic facade (`ambition_platformer2d`). Migrate consumers off
-internal namespace mirrors, then delete the mirrors. `actor_monolith` and
-`shared_tangle` are honest warning labels until their exits are met. Retire
-them by removing the accidental responsibilities, not by renaming them.
-`features` must disappear as an owner category. `runtime`, `characters`,
-`combat` and `core` are not evidence of coherent boundaries.
+Keep `ambition_platformer2d` as the primary ergonomic semantic facade and allow focused reviewed SDK/host surfaces when real independent consumers justify them. Migrate consumers off internal namespace mirrors, then delete the mirrors. `actor_monolith` and `shared_tangle` are historical warning names, not permanent barriers to a justified rename. Rename or divide them based on current ownership, dependent customers and actual package closures, not simply when an old carve packet is checked off. `features` should not be an owner category. `runtime`, `characters`, `combat` and `core` are not by themselves evidence of coherent boundaries; neither are small crate sizes or an SCC count.
 
 Completion evidence is a simpler responsibility map, fewer unrelated writers, a
 production behavior witness and the relevant profile or API benefit. SCC counts

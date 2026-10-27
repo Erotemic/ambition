@@ -1,11 +1,19 @@
 # Netcode and rollback host
 
+**2026-10-26 scope correction:** This document owns the **implemented GGRS host and its safety
+invariants**, not the networking architecture of every game. No mandatory central/company
+server, default optional rollback, and independent multi-room Ambition play are updated product
+constraints; topology, regional rollback and peer state replication are still [under
+investigation](architecture-reassessment-and-composable-multiplayer.md). [ADR
+0027](../../adr/0027-ggrs-is-the-sole-rollback-authority.md) now applies specifically to
+GGRS-selected sessions. A safe whole-session rebase must not be mistaken for the eventual
+general room-transfer protocol.
 **State:** OPEN at the transport/lifecycle frontier. Ephemeral rollback ownership
 and the local sync-test host are established.
 
 ## Durable boundary
 
-GGRS/bevy_ggrs are the sole ephemeral rollback authority. Ambition owns:
+For sessions that select GGRS, GGRS/bevy_ggrs are the sole ephemeral rollback authority. Ambition owns:
 
 - typed backend-neutral rollback registration declarations;
 - deterministic checksum/projection policy;
@@ -62,6 +70,15 @@ diagnostic history is evidence only and cannot gate gameplay.
   (`shell_host_lifecycle.rs`);
 - two players in two live rooms resimulate to the same checksums under a GGRS
   sync test (`two_players_in_two_live_rooms_resimulate_to_the_same_world`).
+
+## New architectural scope, separate from this GGRS workstream
+
+- **Bounded match:** retain exact-content GGRS lockstep/rollback and side-effect confirmation for Smash and other opt-in games.
+- **Independent-room world:** test peer-hosted replication and confirmed per-region transfers *without* making unrelated GGRS frames wait; no state-transfer wire protocol exists yet.
+- **Region-specific rollback:** a research option requiring isolated causal state and a correct entry/exit handoff, not simply per-room `Rollback` markers.
+- **Connectivity:** direct/LAN joining cannot depend on external infrastructure; optional relay/discovery may be installed without being required.
+
+Do not unilaterally remove GGRS's currently safe lifecycle barrier. First establish a test proving unchanged peers/checksums and a separately implemented replacement. The N1-N5 material below remains the historical and current **GGRS-specific** implementation frontier; it is not a fixed program order for all games.
 
 ## Remaining netcode work
 

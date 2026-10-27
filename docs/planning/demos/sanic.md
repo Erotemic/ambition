@@ -1,5 +1,10 @@
 # Track S — Sanic (momentum acceptance demo)
 
+**2026-10-26 synchronization scope:** Multiplayer, if selected for this game, is **one level**
+with a required-all-participants finish gate; do not require persistent-world multi-room
+replication. Compare level-level lockstep and bounded rollback as separate optional
+synchronization choices rather than inheriting the flagship GGRS configuration. See [ADR
+0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
 Inspired by the momentum-platformer contract, with parody-original art and level
 design rather than copied content.
 

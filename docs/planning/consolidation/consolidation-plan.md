@@ -1,5 +1,12 @@
 # Architecture consolidation plan
 
+**2026-10-26 review update:** Crate-boundary **analysis** is independently useful now and need
+not wait for C03 session-state cleanup. This is not permission to merge crates: evaluate a
+candidate against [ADR 0039](../../adr/0039-evidence-based-crate-boundaries.md), real resolved
+consumer closures, ownership, optional GGRS/Avian absence, and a reversible branch experiment.
+The new [architecture
+reassessment](../engine/architecture-reassessment-and-composable-multiplayer.md) supersedes the
+earlier implication that historical carve ordering is a permanent dependency.
 This plan ranks the work that removes independent truths. The ranking is by
 authority and lifetime leverage, not by LOC. A campaign can move down when a new
 source reading shows that two values have different semantic owners.
@@ -20,7 +27,7 @@ Executable slices go to [`queue.md`](../queue.md).
 | 6 | C06 | Converge reconstruction roads on one materialization/publication engine | ✅ CONVERGED 2026-09-23 | — | — |
 | 7 | C07 | Explicit composition contracts for required optional authorities | ✅ CONVERGED 2026-10-08 | medium | — |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors | OPEN — later cleanup | medium | stay off identity surfaces while ID-PEER runs |
-| 9 | C09 | Review crate boundaries by semantic ownership, not size | OPEN — later structural review | medium-large | after C03 settles owners (C07 converged) |
+| 9 | C09 | Review crate boundaries by semantic ownership, consumers and resolved closure | OPEN — audit can start independently; no mergers selected | medium-large | For an individual merge: concrete ownership and closure evidence; C03 only when that dependency actually matters |
 | 10 | C10 | Separate current planning state from history | ✅ DONE 2026-09-14 | small | — |
 | 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | CLOSED 2026-10-09 on a fresh census ([AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09) receipt); AP14 continues as its own deferred queue row | medium | — |
 

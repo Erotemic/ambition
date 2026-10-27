@@ -2,6 +2,8 @@
 
 ADRs are durable, current decisions. If an ADR becomes stale, update or supersede it; do not leave contradictory live guidance elsewhere.
 
+The five 2026-10-26 proposals distinguish firm maintainer constraints from still-open implementation choices. A **Proposed** ADR does not supersede shipped behavior until the replacement is validated, and a historical **Accepted** ADR can be revisited deliberately.
+
 Use an ADR when a decision:
 
 - changes architecture direction,
@@ -32,17 +34,22 @@ Use an ADR when a decision:
 - [0018: Enemy cluster variation — per-actor jitter is mandatory at every brain-spawn site](0018-enemy-cluster-variation.md)
 - [0019: Pluginized platformer runtime via same-crate proto-boundaries](0019-pluginized-platformer-runtime.md)
 - [0020: Mounts and vehicles — two linked actors, control-deferral, independent hurtboxes](0020-mounts-and-vehicles.md)
-- 0021: reserved (authoring-backend-agnostic space — lands with the W4 world-carve slice)
+- [0021: Authoring-backend-agnostic world IR](0021-authoring-backend-agnostic-world-ir.md)
 - [0022: Respawn policy — dead stays dead by default; respawning is authored](0022-respawn-policy.md)
 - [0023: Same-build determinism is a contract, enforced by lints](0023-same-build-determinism.md)
 - [0024: One frame-aware movement kernel with explicit swappable policies](0024-frame-aware-unified-movement-kernel.md)
 - [0025: Character actions — device-shaped input slots, deterministic sim-side action resolution](0025-character-actions-input-ownership.md)
 - [0026: Immutable prepared content and exact session identity](0026-immutable-prepared-content-and-exact-session-identity.md)
-- [0027: GGRS is the sole rollback authority](0027-ggrs-is-the-sole-rollback-authority.md)
+- [0027: GGRS owns rollback in GGRS-backed sessions](0027-ggrs-is-the-sole-rollback-authority.md)
 - [0028: Dialogue presentation is provider-selected](0028-dialogue-presentation-is-provider-selected.md)
 - [0029: Direct gameplay reveal is readiness-gated](0029-direct-gameplay-reveal-is-readiness-gated.md)
 - [0030: Spawn provenance is data, and construction is planned before mutation](0030-spawn-provenance-is-data.md)
-- [0031: The public facade is the compatibility boundary, and it is enforced](0031-public-facade-is-the-compatibility-boundary.md) — **Proposed**
-- [0032: Authoring is declarative — content is a value, capability is declared, only the engine lowers into `App`](0032-authoring-is-declarative.md) — **Proposed**
+- [0031: The public facade is the compatibility boundary, and it is enforced](0031-public-facade-is-the-compatibility-boundary.md) — **Accepted (scope amended)**
+- [0032: Authoring is declarative — content is a value, capability is declared, only the engine lowers into `App`](0032-authoring-is-declarative.md) — **Accepted**
 - [0033: Death is a state the ruleset resolves, not an event the world resolves](0033-death-is-a-state-the-ruleset-resolves.md) — **Accepted**
 - [0034: Perception is bounded by attention, and belief is the only durable part](0034-perception-is-bounded-by-attention.md) — **Proposed**
+- [0035: Multiplayer must not depend on a company-operated service](0035-distributed-multiplayer-without-required-services.md) — **Proposed design; product constraint explicit**
+- [0036: Synchronization and rollback are optional game capabilities](0036-synchronization-is-an-optional-game-capability.md) — **Proposed design**
+- [0037: Investigate causally isolated simulation islands](0037-causally-isolated-simulation-islands.md) — **Proposed research**
+- [0038: Persistent physical objects do not require a full physics backend](0038-persistent-objects-and-optional-physics.md) — **Proposed design**
+- [0039: Keep only crate boundaries with demonstrated architectural value](0039-evidence-based-crate-boundaries.md) — **Proposed governance**

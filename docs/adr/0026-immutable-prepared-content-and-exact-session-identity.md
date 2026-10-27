@@ -110,9 +110,15 @@ for a no-op. Ordinary room transitions never change content identity.
 - Construction provenance, general `ConstructionPlan`, public prefab APIs, and
   broad room-construction conversion remain deliberately outside this milestone.
 
+## 2026-10-26 amendment: content identity is not a global rollback mandate
+
+The immutable prepared-content and transactional publication invariants remain authoritative without rollback. A rollback-enabled session must refuse incompatible state; an offline fixed-step or authoritative-replication host need not carry a GGRS generation merely to consume prepared content.
+
+For proposed multi-region simulations, distinguish prepared-definition identity, region membership, region authority, world/session epoch, and individual transfer transaction identity. Stable content identity can be shared, but a local room change is not intrinsically a full-world rollback epoch change. Cross-region handoff, peer state-transfer compatibility and independent prepared-content generations remain unimplemented design work under [ADR 0037](0037-causally-isolated-simulation-islands.md); do not relax current GGRS safety checks before that protocol is demonstrated.
+
 ## Current implications for agents
 
 - Build session behavior from `PreparedContent`; do not reintroduce mutable prepared definitions or process-global mirrors.
 - Treat `ContentFingerprint` as definition identity and `ContentEpoch` as the App-local activation generation.
-- Bind rollback/network sessions to the exact prepared-content and rollback-registration fingerprints before simulation begins.
+- Bind GGRS rollback sessions to exact prepared-content and rollback-registration fingerprints before those timelines begin; other synchronization backends must declare and validate their own required content/schema compatibility contract.
 - A content replacement while GGRS is active requires coordinated session restart; it cannot silently reuse prior frame history.

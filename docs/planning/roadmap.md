@@ -1,5 +1,12 @@
 # Roadmap — Ambition and Engine 1.0
 
+**2026-10-26 architecture revisit:** This roadmap's older priority and dependency ordering is
+reviewable, not a permanent maintainer constraint. The
+[reassessment](engine/architecture-reassessment-and-composable-multiplayer.md) connects
+no-required-server multiplayer, optional rollback, deterministic fixed-step base, general
+persistent objects, optional Avian/ragdolls and evidence-based crate boundaries. It recommends
+vertical experiments before selecting a wholesale backend, island, or crate migration. The queue
+still selects implementation.
 Current facts are in [`status.md`](status.md). Immediate execution is in
 [`queue.md`](queue.md). [`tracks.md`](tracks.md) is the standing reservoir.
 
@@ -23,7 +30,7 @@ be absent, does the rest still form a coherent application, does it declare only
 its real prerequisites. The second does not follow from the first. A repository
 can satisfy every ownership rule and still ship an effectively indivisible engine.
 
-Authority comes first, and sequencing is permitted; a slice need not deliver both.
+Authority and capability-closure problems may be investigated in either order; a particular migration should sequence them only when its measured technical prerequisites require it. A slice need not deliver both.
 Do not read a run of authority slices as progress on decomposition. A landed slice
 says which axis it moved.
 

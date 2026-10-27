@@ -1,5 +1,12 @@
 # Simulation tick-rate compatibility audit
 
+**2026-10-26 engine composition scope:** Configurable deterministic fixed-step execution is the
+intended non-rollback default, and GGRS is a separately selected synchronization policy. This
+audit is still a **plan**: the current runtime still has 60 Hz assumptions, and mechanically
+equivalent 30/40/120 Hz compositions have not been established by this document. Cross-platform
+P2P determinism is an additional independent test; see [ADR
+0036](../../adr/0036-synchronization-is-an-optional-game-capability.md) and [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** PLANNED. This document is an audit and a change plan. It does not claim that a rate other than 60 Hz works today.
 
 **Source review:** 2026-10-10. The full text search used the supplied `1d668f4a` source archive. Key host, timing, collision, navigation, combat, and presentation sites were checked again against `Erotemic/ambition` `main` at `9c6318bc`. The latter branch has more work than the archive. Before implementation, check each named site at the then-current commit.

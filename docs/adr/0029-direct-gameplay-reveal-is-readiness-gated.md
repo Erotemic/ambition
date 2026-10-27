@@ -62,6 +62,12 @@ room-transition loading and prefetch.
 - Shell-hosted startup keeps its route/load lifecycle and is not silently
   redirected through the direct-sandbox presenter.
 
+## 2026-10-26 amendment: readiness is scoped to the local viewer
+
+The implemented closed `InitialGameplayReadiness` gate still governs the *direct-entry single-application startup* this ADR describes. It must not be generalized into a rule that a remote participant's texture, music or UI readiness can pause an unrelated authoritative simulation or another player's room. In multi-client or multi-view hosts, separate server/world admission and sim-state readiness from each viewer's render/asset reveal readiness. A client can keep its own cover while the host and other participants continue simulating. This is a target contract, not a claim of implemented multiplayer readiness isolation.
+
+See [ADR 0035](0035-distributed-multiplayer-without-required-services.md) and [regional multiplayer planning](../planning/engine/architecture-reassessment-and-composable-multiplayer.md).
+
 ## Current implications for agents
 
 - Do not replace readiness with a fixed delay, frame count, or fake percentage.

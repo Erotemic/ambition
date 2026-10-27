@@ -1,5 +1,12 @@
 # Actor residual-kernel decomposition
 
+**2026-10-26 review boundary:** D33's carve receipts describe historical and current
+implementation work, not a permanent prerequisite for reconsidering package names or using a
+non-rollback game profile. Before renaming `ambition_platformer2d_actor_monolith`, validate its
+actual control/body/action responsibility, exports and consumers; preserve content-owner
+identifiers, scripts and asset paths independently. Crate merges require higher evidence than a
+successful carve; see [ADR 0039](../../adr/0039-evidence-based-crate-boundaries.md) and
+[architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **Scope:** the rules for carving responsibilities out of
 `ambition_platformer2d_actor_monolith` (track D33), the carve safety map and the
 exit condition.

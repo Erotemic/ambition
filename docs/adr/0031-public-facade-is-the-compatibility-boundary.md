@@ -122,9 +122,7 @@ consequence of what the call sites need, not an input to them. **Each domain
 carries its own prelude** (`ambition_platformer2d::character::prelude`); one enormous root
 prelude is a discovery problem for an agent, not a convenience.
 
-**2. The compatibility promise is made at that surface and nowhere else.** Inner
-crates remain independently usable by engine developers and carry no stability
-promise. A game depends on `ambition_platformer2d`.
+**2. The primary gameplay compatibility promise is made at that semantic facade, not arbitrary internal paths.** Inner crates remain usable by engine developers without a blanket stability promise. A game ordinarily depends on `ambition_platformer2d`; explicitly reviewed focused SDKs (such as the portable extension SDK) and headless host contracts may also be published as supported boundaries when external consumers and tests justify them.
 
 **3. Game code may name only the reviewed public surface — an ALLOWLIST, and it
 is executable.** `scripts/check_absence_contracts.py` already owns this class:
@@ -222,6 +220,12 @@ deriving it *from* the migrations is
 Rejected: that is a doc marker, and this repository has been burned three times
 by absences asserted in prose. A boundary nothing enforces is a boundary that
 erodes at the first deadline.
+
+## 2026-10-26 amendment: measured compatibility, not one mandatory closure
+
+The semantic facade and executable consumer allowlist remain useful and accepted. They are **not** proof that every consumer must compile the full default-feature closure, or that an explicit specialized headless, simulation, or Bevy-free extension SDK can never become a supported stable surface. Capability absence and resolved Cargo closure must be tested separately from facade import-path stability.
+
+A crate rename should not automatically change semantic imports. Conversely, internal aliases are not automatically required when an implementation crate moves. Require a real consumer and a versioned compatibility decision before promising additional public surfaces. [ADR 0039](0039-evidence-based-crate-boundaries.md) governs boundary evaluation; [ADR 0036](0036-synchronization-is-an-optional-game-capability.md) records the non-rollback minimum profile requirement.
 
 ## Current implications for agents
 

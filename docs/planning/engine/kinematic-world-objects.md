@@ -1,5 +1,11 @@
 # Kinematic world objects
 
+**2026-10-26 distinction:** A persistent placeable/carryable world object requires stable
+identity, custody, room location, save disposition and reconstitution *regardless of whether* it
+uses static placement, simple deterministic motion or optional Avian. This resting kinematic
+work does not prove a generic movable-prop capability has shipped. See [ADR
+0038](../../adr/0038-persistent-objects-and-optional-physics.md) and [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** RESTING. K1-K4 and K6 are closed. K5 is closed except for one item
 with no customer. Reopen only for a real kinematic customer. The sole kinematic
 customer is Ambition's moving platforms (K6 census).

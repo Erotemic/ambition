@@ -28,8 +28,8 @@ The Q4 brief laid out three levels:
 
 **Level 2 is the contract.** It is the knee of the curve: it buys replay and RL
 reproducibility as product features, desync forensics, same-build online lockstep
-AND rollback (both peers run the same binary — the normal case for an indie
-game), rewind mechanics, and the fighter brain's forward rollouts. It costs a
+AND rollback **only when peers actually satisfy the same-build/platform requirement**,
+rewind mechanics, and the fighter brain's forward rollouts. It costs a
 permanent-but-light discipline tax that the lint set below makes mostly
 automatic.
 
@@ -111,6 +111,14 @@ reviewed set, so an auditor reads every such claim at once.
 - **Formats stay open.** The input-stream (N0.2) and snapshot (N3.1) encodings
   are versioned, explicit in field order, and free of platform-width-dependent
   types, so level 3 remains reachable.
+
+## 2026-10-26 amendment: determinism is independent of rollback
+
+The same-build determinism requirement applies to **all authoritative gameplay**, including offline fixed-step play and peer-hosted worlds with no GGRS installed. Do not equate deterministic simulation with keeping a whole-game snapshot history, running `GgrsSchedule`, or making every system participate in rollback. A non-rollback engine composition must still honor stable inputs, ordering, RNG and simulated time.
+
+Same-build/same-platform is **not** cross-OS or cross-CPU bit-identical replay. A Linux/Android P2P rollback session needs demonstrated cross-platform convergence or explicit platform matching; merely identifying the same game content does not establish it. Host-authoritative replication can avoid cross-platform bit-identical full-world simulation on its clients but still requires deterministic authoritative execution and explicit prediction/reconciliation policy where used.
+
+See [ADR 0036](0036-synchronization-is-an-optional-game-capability.md) and [ADR 0037](0037-causally-isolated-simulation-islands.md). Their open implementation choices do not weaken this requirement.
 
 ## Current implications for agents
 

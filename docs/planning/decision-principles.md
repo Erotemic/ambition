@@ -1,5 +1,12 @@
 # Decision principles — how to choose like Jon when operating autonomously
 
+**2026-10-26 precedence clarification:** This page summarizes earlier preferences, not
+instructions to preserve every previous agent-authored design. Compare candidate designs on
+evidence, openly reconsider accepted ADRs, and distinguish user-imposed constraints from
+tentative choices. For crate merges, the presumption is to preserve a useful boundary until
+resolved dependency and consumer evidence justify removal; see [ADR
+0039](../adr/0039-evidence-based-crate-boundaries.md) and [architecture
+reassessment](engine/architecture-reassessment-and-composable-multiplayer.md).
 These are Jon's criteria. When you must make an architecture decision while you
 operate autonomously, use them to make the choice Jon would most likely make.
 This page is their only home. No shorter digest exists elsewhere.

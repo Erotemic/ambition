@@ -1,5 +1,12 @@
 # Semantic Part Rendering and 2D Ragdoll Roadmap
 
+**2026-10-26 scope amendment:** Ragdoll-capable pose providers are an **optional presentation
+capability**, not a requirement that deaths become authoritative articulated rigid bodies. An
+interactive corpse/prop with gameplay collision is a different, region-owned mechanical object.
+Keep cosmetic body-part physics locally adjustable; do not imply an Avian dependency for every
+semantic-part character or for the custom player controller. See [ADR
+0038](../../adr/0038-persistent-objects-and-optional-physics.md) and [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 ## Status
 
 Selected architectural direction; **phases 0, 2 and 6 implemented, 3 and 5 by

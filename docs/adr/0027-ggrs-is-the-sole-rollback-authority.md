@@ -1,14 +1,14 @@
-# ADR 0027: GGRS is the sole rollback authority
+# ADR 0027: GGRS owns rollback in GGRS-backed sessions
 
 ## Status
 
-**Accepted; implemented for the simulation harness** (2026-07-18).
+**Accepted for GGRS-backed sessions; scope clarified 2026-10-26** (originally implemented for the simulation harness 2026-07-18).
 
 - **Supersedes:** Ambition-owned ephemeral snapshot/restore machinery described by the earlier N3 planning state
 
 ## Decision
 
-Ambition uses `ggrs` and `bevy_ggrs` as the sole authority for ephemeral rollback:
+When a game selects the existing GGRS backend, `ggrs` and `bevy_ggrs` are its sole authority for ephemeral rollback:
 
 - GGRS owns input synchronization, prediction, frame history, save/load requests,
   rollback-window selection, resimulation, confirmed-frame tracking, and sync-test
@@ -22,6 +22,14 @@ Ambition uses `ggrs` and `bevy_ggrs` as the sole authority for ephemeral rollbac
 The deleted `ambition_platformer2d_runtime::snapshot` subsystem is not retained behind a
 compatibility facade. Persistence/checkpoint serialization, when required, will
 be a separate product boundary and must not become a second rollback engine.
+
+## 2026-10-26 scope amendment: not the engine's default execution model
+
+[ADR 0036](0036-synchronization-is-an-optional-game-capability.md) records the requirement that rollback be selectable rather than imposed on all games. The accepted contracts below describe **a session that has opted into GGRS**; they do not require a fixed-step offline host, a peer-hosted replicated world, or every game capability to install GGRS, register a rollback history, or execute through `GgrsSchedule`.
+
+GGRS remains the owner of all save/load history and rollback driving *within that backend*. Do not create a competing whole-world rollback engine as a shortcut. A separate authoritative-replication protocol, committed state-transfer system, or persistence format is not itself a second rollback engine. The existing session-wide GGRS rebases and lifecycle barriers are implemented behavior, not an immutable requirement for every future multi-room game. Independent island histories are a feasibility question in [ADR 0037](0037-causally-isolated-simulation-islands.md).
+
+The current Bevy/GGRS integration must stay correct until an alternative is verified; do not move an existing authoritative system out of `GgrsSchedule` without preserving its execution under a GGRS-selected game.
 
 ## Identity and ownership
 
@@ -190,9 +198,9 @@ checksums.
 
 ## Current implications for agents
 
-- Put authoritative gameplay systems in `GgrsSchedule`; never add another rollback driver or frame-history store.
-- Register every mutable authoritative component/resource through `AmbitionRollbackApp`, including entity remapping where needed.
-- Use `SyncTestSession` for deterministic rollback verification before adding transport.
+- For GGRS-backed compositions, run registered authoritative gameplay in the rollback schedule; for other hosts, use the same deterministic gameplay laws through their supported fixed-step execution path. Do not add a second competing GGRS frame-history store.
+- When a domain participates in a GGRS timeline, register its rewindable authoritative state through `AmbitionRollbackApp`, including entity remapping where needed; this is not a requirement to snapshot every offline-only or independently hosted game.
+- Use `SyncTestSession` to verify the GGRS backend; use deterministic replay and state equivalence fixtures for non-rollback compositions.
 - Keep presentation and irreversible host effects outside speculative execution until the confirmed-frame effect boundary is implemented.
 - Keep `SimId` as semantic identity and let `bevy_ggrs::RollbackId` remain an internal frame-history identity.
 - Read rollback confirmation through `SessionRollbackConfirmation`, never a bare resource. If you find yourself adding "…and check it belongs to this session" at a call site, the authority is the thing to fix.

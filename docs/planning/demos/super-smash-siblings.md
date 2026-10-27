@@ -1,5 +1,9 @@
 # Super Smash Siblings — platform-fighter product charter
 
+**2026-10-26 synchronization scope:** The Smash demo is the explicit opt-in **bounded GGRS
+rollback** customer; its gameplay must not require installing persistent-world/multi-room state
+or an authoritative hosted-world backend. A rollback match remains one synchronization extent.
+See [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
 **State:** active product push; serious engine customer and possible future
 first-class game. Ambition remains the flagship and primary product driver.
 

@@ -1,5 +1,11 @@
 # Item custody and accounting
 
+**2026-10-26 object extension:** Item occurrence and custody contracts are useful starting
+points for persistent carried/placed objects, but weapon-specific `GroundItem` and held-item
+combat are not by themselves the general prop ontology. Evaluate a solver-neutral object
+identity and transfer contract before consolidating item crates or making Avian mandatory; see
+[ADR 0038](../../adr/0038-persistent-objects-and-optional-physics.md) and [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** OPEN / NARROW. Physical custody, the instance/count boundary and
 persistent occurrence behavior across residency and restore are built and
 guarded. One repair is open (atomic durable-horizon write). This page owns A7

@@ -1,5 +1,14 @@
 # Capability and runtime composition
 
+**2026-10-26 scope change:** Default minimum engine games should run deterministic fixed-step
+gameplay **without GGRS/rollback or Avian in their resolved dependency closure**; opt-in
+rollback is needed for Smash, while Mary-O/Sanic may choose level-scoped synchronization and
+Ambition may need peer-hosted independent rooms. These are goals to test, not claims the current
+default feature closure satisfies them. See [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md), [ADR
+0036](../../adr/0036-synchronization-is-an-optional-game-capability.md), and [ADR
+0039](../../adr/0039-evidence-based-crate-boundaries.md). Keep runtime installation, compile
+closure, state ownership and public API as independent acceptance gates.
 **Scope:** installation, scheduling, prerequisites and supported absence of
 engine capabilities. **Doctrine:** [engine architecture](architecture.md).
 **Profiles and closure work:** A9 in the

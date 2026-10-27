@@ -1,5 +1,12 @@
 # Ambition multiplayer
 
+**2026-10-26 maintainer direction:** Ambition multiplayer should let players split up across
+rooms, coordinate in chat, search/explore independently and receive benefits for regrouping; a
+company-operated central server must never be required for play. A peer may temporarily host the
+world, but the concrete authority, host migration, isolation and replication protocols remain
+open. Per-room rollback is a candidate only where causal boundaries can be enforced. See [engine
+reassessment](../engine/architecture-reassessment-and-composable-multiplayer.md) and [ADR
+0035](../../adr/0035-distributed-multiplayer-without-required-services.md).
 **State:** OPEN product plan. Ambition remains the main game.
 
 This document states Ambition-specific multiplayer product intent. Reusable

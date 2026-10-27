@@ -1,5 +1,14 @@
 # Simulation authority and determinism
 
+**2026-10-26 scope:** Deterministic mechanics remain the engine base whether a game uses GGRS,
+level lockstep, local fixed stepping or peer-authoritative replication. Stable identity and
+ordering are not synonymous with snapshot registration, and rollback coverage applies to the
+state included in a selected rollback timeline. The current mutation/schema audits validate the
+GGRS composition, not region-scoped rollback isolation. See [ADR
+0023](../../adr/0023-same-build-determinism.md), [ADR
+0036](../../adr/0036-synchronization-is-an-optional-game-capability.md), [ADR
+0037](../../adr/0037-causally-isolated-simulation-islands.md), and [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** OPEN. Rollback backend ownership and domain registration are
 settled. Current work is peer-stable identity, owner-scoped lifetime, deterministic
 composition and explicit phase/authority boundaries.

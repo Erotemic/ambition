@@ -1,5 +1,12 @@
 # Multiplayer, multiview presentation and world residency
 
+**2026-10-26 clarification:** `participant`, controlled body, view, room and network peer are
+distinct identities. Local split-screen is a presentation composition, not proof of remote
+multiplayer. Ambition needs independent-room players and no required company server; Smash needs
+an opt-in bounded rollback mode; Mary-O and Sanic may use one level-scoped timeline. Treat
+existing global lifecycle and GGRS rebases as a current constraint, not a design requirement for
+remote world play. See [architecture
+reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** OPEN successor program. Ambition is the primary product customer;
 TwinTrack remains a focused acceptance customer.
 

@@ -4,14 +4,15 @@
   const C = window.ART_CATALOG, I = C.inventory;
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const enc = encodeURIComponent;
-  const filters = {family: "", lineage: "", attention: ""};
+  const filters = {family: "", lineage: "", attention: "", view: ""};
   const badge = (text, warn = false) => `<span class="chip ${warn ? 'c-warn' : 'c-info'}">${esc(text)}</span>`;
   const characterLink = (key, label) => `<a href="#character/${enc(key)}">${esc(label || I.identities[key]?.display || key)}</a>`;
   const unitLink = unit => `<a href="#inventory/unit/${enc(unit.id)}">${esc(unit.id)}</a>`;
   const unitsFor = actor => actor.units.map(id => I.units[id]).filter(Boolean);
   const assetsFor = actor => unitsFor(actor).flatMap(unit => (unit.assets || []).map(id => C.assets[id]))
-    .filter(asset => asset?.identities?.includes(actor.key));
-  const lineagesFor = actor => [...new Set(unitsFor(actor).flatMap(unit => unit.lineages))];
+    .filter(asset => asset?.identities?.includes(actor.key))
+    .map(asset => ({...asset, cover: actor.preview?.asset === asset.id ? actor.preview.cover : asset.cover, preview_row: actor.catalog.rest_row}));
+  const lineagesFor = actor => actor.lineages || [];
   const familiesFor = actor => [...new Set(unitsFor(actor).map(unit => unit.facts.visual_family?.value || "unknown"))];
   const gapsFor = actor => [...new Set(actor.coverage.filter(row => !row.valid || !['direct', 'alias'].includes(row.resolution.state)).map(row => row.action))];
   const needsArt = actor => !actor.units.length || unitsFor(actor).some(unit => unit.runtime_defects?.length ||
@@ -39,18 +40,29 @@
       (!filters.attention || (filters.attention === 'generation' ? needsArt(actor) : filters.attention === 'notes' ? window.ArtReviews.openCount(actor.key) : gapsFor(actor).length)) &&
       JSON.stringify([actor.display, actor.key, actor.catalog.tags, actor.relations, familiesFor(actor),
         lineagesFor(actor).map(id => [id, I.lineages[id]?.name])]).toLowerCase().includes(query));
+    const matched = new Set(shown.map(actor => actor.key));
+    const groups = I.character_groups.filter(group => group.members.some(key => matched.has(key)))
+      .sort((a, b) => I.identities[a.root].display.localeCompare(I.identities[b.root].display));
+    const grouped = group => {
+      const children = group.members.filter(key => key !== group.root);
+      const notes = group.members.reduce((sum, key) => sum + window.ArtReviews.openCount(key), 0);
+      return `<article class="character-group" data-character-root="${esc(group.root)}">${card(I.identities[group.root])}
+        ${children.length ? `<details class="character-variants"${query || filters.attention ? ' open' : ''}><summary>${children.length} forms and parts${notes ? ` · ${notes} open notes` : ''}</summary>
+          <div class="character-children">${children.map(key => card(I.identities[key])).join('')}</div></details>` : ''}</article>`;
+    };
     function select(name, label, values) {
-      return `<label>${label} <select data-character-filter="${name}"><option value="">All</option>${values.map(([value, text]) => `<option value="${esc(value)}"${filters[name] === value ? ' selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`;
+      return `<label>${label} <select data-character-filter="${name}"><option value="">${name === 'view' ? 'Characters with forms and parts' : 'All'}</option>${values.map(([value, text]) => `<option value="${esc(value)}"${filters[name] === value ? ' selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`;
     }
-    return `<h1>Characters</h1><p class="lede">The current ${esc(I.profile.provider || 'game')} character catalog. Each character has its own page, including forms, parts, and characters that share art.</p>
+    return `<h1>Characters</h1><p class="lede">The current ${esc(I.profile.provider || 'game')} character catalog. Forms and parts are under their character. Each catalog entry has a detail page. Shared ancestry does not merge distinct characters.</p>
       <div class="controls character-controls">
+        ${select('view', 'Show', [['entries', 'All catalog entries']])}
         ${select('family', 'Art family', [...new Set(actors.flatMap(familiesFor))].sort().map(name => [name, name]))}
         ${select('lineage', 'Lineage', [...new Set(actors.flatMap(lineagesFor))].sort().map(id => [id, I.lineages[id]?.name || id]))}
         ${select('attention', 'Art status', [['generation', 'Needs generation'], ['coverage', 'Animation gaps'], ['notes', 'Open review notes']])}
         <button id="clear-character-filters" type="button">Clear filters</button>
-      </div><p id="character-count">${shown.length} of ${actors.length} current characters</p>
+      </div><p id="character-count">${filters.view ? `${shown.length} of ${actors.length} catalog entries` : `${groups.length} of ${I.character_groups.length} characters · ${actors.length} catalog entries`}</p>
       ${I.profile.state !== 'available' ? '<p class="empty">The prepared game catalog is unavailable. Rebuild the inspector with its content inspection binary.</p>' : ''}
-      ${shown.length ? `<div class="grid characters-grid">${shown.map(card).join('')}</div>` : '<p class="empty">No characters match these filters.</p>'}`;
+      ${shown.length ? `<div class="grid characters-grid">${filters.view ? shown.map(card).join('') : groups.map(grouped).join('')}</div>` : '<p class="empty">No characters match these filters.</p>'}`;
   }
 
   function relations(actor) {
@@ -71,11 +83,26 @@
   function lineage(actor) {
     const ids = lineagesFor(actor), assets = assetsFor(actor);
     const current = assets[0] ? {...assets[0], display: actor.display} : {id: '', display: actor.display, identities: [actor.key]};
+    const record = id => C.lineages?.[id] || I.lineages[id] || {name: id};
+    function chain(id) {
+      const result = [], seen = new Set();
+      while (id && !seen.has(id)) { seen.add(id); result.unshift(id); id = record(id).continues; }
+      return result;
+    }
+    const chains = ids.map(chain);
+    const origins = [...new Set(chains.flatMap(path => path.flatMap(id => record(id).split_from || [])))];
+    const relatives = Object.values(I.identities).filter(other => other.key !== actor.key &&
+      !other.relations.part_of && !other.relations.form_of &&
+      lineagesFor(other).some(id => chain(id).some(branch => (record(branch).split_from || []).some(origin => origins.includes(origin)))));
+    const ancestry = origins.length ? `<section class="box shared-origin"><h2>Shared origin</h2>
+      <p>This character split from an earlier design.${relatives.length ? ` Related characters: ${relatives.map(other => characterLink(other.key)).join(' · ')}.` : ''}</p>
+      ${origins.map(id => window.ArtLineage.render({...record(id), lineage: id}, null)).join('')}</section>` : '';
     if (!ids.length) return `<div id="character-lineage">${window.ArtLineage.render({name: actor.display, eras: [], tracks: []}, current)}</div>`;
-    return `<div id="character-lineage">${ids.map(id => {
-      const record = C.lineages?.[id] || I.lineages[id] || {name: id};
-      return window.ArtLineage.render({...record, lineage: id}, current);
-    }).join('')}</div>`;
+    return `<div id="character-lineage">${ids.map((id, index) => {
+      const path = chains[index].map(record), leaf = record(id);
+      return window.ArtLineage.render({...leaf, lineage: id,
+        eras: path.flatMap(item => item.eras || []), tracks: path.flatMap(item => item.tracks || [])}, current);
+    }).join('')}${ancestry}</div>`;
   }
 
   function detail(actor, ui) {
@@ -123,7 +150,7 @@
       if (assets[0]) ui.wireAnimation(assets[0]);
       const select = document.getElementById('character-art');
       if (select) select.onchange = () => {
-        const asset = C.assets[select.value];
+        const asset = assets.find(item => item.id === select.value);
         document.getElementById('character-art-panels').innerHTML = ui.assetPanels(asset);
         ui.wireAnimation(asset);
       };

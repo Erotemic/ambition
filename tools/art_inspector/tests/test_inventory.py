@@ -19,6 +19,10 @@ def test_identity_union_keeps_missing_bundles_and_explicit_relations(tmp_path):
     assert len(report['identities'])==5
     assert report['units']['target:base']['identities']==['game:person','game:head','game:robot']
     assert report['identities']['game:robot']['relations']['derived_from']=='person'
+    groups = {row['root']: set(row['members']) for row in report['character_groups']}
+    assert groups['game:person'] == {'game:person', 'game:head', 'game:old_look'}
+    assert groups['game:robot'] == {'game:robot'}
+    assert groups['game:absent'] == {'game:absent'}
     assert report['units']['target:old']['game_use']=='available-look'
     assert report['units']['target:unused']['game_use']=='no-known-use'
     assert report['identities']['game:absent']['coverage'][0]['resolution']['state']=='missing-product'
@@ -62,3 +66,20 @@ def test_referenced_prop_art_is_visible_before_a_producer_or_file_exists(tmp_pat
     assert select(report,needs=True,game_only=True)==[unit]
     assert report['local_products'][0]['registration']=='unregistered'
     assert report['local_products'][0]['lineages']==['chair']
+
+
+def test_one_publisher_can_serve_two_independent_lineages(tmp_path):
+    unit = {'id': 'target:combined', 'kind': 'actor', 'root': 'sprites',
+            'generator': {'id': 'combined'}, 'required': ['giant_spritesheet.ron', 'scholar_spritesheet.ron'],
+            'optional': [], 'source': {}, 'status': {'state': 'current', 'tiers': {}}, 'repair': ''}
+    prepared = {'state': 'available', 'characters': [
+        {'id': name, 'provider': 'game', 'sheet_target': 'combined',
+         'catalog': {'manifest': f'sprites/{name}_spritesheet.ron'}, 'required_actions': []}
+        for name in ('giant', 'scholar')], 'sheets': {}}
+    lineages = {name: {'ids': ['combined'], 'current_products': [f'sprites/{name}_spritesheet.ron'],
+                       'split_from': ['origin']} for name in ('giant', 'scholar')}
+    lineages['origin'] = {'ids': ['combined'], 'current_products': []}
+    report = assemble(tmp_path, {'units': {'target:combined': unit}}, prepared, lineages=lineages)
+    assert report['identities']['game:giant']['lineages'] == ['giant']
+    assert report['identities']['game:scholar']['lineages'] == ['scholar']
+    assert len(report['character_groups']) == 2

@@ -165,3 +165,10 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); bor
 .review-note code { overflow-wrap: anywhere; }
 .review-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .characters-grid { --card: 145px; } .character-card .img { height: 150px; } }
+.character-group { min-width: 0; }
+.character-group > .character-card { height: auto; }
+.character-variants { padding: 10px; border: 1px solid var(--border, #444); border-radius: 0 0 8px 8px; }
+.character-variants summary { cursor: pointer; }
+.character-children { display: grid; gap: 12px; margin-top: 12px; }
+.character-children .img { height: 140px; }
+.shared-origin { border-left: 3px solid #758eaf; }

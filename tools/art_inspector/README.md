@@ -54,8 +54,10 @@ The game label and art label remain separate values. Explicit `form_of`,
 `part_of`, and `derived_from` relations keep their different meanings. A name
 suffix does not establish identity or a generation.
 
-The page opens at **Characters**. It shows one card for each identity in the
-selected game's prepared catalog. Click a card to open its character page.
+The page opens at **Characters**. It groups declared forms and parts under their
+character. Expand a group to open each entry. **All catalog entries** shows the
+flat catalog. Independent characters remain separate when they share art or
+ancestry. Click a card to open its character page.
 The page includes animation playback, coverage, current products, forms, parts,
 derivations, and a visual design lineage. Normal builds show cached historical
 looks in date order, followed by the current published sprite. The recorded
@@ -63,14 +65,22 @@ variations remain available when the curated era list is empty. Expand the
 timeline to see all variations or curated milestones. Open a thumbnail to
 inspect the original historical image. The History inventory view uses the
 same visual timeline. Lineage does not need the optional authorship scan.
+Product claims select the lineage when a publisher serves several characters.
+The history can declare `continues` for a design's next rendering method and
+`split_from` for a shared origin. Character pages show the shared origin with
+previews and links to the other characters from that origin.
 Missing art does not remove a catalog character.
 Search by name, catalog ID, tag, family, or lineage. Use the family, lineage,
 and art status filters to find related characters or art that needs work.
 
 Character previews use one camera derived from the neutral pose's published
 body bounds, visible art, and foot anchor. Transparent room for an attack does
-not set the roster scale. The camera and baseline stay fixed across action
-frames. Playback and comparison offer Body and Full animation frame views.
+not set the roster scale. The camera includes each declared `rest_row`. This
+lets a whole character and its body part show different neutral poses from one
+sheet. The camera centers the visible subject. When art extends too far below
+physical feet, it uses the visible bottom as its preview baseline and retains
+the physical anchor in the framing evidence. The camera and baseline stay fixed
+across action frames. Playback and comparison offer Body and Full animation frame views.
 Full frame preserves the authored room for movement, weapons, and effects.
 The preview reports whether its bounds and feet came from metadata or pixels.
 Runtime RON supplies page, trim, frame, body, and foot geometry, including sheets

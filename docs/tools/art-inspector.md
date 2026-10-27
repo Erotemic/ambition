@@ -23,13 +23,19 @@ python3 scripts/art_inspector.py coverage --missing death --json
 python3 scripts/art_inspector.py build --open
 ```
 
-The offline page opens at Characters. This page shows the prepared game roster.
+The offline page opens at Characters. This page groups declared forms and parts
+under their character. The flat catalog is available under All catalog entries.
+Shared ancestry does not merge distinct characters. Product claims select the
+history when one publisher serves several characters. Shared origins have
+visual previews and links to the separate characters.
 Each card opens a character page with art playback, animation coverage, forms,
 parts, derivations, and a visual design lineage. Cached historical looks appear
 in date order beside the current sprite on normal builds. Recorded variations
 remain visible when a character has no curated eras. The History inventory view
 uses the same timeline. The optional authorship scan is separate.
-Previews frame the neutral body and use a fixed foot baseline. Playback and
+Previews include declared rest poses and use one fixed camera. Art below a
+physical foot anchor can use the visible bottom as its preview baseline.
+The framing evidence retains the physical anchor. Playback and
 comparison can switch to the full animation frame. Runtime RON supplies the
 geometry; the preview reports its measured framing basis.
 Use `python3 scripts/art_inspector.py serve --open` to save review notes on a

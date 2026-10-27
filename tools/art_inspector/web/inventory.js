@@ -109,7 +109,9 @@
     else if(mode==='concepts') body=table(['Concept','Products'],Object.entries(I.concepts).map(([key,ids])=>[esc(key),ids.map(uid=>link(uid)).join(' · ')]));
     else if(mode==='history') {
       body=Object.entries(C.lineages || I.lineages).filter(([key,row])=>JSON.stringify([key,row]).toLowerCase().includes(document.getElementById('q').value.toLowerCase())).map(([key,row])=>{
-        const current=Object.values(C.assets).find(asset=>asset.identities?.length && asset.lineages?.some(lineage=>lineage.lineage===key));
+        const actor=Object.values(I.identities).find(actor=>actor.lineages?.includes(key) && !actor.relations.part_of && !actor.relations.form_of);
+        const current=actor?.preview ? {...C.assets[actor.preview.asset], display:actor.display, cover:actor.preview.cover} :
+          Object.values(C.assets).find(asset=>asset.identities?.length && asset.lineages?.some(lineage=>lineage.lineage===key));
         return window.ArtLineage.render(row, current);
       }).join('');
     }

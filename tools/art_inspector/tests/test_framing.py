@@ -45,6 +45,36 @@ def test_one_camera_preserves_movement_between_action_frames():
     assert moved_box[2] - moved_box[0] == rest_box[2] - rest_box[0]
 
 
+def test_art_below_physical_feet_uses_the_visible_bottom_without_shrinking():
+    image, body, feet = figure((400, 400), (150, 80, 100, 100))
+    ImageDraw.Draw(image).rectangle((120, 160, 279, 339), fill="red")
+    camera = thumbs.subject_camera(image, body, feet)
+    box = bounds(thumbs.subject_frame(image, camera, 192))
+    assert camera["authored_anchor"] == [feet["x"], feet["y"]]
+    assert camera["feet_basis"] == "visible-bottom"
+    assert box[3] - box[1] >= 148
+    assert 0 < box[0] < box[2] < 192 and 0 < box[1] < box[3] < 192
+
+
+def test_declared_neutral_poses_share_a_camera_and_have_distinct_covers(tmp_path):
+    page = Image.new("RGBA", (80, 100))
+    draw = ImageDraw.Draw(page)
+    draw.rectangle((30, 10, 49, 39), fill="green")
+    draw.rectangle((5, 60, 74, 89), fill="red")
+    page.save(tmp_path / "page.png")
+    rows = [{"rects": [[0, y, 80, 50, 0, 0, 0]], "dest": str(tmp_path / f"{i}.webp"),
+             "subject_dest": str(tmp_path / f"{i}-subject.webp")} for i, y in enumerate((0, 50))]
+    spec = {"pages": [str(tmp_path / "page.png")], "frame": [80, 50], "rows": rows,
+            "cover_row": 0, "cover_frame": 0, "cover_dest": str(tmp_path / "cover.webp"),
+            "covers": {"1": str(tmp_path / "armed.webp")}, "framing_dest": str(tmp_path / "framing.json")}
+    assert thumbs.sheet_task(spec) is None
+    neutral = bounds(Image.open(tmp_path / "cover.webp").convert("RGBA"))
+    armed = bounds(Image.open(tmp_path / "armed.webp").convert("RGBA"))
+    assert armed[2] - armed[0] > 3 * (neutral[2] - neutral[0])
+    assert 0 < armed[0] < armed[2] < 192
+    assert abs(neutral[3] - armed[3]) <= 1
+
+
 def test_neutral_art_outside_gameplay_bounds_stays_visible():
     image, body, feet = figure((200, 200), (70, 50, 40, 80))
     ImageDraw.Draw(image).rectangle((70, 10, 109, 29), fill="red")

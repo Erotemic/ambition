@@ -20,9 +20,13 @@
   const assets = C.assets, products = C.products, gens = C.generators;
   const assetList = Object.values(assets);
   const state = { q: "", family: new Set(), conf: new Set(), tag: new Set(), use: "", rel: "", sort: "name", page: 0, card: 150, lastList: [] };
-  // A sprite target's id -> its asset (a lineage era names its target).
+  // A target identifies today's asset only when it publishes one asset.
   const byTarget = {};
-  assetList.forEach((a) => { if ((a.generator || "").startsWith("target:")) byTarget[a.generator.slice(7)] = a.id; });
+  const targetAssets = {};
+  assetList.forEach(a => {
+    if ((a.generator || '').startsWith('target:')) (targetAssets[a.generator.slice(7)] ||= []).push(a.id);
+  });
+  Object.entries(targetAssets).forEach(([target, ids]) => { if (ids.length === 1) byTarget[target] = ids[0]; });
   let timers = [];
 
   // ---- helpers ------------------------------------------------------------------------
@@ -187,7 +191,7 @@
 
   function animationBox(a) {
     const rows = a.layout.rows;
-    const start = Math.max(0, rows.findIndex((r) => ["idle", "rest", "stand"].includes(r.name)));
+    const start = Math.max(0, rows.findIndex((r) => (a.preview_row ? r.name === a.preview_row : ["idle", "rest", "stand"].includes(r.name))));
     return `<section class="box"><h2>Animations (${rows.length} · ${fmt(a.frames)} frames · frame ${a.layout.frame.join("×")})</h2>
       <div class="stage checker" id="stage"><canvas id="player"></canvas></div>
       <div class="controls"><button id="play" type="button">pause</button><button id="step" type="button">step</button>
@@ -214,7 +218,7 @@
     if (!canvas || !a.layout) return;
     const rows = a.layout.rows;
     let [cw, ch] = a.layout.framing?.cell || [128, 128], loadVersion = 0;
-    let row = Math.max(0, rows.findIndex((r) => ["idle", "rest", "stand"].includes(r.name))), frame = 0, playing = true, strip = null, speed = 1, scale = 2;
+    let row = Math.max(0, rows.findIndex((r) => (a.preview_row ? r.name === a.preview_row : ["idle", "rest", "stand"].includes(r.name)))), frame = 0, playing = true, strip = null, speed = 1, scale = 2;
     const info = document.getElementById("frameinfo"), ctx = canvas.getContext("2d");
     function draw() {
       if (document.getElementById("player") !== canvas) return;

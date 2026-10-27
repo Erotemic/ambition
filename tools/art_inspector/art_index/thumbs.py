@@ -86,10 +86,17 @@ def subject_camera(image: Image.Image, body: dict | None, feet: dict | None, par
     if visible:
         boxes.append(visible)
     bounds = [min(box[0] for box in boxes), min(box[1] for box in boxes), max(box[2] for box in boxes), max(box[3] for box in boxes)] if boxes else [0, 0, image.width, image.height]
-    # The feet share one baseline. The neutral art must fit above and beside it.
+    authored_anchor = list(anchor)
+    anchor[0] = (bounds[0] + bounds[2]) / 2
+    # A physical foot anchor can be above a tail or a floating body's art.
+    upper_scale = min(0.84 / max(1, bounds[2] - bounds[0]), 0.78 / max(1, anchor[1] - bounds[1]))
+    if (bounds[3] - anchor[1]) * upper_scale > 0.08:
+        anchor[1] = bounds[3]
+        feet_basis = "visible-bottom"
     extents = [anchor[0] - bounds[0], bounds[2] - anchor[0], anchor[1] - bounds[1], bounds[3] - anchor[1]]
     scale = min(room / extent for room, extent in zip((0.42, 0.42, 0.78, 0.08), extents) if extent > 0)
-    return {"basis": basis, "feet_basis": feet_basis, "bounds": bounds, "anchor": anchor, "scale": scale, "baseline": 0.9}
+    return {"basis": basis, "feet_basis": feet_basis, "bounds": bounds, "anchor": anchor,
+            "authored_anchor": authored_anchor, "scale": scale, "baseline": 0.9}
 
 
 def subject_frame(image: Image.Image, camera: dict, size: int) -> Image.Image:
@@ -125,7 +132,15 @@ def sheet_task(spec: dict[str, Any]) -> str | None:
         neutral_rect = spec["rows"][spec["cover_row"]]["rects"][spec["cover_frame"]]
         with Image.open(spec["pages"][neutral_rect[4]]) as page:
             cover = _frame(page.convert("RGBA"), neutral_rect, spec["frame"])
-        camera = subject_camera(cover, spec.get("body"), spec.get("feet"), spec.get("parts", []))
+        covers = {}
+        neutral = cover.copy()
+        for row, dest in spec.get("covers", {}).items():
+            rects = spec["rows"][int(row)]["rects"]
+            rect = rects[len(rects) // 2]
+            with Image.open(spec["pages"][rect[4]]) as page:
+                covers[dest] = _frame(page.convert("RGBA"), rect, spec["frame"])
+            neutral.alpha_composite(covers[dest])
+        camera = subject_camera(neutral, spec.get("body"), spec.get("feet"), spec.get("parts", []))
         for page in sorted(by_page):
             if page >= len(spec["pages"]):
                 continue
@@ -140,6 +155,8 @@ def sheet_task(spec: dict[str, Any]) -> str | None:
             _save(strip, Path(row["dest"]))
             _save(subject, Path(row["subject_dest"]))
         _save(subject_frame(cover, camera, THUMB), Path(spec["cover_dest"]))
+        for dest, image in covers.items():
+            _save(subject_frame(image, camera, THUMB), Path(dest))
         Path(spec["framing_dest"]).write_text(json.dumps(camera))
         return None
     except Exception as ex:  # noqa: BLE001
@@ -208,9 +225,9 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
                 asset.data.setdefault("errors", []).append("a page the layout names is not published")
                 pages = []
             if pages:
-                format_key = "subject-grid-v1" if any(len(row["rects"]) > 32 for row in layout["rows"]) else "subject-view-v1"
+                format_key = "subject-view-v2"
                 key = _key(format_key, [p.sha256 if p else None for p in pages], layout["frame"], layout.get("body_bbox"),
-                           layout.get("body_parts"), layout.get("feet"), layout["rows"])
+                           layout.get("body_parts"), layout.get("feet"), layout["rows"], layout.get("cover_rows", []))
                 base = out_dir / "strips" / key
                 names = [r["name"] for r in layout["rows"]]
                 cover_row = next((names.index(n) for n in COVER_ROWS if n in names), 0)
@@ -230,11 +247,15 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
                 layout["framing"] = {"cell": [CELL, CELL], "metadata": rel(framing_dest)}
                 framing_outputs.append((layout["framing"], framing_dest))
                 cover_dest = base / "cover.webp"
+                covers = {str(names.index(name)): str(base / f"cover-{names.index(name)}.webp")
+                          for name in layout.get("cover_rows", []) if name in names}
+                layout["covers"] = {names[int(index)]: rel(Path(dest)) for index, dest in covers.items()}
                 asset.cover = rel(cover_dest)
-                if needed(cover_dest) or needed(framing_dest) or any(needed(Path(r[name])) for r in spec_rows for name in ("dest", "subject_dest")):
+                if needed(cover_dest) or needed(framing_dest) or any(needed(Path(dest)) for dest in covers.values()) or any(needed(Path(r[name])) for r in spec_rows for name in ("dest", "subject_dest")):
                     tasks.append((sheet_task, ({
                         "pages": [str(p.file) if p else None for p in pages], "frame": layout["frame"], "rows": spec_rows,
                         "cover_row": cover_row, "cover_frame": cover_frame, "cover_dest": str(cover_dest),
+                        "covers": covers,
                         "body": layout.get("body_bbox"), "feet": layout.get("feet"), "parts": layout.get("body_parts", []),
                         "framing_dest": str(framing_dest),
                     },)))
@@ -287,6 +308,7 @@ def prune(out_dir: Path, products: dict[str, Any], assets: dict[str, Any]) -> in
     """Delete previews the index no longer names; the count deleted."""
     keep = {getattr(p, "thumb", None) for p in products.values()} | {a.cover for a in assets.values()}
     for a in assets.values():
+        keep.update((a.data.get("layout") or {}).get("covers", {}).values())
         for row in (a.data.get("layout") or {}).get("rows", []):
             keep.add(row.get("strip"))
             keep.add(row.get("subject_strip"))

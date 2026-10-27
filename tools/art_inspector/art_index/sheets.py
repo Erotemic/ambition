@@ -105,6 +105,18 @@ def use_runtime_layouts(assets, products, inspection: dict) -> None:
             asset.data["layout"] = {key: authored[key] for key in ("description", "generator_spec") if key in authored} | deepcopy(matches[0])
 
 
+def use_catalog_poses(assets, inspection: dict) -> None:
+    """Include each identity's declared rest pose in the sheet camera."""
+    poses = {}
+    for identity in inspection["identities"].values():
+        catalog = identity["catalog"]
+        if catalog.get("rest_row"):
+            poses.setdefault(catalog["manifest"], set()).add(catalog["rest_row"])
+    for asset in assets.values():
+        if asset.data.get("layout"):
+            asset.data["layout"]["cover_rows"] = sorted({pose for product in asset.products for pose in poses.get(product, [])})
+
+
 _STR = r'"((?:[^"\\]|\\.)*)"'
 
 

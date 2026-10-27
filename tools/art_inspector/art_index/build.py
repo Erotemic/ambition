@@ -80,6 +80,7 @@ def build(
     assets_mod.read_sidecars(assets, products)
     if inspection is not None:
         sheets.use_runtime_layouts(assets, products, inspection)
+        sheets.use_catalog_poses(assets, inspection)
     for asset in assets.values():
         actor = asset.data.get("actor") or {}
         if actor.get("renderer_target"):
@@ -133,6 +134,10 @@ def build(
                 identities = [inspection["identities"][cid] for cid in asset["identities"]]
                 asset["display"] = " / ".join(dict.fromkeys(identity["display"] for identity in identities))
                 asset["tags"] = sorted(set(asset["tags"] + [tag for identity in identities for tag in identity["catalog"].get("tags", [])]))
+                for identity in identities:
+                    row = identity["catalog"].get("rest_row")
+                    identity["preview"] = {"asset": asset["id"], "row": row,
+                        "cover": asset.get("layout", {}).get("covers", {}).get(row, asset.get("cover"))}
             unit.setdefault("assets", []).append(asset["id"])
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()

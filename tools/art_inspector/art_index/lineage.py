@@ -27,6 +27,23 @@ from typing import Any
 from . import thumbs
 
 
+def matching_lineages(lineages: dict, *, targets=(), products=()) -> list[str]:
+    """Use product claims when one publisher serves distinct characters."""
+    targets, products = set(targets), set(products)
+    found = []
+    for name, spec in lineages.items():
+        if "current_products" in spec:
+            matches = products.intersection(spec["current_products"])
+        else:
+            ids = set(spec.get("ids", []))
+            ids.update(era["id"] for era in spec.get("eras", []) if era.get("id"))
+            ids.update(target for group in spec.get("forms", {}).values() for target in group)
+            matches = targets.intersection(ids)
+        if matches:
+            found.append(name)
+    return found
+
+
 def _design_history(repo: Path):
     renderer = repo / "tools" / "ambition_sprite2d_renderer"
     if not (renderer / "design_history" / "lineages.yaml").is_file():
@@ -144,9 +161,9 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
         if row is None or not gid.startswith("target:"):
             continue
         target = gid.split(":", 1)[1]
-        found = [(n, f"target {target}") for n in join.targets.get(target, [])]
+        found = [(n, f"target {target}") for n in matching_lineages(lineages, targets=[target], products=row["products"])]
         if row.get("character_id"):
-            found += [h for h in join.find(row["character_id"]) if h[0] not in {n for n, _ in found}]
+            found += [h for h in join.find(row["character_id"]) if "current_products" not in lineages[h[0]] and h[0] not in {n for n, _ in found}]
         if found:
             row["lineages"] = [dict(lineage(n), found_via=via) for n, via in found]
             linked += 1

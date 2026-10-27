@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from . import sources
+from .lineage import matching_lineages
 from .paths import asset_root, roots
 
 NEEDS = {"missing", "partial", "stale"}
@@ -137,14 +138,15 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                         units[uid]["game_use"] = "referenced"
                         units[uid]["dependents"].append({"world": world["id"], "room": level.get("identifier"), "field": "parallax_theme", "source": str(path)})
     identities = {}
-    identities = {}
     for row in prepared.get("characters", []):
         cid = f"{row['provider']}:{row['id']}"
         catalog = row["catalog"]
         target = row.get("sheet_target")
         matched = sorted(set(claims.get((asset_root(repo) / catalog.get("manifest", "")).resolve(), [])))
         identity = dict(row, key=cid, units=matched, display=catalog.get("display_name") or catalog.get("name") or row["id"],
-                        relations={name: catalog.get(name) for name in ("form_of", "part_of", "derived_from")}, coverage=[])
+                        relations={name: catalog.get(name) for name in ("form_of", "part_of", "derived_from")}, coverage=[],
+                        lineages=matching_lineages(lineages, targets=[target, *[units[uid].get("generator", {}).get("id") for uid in matched]],
+                                                  products=[catalog.get("manifest")]))
         for uid in matched:
             unit = units[uid]
             unit["identities"].append(cid)
@@ -206,8 +208,28 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
     return {"schema": "ambition.art_inspection.v1", "profile": {k: prepared.get(k) for k in ("state", "provider", "pack", "profile", "fingerprint", "cache", "sources")},
         "complete": product_report.get("complete", False) and prepared.get("state") == "available" and all(w["state"] == "available" for w in world_sources),
         "world_sources": world_sources,
-        "units": units, "identities": identities, "concepts": dict(concepts), "lineages": lineages, "local_products": local,
+        "units": units, "identities": identities, "character_groups": character_groups(identities),
+        "concepts": dict(concepts), "lineages": lineages, "local_products": local,
         "runtime": runtime, "warnings": warnings, "sheet_failures": prepared.get("failures", [])}
+
+
+def character_groups(identities: dict) -> list[dict]:
+    """Group declared forms and parts. Keep derived characters independent."""
+    grouped = defaultdict(list)
+    for key, actor in identities.items():
+        current, seen = key, []
+        while current not in seen:
+            seen.append(current)
+            node = identities[current]
+            parent = node["relations"].get("part_of") or node["relations"].get("form_of")
+            parent = f"{node['provider']}:{parent}" if parent else None
+            if parent not in identities:
+                break
+            current = parent
+        else:
+            current = min(seen[seen.index(current):])
+        grouped[current].append(key)
+    return [{"root": key, "members": sorted(members)} for key, members in sorted(grouped.items())]
 
 
 def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None) -> dict:

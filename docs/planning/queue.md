@@ -2169,7 +2169,7 @@ responsibility to its owner and keep one body, control, and action path.
 
 | # | Item | Next step |
 |---|---|---|
-| AP14 | Validate the residual actor kernel | The kernel has an owned public body API; `features` is private and foreign forwarding exports are removed (`bcf1bda65`). Outlander's default-feature tests and renderer-free consumer tests pass; visible test targets compile. Finish combined-feature workspace, minimal-game and visible-consumer behavior checks. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
+| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Startup body policy, durable NPC adapters, and rollback declarations now follow their owners. Finish the public body API and remove the old features::ecs topology and foreign forwarding exports. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`

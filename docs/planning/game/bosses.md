@@ -434,9 +434,18 @@ The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
 
 ## The Inugami — the wolf unsewn (Jon, 2026-10-20)
 
-**Open report (2026-10-26):** Inugami Wolfenstein no longer chases the
-controlled body. Reproduce the failure in the arena or on the chase route;
-the completed rework below does not close this report.
+**Chase correction (2026-10-26, `e0552155a`).** The old chase used point count
+as distance. Its attacks could push the target back, and its lightning lasted
+one tick. Speed now follows measured target pace and trail distance. A shared
+`FrameAlongside` relation keeps the pursuer in views of its target. Ghost fire
+and lightning damage the target and launch it along the escape route. Attack
+volumes own this damage; permanent body contact is off. Player-focused captures
+use the live camera. Guards: `inugami_fight` checks the live route, visibility,
+both attacks and the forward reaction. Do not use camera state to move the wolf.
+
+**Open:** Register `inu_storm` in the boss seed catalog, review the `slam`
+duration band, and resolve roster punish and telegraph findings. Four broader
+`content_it` checks fail on this data. Balance and feel need Jon's playtest.
 
 Jon: "add an additional phase to Wolfenstein where the head resurrects as an
 inugami and you fight the floating spectral head as an additional boss".
@@ -599,9 +608,9 @@ Built (`inugami.rs`, `boss_profiles.ron`): each phase is three picks from a
 table, then the gutter (once a cycle of three moves). Phase 1: lunge, pack
 (3 wisps), leash, pounce, howl. Phase 2: a two-lunge chain, a pack of four,
 and the howl sends a wisp each way. The enrage chains a lunge into the
-leash, and the pack into the pounce. The chase: on your heels, every 2.4 s a
-lunge at your back (gather, dart, skid: the skid is unguarded) or a wisp
-along your floor, in turn. The leash hurts only at its tip, which crosses
+leash, and the pack into the pounce. The chase alternates a ghost fire lunge
+and marked lightning every 2.4 s while it is close. Its ward stays lit through
+the lunge and skid. The leash hurts only at its tip, which crosses
 the floor under it from behind to in front over the strike; its slack (1.2 s)
 is a window, and Kagero comes in at it too. Kagero stays as built.
 
@@ -657,13 +666,16 @@ The shape now:
    (1920, as high as the arena; on it you are held right of the picture,
    the head behind you on the left); at its end a shaft drops; then the run
    goes straight west under it, the arena and the whole castle, ten steps
-   of 96 down, 640 clear. It hunts you on your scent, `RUN_GAP` 220 behind and
-   `RUN_CLEAR` 120 over your feet; every 2.4 s a lunge at your back or
-   lightning on a mark ahead of you. The drop, the run and the final hall
-   are framed at zoom 1.6 (about 800 across); on the run you are 220 left of
-   the middle and 110 low, so the head behind and over you is in the
-   picture; the drop between the two is framed on you, and the hand-over
-   is eased across it (camera jerk at most 4.7 on the route, measured).
+   of 96 down, 640 clear. It follows sampled foot positions in order, with
+   its bottom `RUN_CLEAR` 120 above them. Speed follows the target's measured
+   pace, with a bounded correction toward a `RUN_GAP` 220 separation. A stopped
+   body is caught. Every 2.4 s it alternates a ghost fire lunge and lightning
+   on a marked point. Horizontal catches launch the target forward and up;
+   a catch in the shaft follows the direction of travel. The camera zones
+   keep their authored zoom and offsets. Each view of the target also frames
+   the warded head, with enough space for both bodies. Pursuit reads no camera
+   state. The live route test checks visibility; the separate camera test
+   checks zone handovers after both bosses die.
 4. **Kagero's spell.** The final hall is the room's end farthest from where
    it rose: under the gatehouse. When it has howled over the hall and you
    are in it and it has stalked you to within 400, Kagero comes beside you
@@ -722,8 +734,8 @@ death 34, hunt 16, crash and dive 8, and so on). Kagero got `cast`.
 copies of the head rows: `ward_ring_kindle`, `ward_ring` (one whole turn,
 loops) and `ward_ring_dispel` draw only the spirits, and the conductor
 pins them over whatever row the head is in (`DrawnPart::Layer`,
-`ambition.presentation.drawn_row` v3) on the ward's own clock
-(`Conductor::ward_t`), so the ring circles on through every hand-over.
+`ambition.presentation.drawn_row` v3) on its `ward_t` clock, so the ring
+circles through each row change.
 The layer rides the head (its `skull` track, against `idle`'s first frame);
 its `behind` tracks draw under the head; mirrored, it is mirrored about the
 head first, so it keeps its turn when the head turns round. Kagero is

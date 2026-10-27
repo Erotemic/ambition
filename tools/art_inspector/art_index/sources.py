@@ -57,7 +57,7 @@ def content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> 
         return old["report"] | {"cache": "matching-inputs"}
     if not binary.is_file():
         return {"state": "unavailable", "characters": [], "sheets": {}, "assets": [],
-                "warnings": [f"Build the content inspection binary once: cargo build -p ambition_content_schemas --bin ambition_content_check. Expected {binary}"]}
+                "warnings": [f"Content inspection binary not found: {binary}. Restore the target bind with scripts/setup/target_bindmount.sh if it is absent. Build the tool if needed: cargo build -p ambition_content_schemas --bin ambition_content_check."]}
     command = [str(binary), str(pack), "--inspect-art", "--no-asset-check"]
     for root in sheet_roots:
         command += ["--sheet-root", str(root)]

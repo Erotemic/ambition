@@ -205,7 +205,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
         if concept:
             concepts[str(concept)].append(uid)
     warnings = product_report.get("warnings", []) + prepared.get("warnings", [])
-    return {"schema": "ambition.art_inspection.v1", "profile": {k: prepared.get(k) for k in ("state", "provider", "pack", "profile", "fingerprint", "cache", "sources")},
+    return {"schema": "ambition.art_inspection.v1", "profile": {k: prepared.get(k) for k in ("state", "provider", "pack", "profile", "fingerprint", "cache", "sources", "warnings")},
         "complete": product_report.get("complete", False) and prepared.get("state") == "available" and all(w["state"] == "available" for w in world_sources),
         "world_sources": world_sources,
         "units": units, "identities": identities, "character_groups": character_groups(identities),

@@ -30,6 +30,10 @@ from .scan import HashCache, scan
 WEB = Path(__file__).resolve().parents[1] / "web"
 
 
+class ContentUnavailable(RuntimeError):
+    """The selected game catalog cannot be read."""
+
+
 def _git(repo: Path, *args: str) -> str:
     done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
     return done.stdout.strip()
@@ -67,6 +71,8 @@ def build(
     inspection = None
     if targets is None:
         inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path)
+        if inspection["profile"]["state"] != "available":
+            raise ContentUnavailable("Cannot build the character catalog.\n" + "\n".join(inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]))
         targets = {uid[7:]: dict(unit["generator"], outputs=unit["required"] + unit["optional"])
                    for uid, unit in inspection["units"].items() if uid.startswith("target:")}
         warnings = inspection["warnings"]
@@ -340,8 +346,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result["summary"], sort_keys=True))
             print(f"{len(gaps)} bundle(s) in this scope have unknown generation evidence.")
         return 0
-    build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
-          lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep, runtime_path=args.runtime_snapshot)
+    try:
+        build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
+              lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep, runtime_path=args.runtime_snapshot)
+    except ContentUnavailable as error:
+        print(f"Art inspector: {error}\nThe previous inspector was kept.", file=sys.stderr)
+        return 1
     if args.command == "serve":
         from .server import serve
         serve(repo, out, port=args.port, open_browser=args.open)

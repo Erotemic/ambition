@@ -20,6 +20,24 @@ from art_index import build, sheets  # noqa: E402
 ASSETS = "crates/ambition_platformer2d_actor_monolith/assets"
 PROV = "crates/ambition_platformer2d_actor_monolith/asset_provenance"
 
+
+def test_missing_content_tool_keeps_the_previous_inspector_and_does_not_open_it(tmp_path, monkeypatch, capsys):
+    out = tmp_path / "inspector"
+    out.mkdir()
+    (out / "catalog.js").write_text("previous catalog")
+    (out / "index.html").write_text("previous page")
+    warning = "Content inspection binary not found. Build ambition_content_check."
+    monkeypatch.setattr(build, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(build.inventory, "collect", lambda *_args, **_kwargs: {
+        "profile": {"state": "unavailable", "warnings": [warning]}, "units": {}, "warnings": [warning]})
+    opened = []
+    monkeypatch.setattr(build.webbrowser, "open", opened.append)
+    assert build.main(["build", "--out", str(out), "--open"]) == 1
+    assert (out / "catalog.js").read_text() == "previous catalog"
+    assert (out / "index.html").read_text() == "previous page"
+    assert not opened
+    assert warning in capsys.readouterr().err
+
 LAYOUT = """target: foo
 image: foo_spritesheet.png
 frame_width: 32

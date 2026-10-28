@@ -1520,7 +1520,7 @@ fn the_observer_panes_come_and_go_with_twintracks_rooms() {
 fn the_plaza_is_whole_on_the_frame_its_session_is_published() {
     use ambition_platformer2d::platformer::lifecycle::SessionRoot;
     use ambition_platformer2d::relativity2d::ActiveSpacetime2d;
-    use ambition_platformer2d::runtime::demo_fixture::RoomSet;
+    use ambition_platformer2d::world::rooms::RoomSet;
     use ambition_platformer2d::sim::DrivingParticipant;
 
     let mut app = ambition_demo_twintrack_app::build_demo_app();

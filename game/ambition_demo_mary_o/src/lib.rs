@@ -693,7 +693,7 @@ fn levels_and_links_of(
 
 /// The rooms the world text `text` converts to with Mary-O's vocabulary, or
 /// every reason it does not.
-fn room_set_of(text: &str) -> Result<ambition_platformer2d::runtime::demo_fixture::RoomSet, Vec<String>> {
+fn room_set_of(text: &str) -> Result<ambition_platformer2d::world::rooms::RoomSet, Vec<String>> {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(text).map_err(|error| {
         vec![format!(
             "mary_o.ldtk: {error} (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)"
@@ -713,7 +713,7 @@ fn room_set_of(text: &str) -> Result<ambition_platformer2d::runtime::demo_fixtur
 /// level directly got nine refusals — and the level is not readable without its
 /// vocabulary in ANY of those contexts, so the load is where the requirement
 /// belongs.
-fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
+fn authored_world() -> ambition_platformer2d::world::rooms::RoomSet {
     room_set_of(&mary_o_world_text()).unwrap_or_else(|errors| panic!("{}", errors.join("\n")))
 }
 

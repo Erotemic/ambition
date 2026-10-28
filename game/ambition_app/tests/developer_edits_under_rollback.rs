@@ -90,7 +90,7 @@ fn editing_movement_tuning_mid_timeline_changes_what_history_resimulates_to() {
             // systems read it directly.
             let mut tuning = sim
                 .world_mut()
-                .resource_mut::<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>();
+                .resource_mut::<ambition_platformer2d::engine_core::ActiveMovementTuning>();
             tuning.0.jump_speed *= 1.5;
             tuning.0.max_run_speed *= 1.5;
         }

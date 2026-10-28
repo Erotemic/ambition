@@ -46,5 +46,11 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 /// rooms are live, and the music's tie-break (Q150).
 pub use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 
+/// The initial body and its authored resource and ability inputs.
+pub use ambition_platformer2d_session::initial_body::{
+    HomeBodyResources, InitialBodyPolicy, StartingCharacter,
+};
+pub use ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities;
+
 /// Session lifecycle operations and their domain installers.
 pub use ambition_platformer2d_session::{initial_body, checkpoint, data, death, durable_horizon, join, lifecycle_commit, match_activation, reset, rooms, setup, teardown, MatchLifecyclePlugin, SessionTeardownPlugin};

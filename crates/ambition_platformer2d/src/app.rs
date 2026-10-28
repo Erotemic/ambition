@@ -1575,7 +1575,8 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
     let rooms = definition.rooms.clone();
 
     Some(Box::new(move |app: &mut App| {
-        use crate::runtime::demo_fixture::{RoomSet, StartingCharacter};
+        use crate::world::rooms::RoomSet;
+        use crate::session::StartingCharacter;
         // ⚠ The silent `rooms.first()` guard that stood here is gone: an empty
         // set is `RoomSetRefused::NoRooms` below, which SAYS SO instead of
         // returning quietly from a composition callback.

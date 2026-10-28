@@ -20,7 +20,7 @@ use ambition_platformer2d::platformer::lifecycle::{
     session_world_component, session_world_entity, settle_until_session_world,
     SESSION_SETTLE_FRAMES,
 };
-use ambition_platformer2d::runtime::demo_fixture::RoomSet;
+use ambition_platformer2d::world::rooms::RoomSet;
 
 /// The versus stage — a RON-authored experience, mounted through the public API.
 /// It is the same module the Smash consumer-matrix row drives, chosen because it

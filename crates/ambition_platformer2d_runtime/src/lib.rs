@@ -153,34 +153,6 @@ pub mod host_seams {
     pub use ambition_dev_tools::DeveloperRuntimeState;
 }
 
-/// Fixture/demo support re-exported from the runtime composition tier so the
-/// `ambition_platformer2d_host` smoke shell can assemble a tiny content plugin without taking
-/// a direct `ambition_platformer2d_actor_monolith` dependency.
-pub mod demo_fixture {
-    pub use ambition_boss_encounter::BossCatalog;
-    pub use ambition_characters::prepared::PreparedCharacterRegistry;
-    pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
-    pub use ambition_platformer2d_actor_monolith::avatar::{HomeBodyAbilities};
-pub use ambition_platformer2d_session::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
-    pub use ambition_platformer2d_construction::ActorConstructionRegistry;
-    // A direct-entry demo has one experience, so its first room reads the
-    // save of the world it lands in, and says so.
-    pub use ambition_platformer2d_publication::construction::ActorConstructionContext;
-    pub use ambition_platformer2d_publication::construction::RoomContentStagingRegistry;
-    pub use ambition_platformer2d_publication::CommitFactsSource;
-    // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
-    pub use ambition_platformer2d_session::setup::{SimulationSetup, simulation_world};
-    // The first room is published before the session's bodies are built.
-    pub use ambition_platformer2d_publication::{FirstRoom, publish_first_room};
-    // A direct-entry demo drops the first room's receipt, so it says so.
-    pub use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
-    pub use ambition_platformer2d_publication::PublicationRetention;
-    pub use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
-    // Demo simulation reads the neutral movement-tuning authority, not dev-tools mirror state.
-    pub use ambition_platformer2d_core::ActiveMovementTuning;
-    pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;
-}
-
 /// The sim tick rate under [`PlatformerEnginePlugins::fixed_tick`]. 60 Hz.
 pub const SIM_TICK_HZ: f64 = 60.0;
 

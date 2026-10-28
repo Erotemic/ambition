@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d_runtime::demo_fixture::{RoomSet, RoomSpec};
+use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
 
 /// The demo content plugin: one empty room + the engine's own sim-world
 /// setup (spawns the player box). This is the shape every demo app copies.
@@ -59,7 +59,7 @@ impl Plugin for FixtureContentPlugin {
             "fixture",
             RoomSet::from_parts_or_panic("fixture_room", vec![room], Vec::new()),
             RoomGeometry(world),
-            ambition_platformer2d_runtime::demo_fixture::StartingCharacter::default(),
+            ambition_platformer2d_session::initial_body::StartingCharacter::default(),
         );
         ambition_platformer2d_provider::install_direct_session_root(
             app,
@@ -69,7 +69,7 @@ impl Plugin for FixtureContentPlugin {
         .expect("fixture direct prepared-content assembly must succeed");
         app.add_systems(
             Startup,
-            fixture_setup.in_set(ambition_platformer2d_runtime::demo_fixture::SimulationSetupSet),
+            fixture_setup.in_set(ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet),
         );
     }
 }
@@ -87,43 +87,31 @@ fn fixture_setup(
     >,
     world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    tuning: Res<ambition_platformer2d_runtime::demo_fixture::ActiveMovementTuning>,
-    initial_body: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_runtime::demo_fixture::InitialBodyPolicy,
-    >,
-    home_body_resources: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_runtime::demo_fixture::HomeBodyResources,
-    >,
-    home_body_abilities: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_runtime::demo_fixture::HomeBodyAbilities,
-    >,
+    body_setup: ambition_platformer2d_session::setup::LiveInitialBodySetup,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    prepared_characters: Option<
-        Res<ambition_platformer2d_runtime::demo_fixture::PreparedCharacterRegistry>,
-    >,
-    boss_catalog: Res<ambition_platformer2d_runtime::demo_fixture::BossCatalog>,
-    placement_lowering: Res<ambition_platformer2d_runtime::demo_fixture::PlacementLoweringRegistry>,
-    content_staging: Res<ambition_platformer2d_runtime::demo_fixture::RoomContentStagingRegistry>,
+    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
+    placement_lowering: Res<ambition_platformer2d_construction::placements::PlacementLoweringRegistry>,
+    content_staging: Res<ambition_platformer2d_publication::construction::RoomContentStagingRegistry>,
     construction_recipes: Res<
-        ambition_platformer2d_runtime::demo_fixture::ActorConstructionRegistry,
+        ambition_platformer2d_construction::ActorConstructionRegistry,
     >,
 ) {
-    ambition_platformer2d_runtime::demo_fixture::publish_first_room(
+    ambition_platformer2d_publication::publish_first_room(
         &mut commands,
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition_platformer2d_runtime::demo_fixture::FirstRoom {
+        ambition_platformer2d_publication::FirstRoom {
             session_root: *session_root,
             // A smoke fixture drops the first room's receipt.
             retention:
-                ambition_platformer2d_runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
+                ambition_platformer2d_publication::PublicationRetention::UntilTheVerdictIsRecorded,
             // One experience: the save of the world is the save of this room.
             facts:
-                ambition_platformer2d_runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
+                ambition_platformer2d_publication::CommitFactsSource::TheWorldAtTheCommit,
             room_set: &room_set,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             construction:
-                ambition_platformer2d_runtime::demo_fixture::ActorConstructionContext::new(
+                ambition_platformer2d_publication::construction::ActorConstructionContext::new(
                     &construction_recipes,
                     &character_catalog,
                     // A smoke fixture authors no sheets; empty is the honest
@@ -134,18 +122,10 @@ fn fixture_setup(
             boss_catalog: &boss_catalog,
         },
     );
-    ambition_platformer2d_runtime::demo_fixture::simulation_world(
+    body_setup.spawn(
         &mut commands,
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
-            world: &world,
-            tuning: &tuning,
-            initial_body: &initial_body,
-            home_body_resources: &home_body_resources,
-            home_body_abilities: &home_body_abilities,
-            prepared_characters: prepared_characters.as_deref(),
-            default_character_id: "player",
-        },
+        &world,
+        "player",
     );
 }
-

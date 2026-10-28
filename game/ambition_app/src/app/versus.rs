@@ -21,7 +21,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
+use ambition_platformer2d::world::rooms::RoomSet;
+use ambition_platformer2d::session::StartingCharacter;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::versus_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster, RosterSeating, StagesCharacters,

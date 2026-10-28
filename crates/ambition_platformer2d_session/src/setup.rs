@@ -1,17 +1,8 @@
-//! Sim/presentation split for the sandbox's startup setup.
+//! Initial session bodies from prepared or live session inputs.
 //!
-//! This module factors the sim half into [`simulation_world`] so the headless binary can build the
-//! world without presentation, while the visible-app setup keeps that seam clean.
-//!
-//! [`simulation_world`] takes `&mut Commands` plus borrowed resource handles
-//! ([`SimulationSetup`]) so it can be invoked from any Bevy startup system
-//! that has gathered the right parameters. It is not a Bevy system itself;
-//! the `ambition_app` crate's startup setup (`app/setup_systems.rs`) does the
-//! param wiring and pairs it with the presentation-side spawns.
-//!
-//! The session's first room is not built here: the caller publishes it first
-//! (`ambition_platformer2d_publication::publish_first_room`), into the same session root, and
-//! decides from its receipt whether the session becomes authoritative.
+//! Room publication creates the world before body construction. Prepared
+//! candidates supply [`SimulationSetup`]. Direct hosts use
+//! [`LiveInitialBodySetup`] to read the live session's policy and frozen cast.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -19,7 +10,9 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    SessionRoot, SessionSpawnScope, SessionWorldRef, SpawnSessionScopedExt,
+};
 
 /// The health pool a playable body gets when its worn character authors none.
 ///
@@ -28,12 +21,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSes
 /// bending this.
 pub const DEFAULT_PLAYER_HEALTH: i32 = 20;
 
-/// Borrowed inputs for `simulation_world`.
-///
-/// Grouped as a struct because Bevy's max-system-param budget is tight and
-/// keeping these as positional args would push the calling startup system
-/// past 16 params again. The struct also documents what the simulation
-/// half of setup actually needs.
+/// Prepared inputs for initial-body construction.
+/// Candidate preparation supplies these values before publication.
 pub struct SimulationSetup<'a> {
     pub world: &'a RoomGeometry,
     pub tuning: &'a ae::ActiveMovementTuning,
@@ -64,23 +53,58 @@ pub struct SimulationSetup<'a> {
     pub default_character_id: &'a str,
 }
 
-/// Spawn simulation-only entities and resources.
+/// Initial-body construction from the live session's configuration.
 ///
-/// Returns the player entity so `presentation_world` (or any future RL
-/// adapter) can attach presentation components without re-querying.
-///
-/// This includes:
-/// * logging room layout warnings
-/// * spawning the `LdtkWorldBundle` so `bevy_ecs_ldtk` can own LDtk entity
-///   lifecycle and the runtime-spine systems have something to query
-/// * spawning the player entity with gameplay-essential ECS components
-///   (`PlayerSimulationBundle` for sim clusters plus `Transform`,
-///   `PlayerVisual`, etc.).
-///   Leafwing's `ActionState` and `InputMap` live on the persistent
-///   `InputParticipant` entity (spawned once at boot by the host input
-///   plugin), NEVER on the player/actor entities; sim-only builds stay
-///   leafwing-free per the ADR 0012 input seam.
-/// What one simulation setup produced: the session's home body, if it built one.
+/// The session supplies policy, grants and its frozen cast. A prepared candidate
+/// supplies its own generation through [`SimulationSetup`] instead.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct LiveInitialBodySetup<'w, 's> {
+    tuning: Res<'w, ae::ActiveMovementTuning>,
+    policy: SessionWorldRef<'w, 's, crate::initial_body::InitialBodyPolicy>,
+    body_inputs: Query<
+        'w,
+        's,
+        (
+            &'static crate::initial_body::HomeBodyResources,
+            &'static ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
+        ),
+        With<SessionRoot>,
+    >,
+    cast: ambition_characters::session_cast::SessionCast<'w>,
+}
+
+impl LiveInitialBodySetup<'_, '_> {
+    pub fn spawn(
+        &self,
+        commands: &mut Commands,
+        scope: SessionSpawnScope,
+        world: &RoomGeometry,
+        default_character_id: &str,
+    ) -> SimulationWorld {
+        if !self.policy.spawns_a_body() {
+            return SimulationWorld { player: None };
+        }
+        let (resources, abilities) = self
+            .body_inputs
+            .single()
+            .expect("a session that requests a home body must supply its resources and abilities");
+        simulation_world(
+            commands,
+            scope,
+            SimulationSetup {
+                world,
+                tuning: &self.tuning,
+                initial_body: &self.policy,
+                home_body_resources: resources,
+                home_body_abilities: abilities,
+                prepared_characters: self.cast.get(),
+                default_character_id,
+            },
+        )
+    }
+}
+
+/// The home body produced by initial session construction, when requested.
 pub struct SimulationWorld {
     /// The session's home body, when the experience declared one.
     pub player: Option<Entity>,
@@ -407,3 +431,6 @@ pub fn spawn_home_body(
     }
     player
 }
+
+#[cfg(test)]
+mod tests;

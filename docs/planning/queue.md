@@ -234,21 +234,39 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
-### ARCH-PUBLIC-CONSTRUCTION — remove fixture-shaped construction imports
+### ARCH-PORTAL-ASSETS — require mesh assets before clip setup
 
-**Owner:** [consolidation plan C08](consolidation/consolidation-plan.md#8-c08--prune-compatibility-facades-and-forwarding-mirrors).
+**Owner:** [capability and runtime composition](engine/capability-and-runtime-composition.md).
 
-**Current state:** production providers import session inputs and world types
-through `runtime::demo_fixture`. The host fixture assembles actor setup fields.
+**Current state:** the portal clip installer checks the embedded asset registry,
+but its startup warm-up also needs mesh assets. A headless host with assets and
+no mesh support panics. The visible-feature Smash suite reaches this state.
 
-**Next:** delete that internal mirror. Providers use semantic session and world
-APIs. The session owner supplies live initial-body setup from its own policy
-and frozen cast. Keep the host independent of actor implementation.
+**Next:** check the actual clip prerequisites. Cover an asset-only host and a
+mesh-capable host, including repeated installation and startup.
 
-**Acceptance:** direct host profiles construct and step real bodies; a live
-session builds from its frozen cast while a new cast is published; a session
-with no initial body needs no character or grant placeholders. App and provider
-checks pass, with no schedule, rollback codec or dependency-closure change.
+**Acceptance:** an asset-only host steps without a clip warm-up. A mesh-capable
+host creates a valid quad once. The Smash host suite passes with presentation
+compiled in. No dummy mesh resource or optional required parameter is added.
+
+
+### ARCH-SESSION-RESUME — keep checkpoint startup independent of held use
+
+**Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),
+with [system composition S3](engine/system-composition-audit.md#s3--each-game-declares-the-engine-capabilities-it-uses-large--done-2026-10-21).
+
+**Current state:** checkpoint startup is a member of the held-item set. The
+held-use capability can suppress this session operation. The checkpoint-only
+witness covers an absent item plugin, but does not cover an installed plugin
+whose room declares no held use.
+
+**Next:** test startup through the real host with held use enabled, unused by
+the room, and omitted by the profile. Give checkpoint startup its session phase
+and required ordering, outside the item capability.
+
+**Acceptance:** each composition resumes the constructed body at the saved
+checkpoint. Keep the admitted restore road and required deferred flushes. No
+item-use placeholder or extra scheduled system is needed.
 
 
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave

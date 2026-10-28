@@ -61,7 +61,8 @@ use ambition_platformer2d::relativity2d::{
     SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTracked2d,
 };
 use ambition_platformer2d::rollback::AmbitionRollbackApp;
-use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
+use ambition_platformer2d::world::rooms::RoomSet;
+use ambition_platformer2d::session::StartingCharacter;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::{
     CameraClampMode, CameraScrollPolicy, CameraZoneSpec, RoomSpec,

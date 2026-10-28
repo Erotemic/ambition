@@ -2240,7 +2240,8 @@ impl SmashStageChoice {
 fn smash_prepared_session_world(
     choice: bevy::prelude::Res<SmashStageChoice>,
 ) -> ambition_platformer2d::runtime::PreparedPlatformerSource {
-    use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
+    use ambition_platformer2d::world::rooms::RoomSet;
+    use ambition_platformer2d::session::StartingCharacter;
 
     let choice = *choice;
     let rooms: Vec<RoomSpec> = SmashStageChoice::all().into_iter().map(|stage| smash_stage_room(stage.room_id())).collect();

@@ -98,6 +98,10 @@ portal_render = [
 ]
 
 [dev-dependencies]
+# The direct-entry fixture assembles the session and construction owners.
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
+ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
+ambition_platformer2d_publication = { path = "../ambition_platformer2d_publication" }
 # The portal rule projection test declares a room's rules and builds the rooms.
 ambition_combat = { path = "../ambition_combat" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }

@@ -21,7 +21,7 @@ Executable slices go to [`queue.md`](../queue.md).
 | --- | --- | --- | --- | --- | --- |
 | 1 | C01 | One live room/session replacement transaction (A10) | ✅ DONE 2026-09-15 | large | — |
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable provenance | ✅ DONE 2026-10-03 as [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity---done-2026-10-03): every road closed | large | — |
-| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | OPEN — startable, not started | large | none |
+| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | OPEN — seven families landed; further moves need a two-session leak witness | large | none |
 | 4 | C04 | Activated generation mechanics are the only live construction source | ✅ DONE 2026-09-20 | medium | — |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate | ⛔ DECIDED 2026-09-19: do not start; kept for its regression rule | none | — |
 | 6 | C06 | Converge reconstruction roads on one materialization/publication engine | ✅ CONVERGED 2026-09-23 | — | — |
@@ -454,8 +454,11 @@ wrong owner can break startup, restore or snapshots.
 
 ## 8. C08 — Prune compatibility facades and forwarding mirrors
 
-**State:** OPEN. The [active construction API slice](../queue.md#arch-public-construction--remove-fixture-shaped-construction-imports)
-removes `runtime::demo_fixture` and puts live initial-body setup with the session owner.
+**State:** OPEN. Construction API slice landed 2026-10-28: providers use the
+public session and world APIs. The runtime fixture namespace is deleted.
+`LiveInitialBodySetup` owns policy, grants and the frozen cast; a no-body session
+needs no body inputs. Guards: session setup, host profiles, provider activation,
+app, Mary-O, TwinTrack and policy checks. The host has no direct actor dependency.
 
 The facade is one crate: `ambition_platformer2d` holds most of the workspace's
 cross-crate `pub use` statements. The census rows `TRANS-FACADE-MIRRORS` and
@@ -473,9 +476,11 @@ enough to describe.
 
 ## 9. C09 — Review crate boundaries by semantic ownership, not size
 
-**State:** OPEN. Later structural review.
+**State:** OPEN. Audit can start independently. No merge is selected.
 
-**DO NOT START BEFORE:** C03 and C07 have settled their owners.
+For each merge, establish semantic ownership, resolved consumer closures and a
+reversible branch experiment under ADR 0039. A C03 prerequisite applies only
+when that state owner affects the selected boundary.
 
 Size is a navigation signal, not a split rule. The durable architecture rejects a
 size-only carve of `ambition_platformer2d_actor_monolith`, but it also names the

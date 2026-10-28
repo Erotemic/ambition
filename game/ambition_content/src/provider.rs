@@ -49,7 +49,7 @@ impl AmbitionPreparedWorld {
             // Ambition's player holds Mana: the pool its held abilities spend.
             // Declared here, on the home body, so no other body has it.
             .with_home_body_resources(
-                ambition_platformer2d_runtime::demo_fixture::HomeBodyResources::declared(&[
+                ambition_platformer2d::session::HomeBodyResources::declared(&[
                     ambition_platformer2d::abilities::mana::POOL,
                 ])
                 .expect("one declared pool is a valid layout"),
@@ -57,7 +57,7 @@ impl AmbitionPreparedWorld {
             // Morph Ball is this game's progression, granted to its home body;
             // the character seated anywhere else does not curl.
             .with_home_body_abilities(
-                ambition_platformer2d_runtime::demo_fixture::HomeBodyAbilities::granting(
+                ambition_platformer2d::session::HomeBodyAbilities::granting(
                     ambition_platformer2d::engine_core::AbilityGrant::MorphBall.to_set(),
                 ),
             )

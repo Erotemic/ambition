@@ -371,7 +371,7 @@ something to an implementation crate does not make it public here automatically.
 | `ambition_platformer2d::app` | application composition, plus `app::prelude` |
 | `ambition_platformer2d::engine` | simulation-host selection and engine foundation assembly |
 | `ambition_platformer2d::participant` | participant ids, semantic actions, local devices/seats/channels |
-| `ambition_platformer2d::session` | prepared/live session identity and canonical session-world access |
+| `ambition_platformer2d::session` | prepared/live session identity, initial body policy and grants, and canonical session-world access |
 | `ambition_platformer2d::world` | rooms and geometry — `world::prelude` is the one to import |
 | `ambition_platformer2d::actor` | body state, spawn/construction requests, ability sets |
 | `ambition_platformer2d::character` | catalogs, action sets, sheets, brains |

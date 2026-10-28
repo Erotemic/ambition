@@ -670,6 +670,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     app.init_resource::<ambition_platformer2d::gameplay_trace::GameplayTraceBuffer>();
     app.add_message::<HitEvent>();
+    app.add_message::<ambition_platformer2d::vfx::FxRequest>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_platformer2d::combat::events::ActorStimulus>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();

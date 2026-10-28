@@ -705,6 +705,20 @@ Guards: 595 actor and 140 observation tests, five profiles, 35 workspace
 policies, and 53 absence contracts. The app compiles.
 Do not make possession setup a prerequisite for camera cast projection.
 
+### K24 — Per-participant possession
+
+`7afeb3a0a`: one possession record held only the primary seat. Per-seat records
+now use one trigger, custody projection, and driving projection. Contested
+targets grant neither seat. Each claim names its home body's stable identity.
+Rollback schema v385 maps every record and probes its seat, timer, and input edge.
+The probe is for localization; this remains clone snapshot state.
+Guards: 603 actor, 270 runtime, 112 app, 10 session teardown, eight Mary-O/Sanic,
+and 52 Smash tests; six app and six Smash tests stay ignored. All 35
+workspace policies and 53 absence contracts pass. The default-feature app
+compiles with no warnings. The full workspace feature union was not run.
+Do not restore a separate primary-seat possession path. A4 still owes its
+remaining body-removal, action-continuity, and body-tick acceptance arms.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

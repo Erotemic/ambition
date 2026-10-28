@@ -72,7 +72,7 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
         // it also pins that the freeze is fed by WORLD time, not by the
         // per-body `sim_dt` the hitlag branch zeroes — those being the same value
         // would be a deadlock, and this is where that would show.
-        combat.decay_reaction_timers(dt);
+        combat.decay_reaction_timers(dt, dt);
         em.update(
             &world,
             FeatureCombatTuning::default(),

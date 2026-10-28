@@ -5,7 +5,7 @@
 use ambition_combat::components::BossPhase;
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
-use bevy::prelude::{Query, Res, With, Without};
+use bevy::prelude::{Query, Res, With};
 
 use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
 use ambition_characters::control::ActorControl;
@@ -733,40 +733,13 @@ pub(crate) fn horizontal_front_wall_clearance(
     best
 }
 
-/// Boss presentation: decay the boss's body-generic reaction timers and sync
-/// the sprite-animation fact `BossPhase`.
-///
-/// Body integration runs before this projection. Strike damage uses move hitboxes
-/// (`trigger_boss_attack_moves` → `advance_move_playback` →
-/// `apply_hitbox_damage`); body-contact damage is the shared
-/// `apply_actor_contact_damage`. A boss uses the same systems as every actor.
+/// Publish the boss phase from its body's current liveness.
+/// Body integration and reaction clocks use the common body phases.
 pub fn update_ecs_bosses(
-    world_time: Res<WorldTime>,
-    mut bosses: Query<
-        (
-            &ambition_characters::actor::BodyHealth,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut BossPhase,
-        ),
-        // The player carries `BodyKinematics`; exclude it so this query is
-        // disjoint (boss and player are mutually exclusive archetypes).
-        (
-            With<FeatureSimEntity>,
-            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-        ),
-    >,
+    mut bosses: Query<(&ambition_characters::actor::BodyHealth, &mut BossPhase)>,
 ) {
-    // Sim clock: bosses must slow with bullet-time (ADR 0010).
-    let dt = world_time.sim_dt();
-    for (health, mut boss_combat, mut phase) in &mut bosses {
-        let alive = health.alive();
-        // Body-generic reaction timers (hit flash, i-frames, stagger) decay
-        // through the same `BodyCombat` method the actor tick uses. The boss
-        // is excluded from the actor tick, so it calls it here.
-        boss_combat.decay_reaction_timers(dt);
-        // How long the dead boss stays drawn is its `DeathBeat`, which every
-        // body carries and one system advances.
-        *phase = BossPhase::from_alive(alive);
+    for (health, mut phase) in &mut bosses {
+        *phase = BossPhase::from_alive(health.alive());
     }
 }
 

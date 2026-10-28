@@ -78,13 +78,15 @@ pub mod navigation;
 pub mod perception;
 mod pet;
 mod rest_row;
+mod reactions;
+pub use reactions::advance_body_reactions;
 mod summon;
 mod talk_spacing;
 mod target_volumes;
 mod wear;
 
 pub(crate) use actors::{
-    ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state,
+    ActorDecisionFacts, ActorDecisionFrames,
     observe_actor_decision_inputs, publish_actor_decision_frames,
 };
 
@@ -150,7 +152,6 @@ fn configure_actor_decision_phases(app: &mut App) {
             ActorDecisionSet::Targeting,
             ActorDecisionSet::Prepare,
             ActorDecisionSet::Observe,
-            ActorDecisionSet::StateMaintenance,
             ActorDecisionSet::Decide,
             ActorDecisionSet::Publish,
         )
@@ -313,10 +314,6 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 crate::body::navigation::advise_navigation,
             )
                 .in_set(ActorDecisionSet::Observe),
-        );
-        app.add_systems(
-            sim,
-            maintain_actor_pre_decision_state.in_set(ActorDecisionSet::StateMaintenance),
         );
         // An errand ends where a press takes an item, and after it: a body that
         // took something by a press this tick has a full hand. Before the use

@@ -337,18 +337,10 @@ impl Heard {
     }
 }
 
-/// The body-generic reaction decay the actor tick performs
-/// (`body::actors::update` calls `decay_reaction_timers` on exactly this
-/// component, once per tick).
-///
-/// Present because without it the post-hit i-frame window never expires, so this
-/// fixture could land a FIRST hit on a body and never a second — three of four
-/// strikes in the death test were silently swallowed. Calling the same one function
-/// the actor tick calls is cheaper than composing the whole actor update, and is the
-/// same fact.
+/// Advance reactions with the fixture's equal proper and unscaled steps.
 fn decay_reaction_timers(mut bodies: Query<&mut ambition_characters::actor::BodyCombat>) {
     for mut combat in &mut bodies {
-        combat.decay_reaction_timers(TICK);
+        combat.decay_reaction_timers(TICK, TICK);
     }
 }
 

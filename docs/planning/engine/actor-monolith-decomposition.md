@@ -648,6 +648,9 @@ and release separate bodies through one control path, including under rollback.
 Boss bodies now use the common integration phase. Their optional envelope,
 authored tuning, contact field, and movement cues use the same data path as
 other actor bodies. Boss phase maintenance runs after integration.
+Body reactions use one early phase with proper-time recovery and unscaled
+hitstop expiry. Observer requests follow the body that holds the driving seat.
+The empty actor-maintenance phase and the body-role clock paths are deleted.
 Keep accepted control, body custody, motion, and action execution together.
 Capability profiles remain a separate C2/SDK exit.
 

@@ -7,76 +7,25 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_time::time_control::{
     ClockRequester, ClockResetRequest, ClockScaleRequest, RequestedClockScale,
 };
 use ambition_time::{ClockDomain, ClockObserver, ClockState};
 
-/// Read the primary player's state and the dev tools, decide what
-/// SimClock scale should be in effect this frame, and fire one
-/// [`ClockScaleRequest`].
-///
-/// Priority matches the historic [`crate::update_time_scale`]
-/// ladder so behavior is preserved:
-///
-/// 1. hitstop active → 0.0   (Engine requester — the engine took
-///    authority on the player's behalf)
-/// 2. blink aiming → bullet_time_scale  (Player requester —
-///    the "bullet_blink" verb)
-/// 3. blink hold active → blink_hold_slow_scale  (Player —
-///    "blink_hold_slow")
-/// 4. otherwise → 1.0  (Engine — restoring real-time pace)
-///
-/// ⛔ THE DEVELOPER RUNG LEFT, 2026-08-31. It sat between 3 and 5 and read
-/// `ambition_dev_tools::DeveloperRuntimeState` — a simulation package looking at
-/// developer state, the last such read in this kernel. Slow-motion publishes its
-/// own `ClockScaleRequest` now
-/// (`ambition_dev_tools::request_developer_slow_motion`), and
-/// `apply_clock_scale_requests` reduces every granted request by `min`.
-///
-/// ⚠ SO THIS IS NO LONGER A TOTAL ORDER over slow-downs, and one pair changed:
-/// bullet-time (rung 2) used to outrank slow-motion, and now the stronger
-/// slowdown wins. Inside this function the ladder is still a ladder.
-///
-/// ADR 0011 §"Two time-control operations" note: in SP, the
-/// "slow sim" (Operation 1) and "boost player proper time"
-/// (Operation 2) are observationally equivalent for one observer.
-/// We implement Operation 1 here because it's the simpler write.
-/// Step 3's per-entity `ProperTimeScale` component + `entity_dt`
-/// accessor are the seam where future MP / RL regimes diverge.
-pub fn emit_player_time_intent_system(
-    // SLOT-0 BY DESIGN: bullet-time is a per-PLAYER feel-clock affordance (ADR
-    // 0010/0011). Slot 0's blink slows slot 0's world; a second player would emit
-    // its own intent against its own clock, not fight over this one.
-    primary: Query<
-        (&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat),
-        With<PrimaryPlayer>,
-    >,
+/// Emit time requests for the primary local observer's driven body.
+/// Match impact holds use their own tick expiry and take precedence.
+/// The current observer policy requests the shared simulation clock.
+pub fn emit_primary_observer_time_intent(
+    drivers: Query<(Entity, &DrivingParticipant)>,
+    bodies: Query<(&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat)>,
     feel: Res<Platformer2dFeelTuningMonolith>,
-    // The MATCH's freeze, which belongs to nobody's seat. See rung zero below.
+    // The match hold is independent of the local observer.
     impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
     tick: Option<Res<ambition_time::SimTick>>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
-    // ⭐⭐ RUNG ZERO: THE MATCH'S OWN IMPACT FREEZE, ABOVE EVERY SEAT.
-    //
-    // Every rung below reads slot zero, so a CPU-versus-CPU match produced local
-    // hitlag on both bodies and NO screen freeze — the beat that sells a connect
-    // was a player-shaped affordance in a game whose fights are frequently
-    // between two CPUs. ⛔ and the fix is not a fake primary player: a match's
-    // freeze is a fact about the MATCH.
-    //
-    // ⛔⛔ IT IS AN ABSOLUTE EXPIRY AGAINST `SimTick`, which is what makes this
-    // safe to put above the ladder. The obvious version — freeze while any
-    // body's `hitstop_timer` is live — deadlocks, because an actor's timer
-    // decays on the very sim clock this stops. `SimTick` advances while
-    // `sim_dt == 0`, so the hold cannot freeze its own expiry. See
-    // `ambition_combat::impact_hitstop`.
-    //
-    // ⭐ AND THERE IS NO "REMEMBER TO SET IT BACK": this writes a request every
-    // frame like every other rung, so an expired hold falls through to whatever
-    // is true next — ultimately the `1.0` at the bottom.
+    // The match hold expires on SimTick, which advances during a freeze.
     if let (Some(impact), Some(tick)) = (impact, tick) {
         if impact.is_freezing(*tick) {
             writer.write(ClockScaleRequest {
@@ -88,30 +37,11 @@ pub fn emit_player_time_intent_system(
             return;
         }
     }
-    // NO LOCAL BODY IS NOT "NOTHING TO SAY".
-    //
-    // There is no `PrimaryPlayer` in it, so nothing ever asked for the neutral pace back, and the
-    // world ran at scale 0.0 forever. Every fighter built, seated, armed, framed, brains ticking,
-    // `SimTick` counting up — and zero sim seconds per tick, so not one body moved a pixel. *"the
-    // characters are just stuck in air"*, with a menu that still worked, because menus do not run
-    // on sim time.
-    //
-    //  the ladder below is slot zero's; the LAST RUNG is the world's.
-    // Hitstop and bullet-time are per-player feel affordances and are correctly
-    // absent without a player. "Otherwise, run at normal speed" is not an
-    // affordance — it is what a world does when nobody is bending time, and a
-    // world with no bullet-time claimant is the clearest possible case of that.
-    // Reading the two off one early return made the second one unreachable
-    // exactly where it was the only thing left to say.
-    let Ok((facts, combat)) = primary.single() else {
-        //  the developer rung USED to survive here, because the inspector's
-        // slow-motion is not slot zero's either — it belongs to whoever is
-        // looking at the world. It still does not belong to slot zero, and that
-        // is now expressed by the dev crate publishing its own request rather
-        // than by this ladder carrying a copy of the rule:
-        // `ambition_dev_tools::request_developer_slow_motion`. A world with no
-        // primary player still slows for a developer, because nothing about that
-        // ever went through here.
+    let observed = ambition_platformer2d_actor_monolith::control::body_driving_seat(
+        &drivers, PlayerSlot::PRIMARY,
+    ).and_then(|body| bodies.get(body).ok());
+    // No unique observed body means no retained body may hold the world clock.
+    let Some((facts, combat)) = observed else {
         writer.write(ClockScaleRequest {
             domain: ClockDomain::SimClock,
             scale: 1.0,
@@ -197,7 +127,7 @@ pub fn report_sim_clock_changes(
         }
     };
     if !report {
-        // The cursors still advance every frame. `emit_player_time_intent_system`
+        // The cursors still advance every frame. `emit_primary_observer_time_intent`
         // writes a request on EVERY playing frame (the ladder always resolves,
         // even to "default"), so a cursor left to lag would eventually staple a
         // stale reason onto an unrelated change.

@@ -151,7 +151,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// flies the hops of a Mario fireball as the firer does.
 /// 384 -> 385: `resource.possession_state` stores each seat's possession and
 /// gesture state. Its probe includes seat keys, timers, and input edges.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 385;
+/// 385 -> 386: body recovery timers use proper time for every body. Hitstop
+/// expiry uses the unscaled simulation step for every body. Observer time
+/// requests follow the driven body instead of its home identity.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 386;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

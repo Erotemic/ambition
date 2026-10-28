@@ -94,6 +94,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // belong. A capability that cannot initialise its own state is one the
         // composition layer has to know about — see
         // `docs/planning/engine/architecture.md` (decomposition doctrine).
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
         app.init_resource::<view_index::FeatureViewIndex>();
         app.init_resource::<view_index::ActorRenderIndex>();
         app.init_resource::<view_index::BossRenderIndex>();

@@ -637,13 +637,15 @@ body contacts, and world platform creation. Rescue stays after mount steering
 and before the world platform step. The empty avatar compatibility modules
 are deleted.
 
-**Remaining D33 work:** move default-view cast initialization (`FramedCast`)
-from possession setup to observation. Audit residual responsibilities and
-public operations against the exit below and the A4 acceptance arms.
-Possession still stores one primary seat's state; independent possession by
-two participants remains open. Keep accepted control, body custody, motion,
-and action execution together. Capability profiles remain a separate C2/SDK
-exit.
+Observation initializes the default-view cast (`FramedCast`). Session/match
+code publishes it for camera framing. Possession setup initializes control
+state only.
+
+**Remaining D33 work:** audit residual responsibilities and public operations
+against the exit below and close the A4 acceptance arms. Possession still
+stores one primary seat's state; independent possession by two participants
+remains open. Keep accepted control, body custody, motion, and action
+execution together. Capability profiles remain a separate C2/SDK exit.
 
 ### K19 — Owned body API
 

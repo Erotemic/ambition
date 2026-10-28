@@ -661,14 +661,7 @@ pub fn release_the_opening_hold(
 pub fn declare_the_match_cast_as_the_view(
     active: Option<Res<ActiveMatch>>,
     seats: Query<(Entity, &MatchSeat)>,
-    // `Option`, and it is not defensive. A plain `ResMut` here panicked 53
-    // of this crate's own unit tests with *"Parameter `ResMut<FramedCast>` failed
-    // validation: Resource does not exist"* — the resource is initialised by the
-    // ABILITIES plugin and this system is registered by `character_runtime`, so
-    // every composition that takes one without the other dies on its first
-    // frame. A Bevy param panic is a hard stop for the whole app, not a skipped
-    // system; the correct answer for a projection nobody has asked for yet is to
-    // have nothing to say.
+    // Observation owns this optional projection. A match can run without it.
     mut framed: Option<ResMut<ambition_platformer2d_shared_tangle::markers::FramedCast>>,
 ) {
     let Some(framed) = framed.as_mut() else {

@@ -25,8 +25,6 @@ impl Plugin for PossessionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PossessionState>();
         app.init_resource::<ControlledSubject>();
-        // Its sibling: what to frame when nothing is driving a body.
-        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
     }
 }
 

@@ -722,6 +722,20 @@ compiles with no warnings. The full workspace feature union was not run.
 Do not restore a separate primary-seat possession path. A4 still owes its
 remaining body-removal, action-continuity, and body-tick acceptance arms.
 
+### K25 — Shared boss body integration
+
+`d23d6f0b9`: bosses called the common integrator from a separate scheduled
+loop. Boss bodies now use `integrate_sim_bodies`, with optional envelope,
+tuning, contacts, and movement cues. Boss phase maintenance follows integration.
+The old file and public entry are deleted: one fewer active ECS invocation.
+State, rollback registrations, and wire rows stay the same.
+Guards: 603 actor, 270 runtime, 145 app, and 52 Smash tests; six app and six
+Smash tests stay ignored. All 35 workspace policies and 53 absence contracts
+pass. The default-feature app compiles with no warnings. The kernel graph is
+a DAG and the resource-writer census stays at 131 adjudicated resources.
+The full feature union and Android performance were not measured.
+Do not restore a boss-only motion loop. Reaction-clock differences remain open.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

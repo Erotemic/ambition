@@ -234,25 +234,6 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
-### ARCH-SESSION-RESUME — keep checkpoint startup independent of held use
-
-**Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),
-with [system composition S3](engine/system-composition-audit.md#s3--each-game-declares-the-engine-capabilities-it-uses-large--done-2026-10-21).
-
-**Current state:** checkpoint startup is a member of the held-item set. The
-held-use capability can suppress this session operation. The checkpoint-only
-witness covers an absent item plugin, but does not cover an installed plugin
-whose room declares no held use.
-
-**Next:** test startup through the real host with held use enabled, unused by
-the room, and omitted by the profile. Give checkpoint startup its session phase
-and required ordering, outside the item capability.
-
-**Acceptance:** each composition resumes the constructed body at the saved
-checkpoint. Keep the admitted restore road and required deferred flushes. No
-item-use placeholder or extra scheduled system is needed.
-
-
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
 
 **Owner:** `ambition_input` (seating, `sources.rs`), Ambition's seating

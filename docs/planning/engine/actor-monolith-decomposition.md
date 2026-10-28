@@ -628,6 +628,13 @@ live rooms. Runtime composes it between body rescue and the body-contact
 snapshot, with the same phase and deferred visibility. Capability profiles
 remain a separate C2/SDK exit.
 
+### K19 — Owned body API
+
+`3efa243ff`: public `body` operations replace the legacy `features::ecs` tree, enemy wrapper, and root forwarding exports.
+State fields, wire keys, phase order, and invocation counts stay the same.
+Guards: 600 actor, 262 runtime, 116 app, 58 Smash, and five profile tests; 35 workspace policies and 53 absence contracts.
+Do not restore compatibility aliases or foreign type forwarding.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

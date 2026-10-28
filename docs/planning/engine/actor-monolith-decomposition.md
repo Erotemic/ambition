@@ -759,6 +759,20 @@ and six Smash tests remain ignored. The default app compiles with no warnings;
 the kernel graph is a DAG. The full feature union was not run.
 Do not restore role-specific reaction clocks or use home identity to select the observer.
 
+### K27 — Shared body control acceptance
+
+`956ae7472`: the action gate used the primary observation projection to grant
+room techniques. Each driven body now reads its own room rule. Control owns
+hold blanking, commanded movement, and action acceptance. Rule readers borrow
+values; stored projections make their own copies. Invocations, phases, state
+rows, and wire layouts stay the same.
+Guards: 3,153 owner library tests, 47 app tests, 14 mode-scope tests, 17
+Mary-O/Sanic host tests, 70 Smash tests, and 35 workspace policies pass. Six
+owner tests and six Smash tests remain ignored. The default app compiles with
+no warnings; the kernel graph is a DAG. The full feature union was not run.
+Sprite-publication census and fixture-lockfile findings remain with that work.
+Do not use the primary observation projection to grant body techniques.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

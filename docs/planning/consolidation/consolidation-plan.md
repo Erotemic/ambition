@@ -156,10 +156,10 @@ view left and 33 until the four checkpoint baselines left):
 
 <!-- session-owner-census: SessionScopedResources=29 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**29**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**29**) in `crates/ambition_platformer2d_session/src/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
-  `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
+  `crates/ambition_platformer2d_session/src/checkpoint.rs`, and no reset runs for them.)
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
 The HTML comment above is the machine-readable copy.
@@ -454,7 +454,8 @@ wrong owner can break startup, restore or snapshots.
 
 ## 8. C08 — Prune compatibility facades and forwarding mirrors
 
-**State:** OPEN. Later cleanup.
+**State:** OPEN. The [active construction API slice](../queue.md#arch-public-construction--remove-fixture-shaped-construction-imports)
+removes `runtime::demo_fixture` and puts live initial-body setup with the session owner.
 
 The facade is one crate: `ambition_platformer2d` holds most of the workspace's
 cross-crate `pub use` statements. The census rows `TRANS-FACADE-MIRRORS` and

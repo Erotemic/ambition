@@ -3,6 +3,11 @@
 **Scope:** source-level cycles inside Ambition workspace crates. This plan is
 about domain boundaries. It is not a target to remove every cycle.
 
+**State (2026-10-28):** C1–C7 are complete. On `c8b77b877`, the assembled app
+check, 2,551 owner and policy tests, and 72 app integration tests passed. The
+integration tests cover preparation, refusal, reload, restoration, possession
+and real rollback. Keep the intentional groups and required components below.
+
 **Authority:** [engine architecture](architecture.md),
 [actor decomposition](actor-monolith-decomposition.md), and
 [capability composition](capability-and-runtime-composition.md).
@@ -85,10 +90,10 @@ semantic decision. Do not remove a Bevy component requirement to remove an
 edge. Do not move a type to `shared_tangle` merely because several modules use
 it. Do not leave an internal compatibility mirror after a completed move.
 
-## Candidate boundary packets
+## Reviewed boundary packets
 
-The table is a semantic review order, not a claim that every listed edge must
-be removed. Choose work from here in `queue.md` when it is ready to execute.
+The table records the reviewed boundaries. Each packet below states its owner
+and the invariants of the groups that remain.
 
 | Packet | Boundary to inspect | Evidence | Intended result |
 | --- | --- | --- | --- |

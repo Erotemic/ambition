@@ -234,21 +234,21 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
-### ARCH-CYCLES — remove wrong module dependency directions
+### ARCH-PUBLIC-CONSTRUCTION — remove fixture-shaped construction imports
 
-**Owner:** [internal module cycle breaking](engine/internal-module-cycle-breaking.md).
-Jon selected this work before further monolith decomposition and system
-consolidation. Review ownership, state, and lifetime; do not target zero cycles.
+**Owner:** [consolidation plan C08](consolidation/consolidation-plan.md#8-c08--prune-compatibility-facades-and-forwarding-mirrors).
 
-**Active:** validate the C1–C7 ownership cuts after asset publication. Runtime
-owns primary-room adapters; control owns preset selection; the stimulus reducer
-owns NPC reactions; display, provider and LDtk data have distinct owners. Keep
-the reviewed body, repertoire and navigation invariants in their current groups.
+**Current state:** production providers import session inputs and world types
+through `runtime::demo_fixture`. The host fixture assembles actor setup fields.
 
-**Acceptance:** assembled app, controller preparation and restoration, same-tick
-hit responses, world refusal/reload, input labels, movement and combat tests pass.
-Keep rollback codecs and required components unchanged. Then continue monolith
-API work and system consolidation in priority order.
+**Next:** delete that internal mirror. Providers use semantic session and world
+APIs. The session owner supplies live initial-body setup from its own policy
+and frozen cast. Keep the host independent of actor implementation.
+
+**Acceptance:** direct host profiles construct and step real bodies; a live
+session builds from its frozen cast while a new cast is published; a session
+with no initial body needs no character or grant placeholders. App and provider
+checks pass, with no schedule, rollback codec or dependency-closure change.
 
 
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave

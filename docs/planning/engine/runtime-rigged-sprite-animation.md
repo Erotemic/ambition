@@ -35,7 +35,8 @@ A character can have a body rig without a rigged sprite, and the reverse.
 **Filtered-cut receipt (2026-10-28, renderer `3243b40`):** packed frames keep
 edge RGB under alpha zero; the Behemoth's repeated tiles include source context.
 The sampling, coverage and incremental-pack tests and real door/Hall captures
-hold the fix. Keep shared rasters. See [the filter contract](../../../dev/benchmark-candidates/shared-part-cuts-under-linear-filtering.md).
+hold the fix. The robot and Behemoth are rebuilt at every quality tier.
+Keep shared rasters. See [the filter contract](../../../dev/benchmark-candidates/shared-part-cuts-under-linear-filtering.md).
 
 ### Switches
 

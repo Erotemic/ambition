@@ -161,10 +161,10 @@ impl<T: Component> LiveRoomOf<'_, '_, T> {
 
 /// Which live room an entity is in, by one rule for every question that
 /// pairs two entities (a contact, a hit, a sighting): its own
-/// [`InRoomInstance`], or the sole live room when it carries none.
+/// [`InRoomInstance`], its root identity, or the sole live room when it has neither.
 ///
 /// Two entities meet only when they are in one room. With two live rooms,
-/// an entity with no stamp is in neither of them (`None`); it can meet only
+/// an entity with no stamp or root identity is in neither (`None`); it can meet only
 /// another entity whose room is also unknown. That is the unstamped
 /// population's named debt, as [`SoleLiveRoom`] is the readers'.
 #[derive(bevy::ecs::system::SystemParam)]
@@ -176,7 +176,9 @@ pub struct LiveRooms<'w, 's> {
 impl LiveRooms<'_, '_> {
     /// The live room `entity` is in, or `None` when that cannot be told.
     pub fn of(&self, entity: Entity) -> Option<LiveRoomInstance> {
-        self.stamped(entity).or_else(|| self.sole())
+        self.stamped(entity)
+            .or_else(|| self.roots.get(entity).ok().copied())
+            .or_else(|| self.sole())
     }
 
     /// The live room `entity` carries a stamp for, and `None` when it carries
@@ -558,6 +560,34 @@ mod tests {
              identity of the live room you left"
         );
         assert_eq!(third.ordinal(), 2);
+    }
+
+    #[test]
+    fn room_roots_keep_their_identity_when_a_second_room_opens() {
+        let mut world = World::new();
+        let first = LiveRoomInstance::ACTIVATION;
+        let first_root = world.spawn((RoomInstanceRoot, first)).id();
+        let first_body = world.spawn(InRoomInstance(first)).id();
+        let unscoped = world.spawn_empty().id();
+        let mut state = bevy::ecs::system::SystemState::<LiveRooms>::new(&mut world);
+        {
+            let rooms = state.get(&world).expect("the room queries are valid");
+            assert_eq!(rooms.of(first_root), Some(first));
+            assert_eq!(rooms.of(first_body), Some(first));
+            assert_eq!(rooms.of(unscoped), Some(first));
+        }
+
+        let second = first.next();
+        let second_root = world.spawn((RoomInstanceRoot, second)).id();
+        let second_body = world.spawn(InRoomInstance(second)).id();
+        let non_root = world.spawn(second).id();
+        let rooms = state.get(&world).expect("the room queries are valid");
+        assert_eq!(rooms.of(first_root), Some(first));
+        assert_eq!(rooms.of(second_root), Some(second));
+        assert_eq!(rooms.of(first_body), Some(first));
+        assert_eq!(rooms.of(second_body), Some(second));
+        assert_eq!(rooms.of(unscoped), None);
+        assert_eq!(rooms.of(non_root), None);
     }
 
     /// A resident of the departing room leaves with it, a resident of another

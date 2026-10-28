@@ -695,6 +695,15 @@ Guards: 595 actor, 270 runtime, six causal, 35 app, and five profile tests;
 kernel graph remains a DAG. No Android performance measurement was made.
 Do not move room rescue policy back into the body kernel.
 
+### K23 — Observation-owned default cast
+
+`90e68b736`: observation initializes `FramedCast`; session/match code publishes
+it for camera framing. Possession initializes control state only. State, wire
+keys, and scheduling stay the same.
+Guards: 595 actor and 140 observation tests, five profiles, 35 workspace
+policies, and 53 absence contracts. The app compiles.
+Do not make possession setup a prerequisite for camera cast projection.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

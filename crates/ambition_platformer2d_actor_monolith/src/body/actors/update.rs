@@ -990,7 +990,7 @@ pub(crate) fn crawler_neighbor_blocks(
 /// onto `ActorControl` so `emit_brain_action_messages` sees the same frame the old
 /// fused loop did.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn integrate_actor_body(
+fn integrate_actor_body(
     actor_entity: Entity,
     // Whose cues this body emits (A13). Read-only, looked up by entity so it does
     // not have to ride the already-12-wide cluster tuple.
@@ -1358,39 +1358,7 @@ fn bounding_box(points: &[ae::Vec2]) -> Option<ae::Aabb> {
     ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y)
 }
 
-/// PHASE — integrate sim bodies. The ONE scheduled movement phase for every
-/// non-boss sim body: it reads each body's brain-produced `ActorControl` and moves
-/// it through the shared movement kernel (`ae::step_motion`).
-///
-/// There is no separate home/player movement route. The phase is a thin driver over
-/// TWO per-body integrators that are SIBLINGS — each bottoms out in that one engine
-/// seam, differing only in the species-specific orchestration wrapped around it:
-/// - ACTOR bodies (`FeatureSimEntity`, not player, not boss): [`integrate_actor_body`]
-///   (AI eval + surface-walker/flight tuning around the seam, then blink SFX/VFX,
-///   the shark-charge crash, and the frame-oriented `CenteredAabb` publish).
-/// - HOME/PLAYER bodies (`PlayerEntity`): [`crate::avatar::integrate_home_body`]
-///   (hitstun gate + ledge-platform carry + reset teleport around the seam, writing
-///   the `PlayerBodyFrameOutput` hand-off the home reset-policy + presentation phases
-///   consume).
-///
-/// The two live in disjoint queries because they are disjoint archetypes
-/// (`With<PlayerEntity>` vs `Without<PlayerEntity>`) with different cluster shapes —
-/// they cannot share one Bevy loop, but they DO share the one movement seam, which
-/// is the whole point of the unification.
-///
-/// It integrates position ONLY — it ticks no brain and mirrors no read-model.
-/// Surface-walker anti-clump steering reads the neighbor index
-/// [`observe_actor_decision_inputs`] published to [`ActorSteering`].
-/// The cue and event writers this integration publishes through.
-///
-/// ONE PARAMETER RATHER THAN FOUR, and the reason is a hard ceiling rather than
-/// taste. A Bevy system takes at most sixteen parameters; this one sat at
-/// sixteen and the `causal` feature adds the seventeenth, so **with that feature
-/// on `integrate_sim_bodies` stopped being a system at all** — and the error
-/// says `no method named `in_set``, naming the registration rather than the
-/// limit, which is why an optional feature could be unbuildable without anyone
-/// noticing. Bundling is what the camera resolve already does for the same
-/// reason.
+/// Publish movement cues and hit requests from body integration.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct BodyIntegrationCues<'w> {
     pub sfx: ambition_sfx::SfxWriter<'w>,
@@ -1403,6 +1371,9 @@ pub struct BodyIntegrationCues<'w> {
     pub movement_ops: Option<MessageWriter<'w, crate::causal::BodyMovementOps>>,
 }
 
+/// Advance all live bodies in the shared integration phase.
+/// Brains publish accepted control before this phase. Each body reads the
+/// collision world for its room and its own contact, tuning, and envelope data.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     // A13: whose cues each body emits, looked up by entity. A separate read-only
@@ -1468,6 +1439,7 @@ pub fn integrate_sim_bodies(
             // `presentation.rs` inserts it precisely so a seated fighter and a worn player move
             // alike, and the only consumer in the repository was the PLAYER loop below.
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
+            Option<&ambition_combat::BodyEnvelope>,
             // Has this body's death window been opened (ADR 0033)? ⛔⛔ THIS WAS
             // HARD-CODED `false` at the `step_body` call, under a comment
             // stating as a FACT that `OutOfPlay` is only ever granted to a
@@ -1487,16 +1459,6 @@ pub fn integrate_sim_bodies(
             With<FeatureSimEntity>,
             With<ambition_combat::components::ActorTarget>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            // POLICY (§A1/R1.1): a boss integrates through the SAME
-            // `integrate_actor_body` (R1.1 dissolved its bespoke integrator), but is
-            // driven from its OWN chain-1 `integrate_boss_bodies` — deliberately kept in
-            // that schedule slot so the boss's presentation ordering stays byte-identical.
-            // Excluding it here prevents a double integrate. Folding the boss INTO this
-            // query (the optional "no boss arm") would need a chain reorder for a BLIND
-            // one-frame pose lag, and the boss's chain-1 presentation systems remain
-            // regardless — so the carve-out is a presentation-ordering choice, not an
-            // un-unified integrator.
-            Without<ambition_boss_encounter::BossConfig>,
         ),
     >,
     // Home/player bodies (primary + any brain-driven clone). Disjoint from the
@@ -1574,6 +1536,7 @@ pub fn integrate_sim_bodies(
         clusters,
         playback,
         authored_tuning,
+        envelope,
         out_of_play,
     ) in &mut actors
     {
@@ -1596,9 +1559,7 @@ pub fn integrate_sim_bodies(
             &mut combat,
             control.as_deref_mut(),
             anim.as_deref_mut(),
-            // No actor carries a `BodyEnvelope` today — its collision box is its
-            // footprint, so `CenteredAabb` publishes from `kin.size` (None).
-            None,
+            envelope.map(|envelope| envelope.0),
             &mut motion_model,
             // Ridden means somebody is IN the saddle, not merely that a saddle
             // exists: an empty `MountSlot` outlives its rider's dismount.

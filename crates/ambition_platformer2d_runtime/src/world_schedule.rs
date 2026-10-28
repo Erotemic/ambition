@@ -558,16 +558,18 @@ impl Plugin for WorldPrepSchedulePlugin {
                 // damage are registered below on their owning phase sets.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
-                // The boss brain decided in front of the control gate (below);
-                // integration consumes the gated frame here. Boss bodies exist
-                // only where named bosses do, so the boss steps sleep where the
-                // room's game has none (`Capability::BossEncounters`).
-                // Each visits boss bodies (its query names a boss-only component); with none it is idle.
-                integrate_boss_bodies.run_if(any_with_component::<ambition_boss_encounter::BossConfig>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
-                update_ecs_bosses.run_if(any_with_component::<ambition_combat::components::BossPhase>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+        );
+        app.add_systems(
+            sim,
+            update_ecs_bosses
+                .run_if(any_with_component::<ambition_combat::components::BossPhase>)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters,
+                ))
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
         // R1.3: the SIM owns the boss animation frame + writes the geometry sample
         // (retiring the render→sim write-back in `animate_bosses`). Runs after the
@@ -982,7 +984,7 @@ mod actor_decision_phase_tests {
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         let graph = schedules.get(sim).expect("sim schedule must exist").graph();
-        for leaf in ["integrate_boss_bodies", "update_ecs_bosses", "tick_boss_brains_system", "drive_boss_animators",
+        for leaf in ["update_ecs_bosses", "tick_boss_brains_system", "drive_boss_animators",
         ] {
             assert_membership(graph, leaf, CapabilitySet(Capability::BossEncounters));
         }

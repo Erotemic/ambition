@@ -960,12 +960,10 @@ systems in `Update` are not gated yet: they despawn visuals, so each needs
 the same publish-or-clean reading first. MEASURED (the same census after it): systems run in
 the GGRS tick 472 → 446 (portal-named 36 → 10), in the frame 1,403 → 1,374.
 
-**The boss steps and the mounts sleep too (2026-10-17).** Six per-tick boss
-steps were outside the boss capability's set (`integrate_boss_bodies`,
-`update_ecs_bosses`, `tick_boss_brains_system`, `drive_boss_animators`, the
-boss attack trigger and projection); no Mary-O, Sanic or Smash content makes
-a boss body, and they now join it (witness
-`the_boss_steps_are_in_the_boss_capability`). `Capability::Mounts`: the
+**Boss behavior and mounts use capability gates.** Boss phase maintenance,
+brain decisions, animation, and the attack trigger and projection use the
+boss capability's set (witness `the_boss_steps_are_in_the_boss_capability`).
+Body integration uses the common body phase for each controller kind. `Capability::Mounts`: the
 mount crate's seven systems, through its sets; Mary-O and Sanic declare no
 mounts, Ambition and Smash keep them (witness
 `mounts_sleep_in_mary_os_rooms_and_run_in_ambitions`, red at each half).

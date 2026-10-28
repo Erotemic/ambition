@@ -167,15 +167,15 @@ for one target grant neither seat.
 | two participants | `possession_end_to_end::two_participants_possess_drive_and_release_independently` |
 | two participants under rollback | `possession_end_to_end::rollback_preserves_two_participants_possession_handoffs` |
 
-**Control-writer census (2026-10-08):** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
-classifies each `ActorControl` writer against `ControlGate`: 10 before, 12
-after, 0 unordered. The after-gate list is declared in the test
-(`WRITES_CONTROL_AFTER_THE_GATE`), with a reason for each row. The four rows
-marked "produces" are the open debt: the boss road (brain, commanded move,
-conducted facing) and the shark departure.
+**Control ordering:**
+`sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
+checks every declared `ActorControl` writer in the shipped schedule. The
+post-gate writers consume or route accepted control. Boss bodies now use
+`integrate_sim_bodies`; they have no separate scheduled integration loop.
 
-**Open:** the regrouping; the distinction of home-avatar, driver, camera and
-participant identities; full simulation arms for removal of a controlled body,
+**Open:** body reaction clocks still differ between home, actor, and boss
+routes. Continue the regrouping and the distinction of home-avatar, driver,
+camera and participant identities; full simulation arms for removal of a controlled body,
 action continuity and no double body tick (the schedule-level
 `no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by
 two systems).

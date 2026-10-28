@@ -55,7 +55,6 @@ pub(crate) mod actors;
 mod aggression;
 mod anim_helpers;
 mod body_identity;
-mod boss_bodies;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
@@ -98,7 +97,6 @@ pub use aggression::{
     arm_requested_challenges, tick_pending_challenges,
 };
 use ambition_platformer2d_core::movement::MotionModel;
-pub use boss_bodies::integrate_boss_bodies;
 pub use brain_effects::spawn_projectiles_from_brain_actions;
 pub use damage::apply_feature_hit_events;
 pub use drawn_ledges::follow_drawn_ledges;

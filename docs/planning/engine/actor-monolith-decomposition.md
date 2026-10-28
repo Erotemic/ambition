@@ -645,6 +645,9 @@ state only.
 against the exit below and close the A4 acceptance arms. Possession stores
 one record for each participant seat. Two participants can possess, drive,
 and release separate bodies through one control path, including under rollback.
+Boss bodies now use the common integration phase. Their optional envelope,
+authored tuning, contact field, and movement cues use the same data path as
+other actor bodies. Boss phase maintenance runs after integration.
 Keep accepted control, body custody, motion, and action execution together.
 Capability profiles remain a separate C2/SDK exit.
 

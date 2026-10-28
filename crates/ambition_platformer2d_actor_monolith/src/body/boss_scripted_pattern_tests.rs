@@ -525,7 +525,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     let aabb = ae::Aabb::new(spawn, combat_size * 0.5);
     // A boss IS an aerial actor since AS4c: drive the boss pattern's
     // `velocity_target` through the SHARED flight limb (the production path,
-    // `integrate_boss_bodies` → `ActorMut::update`, direct-velocity). This
+    // `integrate_sim_bodies` → `ActorMut::update`, direct-velocity). This
     // exercises the flight-limb wall-collision sweep — the same guard the old
     // bespoke float had — over the REAL integration a boss now uses.
     let mut seed = ambition_body_seed::ActorClusterSeed::new(

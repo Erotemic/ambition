@@ -624,7 +624,7 @@ impl Plugin for SanicRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::ControlledBrainTick)
+            .after(ambition_platformer2d::actors::control::ControlledBrainTick)
             .before(ambition_platformer2d::actors::control::BodyControlGate);
         // After the gate: read the rev and transform from the technique edges
         // the gate resolved. This runs in `WorldPrep`, where the gate is,

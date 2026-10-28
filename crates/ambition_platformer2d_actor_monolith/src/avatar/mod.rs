@@ -17,9 +17,7 @@ pub use character_execution::{
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
     HomeBodyAbilities,
 };
-pub use systems::{
-    regen_player_mana, tick_controlled_brains, ControlledBrainTick,
-};
+pub use systems::regen_player_mana;
 
 /// Build the scratch state of a home body at `at`, with its abilities. Each
 /// seat's home body starts from this (`session::setup::spawn_home_body`).
@@ -28,58 +26,4 @@ pub fn home_body_scratch(
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> ambition_platformer2d_core::BodyClusterScratch {
     ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(at, abilities)
-}
-
-/// Install the avatar's player-input stage into `schedule`.
-///
-/// ⭐ THE CRATE NAMES ITS OWN SYSTEMS AND THE COMPOSITION NAMES THE PHASES. Every
-/// set used here is `shared_tangle`'s published `PlayerInputSet`, which this crate
-/// already depends on — which is the whole test for whether a block can be carved
-/// at all: **an owner that cannot NAME its anchors cannot install itself**, and
-/// excluding shared vocabulary from ATTRIBUTION is not the same as excluding it
-/// from REACHABILITY.
-///
-/// ⛔ AND `close_death_interlude` IS DELIBERATELY NOT HERE, though a census listed
-/// it beside these. It orders `.before(sandbox_reset::RoomReplayAdmission)`, a set
-/// owned by `ambition_platformer2d_runtime`, and this crate does not depend on the
-/// runtime — measured, not assumed. ⇒ That block is IRREDUCIBLE: only the
-/// composition can name both sides, which is a composition doing its job rather
-/// than a leak.
-pub fn install_avatar_player_input(
-    app: &mut bevy::prelude::App,
-    schedule: impl bevy::ecs::schedule::ScheduleLabel + Clone,
-) {
-    use ambition_platformer2d_shared_tangle::schedule::PlayerInputSet;
-    use bevy::prelude::IntoScheduleConfigs as _;
-
-    // Derive the canonical persona before brain/effect consumers. Identity
-    // changes refresh the full persona; a live ability edit on an id the
-    // catalog does not know preserves authored movement state.
-    app.add_systems(
-        schedule.clone(),
-        apply_worn_character_gameplay.in_set(PlayerInputSet::Persona),
-    );
-    // Universal-brain seam: translate this frame's slot input into each
-    // controlled body's `ActorControl` frame.
-    app.add_systems(
-        schedule.clone(),
-        tick_controlled_brains
-            .in_set(ControlledBrainTick)
-            .in_set(PlayerInputSet::Brain),
-    );
-    // Body-mode policy (crouch / morph / climb) consumes FINISHED control and
-    // its slot gestures, so it runs after both publication phases and before
-    // `WorldPrepSet::Integrate` consumes the resize/mode change. ⭐ An autonomous
-    // body's mode follows THIS tick's decision rather than the last one — the AI
-    // frame did not exist yet when this sat in `PlayerInput`.
-    //
-    // ⛔ THESE COMMENTS CAME WITH THE CODE, and carrying them was not
-    // tidiness. A carve DELETES the block it moves, and every reason written
-    // beside that block goes with it unless somebody carries it — which is the
-    // one edit shape where losing a specification produces no warning and no
-    // failing test.
-    app.add_systems(
-        schedule,
-        crate::body_mode::update_body_mode.in_set(PlayerInputSet::BodyMode),
-    );
 }

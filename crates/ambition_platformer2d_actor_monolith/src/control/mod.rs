@@ -10,6 +10,8 @@ pub mod input_systems;
 pub mod possession;
 pub mod queries;
 mod raw_publication;
+mod participant_input;
+pub use participant_input::{ControlledBrainTick, HeldControlFrame, tick_controlled_brains};
 
 pub use authority::project_driving_participant;
 pub use input_systems::{

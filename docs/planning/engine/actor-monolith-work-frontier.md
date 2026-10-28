@@ -182,7 +182,9 @@ Body reactions use one early body phase. Recovery follows body proper time;
 hitstop expiry follows the unscaled simulation step. Observer time requests
 follow the body's driving seat, not its home marker.
 
-`control` owns hold blanking, commanded movement, and action-scheme acceptance.
+`control` owns participant input, held-frame history, hold blanking, commanded
+movement, and action-scheme acceptance. Runtime registers the input phases
+directly; the avatar forwarding installer is deleted.
 `BodyControlGate` is the action-scheme ordering point. Each body reads its own
 room's driven techniques when it has `DrivingParticipant`; the primary
 observation projection grants no technique. The prompt uses the same relation.

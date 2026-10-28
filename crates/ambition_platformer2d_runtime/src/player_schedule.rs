@@ -137,20 +137,24 @@ impl Plugin for PlayerSchedulePlugin {
                 .in_set(PlayerInputSet::Device),
         );
 
-        // ⭐ THE AVATAR INSTALLS ITS OWN PLAYER-INPUT STAGE. Three blocks that
-        // named five of that crate's private systems became one call. Every set
-        // involved is `shared_tangle`'s published `PlayerInputSet`, which the
-        // avatar crate already depends on — which is the whole test for whether a
-        // block can be carved: an owner that cannot NAME its anchors cannot
-        // install itself.
-        //
-        // ⛔ `close_death_interlude` IS DELIBERATELY NOT AMONG THEM, though a
-        // census listed it as reducible beside these. It orders
-        // `.before(crate::sandbox_reset::RoomReplayAdmission)`, a set this crate
-        // owns, and `actor_monolith` does not depend on the runtime — measured, not
-        // assumed. ⇒ That block is IRREDUCIBLE: only the composition can name both
-        // sides, which is a composition doing its job rather than a leak.
-        ambition_platformer2d_actor_monolith::avatar::install_avatar_player_input(app, sim);
+        // Resolve the persona before body-control consumers.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay
+                .in_set(PlayerInputSet::Persona),
+        );
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::control::tick_controlled_brains
+                .in_set(ambition_platformer2d_actor_monolith::control::ControlledBrainTick)
+                .in_set(PlayerInputSet::Brain),
+        );
+        // Body mode consumes finished participant and autonomous control before integration.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::body_mode::update_body_mode
+                .in_set(PlayerInputSet::BodyMode),
+        );
         // Causal recording runs in the simulation schedule after the frame stamp so
         // replay state and publisher timing refer to the same simulation frame.
         #[cfg(feature = "causal")]
@@ -163,7 +167,7 @@ impl Plugin for PlayerSchedulePlugin {
                     // Observe movement intent after the brain. The observer is read-only so
                     // instrumentation cannot perturb rollback state.
                     crate::causal::record_player_movement_intent
-                        .after(ambition_platformer2d_actor_monolith::avatar::ControlledBrainTick),
+                        .after(ambition_platformer2d_actor_monolith::control::ControlledBrainTick),
                 )
                     .in_set(crate::causal::RecordingSet::Publish),
             )

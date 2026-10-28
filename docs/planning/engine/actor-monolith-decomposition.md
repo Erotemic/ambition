@@ -34,9 +34,11 @@ The session lifecycle and room-crossing policy now have a separate owner,
 `ambition_platformer2d_session`, above the actor kernel. Publication and runtime
 call that owner directly. The actor kernel has no production dependency on it.
 
-The remaining work is responsibility separation. Keep device input and global schedule assembly at runtime. Move the remaining cross-domain adapters to their owners. Keep accepted control, body custody,
-body motion, and action execution together. A dependency on a lower domain is
-valid when the kernel needs that domain's facts.
+The remaining work is responsibility separation. Keep device input and global
+schedule assembly at runtime. Control owns participant input and held-frame
+history. Move the remaining cross-domain adapters to their owners. Keep accepted
+control, body custody, body motion, and action execution together. A dependency
+on a lower domain is valid when the kernel needs that domain's facts.
 
 The instrument counts textual `crate::<module>` paths inside one crate. It
 misses many imported names, cross-crate dependencies, shared writers, message

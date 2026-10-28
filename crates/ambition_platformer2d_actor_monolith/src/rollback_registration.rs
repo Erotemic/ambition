@@ -83,7 +83,7 @@ where
     // The frame a held movement stick was pressed in: a rewind into a hold
     // must read the stick in the frame it was pressed in, or a resimulated
     // turn of gravity reads it the other way.
-    registrar.rollback_component_clone_probed::<crate::avatar::systems::HeldControlFrame>(
+    registrar.rollback_component_clone_probed::<crate::control::HeldControlFrame>(
         OWNER,
         "actor.held_control_frame",
         |hold| {

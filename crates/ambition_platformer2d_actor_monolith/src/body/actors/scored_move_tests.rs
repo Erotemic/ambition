@@ -1235,7 +1235,7 @@ fn the_reach_is_that_of_the_move_the_press_starts() {
 /// no move has none, and the shadow then uses its stated assumption.
 #[test]
 fn a_watcher_reads_a_swings_reach_from_its_hitbox() {
-    use crate::features::ecs::perception::attack_reach_of;
+    use crate::body::perception::attack_reach_of;
     let reach = |offset: f32| {
         attack_reach_of(Some(&ambition_combat::moveset::MovePlayback::new(strike("poke", offset), 1.0)))
     };

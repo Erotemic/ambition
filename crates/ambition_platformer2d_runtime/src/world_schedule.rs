@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(test)]
 use ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet;
-use ambition_platformer2d_actor_monolith::*;
-use ambition_platformer2d_actor_monolith as body;
+use ambition_platformer2d_actor_monolith::body::*;
+use ambition_platformer2d_actor_monolith::body;
 use ambition_boss_encounter::ecs::{
     drive_boss_animators, project_boss_attack_state_from_move, update_ecs_bosses,
 };
@@ -97,7 +97,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // release that announces its end, so both land this tick.
                 ambition_persistence::npc_provocation::record_npc_provocations
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::npc_provocation::NpcProvocationChanged>)
-                    .after(ambition_platformer2d_actor_monolith::apply_release_provocations),
+                    .after(ambition_platformer2d_actor_monolith::body::apply_release_provocations),
                 crate::effect_bus::apply_gameplay_sfx_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::GameplaySfxRequested>),
             )
@@ -195,11 +195,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             // the conversation plugin. the CHANNEL is untouched — chests, pickups and
             // interactions still write it from inside the simulation, and `sim_core_resources`
             // registers it.
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::ChallengeRequested>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::BrainCommand>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::ReleaseProvocation>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::PetRequested>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::WearRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::ChallengeRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::BrainCommand>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::ReleaseProvocation>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::PetRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::WearRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
@@ -255,7 +255,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // the temporal twin of the `ConversationCutBark` message port.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::speak_conversation_cut_barks
+            ambition_platformer2d_actor_monolith::body::speak_conversation_cut_barks
                 .run_if(ambition_platformer2d_core::a_message_waits::<ambition_conversation::ConversationCutBark,
                     >,
                 )
@@ -420,7 +420,7 @@ pub struct WorldPrepSchedulePlugin;
 impl Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        app.add_plugins(ambition_platformer2d_actor_monolith::BodySimulationPlugin);
+        app.add_plugins(ambition_platformer2d_actor_monolith::body::BodySimulationPlugin);
         // AE6: the rules a MATCH plays under, resolved from its declaration
         // folded over those baselines — so a stage never writes them. In
         // WorldPrep because every reader is later (PlayerSimulation/Combat),

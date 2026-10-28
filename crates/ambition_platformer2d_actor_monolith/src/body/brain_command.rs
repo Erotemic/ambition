@@ -127,7 +127,7 @@ fn resolve_command_preset(
             }
             ambition_characters::control::brain_binding::AutonomousDefault::None => {
                 warn!(
-                    target: "crate::brain_command",
+                    target: "crate::body::brain_command",
                     "BrainCommand RestoreDefault for {}: binding has no autonomous default \
                      (not a catalog-backed actor); command rejected",
                     sim_id.as_str(),
@@ -161,7 +161,7 @@ fn apply_brain_selection(
     // the lowering cannot happen without one.
     profile_body: Option<(&ActorConfig, &ambition_combat::components::ActorIdentity)>,
     // The character's own policy, resolved by IDENTITY — see
-    // [`character_policy`](crate::features::ecs::character_policy). `None` only
+    // [`character_policy`](crate::body::character_policy). `None` only
     // where no cast can answer, and then the body's current policy stands in.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
     abilities: ambition_platformer2d_core::AbilitySet,
@@ -179,7 +179,7 @@ fn apply_brain_selection(
     {
         let Some((config, identity)) = profile_body else {
             warn!(
-                target: "crate::brain_command",
+                target: "crate::body::brain_command",
                 "BrainCommand RestoreDefault for {}: its character's own policy is the                  default, but the body carries no ActorConfig to lower it against;                  command rejected",
                 sim_id.as_str(),
             );
@@ -194,7 +194,7 @@ fn apply_brain_selection(
         // Reject, loudly, like every other unresolvable command.
         let Some(profile) = character_profile else {
             warn!(
-                target: "crate::brain_command",
+                target: "crate::body::brain_command",
                 "BrainCommand RestoreDefault for {}: its binding says the CHARACTER \
                  owns the default policy, and the character could not be resolved \
                  (no WornCharacter, or no prepared cast containing it, or it \
@@ -204,7 +204,7 @@ fn apply_brain_selection(
             return false;
         };
         *brain =
-            crate::features::ecs::character_policy::brain_from_profile(config, identity, profile, abilities);
+            crate::body::character_policy::brain_from_profile(config, identity, profile, abilities);
         binding.restore_default();
         return true;
     }
@@ -213,7 +213,7 @@ fn apply_brain_selection(
     };
     let Some(new_brain) = ambition_platformer2d_actor_spawn::brain_builders::catalog::build_brain_from_preset(&(catalog), resolved_preset.as_str(), ctx) else {
         warn!(
-            target: "crate::brain_command",
+            target: "crate::body::brain_command",
             "BrainCommand for {}: unknown brain preset `{}` (not in brain_presets); command rejected",
             sim_id.as_str(),
             resolved_preset,
@@ -305,7 +305,7 @@ pub fn apply_brain_commands(
         // once per body. `None` where no cast can answer; the lowering then
         // falls back to the body's current policy, which is the fixture road.
         let character_profile = prepared.get().zip(worn).and_then(|(registry, worn)| {
-            crate::features::ecs::character_policy::character_autonomous_profile(registry, worn)
+            crate::body::character_policy::character_autonomous_profile(registry, worn)
         });
 
         // Under MOUNT CONTROL the live `Brain` is the mount's swapped-in one, not
@@ -349,7 +349,7 @@ pub fn apply_brain_commands(
         // wherever it happens to stand would silently move its home.
         let Some(authored) = authored else {
             warn!(
-                target: "crate::brain_command",
+                target: "crate::body::brain_command",
                 "BrainCommand for {}: the body has a brain binding but no authored \
                  home to rebuild around; command rejected",
                 sim_id.as_str(),
@@ -382,7 +382,7 @@ pub fn apply_brain_commands(
 /// `RestoreDefault`): the policy value a provocation replaced. Nothing else: provocation changes who is deciding and
 /// no body fact, so tuning and capabilities are exactly as construction built
 /// them and a re-derivation here could only overwrite them (it did — see
-/// [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)).
+/// [`peaceful_config`](crate::body::autonomous_reconcile::peaceful_config)).
 fn apply_catalog_mode(
     policy: Option<Mut<ambition_combat::actor_tuning::ActorPolicy>>,
     // See the `Some` arm below: a character that states its own policy is
@@ -396,7 +396,7 @@ fn apply_catalog_mode(
         policy.0 = profile;
         return;
     }
-    let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config();
+    let peaceful = crate::body::autonomous_reconcile::peaceful_config();
     policy.0 = peaceful.brain_profile;
     // THE REPERTOIRE IS NOT RESTORED HERE, because nothing took it away. What a
     // body can do is the projection of its identity, its worn equipment and its
@@ -492,7 +492,7 @@ fn update_source_only(
         .is_none()
     {
         warn!(
-            target: "crate::brain_command",
+            target: "crate::body::brain_command",
             "BrainCommand for {} (under temporary control): unknown preset `{}`; source unchanged",
             sim_id.as_str(),
             resolved,

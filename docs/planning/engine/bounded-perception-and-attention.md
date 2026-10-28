@@ -20,7 +20,7 @@ brain's view was about 89% of decision cost in a 130-body room.
 
 | Increment | State | Where |
 | --- | --- | --- |
-| 1. A brain declares what it needs | landed | `PerceptionRequirement` (`None` / `TargetBelief` / `TacticalWorld`) in `ambition_characters::perception`; the `None` gate in `features/ecs/actors/update.rs` |
+| 1. A brain declares what it needs | landed | `PerceptionRequirement` (`None` / `TargetBelief` / `TacticalWorld`) in `ambition_characters::perception`; the `None` gate in `body/actors/update.rs` |
 | 2. Cheap target belief | landed | `perception::nearest_hostile_peer` borrows the peer slice and allocates nothing. Seven of nine brain templates declare `TargetBelief`; only `Smash` and `Fighter` build a `WorldView` |
 | 3. Attention budget | landed | `build_world_view` keeps at most `TACTICAL_ATTENTION` (16) peers, ranked hostile first, then squared distance, then id. The rest is `WorldView.remainder: AttentionRemainder { actors, hostiles, nearest_unattended_hostile_dist_sq }` |
 | 4. Bounded crowd representation | open | see "Target representation" |

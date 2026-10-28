@@ -1303,7 +1303,7 @@ already: `BossCatalog` is core state (`runtime/src/sim_core_resources.rs:194-203
 and the `encounters-without-named-bosses` profile is witnessed; the demo hosts
 simply do not ask. `BossEncounterSimulationPlugin` initializes the catalog a
 second time (`boss_encounter/src/lib.rs:132`), and the run condition at
-`actor_monolith/src/features/mod.rs:1094-1102` tests a resource that is now
+`actor_monolith/src/body/mod.rs:1094-1102` tests a resource that is now
 always there. The extension phases `technique_execution` and `boss_conduct`
 (about 29 systems) and `wielded_use`/`module_entity_tick` (about 20) are core,
 whatever the profile. Since 2026-10-16 the Mary-O and Sanic hosts build the
@@ -1318,7 +1318,7 @@ until its fighter kit does (D4).
 
 MEASURED. `NarrativeInputPlugin<M>` (`ambition_conversation/src/ledger.rs:247`)
 adds three systems per payload; twelve payloads (two in `ambition_conversation`,
-seven in `actor_monolith/src/features/mod.rs:1491-1497`, three in
+seven in `actor_monolith/src/body/mod.rs:1491-1497`, three in
 `ambition_content`) make 36 systems; a standalone game runs nine (27). The seven
 monolith ones and the ten outside `ConversationPlugin` are
 not removed by `Capability::Dialogue`. Every writer is in `ambition_conversation`
@@ -1384,7 +1384,7 @@ key `HashMap`s by `String`, per body per tick.
 ### F7 — Two systems visit every entity every tick
 
 MEASURED (source). `project_wallet_shields`
-(`actor_monolith/src/features/wallet_shield.rs:32`) and
+(`actor_monolith/src/body/wallet_shield.rs:32`) and
 `brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:91`)
 iterate a query with no required component, so they visit every entity in the
 world each tick (the hub census counts about 8000 entities, 1300 live). A body
@@ -1710,7 +1710,7 @@ are marked changed a frame. Of ours:
   `update.rs:1508-1543`). Cause (source read): `as_actor_mut`
   (`actor_clusters.rs:163`) takes `&mut` of each cluster through `Mut<T>`,
   which marks it changed whether or not the step writes it.
-- More per-body writes each frame: `BodyLifeStats` (`features/mod.rs:280`),
+- More per-body writes each frame: `BodyLifeStats` (`body/mod.rs:280`),
   `ResolvedTechniqueEdges` (`starting_character.rs:705`), `BodyMelee`,
   `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
   `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
@@ -2008,7 +2008,7 @@ session-edge check from the existing harness.
 3. **C3 Mounts.** `MountsPlugin` takes `combat_schedule.rs:776-800` and
    `install_mount_pose_systems`; the mount ports in the boss phases are
    installed only with mounts, decided by the composition root. 7 systems.
-4. **C4 Match stocks.** `StocksMatchPlugin` takes `features/mod.rs:925-975` and
+4. **C4 Match stocks.** `StocksMatchPlugin` takes `body/mod.rs:925-975` and
    the finish zoom; the Smash and versus rules assert it. 7 systems.
 5. **C5 Grabs.** `CapturePlugin` takes `combat_schedule.rs:525-672`; the control
    gate chain splits on two capture-owned sets (same order). 14 systems, only

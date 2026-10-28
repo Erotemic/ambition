@@ -213,7 +213,7 @@ mod breakable_geometry_agreement {
     ///
     /// A solid breakable is published twice, by two systems in two modules that
     /// never reference each other: `refresh_breakable_damageable_volumes`
-    /// (`features/ecs/target_volumes.rs`) writes the volume a hit is tested
+    /// (`body/target_volumes.rs`) writes the volume a hit is tested
     /// against, and `rebuild_feature_ecs_world_overlay` above writes the block a
     /// projectile and a body collide with. They agree today because both read the
     /// same `CenteredAabb` — which is agreement by construction and therefore

@@ -4,7 +4,7 @@
 //! invariants — all driven through the cluster scratch views without a renderer.
 
 use super::*;
-use crate::features::SeedActorIntegrationTestExt;
+use crate::body::SeedActorIntegrationTestExt;
 use ambition_combat::events::{FeatureCombatTuning};
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a
@@ -297,7 +297,7 @@ fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
 // body AABB, dismount morphs the archetype) deleted with the
 // mount/rider split. The composite is now two linked entities;
 // coverage lives in
-// `crate::features::ecs::mount_pair_tests`.
+// `crate::body::mount_pair_tests`.
 
 /// With the brain→sim seam (`ActorControlFrame` + uniform `step_motion`) the wall blocks them, so
 /// the position must stay on the safe side of the wall after one tick of forced chase.

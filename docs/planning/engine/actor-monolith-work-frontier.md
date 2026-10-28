@@ -137,7 +137,7 @@ abstraction.
 
 **Source regions:** `control/authority.rs`, `control/input_systems.rs`,
 `control/possession.rs`, `body_custody.rs`, live actor clusters, `avatar` and
-`features/ecs/actors/update.rs`. **Destination:** coherent actor and control
+`body/actors/update.rs`. **Destination:** coherent actor and control
 modules in the same package. Possession eligibility stays optional ability
 policy. Generic motion stays at its body owner.
 

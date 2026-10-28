@@ -214,7 +214,7 @@ provider registry, new global resource, or duplicate saved state.
   because a rest clears those flags. The catalog's
   `RespawnPolicy::death_record` says which record a policy keeps (an
   exhaustive match). The policy-to-flag glue stays with the one writer
-  (`features/ecs/damage/actor_hit.rs`). The `fate_flags` module is deleted.
+  (`body/damage/actor_hit.rs`). The `fate_flags` module is deleted.
 - **Shrine.** `HealShrine`, `heal_save_shrine_system` and its tests moved to
   the new crate `ambition_shrine`. The crate publishes a `ShrineRest` set;
   the checkpoint resume orders after the set, not after the function. The
@@ -618,8 +618,14 @@ Persistence owns durable NPC provocation facts, their reducer, and the saved
 NPC dialogue flag name. Runtime keeps their existing ordering. No system
 invocation is added.
 
-**Remaining D33 work:** expose the owned body API and remove the old
-`features::ecs` topology and foreign forwarding exports. Capability profiles
+The public `body` API owns body execution. The old `features::ecs` tree,
+controller-named movement wrapper, and crate-root forwarding exports are gone.
+Foreign types are read from their owners.
+
+**Remaining D33 work:** move global moving-platform advancement and collision
+cache retirement out of the avatar/body kernel. The world owner advances all
+live rooms. Runtime composes it between body rescue and the body-contact
+snapshot, with the same phase and deferred visibility. Capability profiles
 remain a separate C2/SDK exit.
 
 ### Migration acceptance for each packet

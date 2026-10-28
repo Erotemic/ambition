@@ -223,7 +223,7 @@ fn attach_quasar_overlays(
             Option<&Anchor>,
             Option<&FrameInSprite>,
             Option<&SessionScopedEntity>,
-            Has<ambition_platformer2d::actors::empowerment::Empowered>,
+            Has<ambition_platformer2d::actors::body::empowerment::Empowered>,
         ),
         (With<PlayerVisual>, Without<MaryOQuasarSource>),
     >,
@@ -345,7 +345,7 @@ fn quasar_shows(
 /// (`the_first_quasar_is_drawn::her_first_quasar_is_drawn_at_once`).
 fn declare_quasar_demand(
     settings: Res<MaryOQuasarShaderSettings>,
-    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>, Has<ambition_platformer2d::actors::empowerment::Empowered>), With<PlayerVisual>>,
+    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>, Has<ambition_platformer2d::actors::body::empowerment::Empowered>), With<PlayerVisual>>,
     demand: Option<ResMut<ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemand>>,
 ) {
     let Some(mut demand) = demand else {
@@ -375,7 +375,7 @@ fn sync_quasar_overlays(
             Option<&FrameInSprite>,
             &MaryOQuasarSource,
             Option<&Visibility>,
-            Has<ambition_platformer2d::actors::empowerment::Empowered>,
+            Has<ambition_platformer2d::actors::body::empowerment::Empowered>,
         ),
         Without<MaryOQuasarOverlay>,
     >,

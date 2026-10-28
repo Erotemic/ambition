@@ -596,7 +596,7 @@ impl Plugin for SanicRulesPlugin {
             // absorb a hit here, and the rings scatter.
             app.declare_rules(
                 scope,
-                ambition_platformer2d::actors::wallet_shield::WalletShieldRule,
+                ambition_platformer2d::actors::body::wallet_shield::WalletShieldRule,
             );
             // Sanic's portal windows are the small authored cone. The
             // viewer-dependent cone misdraws at Sanic's speed. This is Sanic's
@@ -686,7 +686,7 @@ impl Plugin for SanicRulesPlugin {
         // reason; the super row states the traits.
         app.configure_sets(
             sim,
-            ambition_platformer2d::actors::empowerment::EmpowermentExpiry
+            ambition_platformer2d::actors::body::empowerment::EmpowermentExpiry
                 .before(emit_sanic_skid_sfx),
         );
         let milestone_sfx = emit_sanic_milestone_sfx
@@ -842,9 +842,9 @@ fn toggle_sanic_form(
 /// Sanic's transformation beat: its length and its slow-down are `super_form`
 /// in the pack's `sanic_rules.ron`. He holds his taunt and cannot be touched
 /// while it runs.
-fn super_form_beat() -> ambition_platformer2d::actors::transform_beat::TransformBeatPolicy {
+fn super_form_beat() -> ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
     let form = crate::rules::sanic_rules().super_form;
-    ambition_platformer2d::actors::transform_beat::TransformBeatPolicy {
+    ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
         duration: form.beat_seconds,
         anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
         clock_scale: form.beat_clock_scale,
@@ -921,7 +921,7 @@ fn sync_super_form_traits(
         if to_super {
             if let Some(body) = body {
                 commands.entity(body).try_insert(
-                    ambition_platformer2d::actors::transform_beat::TransformBeatRequested(
+                    ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested(
                         super_form_beat(),
                     ),
                 );

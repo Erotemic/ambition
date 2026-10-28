@@ -159,7 +159,7 @@ pub enum PetStage {
 
 /// A conversation asked one body to pet another, by live identity.
 ///
-/// Routed by identity for the reason [`crate::features::ChallengeRequested`]
+/// Routed by identity for the reason [`crate::body::ChallengeRequested`]
 /// is: the narrative ledger releases it again on every replay of its tick, and
 /// an `Entity` is not stable across that. The identity is the stable id in its
 /// live room, because two instances of one room hold the same stable ids.
@@ -232,7 +232,7 @@ pub fn apply_pet_requests(
         let (Some(petter), Some(petted)) = (entity_of(&request.petter), entity_of(&request.petted))
         else {
             warn!(
-                target: "crate::features::pet",
+                target: "crate::body::pet",
                 "a pet of {} by {} names no live body; ignoring",
                 request.petted,
                 request.petter,
@@ -241,7 +241,7 @@ pub fn apply_pet_requests(
         };
         let Ok((aabb, interaction)) = pettable.get(petted) else {
             warn!(
-                target: "crate::features::pet",
+                target: "crate::body::pet",
                 "{} is not a character that can be talked to; ignoring the pet",
                 request.petted,
             );
@@ -252,7 +252,7 @@ pub fn apply_pet_requests(
             .and_then(|row| row.petting.as_ref())
         else {
             warn!(
-                target: "crate::features::pet",
+                target: "crate::body::pet",
                 "{} has no `petting` on its catalog row; ignoring the pet",
                 request.petted,
             );
@@ -318,7 +318,7 @@ pub fn apply_pet_requests(
         };
         let Some(side) = [near, -near].into_iter().find(|side| fits(*side)) else {
             warn!(
-                target: "crate::features::pet",
+                target: "crate::body::pet",
                 "no room beside {} for {} to stand and pet it; ignoring the pet",
                 request.petted,
                 request.petter,

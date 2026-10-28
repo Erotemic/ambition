@@ -784,15 +784,15 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
         app.init_resource::<GameplayBanner>();
         app.insert_resource(CharacterCatalog::empty());
         app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
-        app.add_message::<crate::features::ReleaseProvocation>();
-        app.add_message::<crate::features::BrainCommand>();
+        app.add_message::<crate::body::ReleaseProvocation>();
+        app.add_message::<crate::body::BrainCommand>();
         app.insert_resource(AmbitionGameSave::default());
         app.insert_resource(ambition_persistence::quest::QuestRegistry::default());
         app.add_systems(
             Update,
             (
                 apply_actor_stimuli,
-                crate::features::apply_release_provocations,
+                crate::body::apply_release_provocations,
                 ambition_persistence::npc_provocation::record_npc_provocations,
             )
                 .chain(),
@@ -834,7 +834,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
 
     // Released: live AND durable.
     app.world_mut()
-        .write_message(crate::features::ReleaseProvocation::new(ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("parrot"), None)));
+        .write_message(crate::body::ReleaseProvocation::new(ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("parrot"), None)));
     app.update();
     assert_eq!(
         *app.world().get::<ActorDisposition>(npc).unwrap(),

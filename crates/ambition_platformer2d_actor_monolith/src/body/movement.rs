@@ -1,12 +1,7 @@
-//! Actor physics/AI integration: the per-frame tick that drives actor
-//! movement + attack geometry through the [`ActorMut`] ECS view. EVERY actor —
-//! grounded, aerial, and the adhesive crawler — runs the one shared movement
-//! kernel ([`ActorMutIntegrationExt::integrate_body`] → `ae::step_motion`, borrowing the
-//! actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut` view). The
-//! kernel picks the physics by the body's explicit `MotionModel`; the flight
-//! limb vs grounded spine split rides `flight.fly_enabled` inside the
-//! axis-swept policy. Attack AABBs are derived here; archetype tuning comes
-//! from the [`super::CharacterRoster`].
+//! Body movement and contact attacks through the shared movement kernel.
+//!
+//! The body's explicit motion model selects its physics policy. This module
+//! supplies live movement and contact behavior for the body seed's ECS view.
 
 use ambition_body_seed::clusters::ActorMut;
 use super::*;
@@ -23,11 +18,8 @@ const BODY_CONTACT_MIN_KNOCKBACK: f32 = 0.6;
 
 /// Simulation behavior layered over the spawn crate's mutable actor view.
 ///
-/// `ActorMut` is owned by `ambition_platformer2d_actor_spawn` because that crate
-/// owns the ECS cluster/query seam. The per-tick enemy/NPC integration remains
-/// feature-simulation policy, so it is expressed as this local extension trait
-/// rather than an inherent impl on a foreign type or a dependency back from the
-/// spawn capability into the monolith.
+/// `ambition_body_seed` owns `ActorMut`. This kernel owns its live movement
+/// and action behavior. The extension keeps the seed independent of execution.
 pub(crate) trait ActorMutIntegrationExt {
     #[allow(clippy::too_many_arguments)]
     fn update(

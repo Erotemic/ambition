@@ -10,7 +10,7 @@
 //!
 //! ⛔ THE MONOLITH STILL BUILDS PAIRS AND THAT IS CORRECT. 106 references to
 //! these components live in its construction and spawn roads; after the carve
-//! they spell `crate::` instead of `crate::features::` and compile
+//! they spell `crate::` instead of `crate::body::` and compile
 //! unchanged. An inward edge is a caller naming a domain, not a dependency the
 //! domain has.
 //!

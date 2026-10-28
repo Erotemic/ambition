@@ -236,7 +236,7 @@ fn dead_mount_dissolves_link_keeping_records() {
         Update,
         (
             enforce_mount_rider_link,
-            crate::features::ecs::dismounted_rider::rebuild_dismounted_rider_brains,
+            crate::body::dismounted_rider::rebuild_dismounted_rider_brains,
         )
             .chain(),
     );
@@ -379,7 +379,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
         Update,
         (
             enforce_mount_rider_link,
-            crate::features::ecs::dismounted_rider::rebuild_dismounted_rider_brains,
+            crate::body::dismounted_rider::rebuild_dismounted_rider_brains,
             log_mount_died,
         )
             .chain(),
@@ -1095,7 +1095,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
-    use crate::features::route_boss_strikes_to_limbs;
+    use crate::body::route_boss_strikes_to_limbs;
     use ambition_boss_encounter::BossConfig;
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{
@@ -1250,7 +1250,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
-    use crate::features::route_boss_strikes_to_limbs;
+    use crate::body::route_boss_strikes_to_limbs;
     use ambition_boss_encounter::{BossEncounterPhase, PhaseTrigger};
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{

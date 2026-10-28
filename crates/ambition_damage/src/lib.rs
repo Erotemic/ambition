@@ -1365,7 +1365,7 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 ///
 /// four GAME call sites order against this function by name — one in
 /// `ambition_demo_mary_o`, three in `ambition_demo_sanic`, all reaching through
-/// the facade for an engine leaf (`actors::features::ecs::damage_apply::…`).
+/// the facade for an engine leaf (`actors::body::damage_apply::…`).
 /// That path is itself the tell: a consumer that has to spell four module levels
 /// to place its own system is depending on engine internals, which is what the
 /// facade exists to prevent.

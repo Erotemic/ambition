@@ -2153,7 +2153,7 @@ responsibility to its owner and keep one body, control, and action path.
 
 | # | Item | Next step |
 |---|---|---|
-| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Startup body policy, durable NPC adapters, and rollback declarations now follow their owners. Finish the public body API and remove the old features::ecs topology and foreign forwarding exports. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
+| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Startup body policy, durable NPC adapters, and rollback declarations now follow their owners. The public `body` API replaces the old features::ecs tree and root forwarding exports. Move global platform advancement and collision-cache retirement to the world owner, with runtime ordering between body rescue and the contact snapshot. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`
@@ -2703,8 +2703,8 @@ fingerprint; a sheet whose packing alone differs gives the same one.
 
 ### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
 
-**Owner:** `features/brain_command.rs` (`MountedBrainCache`, the source-only
-arm) and the dismounted-rider road (`features/ecs/dismounted_rider.rs`).
+**Owner:** `body/brain_command.rs` (`MountedBrainCache`, the source-only
+arm) and the dismounted-rider road (`body/dismounted_rider.rs`).
 
 **Ruling:** Q76 (2026-10-03): keep mount/rider support and give it an early
 customer (a character riding the dog, or the robot commandeering a shark).

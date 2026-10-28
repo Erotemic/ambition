@@ -7,7 +7,7 @@
 //! already-hostile re-derive — in place, no cluster swap, no entity churn.
 
 use bevy::prelude::*;
-use crate::features::ActorMutIntegrationExt;
+use crate::body::ActorMutIntegrationExt;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_combat::events::GameplayBanner;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
@@ -88,9 +88,9 @@ pub fn apply_actor_stimuli(
                 let actor = cq.as_actor_mut();
                 let provokes = provoked_policy.is_some() && aggression.provoked();
                 let text = if provokes {
-                    crate::features::npcs::npc_hostile_bark_line(&catalog, &interaction.interactable)
+                    crate::body::npcs::npc_hostile_bark_line(&catalog, &interaction.interactable)
                 } else {
-                    crate::features::npcs::npc_hit_bark_line(
+                    crate::body::npcs::npc_hit_bark_line(
                         &catalog, &interaction.interactable, aggression.strikes,
                     )
                 };
@@ -169,7 +169,7 @@ pub fn apply_actor_stimuli(
                 provoked: true,
             });
         }
-        crate::features::ecs::actors::provoke_actor_in_place(
+        crate::body::actors::provoke_actor_in_place(
             &mut commands,
             entity,
             &mut em,
@@ -210,7 +210,7 @@ impl bevy::ecs::entity::MapEntities for PendingChallenge {
 
 /// A conversation asked for a fight, by live identity.
 ///
-/// The routing is the one [`crate::features::BrainCommand`] already uses, and for the same
+/// The routing is the one [`crate::body::BrainCommand`] already uses, and for the same
 /// stated reason — *"so the runtime switch is deterministic and snapshot-safe"*. The identity is
 /// the stable id in its live room, so a challenge in one instance of a room does not provoke the
 /// same authored body in another.
@@ -239,7 +239,7 @@ pub fn arm_requested_challenges(
         };
         let Some(target) = entity_of(&request.target) else {
             warn!(
-                target: "crate::features::aggression",
+                target: "crate::body::aggression",
                 "challenge for {} names no live body; ignoring", request.target,
             );
             continue;

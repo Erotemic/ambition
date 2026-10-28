@@ -3,7 +3,7 @@
 //! Branches on `ActorDisposition`, not an actor type — every actor is the same
 //! unified cluster.
 
-use crate::features::ActorMutIntegrationExt;
+use crate::body::ActorMutIntegrationExt;
 use bevy::prelude::Entity;
 
 use super::super::ae;

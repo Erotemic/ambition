@@ -245,7 +245,7 @@ fn no_system_is_registered_twice_in_one_schedule() {
             "allegiance::stamp_new_projectile_allegiance",
             "delayed bolts take their side inside Materialize, not next frame",
         ),
-        // `features/mod.rs` — once in `WorldPrep` for the pogo derivation and the
+        // `body/mod.rs` — once in `WorldPrep` for the pogo derivation and the
         // collision overlay, once between `Playback` and `Resolve` for the damage
         // pass. Same rule, two consumers with different timing needs.
         (

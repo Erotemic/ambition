@@ -2,7 +2,7 @@
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
 use super::*;
-use crate::features::ActorMutIntegrationExt;
+use crate::body::ActorMutIntegrationExt;
 use ambition_body_seed::clusters::ActorMut;
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
@@ -90,7 +90,7 @@ pub(crate) fn observe_actor_decision_inputs(
             With<ambition_platformer2d_core::movement::MotionModel>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
-            Without<crate::features::ecs::dormancy::Dormant>,
+            Without<crate::body::dormancy::Dormant>,
         ),
     >,
 ) {
@@ -161,7 +161,7 @@ pub(crate) fn maintain_actor_pre_decision_state(
             With<ambition_platformer2d_core::movement::MotionModel>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
-            Without<crate::features::ecs::dormancy::Dormant>,
+            Without<crate::body::dormancy::Dormant>,
         ),
     >,
 ) {
@@ -230,9 +230,9 @@ pub fn tick_actor_brains(
         ambition_time::GameplayElapsed,
     >,
     // Peers, projectiles and hostility: what a body can perceive this tick.
-    perceived: crate::features::ecs::perception::PerceivedWorld,
+    perceived: crate::body::perception::PerceivedWorld,
     // How far a sighted body sees: one value for the session, read here.
-    senses: crate::features::ecs::perception::SenseExtent,
+    senses: crate::body::perception::SenseExtent,
     // Capture, as a fact this phase reads and hands on. The brain never
     // touches `CapturedBy` — a pure decision reaching into the ECS is what the
     // perception layer exists to prevent — so the relationship is resolved HERE,
@@ -270,7 +270,7 @@ pub fn tick_actor_brains(
     decision_facts: Res<ActorDecisionFacts>,
     // The routes each navigating body can know this tick, observed in the
     // preceding phase (`navigation::advise_navigation`).
-    navigation: Res<crate::features::ecs::navigation::NavigationAdvice>,
+    navigation: Res<crate::body::navigation::NavigationAdvice>,
     // ⭐ THE STAGE'S DECLARED COMBAT LAW, so a fighter ranking its finishers
     // spends the same percent curve the hit resolver does. `None` is the
     // undeclared world — every Ambition room — and resolves to the identity
@@ -405,8 +405,8 @@ pub fn tick_actor_brains(
             // body still integrates, so a dormant actor mid-fall keeps falling
             // and simply stops choosing. Absent in a room whose game states no
             // `DormancyRule`, so this filter changes nothing for content that
-            // has not asked. See `features::ecs::dormancy`.
-            Without<crate::features::ecs::dormancy::Dormant>,
+            // has not asked. See `body::dormancy`.
+            Without<crate::body::dormancy::Dormant>,
         ),
     >,
 ) {
@@ -440,7 +440,7 @@ pub fn tick_actor_brains(
         let (Some(body), Some(memory)) = (body, memory) else {
             continue;
         };
-        let Some(perception) = crate::features::ecs::perception::perception_of(seated || summoned, extent)
+        let Some(perception) = crate::body::perception::perception_of(seated || summoned, extent)
         else {
             continue;
         };
@@ -451,7 +451,7 @@ pub fn tick_actor_brains(
             .stamped(entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ordinal);
         if body.policy.0.shares_sightings && body.health.alive() && memory.0.room() == memory_room {
-            crate::features::ecs::perception::crew_calls(
+            crate::body::perception::crew_calls(
                 entity,
                 rooms.of(entity),
                 body.kin.pos,
@@ -493,7 +493,7 @@ pub fn tick_actor_brains(
         // A body whose senses this session cannot decide does not decide. It
         // still integrates and still takes hits; see `perception::perception_of`.
         let Some(perception_policy) =
-            crate::features::ecs::perception::perception_of(seated || summoned, extent)
+            crate::body::perception::perception_of(seated || summoned, extent)
         else {
             continue;
         };
@@ -548,7 +548,7 @@ pub fn tick_actor_brains(
             };
             if body.policy.0.shares_sightings && body.health.alive() {
                 if let Some(memory) = perception_memory.as_deref_mut() {
-                    crate::features::ecs::perception::hear_crew(
+                    crate::body::perception::hear_crew(
                         &crew_calls,
                         this_actor_entity,
                         room,
@@ -1213,7 +1213,7 @@ pub(crate) fn integrate_actor_body(
             });
         }
     }
-    crate::features::emit_movement_fx(
+    crate::body::emit_movement_fx(
         sfx,
         vfx,
         &move_events,
@@ -1227,8 +1227,8 @@ pub(crate) fn integrate_actor_body(
     // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
     // just the dust (§A9 follow-up). `advance_body_anim_overlay_clocks` decays it.
     if let Some(anim) = anim.as_deref_mut() {
-        crate::features::arm_ground_contact_anim_overlay(anim, move_events.ground_contact);
-        crate::features::arm_movement_anim_overlays(anim, &move_events);
+        crate::body::arm_ground_contact_anim_overlay(anim, move_events.ground_contact);
+        crate::body::arm_movement_anim_overlays(anim, &move_events);
     }
     // Publish the actor's footprint ORIENTED to its reference frame (a
     // surface-walker's frame is its clung surface; everyone else's is gravity at
@@ -1803,7 +1803,7 @@ pub fn apply_actor_contact_damage(
 ) {
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
-    let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
+    let mut pending: Vec<(Entity, Entity, crate::body::movement::ContactAttack)> = Vec::new();
     for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding, encounter,
     ) in
         &mut set.p0()
@@ -2645,7 +2645,7 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
 }
 
 /// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
-/// ([`crate::features::npcs::npc_ambient_bark_line`]) mutters a line every
+/// ([`crate::body::npcs::npc_ambient_bark_line`]) mutters a line every
 /// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
 /// still showing a hit-flash bubble (so it never talks over a hit bark). The
 /// stochastic parrot is the first user; any NPC gains barks by adding a pool.
@@ -2729,7 +2729,7 @@ pub fn tick_npc_idle_barks(
         // line never got a timer before, and giving every NPC one would grow
         // this map with entries that can never fire.
         let Some(timer) = timers.get_mut(&identity.id) else {
-            if super::super::npcs::npc_ambient_bark_line(
+            if crate::body::npcs::npc_ambient_bark_line(
                 catalog,
                 &interaction.interactable,
                 situation,
@@ -2750,7 +2750,7 @@ pub fn tick_npc_idle_barks(
             continue;
         }
         let rotation = *rotations.get(&identity.id).unwrap_or(&0);
-        let Some(line) = super::super::npcs::npc_ambient_bark_line(
+        let Some(line) = crate::body::npcs::npc_ambient_bark_line(
             catalog,
             &interaction.interactable,
             situation,

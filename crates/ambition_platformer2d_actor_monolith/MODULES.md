@@ -8,6 +8,7 @@
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | Body traversal through authored room geometry. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
+| [`body`](src/body/mod.rs) | Accepted body control, decisions, movement, and action execution. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode transitions from accepted control and contact facts. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
@@ -15,7 +16,6 @@
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
 | [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
-| [`features`](src/features/mod.rs) | Body decisions, accepted controls, movement, and action execution. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
@@ -33,7 +33,7 @@ their schedules. See the
 [decomposition plan](../../docs/planning/engine/actor-monolith-decomposition.md).
 
 The public crate root exposes owned operations and semantic modules.
-`features` is private implementation. Call lower domain owners for their types;
+`body` exposes accepted control and body execution. Call lower domain owners for their types;
 do not restore foreign forwarding exports here. `avatar` contains controlled
 body integration; controller kind does not select a separate physics path.
 

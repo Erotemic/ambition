@@ -781,7 +781,7 @@ fn no_simulation_tick_falls_between_the_generation_commit_and_its_adoption() {
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();
 
-    let projection = ambition_platformer2d::actors::fighter_ladder::project_authored_fighter_ladder;
+    let projection = ambition_platformer2d::actors::body::fighter_ladder::project_authored_fighter_ladder;
 
     // ⛔ THE PREMISE, AND IT IS THE HALF THAT MAKES THIS ARM ABOUT THE SHIPPED
     // GAME: both systems are registered exactly once, in the schedules the

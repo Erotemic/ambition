@@ -18,7 +18,7 @@
 | [`reset`](src/reset/mod.rs) | New Game and the room-replay vocabulary. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback state owned by the lifecycle coordinator. |
 | [`rooms`](src/rooms/mod.rs) | Data-driven sandbox room-set and loading-zone graph. |
-| [`setup`](src/setup.rs) | Sim/presentation split for the sandbox's startup setup. |
+| [`setup`](src/setup.rs) | Initial session bodies from prepared or live session inputs. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | The lifecycle snapshot encoding. |
 | [`teardown`](src/teardown.rs) | Re-establish the process-global mirrors of live-session state at BOTH edges of a gameplay session. |
 

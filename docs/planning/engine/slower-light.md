@@ -142,7 +142,7 @@ while the drama (warp, Doppler, contraction) is presentation.
   (`crates/ambition_sim_view/src/pose_view.rs`), the camera snapshot carries
   the observer's `CameraFocus2d::velocity_world`, and perception carries
   `SelfView { pos, vel }`.
-- #2 is met: `build_world_view` (`features/ecs/perception.rs`) takes explicit
+- #2 is met: `build_world_view` (`body/perception.rs`) takes explicit
   inputs and returns a `WorldView`, with no global aliasing live state.
 - #4 is met: `crates/ambition_render/src/screen_effects.rs` (`ScreenEffects`)
   is the full-screen post seam. It runs after the 2D main pass.
@@ -163,7 +163,7 @@ while the drama (warp, Doppler, contraction) is presentation.
 
 - Proper time: ADR 0010/0011, `WorldTime`, `ProperTimeScale`, the moveset's
   `entity_dt` (combat/moveset/mod.rs — the proper-time clock).
-- Perception policy: `features/ecs/perception.rs` (`Perception` enum).
+- Perception policy: `body/perception.rs` (`Perception` enum).
 - Zone precedent: `GravityZone` (platformer_primitives gravity.rs).
 - Observer boundary: E4 / `ambition_sim_view` in the demo plan (track E).
 - Prior art: MIT OpenRelativity / *A Slower Speed of Light* (Unity, open

@@ -8,7 +8,7 @@
 
 
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::handle_player_events;
+use ambition_platformer2d::actors::body::handle_player_events;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::sfx::{SfxMessage, SfxWriter};
 
@@ -48,7 +48,7 @@ pub(super) fn sync_player_presentation(
         frame_out.events.ground_contact.landing_impact_speed(),
     );
     // THE HIT SHAKE IS NOT HERE, AND MUST NOT COME BACK HERE (P4.37). It lives in the ENGINE
-    // now, reading every body: `features::ecs::hit_camera_shake`, scheduled in `CombatSet::Settle`.
+    // now, reading every body: `body::hit_camera_shake`, scheduled in `CombatSet::Settle`.
     //
     // The hard-fall thump below stays: a LANDING genuinely is home presentation
     // (it is read off this body's own `PlayerBodyFrameOutput`), and its SFX is

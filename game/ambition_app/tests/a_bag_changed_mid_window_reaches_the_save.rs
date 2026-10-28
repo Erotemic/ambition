@@ -3507,7 +3507,7 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
 // `.after(Platformer2dSimulationPhase::GameplayEffects)`
 // (`game/ambition_content/src/intro/plugin.rs:145-158`), and its consumer
 // `apply_flag_effects` runs INSIDE `GameplayEffects`
-// (`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:216`). So a
+// (`crates/ambition_platformer2d_actor_monolith/src/body/mod.rs:216`). So a
 // `SetFlagRequested` raised on tick N is read on tick N+1, and
 // `clear_message_on_rollback::<SetFlagRequested>` empties the buffer in
 // `LoadWorld::Mapping`. Review read that as a pending PAST being dropped by a

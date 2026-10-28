@@ -241,7 +241,7 @@ pub fn interact_ecs_actors_and_switches(
             {
                 continue;
             }
-            let request = super::super::npcs::npc_dialogue_request(
+            let request = crate::body::npcs::npc_dialogue_request(
                 interactable,
                 &identity.name,
                 &identity.id,
@@ -283,7 +283,7 @@ pub fn interact_ecs_actors_and_switches(
             acting.consume_interact(subject);
             pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
             banner.show(
-                super::super::npcs::npc_message(interactable, &identity.name, false),
+                crate::body::npcs::npc_message(interactable, &identity.name, false),
                 2.6,
             );
             // THE DIALOGUE MODE IS FOR ONE PLAYER (OW1 cut 7u, Q163). The
@@ -314,7 +314,7 @@ pub fn interact_ecs_actors_and_switches(
                 on: true,
             });
             set_flag.write(SetFlagRequested {
-                id: crate::features::npc_talked_flag(&request.dialogue_id),
+                id: crate::body::npc_talked_flag(&request.dialogue_id),
                 on: true,
             });
             vfx.for_room(live_rooms.of(actor_entity)).write(VfxMessage::Burst {

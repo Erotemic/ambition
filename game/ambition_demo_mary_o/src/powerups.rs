@@ -898,7 +898,7 @@ pub fn sync_grown_form(
         // The transformation MOMENT, in BOTH directions. The shrink clip is about the form, so it gets
         // the same beat the growth does. Same shape as the cue above: the transition picks it.
         commands.entity(body).try_insert(
-            ambition_platformer2d::actors::transform_beat::TransformBeatRequested(
+            ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested(
                 transform_beat_policy(
                     catalog.as_deref(),
                     authored.as_deref(),
@@ -937,7 +937,7 @@ fn transform_beat_policy(
     target_id: &str,
     from_tier: u8,
     to_tier: u8,
-) -> ambition_platformer2d::actors::transform_beat::TransformBeatPolicy {
+) -> ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
     let anim = transition_anim(from_tier, to_tier);
     // A step UP is a moment to savour, so it ASKS the regime to slow the world
     // (`ClockScaleRequest`; a regime with a second participant may refuse). A
@@ -948,7 +948,7 @@ fn transform_beat_policy(
     } else {
         1.0
     };
-    ambition_platformer2d::actors::transform_beat::TransformBeatPolicy {
+    ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
         duration: clip_seconds(catalog, authored, target_id, anim) / clock_scale,
         anim,
         clock_scale,

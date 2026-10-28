@@ -1362,7 +1362,7 @@ impl DrivenBodies<'_, '_> {
 /// spends an Attack press on a specific body's `ActorControl`; walking into a
 /// coin spends nothing. The `ControlledSubject` here is not a player-centrism
 /// leftover — it is "the body whose press this is". The touch-collect fork lives
-/// in `features::ecs::pickups`.
+/// in `body::pickups`.
 ///
 /// it does not DESTROY the item. See [`ItemCustody`].
 pub fn pickup_held_item_system(

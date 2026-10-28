@@ -55,7 +55,7 @@ possession helpers and also reaches feature animation advancement. The latter
 edge needs a phase/geometry classification; replacing it with a message without
 checking its consumers is not a design.
 
-`crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs`
+`crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`
 uses shared body integration from avatar code, but still contains policy and
 population decisions. One shared integration call does not prove every actor
 gets one tick or that home-avatar assumptions have disappeared.

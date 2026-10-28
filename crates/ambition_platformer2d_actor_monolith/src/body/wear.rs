@@ -26,12 +26,12 @@ use ambition_sprite_sheet::character::sheets::AuthoredSheets;
 use ambition_sprite_sheet::character::{catalog_join, CharacterAnim};
 use bevy::prelude::*;
 
-use crate::features::transform_beat::{TransformBeatPolicy, TransformBeatRequested};
+use crate::body::transform_beat::{TransformBeatPolicy, TransformBeatRequested};
 
 /// A conversation asked one body to wear a catalog character, by live
 /// identity.
 ///
-/// Routed by identity for the reason [`crate::features::ChallengeRequested`]
+/// Routed by identity for the reason [`crate::body::ChallengeRequested`]
 /// is: the narrative ledger releases it again on every replay of its tick, and
 /// an `Entity` is not stable across that.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
@@ -61,7 +61,7 @@ pub fn apply_wear_requests(
     for request in requests.read() {
         let Some(entity) = ids.entity_of(&request.body) else {
             warn!(
-                target: "crate::features::wear",
+                target: "crate::body::wear",
                 "a transform of {} names no live body; ignoring",
                 request.body,
             );
@@ -69,7 +69,7 @@ pub fn apply_wear_requests(
         };
         if catalog.get(request.character.as_str()).is_none() {
             warn!(
-                target: "crate::features::wear",
+                target: "crate::body::wear",
                 "the catalog has no character `{}`; ignoring the transform of {}",
                 request.character.as_str(),
                 request.body,
@@ -78,7 +78,7 @@ pub fn apply_wear_requests(
         }
         let Ok(mut worn) = worn.get_mut(entity) else {
             warn!(
-                target: "crate::features::wear",
+                target: "crate::body::wear",
                 "{} wears no character; ignoring the transform",
                 request.body,
             );

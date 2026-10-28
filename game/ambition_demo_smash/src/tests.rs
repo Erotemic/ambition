@@ -14,7 +14,7 @@ use ambition_platformer2d::engine_core::AabbExt;
 /// would pass for any implementation.)
 #[test]
 fn a_swing_spends_only_the_respawn_grant_on_a_body_that_holds_two() {
-    use ambition_platformer2d::actors::empowerment::Empowered;
+    use ambition_platformer2d::actors::body::empowerment::Empowered;
 use ambition_platformer2d::character::Empowerment;
     use ambition_platformer2d::characters::actor::{BodyHealth, Health, Invulnerability};
 

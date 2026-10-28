@@ -45,17 +45,17 @@
       "class": "a scratch body with no record"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
+      "file": "crates/ambition_platformer2d_actor_monolith/src/body/perception.rs",
       "code": "half_extent: kin.size * 0.5,",
       "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
+      "file": "crates/ambition_platformer2d_actor_monolith/src/body/perception.rs",
       "code": "half_extent: body.kin.size * 0.5,",
       "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/target_volumes.rs",
+      "file": "crates/ambition_platformer2d_actor_monolith/src/body/target_volumes.rs",
       "code": "let volumes = resolved.world_volumes(kin.aabb().center(), side)?;",
       "class": "the centre only"
     },

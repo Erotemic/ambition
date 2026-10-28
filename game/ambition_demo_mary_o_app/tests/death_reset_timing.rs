@@ -5,7 +5,7 @@
 //! awake so the test can distinguish a moving world from a frozen one.
 
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::actors::dormancy::Dormant;
+use ambition_platformer2d::actors::body::dormancy::Dormant;
 use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;

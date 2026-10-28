@@ -390,7 +390,7 @@ impl Plugin for CombatSchedulePlugin {
                 // projectile requests.
                 // After the rig poses resolve: a hand muzzle on a rigged body
                 // reads this tick's hand.
-                ambition_platformer2d_actor_monolith::spawn_projectiles_from_brain_actions
+                ambition_platformer2d_actor_monolith::body::spawn_projectiles_from_brain_actions
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_characters::brain::ActorActionMessage>)
                     .after(ambition_combat::body_rig::BodyRigPoseResolved)
                     .in_set(GameplayGated),
@@ -407,7 +407,7 @@ impl Plugin for CombatSchedulePlugin {
                     // thing it obviously meant. A summon executor IS an effect
                     // executor; saying so is what lets a consumer order against
                     // the phase.
-                    ambition_platformer2d_actor_monolith::apply_summon_effects
+                    ambition_platformer2d_actor_monolith::body::apply_summon_effects
                         .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::EffectRequest>)
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
@@ -824,7 +824,7 @@ impl Plugin for CombatSchedulePlugin {
                 // overlapping an actor while a conversation runs keeps registering
                 // hits (strikes, FX) on it — the dialog half of the "continuous hit"
                 // report. No combat lands in any non-`Playing` mode now.
-                ambition_platformer2d_actor_monolith::apply_feature_hit_events
+                ambition_platformer2d_actor_monolith::body::apply_feature_hit_events
                     .in_set(GameplayGated),
                 // …and the attacker's move learns what that resolution DECIDED.
                 // ⛔ AFTER the actor road, not beside the overlap marker: a block
@@ -836,7 +836,7 @@ impl Plugin for CombatSchedulePlugin {
                         ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::ResolvedBodyHit>
                             .or_else(ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::BlockedBodyHit>),
                     )
-                    .after(ambition_platformer2d_actor_monolith::apply_feature_hit_events)
+                    .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events)
                     .in_set(GameplayGated),
                 // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below
                 // to slot in at exactly this point — AFTER the feature-hit resolution so it
@@ -890,14 +890,14 @@ impl Plugin for CombatSchedulePlugin {
         // next tick is placed from what it read.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::follow_drawn_ledges
+            ambition_platformer2d_actor_monolith::body::follow_drawn_ledges
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );
         // The dismounted-rider rebuild installs itself against the mount crate's
         // PUBLISHED set; this composition supplies only the schedule. The
         // reference defect that line used to carry, and why both anchors are the
         // monolith's to name, are in `install_dismounted_rider_rebuild`.
-        ambition_platformer2d_actor_monolith::install_dismounted_rider_rebuild(app, sim);
+        ambition_platformer2d_actor_monolith::body::install_dismounted_rider_rebuild(app, sim);
         // ⛔⛔ AND EVERY BODY THAT BECOMES DAMAGEABLE IS OBSERVED FOR AN
         // IDENTITY. The contact protocol calls a missing target identity a
         // CONSTRUCTION failure rather than a sort fallback, so the invariant
@@ -911,7 +911,7 @@ impl Plugin for CombatSchedulePlugin {
         // installed: zero unidentified across 120 frame-samples, so `SimId`
         // arrives WITH the body and this is expected to stay at zero — but a
         // future road that mints late should produce a finding, not a crash.
-        ambition_platformer2d_actor_monolith::install_body_identity_census(app, sim);
+        ambition_platformer2d_actor_monolith::body::install_body_identity_census(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

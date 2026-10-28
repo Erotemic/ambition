@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::empowerment::Empowered;
+use ambition_platformer2d::actors::body::empowerment::Empowered;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;

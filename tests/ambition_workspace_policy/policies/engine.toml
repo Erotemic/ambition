@@ -1414,11 +1414,11 @@ id = "engine.enemy-sim-reads-data"
 scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/body/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
 rationale = "per-frame enemy sim reads projected tuning/capabilities, not named archetypes"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/body/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
 forbid = ["CharacterArchetype", ".archetype"]
 production_only = true
 
@@ -2296,11 +2296,11 @@ id = "engine.player-fallbacks-no-raw-query"
 scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs"]
 rationale = "player fallbacks are deterministic by PlayerSlot, not raw Bevy query order"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs"]
 forbid = ["primary_player.iter().next()", "player_query.iter().next()"]
 
 # **`engine.player-fallback-save-sync-documented` WAS HERE AND IS DELETED
@@ -2443,7 +2443,6 @@ source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
 severity = "error"
 production_only = true
 skip_tests = true
-skip_paths = ["features/ecs/actor_tuning.rs", "features/enemies/mod.rs"]
 roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["tuning.surface_walker", ".config.tuning.surface_walker"]
 
@@ -2661,7 +2660,7 @@ skip_paths = [
     # `AccelerationFrame::launch`, and frame-rotated `vel +=` writes at
     # combat/ability seams." These are those seams.
     "ambition_combat/src/moveset/mod.rs",
-    "ambition_platformer2d_actor_monolith/src/features/ecs/damage/actor_hit.rs",
+    "ambition_platformer2d_actor_monolith/src/body/damage/actor_hit.rs",
     # The held-item domain's velocity request (`lower_velocities`): a module
     # SETS a velocity rather than adding an impulse. The grapple's pull is a
     # commanded speed toward the anchor, not a nudge.
@@ -2689,7 +2688,7 @@ skip_paths = [
     # these is one of the forms quoted above, in a file that was never listed.
     #   clank rebound — a combat seam. Two attacks trade and both bodies take an
     #   impulse along the axis between them; the same class as
-    #   `features/ecs/damage/actor_hit.rs` already listed.
+    #   `body/damage/actor_hit.rs` already listed.
     "ambition_combat/src/clank.rs",
     #   guard deflection — the same combat seam as the clank rebound: a strike
     #   turned aside throws the attacker away from the guarded body. It goes

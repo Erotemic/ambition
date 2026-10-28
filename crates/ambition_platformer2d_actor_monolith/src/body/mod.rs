@@ -1,4 +1,4 @@
-//! Body decisions, accepted controls, movement, and action execution.
+//! Accepted body control, decisions, movement, and action execution.
 
 use ambition_characters::actor::limb::fan_out_limb_intents;
 use ambition_persistence::save_data::npc_talked_flag;
@@ -13,8 +13,7 @@ use bevy::prelude::*;
 pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
 pub mod brain_command;
-pub mod ecs;
-pub(crate) mod enemies;
+mod movement;
 pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
@@ -31,8 +30,8 @@ pub use movement_fx::{
     handle_player_events,
 };
 
-pub use ecs::body_identity::{BodyIdentityCensus, install_body_identity_census};
-pub use ecs::dismounted_rider::install_dismounted_rider_rebuild;
+pub use body_identity::{BodyIdentityCensus, install_body_identity_census};
+pub use dismounted_rider::install_dismounted_rider_rebuild;
 pub use npcs::speak_conversation_cut_barks;
 
 use ambition_boss_encounter::ecs::tick_boss_brains_system;
@@ -42,26 +41,83 @@ pub use brain_command::{
     BrainCommand, BrainCommandKind, BrainCommandPlugin, ReleaseProvocation, apply_brain_commands,
     apply_release_provocations,
 };
-pub use ecs::anim_helpers::advance_body_anim_overlay_clocks;
-pub use ecs::{
-    ActorSteering, CHALLENGE_GRACE_S, ChallengeRequested, PendingChallenge, PetRequested,
-    WearRequested, apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
-    apply_summon_effects, arm_requested_challenges, derive_pogo_target_volumes,
-    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
-    refresh_body_damageable_volumes, refresh_boss_damageable_volumes, route_boss_strikes_to_limbs,
-    snapshot_body_contact, spawn_projectiles_from_brain_actions, tick_actor_brains,
-    tick_npc_idle_barks, tick_pending_challenges,
-};
+pub use anim_helpers::advance_body_anim_overlay_clocks;
 
 use ambition_combat::util::*;
+use ambition_characters::actor::BodyCombat;
+use ambition_time::WorldTime;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
-pub(crate) use ecs::{
+pub(crate) use movement::ActorMutIntegrationExt;
+#[cfg(test)]
+pub(crate) use movement::SeedActorIntegrationTestExt;
+
+pub(crate) mod actors;
+mod aggression;
+mod anim_helpers;
+mod body_identity;
+mod boss_bodies;
+#[cfg(test)]
+mod boss_scripted_pattern_tests;
+/// The ladder projection, registered in the actor pipeline beside the brain tick.
+/// The dismount reaction: mount announces, this rebuilds. See its own note.
+pub(crate) mod autonomous_reconcile;
+mod brain_effects;
+pub(crate) mod character_policy;
+mod damage;
+pub mod death_beat;
+mod death_effects;
+mod dismounted_rider;
+pub mod dormancy;
+mod drawn_ledges;
+pub mod errand;
+mod fade_rows;
+#[cfg(test)]
+mod fighter_harness;
+pub mod fighter_ladder;
+mod interact;
+pub mod navigation;
+pub mod perception;
+mod pet;
+mod rest_row;
+mod summon;
+mod talk_spacing;
+mod target_volumes;
+mod wear;
+
+pub(crate) use actors::{
     ActorDecisionFacts, ActorDecisionFrames, maintain_actor_pre_decision_state,
     observe_actor_decision_inputs, publish_actor_decision_frames,
 };
-pub(crate) use enemies::ActorMutIntegrationExt;
+
+pub use actors::{
+    ActorSteering, apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
+    snapshot_body_contact, tick_actor_brains, tick_npc_idle_barks,
+};
+pub use aggression::{
+    CHALLENGE_GRACE_S, ChallengeRequested, PendingChallenge, apply_actor_stimuli,
+    arm_requested_challenges, tick_pending_challenges,
+};
+use ambition_platformer2d_core::movement::MotionModel;
+pub use boss_bodies::integrate_boss_bodies;
+pub use brain_effects::spawn_projectiles_from_brain_actions;
+pub use damage::apply_feature_hit_events;
+pub use drawn_ledges::follow_drawn_ledges;
+pub use fade_rows::{FADE_ROW_WRITER, pin_fade_rows, withdraw_faded_contact};
+pub use interact::{TalkableBodies, interact_ecs_actors_and_switches};
+pub use pet::{
+    PET_SECONDS, PET_WALK_SPEED, PetBeat, PetRequested, PetStage, advance_pet_beats,
+    apply_pet_requests, project_pet_holds,
+};
+pub use rest_row::{REST_ROW_WRITER, pin_rest_rows};
+pub use talk_spacing::{TALK_GAP, TalkSpacing, space_the_talkers};
+pub use wear::{WearRequested, apply_wear_requests};
 #[cfg(test)]
-pub(crate) use enemies::SeedActorIntegrationTestExt;
+mod mount_pair_tests;
+
+pub use summon::apply_summon_effects;
+pub use target_volumes::{
+    derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
+};
 
 /// Advance each body's diagnostic [`ae::BodyLifeStats`].
 ///
@@ -86,7 +142,7 @@ pub fn track_body_life_stats(
 /// the reason they had to leave. This crate still owns WHERE they sit — see
 /// `configure_actor_decision_phases` directly below — and every use in this
 /// file reads the same name through this import.
-pub(crate) use ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet;
+use ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet;
 
 fn configure_actor_decision_phases(app: &mut App) {
     let sim = app.sim_schedule();
@@ -188,7 +244,7 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // after it never hides the body for a frame before its death row.
         app.add_systems(
             sim,
-            ecs::death_beat::advance_death_beats
+            death_beat::advance_death_beats
                 .run_if(any_with_component::<ambition_combat::components::DeathBeat>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );
@@ -222,24 +278,24 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // same-phase deferred commands or write-after-read order require them.
         app.init_resource::<ActorDecisionFacts>();
         app.init_resource::<ActorDecisionFrames>();
-        app.init_resource::<crate::features::ecs::navigation::NavigationAdvice>();
-        app.init_resource::<crate::features::ecs::navigation::RoomNavigation>();
+        app.init_resource::<crate::body::navigation::NavigationAdvice>();
+        app.init_resource::<crate::body::navigation::RoomNavigation>();
         app.init_resource::<ActorSteering>();
         // Every solid body's contact box, resampled before every movement
         // phase. Empty in every composition that grants no body the
         // capability, and an empty snapshot answers `BodyContactField::NONE`
         // for every body — so this resource existing changes nothing on its own.
         app.init_resource::<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>();
-        app.init_resource::<crate::features::ecs::perception::PerceptionPeers>();
-        app.init_resource::<crate::features::ecs::perception::PerceptionProjectiles>();
+        app.init_resource::<crate::body::perception::PerceptionPeers>();
+        app.init_resource::<crate::body::perception::PerceptionProjectiles>();
 
         app.add_systems(
             sim,
             (
                 // Prepare same-tick eligibility before maintenance. The chain flushes
                 // `assess_dormancy` commands before later phases filter on `Dormant`.
-                crate::features::ecs::dormancy::assess_dormancy,
-                crate::features::ecs::fighter_ladder::project_authored_fighter_ladder,
+                crate::body::dormancy::assess_dormancy,
+                crate::body::fighter_ladder::project_authored_fighter_ladder,
             )
                 .chain()
                 .in_set(ActorDecisionSet::Prepare),
@@ -247,16 +303,16 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         app.add_systems(
             sim,
             (
-                crate::features::ecs::perception::collect_perception_peers,
+                crate::body::perception::collect_perception_peers,
                 // While a projectile is live, or last tick's rows remain to clear.
-                crate::features::ecs::perception::collect_perception_projectiles.run_if(
+                crate::body::perception::collect_perception_projectiles.run_if(
                     |live: Query<(), With<ambition_projectiles::LiveProjectile>>,
-                     rows: Res<crate::features::ecs::perception::PerceptionProjectiles>| {
+                     rows: Res<crate::body::perception::PerceptionProjectiles>| {
                         !live.is_empty() || !rows.0.is_empty()
                     },
                 ),
                 observe_actor_decision_inputs,
-                crate::features::ecs::navigation::advise_navigation,
+                crate::body::navigation::advise_navigation,
             )
                 .in_set(ActorDecisionSet::Observe),
         );
@@ -269,8 +325,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // of a held item, as a press pickup is.
         app.add_systems(
             sim,
-            crate::features::ecs::errand::settle_errands
-                .run_if(any_with_component::<crate::features::ecs::errand::Errand>)
+            crate::body::errand::settle_errands
+                .run_if(any_with_component::<crate::body::errand::Errand>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
@@ -283,8 +339,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // next tick.
         app.add_systems(
             sim,
-            crate::features::ecs::errand::cross_on_errands
-                .run_if(any_with_component::<crate::features::ecs::errand::Errand>)
+            crate::body::errand::cross_on_errands
+                .run_if(any_with_component::<crate::body::errand::Errand>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
                 .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
@@ -451,7 +507,7 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // it is faded: derived before the contact pass reads it.
         app.add_systems(
             sim,
-            ecs::withdraw_faded_contact
+            withdraw_faded_contact
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
                 .before(apply_actor_contact_damage),
         );

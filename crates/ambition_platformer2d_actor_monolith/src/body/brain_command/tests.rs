@@ -370,7 +370,7 @@ fn a_carried_rider_switches_live_because_the_ride_masks_nothing() {
 /// A bare `RestoreDefault` would revert only the brain, leaving it hostile.
 #[test]
 fn release_provocation_pacifies_and_restores_default() {
-    use crate::features::ReleaseProvocation;
+    use crate::body::ReleaseProvocation;
     use ambition_combat::components::{ActorAggression, ActorDisposition};
 
     let mut app = App::new();
@@ -542,7 +542,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
         .spawn((
             SimId::placement(sim),
             // The live mind matches the live policy: this body IS fighting.
-            crate::features::ecs::character_policy::brain_from_profile(
+            crate::body::character_policy::brain_from_profile(
                 &character_first_config(),
                 &villager(),
                 provoked_policy(),

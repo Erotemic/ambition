@@ -45,7 +45,7 @@ pub fn integrate_boss_bodies(
     // The composed collision read-API rather than its three ingredients.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    steering: Res<crate::features::ecs::actors::ActorSteering>,
+    steering: Res<crate::body::actors::ActorSteering>,
     mut sfx: ambition_sfx::SfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut hit_events: bevy::prelude::MessageWriter<HitEvent>,
@@ -111,7 +111,7 @@ pub fn integrate_boss_bodies(
             continue;
         };
         let mut em = cq.as_actor_mut();
-        crate::features::ecs::actors::integrate_actor_body(
+        crate::body::actors::integrate_actor_body(
             entity,
             body_sources.get(entity).ok().map(|s| s.id()),
             &mut em,

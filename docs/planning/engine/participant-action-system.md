@@ -108,7 +108,7 @@ floor with no armed length.
 `derive_weapon_readiness` (`ambition_sim_view::control_prompt`) writes it each
 tick onto `BodyWeaponReadiness`, which `RangedRefire` requires. It is declared
 derived (`derived.weapon_readiness`, schema 322), not snapshotted. The prompt's `ready` bit reads it, so a full weapon dims the
-slot as a hot one does. A refused attempt (`features/ecs/brain_effects.rs`)
+slot as a hot one does. A refused attempt (`body/brain_effects.rs`)
 writes `RangedFireRefused { actor, readiness }` and starts no shoot pose,
 sound or shot. Held-item discharge fires through the same attempt with the
 item's own spec, so its refusal is published too. Witnesses: `a_press_during_the_recharge_is_refused_with_its_progress`

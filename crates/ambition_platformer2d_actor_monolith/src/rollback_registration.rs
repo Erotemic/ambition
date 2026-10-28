@@ -31,7 +31,7 @@ where
 
     }
 
-    registrar.require_rollback::<crate::features::transform_beat::TransformBeat>(
+    registrar.require_rollback::<crate::body::transform_beat::TransformBeat>(
         OWNER,
         "entity:transform_beat",
     );
@@ -52,13 +52,13 @@ where
     // must resume the walk, and one before the request must not keep a beat
     // the resimulation has not started yet. The holds and the two poses are
     // derived from the beat, so the beat is the only row.
-    registrar.rollback_component_clone_probed::<crate::features::ecs::PetBeat>(
+    registrar.rollback_component_clone_probed::<crate::body::PetBeat>(
         OWNER,
         "actor.pet_beat",
         |beat| {
             let stage = match beat.stage {
-                crate::features::ecs::PetStage::Walk { remaining } => remaining.to_bits() as u64,
-                crate::features::ecs::PetStage::Gesture { remaining } => {
+                crate::body::PetStage::Walk { remaining } => remaining.to_bits() as u64,
+                crate::body::PetStage::Gesture { remaining } => {
                     (1 << 63) | u64::from(remaining.to_bits())
                 }
             };
@@ -70,7 +70,7 @@ where
     // before the conversation must not keep a record the resimulation has
     // not made. It is the one record of the step: no second decision is
     // made while it is present.
-    registrar.rollback_component_clone_probed::<crate::features::ecs::TalkSpacing>(
+    registrar.rollback_component_clone_probed::<crate::body::TalkSpacing>(
         OWNER,
         "actor.talk_spacing",
         |spacing| {
@@ -99,13 +99,13 @@ where
                 ^ (mode << 60)
         },
     );
-    registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
+    registrar.rollback_component_clone_probed::<crate::body::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",
         |beat| beat.remaining.to_bits() as u64,
     );
     // Probed by value: the request carries the policy of the beat it asks for.
-    registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeatRequested>(
+    registrar.rollback_component_clone_probed::<crate::body::transform_beat::TransformBeatRequested>(
         OWNER,
         "actor.transform_beat_requested",
         |request| {
@@ -123,17 +123,17 @@ where
     // armed was quietly disarmed by a rollback. The insert is a simulation
     // decision now (`arm_requested_challenges`), so it belongs in the snapshot
     // like every other simulation decision.
-    registrar.rollback_component_clone_entity_set::<crate::features::PendingChallenge>(
+    registrar.rollback_component_clone_entity_set::<crate::body::PendingChallenge>(
         OWNER,
         "actor.pending_challenge",
         |pending| pending.challenger.into_iter().collect(),
     );
     registrar
-        .rollback_map_entities::<crate::features::PendingChallenge>(OWNER, "map.pending_challenge");
+        .rollback_map_entities::<crate::body::PendingChallenge>(OWNER, "map.pending_challenge");
 
     // What a body was sent to fetch, and how that ended. Probed by value: a
     // restore that brought back another item or another outcome is a mismatch.
-    registrar.rollback_component_clone_probed::<crate::features::ecs::errand::Errand>(
+    registrar.rollback_component_clone_probed::<crate::body::errand::Errand>(
         OWNER,
         "actor.errand",
         |errand| errand.probe(),
@@ -151,7 +151,7 @@ where
 
     // Presence is authoritative because gameplay edge-triggers on this marker;
     // rollback must restore whether the actor was dormant, not merely re-derive it.
-    registrar.rollback_component_clone::<crate::features::ecs::dormancy::Dormant>(
+    registrar.rollback_component_clone::<crate::body::dormancy::Dormant>(
         OWNER,
         "actor.dormant",
     );
@@ -163,7 +163,7 @@ where
     // `ComponentSnapshotPlugin` for one type ("plugin was already added"), and
     // 56 app tests died on that one line. Two games owning one engine type is
     // duplicate authority; the engine owns it.
-    registrar.rollback_component_clone_probed::<crate::features::empowerment::Empowered>(
+    registrar.rollback_component_clone_probed::<crate::body::empowerment::Empowered>(
         OWNER,
         "feature.empowered",
         |empowered| {
@@ -184,62 +184,62 @@ where
         "republished by body integration every simulation frame",
     );
 
-    registrar.declare_rollback_derived_resource::<crate::features::ActorDecisionFacts>(
+    registrar.declare_rollback_derived_resource::<crate::body::ActorDecisionFacts>(
         OWNER,
         "derived.actor_decision_facts",
         "rebuilt from authoritative body state before every autonomous decision phase",
     );
-    registrar.declare_rollback_derived_resource::<crate::features::ActorDecisionFrames>(
+    registrar.declare_rollback_derived_resource::<crate::body::ActorDecisionFrames>(
         OWNER,
         "derived.actor_decision_frames",
         "rebuilt by autonomous decision and consumed by same-tick control publication",
     );
-    registrar.declare_rollback_derived_resource::<crate::features::ecs::navigation::NavigationAdvice>(
+    registrar.declare_rollback_derived_resource::<crate::body::navigation::NavigationAdvice>(
         OWNER,
         "derived.navigation_advice",
         "rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal",
     );
-    registrar.declare_rollback_derived_resource::<crate::features::ecs::navigation::RoomNavigation>(
+    registrar.declare_rollback_derived_resource::<crate::body::navigation::RoomNavigation>(
         OWNER,
         "derived.room_navigation",
         "a cache of surface graphs, each a pure function of a room's authored geometry and a body's tuning",
     );
-    registrar.declare_rollback_derived_resource::<crate::features::ActorSteering>(
+    registrar.declare_rollback_derived_resource::<crate::body::ActorSteering>(
         OWNER,
         "derived.actor_steering",
         "rebuilt from the authoritative actor population before movement",
     );
 
     registrar
-        .declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionPeers>(
+        .declare_rollback_derived_resource::<crate::body::perception::PerceptionPeers>(
             OWNER,
             "derived.perception_peers",
             "perception snapshot rebuilt every tick before brains read it",
         );
-    registrar.declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionProjectiles>(
+    registrar.declare_rollback_derived_resource::<crate::body::perception::PerceptionProjectiles>(
         OWNER,
         "derived.perception_projectiles",
         "perception snapshot rebuilt every tick before brains read it",
     );
     registrar
-        .clear_message_on_rollback::<crate::features::BrainCommand>(OWNER, "message.brain_command");
+        .clear_message_on_rollback::<crate::body::BrainCommand>(OWNER, "message.brain_command");
     // What a conversation asked the simulation for, released by the
     // narrative ledger at the head of the tick it was stamped for. Cleared on
     // load for the same reason as every other released fact: the resimulated
     // tick is handed it again from the ledger rather than remembering it from
     // the branch that was abandoned.
-    registrar.clear_message_on_rollback::<crate::features::ChallengeRequested>(
+    registrar.clear_message_on_rollback::<crate::body::ChallengeRequested>(
         OWNER,
         "message.challenge_requested",
     );
-    registrar.clear_message_on_rollback::<crate::features::ReleaseProvocation>(
+    registrar.clear_message_on_rollback::<crate::body::ReleaseProvocation>(
         OWNER,
         "message.release_provocation",
     );
-    registrar.clear_message_on_rollback::<crate::features::PetRequested>(
+    registrar.clear_message_on_rollback::<crate::body::PetRequested>(
         OWNER,
         "message.pet_requested");
-    registrar.clear_message_on_rollback::<crate::features::WearRequested>(
+    registrar.clear_message_on_rollback::<crate::body::WearRequested>(
         OWNER,
         "message.wear_requested",
     );

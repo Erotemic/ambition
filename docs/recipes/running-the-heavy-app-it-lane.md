@@ -29,7 +29,7 @@ A system that was put in an early set (`.in_set(WorldPrep)`) while it also ran
 phase. The fixed loop retried the broken schedule forever and leaked memory until
 the machine went down. Guard:
 `the_boss_animator_takes_the_gate_and_not_a_phase` in
-`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs`.
+`crates/ambition_platformer2d_actor_monolith/src/body/mod.rs`.
 
 1. **A set carries a POSITION as well as a gate.** Before you add `.in_set(X)` to
    a system with cross-phase `.after`/`.before` edges, check which set every

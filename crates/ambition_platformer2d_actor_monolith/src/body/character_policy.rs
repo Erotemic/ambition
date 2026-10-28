@@ -28,5 +28,5 @@ pub(crate) fn brain_from_profile(
     profile: BrainProfile,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> Brain {
-    crate::features::ecs::enemy_default_brain(config, &profile, identity, abilities)
+    ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain(config, &profile, identity, abilities)
 }

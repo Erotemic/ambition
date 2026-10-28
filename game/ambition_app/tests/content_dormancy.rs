@@ -2,7 +2,7 @@
 //! stages does.
 //!
 //! Which bodies may sleep is the engine's rule
-//! (`features::ecs::dormancy::wake_radius`); Ambition states the distance for
+//! (`body::dormancy::wake_radius`); Ambition states the distance for
 //! its own rooms (`ambition_content::dormancy`). This moves every brained body
 //! that the real rooms stage far beyond that distance for one tick, then reads
 //! `Dormant`. The expected answer is Ambition's authored intent, stated here
@@ -12,7 +12,7 @@
 //! It also proves that the rule is DECLARED for Ambition's rooms, which a
 //! compile cannot catch: without it, no body sleeps and the hostile half fails.
 
-use ambition_platformer2d::actors::dormancy::Dormant;
+use ambition_platformer2d::actors::body::dormancy::Dormant;
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::limb::Limb;
 use ambition_platformer2d::characters::brain::Brain;

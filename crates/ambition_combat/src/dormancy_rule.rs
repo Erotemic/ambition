@@ -1,6 +1,6 @@
 //! How near an observer must be for a hostile's brain to keep thinking: one
 //! game's rule for its own rooms (`room_rules`, field `hostile_wake_radius`).
-//! The actor crate applies it (`features::ecs::dormancy`); which bodies may
+//! The actor crate applies it (`body::dormancy`); which bodies may
 //! sleep is the engine's decision, not the game's.
 
 /// One game's dormancy rule, declared for the rooms it governs with

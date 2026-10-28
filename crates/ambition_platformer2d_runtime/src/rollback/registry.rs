@@ -689,7 +689,7 @@ mod tests {
         let before = registry_of(&[
             (
                 "actor.anim_override",
-                "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride",
+                "ambition_platformer2d_actor_monolith::body::actor_clusters::ActorAnimOverride",
             ),
             (
                 "player.blink_camera_state",

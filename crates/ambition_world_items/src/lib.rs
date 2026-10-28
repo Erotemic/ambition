@@ -19,7 +19,7 @@
 //! ⭐ **WHY IT IS ITS OWN CRATE (D33, 2026-09-02).** These modules were
 //! `actor_monolith::items::{world_item, item_motion}`, and the reason they could
 //! not leave was one type: the collect pass named
-//! `features::ecs::pickups::TouchCollectorFilter`, which is composed of nothing
+//! `body::pickups::TouchCollectorFilter`, which is composed of nothing
 //! but `PlayerEntity` and `ControlClaims` — both already in `shared_tangle`.
 //! Publishing that filter and its value twin `body_collects_on_touch` downward
 //! is what freed the rest, the same inversion `ActorDecisionSet` and

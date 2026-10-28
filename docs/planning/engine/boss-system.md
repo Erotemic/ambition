@@ -108,7 +108,7 @@ locomotion rows.
 
 - `ambition_characters::boss_encounter::ActorPhaseState`.
 - `ambition_boss_encounter::pattern` (ticker, control flow, seeds, validator).
-- `features/ecs/damage/boss_hit.rs` in the actor monolith: `apply_boss_hit` is
+- `body/damage/boss_hit.rs` in the actor monolith: `apply_boss_hit` is
   the entry; it delegates HP and phase to `apply_entity_boss_damage`, which takes
   its shield through `ambition_damage::WalletArmor`.
 

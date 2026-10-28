@@ -3235,7 +3235,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(include_str!(
-                "../../../../../../game/ambition_content/assets/data/character_catalog.ron"
+                "../../../../../game/ambition_content/assets/data/character_catalog.ron"
             )),
         ),
         );

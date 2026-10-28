@@ -113,7 +113,7 @@ fn the_cut_rope_victory_npc_is_a_damageable_body_with_a_stable_identity() {
 
     let census = sim
         .world()
-        .resource::<ambition_platformer2d::actors::BodyIdentityCensus>()
+        .resource::<ambition_platformer2d::actors::body::BodyIdentityCensus>()
         .clone();
     eprintln!(
         "[road4] observed={} unidentified_at_insertion={} first={:?} still_unidentified_now={:?}",

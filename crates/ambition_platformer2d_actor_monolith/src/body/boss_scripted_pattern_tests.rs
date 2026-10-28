@@ -1,5 +1,5 @@
 use super::*;
-use crate::features::SeedActorIntegrationTestExt;
+use crate::body::SeedActorIntegrationTestExt;
 use ambition_characters::brain::boss_pattern::BossAttackProfile;
 // ⛔ NAMED, because this fixture used to live INSIDE `ambition_boss_encounter`
 // and reached these through `use super::*`. It came back to sit beside the
@@ -209,7 +209,7 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
 
 // They tested `BossRuntime::tick_apple_rain` directly, which no longer exists. The same
 // invariants (downward gravity, owner prefix, self-aabb dodge, full-width coverage,
-// reset-on-leave) are now exercised in `features/ecs/brain_effects.rs::tests` against the
+// reset-on-leave) are now exercised in `body/brain_effects.rs::tests` against the
 // EFFECTS consumer `spawn_apple_rain_from_special_messages`.
 
 #[test]

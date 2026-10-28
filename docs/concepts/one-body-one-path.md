@@ -111,7 +111,7 @@ Attack button exists only while the action scheme carries an Attack slot. An ite
 system that ends the holding (the throw) must also mark the press spent.
 
 **Movement is one phase.** Every body integrates in `integrate_sim_bodies`
-(`ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs`). There
+(`ambition_platformer2d_actor_monolith/src/body/actors/update.rs`). There
 is no separate route for the controlled body.
 `player_body_tick_is_not_the_gameplay_movement_route`
 (`game/ambition_app/tests/unified_body_movement.rs`) forbids a separate

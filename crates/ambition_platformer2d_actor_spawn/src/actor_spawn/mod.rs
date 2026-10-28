@@ -2065,7 +2065,7 @@ pub fn spawn_interactable_into(
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     // ⭐⭐ THE RUNTIME COMPONENT AND ITS AUTHORED NAME, NOT THE AUTHORED SPEC.
     // This took `Authored<InteractableSpec>` and converted it here with
-    // `features::ecs::spawn_static::interactable_from_authored` — an
+    // `body::spawn_static::interactable_from_authored` — an
     // authored-content conversion reached UPWARD from a spawn primitive, and the
     // last of F1's sixteen references. ⇒ The caller already owns it:
     // `spawn_static.rs` both defines that conversion and calls this function.

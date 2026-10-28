@@ -77,6 +77,11 @@ milestones and the composition root controls whether the capability exists and
 the order between published boundaries. A plugin that silently installs
 unrelated capabilities or hides scheduling dependencies is not allowed.
 
+**Portal clip startup, 2026-10-28:** the embedded registry did not prove that
+mesh assets existed. Clip setup now requires both stores. Asset-only hosts
+create no clip quad; repeated mesh-capable setup creates one valid quad.
+Guards: clip material tests, Smash stage and body startup, and the app check.
+
 ## Procedural port installation
 
 The [extension contract](extension-state-and-execution.md) adds executable

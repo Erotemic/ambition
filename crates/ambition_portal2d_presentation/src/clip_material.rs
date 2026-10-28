@@ -196,16 +196,13 @@ impl Material2d for PortalClipMaterial {
     }
 }
 
-/// Register the embedded shader + material pipeline. Called by
-/// [`crate::PortalPresentationPlugin`] when the host runs a real asset/render
-/// stack; headless hosts skip it and draw nothing.
+/// Register the clip material when the host supplies its asset prerequisites.
+/// Asset-only hosts do not install the material or warm a mesh quad.
 pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
-    // `embedded_asset!` needs the AssetPlugin's registry; a headless test app
-    // without assets simply doesn't get the material path.
-    if app
-        .world()
-        .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
-        .is_none()
+    // Shader registration needs the embedded registry. Quad creation also needs
+    // mesh assets; an asset registry alone does not supply them.
+    if !app.world().contains_resource::<Assets<Mesh>>()
+        || !app.world().contains_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
     {
         return;
     }
@@ -290,22 +287,17 @@ mod idempotency_tests {
     use super::*;
     use bevy::asset::AssetPlugin;
 
-    /// Two callers, one material, and `add_plugins` panics on a duplicate. The test
-    /// installs `AssetPlugin`, because without the embedded registry the function
-    /// returns early and never reaches the duplicate path.
+    /// Repeated installation must create one usable warm-up quad.
     #[test]
     fn adding_the_clip_material_twice_is_safe() {
         let mut app = App::new();
-        app.add_plugins(AssetPlugin::default());
-        assert!(
-            app.world()
-                .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
-                .is_some(),
-            "without the embedded registry this test cannot reach the duplicate path"
-        );
+        app.add_plugins((MinimalPlugins, AssetPlugin::default(), bevy::mesh::MeshPlugin));
         add_portal_clip_material_plugin(&mut app);
-        // The second call is the one that used to panic.
         add_portal_clip_material_plugin(&mut app);
-        assert!(app.is_plugin_added::<Material2dPlugin<PortalClipMaterial>>());
+        app.update();
+        let quad = app.world().resource::<PortalPieceQuad>();
+        let meshes = app.world().resource::<Assets<Mesh>>();
+        assert!(meshes.get(&quad.0).is_some());
+        assert_eq!(meshes.len(), 1);
     }
 }

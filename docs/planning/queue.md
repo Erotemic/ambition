@@ -234,22 +234,6 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
-### ARCH-PORTAL-ASSETS — require mesh assets before clip setup
-
-**Owner:** [capability and runtime composition](engine/capability-and-runtime-composition.md).
-
-**Current state:** the portal clip installer checks the embedded asset registry,
-but its startup warm-up also needs mesh assets. A headless host with assets and
-no mesh support panics. The visible-feature Smash suite reaches this state.
-
-**Next:** check the actual clip prerequisites. Cover an asset-only host and a
-mesh-capable host, including repeated installation and startup.
-
-**Acceptance:** an asset-only host steps without a clip warm-up. A mesh-capable
-host creates a valid quad once. The Smash host suite passes with presentation
-compiled in. No dummy mesh resource or optional required parameter is added.
-
-
 ### ARCH-SESSION-RESUME — keep checkpoint startup independent of held use
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),

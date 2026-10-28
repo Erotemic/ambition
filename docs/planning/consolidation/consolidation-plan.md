@@ -454,7 +454,7 @@ wrong owner can break startup, restore or snapshots.
 
 ## 8. C08 — Prune compatibility facades and forwarding mirrors
 
-**State:** OPEN. Construction API slice landed 2026-10-28: providers use the
+**State:** OPEN. Construction API slice landed 2026-10-28 (`f2729b33b`): providers use the
 public session and world APIs. The runtime fixture namespace is deleted.
 `LiveInitialBodySetup` owns policy, grants and the frozen cast; a no-body session
 needs no body inputs. Guards: session setup, host profiles, provider activation,

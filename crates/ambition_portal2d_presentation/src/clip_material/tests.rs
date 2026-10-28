@@ -188,3 +188,13 @@ fn resolve_ifdef(source: &str, def: &str, defined: bool) -> String {
     assert_eq!(keeping, [true], "every #ifdef closed");
     kept.join("\n")
 }
+
+#[test]
+fn an_asset_only_host_does_not_warm_a_clip_quad() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
+    add_portal_clip_material_plugin(&mut app);
+    app.update();
+    assert!(!app.world().contains_resource::<Assets<Mesh>>());
+    assert!(!app.world().contains_resource::<PortalPieceQuad>());
+}

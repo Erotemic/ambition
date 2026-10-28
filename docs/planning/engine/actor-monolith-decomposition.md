@@ -640,6 +640,19 @@ State fields, wire keys, phase order, and invocation counts stay the same.
 Guards: 600 actor, 262 runtime, 116 app, 58 Smash, and five profile tests; 35 workspace policies and 53 absence contracts.
 Do not restore compatibility aliases or foreign type forwarding.
 
+### K20 — World-owned platform step
+
+`7cf962e92` fixes lift detection for ordinary bodies, collision frames, planes,
+and live rooms. `e952081cf` moves platform advancement and collision-cache
+retirement to the world owner. Runtime keeps rescue before the step and contact
+snapshots after it. The portal pose anchor still has one member. State fields,
+wire keys, deferred visibility, and active invocation counts stay the same.
+Guards: 158 world, 597 actor, 262 runtime, 156 app, 58 Smash, and five profile
+tests; 35 workspace policies and 53 absence contracts. The app compiles and the
+kernel graph remains a DAG. Android performance was not measured.
+Do not restore a body-owned global platform driver or gate lift contact by
+controller kind.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

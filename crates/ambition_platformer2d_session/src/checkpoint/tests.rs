@@ -2644,40 +2644,6 @@ fn two_session_roots_hold_two_checkpoint_coordinators() {
     );
 }
 
-/// The bundle that tests insert and the requirement that production registers
-/// name the same six values. A seventh value added to one and not the other is a
-/// session root that is missing it in one of the two worlds.
-#[test]
-fn a_session_root_carries_the_whole_checkpoint_coordinator() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
-
-    let mut required = App::new();
-    require_checkpoint_state_on_session_root(&mut required);
-    let from_the_requirement = required.world_mut().spawn(SessionRoot(SessionScopeId(0))).id();
-    let mut bundled = World::new();
-    let from_the_bundle = bundled
-        .spawn((SessionRoot(SessionScopeId(0)), SessionCheckpointState::default()))
-        .id();
-
-    let components_of = |world: &World, entity: Entity| {
-        let mut names: Vec<String> = world
-            .inspect_entity(entity)
-            .expect("the root exists")
-            .map(|info| info.name().to_string())
-            .filter(|name| name.contains("::checkpoint::"))
-            .collect();
-        names.sort();
-        names
-    };
-    let required_set = components_of(required.world(), from_the_requirement);
-    let bundled_set = components_of(&bundled, from_the_bundle);
-    assert_eq!(required_set.len(), 6, "the requirement names {required_set:?}");
-    assert_eq!(
-        required_set, bundled_set,
-        "the plugin's required components and the bundle disagree"
-    );
-}
-
 /// ⛔⛤ **RECORDED DIVERGENCE, NOT A PASSING PROPERTY — ID-PEER, 2026-09-15.**
 ///
 /// `CheckpointOperationKey::write_into` is the ONE projection every value

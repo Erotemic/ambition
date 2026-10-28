@@ -2379,19 +2379,12 @@ impl Plugin for SessionCheckpointHorizonPlugin {
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
         );
-        // ⚠ THE EDGES ARE INHERITED VERBATIM from the item-pickup chain this
-        // system was carved out of, and A1b is a move: preserving them is what
-        // keeps the churn attributable. They are NOT a derived requirement —
-        // what the resume actually needs is stated in its own doc (the first
-        // tick a constructed session has a body, ungated by `gameplay_allowed`),
-        // and nothing in it concerns a hand. `ItemPickupSet::CoreHeldItems` is
-        // nested in `PlayerSimulation` by its owner, so dropping the membership
-        // would also move the phase — see A1c, which re-derives this ordering as
-        // part of the accepted-restore road.
+        // Resume the constructed body in the simulation phase.
+        // Item capability rules must not suppress this session operation.
         app.add_systems(
             sim,
             restore_checkpoint_on_session_start
-                .in_set(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
                 .after(ambition_shrine::ShrineRest)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Release),
         );

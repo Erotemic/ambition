@@ -68,7 +68,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                crate::sim_clock::time_control::emit_player_time_intent_system
+                crate::sim_clock::time_control::emit_primary_observer_time_intent
                     .in_set(GameplayGated),
                 ambition_time::time_control::apply_clock_scale_requests
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_time::time_control::ClockScaleRequest>)
@@ -95,15 +95,13 @@ impl Plugin for PlayerSchedulePlugin {
             (
                 // Input timers and interaction consume the `WorldTime` snapshot refreshed at the
                 // head of this schedule, then feed the normal input routing window.
-                // THREE systems, one set. They share the refreshed `WorldTime` and
-                // nothing else -- a room cooldown, the home body's reaction
-                // timers, and each seat's direction gestures have different
-                // owners. `InputTimersAdvanced` is what the sandbox reset orders
-                // against, so it stays the dependency whatever it contains.
+                // A room cooldown, body reactions, and seat gestures use the
+                // current time snapshot. Each has its own state owner.
+                // The sandbox reset runs before `InputTimersAdvanced`.
                 (
                     ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown
                         .run_if(ambition_platformer2d_actor_monolith::control::input_systems::a_room_cooldown_runs),
-                    ambition_platformer2d_actor_monolith::control::tick_home_body_reaction_timers,
+                    ambition_platformer2d_actor_monolith::body::advance_body_reactions,
                     ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures,
                 )
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)

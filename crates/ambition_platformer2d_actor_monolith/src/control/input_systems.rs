@@ -39,8 +39,7 @@ pub fn a_room_cooldown_runs(
 
 /// Decay the cooldown that keeps a body from re-entering the door it just used.
 ///
-/// One countdown per seat, all on the world clock, with one owner. It shares
-/// nothing with the two systems below but the clock.
+/// One countdown per seat, on the unscaled simulation step.
 pub fn tick_room_transition_cooldown(
     world_time: Res<ambition_time::WorldTime>,
     mut sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
@@ -48,35 +47,6 @@ pub fn tick_room_transition_cooldown(
     >,
 ) {
     sim_state.tick(world_time.wall_dt());
-}
-
-/// Decay the home body's own reaction timers (`hitstun` / `hitstop` /
-/// `damage-invuln` / `recoil`).
-///
-/// The home/player body is not in the actor tick, so it ticks its OWN timers
-/// here. This is the home body's state, NOT authority over the controlled
-/// subject — a possessed actor ticks its own timers in the actor path. Every
-/// player body iterates, so a co-op or clone body ticks its own.
-///
-/// ⭐ i-frames are a promise to the PLAYER in real seconds — a bullet-time
-/// moment must not hand out longer invulnerability — which is the same reason
-/// the double-tap windows below are unscaled. What was once wrong here is the
-/// WAIVER, not the clock: the `Res<Time>` allowlist entry for this file claimed
-/// "the reaction timers still compute their own scaled dt manually", and no such
-/// scaling exists or should.
-pub fn tick_home_body_reaction_timers(
-    world_time: Res<ambition_time::WorldTime>,
-    mut home_feel_q: Query<
-        &mut ambition_characters::actor::BodyCombat,
-        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-    >,
-) {
-    //  ONE decay, called — not a fourth spelling of it (AC3.3). Two lists for
-    // one rule, disagreeing in both directions.
-    let frame_dt = world_time.wall_dt();
-    for mut combat in &mut home_feel_q {
-        combat.decay_reaction_timers(frame_dt);
-    }
 }
 
 /// Derive each seat's DIRECTION gestures — double-tap down (fast-fall) and
@@ -314,12 +284,6 @@ pub fn interaction_input_system(
 /// `camera_snap_timer`. New presentation-flash timers belong here; gameplay
 /// timers belong in `derive_slot_direction_gestures`.
 ///
-/// ⛔ `preset_flash` LEFT, 2026-08-31. It is a DEVELOPER HUD timer, and winding
-/// it down here was the only thing holding a `ResMut<DeveloperRuntimeState>` in
-/// the simulation kernel's control module —
-/// `ambition_dev_tools::decay_developer_presentation_flash` owns it now, in the
-/// same schedule. `hit_flash` had already left for
-/// `tick_home_body_reaction_timers` (AC3.3).
 pub fn cleanup_timers_system(
     world_time: Res<ambition_time::WorldTime>,
     mut player_q: Query<
@@ -333,12 +297,6 @@ pub fn cleanup_timers_system(
     let Ok(mut blink_cam) = player_q.single_mut() else {
         return;
     };
-    //  `hit_flash` is NOT decayed here any more (AC3.3). It is a body-generic
-    // reaction timer and it decays with the rest of them in
-    // `tick_home_body_reaction_timers`,
-    // which iterates every `PlayerEntity` rather than the home avatar alone —
-    // this system's query could not see a second player body at all.
-    //
     // ⛔⛤ **AND THE BODY-GENERIC ANIM OVERLAYS LEFT FOR THE SAME REASON, 2026-09-12.**
     // This system called `advance_body_anim_overlays` on the PRIMARY player, and
     // the actor tick skipped every `PlayerEntity` — so a second player body,

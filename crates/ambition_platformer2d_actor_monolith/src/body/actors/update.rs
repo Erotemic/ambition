@@ -142,35 +142,6 @@ pub(crate) fn observe_actor_decision_inputs(
     facts.crowd = crowd;
 }
 
-/// MAINTAIN — advance actor reaction clocks before decision and movement.
-///
-/// Observation runs first, preserving the existing rule that perception samples
-/// the pre-decay combat phase while movement consumes the decayed clocks.
-pub(crate) fn maintain_actor_pre_decision_state(
-    world_time: Res<WorldTime>,
-    mut actors: Query<
-        &mut BodyCombat,
-        (
-            With<FeatureSimEntity>,
-            // Exact eligibility from the old fused brain query. `With` keeps
-            // the population contract without borrowing unrelated authority.
-            With<CenteredAabb>,
-            With<ActorIdentity>,
-            With<ActorDisposition>,
-            With<ambition_combat::components::ActorTarget>,
-            With<ambition_platformer2d_core::movement::MotionModel>,
-            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Without<ambition_boss_encounter::BossConfig>,
-            Without<crate::body::dormancy::Dormant>,
-        ),
-    >,
-) {
-    let dt = world_time.sim_dt();
-    for mut combat in &mut actors {
-        combat.decay_reaction_timers(dt);
-    }
-}
-
 /// The causal log's slot in the brain-tick system's parameter bundle.
 ///
 /// `ambition_causal` is an optional, default-off dependency (§2e), so the slot

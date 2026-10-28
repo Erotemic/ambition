@@ -640,16 +640,15 @@ mod actor_decision_phase_tests {
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey, SystemSetKey};
 
-    const DECISION_PHASES: [ActorDecisionSet; 6] = [
+    const DECISION_PHASES: [ActorDecisionSet; 5] = [
         ActorDecisionSet::Targeting,
         ActorDecisionSet::Prepare,
         ActorDecisionSet::Observe,
-        ActorDecisionSet::StateMaintenance,
         ActorDecisionSet::Decide,
         ActorDecisionSet::Publish,
     ];
 
-    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 11] = [
+    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 10] = [
         ("dissolve_settled_grudges", ActorDecisionSet::Targeting),
         ("select_actor_targets", ActorDecisionSet::Targeting),
         ("assess_dormancy", ActorDecisionSet::Prepare),
@@ -658,10 +657,6 @@ mod actor_decision_phase_tests {
         ("collect_perception_projectiles", ActorDecisionSet::Observe),
         ("observe_actor_decision_inputs", ActorDecisionSet::Observe),
         ("advise_navigation", ActorDecisionSet::Observe),
-        (
-            "maintain_actor_pre_decision_state",
-            ActorDecisionSet::StateMaintenance,
-        ),
         ("tick_actor_brains", ActorDecisionSet::Decide),
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
     ];

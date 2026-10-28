@@ -172,3 +172,71 @@ fn gameplay_frame_preserves_world_time_scaled_dt() {
         wt.sim_dt()
     );
 }
+
+#[test]
+fn observer_time_requests_follow_the_seat_instead_of_its_home_body() {
+    let mut app = App::new();
+    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.add_message::<ClockScaleRequest>();
+    app.add_systems(Update, emit_primary_observer_time_intent);
+    let home = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_platformer2d_core::BodyMotionFacts {
+                blink_aiming: true,
+                ..Default::default()
+            },
+            BodyCombat::default(),
+        ))
+        .id();
+    let actor = app
+        .world_mut()
+        .spawn((
+            DrivingParticipant(PlayerSlot::PRIMARY),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            BodyCombat {
+                hitstop_timer: 0.1,
+                ..Default::default()
+            },
+        ))
+        .id();
+    app.update();
+    let request = app
+        .world_mut()
+        .resource_mut::<Messages<ClockScaleRequest>>()
+        .drain()
+        .last()
+        .unwrap();
+    assert_eq!(request.reason, "hitstop");
+    assert_eq!(request.scale, 0.0);
+
+    app.world_mut()
+        .entity_mut(actor)
+        .remove::<DrivingParticipant>();
+    app.world_mut()
+        .entity_mut(home)
+        .insert(DrivingParticipant(PlayerSlot::PRIMARY));
+    app.update();
+    let request = app
+        .world_mut()
+        .resource_mut::<Messages<ClockScaleRequest>>()
+        .drain()
+        .last()
+        .unwrap();
+    assert_eq!(request.reason, "bullet_blink");
+    assert!(request.scale > 0.0);
+
+    app.world_mut()
+        .entity_mut(home)
+        .remove::<DrivingParticipant>();
+    app.update();
+    let request = app
+        .world_mut()
+        .resource_mut::<Messages<ClockScaleRequest>>()
+        .drain()
+        .last()
+        .unwrap();
+    assert_eq!(request.reason, "default");
+    assert_eq!(request.scale, 1.0);
+}

@@ -479,7 +479,6 @@ pub enum ActorDecisionSet {
     Targeting,
     Prepare,
     Observe,
-    StateMaintenance,
     Decide,
     Publish,
 }

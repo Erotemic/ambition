@@ -243,19 +243,15 @@ pub struct BodyCombat {
     /// [`RECENT_STRIKE_SECS`] by [`Self::note_struck`] on every registered
     /// strike; bark dedup and chatter suppression read it.
     pub struck_recently: f32,
-    // ── Player reaction / control-lock timers ──
-    /// Hitstop: freezes `time_scale` to 0 while positive.
+    // Body reaction and control-lock timers.
+    /// Unscaled seconds left in this body's hitstop.
     pub hitstop_timer: f32,
     /// THIS BODY OWES ONE AUTOMATIC DISPLACEMENT — banked while its hitlag
     /// runs, spent on the first step after the freeze lifts
     /// ([`ambition_platformer2d_core::TraversalAbilityTuning::asdi_step`]).
     ///
-    /// ⛔ A LATCH RATHER THAN A TIMER COMPARISON. "Is this the last tick of
-    /// hitlag?" can be asked as `hitstop_timer <= dt`, but only by a reader
-    /// that runs BEFORE the decay system — and the decay is a separate system
-    /// whose order relative to the body step is not declared. A latch is
-    /// answered by two consecutive steps of the same function and cannot be
-    /// silenced by scheduling.
+    /// The latch keeps the pending displacement until the first body step
+    /// after the freeze ends. It does not depend on the timer step size.
     ///
     /// A fresh hit that re-arms the freeze mid-flight simply banks it again,
     /// which is right: that is a new hit and it owes its own displacement.
@@ -510,19 +506,19 @@ impl BodyCombat {
         }
     }
 
-    /// Decay every body reaction timer by caller-supplied `dt`, clamping at zero.
-    /// The caller owns the clock domain used for `dt`.
-    pub fn decay_reaction_timers(&mut self, dt: f32) {
-        self.damage_invuln_timer = (self.damage_invuln_timer - dt).max(0.0);
-        self.hit_flash = (self.hit_flash - dt).max(0.0);
-        self.struck_recently = (self.struck_recently - dt).max(0.0);
-        self.hitstun_timer = (self.hitstun_timer - dt).max(0.0);
-        self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
-        self.ledge_trump_lock_timer = (self.ledge_trump_lock_timer - dt).max(0.0);
-        self.sleep_timer = (self.sleep_timer - dt).max(0.0);
-        self.slow_timer = (self.slow_timer - dt).max(0.0);
-        self.hitstop_timer = (self.hitstop_timer - dt).max(0.0);
-        self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
+    /// Advance recovery in body proper time and hitstop in unscaled step time.
+    /// Hitstop expiry must advance while the simulation clock is stopped.
+    pub fn decay_reaction_timers(&mut self, proper_dt: f32, unscaled_dt: f32) {
+        self.damage_invuln_timer = (self.damage_invuln_timer - proper_dt).max(0.0);
+        self.hit_flash = (self.hit_flash - proper_dt).max(0.0);
+        self.struck_recently = (self.struck_recently - proper_dt).max(0.0);
+        self.hitstun_timer = (self.hitstun_timer - proper_dt).max(0.0);
+        self.recoil_lock_timer = (self.recoil_lock_timer - proper_dt).max(0.0);
+        self.ledge_trump_lock_timer = (self.ledge_trump_lock_timer - proper_dt).max(0.0);
+        self.sleep_timer = (self.sleep_timer - proper_dt).max(0.0);
+        self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
+        self.hitstop_timer = (self.hitstop_timer - unscaled_dt).max(0.0);
+        self.landing_lag_timer = (self.landing_lag_timer - proper_dt).max(0.0);
     }
 
     /// Clear reaction timers while preserving construction-owned `training_dummy`.
@@ -675,7 +671,7 @@ mod tests {
 
     /// Shared reaction decay advances every timer and clamps at zero.
     #[test]
-    fn decay_reaction_timers_advances_all_five_and_clamps_at_zero() {
+    fn reaction_decay_advances_timers_and_clamps_at_zero() {
         let mut combat = BodyCombat {
             hit_flash: 0.30,
             hitstop_timer: 0.02, // < dt → clamps to 0
@@ -684,7 +680,7 @@ mod tests {
             recoil_lock_timer: 0.05,
             ..Default::default()
         };
-        combat.decay_reaction_timers(0.10);
+        combat.decay_reaction_timers(0.10, 0.10);
         assert!((combat.hit_flash - 0.20).abs() < 1e-6);
         assert_eq!(combat.hitstop_timer, 0.0, "under-dt timer clamps to zero");
         assert!((combat.damage_invuln_timer - 0.40).abs() < 1e-6);
@@ -776,7 +772,7 @@ mod hard_lock_tests {
         combat.slow(0.4, 0.5);
         combat.slow(0.7, 1.0);
         assert_eq!((combat.move_speed_scale(), combat.slow_timer), (0.4, 1.0));
-        combat.decay_reaction_timers(1.0);
+        combat.decay_reaction_timers(1.0, 1.0);
         assert_eq!(combat.move_speed_scale(), 1.0);
         // A new slow after the last ran out is its own.
         combat.slow(0.7, 1.0);
@@ -867,9 +863,9 @@ mod recent_strike_tests {
         combat.note_struck();
         assert!(combat.recently_struck(), "a strike with no flash drawn still counts");
 
-        combat.decay_reaction_timers(RECENT_STRIKE_SECS * 0.5);
+        combat.decay_reaction_timers(RECENT_STRIKE_SECS * 0.5, RECENT_STRIKE_SECS * 0.5);
         assert!(combat.recently_struck());
-        combat.decay_reaction_timers(RECENT_STRIKE_SECS);
+        combat.decay_reaction_timers(RECENT_STRIKE_SECS, RECENT_STRIKE_SECS);
         assert!(!combat.recently_struck(), "the window closes on its own policy");
     }
 }

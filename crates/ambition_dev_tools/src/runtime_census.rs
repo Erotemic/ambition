@@ -711,15 +711,12 @@ pub const SIM_PHASE_DECISION_PREPARE: usize = 23;
 /// `ActorDecisionSet::Observe` — where the per-tick perception snapshot is built.
 #[cfg(not(target_arch = "wasm32"))]
 pub const SIM_PHASE_DECISION_OBSERVE: usize = 24;
-/// `ActorDecisionSet::StateMaintenance`.
-#[cfg(not(target_arch = "wasm32"))]
-pub const SIM_PHASE_DECISION_STATE_MAINTENANCE: usize = 25;
 /// `ActorDecisionSet::Decide` — `tick_actor_brains`, and `build_world_view` with it.
 #[cfg(not(target_arch = "wasm32"))]
-pub const SIM_PHASE_DECISION_DECIDE: usize = 26;
+pub const SIM_PHASE_DECISION_DECIDE: usize = 25;
 /// `ActorDecisionSet::Publish`.
 #[cfg(not(target_arch = "wasm32"))]
-pub const SIM_PHASE_DECISION_PUBLISH: usize = 27;
+pub const SIM_PHASE_DECISION_PUBLISH: usize = 26;
 
 /// Whether the sim-phase census is installed at all, for a crate that registers
 /// its own boundary marks.
@@ -1509,7 +1506,7 @@ fn sim_phase_names() -> Vec<&'static str> {
         // "now minus the previous mark" to the named bucket, so attribution follows
         // the runtime order of the marks and an index is only a label.
         //
-        // `install_sim_phase_boundaries` installs all seven together, so bucket
+        // `install_sim_phase_boundaries` installs each boundary together, so bucket
         // `SIM_PHASE_ACTOR_DECISION` always means the tail (`Publish` through
         // `BodyMode`), not the whole prefix. The "NEVER CLOSED" row text catches an
         // empty bucket.
@@ -1517,7 +1514,6 @@ fn sim_phase_names() -> Vec<&'static str> {
         "WorldPrep.Decision.Targeting",
         "WorldPrep.Decision.Prepare",
         "WorldPrep.Decision.Observe",
-        "WorldPrep.Decision.StateMaintenance",
         "WorldPrep.Decision.Decide",
         "WorldPrep.Decision.Publish",
     ]
@@ -1706,9 +1702,6 @@ fn install_sim_phase_boundaries(app: &mut App) {
                 .before(ActorDecisionSet::Observe),
             mark_sim_phase(SIM_PHASE_DECISION_OBSERVE)
                 .after(ActorDecisionSet::Observe)
-                .before(ActorDecisionSet::StateMaintenance),
-            mark_sim_phase(SIM_PHASE_DECISION_STATE_MAINTENANCE)
-                .after(ActorDecisionSet::StateMaintenance)
                 .before(ActorDecisionSet::Decide),
             mark_sim_phase(SIM_PHASE_DECISION_DECIDE)
                 .after(ActorDecisionSet::Decide)
@@ -2358,10 +2351,6 @@ mod sim_phase_index_tests {
             (SIM_PHASE_DECISION_TARGETING, "WorldPrep.Decision.Targeting"),
             (SIM_PHASE_DECISION_PREPARE, "WorldPrep.Decision.Prepare"),
             (SIM_PHASE_DECISION_OBSERVE, "WorldPrep.Decision.Observe"),
-            (
-                SIM_PHASE_DECISION_STATE_MAINTENANCE,
-                "WorldPrep.Decision.StateMaintenance",
-            ),
             (SIM_PHASE_DECISION_DECIDE, "WorldPrep.Decision.Decide"),
             (SIM_PHASE_DECISION_PUBLISH, "WorldPrep.Decision.Publish"),
         ] {

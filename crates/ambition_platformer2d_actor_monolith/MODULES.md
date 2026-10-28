@@ -39,10 +39,9 @@ body integration; controller kind does not select a separate physics path.
 
 ### Authoritative state — who mutates what
 
-- **A body's motion** is `BodyKinematics` + the 18 movement clusters, and exactly
-  one kernel entry writes them: `ae::step_motion`. The player
-  tick and `update_ecs_actors` are two Bevy systems calling the SAME body tick.
-  Do not add a third.
+- **Body movement** uses `BodyKinematics` and movement clusters.
+  `body::integrate_sim_bodies` advances home, actor, and boss bodies through
+  the shared movement kernel. Do not add a separate body integration system.
 - **A body's melee** is a `"attack"`-verb moveset move (`combat::moveset`) for
   every body — triggered by `trigger_moveset_moves`, struck by
   `advance_move_playback`, and projected back into `BodyMelee` / `MeleeSwing` as

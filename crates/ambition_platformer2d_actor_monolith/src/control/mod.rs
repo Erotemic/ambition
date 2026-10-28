@@ -15,7 +15,7 @@ mod raw_publication;
 pub use authority::project_driving_participant;
 pub use input_systems::{
     InputTimersAdvanced, InteractionInputBuffered, cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,
-    tick_home_body_reaction_timers, tick_room_transition_cooldown,
+    tick_room_transition_cooldown,
 };
 pub use queries::{
     another_authority_publishes, body_driving_seat, controlled_frame_down, primary_player_entity,

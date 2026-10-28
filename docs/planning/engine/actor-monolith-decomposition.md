@@ -648,6 +648,9 @@ and release separate bodies through one control path, including under rollback.
 Boss bodies now use the common integration phase. Their optional envelope,
 authored tuning, contact field, and movement cues use the same data path as
 other actor bodies. Boss phase maintenance runs after integration.
+Body reactions use one early phase with proper-time recovery and unscaled
+hitstop expiry. Observer requests follow the body that holds the driving seat.
+The empty actor-maintenance phase and the body-role clock paths are deleted.
 Keep accepted control, body custody, motion, and action execution together.
 Capability profiles remain a separate C2/SDK exit.
 
@@ -734,7 +737,20 @@ Smash tests stay ignored. All 35 workspace policies and 53 absence contracts
 pass. The default-feature app compiles with no warnings. The kernel graph is
 a DAG and the resource-writer census stays at 131 adjudicated resources.
 The full feature union and Android performance were not measured.
-Do not restore a boss-only motion loop. Reaction-clock differences remain open.
+Do not restore a boss-only motion loop.
+
+### K26 — Shared body reaction clocks
+
+`bf2e60c8f`: home, actor, and boss reactions used different clocks and phases.
+One early body phase now advances recovery in proper time and hitstop expiry
+in unscaled simulation time. Observer requests follow the driven body. The
+actor-only maintenance phase is deleted: one fewer active ECS invocation.
+Schema v386 records the new semantics; codec layouts stay the same.
+Guards: 2,005 owner library tests, 146 app tests, eight Mary-O/Sanic host tests,
+70 Smash tests, 35 workspace policies, and 53 absence contracts pass. Six app
+and six Smash tests remain ignored. The default app compiles with no warnings;
+the kernel graph is a DAG. The full feature union was not run.
+Do not restore role-specific reaction clocks or use home identity to select the observer.
 
 ### Migration acceptance for each packet
 

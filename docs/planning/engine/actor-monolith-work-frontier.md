@@ -166,6 +166,7 @@ for one target grant neither seat.
 | two mechanisms releasing independently | `a_mount_dying_under_a_possession_leaves_the_player_driving` |
 | two participants | `possession_end_to_end::two_participants_possess_drive_and_release_independently` |
 | two participants under rollback | `possession_end_to_end::rollback_preserves_two_participants_possession_handoffs` |
+| body clocks and freeze expiry | `body_reaction_clocks::a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes` |
 
 **Control ordering:**
 `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
@@ -173,8 +174,11 @@ checks every declared `ActorControl` writer in the shipped schedule. The
 post-gate writers consume or route accepted control. Boss bodies now use
 `integrate_sim_bodies`; they have no separate scheduled integration loop.
 
-**Open:** body reaction clocks still differ between home, actor, and boss
-routes. Continue the regrouping and the distinction of home-avatar, driver,
+Body reactions use one early body phase. Recovery follows body proper time;
+hitstop expiry follows the unscaled simulation step. Observer time requests
+follow the body's driving seat, not its home marker.
+
+**Open:** continue the regrouping and the distinction of home-avatar, driver,
 camera and participant identities; full simulation arms for removal of a controlled body,
 action continuity and no double body tick (the schedule-level
 `no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by

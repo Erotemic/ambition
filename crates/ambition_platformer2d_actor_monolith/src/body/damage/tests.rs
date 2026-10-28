@@ -3086,7 +3086,7 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
                     .world_mut()
                     .get_mut::<ambition_characters::actor::BodyCombat>(body)
                     .expect("the fixture body carries combat reaction state");
-                combat.decay_reaction_timers(10.0);
+                combat.decay_reaction_timers(10.0, 10.0);
             }
             app.world_mut().write_message(HitEvent {
                 pieces: Vec::new(),

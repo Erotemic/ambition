@@ -664,6 +664,17 @@ Both room-spec readers recognize roots; resident stamps and the single-room
 fallback keep their priority. Guards: 339 shared, 159 world, and 63 app tests;
 the app compiles. No state, wire key, or system invocation changes.
 
+### K21 — Trail observation and drawing owners
+
+`0fd8c7757`: observation captures plain trail geometry; rendering owns retained
+gizmo assets, colors, room bands, caching, and retirement. One Update system
+pipe replaces the kernel's drawing system. Trail creation, advancement,
+messages, and simulation ordering stay the same.
+Guards: 595 actor, 481 render, 140 observation, 15 app, and five profile tests;
+35 workspace policies and 53 absence contracts. The app compiles and the
+kernel graph remains a DAG. Android performance was not measured.
+Do not restore render assets or drawing systems in the body kernel.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

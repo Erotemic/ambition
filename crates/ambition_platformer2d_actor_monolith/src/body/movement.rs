@@ -118,9 +118,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
     ) {
-        // Reaction timers (hit_flash, post-hit i-frame) live on the body's
-        // `BodyCombat` now — decremented + the respawn blink applied in the actor
-        // driver, where that component is in scope.
         if !self.health.alive() {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
             if matches!(

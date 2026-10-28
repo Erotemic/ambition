@@ -1,10 +1,5 @@
-//! Per-frame player input/timer systems.
-//!
-//! These publish the primary controller's slot gestures from the local device
-//! and tick the home/player body's own reaction + presentation timers. They are
-//! body-generic gameplay-sim logic (no render, no host-only types), so they live
-//! beside the player state they mutate; the host schedule (`register_player_input_systems`)
-//! owns their ordering + `run_if` gates and references these `pub fn`s.
+//! Seat input, interaction, gesture windows, and room cooldowns.
+//! Runtime orders these systems around input publication and control acceptance.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -49,27 +44,10 @@ pub fn tick_room_transition_cooldown(
     sim_state.tick(world_time.wall_dt());
 }
 
-/// Derive each seat's DIRECTION gestures — double-tap down (fast-fall) and
-/// double-tap up (doors) — from that seat's own input row.
-///
-/// Derived from each seat's row of `SlotControls` into `SlotInteractionState`,
-/// for EVERY slot. Body mode / interaction consume that keyed by the acting
-/// body's slot, never a per-body component.
-///
-/// The host registers this with `run_if(gameplay_allowed)` so it only runs in
-/// `GameMode::Playing`. Writes `fast_fall_pressed` back into each seat's row.
-///
-///  it is NOT in `InputSet::Route` any more, and that is by the set's own
-/// definition: Route is every system that writes the global `ControlFrame`,
-/// and nothing in this file holds that resource now. It runs after the
-/// publication boundary instead, on the table the bodies actually read.
-///
-/// ⛔ THIS WAS ONE SYSTEM WITH THE TWO ABOVE, at thirteen parameters and
-/// climbing. They share a clock and nothing else: a room cooldown, a body's
-/// reaction timers, and a seat's gesture history have different owners and
-/// different reasons to run. This repo has reached Bevy's parameter ceiling
-/// before and answered it by packing unrelated resources into tuples; splitting
-/// on the ownership seam is the answer that does not end there.
+/// Derive direction gestures from each seat's current input.
+/// Resolve up and down in the frame of the body's driving seat.
+/// Gesture windows use the unscaled simulation step.
+/// Store accepted edges in the seat's input and interaction state.
 pub fn derive_slot_direction_gestures(
     // ⭐ the UNSCALED SIM step, by its name. These windows are a promise to the
     // player in real seconds, and `WorldTime::wall_dt` is exactly that value —

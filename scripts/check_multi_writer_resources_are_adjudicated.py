@@ -2428,15 +2428,11 @@ ADJUDICATED: dict[str, str] = {
         "uncovered ON THE RECORD."
     ),
     "PossessionState": (
-        "CORRECT — one protocol deliberately split across two systems, and the "
-        "source says so at the seam: `release_possession` clears `possessed` and "
-        "*\"`state.home` is deliberately NOT cleared here\"*, because the seat "
-        "still has to travel back; `project_driving_participant` clears `home` "
-        "once it has retracted the vacated seat and restored the home one. "
-        "POISON-VERIFIED 2026-09-17: deleting `state.home = None` from the "
-        "production half fails "
-        "`releasing_the_possession_returns_the_seat_to_the_body_that_owns_it` "
-        "and nothing else in 1,207 arms."
+        "CORRECT — one protocol for each participant seat. `release_possession` clears "
+        "the target on release. `project_driving_participant` retracts that seat, "
+        "returns it to its live home, then clears the home record. Session "
+        "teardown clears all records. The possession unit tests and the real "
+        "two-participant handoff tests cover independent release."
     ),
     "ClockState": (
         "CORRECT — three policies over one smoothed value, and the coupling is "

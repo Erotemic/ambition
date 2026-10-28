@@ -52,9 +52,11 @@ pub fn project_body_custody(
     // writes that reach a room sweep, and Bevy's iteration order is an archetype
     // accident.
     let mut wanted: BTreeMap<Entity, Entity> = BTreeMap::new();
-    if let Some((possessed, home)) = state.possessed.zip(state.home) {
-        if existing.get(possessed).is_ok() && existing.get(home).is_ok() {
-            wanted.insert(possessed, home);
+    for (_, record) in state.iter() {
+        if let Some((possessed, home)) = record.possessed.zip(record.home) {
+            if existing.get(possessed).is_ok() && existing.get(home).is_ok() {
+                wanted.insert(possessed, home);
+            }
         }
     }
     // EVERYTHING ATTACHED TO A TRAVELLER TRAVELS, TO ANY DEPTH. The

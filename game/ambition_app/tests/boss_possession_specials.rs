@@ -38,7 +38,7 @@ fn boss_entity(world: &mut World) -> Entity {
 }
 
 fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
-    sim.world_mut().resource::<PossessionState>().possessed
+    sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed
 }
 
 fn active_profile(world: &mut World, boss: Entity) -> Option<BossAttackProfile> {

@@ -36,10 +36,11 @@ where
         "entity:transform_beat",
     );
 
-    registrar.rollback_resource_clone_entity_set::<crate::control::possession::PossessionState>(
+    registrar.rollback_resource_clone_entity_set_probed::<crate::control::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
-            |state| state.possessed.into_iter().chain(state.home).collect(),
+            |state| state.referenced_entities(),
+            |state| state.facts_checksum(),
         );
     registrar
         .rollback_resource_map_entities::<crate::control::possession::PossessionState>(

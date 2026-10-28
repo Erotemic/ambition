@@ -642,10 +642,11 @@ code publishes it for camera framing. Possession setup initializes control
 state only.
 
 **Remaining D33 work:** audit residual responsibilities and public operations
-against the exit below and close the A4 acceptance arms. Possession still
-stores one primary seat's state; independent possession by two participants
-remains open. Keep accepted control, body custody, motion, and action
-execution together. Capability profiles remain a separate C2/SDK exit.
+against the exit below and close the A4 acceptance arms. Possession stores
+one record for each participant seat. Two participants can possess, drive,
+and release separate bodies through one control path, including under rollback.
+Keep accepted control, body custody, motion, and action execution together.
+Capability profiles remain a separate C2/SDK exit.
 
 ### K19 — Owned body API
 

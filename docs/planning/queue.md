@@ -429,10 +429,9 @@ Idle box (`SpriteAuthored`), else the sheet's `body_metrics` scaled by
    `Changed<WornCharacter>`.
 5. A re-wear never writes `AbilityBase`, so the new form's abilities do not
    arrive.
-6. `PrimaryPlayer`, `PossessionState.home`, `ControlClaims` and
-   `DrivingParticipant` each say who drives which body, and possession is
-   wired to seat 0 only (`control/possession.rs`). There is no general control
-   transfer.
+6. Keep worn form, home identity, driving authority, and custody separate.
+   A form change must not replace the participant's driving or custody claims.
+   Possession records and handoffs now apply to each participant seat.
 
 Tests that pin the old behaviour and change with slice 1:
 `a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears`

@@ -768,7 +768,7 @@ fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
             return actor;
         }
     }
@@ -994,7 +994,7 @@ fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
             possessed = true;
             break;
         }
@@ -1250,7 +1250,7 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
             possessed = true;
             break;
         }
@@ -1404,7 +1404,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
             possessed = true;
             break;
         }
@@ -1534,12 +1534,12 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
             break;
         }
     }
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
+        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         Some(rider),
         "setup: the rider was never possessed"
     );
@@ -1781,7 +1781,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
             possessed = true;
             break;
         }
@@ -1862,7 +1862,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
         ..base()
     });
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
+        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "setup: a fresh Down+Interact did not release the body, so the assertions \
          below are still about a POSSESSED actor"
@@ -1967,7 +1967,7 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
             possessed = true;
             break;
         }
@@ -2029,7 +2029,7 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
          mount dies — this is the consequence the old code silently lost"
     );
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
+        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         Some(rider),
         "and possession itself was never in question"
     );
@@ -2108,7 +2108,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(rider) {
             possessed = true;
             break;
         }

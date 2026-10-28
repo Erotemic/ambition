@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v384
+ggrs-rollback-schema-v385
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -486,7 +486,7 @@ resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection
 resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences	bevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
-resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.quest_last_room	component-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection

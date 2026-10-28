@@ -242,7 +242,7 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     };
     let possessed = |sim: &ambition_app::Platformer2dSimHarness| {
         sim.world()
-            .resource::<ambition_platformer2d::actors::control::possession::PossessionState>()
+            .resource::<ambition_platformer2d::actors::control::possession::PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
             .possessed
     };
     for frame in 0..240 {

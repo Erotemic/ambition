@@ -309,7 +309,7 @@ fn the_landing_shocks_roll_outward_and_end_with_the_god() {
 
 fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
     sim.world_mut()
-        .resource::<ambition_platformer2d::actors::control::possession::PossessionState>()
+        .resource::<ambition_platformer2d::actors::control::possession::PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
         .possessed
 }
 

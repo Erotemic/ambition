@@ -1,31 +1,14 @@
-//! Phase C / C1 — possession works END-TO-END through the real headless sim.
-//!
-//! The keystone payoff of the control-unification arc: a human can take over a
-//! normal actor because possession is a SEAT REDIRECT — `DrivingParticipant(PRIMARY)`
-//! moves onto the actor, which then reads slot input through the SAME universal
-//! brain path every controlled body uses (`SlotControls` → its own
-//! `ActorControlFrame` → `update_ecs_actors`). The vacated home avatar has no
-//! player brain, so it is inert. This pins the whole loop driving REAL inputs
-//! through `Platformer2dSimHarness::step`:
-//!
-//! 1. Hold Down+Interact ~2s next to an actor → its brain is replaced with
-//!    `DrivingParticipant(PRIMARY)` (recorded in `PossessionState.possessed`). Its
-//!    AUTHORED faction is NOT mutated — effective allegiance makes combat treat it
-//!    as player-aligned while it carries the player brain.
-//! 2. Driving `move_x` then moves the POSSESSED body (its own body path at its own
-//!    run capability) while the vacated home avatar stays put (it has neutral
-//!    input, no player brain — no `not_possessing` gate needed).
-//! 3. A fresh Down+Interact press releases — the actor's authored brain is
-//!    restored and the home avatar reclaims the primary seat.
+//! Possession redirects participant seats through the real headless simulation.
+//! The target keeps its authored policy. Release returns the seat to its home.
 
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
+use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::actors::control::possession::PossessionState;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::FeatureId;
-use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -49,7 +32,10 @@ fn actor_entity(world: &mut World) -> Entity {
 }
 
 fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
-    sim.world_mut().resource::<PossessionState>().possessed
+    sim.world_mut()
+        .resource::<PossessionState>()
+        .get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
+        .possessed
 }
 
 fn faction(world: &mut World, e: Entity) -> ActorFaction {
@@ -348,7 +334,8 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
             .expect("the session has a live room");
         let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let Some(zone) = rooms.iter(world).next().and_then(|set| {
-            set.spec(live_definition).loading_zones
+            set.spec(live_definition)
+                .loading_zones
                 .iter()
                 .find(|zone| {
                     zone.activation
@@ -420,4 +407,149 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
          body, which is exactly the branch the home-avatar path never exercises",
         kin.pos
     );
+}
+
+fn exercise_two_seat_handoffs(rollback: bool) {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::platformer::lifecycle::InCustodyOf;
+    let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_fixed_tick(true)
+        .with_required_start_room("switch_lab");
+    if rollback {
+        options = options
+            .with_sync_test_rollback_settings(4, 10)
+            .with_rollback_players(2);
+    }
+    let mut sim =
+        Platformer2dSimHarness::new_with_options(options).expect("two-seat simulation builds");
+    let home_a = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<Entity, PrimaryPlayerOnly>()
+            .single(world)
+            .unwrap()
+    };
+    let home_b =
+        crate::a_home_body_is_built_for_a_seat::build_a_home_body(&mut sim, PlayerSlot(1), ());
+    let start = player_pos(sim.world_mut());
+    sim.world_mut()
+        .get_mut::<BodyKinematics>(home_b)
+        .unwrap()
+        .pos = start + ae::Vec2::new(400.0, 0.0);
+    for (id, offset) in [("seat_a_target", 30.0), ("seat_b_target", 430.0)] {
+        sim.spawn_enemy_character_at(
+            id,
+            id,
+            (start.x + offset, start.y),
+            (14.0, 23.0),
+            CharacterBrain::Passive,
+            "perfect_cellular_automaton",
+        );
+    }
+    let targets = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &FeatureId)>();
+        ["seat_a_target", "seat_b_target"].map(|id| {
+            q.iter(world)
+                .find(|(_, feature)| feature.as_str() == id)
+                .unwrap()
+                .0
+        })
+    };
+    for target in targets {
+        sim.world_mut()
+            .entity_mut(target)
+            .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
+    }
+    sim.rebase_rollback_history()
+        .expect("setup enters the rollback baseline");
+    let loads_before = sim
+        .rollback_execution_stats()
+        .map_or(0, |stats| stats.lifetime_load_runs);
+    let gesture = ae::ControlFrame {
+        axis_y: 1.0,
+        interact_held: true,
+        ..Default::default()
+    };
+    for _ in 0..150 {
+        sim.drive_seat(1, gesture);
+        sim.step_frame(gesture);
+    }
+    for (slot, target, home) in [
+        (PlayerSlot::PRIMARY, targets[0], home_a),
+        (PlayerSlot(1), targets[1], home_b),
+    ] {
+        assert_eq!(
+            sim.world()
+                .resource::<PossessionState>()
+                .get(slot)
+                .possessed,
+            Some(target),
+            "seat {slot:?}"
+        );
+        assert_eq!(
+            sim.world().get::<DrivingParticipant>(target).unwrap().0,
+            slot
+        );
+        assert!(sim.world().get::<DrivingParticipant>(home).is_none());
+        assert_eq!(
+            sim.world().get::<InCustodyOf>(target).unwrap().custodian,
+            home
+        );
+    }
+    let before = targets.map(|body| sim.world().get::<BodyKinematics>(body).unwrap().pos.x);
+    for _ in 0..20 {
+        sim.drive_seat(
+            1,
+            ae::ControlFrame {
+                axis_x: -1.0,
+                ..Default::default()
+            },
+        );
+        sim.step_frame(ae::ControlFrame {
+            axis_x: 1.0,
+            ..Default::default()
+        });
+    }
+    assert!(sim.world().get::<BodyKinematics>(targets[0]).unwrap().pos.x > before[0]);
+    assert!(sim.world().get::<BodyKinematics>(targets[1]).unwrap().pos.x < before[1]);
+    sim.drive_seat(1, ae::ControlFrame::default());
+    sim.step_frame(gesture);
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(home_a).unwrap().0,
+        PlayerSlot::PRIMARY
+    );
+    assert!(sim.world().get::<DrivingParticipant>(targets[0]).is_none());
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(targets[1]).unwrap().0,
+        PlayerSlot(1)
+    );
+    sim.drive_seat(1, gesture);
+    sim.step_frame(ae::ControlFrame::default());
+    for _ in 0..12 {
+        sim.drive_seat(1, ae::ControlFrame::default());
+        sim.step_frame(ae::ControlFrame::default());
+    }
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(home_b).unwrap().0,
+        PlayerSlot(1)
+    );
+    assert!(sim.world().get::<DrivingParticipant>(targets[1]).is_none());
+    assert!(!sim.world().resource::<PossessionState>().any_possessed());
+    if rollback {
+        assert!(sim.rollback_execution_stats().unwrap().lifetime_load_runs > loads_before);
+        sim.rollback_health()
+            .expect("both handoffs remain valid under resimulation");
+    }
+}
+
+#[test]
+fn two_participants_possess_drive_and_release_independently() {
+    exercise_two_seat_handoffs(false);
+}
+
+#[test]
+fn rollback_preserves_two_participants_possession_handoffs() {
+    exercise_two_seat_handoffs(true);
 }

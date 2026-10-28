@@ -149,7 +149,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 382 -> 383: `ProjectileGameplay` encodes how a shot leaves a floor it
 /// bounces on (`rebound`: its restitution and its least speed), so a peer
 /// flies the hops of a Mario fireball as the firer does.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 384;
+/// 384 -> 385: `resource.possession_state` stores each seat's possession and
+/// gesture state. Its probe includes seat keys, timers, and input edges.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 385;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

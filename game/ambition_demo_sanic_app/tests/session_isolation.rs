@@ -69,7 +69,7 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
     // does NOT touch, so seeding them proves teardown — not the sweep — clears
     // them. Using the real player entity makes each a genuine dangling handle
     // the instant the sweep despawns it.
-    app.world_mut().resource_mut::<PossessionState>().possessed = Some(player_a);
+    app.world_mut().resource_mut::<PossessionState>().get_mut(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed = Some(player_a);
     app.world_mut().resource_mut::<ControlledSubject>().0 = Some(player_a);
     ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the live room has moving platforms")
         .0
@@ -110,7 +110,7 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         "session A's live room, and its platform state, survived to the launcher"
     );
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "PossessionState still points at the despawned session-A body"
     );
@@ -148,7 +148,7 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
     );
     // No mirror carries session-A state into B.
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "session B inherited session A's possession handle"
     );

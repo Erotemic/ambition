@@ -37,7 +37,7 @@ fn occurrences(sim: &mut Platformer2dSimHarness, id: &SimId) -> Vec<Entity> {
 
 fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
     sim.world_mut()
-        .resource::<ambition_platformer2d::actors::control::possession::PossessionState>()
+        .resource::<ambition_platformer2d::actors::control::possession::PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
         .possessed
 }
 

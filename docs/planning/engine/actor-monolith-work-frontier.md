@@ -150,9 +150,10 @@ monolith because it reads engine events.
 bodies, and the refused seat writes `ActorControlFrame::neutral()` because
 `ActorControl` is latched. Recovery comes from the claim going away, so the
 refusal is a per-tick resolution, not a latch.
-`project_driving_participant` retracts a stale holder only during a possession
-and only for `PlayerSlot::PRIMARY`; a duplicate claim on another seat has no
-retraction road.
+`project_driving_participant` retracts a stale holder only for a seat with a
+possession return record. This rule applies to each participant. It leaves
+unrelated authored seat assignments in place. Simultaneous possession requests
+for one target grant neither seat.
 
 **Production arms:**
 
@@ -163,6 +164,8 @@ retraction road.
 | mount and dismount | `a_player_pilots_a_mount_end_to_end`, `a_dead_mount_rebuilds_its_riders_brain_through_the_real_schedule` |
 | rollback over handoff | `possession_survives_the_real_rollback_window`, `a_mount_dying_under_a_possession_survives_rewinds` |
 | two mechanisms releasing independently | `a_mount_dying_under_a_possession_leaves_the_player_driving` |
+| two participants | `possession_end_to_end::two_participants_possess_drive_and_release_independently` |
+| two participants under rollback | `possession_end_to_end::rollback_preserves_two_participants_possession_handoffs` |
 
 **Control-writer census (2026-10-08):** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
 classifies each `ActorControl` writer against `ControlGate`: 10 before, 12
@@ -172,8 +175,8 @@ marked "produces" are the open debt: the boss road (brain, commanded move,
 conducted facing) and the shark departure.
 
 **Open:** the regrouping; the distinction of home-avatar, driver, camera and
-participant identities; arms for removal of a controlled body, two
-participants, action continuity and no double body tick (the schedule-level
+participant identities; full simulation arms for removal of a controlled body,
+action continuity and no double body tick (the schedule-level
 `no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by
 two systems).
 

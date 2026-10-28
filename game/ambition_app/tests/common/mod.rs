@@ -219,12 +219,12 @@ pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, 
             interact_held: true,
             ..base()
         });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+        if sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed == Some(actor) {
             break;
         }
     }
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
+        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         Some(actor),
         "setup: nothing below is about a driven body unless one is being driven"
     );

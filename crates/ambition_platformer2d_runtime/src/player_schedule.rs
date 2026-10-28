@@ -267,8 +267,7 @@ impl Plugin for PlayerSchedulePlugin {
                 .before(Platformer2dSimulationPhase::PlayerSimulation),
         );
 
-        // Possession transfers the player brain to the driven body; the vacated home body
-        // becomes inert until the brain returns.
+        // Possession transfers each seat to its driven body. The home body is inert.
         app.add_systems(
             sim,
             (
@@ -276,7 +275,7 @@ impl Plugin for PlayerSchedulePlugin {
                     .in_set(GameplayGated),
                 ambition_platformer2d_actor_monolith::control::possession::release_possession_if_target_lost.run_if(
                     |state: bevy::prelude::Res<ambition_platformer2d_actor_monolith::control::possession::PossessionState>| {
-                        state.possessed.is_some()
+                        state.any_possessed()
                     },
                 ),
                 // Reproject body custody after possession settles. It remains ungated so room

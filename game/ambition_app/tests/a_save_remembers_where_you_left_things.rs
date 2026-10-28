@@ -230,7 +230,7 @@ fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
     // Fresh boot with no possession must restore exactly one authored enemy.
     let mut fresh = boot_with("vertical_shaft", &file);
     assert_eq!(
-        fresh.world().resource::<PossessionState>().possessed,
+        fresh.world().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "a fresh boot must not be possessing anything — if it were, the claim would \
          be true again and this test would prove nothing"

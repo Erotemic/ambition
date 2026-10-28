@@ -220,7 +220,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         let mut without_untagged = DeclaredRules::<CombatRules>::default();
         for (scope, rules) in kept.iter() {
             if scope != RulesScope::UntaggedRooms {
-                without_untagged.declare(scope, rules);
+                without_untagged.declare(scope, *rules);
             }
         }
         app.world_mut().insert_resource(without_untagged);

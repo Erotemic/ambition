@@ -1720,7 +1720,7 @@ impl Plugin for MaryORulesPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
-                .after(ambition_platformer2d::actors::avatar::WornControlGateSet),
+                .after(ambition_platformer2d::actors::control::BodyControlGate),
         );
         app.add_scoped_systems(
             sim,

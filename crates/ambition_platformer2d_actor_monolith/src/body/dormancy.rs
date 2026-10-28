@@ -86,7 +86,7 @@ pub fn assess_dormancy(
         .collect();
     // One rule per live room, resolved the first time an actor of that room
     // asks: the actor set is large and the room set is one or two.
-    let mut rules: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<DormancyRule>)> =
+    let mut rules: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<&DormancyRule>)> =
         Vec::new();
 
     for (entity, body, faction, is_encounter_mob, is_mount, is_limb, is_dormant, control) in
@@ -101,7 +101,7 @@ pub fn assess_dormancy(
                 resolved
             }
         };
-        let awake = match wake_radius(room_rule.as_ref(), *faction, is_encounter_mob, is_mount || is_limb) {
+        let awake = match wake_radius(room_rule, *faction, is_encounter_mob, is_mount || is_limb) {
             None => true,
             Some(radius) => {
                 // no observers  AWAKE. A world with nobody in it is a

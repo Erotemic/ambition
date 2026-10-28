@@ -2593,7 +2593,7 @@ fn sanic_states_its_portal_cones_for_its_own_rooms_only() {
             .run_system_once(
                 |rules: ambition_platformer2d::combat::governing_rules::GoverningRules<
                     PortalViewConeMode,
-                >| rules.get(),
+                >| rules.get().copied(),
             )
             .expect("the rule reader runs")
     }

@@ -200,7 +200,7 @@ pub fn charge_projectile_input(
         let mut firing = Firing {
             owner: body_entity,
             origin_of: &origin_of,
-            flight: fireball_flight.of(body_entity),
+            flight: fireball_flight.of(body_entity).copied(),
             local_dir,
             to_world: &to_world,
             direction,

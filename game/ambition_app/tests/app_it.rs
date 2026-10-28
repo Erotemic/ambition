@@ -306,3 +306,5 @@ mod the_ninja_village;
 mod the_gate_network;
 
 mod body_reaction_clocks;
+
+mod body_control_acceptance;

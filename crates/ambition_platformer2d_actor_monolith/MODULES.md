@@ -15,7 +15,7 @@
 | [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
 | [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
-| [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
+| [`control`](src/control/mod.rs) | Participant driving authority, seat input, and body control acceptance. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |

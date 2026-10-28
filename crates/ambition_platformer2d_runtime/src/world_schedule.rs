@@ -245,9 +245,9 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // consumer of finished control reads the walk.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::avatar::drive_commanded_moves
+            ambition_platformer2d_actor_monolith::control::drive_commanded_moves
                 .run_if(bevy::prelude::any_with_component::<ambition_characters::control::CommandedMove>)
-                .after(ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames)
+                .after(ambition_platformer2d_actor_monolith::control::blank_scripted_control_frames)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
         // The cast half of the conversation break. It sits in a set the

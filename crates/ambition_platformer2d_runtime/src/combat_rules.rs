@@ -43,12 +43,12 @@ pub fn project_combat_rules(
     // absent baseline stands at.
     let resolve = |room: ambition_combat::scoped_rules::ActiveRoom<'_>| {
         ambition_combat::rules::ResolvedCombatTuning::resolve_over(
-            declared.in_room(room),
+            declared.in_room(room).copied(),
             baseline_feel.as_deref(),
             baseline_ff.as_deref(),
         )
-        .with_strike_weight(strike_weight.in_room(room))
-        .with_landing_lag(landing_lag.in_room(room))
+        .with_strike_weight(strike_weight.in_room(room).copied())
+        .with_landing_lag(landing_lag.in_room(room).copied())
     };
     commands.insert_resource(resolve(ambition_combat::scoped_rules::ActiveRoom::NoRoom));
     for (root, room) in &roots {

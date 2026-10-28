@@ -318,7 +318,7 @@ fn governing<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &mut App) -
     app.world_mut()
         .run_system_once(
             |rules: ambition_platformer2d::combat::governing_rules::GoverningRules<T>| {
-                rules.get()
+                rules.get().copied()
             },
         )
         .expect("the rule reader runs")

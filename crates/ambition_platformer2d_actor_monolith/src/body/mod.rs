@@ -559,8 +559,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
             sim,
             ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
-                .after(crate::avatar::blank_scripted_control_frames)
-                .after(crate::avatar::drive_commanded_moves)
+                .after(crate::control::blank_scripted_control_frames)
+                .after(crate::control::drive_commanded_moves)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
     }

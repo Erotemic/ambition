@@ -267,15 +267,11 @@ pub struct ControlPromptRebuilt;
 ///
 /// The scheme is resolved HERE from the subject's live authorities via the shared
 /// [`derive_action_scheme`] — the SAME function, on the SAME immediate
-/// authorities, that the gameplay persona gate (`gate_body_control`) calls
-/// to gate/route behavior. Because both consumers re-derive from the body's
-/// current `AbilitySet` / moveset / `ActionSet` / techniques each tick, a button's
-/// label and what it fires cannot drift — not even for one frame across a kit
-/// swap. No body stores the scheme, so there is no cache to lag.
+/// authorities that the body control gate uses. The cached prompt is refreshed
+/// when its subject, declarations, capabilities, bindings, or context changes.
 ///
-/// Follows [`ControlledSubject`] (falling back to the primary player), so the
-/// prompt describes the body you are DRIVING — the same relativity rule the
-/// camera and input already obey. Menu / dialogue publish an explicit context.
+/// `ControlledSubject` selects the observed body, with the primary home body
+/// as a fallback. Driven techniques require that body's `DrivingParticipant`.
 pub fn rebuild_control_prompt(
     mode: Res<State<GameMode>>,
     active_context: Option<Res<SeatInputContexts>>,
@@ -301,6 +297,7 @@ pub fn rebuild_control_prompt(
         // does not open a menu — a rider is still driving a body through the
         // gameplay context — so this is not a fifth `ControlContextKind`.
         bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+        bevy::prelude::Has<ambition_characters::control::DrivingParticipant>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
     // Whether the subject's room's game wants the BUTTON named or the MOVE on
@@ -325,7 +322,7 @@ pub fn rebuild_control_prompt(
     // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
     // skipped and the prompt would keep describing a context that no longer
     // exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 5], [bool; 6])>>,
+    mut last: Local<Option<(Option<Entity>, [bool; 6], [bool; 6])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -357,12 +354,14 @@ pub fn rebuild_control_prompt(
         .as_deref()
         .and_then(|s| s.0)
         .or_else(|| primary.single().ok());
-    let naming = naming.of_subject(subject).unwrap_or_default();
+    let subject_authorities = subject.and_then(|entity| authorities.get(entity).ok());
+    let is_driven = subject_authorities.as_ref().is_some_and(|(_, _, _, _, _, _, driven)| *driven);
+    let naming = naming.of_subject(subject).copied().unwrap_or_default();
     // A room change can change the driven techniques without touching any body.
-    let driven = driven.of_subject(subject);
-    let driven_changed = *last_driven != driven;
+    let driven = if is_driven { subject.and_then(|entity| driven.of(entity)) } else { None };
+    let driven_changed = last_driven.as_ref() != driven;
     if driven_changed {
-        *last_driven = driven.clone();
+        *last_driven = driven.cloned();
     }
     let inputs_changed = driven_changed
         || mode.is_changed()
@@ -402,7 +401,7 @@ pub fn rebuild_control_prompt(
         if matches!(*last, Some((_, _, seen)) if seen == resources) && !inputs_changed {
             return;
         }
-        *last = Some((None, [false; 5], resources));
+        *last = Some((None, [false; 6], resources));
         let (kind, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -418,8 +417,8 @@ pub fn rebuild_control_prompt(
         return;
     }
 
-    let Some((abilities, moveset, action_set, techniques, worn, pose_is_held)) =
-        subject.and_then(|e| authorities.get(e).ok())
+    let Some((abilities, moveset, action_set, techniques, worn, pose_is_held, is_driven)) =
+        subject_authorities
     else {
         // Cold start (no player yet) or a controlled body without authorities —
         // and NO independent proof that anything owns the screen, because
@@ -432,7 +431,7 @@ pub fn rebuild_control_prompt(
             None,
         );
         set_prompt(&mut prompt, context, Vec::new(), confirm);
-        *last = Some((subject, [false; 5], resources));
+        *last = Some((subject, [false; 6], resources));
         return;
     };
 
@@ -445,6 +444,7 @@ pub fn rebuild_control_prompt(
         techniques.is_some(),
         worn.is_some(),
         pose_is_held,
+        is_driven,
     ];
     let authorities_changed = abilities.is_changed()
         || moveset.as_ref().is_some_and(|r| r.is_changed())
@@ -464,10 +464,9 @@ pub fn rebuild_control_prompt(
     } else {
         abilities.abilities
     };
-    let is_driven = subject.is_some() && controlled.as_deref().and_then(|s| s.0) == subject;
     let techniques = ambition_characters::action_scheme::techniques_of(
         techniques.as_deref(),
-        driven.as_ref().filter(|_| is_driven),
+        driven,
         worn.as_deref(),
     );
     let scheme = derive_action_scheme(
@@ -1482,6 +1481,7 @@ mod tests {
             .id();
         let other = app.world_mut().spawn(authorities(true, None)).id();
 
+        app.world_mut().entity_mut(home).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
         app.world_mut().resource_mut::<ControlledSubject>().0 = Some(home);
         app.update();
         assert_eq!(attack(&app).as_deref(), Some("Spin Dash"));
@@ -1496,9 +1496,14 @@ mod tests {
             "the rule changed and no body did, and the prompt kept the old label"
         );
 
+        app.world_mut().entity_mut(home).remove::<ambition_characters::control::DrivingParticipant>();
+        app.world_mut().entity_mut(other).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
         app.world_mut().resource_mut::<ControlledSubject>().0 = Some(other);
         app.update();
         assert_eq!(attack(&app).as_deref(), Some("Roll"));
+        app.world_mut().entity_mut(other).remove::<ambition_characters::control::DrivingParticipant>();
+        app.update();
+        assert_eq!(attack(&app), None, "an observation projection cannot grant a driven technique");
         app.world_mut().resource_mut::<ControlledSubject>().0 = None;
         app.update();
         assert_eq!(
@@ -1576,7 +1581,7 @@ mod tests {
             let live = hall_and_fight_stage(&mut app);
             let body = app
                 .world_mut()
-                .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat")), InRoomInstance(live[room]),
+                .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat")), InRoomInstance(live[room]), ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY),
                 ))
                 .id();
             app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
@@ -1718,7 +1723,7 @@ mod tests {
         app.add_systems(
             Update,
             (
-                ambition_platformer2d_actor_monolith::avatar::gate_body_control,
+                ambition_platformer2d_actor_monolith::control::gate_body_control,
                 rebuild_control_prompt,
             )
                 .chain(),

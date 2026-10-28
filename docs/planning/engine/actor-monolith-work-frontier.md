@@ -169,6 +169,7 @@ for one target grant neither seat.
 | body clocks and freeze expiry | `body_reaction_clocks::a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes` |
 | removal of a controlled body | `possession_end_to_end::a_removed_possessed_body_returns_only_its_participants_seat` |
 | action continuity on release | `possession_end_to_end::releasing_a_seat_keeps_the_active_move_on_its_original_body` |
+| room techniques for two participants | `body_control_acceptance::two_participants_route_a_room_granted_attack_through_the_same_gate` |
 
 **Control ordering:**
 `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
@@ -179,6 +180,13 @@ post-gate writers consume or route accepted control. Boss bodies now use
 Body reactions use one early body phase. Recovery follows body proper time;
 hitstop expiry follows the unscaled simulation step. Observer time requests
 follow the body's driving seat, not its home marker.
+
+`control` owns hold blanking, commanded movement, and action-scheme acceptance.
+`BodyControlGate` is the action-scheme ordering point. Each body reads its own
+room's driven techniques when it has `DrivingParticipant`; the primary
+observation projection grants no technique. The prompt uses the same relation.
+Rule readers borrow the declared values. Owned projections copy them when they
+store state.
 
 **Open:** continue the regrouping and the distinction of home-avatar, driver,
 camera and participant identities. Complete the no-double-body-tick acceptance;

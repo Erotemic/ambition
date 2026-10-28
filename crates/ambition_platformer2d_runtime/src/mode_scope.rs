@@ -249,7 +249,7 @@ pub fn project_room_rule<T, R>(
         + From<Option<T>>,
 {
     let Some(mut out) = out else { return };
-    let next = R::from(rule.get());
+    let next = R::from(rule.get().cloned());
     if *out != next {
         *out = next;
     }

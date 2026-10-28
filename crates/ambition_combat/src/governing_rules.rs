@@ -112,21 +112,21 @@ impl LiveRuleRooms<'_, '_> {
 /// answer. A resolved-rules resource written each tick would be a second copy
 /// that rollback must also restore.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct GoverningRules<'w, 's, T: Clone + std::fmt::Debug + Send + Sync + 'static> {
+pub struct GoverningRules<'w, 's, T: std::fmt::Debug + Send + Sync + 'static> {
     declared: Option<Res<'w, DeclaredRules<T>>>,
     room: CurrentRoom<'w, 's>,
 }
 
-impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, T> {
+impl<T: std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, T> {
     /// The rules in force for the active room, or `None` when no game stated
     /// them for it. With no session, only a whole-process (`EveryRoom`)
     /// declaration governs.
-    pub fn get(&self) -> Option<T> {
+    pub fn get(&self) -> Option<&T> {
         self.in_room(self.room.get())
     }
 
     /// The rules in force for `room` ([`LiveRuleRooms::of`] names a live one).
-    pub fn in_room(&self, room: ActiveRoom<'_>) -> Option<T> {
+    pub fn in_room(&self, room: ActiveRoom<'_>) -> Option<&T> {
         self.declared.as_ref()?.governing(room)
     }
 }
@@ -150,21 +150,21 @@ impl GoverningRules<'_, '_, ambition_platformer2d_shared_tangle::capability::Use
 /// rules of no room, as `CombatTuningOf` does. With no session, only a
 /// whole-process (`EveryRoom`) declaration governs, as before.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct RulesOf<'w, 's, T: Clone + std::fmt::Debug + Send + Sync + 'static> {
+pub struct RulesOf<'w, 's, T: std::fmt::Debug + Send + Sync + 'static> {
     rules: GoverningRules<'w, 's, T>,
     rooms: LiveRuleRooms<'w, 's>,
 }
 
-impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> RulesOf<'_, '_, T> {
+impl<T: std::fmt::Debug + Send + Sync + 'static> RulesOf<'_, '_, T> {
     /// The rules in force for the live room `entity` is in.
-    pub fn of(&self, entity: Entity) -> Option<T> {
+    pub fn of(&self, entity: Entity) -> Option<&T> {
         self.in_live_room(self.rooms.room_of(entity))
     }
 
     /// The rules for `subject`'s room. With no subject, the rules of THE live
     /// room, as before: one live room answers as it did, and two answer the
     /// rules of no room.
-    pub fn of_subject(&self, subject: Option<Entity>) -> Option<T> {
+    pub fn of_subject(&self, subject: Option<Entity>) -> Option<&T> {
         match subject {
             Some(subject) => self.of(subject),
             None => self.rules.get(),
@@ -184,7 +184,7 @@ impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> RulesOf<'_, '_, T> {
     pub fn in_live_room(
         &self,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    ) -> Option<T> {
+    ) -> Option<&T> {
         match room {
             Some(room) => self.rules.in_room(self.rooms.of(room)),
             None => self.rules.in_room(ActiveRoom::NoRoom),

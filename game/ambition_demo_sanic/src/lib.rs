@@ -625,7 +625,7 @@ impl Plugin for SanicRulesPlugin {
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::ControlledBrainTick)
-            .before(ambition_platformer2d::actors::avatar::WornControlGateSet);
+            .before(ambition_platformer2d::actors::control::BodyControlGate);
         // After the gate: read the rev and transform from the technique edges
         // the gate resolved. This runs in `WorldPrep`, where the gate is,
         // because the gate must run after both control publications (D202).
@@ -635,7 +635,7 @@ impl Plugin for SanicRulesPlugin {
             toggle_sanic_form)
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep,
             )
-            .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
+            .after(ambition_platformer2d::actors::control::BodyControlGate);
         // In his `RulesScopeSet`: one condition a run, not one a system
         // (findings F34, P18).
         use ambition_platformer2d::runtime::ScopedSystemsAppExt as _;

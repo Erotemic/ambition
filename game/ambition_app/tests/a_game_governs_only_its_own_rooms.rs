@@ -75,7 +75,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
     let rules = declared(&app);
 
     let hers = rules
-        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE)))
+        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).copied()
         .unwrap_or_default();
     assert_eq!(
         hers.interlude,
@@ -238,7 +238,7 @@ fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms() {
         (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
-            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
+            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
             expected,
             "rooms tagged {mode:?} must read their own game's combat rules. \
              Declared: {:?}",
@@ -268,7 +268,7 @@ fn only_smash_rooms_name_prompts_by_button() {
         (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
-            naming.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
+            naming.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
             expected,
             "rooms tagged {mode:?} name prompts by the wrong vocabulary"
         );
@@ -295,13 +295,13 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
 
     let app = compose_the_shipped_host();
     let smash = Some(ambition_demo_smash::SMASH_MODE);
-    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)), Some(SmashLimitFill(smash_limit())));
+    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)).copied(), Some(SmashLimitFill(smash_limit())));
     assert_eq!(
-        table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)),
+        table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)).copied(),
         Some(PortalCameraTransitMode::Pop)
     );
     assert_eq!(
-        table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)),
+        table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)).copied(),
         Some(PortalViewConeMode::Static)
     );
     // Sanic states its own cones (`Static`) for its own rooms. That is
@@ -315,9 +315,9 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
     ] {
         assert_eq!(
             (
-                table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
-                table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
-                table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
+                table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
+                table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
+                table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
             ),
             (None, None, cones),
             "rooms tagged {mode:?} read another game's presentation or Smash's Limit"
@@ -341,12 +341,12 @@ fn each_game_draws_its_own_line_between_light_and_heavy_hits() {
         .world()
         .get_resource::<DeclaredRules<StrikeWeightRules>>()
         .expect("the shipped host's games declare which hits are heavy");
-    let ambition = lines.governing(ActiveRoom::Untagged);
-    let smash = lines.governing(ActiveRoom::live(Some(ambition_demo_smash::SMASH_MODE)));
+    let ambition = lines.governing(ActiveRoom::Untagged).copied();
+    let smash = lines.governing(ActiveRoom::live(Some(ambition_demo_smash::SMASH_MODE))).copied();
     assert_eq!(ambition, Some(StrikeWeightRules::heavy_at(3)));
     assert_eq!(smash, Some(StrikeWeightRules::heavy_at(12)));
     assert_eq!(
-        lines.governing(ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))),
+        lines.governing(ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).copied(),
         None,
         "Mary-O drew no line, so her rooms must not borrow another game's"
     );
@@ -365,14 +365,14 @@ fn only_ambitions_doors_play_a_passage() {
         .world()
         .get_resource::<DeclaredRules<ZonePassageRules>>()
         .expect("Ambition declares its doors' passage");
-    assert_eq!(rules.governing(ActiveRoom::Untagged), Some(ZonePassageRules));
+    assert_eq!(rules.governing(ActiveRoom::Untagged).copied(), Some(ZonePassageRules));
     for mode in [
         ambition_demo_mary_o::MARY_O_MODE,
         ambition_demo_sanic::SANIC_MODE,
         ambition_demo_smash::SMASH_MODE,
     ] {
         assert_eq!(
-            rules.governing(ActiveRoom::live(Some(mode))),
+            rules.governing(ActiveRoom::live(Some(mode))).copied(),
             None,
             "`{mode}`'s doors borrowed Ambition's passage"
         );

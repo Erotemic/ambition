@@ -16,12 +16,11 @@ pub use body_integration::{
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use character_execution::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
-    gate_body_control, motion_model_spec_for_character,
+    motion_model_spec_for_character,
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
-    HomeBodyAbilities, WornControlGateSet,
+    HomeBodyAbilities,
 };
 pub use systems::{
-    blank_scripted_control_frames, drive_commanded_moves,
     regen_player_mana, tick_controlled_brains, ControlledBrainTick,
 };
 

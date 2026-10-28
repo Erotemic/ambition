@@ -220,15 +220,15 @@ impl Plugin for PlayerSchedulePlugin {
                 // for `SmashHoldState`.
                 ambition_combat::capture::systems::arm_smash_throw_edge.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // Held bodies are the ones that carry `ControlHolds`.
-                ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames
+                ambition_platformer2d_actor_monolith::control::blank_scripted_control_frames
                     .run_if(bevy::prelude::any_with_component::<ambition_characters::control::ControlHolds>),
                 ambition_combat::capture::systems::restrict_captor_control.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any
                 // simulation/effects phase consumes them.
-                ambition_platformer2d_actor_monolith::avatar::gate_body_control
-                    .in_set(ambition_platformer2d_actor_monolith::avatar::WornControlGateSet),
+                ambition_platformer2d_actor_monolith::control::gate_body_control
+                    .in_set(ambition_platformer2d_actor_monolith::control::BodyControlGate),
                 // A folded `bubble_shield` special MOVE forces `shield_held` for
                 // its duration, so pressing Special raises the ONE shield through
                 // the same kernel path a held guard does. After the gate, which

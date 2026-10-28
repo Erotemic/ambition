@@ -22,7 +22,7 @@ struct Subject(usize);
 fn record(rules: RulesOf<u8>, subjects: Query<(Entity, &Subject)>, mut seen: ResMut<Seen>) {
     let mut found: Vec<(usize, Option<u8>)> = subjects
         .iter()
-        .map(|(entity, subject)| (subject.0, rules.of(entity)))
+        .map(|(entity, subject)| (subject.0, rules.of(entity).copied()))
         .collect();
     found.sort_by_key(|(index, _)| *index);
     seen.0 = found.into_iter().map(|(_, rule)| rule).collect();

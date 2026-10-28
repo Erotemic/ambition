@@ -654,6 +654,10 @@ The empty actor-maintenance phase and the body-role clock paths are deleted.
 Real simulation arms now cover removal of one possessed body while another
 participant keeps control, and active-move continuity when a seat is released.
 The broader no-double-body-tick acceptance remains open.
+Control acceptance now owns script holds, commanded movement, and action
+schemes. Room technique grants follow each body's driving relation, including
+secondary participants. Rule reads borrow declarations; the primary observation
+projection is not an eligibility authority.
 Keep accepted control, body custody, motion, and action execution together.
 Capability profiles remain a separate C2/SDK exit.
 

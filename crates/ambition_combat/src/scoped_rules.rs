@@ -97,7 +97,7 @@ impl<T> Default for DeclaredRules<T> {
     }
 }
 
-impl<T: Clone + std::fmt::Debug> DeclaredRules<T> {
+impl<T: std::fmt::Debug> DeclaredRules<T> {
     /// State the rules for one scope.
     ///
     /// Panics on a second declaration of the same scope. Two games that claim
@@ -123,13 +123,14 @@ impl<T: Clone + std::fmt::Debug> DeclaredRules<T> {
     ///
     /// The narrowest declared scope that governs `room` wins (see
     /// [`RulesScope::governs`]). A room that no game claimed reads `None`: the
-    /// rules of a different game are never the fallback.
-    pub fn governing(&self, room: ActiveRoom<'_>) -> Option<T> {
+    /// rules of a different game are never the fallback. The result borrows
+    /// the declaration; this read does not copy it.
+    pub fn governing(&self, room: ActiveRoom<'_>) -> Option<&T> {
         self.declarations
             .iter()
             .filter(|(scope, _)| scope.governs(room))
             .min_by_key(|(scope, _)| scope.breadth())
-            .map(|(_, rules)| rules.clone())
+            .map(|(_, rules)| rules)
     }
 
     /// Change the rules one scope states, in place. Returns `false` when no
@@ -168,8 +169,8 @@ impl<T: Clone + std::fmt::Debug> DeclaredRules<T> {
 
     /// Every declaration, for diagnostics and for the composition guard that
     /// reads them all at once.
-    pub fn iter(&self) -> impl Iterator<Item = (RulesScope, T)> + '_ {
-        self.declarations.iter().cloned()
+    pub fn iter(&self) -> impl Iterator<Item = (RulesScope, &T)> + '_ {
+        self.declarations.iter().map(|(scope, rules)| (*scope, rules))
     }
 }
 
@@ -178,13 +179,13 @@ pub trait DeclareRulesExt {
     /// See [`DeclaredRules::declare`].
     fn declare_rules<T>(&mut self, scope: RulesScope, rules: T) -> &mut Self
     where
-        T: Clone + std::fmt::Debug + Send + Sync + 'static;
+        T: std::fmt::Debug + Send + Sync + 'static;
 }
 
 impl DeclareRulesExt for App {
     fn declare_rules<T>(&mut self, scope: RulesScope, rules: T) -> &mut Self
     where
-        T: Clone + std::fmt::Debug + Send + Sync + 'static,
+        T: std::fmt::Debug + Send + Sync + 'static,
     {
         self.world_mut()
             .get_resource_or_insert_with(DeclaredRules::<T>::default)
@@ -208,9 +209,9 @@ mod tests {
         declared.declare(RulesScope::UntaggedRooms, 1);
         declared.declare(RulesScope::Mode("mary_o"), 2);
 
-        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")), Some(2));
-        assert_eq!(declared.governing(ActiveRoom::Untagged), Some(1));
-        assert_eq!(declared.governing(ActiveRoom::Mode("smash")), None);
+        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")).copied(), Some(2));
+        assert_eq!(declared.governing(ActiveRoom::Untagged).copied(), Some(1));
+        assert_eq!(declared.governing(ActiveRoom::Mode("smash")).copied(), None);
     }
 
     /// The host's rules govern its live untagged rooms, and nothing before a
@@ -221,7 +222,7 @@ mod tests {
         declared.declare(RulesScope::UntaggedRooms, 1);
         declared.declare(RulesScope::Mode("mary_o"), 2);
 
-        assert_eq!(declared.governing(ActiveRoom::NoRoom), None);
+        assert_eq!(declared.governing(ActiveRoom::NoRoom).copied(), None);
         assert!(!RulesScope::UntaggedRooms.governs(ActiveRoom::NoRoom));
         assert!(!RulesScope::Mode("mary_o").governs(ActiveRoom::NoRoom));
     }
@@ -236,10 +237,10 @@ mod tests {
         let mut declared = DeclaredRules::<u8>::default();
         declared.declare(RulesScope::EveryRoom, 3);
 
-        assert_eq!(declared.governing(ActiveRoom::Untagged), Some(3));
-        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")), Some(3));
+        assert_eq!(declared.governing(ActiveRoom::Untagged).copied(), Some(3));
+        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")).copied(), Some(3));
         // Before the first room too: its setup runs under its own rules.
-        assert_eq!(declared.governing(ActiveRoom::NoRoom), Some(3));
+        assert_eq!(declared.governing(ActiveRoom::NoRoom).copied(), Some(3));
     }
 
     /// A mode's own claim outranks a whole-process one, so a composition that
@@ -250,8 +251,8 @@ mod tests {
         declared.declare(RulesScope::EveryRoom, 9);
         declared.declare(RulesScope::Mode("mary_o"), 2);
 
-        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")), Some(2));
-        assert_eq!(declared.governing(ActiveRoom::Untagged), Some(9));
+        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")).copied(), Some(2));
+        assert_eq!(declared.governing(ActiveRoom::Untagged).copied(), Some(9));
     }
 
     /// Two games that claim one set of rooms is a contradiction at build time,
@@ -274,7 +275,7 @@ mod tests {
 
         let bytes = app.world().resource::<DeclaredRules<u8>>();
         let words = app.world().resource::<DeclaredRules<u16>>();
-        assert_eq!(bytes.governing(ActiveRoom::Mode("mary_o")), Some(2));
-        assert_eq!(words.governing(ActiveRoom::Mode("mary_o")), Some(7));
+        assert_eq!(bytes.governing(ActiveRoom::Mode("mary_o")).copied(), Some(2));
+        assert_eq!(words.governing(ActiveRoom::Mode("mary_o")).copied(), Some(7));
     }
 }

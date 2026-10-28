@@ -653,6 +653,11 @@ kernel graph remains a DAG. Android performance was not measured.
 Do not restore a body-owned global platform driver or gate lift contact by
 controller kind.
 
+`495734ea2`: room roots now keep their room identity when a second room opens.
+Both room-spec readers recognize roots; resident stamps and the single-room
+fallback keep their priority. Guards: 339 shared, 159 world, and 63 app tests;
+the app compiles. No state, wire key, or system invocation changes.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

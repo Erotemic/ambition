@@ -417,7 +417,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
                 .run_if(|conversation: Option<Res<ambition_conversation::ActiveConversation>>| {
                     conversation.is_some_and(|conversation| conversation.is_live())
                 })
-                .after(ambition_platformer2d_actor_monolith::interact_ecs_actors_and_switches),
+                .after(ambition_platformer2d_actor_monolith::body::interact_ecs_actors_and_switches),
         )
             .chain()
             .in_set(DurableHorizonSet::SessionMirror),

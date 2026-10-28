@@ -495,7 +495,7 @@ impl SoleLiveRoomSpec<'_, '_> {
 /// subject, where [`SoleLiveRoomSpec`] is the reader without one.
 ///
 /// The entity's live room comes from [`LiveRooms::of`]: its
-/// `InRoomInstance` stamp, or, for an unstamped entity, the sole live room.
+/// `InRoomInstance` stamp, its root identity, or the sole live room.
 /// The definition is on that room's root. So two live rooms answer for each
 /// body, and one live room answers as the sole read did (OW1 cut 6a).
 ///
@@ -771,12 +771,15 @@ pub fn sole_live_room_definition(world: &bevy_ecs::world::World) -> Option<LiveR
 }
 
 /// The spec of the live room `entity` is in, at an exclusive-world boundary:
-/// the room of its `InRoomInstance` stamp. An unstamped entity is in the
-/// sole live room, and in none when two are live.
+/// its `InRoomInstance` stamp or its root identity. An entity with neither
+/// is in the sole live room, and in none when two are live.
 pub fn live_room_spec_of(world: &bevy_ecs::world::World, entity: bevy_ecs::entity::Entity) -> Option<&RoomSpec> {
-    let room = world
-        .get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(entity)
-        .map(|stamp| stamp.0);
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot, live_room_of,
+    };
+    let root = world.get::<LiveRoomInstance>(entity)
+        .filter(|_| world.get::<RoomInstanceRoot>(entity).is_some());
+    let room = live_room_of(world.get::<InRoomInstance>(entity), root);
     let definition = live_room_definition_in(world, room)?;
     ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
         .map(|rooms| rooms.spec(definition))
@@ -813,6 +816,45 @@ pub fn seat_sole_live_room_by_id(
             .definition_by_id(id)?;
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(world, definition);
     Some(definition)
+}
+
+#[cfg(test)]
+mod live_room_lookup_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, sole_live_room_entity, spawn_live_room,
+    };
+
+    #[test]
+    fn room_roots_resolve_their_own_specs_through_both_readers() {
+        let mut world = bevy_ecs::world::World::new();
+        let room = |id| RoomSpec::new(
+            id,
+            ae::World::new(id, ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()),
+        );
+        insert_room_set(&mut world, RoomSet::from_parts_or_panic(
+            "first", vec![room("first"), room("second")], Vec::new(),
+        ));
+        let first = LiveRoomInstance::ACTIVATION;
+        let first_root = sole_live_room_entity(&world).expect("the first room is live");
+        let second = first.next();
+        let second_root = spawn_live_room(&mut world, second, LiveRoomDefinition::from_index(1));
+        let first_resident = world.spawn(InRoomInstance(first)).id();
+        let second_resident = world.spawn(InRoomInstance(second)).id();
+        let unscoped = world.spawn_empty().id();
+        let cases = [
+            (first_root, "first"), (second_root, "second"),
+            (first_resident, "first"), (second_resident, "second"),
+        ];
+        let mut state = bevy_ecs::system::SystemState::<LiveRoomSpecs>::new(&mut world);
+        let specs = state.get(&world).expect("the room queries are valid");
+        for (entity, expected) in cases {
+            assert_eq!(specs.spec_of(entity).map(|spec| spec.id.as_str()), Some(expected));
+            assert_eq!(live_room_spec_of(&world, entity).map(|spec| spec.id.as_str()), Some(expected));
+        }
+        assert!(specs.spec_of(unscoped).is_none());
+        assert!(live_room_spec_of(&world, unscoped).is_none());
+    }
 }
 
 #[cfg(test)]

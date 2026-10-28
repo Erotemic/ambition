@@ -114,6 +114,8 @@ bevy = { version = "0.19.1", default-features = false, features = [
 ] }
 
 [dev-dependencies]
+ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_items = { path = "../ambition_items", features = ["test-support"] }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }

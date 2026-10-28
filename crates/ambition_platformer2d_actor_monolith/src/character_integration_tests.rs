@@ -286,7 +286,7 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
 // ─────────────────────────────────────────────────────────────────────────────
 // The actual fight.
 
-use crate::features::apply_feature_hit_events;
+use crate::body::apply_feature_hit_events;
 use ambition_characters::actor::attack_gesture::{AttackGestureTuning, ResolvedAttackGesture};
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::control::ActorControl;
@@ -338,7 +338,7 @@ impl Heard {
 }
 
 /// The body-generic reaction decay the actor tick performs
-/// (`features::ecs::actors::update` calls `decay_reaction_timers` on exactly this
+/// (`body::actors::update` calls `decay_reaction_timers` on exactly this
 /// component, once per tick).
 ///
 /// Present because without it the post-hit i-frame window never expires, so this
@@ -521,7 +521,7 @@ fn fight_app() -> App {
             // authority receives — which is where the attribution actually lands.
             ambition_combat::moveset::dispatch_move_events,
             ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
-            crate::features::refresh_body_damageable_volumes,
+            crate::body::refresh_body_damageable_volumes,
             apply_hitbox_damage,
             record_trades,
             record_cues,

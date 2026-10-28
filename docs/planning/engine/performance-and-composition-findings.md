@@ -58,7 +58,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | Mary-O's presentation (16 systems: power blocks, fire, goal, pipe signs, shimmer, quasar, cosmic aura and barrier, void looks, readouts) in `MaryOPresentationSet`, asleep while another game is on screen | done | census, hub Ambition route: 1,400 → 1,382 systems a frame (Mary-O's 29 → 13; the rest are her materials' Bevy per-type systems); Mary-O route unchanged |
 | S7c: the shield rings and the guard breaks are one pass over the shielded bodies (`rebuild_shield_views`) | done | `ambition_sim_view` 40 → 39 |
 | Ambition's room looks (9) run while a live room asks for a look and one frame after; the vanity card (3) while a startup sequence runs or a card remains; the grid menu's republish while a menu is open or its tree is up | done | census: `ambition_content` 46 → 34; with the two rows above, 1,229 → 1,195 systems a frame (one new system, the desktop cursor, included) |
-| The player trail is one retained gizmo drawing per room band, rebuilt only when its strips change (`present_player_trails`), instead of four `RoomTrailGizmos` groups of 6 Bevy systems each in every composition | done | census: Mary-O route 1,195 → 1,184 systems a frame, hub Ambition route 1,382 → 1,365; gizmo groups 9 → 5 |
+| The player trail is one retained gizmo drawing per room band, rebuilt only when its strips change (`draw_emitted_trails`), instead of four `RoomTrailGizmos` groups of 6 Bevy systems each in every composition | done | census: Mary-O route 1,195 → 1,184 systems a frame, hub Ambition route 1,382 → 1,365; gizmo groups 9 → 5 |
 | The effect quarantine is one pass per phase over its families (`ExternalEffectFamilies`: open, journal, release, discard), not one system per message type per phase; each family's step is the old system as a `&mut World` function | done | census: Mary-O route 1,184 → 1,163 systems a frame (25 quarantine systems → 3, plus the discard on a load) |
 | The host intents' release and prune are one pass each over the registered types (`HostIntentTypes`), reading the live session once | done | 6 → 2 systems (REASONED from the three registered types; app host-intent tests green) |
 | Held and wielded item presentation (in-hand sprite, over-hand sprite, hand requests) in `HeldItemPresentationSet`: runs while an item is held or wielded and one frame after | done | 3 systems a frame where nothing is held (REASONED by count) |
@@ -960,12 +960,10 @@ systems in `Update` are not gated yet: they despawn visuals, so each needs
 the same publish-or-clean reading first. MEASURED (the same census after it): systems run in
 the GGRS tick 472 → 446 (portal-named 36 → 10), in the frame 1,403 → 1,374.
 
-**The boss steps and the mounts sleep too (2026-10-17).** Six per-tick boss
-steps were outside the boss capability's set (`integrate_boss_bodies`,
-`update_ecs_bosses`, `tick_boss_brains_system`, `drive_boss_animators`, the
-boss attack trigger and projection); no Mary-O, Sanic or Smash content makes
-a boss body, and they now join it (witness
-`the_boss_steps_are_in_the_boss_capability`). `Capability::Mounts`: the
+**Boss behavior and mounts use capability gates.** Boss phase maintenance,
+brain decisions, animation, and the attack trigger and projection use the
+boss capability's set (witness `the_boss_steps_are_in_the_boss_capability`).
+Body integration uses the common body phase for each controller kind. `Capability::Mounts`: the
 mount crate's seven systems, through its sets; Mary-O and Sanic declare no
 mounts, Ambition and Smash keep them (witness
 `mounts_sleep_in_mary_os_rooms_and_run_in_ambitions`, red at each half).
@@ -1303,7 +1301,7 @@ already: `BossCatalog` is core state (`runtime/src/sim_core_resources.rs:194-203
 and the `encounters-without-named-bosses` profile is witnessed; the demo hosts
 simply do not ask. `BossEncounterSimulationPlugin` initializes the catalog a
 second time (`boss_encounter/src/lib.rs:132`), and the run condition at
-`actor_monolith/src/features/mod.rs:1094-1102` tests a resource that is now
+`actor_monolith/src/body/mod.rs:1094-1102` tests a resource that is now
 always there. The extension phases `technique_execution` and `boss_conduct`
 (about 29 systems) and `wielded_use`/`module_entity_tick` (about 20) are core,
 whatever the profile. Since 2026-10-16 the Mary-O and Sanic hosts build the
@@ -1318,7 +1316,7 @@ until its fighter kit does (D4).
 
 MEASURED. `NarrativeInputPlugin<M>` (`ambition_conversation/src/ledger.rs:247`)
 adds three systems per payload; twelve payloads (two in `ambition_conversation`,
-seven in `actor_monolith/src/features/mod.rs:1491-1497`, three in
+seven in `actor_monolith/src/body/mod.rs:1491-1497`, three in
 `ambition_content`) make 36 systems; a standalone game runs nine (27). The seven
 monolith ones and the ten outside `ConversationPlugin` are
 not removed by `Capability::Dialogue`. Every writer is in `ambition_conversation`
@@ -1384,7 +1382,7 @@ key `HashMap`s by `String`, per body per tick.
 ### F7 — Two systems visit every entity every tick
 
 MEASURED (source). `project_wallet_shields`
-(`actor_monolith/src/features/wallet_shield.rs:32`) and
+(`actor_monolith/src/body/wallet_shield.rs:32`) and
 `brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:91`)
 iterate a query with no required component, so they visit every entity in the
 world each tick (the hub census counts about 8000 entities, 1300 live). A body
@@ -1710,7 +1708,7 @@ are marked changed a frame. Of ours:
   `update.rs:1508-1543`). Cause (source read): `as_actor_mut`
   (`actor_clusters.rs:163`) takes `&mut` of each cluster through `Mut<T>`,
   which marks it changed whether or not the step writes it.
-- More per-body writes each frame: `BodyLifeStats` (`features/mod.rs:280`),
+- More per-body writes each frame: `BodyLifeStats` (`body/mod.rs:280`),
   `ResolvedTechniqueEdges` (`starting_character.rs:705`), `BodyMelee`,
   `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
   `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
@@ -2008,7 +2006,7 @@ session-edge check from the existing harness.
 3. **C3 Mounts.** `MountsPlugin` takes `combat_schedule.rs:776-800` and
    `install_mount_pose_systems`; the mount ports in the boss phases are
    installed only with mounts, decided by the composition root. 7 systems.
-4. **C4 Match stocks.** `StocksMatchPlugin` takes `features/mod.rs:925-975` and
+4. **C4 Match stocks.** `StocksMatchPlugin` takes `body/mod.rs:925-975` and
    the finish zoom; the Smash and versus rules assert it. 7 systems.
 5. **C5 Grabs.** `CapturePlugin` takes `combat_schedule.rs:525-672`; the control
    gate chain splits on two capture-owned sets (same order). 14 systems, only

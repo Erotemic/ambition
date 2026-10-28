@@ -1,7 +1,7 @@
-//! Backend-agnostic authored world IR.
+//! Authored room data and live world geometry.
 //!
 //! This crate owns the room graph, authored placement records, room metadata,
-//! moving-platform math, and the composited [`collision`] world every sweep and
+//! moving-platform simulation, and the composited [`collision`] world every sweep and
 //! raycast reads. Backend adapters such as LDtk convert into these types;
 //! simulation crates interpret them through explicit lowering seams.
 

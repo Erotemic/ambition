@@ -718,7 +718,7 @@ fn successive_summons_allocate_non_overlapping_identities() {
         effect: ambition_vfx::Effect::Summon(summon_spec("b")),
     });
     world
-        .run_system_cached(ambition_platformer2d_actor_monolith::apply_summon_effects)
+        .run_system_cached(ambition_platformer2d_actor_monolith::body::apply_summon_effects)
         .expect("the summon executor runs");
     world.flush();
 
@@ -926,8 +926,8 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
         ..Default::default()
     });
     schedule.add_systems((
-        ambition_platformer2d_actor_monolith::apply_summon_effects,
-        interlope.after(ambition_platformer2d_actor_monolith::apply_summon_effects),
+        ambition_platformer2d_actor_monolith::body::apply_summon_effects,
+        interlope.after(ambition_platformer2d_actor_monolith::body::apply_summon_effects),
     ));
     schedule.run(&mut world);
 

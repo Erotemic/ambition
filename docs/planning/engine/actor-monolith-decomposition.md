@@ -214,7 +214,7 @@ provider registry, new global resource, or duplicate saved state.
   because a rest clears those flags. The catalog's
   `RespawnPolicy::death_record` says which record a policy keeps (an
   exhaustive match). The policy-to-flag glue stays with the one writer
-  (`features/ecs/damage/actor_hit.rs`). The `fate_flags` module is deleted.
+  (`body/damage/actor_hit.rs`). The `fate_flags` module is deleted.
 - **Shrine.** `HealShrine`, `heal_save_shrine_system` and its tests moved to
   the new crate `ambition_shrine`. The crate publishes a `ShrineRest` set;
   the checkpoint resume orders after the set, not after the function. The
@@ -618,9 +618,123 @@ Persistence owns durable NPC provocation facts, their reducer, and the saved
 NPC dialogue flag name. Runtime keeps their existing ordering. No system
 invocation is added.
 
-**Remaining D33 work:** expose the owned body API and remove the old
-`features::ecs` topology and foreign forwarding exports. Capability profiles
-remain a separate C2/SDK exit.
+The public `body` API owns body execution. The old `features::ecs` tree,
+controller-named movement wrapper, and crate-root forwarding exports are gone.
+Foreign types are read from their owners.
+
+Global moving-platform advancement and collision-cache retirement now belong
+to the world owner. Runtime installs that step between body rescue and the
+body-contact snapshot. The phase, deferred visibility, and invocation count
+stay the same.
+
+Observation captures trail geometry on the presentation clock. Rendering owns
+its colors, retained gizmo assets, room bands, and retirement. A system pipe
+passes plain drawing facts across that boundary in one Update invocation.
+Trail creation and advancement stay in the body kernel.
+
+Runtime owns fall-rescue integration. It combines room policy, boss activity,
+body contacts, and world platform creation. Rescue stays after mount steering
+and before the world platform step. The empty avatar compatibility modules
+are deleted.
+
+Observation initializes the default-view cast (`FramedCast`). Session/match
+code publishes it for camera framing. Possession setup initializes control
+state only.
+
+**Remaining D33 work:** audit residual responsibilities and public operations
+against the exit below and close the A4 acceptance arms. Possession stores
+one record for each participant seat. Two participants can possess, drive,
+and release separate bodies through one control path, including under rollback.
+Boss bodies now use the common integration phase. Their optional envelope,
+authored tuning, contact field, and movement cues use the same data path as
+other actor bodies. Boss phase maintenance runs after integration.
+Keep accepted control, body custody, motion, and action execution together.
+Capability profiles remain a separate C2/SDK exit.
+
+### K19 — Owned body API
+
+`3efa243ff`: public `body` operations replace the legacy `features::ecs` tree, enemy wrapper, and root forwarding exports.
+State fields, wire keys, phase order, and invocation counts stay the same.
+Guards: 600 actor, 262 runtime, 116 app, 58 Smash, and five profile tests; 35 workspace policies and 53 absence contracts.
+Do not restore compatibility aliases or foreign type forwarding.
+
+### K20 — World-owned platform step
+
+`7cf962e92` fixes lift detection for ordinary bodies, collision frames, planes,
+and live rooms. `e952081cf` moves platform advancement and collision-cache
+retirement to the world owner. Runtime keeps rescue before the step and contact
+snapshots after it. The portal pose anchor still has one member. State fields,
+wire keys, deferred visibility, and active invocation counts stay the same.
+Guards: 158 world, 597 actor, 262 runtime, 156 app, 58 Smash, and five profile
+tests; 35 workspace policies and 53 absence contracts. The app compiles and the
+kernel graph remains a DAG. Android performance was not measured.
+Do not restore a body-owned global platform driver or gate lift contact by
+controller kind.
+
+`495734ea2`: room roots now keep their room identity when a second room opens.
+Both room-spec readers recognize roots; resident stamps and the single-room
+fallback keep their priority. Guards: 339 shared, 159 world, and 63 app tests;
+the app compiles. No state, wire key, or system invocation changes.
+
+### K21 — Trail observation and drawing owners
+
+`0fd8c7757`: observation captures plain trail geometry; rendering owns retained
+gizmo assets, colors, room bands, caching, and retirement. One Update system
+pipe replaces the kernel's drawing system. Trail creation, advancement,
+messages, and simulation ordering stay the same.
+Guards: 595 actor, 481 render, 140 observation, 15 app, and five profile tests;
+35 workspace policies and 53 absence contracts. The app compiles and the
+kernel graph remains a DAG. Android performance was not measured.
+Do not restore render assets or drawing systems in the body kernel.
+
+### K22 — Runtime-owned fall rescue
+
+`66317caff`: runtime owns room-policy rescue, boss checks, and carrier creation.
+Rescue stays after mount steering and before platform advancement. Body contact
+snapshots stay after the world step. Empty avatar compatibility modules and the
+old rescue export are deleted. State, wire keys, and invocation counts stay the
+same. The causal fixture now includes the owner of its observers.
+Guards: 595 actor, 270 runtime, six causal, 35 app, and five profile tests;
+35 workspace policies and 53 absence contracts. The app compiles and the
+kernel graph remains a DAG. No Android performance measurement was made.
+Do not move room rescue policy back into the body kernel.
+
+### K23 — Observation-owned default cast
+
+`90e68b736`: observation initializes `FramedCast`; session/match code publishes
+it for camera framing. Possession initializes control state only. State, wire
+keys, and scheduling stay the same.
+Guards: 595 actor and 140 observation tests, five profiles, 35 workspace
+policies, and 53 absence contracts. The app compiles.
+Do not make possession setup a prerequisite for camera cast projection.
+
+### K24 — Per-participant possession
+
+`7afeb3a0a`: one possession record held only the primary seat. Per-seat records
+now use one trigger, custody projection, and driving projection. Contested
+targets grant neither seat. Each claim names its home body's stable identity.
+Rollback schema v385 maps every record and probes its seat, timer, and input edge.
+The probe is for localization; this remains clone snapshot state.
+Guards: 603 actor, 270 runtime, 112 app, 10 session teardown, eight Mary-O/Sanic,
+and 52 Smash tests; six app and six Smash tests stay ignored. All 35
+workspace policies and 53 absence contracts pass. The default-feature app
+compiles with no warnings. The full workspace feature union was not run.
+Do not restore a separate primary-seat possession path. A4 still owes its
+remaining body-removal, action-continuity, and body-tick acceptance arms.
+
+### K25 — Shared boss body integration
+
+`d23d6f0b9`: bosses called the common integrator from a separate scheduled
+loop. Boss bodies now use `integrate_sim_bodies`, with optional envelope,
+tuning, contacts, and movement cues. Boss phase maintenance follows integration.
+The old file and public entry are deleted: one fewer active ECS invocation.
+State, rollback registrations, and wire rows stay the same.
+Guards: 603 actor, 270 runtime, 145 app, and 52 Smash tests; six app and six
+Smash tests stay ignored. All 35 workspace policies and 53 absence contracts
+pass. The default-feature app compiles with no warnings. The kernel graph is
+a DAG and the resource-writer census stays at 131 adjudicated resources.
+The full feature union and Android performance were not measured.
+Do not restore a boss-only motion loop. Reaction-clock differences remain open.
 
 ### Migration acceptance for each packet
 

@@ -10,7 +10,6 @@
     "a game with no turned gravity": "Mary-O, Smash and Sanic have no room whose gravity is turned; convert when one does",
     "the camera's framing bounds": "a bound of what the camera frames, not a contact",
     "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN",
-    "a lift's rider test at level gravity": "`advance_moving_platforms` asks `is_supporting_body` with the feet direction `Vec2::Y`, so it asks for the box a body has when its DOWN is the level's. Not measured against a room that turns gravity under a lift; when one is authored this read takes the rider's own box and its own DOWN, as the other platform readers do.",
     "a conducted limb": "a limb its conductor moves (`PoseHold::Conductor`) is a free body with no support and no stance: its size is its box, as a shot's is"
   },
   "reads": [
@@ -45,17 +44,17 @@
       "class": "a scratch body with no record"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
+      "file": "crates/ambition_platformer2d_actor_monolith/src/body/perception.rs",
       "code": "half_extent: kin.size * 0.5,",
       "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
+      "file": "crates/ambition_platformer2d_actor_monolith/src/body/perception.rs",
       "code": "half_extent: body.kin.size * 0.5,",
       "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/target_volumes.rs",
+      "file": "crates/ambition_platformer2d_actor_monolith/src/body/target_volumes.rs",
       "code": "let volumes = resolved.world_volumes(kin.aabb().center(), side)?;",
       "class": "the centre only"
     },
@@ -173,11 +172,6 @@
       "file": "game/ambition_demo_sanic/src/monitors.rs",
       "code": "let p = kin.aabb();",
       "class": "a game with no turned gravity"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs",
-      "code": "&& platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)",
-      "class": "a lift's rider test at level gravity"
     },
     {
       "file": "game/ambition_demo_mary_o/src/castle_end.rs",

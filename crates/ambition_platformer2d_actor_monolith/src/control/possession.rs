@@ -1,4 +1,4 @@
-//! Possession redirects the primary participant's seat to a nearby actor.
+//! Possession redirects each participant's seat to a nearby body.
 //!
 //! The target then uses the ordinary `DrivingParticipant` → [`SlotControls`](ambition_characters::control::SlotControls) →
 //! `ActorControl`/`ActionSet` path; the home avatar is inert until release returns
@@ -13,8 +13,8 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::CenteredAabb;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
@@ -25,34 +25,84 @@ impl Plugin for PossessionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PossessionState>();
         app.init_resource::<ControlledSubject>();
-        // Its sibling: what to frame when nothing is driving a body.
-        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
     }
 }
 
-/// Internal seat bookkeeping for possession.
-///
-/// Gameplay and presentation should derive the live driver from
-/// [`ControlledSubject`], not branch on this resource.
+/// One participant's possession and gesture state.
+/// Timers and input edges rewind with the possession decision.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Possession {
+    pub possessed: Option<Entity>,
+    /// Retained until the driving projection returns the seat.
+    pub home: Option<Entity>,
+    pub hold_timer: f32,
+    pub prev_down_interact: bool,
+}
+
+impl Possession {
+    const IDLE: Self = Self {
+        possessed: None,
+        home: None,
+        hold_timer: 0.0,
+        prev_down_interact: false,
+    };
+}
+
+impl Default for Possession {
+    fn default() -> Self {
+        Self::IDLE
+    }
+}
+
+/// Possession records for the active session's participant seats.
 #[derive(Resource, Clone, Default)]
 pub struct PossessionState {
-    /// The actor currently possessed (the primary seat is redirected here), or
-    /// `None` while driving the home avatar.
-    pub possessed: Option<Entity>,
-    /// Home avatar to receive the seat on release. The driving-seat projection
-    /// consumes and clears this value when it returns the seat.
-    pub home: Option<Entity>,
-    /// How long Down+Interact has been held toward the possess threshold.
-    ///
-    /// Lives HERE rather than in a `Local<f32>` on the trigger system because
-    /// this resource is registered rollback state and a `Local` is not: GGRS
-    /// cannot save or restore per-system state, so a rewind would rewind the
-    /// possession decision while leaving the charge that produced it at its
-    /// predicted value.
-    pub hold_timer: f32,
-    /// Previous frame's Down+Interact, for rising-edge release detection. Same
-    /// reasoning as `hold_timer`: edge state must rewind with the decision.
-    pub prev_down_interact: bool,
+    seats: std::collections::BTreeMap<PlayerSlot, Possession>,
+}
+
+impl PossessionState {
+    /// An unwritten seat is idle.
+    pub fn get(&self, slot: PlayerSlot) -> &Possession {
+        self.seats.get(&slot).unwrap_or(&Possession::IDLE)
+    }
+
+    /// Create the seat's record when it first needs one.
+    pub fn get_mut(&mut self, slot: PlayerSlot) -> &mut Possession {
+        self.seats.entry(slot).or_default()
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (PlayerSlot, &Possession)> {
+        self.seats.iter().map(|(slot, record)| (*slot, record))
+    }
+
+    pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = (PlayerSlot, &mut Possession)> {
+        self.seats.iter_mut().map(|(slot, record)| (*slot, record))
+    }
+
+    pub fn any_possessed(&self) -> bool {
+        self.seats.values().any(|record| record.possessed.is_some())
+    }
+
+    pub(crate) fn referenced_entities(&self) -> Vec<Entity> {
+        self.seats
+            .values()
+            .flat_map(|record| record.possessed.into_iter().chain(record.home))
+            .collect()
+    }
+
+    /// Seat keys and scalar facts complement the ordered entity-reference probe.
+    pub(crate) fn facts_checksum(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        for (slot, record) in self.iter() {
+            slot.hash(&mut hash);
+            record.possessed.is_some().hash(&mut hash);
+            record.home.is_some().hash(&mut hash);
+            record.hold_timer.to_bits().hash(&mut hash);
+            record.prev_down_interact.hash(&mut hash);
+        }
+        hash.finish()
+    }
 }
 
 /// Publish the entity currently holding the primary participant's seat.
@@ -127,57 +177,37 @@ pub fn holding_ascend(
         < -POSSESS_DOWN_THRESHOLD
 }
 
-/// Hold gravity-relative Down + Interact to possess the nearest candidate; press
-/// it again to release. The hold uses real time so bullet-time does not change its duration.
-///
-/// Possession is currently primary-seat gameplay policy, so it reads
-/// `SlotControls[PRIMARY]`. This keeps release input available while the home avatar is vacated.
-#[allow(clippy::too_many_arguments)]
+/// Hold Down + Interact to possess a nearby body; press it again to release.
+/// Each seat uses its driven body's frame and its own replayed input policy.
+/// The hold uses wall time, including during slow motion.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn possession_trigger_system(
     slots: Res<ambition_characters::control::SlotControls>,
-    // Required: `PossessionPlugin` adds this system and the resource together.
-    controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    drivers: Query<(Entity, &DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    // The PRIMARY seat's resolved frame policy, not `Res<UserSettings>` — see
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     world_time: Res<ambition_time::WorldTime>,
-    // The possession DECISION — who is driven and where the seat returns to. The
-    // seat itself is written by `crate::control::project_driving_participant`,
-    // which reads this.
-    mut state: ResMut<PossessionState>,
+    mut states: ResMut<PossessionState>,
     mut commands: Commands,
-    // Home avatar kinematics: its position seeds the candidate search, and on
-    // release it steps out to the vacated actor's spot (camera continuity).
-    // SLOT-0 BY DESIGN: the HOME AVATAR is a real concept — the body slot 0 owns and
-    // returns to on release. It is precisely the body that is NOT the controlled
-    // subject while possession is active, so it cannot be found any other way.
     mut home_q: Query<
         (
             Entity,
             ambition_platformer2d_core::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
+            &SimId,
         ),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        With<PlayerEntity>,
     >,
-    // Possession candidates: any brain-bearing feature body — INCLUDING bosses.
-    // Bosses are valid controllable bodies (their tick reads whichever slot drives
-    // the body), so there is no `Without<BossConfig>` barrier here. Restricting WHICH boss is
-    // possessable (progression/design) is a targeting-policy gate to add above
-    // this, not a "bosses can never be controlled" exclusion in the body model.
     candidates: Query<
         (
             Entity,
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
-            // The world's hands are off this body — it is not a target either.
             (
-                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&ambition_platformer2d_core::DepthPlane>,
             ),
-            // ⭐ THE TIE-BREAK. Two candidates equidistant from the home body is
-            // an ordinary arrangement, and picking between them by Bevy query
-            // order is picking by archetype order — which differs between a live
-            // tick and the resimulated one that replaces it.
-            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&SimId>,
         ),
         (
             With<FeatureSimEntity>,
@@ -186,158 +216,145 @@ pub fn possession_trigger_system(
             Without<PlayerEntity>,
         ),
     >,
-    // Read-only AABB lookup for the vacate exit on release.
     actor_aabbs: Query<&CenteredAabb>,
 ) {
-    // The CONTROLLED body's resolved frame decides what "down" means for the
-    // gesture — while possessing, that is the possessed body's frame.
-    let gravity_dir = crate::control::controlled_frame_down(Some(&controlled), &frames);
-    // Possession is currently primary-seat gameplay policy, so both the control
-    // frame and the policy that interprets it are asked for the PRIMARY seat.
-    let control = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
-    // From the FRAME, which GGRS replays, rather than from a resource written in
-    // `Update` that a resimulation would read at its current value.
-    let movement_mode = control.control_frame_modes.movement;
-    let down = holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode);
-    // The gesture is a HOLD, so it accumulates on the interact button being
-    // HELD — not the single-frame `interact_pressed` edge (which doors / the
-    // heal-shrine also consume, resetting the hold every frame). The release is
-    // the rising edge of (down + held), tracked via `prev_down_interact`.
-    let down_interact = down && control.interact_held;
-    let release_edge = down_interact && !state.prev_down_interact;
-    state.prev_down_interact = down_interact;
-
-    // Already possessing → a fresh Down+Interact press releases (no hold).
-    if let Some(target) = state.possessed {
-        state.hold_timer = 0.0;
-        if release_edge {
-            release_possession(&mut commands, &mut state, target, &actor_aabbs, &mut home_q);
+    let occupied: std::collections::BTreeSet<Entity> = states
+        .iter()
+        .filter_map(|(_, record)| record.possessed)
+        .collect();
+    let mut proposals = Vec::new();
+    for raw_slot in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let slot = PlayerSlot(raw_slot as u8);
+        let old = *states.get(slot);
+        let driven = crate::control::body_driving_seat(&drivers, slot);
+        let home = if old.home.is_some() {
+            old.home
+        } else {
+            driven.filter(|body| home_q.get(*body).is_ok())
+        };
+        let Some(home) = home else {
+            if old != Possession::default() {
+                *states.get_mut(slot) = Possession::default();
+            }
+            continue;
+        };
+        let down = driven
+            .and_then(|body| frames.get(body).ok())
+            .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| {
+                frame.down()
+            });
+        let control = slots.get(slot);
+        let down_interact = control.interact_held
+            && holding_descend(
+                control.axis_x,
+                control.axis_y,
+                down,
+                control.control_frame_modes.movement,
+            );
+        let record = states.get_mut(slot);
+        let release_edge = down_interact && !record.prev_down_interact;
+        record.prev_down_interact = down_interact;
+        if let Some(target) = record.possessed {
+            record.hold_timer = 0.0;
+            if release_edge {
+                release_possession(&mut commands, record, target, &actor_aabbs, &mut home_q);
+            }
+            continue;
         }
-        return;
+        if !down_interact {
+            record.hold_timer = 0.0;
+            continue;
+        }
+        record.hold_timer += world_time.wall_dt();
+        if record.hold_timer < POSSESS_HOLD_S {
+            continue;
+        }
+        record.hold_timer = 0.0;
+        let Ok((_, clusters, _, home_id)) = home_q.get(home) else {
+            continue;
+        };
+        let at = clusters.kinematics.pos;
+        let room = live.of(home);
+        let nearest = ambition_platformer2d_shared_tangle::sim_selection::winner_by(
+            candidates
+                .iter()
+                .filter(|(body, _, health, (out, plane), _)| {
+                    live.of(*body) == room
+                        && !occupied.contains(body)
+                        && drivers.get(*body).is_err()
+                        && !ambition_combat::util::body_is_untouchable(*health, *out, *plane)
+                })
+                .map(|(body, bounds, _, _, id)| (body, (bounds.center - at).length(), id))
+                .filter(|(_, distance, _)| *distance <= POSSESS_RADIUS),
+            |(_, distance, _)| *distance,
+            |(_, _, id)| *id,
+        );
+        if let Some((target, _, _)) = nearest {
+            proposals.push((slot, home, target, home_id.clone()));
+        }
     }
-
-    // Not possessing → accumulate the hold; commit at the threshold.
-    if !down_interact {
-        state.hold_timer = 0.0;
-        return;
-    }
-    state.hold_timer += world_time.wall_dt();
-    if state.hold_timer < POSSESS_HOLD_S {
-        return;
-    }
-    state.hold_timer = 0.0;
-
-    let Ok((home_entity, home_clusters, _)) = home_q.single() else {
-        return;
-    };
-    let home_pos = home_clusters.kinematics.pos;
-    // ⭐ NEAREST, THEN STABLE IDENTITY — the one shape every contest in this
-    // engine uses. `min_by` on distance alone answered a tie with whichever
-    // candidate the query happened to yield first.
-    let nearest = ambition_platformer2d_shared_tangle::sim_selection::winner_by(
-        candidates
+    // Refuse contested targets before any body or control claim is changed.
+    for (slot, home, target, home_id) in &proposals {
+        if proposals
             .iter()
-            // Structural tangibility gate: a dead body is an
-            // intangible corpse — you cannot possess a corpse. Excluded BEFORE
-            // distance selection so a nearer corpse never shadows a farther live body.
-            .filter(|(_, _, health, (out_of_play, plane), _)| {
-                !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
-            })
-            .map(|(entity, aabb, _, _, id)| (entity, (aabb.center - home_pos).length(), id))
-            .filter(|(_, dist, _)| *dist <= POSSESS_RADIUS),
-        |(_, dist, _)| *dist,
-        |(_, _, id)| *id,
-    );
-    let Some((target, _, _)) = nearest else {
-        return;
-    };
-
-    // THE SEAT MOVES; NOTHING ELSE DOES. Record the decision — who is
-    // driving and where the seat goes back to — and let
-    // `crate::control::project_driving_participant` be the one system that acts
-    // on it. Both bodies get a fresh neutral `ActorControl` so no stale
-    // edge-triggered intent (a held jump, a pressed attack) leaks across the
-    // handover.
-    //
-    // Its `ActorFaction` is likewise left alone — effective allegiance (a DRIVEN body fights as
-    // Player) handles its player-side combat.
-    state.home = Some(home_entity);
-    state.possessed = Some(target);
-
-    commands.entity(home_entity).insert(ActorControl::default());
-    commands.entity(target).insert(ActorControl::default());
-    // ⭐ A CLAIM, NOT AN ASSIGNMENT. Recorded by stable id so a snapshot restores
-    // the control MODE across a rewind (the home avatar is always the primary
-    // player) — but filed as possession's own claim, so a ride running underneath
-    // this possession is shadowed rather than erased.
-    ambition_platformer2d_shared_tangle::temporary_control::file_claim(
-        &mut commands,
-        target,
-        ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Possession,
-        SimId::player_slot(0),
-    );
-    // Body custody is derived from rollback-authoritative `PossessionState` by
-    // `project_body_custody`; do not write `InCustodyOf` at the possession site.
+            .filter(|(_, _, other, _)| other == target)
+            .count()
+            != 1
+        {
+            continue;
+        }
+        let record = states.get_mut(*slot);
+        record.home = Some(*home);
+        record.possessed = Some(*target);
+        commands.entity(*home).insert(ActorControl::default());
+        commands.entity(*target).insert(ActorControl::default());
+        ambition_platformer2d_shared_tangle::temporary_control::file_claim(
+            &mut commands,
+            *target,
+            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Possession,
+            home_id.clone(),
+        );
+    }
 }
 
-/// End the possession and step the home body out to the vacated actor's
-/// position so the camera does not snap back.
-///
-/// The target never lost its policy and the home avatar never lost anything but its seat, so all
-/// that is left is: clear the decision (the seat goes home in
-/// `crate::control::project_driving_participant`), clear the stale control edges, and put the body
-/// where the player expects it.
-///
-///  `state.home` is deliberately NOT cleared here. The seat still has to go
-/// somewhere, and the writer that hands it back is the one that consumes the
-/// record — see [`PossessionState::home`].
+/// Release one claim and place the home body at the target's position.
+/// Keep the home record until the driving projection returns the seat.
 fn release_possession(
     commands: &mut Commands,
-    state: &mut PossessionState,
+    state: &mut Possession,
     target: Entity,
     actor_aabbs: &Query<&CenteredAabb>,
-    // SLOT-0 BY DESIGN: the home avatar (see `possession_trigger_system`).
     home_q: &mut Query<
         (
             Entity,
             ambition_platformer2d_core::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
+            &SimId,
         ),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        With<PlayerEntity>,
     >,
 ) {
     state.possessed = None;
 
-    // Clear the stale edges on the body being let go and hand its temporary-control record back to
-    // `Autonomous`.
-    //
-    //  RELEASE TOUCHES NO SCOPE, because possession touched none. Residency resumes in
-    // whatever room is active NOW — `RoomScopedEntity` carries no room id, so a body released
-    // two rooms later is resident THERE and the next transition out retires it correctly.
-    if let Ok(mut ec) = commands.get_entity(target) {
-        ec.insert(ActorControl::default());
+    if let Ok(mut entity) = commands.get_entity(target) {
+        entity.insert(ActorControl::default());
     }
-    // ⛔ RELEASE DROPS ONE CLAIM; IT DOES NOT DECLARE THE BODY AUTONOMOUS. This
-    // line used to write `Autonomous` unconditionally, which is correct exactly
-    // when possession is the only claimant — and wrong the moment the body was
-    // already riding something, because it announced an autonomy the ride had not
-    // agreed to. The projection decides what the body is now.
+    // The mount claim can remain after the possession claim is released.
     ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
         commands,
         target,
         ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Possession,
     );
 
-    // The home avatar sheds its stale edges and vacate-exits to the actor's spot.
+    // Clear the home body's control edges before the seat returns.
     if let Some(home) = state.home {
         if let Ok(mut ec) = commands.get_entity(home) {
             ec.insert(ActorControl::default());
         }
-        if let (Ok(aabb), Ok((_, mut cluster_item, mut motion_model))) =
+        if let (Ok(aabb), Ok((_, mut cluster_item, mut motion_model, _))) =
             (actor_aabbs.get(target), home_q.get_mut(home))
         {
-            // THE discrete-transit authority: the vacate-exit is a scripted
-            // teleport arriving at rest (ADR 0024 authority model).
+            // The release is a discrete transit that arrives at rest (ADR 0024).
             let mut clusters = cluster_item.as_clusters_mut();
             ambition_platformer2d_core::movement::transit_body(
                 &mut motion_model,
@@ -349,20 +366,33 @@ fn release_possession(
     }
 }
 
-/// If the possessed actor is gone (despawned / removed), end the possession so
-/// the player isn't stranded driving nothing.
+/// Release a possession when either body is removed.
 pub fn release_possession_if_target_lost(
-    mut state: ResMut<PossessionState>,
+    mut states: ResMut<PossessionState>,
     still_present: Query<()>,
+    mut commands: Commands,
 ) {
-    let Some(target) = state.possessed else {
-        return;
-    };
-    if still_present.get(target).is_ok() {
-        return;
+    for (_, record) in states.iter_mut() {
+        let Some(target) = record.possessed else {
+            continue;
+        };
+        if still_present.get(target).is_ok()
+            && record
+                .home
+                .is_some_and(|home| still_present.get(home).is_ok())
+        {
+            continue;
+        }
+        ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+            &mut commands,
+            target,
+            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Possession,
+        );
+        if let Ok(mut entity) = commands.get_entity(target) {
+            entity.insert(ActorControl::default());
+        }
+        record.possessed = None;
     }
-    // Target vanished mid-possession.
-    state.possessed = None;
 }
 
 #[cfg(test)]
@@ -370,11 +400,13 @@ mod tests;
 
 impl bevy::ecs::entity::MapEntities for PossessionState {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        if let Some(entity) = self.possessed.as_mut() {
-            *entity = mapper.get_mapped(*entity);
-        }
-        if let Some(entity) = self.home.as_mut() {
-            *entity = mapper.get_mapped(*entity);
+        for (_, record) in self.iter_mut() {
+            if let Some(entity) = record.possessed.as_mut() {
+                *entity = mapper.get_mapped(*entity);
+            }
+            if let Some(entity) = record.home.as_mut() {
+                *entity = mapper.get_mapped(*entity);
+            }
         }
     }
 }

@@ -972,7 +972,7 @@ state: green when it is alive, red when it is dead.
 The switch shows the boss's state; it stores no state of its own. Today's
 `Switch` toggles its own save entry, so this is a new switch action, plus
 the "may this be flipped" rule. There is no interactability condition today
-(`features/ecs/interact.rs`).
+(`body/interact.rs`).
 
 **Ruled (Jon, 2026-10-06):**
 

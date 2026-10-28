@@ -1,30 +1,25 @@
-//! Home-avatar policy and integration that has not yet moved to its final owner.
+//! Controlled body capabilities and execution.
 //!
 //! `PrimaryPlayer` identifies the exploration home body; `ControlledSubject` identifies current
 //! control authority. Generic body simulation must not branch on this module or player identity.
 
 pub mod body_integration;
 pub mod bundles;
-pub mod components;
-pub mod fall_rescue;
-pub mod movement_components;
 pub mod character_execution;
 pub mod systems;
 pub mod trail;
 
 pub use body_integration::{
-    advance_moving_platforms, integrate_home_body, surface_skidding, BodyReset,
+    integrate_home_body, surface_skidding, BodyReset,
     PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
-pub use fall_rescue::rescue_falling_bodies;
 pub use character_execution::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
     gate_body_control, motion_model_spec_for_character,
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
     HomeBodyAbilities, WornControlGateSet,
 };
-// Body-generic vocabulary stays under `crate::actor`; this module exports only home-avatar policy.
 pub use systems::{
     blank_scripted_control_frames, drive_commanded_moves,
     regen_player_mana, tick_controlled_brains, ControlledBrainTick,

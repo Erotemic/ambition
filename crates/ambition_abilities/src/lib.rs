@@ -13,7 +13,7 @@
 //! Not here on purpose: `possession`, `teleport`, `trapdoor`, and `flyline`.
 //! They sit in the kernel's `abilities/` directory, but they are control
 //! authority: `ambition_platformer2d_runtime` registers their systems, and
-//! `body_custody`, `control::authority`, `features::ecs::dormancy`, and
+//! `body_custody`, `control::authority`, `body::dormancy`, and
 //! `control::input_systems` use them. Moving them here would rename the
 //! coupling, not reduce it. See
 //! `docs/planning/engine/actor-monolith-decomposition.md`.

@@ -191,4 +191,4 @@ mod boss_profile_data_tests;
 mod canonical_boss_id_tests;
 // `scripted_pattern_tests` is not here: it builds an `ActorClusterSeed` and an
 // `ActorBody`, which the runtime monolith owns, so it lives there as
-// `features/ecs/boss_scripted_pattern_tests.rs`.
+// `body/boss_scripted_pattern_tests.rs`.

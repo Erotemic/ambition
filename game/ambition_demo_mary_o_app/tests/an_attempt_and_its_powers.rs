@@ -5,7 +5,7 @@
 //! attempt.
 
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::actors::empowerment::Empowered;
+use ambition_platformer2d::actors::body::empowerment::Empowered;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;

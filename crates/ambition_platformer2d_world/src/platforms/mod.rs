@@ -7,6 +7,9 @@
 //! The authoritative state lives here in the world crate; the Bevy visual is a
 //! read-model projection of it.
 
+mod simulation;
+pub use simulation::{MovingPlatformStep, install_moving_platform_simulation};
+
 use crate::rooms::KinematicPathSpec;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;

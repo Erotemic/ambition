@@ -7,7 +7,8 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | Body traversal through authored room geometry. |
-| [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
+| [`avatar`](src/avatar/mod.rs) | Controlled body capabilities and execution. |
+| [`body`](src/body/mod.rs) | Accepted body control, decisions, movement, and action execution. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode transitions from accepted control and contact facts. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
@@ -15,7 +16,6 @@
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
 | [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
-| [`features`](src/features/mod.rs) | Body decisions, accepted controls, movement, and action execution. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
@@ -33,7 +33,7 @@ their schedules. See the
 [decomposition plan](../../docs/planning/engine/actor-monolith-decomposition.md).
 
 The public crate root exposes owned operations and semantic modules.
-`features` is private implementation. Call lower domain owners for their types;
+`body` exposes accepted control and body execution. Call lower domain owners for their types;
 do not restore foreign forwarding exports here. `avatar` contains controlled
 body integration; controller kind does not select a separate physics path.
 
@@ -47,23 +47,21 @@ body integration; controller kind does not select a separate physics path.
   every body — triggered by `trigger_moveset_moves`, struck by
   `advance_move_playback`, and projected back into `BodyMelee` / `MeleeSwing` as
   the anim/HUD read-model. ONE melee path; no player/actor driver split.
-- **Who the human is driving** is `ControlledSubject` (the entity carrying
-  `Brain::Player(slot)`), never a possession flag and never `PrimaryPlayer`.
-  `PrimaryPlayer` means *slot 0's own body*, which is a different question; every
-  surviving `PrimaryPlayerOnly` filter in this crate carries a comment saying why
-  it is asking that one.
+- **Who drives a body** is `DrivingParticipant`. `ControlledSubject` is the
+  primary seat's read projection. `PlayerEntity` marks a home body;
+  `PrimaryPlayer` marks the primary seat's home body. Possession records name
+  each seat's target and return body. They do not replace driving authority.
 - **The collision world** is `ambition_platformer2d_world::collision::CollisionWorld`, not
   a bare `SessionWorldRef<RoomGeometry>`. A sweep or raycast that reads only
   authored geometry misses
   moving platforms, ECS solids, and portal carves.
 
-### The two lints that will fail you
+### Deterministic control
 
-- `ambition_platformer2d_runtime/tests/determinism_lints.rs` (ADR 0023) — no ambient RNG, no
-  wall clock, no `std` hash-container iteration, no `Entity` as an ordering key.
-- `ambition_platformer2d_runtime/tests/control_frame_lint.rs` — only the input layer may hold
-  the global `ControlFrame`. A body system that reads it is silently slot-0-only.
-  Its allowlist doubles as the netcode N1 checklist.
+Use stable simulation identities for decisions that depend on order. See
+[ADR 0023](../../docs/adr/0023-same-build-determinism.md).
+Read each seat's control through the control module. Body execution consumes
+`ActorControl`.
 
 ### Maintaining this file
 

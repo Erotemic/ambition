@@ -251,7 +251,7 @@ fn possession_survives_the_real_rollback_window() {
     let mut possessed = None;
     for i in 0..900 {
         sim.step(down_interact(i == 0));
-        possessed = sim.world_mut().resource::<PossessionState>().possessed;
+        possessed = sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed;
         if possessed.is_some() {
             break;
         }
@@ -272,7 +272,7 @@ fn possession_survives_the_real_rollback_window() {
     assert_rolled_back(&mut sim, loads_before, "the possession window");
 
     assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
+        sim.world_mut().resource::<PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY).possessed,
         Some(target),
         "possession did not survive the rollback window. ⛔ if this fails, the \
          absent `reconcile_temporary_control` was load-bearing after all and \

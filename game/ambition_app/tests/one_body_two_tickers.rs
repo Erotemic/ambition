@@ -43,7 +43,7 @@
 //!
 //! ⭐ **THE ATTRIBUTION IS CHECKABLE AGAINST A FACT THE INSTRUMENT DOES NOT
 //! KNOW.** `integrate_sim_bodies` is registered `.in_set(WorldPrepSet::Integrate)`
-//! (`actor_monolith/src/features/mod.rs:1113`), and 100% of position changes
+//! (`actor_monolith/src/body/mod.rs:1113`), and 100% of position changes
 //! land in `WorldPrep/Integrate`. A discriminating instrument is not enough — it
 //! has to discriminate CORRECTLY, and that correspondence is the evidence.
 //!
@@ -127,7 +127,7 @@ const PHASES: &[(&str, Phase)] = &[
     // SHOWED. `PlayerSimulation` takes a mutable borrow of every body every tick
     // and CHANGES NO POSITION. `WorldPrep` is where bodies actually move:
     // `integrate_sim_bodies` is in `WorldPrepSet::Integrate`
-    // (`actor_monolith/src/features/mod.rs:1113`), and `WorldPrepSet`'s three
+    // (`actor_monolith/src/body/mod.rs:1113`), and `WorldPrepSet`'s three
     // sub-phases are chained inside `Phase::WorldPrep`
     // (`actor_monolith/src/schedule/schedule.rs:141`).
     //

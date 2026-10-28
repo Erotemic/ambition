@@ -237,69 +237,8 @@ pub fn surface_skidding(
     run.abs() >= SKID_MIN_INPUT && v_t.abs() >= SKID_MIN_SPEED && run * v_t < 0.0
 }
 
-/// Advance the world's moving platforms ONCE per frame, ahead of every body
-/// integration (home + actors), so every body rides this frame's platform
-/// positions. Peeled out of the per-entity body loop so it can't multiply.
-///
-/// `InitialBodyPolicy::NoInitialBody` makes zero primary players an ordinary steady state, so in
-/// every match — and in any session that lowers no home avatar — not one moving platform advanced.
-///
-/// the hitstop read was a DUPLICATE AUTHORITY, not a lost feature. The
-/// primary body's hitstop already drives the global clock to zero — hitstop is
-/// the top rung of `emit_player_time_intent_system`'s ladder — so
-/// `WorldTime::sim_dt` carries the freeze that this system was re-deriving from
-/// the same component. Reading the world's own clock is what every body
-/// integrating against these platforms already does.
-///
-/// The platform now freezes on the same frame everything else does.
-///
-/// Every live room's platforms advance, each on its own root: a room that is
-/// live is simulated, whether or not a camera looks at it.
-///
-/// A LIFT waits for a rider, so before it advances it is told whether a body
-/// a participant drives stands on it: grounded, its feet on the lift's top,
-/// in the lift's own live room.
-#[allow(clippy::type_complexity)]
-pub fn advance_moving_platforms(
-    world_time: Res<ambition_time::WorldTime>,
-    mut rooms: Query<
-        (
-            Entity,
-            &mut ambition_platformer2d_world::collision::MovingPlatformSet,
-        ),
-        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
-    >,
-    riders: Query<
-        (Entity, &ae::BodyKinematics, &ae::BodyGroundState),
-        bevy::prelude::With<ambition_characters::control::DrivingParticipant>,
-    >,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-) {
-    let sim_dt = world_time.sim_dt();
-    for (root, mut platforms) in &mut rooms {
-        // Not through `&mut` when there is nothing to move: a write marks the
-        // set changed, and the shared composed walls are keyed by its change.
-        if platforms.0.is_empty() {
-            continue;
-        }
-        let room = live.of(root);
-        for platform in platforms.0.iter_mut() {
-            if platform.is_lift() {
-                let ridden = riders.iter().any(|(body, kin, ground)| {
-                    live.of(body) == room
-                        && platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)
-                });
-                platform.set_ridden(ridden);
-            }
-            platform.update(sim_dt);
-        }
-    }
-}
-
 #[cfg(test)]
 mod home_momentum_tests;
-#[cfg(test)]
-mod platform_advance_tests;
 
 // ⛔ THIS SYSTEM MOVED HERE FROM `ambition_damage`, 2026-08-26, and
 // it was the LAST monolith-owned thing that module named. Its own doc says

@@ -36,7 +36,7 @@ A deliberately quoted wrong name: `{FABRICATED}` <!-- cite-ok -->
 
 An upstream qualifier that must NOT report: `bevy_ggrs::RollbackId`.
 
-A real symbol that must NOT report: `PossessionState::hold_timer`.
+A real symbol that must NOT report: `Possession::hold_timer`.
 
 A bare path that names nothing: `{{dead_path}}`.
 

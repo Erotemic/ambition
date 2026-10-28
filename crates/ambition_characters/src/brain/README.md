@@ -95,7 +95,7 @@ target's own policy on the way. That fact is `DrivingParticipant(slot)` now and
 | Actor kind | Brain backend | Behavior code | Spawned/wired from |
 |---|---|---|---|
 | **Participant-driven** | *(none — `DrivingParticipant(slot)`)* | `player.rs` — *pure translation* of the slot-selected `ControlFrame` → frame; makes **no** gameplay decisions | player spawn |
-| **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine/mod.rs` (`tick_patrol`, `tick_stand_still`) | `features/npcs.rs` |
+| **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine/mod.rs` (`tick_patrol`, `tick_stand_still`) | `body/npcs.rs` |
 | **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine/mod.rs` (`tick_*` per template) | `features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `character_archetypes.ron`) |
 | **Enemy (brawler)** | `StateMachine(Smash{..})` | `smash/` 5-stage pipeline | `brain_builders.rs` (`smash_cfg_for_archetype`) |
 | **Boss** | `StateMachine(BossPattern{..})` | `boss_pattern.rs` | `features/ecs/spawn_actors.rs`, `bosses.rs` |

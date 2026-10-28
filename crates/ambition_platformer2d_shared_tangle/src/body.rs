@@ -52,8 +52,8 @@ pub struct MountDied {
 /// mechanic makes every other consumer depend on that mechanic to say how heavy
 /// something is.
 ///
-/// ⛔ IT USED TO LIVE IN `features::ecs::mount`, and 27 references outside that
-/// module spelled it `crate::features::Mass` — a generic fact wearing one
+/// ⛔ IT USED TO LIVE IN `body::mount`, and 27 references outside that
+/// module spelled it `crate::body::Mass` — a generic fact wearing one
 /// mechanic's address. ⇒ imported, never re-exported, exactly as `MountDied`'s
 /// own note demands: a `pub use` would let callers keep the old spelling and
 /// hide whose type it is.

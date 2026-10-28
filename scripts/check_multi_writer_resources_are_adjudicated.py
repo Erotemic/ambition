@@ -294,9 +294,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_combat/src/banner.rs",
         "crates/ambition_breakables/src/simulation.rs",
         "crates/ambition_platformer2d_items/src/chests.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/aggression.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/interact.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/aggression.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/damage/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/interact.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/arena.rs",
@@ -317,8 +317,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "CausalRecording": (
         "crates/ambition_combat/src/causal.rs",
         "crates/ambition_combat/src/moveset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/brain_effects.rs",
         "crates/ambition_platformer2d_runtime/src/causal.rs",
         "crates/ambition_platformer2d_runtime/src/causal/recorders.rs",
         "game/ambition_app_tools/src/bin/moveset_takes.rs",
@@ -478,7 +478,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_construction/src/whereabouts.rs",
         "crates/ambition_platformer2d_items/src/chests.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/errand.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/errand.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
@@ -753,7 +753,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ImpactHitstop": (
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_combat/src/impact_hitstop/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/death_beat.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/death_beat.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "InventoryUiState": (
@@ -2142,7 +2142,7 @@ ADJUDICATED: dict[str, str] = {
         "run. No new writer file, and `admit_mints` marks the ids it admits. "
         "The eleventh METHOD and ninth FILE, added 2026-10-09 (NAVIGATION slice "
         "2), is `admit_crossing(id, room, at)`, taken by `cross_on_errands` "
-        "(`actor_monolith/src/features/ecs/errand.rs`) when a persistent "
+        "(`actor_monolith/src/body/errand.rs`) when a persistent "
         "authored body on an errand goes into another live room by its own "
         "movement. It is a deliberate third entry for a LIVE occurrence, beside "
         "custody and a mint: a body is no longer moved between rooms only by "
@@ -2238,7 +2238,7 @@ ADJUDICATED: dict[str, str] = {
         "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, a "
         "hit's hitlag), `boss_phase_transition_feedback` (`ambition_boss_encounter/"
         "src/systems.rs`, a boss's death) and `advance_death_beats` "
-        "(`features/ecs/death_beat.rs`, a kill's beat), all in the sim schedule "
+        "(`body/death_beat.rs`, a kill's beat), all in the sim schedule "
         "and unordered against one another. Each writes `until_tick = "
         "max(held, until)`, which commutes, so their order cannot change the "
         "freeze; the resource is rollback-registered. The fourth file is "
@@ -2340,7 +2340,7 @@ ADJUDICATED: dict[str, str] = {
         "rollback finding at all (2026-09-23: the falling-sand room's spout "
         "capture that re-wrote a switch flag the drain had already toggled is "
         "deleted, `DUP-SWITCH-STATE`, and the room's code went on 2026-10-11 — and "
-        "`features/npcs.rs` ARRIVED: "
+        "`body/npcs.rs` ARRIVED: "
         "`record_npc_provocations` is the one writer of `npc_<id>_hostile`, which "
         "room construction builds from, `DUP-PERSISTED-FATE`); what keeps this "
         "unadjudicated is the split "
@@ -2428,15 +2428,11 @@ ADJUDICATED: dict[str, str] = {
         "uncovered ON THE RECORD."
     ),
     "PossessionState": (
-        "CORRECT — one protocol deliberately split across two systems, and the "
-        "source says so at the seam: `release_possession` clears `possessed` and "
-        "*\"`state.home` is deliberately NOT cleared here\"*, because the seat "
-        "still has to travel back; `project_driving_participant` clears `home` "
-        "once it has retracted the vacated seat and restored the home one. "
-        "POISON-VERIFIED 2026-09-17: deleting `state.home = None` from the "
-        "production half fails "
-        "`releasing_the_possession_returns_the_seat_to_the_body_that_owns_it` "
-        "and nothing else in 1,207 arms."
+        "CORRECT — one protocol for each participant seat. `release_possession` clears "
+        "the target on release. `project_driving_participant` retracts that seat, "
+        "returns it to its live home, then clears the home record. Session "
+        "teardown clears all records. The possession unit tests and the real "
+        "two-participant handoff tests cover independent release."
     ),
     "ClockState": (
         "CORRECT — three policies over one smoothed value, and the coupling is "

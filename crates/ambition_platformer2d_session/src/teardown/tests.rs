@@ -66,7 +66,7 @@ fn app_with_populated_mirrors() -> App {
 
     // Populate the mirrors with distinctive session-A state.
     let ghost = app.world_mut().spawn_empty().id();
-    app.world_mut().resource_mut::<PossessionState>().possessed = Some(ghost);
+    app.world_mut().resource_mut::<PossessionState>().get_mut(ambition_characters::control::PlayerSlot::PRIMARY).possessed = Some(ghost);
     app.world_mut()
         .resource_mut::<SlotInteractionState>()
         .primary_mut()
@@ -157,7 +157,7 @@ fn retirement_clears_every_session_scoped_mirror() {
     app.update();
     assert!(app
         .world()
-        .resource::<PossessionState>()
+        .resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY)
         .possessed
         .is_some());
     assert!(app
@@ -177,7 +177,7 @@ fn retirement_clears_every_session_scoped_mirror() {
     app.update();
 
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world().resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "possession still points at a despawned session-A body after teardown"
     );
@@ -204,7 +204,7 @@ fn no_retirement_leaves_mirrors_untouched() {
     }
     assert!(app
         .world()
-        .resource::<PossessionState>()
+        .resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY)
         .possessed
         .is_some());
 }
@@ -224,7 +224,7 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
     // misordered, or lost to an abnormal exit.
     assert!(app
         .world()
-        .resource::<PossessionState>()
+        .resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY)
         .possessed
         .is_some());
     assert!(app
@@ -239,7 +239,7 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
     app.update();
 
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world().resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "session B inherited a handle to a body that belonged to A — and Bevy \
          reuses entity ids, so that handle can come to name one of B's own"
@@ -310,7 +310,7 @@ fn a_stale_scopes_retirement_leaves_the_live_scopes_mirrors_alone() {
 
     assert!(
         app.world()
-            .resource::<PossessionState>()
+            .resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY)
             .possessed
             .is_some(),
         "a stale scope's retirement dropped the LIVE session's possessed body"
@@ -325,7 +325,7 @@ fn a_stale_scopes_retirement_leaves_the_live_scopes_mirrors_alone() {
     app.world_mut().write_message(SessionScopeRetired(live));
     app.update();
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world().resource::<PossessionState>().get(ambition_characters::control::PlayerSlot::PRIMARY).possessed,
         None,
         "retiring the LIVE scope left its mirrors standing, so the assertion \
          above is about refusing every retirement rather than about ownership"

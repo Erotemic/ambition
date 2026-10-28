@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_platformer2d_world** — Backend-agnostic authored world IR.
+**ambition_platformer2d_world** — Authored room data and live world geometry.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

@@ -393,7 +393,7 @@ fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() 
 /// whole speedway and can walk off a ledge before Sanic arrives.
 #[test]
 fn every_authored_badnik_sleeps_under_sanics_rule() {
-    use ambition_platformer2d::actors::dormancy::wake_radius;
+    use ambition_platformer2d::actors::body::dormancy::wake_radius;
     use ambition_platformer2d::combat::dormancy_rule::DormancyRule;
     use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::combat::actor_tuning::ActorConfig;
@@ -458,8 +458,8 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
 /// both away. The demo states the form in data and presents it in code.
 #[test]
 fn the_super_form_s_traits_are_stated_by_its_row() {
-    use ambition_platformer2d::actors::empowerment::empowerment_of;
-use ambition_platformer2d::actors::empowerment::Empowered;
+    use ambition_platformer2d::actors::body::empowerment::empowerment_of;
+use ambition_platformer2d::actors::body::empowerment::Empowered;
 use ambition_platformer2d::character::Empowerment;
     use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
     use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
@@ -568,7 +568,7 @@ use ambition_platformer2d::character::Empowerment;
     // The transformation asks for Sanic's own beat, carried by the request.
     let beat = app
         .world()
-        .get::<ambition_platformer2d::actors::transform_beat::TransformBeat>(body)
+        .get::<ambition_platformer2d::actors::body::transform_beat::TransformBeat>(body)
         .map(|beat| (beat.policy.anim, beat.policy.clock_scale));
     assert_eq!(
         beat,

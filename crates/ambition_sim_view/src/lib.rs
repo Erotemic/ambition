@@ -2,8 +2,8 @@
 //!
 //! Simulation read-models are rebuilt from authoritative state in the sim tail;
 //! observers consume these snapshots instead of querying live simulation ECS.
-//! [`camera_snapshot`] is presentation-clock state and is rebuilt once per
-//! rendered frame, but follows the same one-way observation boundary.
+//! Camera and trail snapshots use the presentation clock. They follow the
+//! same one-way observation boundary.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod affordances;
@@ -21,6 +21,8 @@ mod pose_view;
 pub mod presented_pose;
 mod rollback_registration;
 mod view_index;
+mod trail_snapshot;
+pub use trail_snapshot::{snapshot_emitted_trails, TrailSnapshot, TrailStrip, TrailStripState};
 
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
@@ -92,6 +94,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // belong. A capability that cannot initialise its own state is one the
         // composition layer has to know about — see
         // `docs/planning/engine/architecture.md` (decomposition doctrine).
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
         app.init_resource::<view_index::FeatureViewIndex>();
         app.init_resource::<view_index::ActorRenderIndex>();
         app.init_resource::<view_index::BossRenderIndex>();
@@ -131,7 +134,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // overlay ADVANCE mutates sim components, so it stays defined
                 // in the sim heart; this plugin only schedules it.
                 (
-                    ambition_platformer2d_actor_monolith::advance_body_anim_overlay_clocks,
+                    ambition_platformer2d_actor_monolith::body::advance_body_anim_overlay_clocks,
                     rebuild_actor_anim_index,
                 )
                     .chain(),

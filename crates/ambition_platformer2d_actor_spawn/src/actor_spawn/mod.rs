@@ -1232,10 +1232,8 @@ pub fn spawn_boss_with_overrides_into(
     ));
     scope.insert(boss_attack_moves.unwrap_or_default());
     scope.insert(boss_actor_cluster);
-    // The coarse render footprint the shared integrator publishes the CenteredAabb
-    // from (R1.1). Required by `integrate_boss_bodies`' query, so a boss without it
-    // simply would not move — a loud failure the boss suites catch, not a silent
-    // footprint shrink.
+    // The shared body phase publishes this coarse envelope as `CenteredAabb`.
+    // The collision box stays in `BodyKinematics`.
     scope.insert(boss_render_envelope);
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`
@@ -2065,7 +2063,7 @@ pub fn spawn_interactable_into(
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     // ⭐⭐ THE RUNTIME COMPONENT AND ITS AUTHORED NAME, NOT THE AUTHORED SPEC.
     // This took `Authored<InteractableSpec>` and converted it here with
-    // `features::ecs::spawn_static::interactable_from_authored` — an
+    // `body::spawn_static::interactable_from_authored` — an
     // authored-content conversion reached UPWARD from a spawn primitive, and the
     // last of F1's sixteen references. ⇒ The caller already owns it:
     // `spawn_static.rs` both defines that conversion and calls this function.

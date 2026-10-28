@@ -364,11 +364,11 @@ headless (`capture_scene` can show them).
 | Grant and retraction | `crates/ambition_platformer2d_actor_spawn/src/character_body.rs` |
 | Pose and schedule set | `crates/ambition_combat/src/body_rig.rs` |
 | Hurtbox resolution | `crates/ambition_combat/src/hurtbox_resolution.rs` |
-| Hand muzzle | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs` |
+| Hand muzzle | `crates/ambition_platformer2d_actor_monolith/src/body/brain_effects.rs` |
 | Landmark names and table | `crates/ambition_characters/src/actor/landmarks.rs` |
 | Landmark query | `crates/ambition_combat/src/body_landmarks.rs` |
 | Embedded landmark tables and digest | `crates/ambition_sprite_sheet/build.rs`, `src/baked_landmarks.rs`, `src/character/landmarks_published.rs` |
-| Pet mark | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs` |
+| Pet mark | `crates/ambition_platformer2d_actor_monolith/src/body/pet.rs` |
 | Player shot origin | `crates/ambition_projectile_combat/src/systems.rs` |
 | Flipbook asset and switch | `crates/ambition_sprite_sheet/src/character/rigged.rs` |
 | Rigged draw | `crates/ambition_render/src/rendering/actors/rigged*` |

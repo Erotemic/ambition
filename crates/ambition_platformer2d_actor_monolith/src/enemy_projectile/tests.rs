@@ -1383,7 +1383,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
         let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
         app.add_systems(
             Update,
-            crate::features::refresh_body_damageable_volumes
+            crate::body::refresh_body_damageable_volumes
                 .before(ambition_projectile_combat::step_projectiles),
         );
         let pos = ae::Vec2::new(300.0, 100.0);

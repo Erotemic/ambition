@@ -13,8 +13,8 @@
 //! - magenta cross: the place a body is going to; cyan cross: the place
 //!   beside its target, when a route goes there.
 
-use ambition_platformer2d::actors::navigation::NavigationAdvice;
-use ambition_platformer2d::actors::navigation::RoomNavigation;
+use ambition_platformer2d::actors::body::navigation::NavigationAdvice;
+use ambition_platformer2d::actors::body::navigation::RoomNavigation;
 use ambition_platformer2d::engine_core::navigation::NavLegKind;
 use ambition_platformer2d::render::rendering::debug_viz::{cyan, draw_arrow, green, magenta, orange, w2, yellow};
 use bevy::prelude::*;

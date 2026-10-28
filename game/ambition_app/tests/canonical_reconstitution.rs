@@ -798,7 +798,7 @@ fn a_replay_leaves_the_home_avatar_standing_at_spawn() {
 /// ⚠ The residue is placed directly rather than earned in a fight. The claim
 /// under test is about RECONSTRUCTION, not about the drop road: what matters is
 /// that the marker is the one the shipped drop road applies
-/// (`features::ecs::SpawnedThisAttempt`, see `damage_drops::drop_currency_coin`)
+/// (`body::SpawnedThisAttempt`, see `damage_drops::drop_currency_coin`)
 /// and that the entity carries no room scope — so only the attempt-residue leg
 /// of the retention policy can remove it, and a rebuild that swept it by
 /// accident would not prove anything.

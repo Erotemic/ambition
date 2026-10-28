@@ -1,7 +1,7 @@
 use super::*;
+use ambition_characters::actor::ActorFaction;
 use ambition_characters::brain::StateMachineCfg;
 use ambition_characters::control::PlayerSlot;
-use ambition_characters::actor::ActorFaction;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 
@@ -50,6 +50,7 @@ fn spawn_home(app: &mut App) -> Entity {
             // The home avatar is SEATED, and its own policy is to stand still —
             // which is what it does while somebody drives something else.
             DrivingParticipant(PlayerSlot::PRIMARY),
+            SimId::player_slot(0),
             Brain::stand_still(),
             ActorControl::default(),
             BodyKinematics {
@@ -93,7 +94,7 @@ fn faction_of(app: &App, e: Entity) -> ActorFaction {
 }
 
 fn hold_down_interact(app: &mut App, held: bool) {
-    let slot = ambition_characters::control::PlayerSlot::PRIMARY;
+    let slot = PlayerSlot::PRIMARY;
     let mut slots = app
         .world_mut()
         .resource_mut::<ambition_characters::control::SlotControls>();
@@ -139,6 +140,7 @@ fn possessing_between_two_equidistant_candidates_picks_the_same_one_either_spawn
         let target = app
             .world()
             .resource::<PossessionState>()
+            .get(PlayerSlot::PRIMARY)
             .possessed
             .expect("the hold crossed the threshold and possessed something");
         app.world()
@@ -203,7 +205,10 @@ fn possession_transfers_the_seat_and_release_hands_it_back() {
         "possession must NOT overwrite the authored faction"
     );
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world()
+            .resource::<PossessionState>()
+            .get(PlayerSlot::PRIMARY)
+            .possessed,
         Some(actor)
     );
     // The REPORTED BUG's root cause is gone: the vacated home avatar has a
@@ -240,6 +245,7 @@ fn possession_transfers_the_seat_and_release_hands_it_back() {
     assert!(app
         .world()
         .resource::<PossessionState>()
+        .get(PlayerSlot::PRIMARY)
         .possessed
         .is_none());
     // Vacate exit: the home avatar stepped out where the actor stood.
@@ -400,7 +406,11 @@ fn attack_while_controlling_target_emits_only_for_the_target() {
     // but it still owns a melee ActionSet + a pose.
     let home = app
         .world_mut()
-        .spawn((ActorControl::default(), kit.clone(), ambition_platformer2d_core::BodyKinematics::default()))
+        .spawn((
+            ActorControl::default(),
+            kit.clone(),
+            ambition_platformer2d_core::BodyKinematics::default(),
+        ))
         .id();
     // Possessed target: its seat produced a melee-pressed frame.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -408,7 +418,11 @@ fn attack_while_controlling_target_emits_only_for_the_target() {
     frame.facing = 1.0;
     let target = app
         .world_mut()
-        .spawn((ActorControl(frame), kit, ambition_platformer2d_core::BodyKinematics::default()))
+        .spawn((
+            ActorControl(frame),
+            kit,
+            ambition_platformer2d_core::BodyKinematics::default(),
+        ))
         .id();
 
     app.add_systems(Update, emit_brain_action_messages);
@@ -451,6 +465,7 @@ fn losing_the_target_hands_control_back_to_home() {
     assert!(app
         .world()
         .resource::<PossessionState>()
+        .get(PlayerSlot::PRIMARY)
         .possessed
         .is_none());
 }
@@ -558,7 +573,10 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
     app.update();
     app.update();
     assert_eq!(
-        app.world().resource::<PossessionState>().possessed,
+        app.world()
+            .resource::<PossessionState>()
+            .get(PlayerSlot::PRIMARY)
+            .possessed,
         Some(rider),
         "setup: the near rider must be the one possessed, or neither assertion below \
          is about what it says it is"
@@ -566,7 +584,9 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
     let _ = home;
 
     assert_eq!(
-        app.world().get::<InCustodyOf>(piloted_mount).map(|c| c.custodian),
+        app.world()
+            .get::<InCustodyOf>(piloted_mount)
+            .map(|c| c.custodian),
         Some(rider),
         "the mount a PILOTED rider is on is in that rider's custody, so a room change \
          cannot retire it out from under the pilot"
@@ -665,7 +685,8 @@ fn the_possession_projection_leaves_item_custody_alone() {
             // would quietly change which save rows the fixture's subject produces.
             InCustodyOf {
                 custodian: carrier,
-                durability: ambition_platformer2d_shared_tangle::lifecycle::CustodyDurability::Restored,
+                durability:
+                    ambition_platformer2d_shared_tangle::lifecycle::CustodyDurability::Restored,
             },
         ))
         .id();
@@ -780,4 +801,258 @@ fn an_unscoped_candidate_is_never_given_a_lifetime_by_possession() {
         "release returns the candidate to its original unscoped state"
     );
     assert!(app.world().get::<InCustodyOf>(actor).is_none());
+}
+
+fn spawn_seat(app: &mut App, seat: PlayerSlot, at: ambition_platformer2d_core::Vec2) -> Entity {
+    let body = spawn_home(app);
+    app.world_mut()
+        .entity_mut(body)
+        .insert((DrivingParticipant(seat), SimId::player_slot(seat.0)));
+    if seat != PlayerSlot::PRIMARY {
+        app.world_mut().entity_mut(body).remove::<PrimaryPlayer>();
+    }
+    app.world_mut().get_mut::<BodyKinematics>(body).unwrap().pos = at;
+    body
+}
+
+fn hold_for_seat(app: &mut App, seat: PlayerSlot, held: bool) {
+    let mut slots = app
+        .world_mut()
+        .resource_mut::<ambition_characters::control::SlotControls>();
+    let mut frame = slots.get(seat);
+    frame.axis_y = if held { 1.0 } else { 0.0 };
+    frame.interact_held = held;
+    slots.set(seat, frame);
+}
+
+#[test]
+fn two_seats_possess_and_release_independent_bodies() {
+    let mut app = trigger_app();
+    let second = PlayerSlot(1);
+    let a = spawn_seat(&mut app, PlayerSlot::PRIMARY, vec2(0.0, 0.0));
+    let b = spawn_seat(&mut app, second, vec2(1000.0, 0.0));
+    let target_a = spawn_candidate(&mut app, vec2(30.0, 0.0));
+    let target_b = spawn_candidate(&mut app, vec2(1030.0, 0.0));
+    hold_for_seat(&mut app, PlayerSlot::PRIMARY, true);
+    hold_for_seat(&mut app, second, true);
+    app.update();
+    app.update();
+    assert_eq!(brain_slot(&app, target_a), Some(PlayerSlot::PRIMARY));
+    assert_eq!(brain_slot(&app, target_b), Some(second));
+    assert_eq!(brain_slot(&app, a), None);
+    assert_eq!(brain_slot(&app, b), None);
+    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
+    use ambition_platformer2d_shared_tangle::temporary_control::ControlClaims;
+    for (target, home, slot) in [(target_a, a, 0), (target_b, b, 1)] {
+        assert_eq!(
+            app.world().get::<InCustodyOf>(target).unwrap().custodian,
+            home
+        );
+        assert_eq!(
+            app.world()
+                .get::<ControlClaims>(target)
+                .unwrap()
+                .possession(),
+            Some(&SimId::player_slot(slot))
+        );
+    }
+
+    hold_for_seat(&mut app, PlayerSlot::PRIMARY, false);
+    hold_for_seat(&mut app, second, false);
+    app.update();
+    hold_for_seat(&mut app, PlayerSlot::PRIMARY, true);
+    app.update();
+    assert_eq!(brain_slot(&app, a), Some(PlayerSlot::PRIMARY));
+    assert_eq!(brain_slot(&app, target_a), None);
+    assert_eq!(brain_slot(&app, target_b), Some(second));
+
+    app.world_mut().despawn(target_b);
+    app.update();
+    assert_eq!(brain_slot(&app, b), Some(second));
+    assert_eq!(brain_slot(&app, a), Some(PlayerSlot::PRIMARY));
+}
+
+#[test]
+fn simultaneous_possession_of_one_body_grants_neither_seat() {
+    let mut app = trigger_app();
+    let a = spawn_seat(&mut app, PlayerSlot::PRIMARY, vec2(-20.0, 0.0));
+    let b = spawn_seat(&mut app, PlayerSlot(1), vec2(20.0, 0.0));
+    let target = spawn_candidate(&mut app, vec2(0.0, 0.0));
+    hold_for_seat(&mut app, PlayerSlot::PRIMARY, true);
+    hold_for_seat(&mut app, PlayerSlot(1), true);
+    app.update();
+    app.update();
+    assert_eq!(brain_slot(&app, target), None);
+    assert_eq!(brain_slot(&app, a), Some(PlayerSlot::PRIMARY));
+    assert_eq!(brain_slot(&app, b), Some(PlayerSlot(1)));
+}
+
+#[test]
+fn another_seat_cannot_take_a_driven_body() {
+    let mut app = trigger_app();
+    let home = spawn_seat(&mut app, PlayerSlot(1), vec2(0.0, 0.0));
+    let target = spawn_candidate(&mut app, vec2(20.0, 0.0));
+    app.world_mut()
+        .entity_mut(target)
+        .insert(DrivingParticipant(PlayerSlot::PRIMARY));
+    hold_for_seat(&mut app, PlayerSlot(1), true);
+    app.update();
+    app.update();
+    assert_eq!(brain_slot(&app, target), Some(PlayerSlot::PRIMARY));
+    assert_eq!(brain_slot(&app, home), Some(PlayerSlot(1)));
+    assert!(!app.world().resource::<PossessionState>().any_possessed());
+}
+
+#[test]
+fn possession_candidates_must_share_the_home_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let mut app = trigger_app();
+    let home = spawn_home(&mut app);
+    let target = spawn_candidate(&mut app, vec2(20.0, 0.0));
+    app.world_mut()
+        .entity_mut(home)
+        .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+    app.world_mut()
+        .entity_mut(target)
+        .insert(InRoomInstance(LiveRoomInstance::ACTIVATION.next()));
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update();
+    assert!(!app.world().resource::<PossessionState>().any_possessed());
+    app.world_mut()
+        .entity_mut(target)
+        .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+    app.update();
+    app.update();
+    assert_eq!(brain_slot(&app, target), Some(PlayerSlot::PRIMARY));
+}
+
+#[test]
+fn removing_a_home_releases_only_its_possession_claim() {
+    use ambition_platformer2d_shared_tangle::temporary_control::{ControlClaimant, ControlClaims};
+    let mut app = trigger_app();
+    let home = spawn_seat(&mut app, PlayerSlot(1), vec2(0.0, 0.0));
+    let target = spawn_candidate(&mut app, vec2(20.0, 0.0));
+    hold_for_seat(&mut app, PlayerSlot(1), true);
+    app.update();
+    app.update();
+    let claims = app.world().get::<ControlClaims>(target).unwrap();
+    assert_eq!(claims.possession(), Some(&SimId::player_slot(1)));
+    app.world_mut()
+        .get_mut::<ControlClaims>(target)
+        .unwrap()
+        .claim(ControlClaimant::Mount, SimId::placement("mount"));
+    app.world_mut().despawn(home);
+    app.update();
+    let claims = app.world().get::<ControlClaims>(target).unwrap();
+    assert!(!claims.holds(ControlClaimant::Possession));
+    assert!(claims.holds(ControlClaimant::Mount));
+    assert_eq!(brain_slot(&app, target), None);
+    assert!(!app.world().resource::<PossessionState>().any_possessed());
+    assert!(app
+        .world()
+        .get::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(target)
+        .is_none());
+}
+
+#[test]
+fn possession_records_remap_all_seats_and_probe_scalar_facts() {
+    use bevy::ecs::entity::MapEntities;
+    let mut world = World::new();
+    let entities: Vec<_> = (0..8).map(|_| world.spawn_empty().id()).collect();
+    let mut states = PossessionState::default();
+    for slot in [PlayerSlot::PRIMARY, PlayerSlot(1)] {
+        let record = states.get_mut(slot);
+        record.home = Some(entities[slot.0 as usize * 2]);
+        record.possessed = Some(entities[slot.0 as usize * 2 + 1]);
+        record.hold_timer = slot.0 as f32 * 0.5;
+    }
+    let facts = states.facts_checksum();
+    let mut mapper: bevy::ecs::entity::EntityHashMap<Entity> = entities[..4]
+        .iter()
+        .copied()
+        .zip(entities[4..].iter().copied())
+        .collect();
+    states.map_entities(&mut mapper);
+    assert_eq!(
+        states.referenced_entities(),
+        vec![entities[5], entities[4], entities[7], entities[6]]
+    );
+    assert_eq!(states.facts_checksum(), facts);
+    for change in 0..4 {
+        let mut other = states.clone();
+        match change {
+            0 => other.get_mut(PlayerSlot(1)).hold_timer += 0.25,
+            1 => other.get_mut(PlayerSlot(1)).prev_down_interact = true,
+            2 => {
+                let record = other.seats.remove(&PlayerSlot(1)).unwrap();
+                other.seats.insert(PlayerSlot(2), record);
+            }
+            _ => {
+                other.get_mut(PlayerSlot(1)).home = None;
+            }
+        }
+        assert_ne!(other.facts_checksum(), facts);
+    }
+}
+
+#[test]
+fn each_seat_uses_its_own_body_frame_and_replayed_policy() {
+    use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+    let mut app = trigger_app();
+    spawn_home(&mut app);
+    let home = spawn_seat(&mut app, PlayerSlot(1), vec2(1000.0, 0.0));
+    let target = spawn_candidate(&mut app, vec2(1020.0, 0.0));
+    let mut frame = ResolvedMotionFrame::default();
+    frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
+        vec2(1.0, 0.0),
+        0.0,
+    ));
+    app.world_mut().entity_mut(home).insert(frame);
+    let mut control = ambition_platformer2d_core::ControlFrame {
+        axis_x: 1.0,
+        interact_held: true,
+        ..Default::default()
+    };
+    control.control_frame_modes.movement =
+        ambition_platformer2d_core::InputFrameMode::ScreenRelative;
+    app.world_mut()
+        .resource_mut::<ambition_characters::control::SlotControls>()
+        .set(PlayerSlot(1), control);
+    app.update();
+    app.update();
+    assert_eq!(brain_slot(&app, target), Some(PlayerSlot(1)));
+    assert!(
+        !app.world()
+            .resource::<PossessionState>()
+            .get(PlayerSlot::PRIMARY)
+            .prev_down_interact
+    );
+    assert!(
+        app.world()
+            .resource::<PossessionState>()
+            .get(PlayerSlot(1))
+            .prev_down_interact
+    );
+}
+
+#[test]
+fn a_seat_without_a_home_cannot_keep_a_partial_possession_gesture() {
+    let mut app = trigger_app();
+    let home = spawn_seat(&mut app, PlayerSlot(1), vec2(0.0, 0.0));
+    hold_for_seat(&mut app, PlayerSlot(1), true);
+    app.update();
+    assert!(
+        app.world()
+            .resource::<PossessionState>()
+            .get(PlayerSlot(1))
+            .hold_timer
+            > 0.0
+    );
+    app.world_mut().despawn(home);
+    app.update();
+    assert_eq!(
+        *app.world().resource::<PossessionState>().get(PlayerSlot(1)),
+        Possession::default()
+    );
 }

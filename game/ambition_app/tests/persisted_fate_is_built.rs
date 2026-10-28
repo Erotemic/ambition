@@ -147,7 +147,7 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), player).expect("the primary body has a SimId")
     };
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::ChallengeRequested {
+        .write_message(ambition_platformer2d::actors::body::ChallengeRequested {
             target: npc_sim,
             challenger: Some(player_sim),
         });
@@ -242,7 +242,7 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     };
     let possessed = |sim: &ambition_app::Platformer2dSimHarness| {
         sim.world()
-            .resource::<ambition_platformer2d::actors::control::possession::PossessionState>()
+            .resource::<ambition_platformer2d::actors::control::possession::PossessionState>().get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
             .possessed
     };
     for frame in 0..240 {

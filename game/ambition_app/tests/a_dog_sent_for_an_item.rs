@@ -8,9 +8,9 @@
 //! place, the Blink is put down there.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::actors::errand::Errand;
-use ambition_platformer2d::actors::errand::ErrandOutcome;
-use ambition_platformer2d::actors::errand::ErrandRefusal;
+use ambition_platformer2d::actors::body::errand::Errand;
+use ambition_platformer2d::actors::body::errand::ErrandOutcome;
+use ambition_platformer2d::actors::body::errand::ErrandRefusal;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::combat::held_items::HeldItem;
@@ -65,7 +65,7 @@ fn the_dogs_graph(sim: &mut ambition_app::Platformer2dSimHarness, dog: Entity) -
     sim.step(base());
     let world = sim.world();
     let in_use: Vec<&NavGraph> = world
-        .resource::<ambition_platformer2d::actors::navigation::RoomNavigation>()
+        .resource::<ambition_platformer2d::actors::body::navigation::RoomNavigation>()
         .graphs_in_use()
         .collect();
     assert_eq!(in_use.len(), 1, "the dog is the one body that navigates in the hub");

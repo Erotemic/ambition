@@ -1229,7 +1229,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // OBSERVATIONS while agreeing about the world, which is a desync report
     // about the observer.
     (
-        "ambition_platformer2d_actor_monolith::features::ecs::body_identity::BodyIdentityCensus",
+        "ambition_platformer2d_actor_monolith::body::body_identity::BodyIdentityCensus",
         "diagnostic counter of damageable bodies still lacking identity; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
     ),
     // ⛔ THE SAME SHAPE AS THE CENSUS ABOVE, AND WAIVED FOR THE SAME REASON.

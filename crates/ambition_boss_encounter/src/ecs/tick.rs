@@ -476,9 +476,7 @@ pub fn tick_boss_brains_system(
     >,
     // Any body a boss may aim at or ride: its collision extent, read-only. Not
     // `CenteredAabb`, which for a boss comes from its `BodyEnvelope` render
-    // envelope. `BodyKinematics::size` is the box the movement seam sweeps;
-    // `integrate_boss_bodies` sets `kin.size` to the authored `combat_size`
-    // every tick, the extent `BossPatternCfg::combat_size` gives the boss side.
+    // envelope. `BodyKinematics::size` is the collision box that movement sweeps.
     //
     // With whether it mirrors: a mount that does not cannot be spun by its rider.
     target_bodies: Query<(
@@ -738,8 +736,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// Boss presentation: decay the boss's body-generic reaction timers and sync
 /// the sprite-animation fact `BossPhase`.
 ///
-/// This system moves no body and deals no damage. Movement is
-/// [`integrate_boss_bodies`]; strike damage is the moveset's own hitboxes
+/// Body integration runs before this projection. Strike damage uses move hitboxes
 /// (`trigger_boss_attack_moves` → `advance_move_playback` →
 /// `apply_hitbox_damage`); body-contact damage is the shared
 /// `apply_actor_contact_damage`. A boss uses the same systems as every actor.

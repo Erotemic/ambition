@@ -5,75 +5,45 @@
 //! match `ControlAuthority`, which specifies how a roster seat is initially
 //! bound. This module reconciles runtime possession redirects only.
 
-use ambition_characters::control::{DrivingParticipant};
+use ambition_characters::control::DrivingParticipant;
 use bevy::prelude::*;
-
-use ambition_characters::control::PlayerSlot;
 
 use crate::control::possession::PossessionState;
 
-
-/// Redirect the primary seat from the home body to a possessed body and back.
-///
-/// Outside an active possession this system leaves authored seat assignments
-/// unchanged. Writes are conditional so component change ticks are not generated
-/// every frame.
+/// Redirect each possession seat and return it to its home on release.
+/// Seats without an active home record keep their authored assignments.
 pub fn project_driving_participant(
     mut commands: Commands,
-    mut state: ResMut<PossessionState>,
+    mut states: ResMut<PossessionState>,
     alive: Query<()>,
     held: Query<(Entity, &DrivingParticipant)>,
 ) {
-    // No possession has taken the primary seat, so nobody's seat is in question.
-    let Some(home) = state.home else {
-        return;
-    };
     let seat_of = |entity: Entity| held.get(entity).map(|(_, seat)| seat.0).ok();
-    let possessed = state.possessed.filter(|target| alive.get(*target).is_ok());
-
-    match possessed {
-        // Live possession: the primary seat sits on the driven body, and the
-        // home avatar is inert until it comes back.
-        Some(target) => {
-            if seat_of(home) == Some(PlayerSlot::PRIMARY) {
-                commands.entity(home).try_remove::<DrivingParticipant>();
-            }
-            if seat_of(target) != Some(PlayerSlot::PRIMARY) {
-                commands
-                    .entity(target)
-                    .try_insert(DrivingParticipant(PlayerSlot::PRIMARY));
-            }
-        }
-        // Released (or the driven body is gone): the seat goes home, and the
-        // record that said where home was has done its job.
-        None => {
-            // RETRACT BEFORE RESTORING, or the release leaves TWO bodies
-            // holding one seat. The release site clears `possessed`, so by the
-            // time this runs there is nothing left naming the body that was
-            // driven — and an earlier version of this branch therefore restored
-            // `home` without taking the seat off the vacated actor. Both then
-            // answered the primary seat's press, which is the exact two-writer
-            // state this whole component exists to make impossible.
-            //
-            // the sweep is safe because of the guard at the top. This
-            // system returns early unless `state.home` is set, and `home` is set
-            // only between a possession starting and this branch clearing it. In
-            // that window the primary seat belongs to `home` or to the body it
-            // possessed and to nobody else, so "any other holder" names the
-            // vacated actor precisely. A session that never possesses — a versus
-            // match whose seat-0 fighter legitimately holds PRIMARY — never
-            // reaches here at all.
-            for (entity, seat) in &held {
-                if entity != home && seat.0 == PlayerSlot::PRIMARY {
-                    commands.entity(entity).try_remove::<DrivingParticipant>();
+    for (slot, state) in states.iter_mut() {
+        let Some(home) = state.home else {
+            continue;
+        };
+        match state.possessed.filter(|target| alive.get(*target).is_ok()) {
+            Some(target) => {
+                if seat_of(home) == Some(slot) {
+                    commands.entity(home).try_remove::<DrivingParticipant>();
+                }
+                if seat_of(target) != Some(slot) {
+                    commands.entity(target).try_insert(DrivingParticipant(slot));
                 }
             }
-            if alive.get(home).is_ok() && seat_of(home) != Some(PlayerSlot::PRIMARY) {
-                commands
-                    .entity(home)
-                    .try_insert(DrivingParticipant(PlayerSlot::PRIMARY));
+            None => {
+                // Retract the released seat before its home can consume input.
+                for (entity, seat) in &held {
+                    if entity != home && seat.0 == slot {
+                        commands.entity(entity).try_remove::<DrivingParticipant>();
+                    }
+                }
+                if alive.get(home).is_ok() && seat_of(home) != Some(slot) {
+                    commands.entity(home).try_insert(DrivingParticipant(slot));
+                }
+                state.home = None;
             }
-            state.home = None;
         }
     }
 }
@@ -83,6 +53,7 @@ mod tests {
     use super::*;
     use crate::control::possession::PossessionState;
     use ambition_characters::brain::Brain;
+    use ambition_characters::control::PlayerSlot;
 
     /// Run the reconcile once over a world and read back who drives what.
     fn reconcile(app: &mut App) {
@@ -138,8 +109,8 @@ mod tests {
         let target = app.world_mut().spawn(Brain::stand_still()).id();
         {
             let mut state = app.world_mut().resource_mut::<PossessionState>();
-            state.home = Some(home);
-            state.possessed = Some(target);
+            state.get_mut(PlayerSlot::PRIMARY).home = Some(home);
+            state.get_mut(PlayerSlot::PRIMARY).possessed = Some(target);
         }
         reconcile(&mut app);
 
@@ -184,8 +155,8 @@ mod tests {
         let target = app.world_mut().spawn(Brain::stand_still()).id();
         {
             let mut state = app.world_mut().resource_mut::<PossessionState>();
-            state.home = Some(one);
-            state.possessed = Some(target);
+            state.get_mut(PlayerSlot::PRIMARY).home = Some(one);
+            state.get_mut(PlayerSlot::PRIMARY).possessed = Some(target);
         }
         reconcile(&mut app);
 
@@ -214,14 +185,17 @@ mod tests {
         let target = app.world_mut().spawn(Brain::stand_still()).id();
         {
             let mut state = app.world_mut().resource_mut::<PossessionState>();
-            state.home = Some(home);
-            state.possessed = Some(target);
+            state.get_mut(PlayerSlot::PRIMARY).home = Some(home);
+            state.get_mut(PlayerSlot::PRIMARY).possessed = Some(target);
         }
         app.add_systems(Update, project_driving_participant);
         app.update();
         assert_eq!(driver(&app, target), Some(PlayerSlot::PRIMARY));
 
-        app.world_mut().resource_mut::<PossessionState>().possessed = None;
+        app.world_mut()
+            .resource_mut::<PossessionState>()
+            .get_mut(PlayerSlot::PRIMARY)
+            .possessed = None;
         app.update();
 
         assert_eq!(
@@ -235,7 +209,10 @@ mod tests {
             "the home avatar never got its seat back"
         );
         assert_eq!(
-            app.world().resource::<PossessionState>().home,
+            app.world()
+                .resource::<PossessionState>()
+                .get(PlayerSlot::PRIMARY)
+                .home,
             None,
             "the `home` record outlived the possession it described — the next \
              body to hold the primary seat would be unseated by it"
@@ -258,8 +235,8 @@ mod tests {
         let target = app.world_mut().spawn(Brain::stand_still()).id();
         {
             let mut state = app.world_mut().resource_mut::<PossessionState>();
-            state.home = Some(home);
-            state.possessed = Some(target);
+            state.get_mut(PlayerSlot::PRIMARY).home = Some(home);
+            state.get_mut(PlayerSlot::PRIMARY).possessed = Some(target);
         }
         app.add_systems(Update, project_driving_participant);
         app.update();

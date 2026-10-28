@@ -220,7 +220,7 @@ fn every_body_the_strike_road_can_hit_has_a_stable_identity() {
     // means anything.
     let census = sim
         .world_mut()
-        .resource::<ambition_platformer2d::actors::BodyIdentityCensus>()
+        .resource::<ambition_platformer2d::actors::body::BodyIdentityCensus>()
         .clone();
     println!(
         "[identity] composition observer: {} bodies observed at insertion, {} unidentified",

@@ -85,7 +85,7 @@ pub(crate) fn spawn_mockingbird_beside(sim: &mut Platformer2dSimHarness, runtime
 /// Every boss drop — the signature gauntlet, the ability pickup, the dropped
 /// weapon, the coin bag — is spawned inside `apply_boss_hit`'s `killed` branch,
 /// and `apply_boss_hit` has exactly ONE call site: `apply_feature_hit_events`
-/// (`features/ecs/damage/mod.rs:819`). Writing HP to zero and calling
+/// (`body/damage/mod.rs:819`). Writing HP to zero and calling
 /// `phase.kill()` never enters it.
 ///
 /// ⚠ `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music` still
@@ -213,7 +213,7 @@ fn lower_guard(world: &mut bevy::prelude::World, placement_id: &str) {
 ///
 /// ⛔ Every boss drop is spawned inside `apply_boss_hit`'s `killed` branch, and
 /// `apply_boss_hit` has exactly ONE call site: `apply_feature_hit_events`
-/// (`features/ecs/damage/mod.rs:819`). `force_kill_boss` writes HP to zero and
+/// (`body/damage/mod.rs:819`). `force_kill_boss` writes HP to zero and
 /// never enters it, so before this test NOTHING exercised the drop road —
 /// `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music` sees its
 /// chest through the SAVE (`sync_boss_reward_chests_ecs` is *"idempotently

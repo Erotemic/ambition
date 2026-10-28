@@ -1,0 +1,2782 @@
+//! The per-frame actor tick: syncing poses from feature AABBs, driving the
+//! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
+
+use super::*;
+use crate::body::ActorMutIntegrationExt;
+use ambition_body_seed::clusters::ActorMut;
+use ambition_combat::components::{
+    ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
+};
+use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+
+/// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
+///
+/// Per-frame steering context handed from observation to the movement phase:
+/// each actor's nearest same-kind neighbor in its own live room, keyed by the
+/// body (two instances of one room share actor ids). Computed
+/// once by [`observe_actor_decision_inputs`] and read by `integrate_sim_bodies`
+/// for surface-walker anti-clump
+/// steering, so the movement phase doesn't recompute it. Rebuilt every frame.
+#[derive(bevy::ecs::resource::Resource, Default)]
+pub struct ActorSteering {
+    pub neighbor_by_entity: std::collections::HashMap<Entity, ae::Vec2>,
+}
+
+/// Immutable, frame-local world facts consumed by autonomous actor decisions.
+///
+/// This is a derived projection, rebuilt from authoritative body state before
+/// every decision phase. It deliberately contains values rather than ECS
+/// borrows: observation owns the cross-body scan; decision owns the stateful
+/// brain call. Neither phase gets to perform the other's job by reaching back
+/// into its queries.
+// `pub`, because `tick_actor_brains` is publicly re-exported and takes it: a
+// signature may not be more public than its own arguments. Narrowing the system
+// instead would mean splitting it out of two `pub use` lists for a name nothing
+// outside this crate consumes today.
+#[derive(bevy::ecs::resource::Resource, Default)]
+pub struct ActorDecisionFacts {
+    crowd: super::crowd_observation::CrowdFacts,
+}
+
+/// Frame-local output of the autonomous DECIDE phase.
+///
+/// Decision owns brain state and produces plain intent values. Publication owns
+/// the authoritative [`ambition_characters::control::ActorControl`] mutation.
+/// Keeping the hand-off as data prevents a decision system from acquiring body
+/// control authority just because movement consumes the result later in the tick.
+#[derive(bevy::ecs::resource::Resource, Default)]
+pub struct ActorDecisionFrames {
+    frames: Vec<(
+        Entity,
+        ambition_characters::actor::control::ActorControlFrame,
+    )>,
+}
+
+/// OBSERVE — build the cross-body facts this tick's autonomous decisions read.
+///
+/// Observation owns the population scan; decision consumes this derived
+/// resource. The schedule edge between them is the same-tick contract.
+pub(crate) fn observe_actor_decision_inputs(
+    mut facts: ResMut<ActorDecisionFacts>,
+    mut steering: ResMut<ActorSteering>,
+    controlled: Query<
+        (
+            bevy::prelude::Entity,
+            &ambition_characters::actor::BodyHealth,
+        ),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
+    actors: Query<
+        (
+            Entity,
+            &ActorDisposition,
+            &ambition_combat::components::ActorTarget,
+            Option<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
+            Option<&ambition_characters::actor::ActorFaction>,
+            bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
+            // A ridden mount contests no space of its own. See below.
+            Option<&ambition_mount::MountSlot>,
+            // A crowd is one live room's bodies (OW1 cut 5d).
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+        (
+            With<FeatureSimEntity>,
+            // Preserve the pre-split actor population without granting this
+            // observation phase mutable authority over these components.
+            With<CenteredAabb>,
+            With<ActorIdentity>,
+            With<BodyCombat>,
+            With<ambition_platformer2d_core::movement::MotionModel>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            Without<ambition_boss_encounter::BossConfig>,
+            Without<crate::body::dormancy::Dormant>,
+        ),
+    >,
+) {
+    let mut observation = super::crowd_observation::CrowdObservation::default();
+    for (entity, health) in &controlled {
+        observation.note_controlled_liveness(entity, health.current() > 0);
+    }
+    // ⭐ A RIDER AND ITS MOUNT ARE ONE BODY IN A CROWD. The rider's brain
+    // steers the pair and the mount's is idle, so the pair contests space at
+    // the rider and a ridden mount is no one's neighbour. Counted as two, the
+    // saddle puts the mount one seat-height under its rider — inside a ground
+    // body's crowding radius — and every rider was pushed straight up by its
+    // own shark, into the ceiling (MEASURED by `room_census` in
+    // `pirate_sky_lookout`: Iron Mary buried 97% of a fight).
+    //
+    // ⚠ The rider keeps its OWN crowd kind. Giving the pair its mount's
+    // (aerial, 220 px) was measured too: four riders orbiting one player then
+    // pushed each other about, and their sharks reversed vertically 1.5-2.5
+    // times a second against ~1.0 with the rider's own.
+    let alive = |body: Entity| {
+        actors
+            .get(body)
+            .ok()
+            .and_then(|(.., cluster, _, _, _, _)| cluster.map(|c| c.health.alive()))
+            .unwrap_or(false)
+    };
+    for (entity, disposition, target, body, faction, in_a_fight, carrying, room) in &actors {
+        let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
+            .takes_damage();
+        let ridden = carrying.and_then(|slot| slot.rider).is_some_and(alive) && alive(entity);
+        observation.note_actor(
+            entity,
+            body.as_ref().is_some_and(|body| body.health.alive()),
+            body.as_ref()
+                .map(|body| super::crowd_observation::ObservedBody {
+                    id: body.identity.id.as_str(),
+                    pos: body.kin.pos,
+                    kind: body.config.tuning.crowd_kind(),
+                    faction: faction.copied(),
+                    foe: target.entity,
+                    room: room.map(|room| room.0),
+                }),
+            // A ridden mount is carried by its rider's crowd entry.
+            fighting && !ridden,
+        );
+    }
+    let crowd = observation.finish();
+    steering.neighbor_by_entity = crowd.neighbor_index().clone();
+    facts.crowd = crowd;
+}
+
+/// MAINTAIN — advance actor reaction clocks before decision and movement.
+///
+/// Observation runs first, preserving the existing rule that perception samples
+/// the pre-decay combat phase while movement consumes the decayed clocks.
+pub(crate) fn maintain_actor_pre_decision_state(
+    world_time: Res<WorldTime>,
+    mut actors: Query<
+        &mut BodyCombat,
+        (
+            With<FeatureSimEntity>,
+            // Exact eligibility from the old fused brain query. `With` keeps
+            // the population contract without borrowing unrelated authority.
+            With<CenteredAabb>,
+            With<ActorIdentity>,
+            With<ActorDisposition>,
+            With<ambition_combat::components::ActorTarget>,
+            With<ambition_platformer2d_core::movement::MotionModel>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            Without<ambition_boss_encounter::BossConfig>,
+            Without<crate::body::dormancy::Dormant>,
+        ),
+    >,
+) {
+    let dt = world_time.sim_dt();
+    for mut combat in &mut actors {
+        combat.decay_reaction_timers(dt);
+    }
+}
+
+/// The causal log's slot in the brain-tick system's parameter bundle.
+///
+/// `ambition_causal` is an optional, default-off dependency (§2e), so the slot
+/// has to exist in both builds — a `#[cfg]` cannot be written on a tuple
+/// element. `PhantomData` is the shipped build's answer: a zero-sized
+/// `SystemParam` that costs the scheduler nothing.
+#[cfg(feature = "causal")]
+pub type CausalLend<'w> = Option<ResMut<'w, ambition_causal::CausalRecording>>;
+#[cfg(not(feature = "causal"))]
+pub type CausalLend<'w> = std::marker::PhantomData<&'w ()>;
+
+/// Run the brain tick with the log lent to this thread, when there is one.
+///
+/// A brain publishes through `ambition_causal::record`, which writes to a
+/// THREAD-LOCAL sink, and Bevy runs systems across worker threads — so those
+/// facts were landing in nothing and being counted by `facts_lost_offthread()`.
+///
+/// the alternative was threading a recorder into `tick_with_actions`, and
+/// it is worse: it puts the log on the simulation's own signatures. This crate
+/// already refused that once — `record_player_movement_intent` runs AFTER the
+/// brain tick precisely so "a system that only reads cannot be the thing that
+/// broke the tick". The host opening the sink around the call keeps that
+/// property and fixes the loss.
+#[cfg(feature = "causal")]
+fn with_causal_sink<T>(causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -> T {
+    match causal.as_deref_mut() {
+        // Lent only when something is actually listening: with instrumentation
+        // off — the shipped default — this is one branch and the brain call is
+        // byte-for-byte the old one.
+        Some(log) if log.is_recording() => log.lend_to_thread(body),
+        _ => body(),
+    }
+}
+
+#[cfg(not(feature = "causal"))]
+fn with_causal_sink<T>(_causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -> T {
+    body()
+}
+
+/// DECIDE — tick autonomous actor brains from the already-observed world facts.
+///
+/// This phase mutates only decision-owned state (`Brain`, `PerceptionMemory`) and
+/// produces frame-local [`ActorDecisionFrames`]. It does not write
+/// [`ambition_characters::control::ActorControl`]; the following PUBLISH phase
+/// owns that mutation. Body reaction clocks, disposition maintenance, cross-body
+/// observation, movement, and read-model projection are separate scheduled phases.
+///
+/// Peaceful and hostile actors share the same entity identity; target and
+/// disposition transitions have already settled before this phase. Dynamic
+/// encounter-spawned mobs use the same path.
+pub fn tick_actor_brains(
+    // Inputs stay named by authority. Parameter count is not a reason to hide
+    // independent contracts in a tuple or context bag.
+    world_time: Res<WorldTime>,
+    // Accumulating sim-time, for the brain's reaction-latency lookback.
+    sim_clock: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_time::GameplayElapsed,
+    >,
+    // Peers, projectiles and hostility: what a body can perceive this tick.
+    perceived: crate::body::perception::PerceivedWorld,
+    // How far a sighted body sees: one value for the session, read here.
+    senses: crate::body::perception::SenseExtent,
+    // Capture, as a fact this phase reads and hands on. The brain never
+    // touches `CapturedBy` — a pure decision reaching into the ECS is what the
+    // perception layer exists to prevent — so the relationship is resolved HERE,
+    // where the queries live, and travels as three plain values.
+    captives: Query<(
+        bevy::prelude::Entity,
+        &ambition_combat::capture::CapturedBy,
+        // the RELATION says who holds whom; the RULESET's state says how long
+        // and how many. `Option` because a hold this ruleset has no opinion
+        // about is a real thing.
+        Option<&ambition_characters::smash_hold_state::SmashHoldState>,
+    )>,
+    // The log, lent to whichever worker thread this tick lands on.
+    //
+    // A brain publishes through `ambition_causal::record`, which writes to a
+    // THREAD-LOCAL sink — and Bevy runs systems across worker threads, so
+    // those facts were being counted by `facts_lost_offthread()` and dropped.
+    // Threading a recorder down into `tick_with_actions` was the alternative
+    // and is worse: it would put the log on the simulation's own signatures,
+    // and this crate has already refused that once (the movement observer
+    // runs AFTER the brain tick so "a system that only reads cannot be the
+    // thing that broke the tick").
+    //
+    // So the HOST opens the sink around the brain call instead.
+    mut causal: CausalLend,
+    // `CollisionWorld` is the seam that already owned that composition; the brain tick simply had
+    // never adopted it.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    // The live room each actor is in: it perceives that room's walls, bodies
+    // and shots and no other live room's (OW1 cuts 3d and 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // Cross-body liveness/crowding was observed in the preceding phase. The
+    // decision loop reads the resulting values and does not rescan the actor
+    // population itself.
+    decision_facts: Res<ActorDecisionFacts>,
+    // The routes each navigating body can know this tick, observed in the
+    // preceding phase (`navigation::advise_navigation`).
+    navigation: Res<crate::body::navigation::NavigationAdvice>,
+    // ⭐ THE STAGE'S DECLARED COMBAT LAW, so a fighter ranking its finishers
+    // spends the same percent curve the hit resolver does. `None` is the
+    // undeclared world — every Ambition room — and resolves to the identity
+    // law, which is exactly what `LaunchLaw::default()` means. The law of each
+    // actor's own live room.
+    room_rules: ambition_combat::rules::CombatTuningOf,
+    mut decisions: ResMut<ActorDecisionFrames>,
+    // Any body's collision extent, read-only: a rider's mount, for its width,
+    // and whether turning it mirrors it at all.
+    //
+    // And a body's authored movement feel, when it has one: the tuning the
+    // integrator moves it by, for the brain snapshot's movement law.
+    //
+    // And its guards (`ambition_combat::guard`): the strikes they turned.
+    bodies: Query<(
+        &ae::BodyKinematics,
+        bevy::prelude::Has<ae::Unmirrored>,
+        Option<&ae::AuthoredMovementTuning>,
+        Option<&ambition_combat::guard::GuardState>,
+    )>,
+    // A rider's mount, for whether the pair steers in flight. See
+    // `steers_in_flight`.
+    carriers: Query<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
+    mut actors: Query<
+        (
+            Entity,
+            &ambition_combat::components::ActorTarget,
+            // Stateful decision policy. The frame it produces is buffered in
+            // `ActorDecisionFrames`; this phase never borrows `ActorControl`.
+            // `Option` because dynamically-spawned actors (debug tools, scripted
+            // spawns) might skip brain attachment and therefore decide neutral.
+            Option<&mut ambition_characters::brain::Brain>,
+            // Driver authority suppresses autonomous decisions and contributes
+            // to the body's effective faction view.
+            Option<&ambition_characters::control::DrivingParticipant>,
+            bevy::prelude::Has<ambition_characters::control::ActorControl>,
+            // ActionSet — read for the Smash brain so it knows which
+            // attacks (melee / ranged) the actor can commit. `Option`
+            // so dynamically-spawned actors without a set still tick.
+            Option<&ambition_characters::brain::ActionSet>,
+            // A rider's mount takes its facing, so the body that turns when this
+            // brain turns is the mount's, when the mount mirrors. See
+            // `BrainSnapshot::actor_half_width`.
+            Option<&ambition_mount::RidingOn>,
+            (
+                // The generated read-only view of the COMPLETE actor cluster.
+                // Using the existing cluster shape preserves the old eligibility
+                // contract exactly while removing decision's mutable body authority.
+                Option<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
+                // The brain interprets controller input and perceives "down" through it — never
+                // through a private gravity lookup.
+                Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+                // Faction is still a self-view input; crowd observation consumed
+                // its own copy in the preceding phase.
+                Option<&ambition_characters::actor::ActorFaction>,
+                // §A7: this body's per-entity grudge, so its world-out `WorldView`
+                // resolves a same-faction grudge-duel opponent as hostile (matching
+                // `select_actor_targets`), not by faction alone. `Option` — a body
+                // with no personal feud has no grudge component read here.
+                Option<&ambition_combat::components::ActorAggression>,
+                // §A7: this body's persistent world-belief, updated each tick from its
+                // fresh `WorldView` so its brain can pursue a foe that has left the
+                // viewport. `Brain` requires it, so `None` is a body with no brain.
+                Option<&mut ambition_characters::perception::PerceptionMemory>,
+                // A seated match fighter keeps omniscient senses, and so does a
+                // body summoned into a fight; see `perception::perception_of`.
+                (
+                    bevy::prelude::Has<ambition_match::MatchSeat>,
+                    bevy::prelude::Has<ambition_combat::components::SummonedToTheFight>,
+                ),
+                // FB4b §13.2: the body's own moveset, so the brain snapshot can
+                // carry the ATTACK KIT. The fighter brain scores real moves with
+                // real frame data and cannot reach a moveset itself —
+                // `ambition_combat` depends on `ambition_characters`, not the
+                // reverse — so this is the world-in port doing what it is for.
+                // `Option` because a body with no moveset (a peaceful NPC, a
+                // prop) has no kit, and an empty kit is the honest answer.
+                Option<&ambition_combat::moveset::ActorMoveset>,
+                // THE MOVE THAT CURRENTLY OWNS THIS BODY, so the attack kit
+                // can say which of its candidates could be STARTED this tick —
+                // see `ActionLegality`. Here for exactly the reason the moveset
+                // above is: the brain reads no ECS, so a fact it needs about the
+                // body arrives through the world-in port.
+                //
+                // A brain inferring "I look like I am in recovery" would be answering a different
+                // question and would be wrong for every move with a cancel window.
+                Option<&ambition_combat::moveset::MovePlayback>,
+                // THE RING OF THIS BODY'S RECENT LANDINGS, so the attack kit
+                // can price a worn move the way the hit resolver will resolve
+                // it. Here for the same reason the moveset and the playback
+                // above are. `Option` because `ActorMoveset` `#[require]`s the
+                // component, so a body with no moveset has no ring — and no
+                // kit to stale either.
+                Option<&ambition_combat::stale::BodyStaleMoves>,
+                // WHAT IS TRUE OF THIS BODY'S LOCOMOTION, published once per
+                // tick by the movement kernel. The brain snapshot's
+                // `turns_at_walls` reads it instead of the spawn-time
+                // `tuning.surface_walker` flag ADR 0024 §8 forbids at runtime.
+                // `Option` because a body without the movement clusters has no
+                // facts, and "not crawling" is the honest default for one.
+                Option<&ambition_platformer2d_core::BodyMotionFacts>,
+                // THE BODY'S MOTION MODEL, for the ONE burst-maneuver rule
+                // (`resolve_burst_maneuver`): dodge-vs-dash availability lives
+                // in the model's `AxisManeuverState` (air-dodge window, endlag)
+                // as well as in the dodge/dash clusters. A driver that decides
+                // its maneuver from CAPABILITIES instead names one thing and the
+                // kernel performs another — see `SelfView::burst`.
+                //
+                // Requiring it costs nothing: the integration query below
+                // (`integrate_sim_bodies`) already takes `&mut MotionModel` non-optionally over
+                // the same archetype, so a body without one is not integrated at all and has no
+                // locomotion for a brain to reason about.
+                &ambition_platformer2d_core::movement::MotionModel,
+            ),
+        ),
+        // Exclude BOSSES too: they carry the shared actor read-models
+        // (`ActorIdentity`/`ActorDisposition`/… written at construction) but have NO
+        // actor cluster, so without this they'd match here (cluster = `None`) and get ticked by the
+        // actor loop ON TOP of their own `tick_boss_brains_system` — a double brain tick.
+        (
+            With<FeatureSimEntity>,
+            // Removing mutable access must not broaden the phase population.
+            // These were mandatory members of the old fused actor query; keep
+            // them as eligibility only, not as decision authority.
+            With<CenteredAabb>,
+            With<ActorIdentity>,
+            With<ActorDisposition>,
+            With<BodyCombat>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            Without<ambition_boss_encounter::BossConfig>,
+            // A DORMANT ACTOR DOES NOT DECIDE. Only the brain sleeps: the
+            // body still integrates, so a dormant actor mid-fall keeps falling
+            // and simply stops choosing. Absent in a room whose game states no
+            // `DormancyRule`, so this filter changes nothing for content that
+            // has not asked. See `body::dormancy`.
+            Without<crate::body::dormancy::Dormant>,
+        ),
+    >,
+) {
+    // Sim clock: enemies, NPCs, encounter mobs all advance on the
+    // gameplay clock so bullet-time / pause / hitstop freeze them
+    // alongside the player. ADR 0010 + reference_lessons_learned.
+    // A derived decision buffer is rebuilt from scratch every tick, including
+    // ticks with no collision world. Publication may therefore never replay a
+    // stale autonomous frame after a schedule gate or world transition.
+    decisions.frames.clear();
+
+    let dt = world_time.sim_dt();
+    // Accumulating sim-time for brain perception (reaction-latency lookback).
+    let sim_now = sim_clock.0;
+    // Each live room is composed once per tick.
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
+    // The live hostility table for every brain's world-out view this frame (§A7),
+    // all-peaceful when a fixture registers none.
+    let relations = perceived.relations();
+    let extent = senses.resolve();
+    // a world with no controlled body is ordinary, and the shape that proves it is the
+    // absence of an early return here. When the anchor was live this read `let Some(player_pos)
+    // = ... else { return; }`, so a session that declared no home avatar ticked NO actor brains
+    // at all — every actor everywhere, not merely the ones near a player. Nothing in this
+    // system may become conditional on a player existing again.
+
+    // A CREW SHARES WHAT IT SEES — see `perception::CrewCall`. The calls are
+    // last tick's sightings, gathered before any body decides this tick.
+    let mut crew_calls = Vec::new();
+    for (entity, .., (body, _, faction, _, memory, (seated, summoned), ..)) in actors.iter() {
+        let (Some(body), Some(memory)) = (body, memory) else {
+            continue;
+        };
+        let Some(perception) = crate::body::perception::perception_of(seated || summoned, extent)
+        else {
+            continue;
+        };
+        // A body that changed live room since it last decided still holds the
+        // old room's sightings. Its own tick forgets them below; until then
+        // it must not call them out in the new room.
+        let memory_room = rooms
+            .stamped(entity)
+            .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ordinal);
+        if body.policy.0.shares_sightings && body.health.alive() && memory.0.room() == memory_room {
+            crate::body::perception::crew_calls(
+                entity,
+                rooms.of(entity),
+                body.kin.pos,
+                faction.copied(),
+                perception,
+                &memory.0,
+                &mut crew_calls,
+            );
+        }
+    }
+
+    // The population scan and body-state maintenance have already run. This
+    // loop is now one authority: evaluate autonomous decision state and produce
+    // the resulting intent value for the following publish phase.
+    for (
+        this_actor_entity,
+        target,
+        mut brain,
+        driver,
+        has_control,
+        action_set,
+        riding,
+        (
+            body,
+            resolved_frame,
+            faction,
+            aggression,
+            mut perception_memory,
+            (seated, summoned),
+            moveset,
+            playback,
+            stale_moves,
+            motion_facts,
+            motion_model,
+        ),
+    ) in &mut actors
+    {
+        let combat_rules = room_rules.of(this_actor_entity);
+        // A body whose senses this session cannot decide does not decide. It
+        // still integrates and still takes hits; see `perception::perception_of`.
+        let Some(perception_policy) =
+            crate::body::perception::perception_of(seated || summoned, extent)
+        else {
+            continue;
+        };
+        // An actor with no live room (no room loaded) has no world to decide
+        // in.
+        let stamp = rooms
+            .stamped(this_actor_entity)
+            .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let Some(feature_world) = composed.solids(&collision, stamp.as_ref()) else {
+            continue;
+        };
+        // GATE-PER-ACTOR (Q54): the gates open for THIS body. Its movement
+        // queries pass through them, as its integration does (`solids_for`);
+        // its line of fire does not, as its projectile does not.
+        let open_gates = collision
+            .room(stamp.as_ref())
+            .map(|room| room.gates_open_for(this_actor_entity))
+            .unwrap_or_default();
+        let room = rooms.of(this_actor_entity);
+        // Tactical memory is room-local (`WorldMemory::enter_room`). The key is
+        // the body's own stamp, not `room`: an unstamped body is put in the
+        // sole live room, and that answer changes when a second room goes
+        // live, which would forget for no crossing. Read before written, so a
+        // body that stays does not mark its memory changed every tick.
+        let memory_room = stamp.map(|stamp| stamp.0.ordinal());
+        if let Some(memory) = perception_memory.as_mut() {
+            if memory.0.room() != memory_room {
+                memory.0.enter_room(memory_room);
+            }
+        }
+        // This actor's combat-target liveness. `select_actor_targets` already
+        // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
+        // faction-feud fighter has no target once its foe is gone), so `entity ==
+        // None` here means "no one to fight". The brain can patrol without a target.
+        let target_alive = match target.entity {
+            Some(e) => decision_facts.crowd.is_alive(e),
+            None => false,
+        };
+        // `target.pos` is populated by `select_actor_targets`
+        // (#17.8); it defaults to the actor's spawn-of-game position
+        // when no players exist yet (pre-spawn / post-death-of-all),
+        // and is the primary player's pos in the single-player
+        // production game.
+        let target_pos = target.pos;
+        {
+            // A production actor carries the complete read-only decision view.
+            // `Option` keeps incomplete debug/scripted fixtures from being
+            // silently filtered out of the outer query; they simply have no
+            // autonomous decision to evaluate.
+            let Some(body) = body else {
+                continue;
+            };
+            if body.policy.0.shares_sightings && body.health.alive() {
+                if let Some(memory) = perception_memory.as_deref_mut() {
+                    crate::body::perception::hear_crew(
+                        &crew_calls,
+                        this_actor_entity,
+                        room,
+                        body.kin.pos,
+                        faction.copied(),
+                        &mut memory.0,
+                    );
+                }
+            }
+            {
+                // Every brain-attached actor builds its snapshot + world-view and
+                // ticks its brain into an `ActorControlFrame`. The following PUBLISH
+                // phase commits that value to `ActorControl`, which movement and the
+                // EFFECTS consumers (`emit_brain_action_messages` → melee / ranged)
+                // both read. Smash / Patrol / MeleeBrute / Skirmisher /
+                // Sniper / Wanderer all flow through this single path. A body without
+                // a brain gets a neutral frame (production spawns always attach one).
+                //
+                // The body's authoritative per-tick frame (resolved once; the
+                // SAME value integration consumes). A cluster-bearing body
+                // always carries it; absence skips the whole actor, loudly
+                // caught by the reachability suites (like MotionModel).
+                let Some(resolved_frame) = resolved_frame else {
+                    continue;
+                };
+                let enemy_gravity_dir = resolved_frame.down();
+                // A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.
+                // A possessed actor carries `DrivingParticipant(slot)`, and its
+                // `ActorControl` is produced a whole phase earlier by
+                // `tick_controlled_brains` — the one seam that turns participant
+                // control into an intent frame, for the home avatar and for this
+                // body by the same rule.
+                //
+                // What this skip DELETES is what a human was paying for to move a
+                // stick: an enemy brain snapshot, a perception policy, a world view
+                // built over the collision world, a believed-target derivation, and
+                // a MUTATION of this body's `PerceptionMemory` — none of which the
+                // player-brain translator reads. It is not free to build them
+                // either: possessing a body would restart its sight memory every
+                // tick from a view nobody consulted.
+                //
+                // Observation and state maintenance already ran for a driven
+                // body; only the autonomous decision is suppressed here.
+                if driver.is_some() {
+                    continue;
+                }
+                let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
+                    let crowding = decision_facts.crowd.crowding(this_actor_entity);
+                    let capture = ambition_combat::capture::systems::CaptureFacts::resolve(
+                        this_actor_entity,
+                        &captives,
+                    );
+                    // A rider steers its mount, so the pair steers in flight
+                    // when the MOUNT does. The rider's own locomotion does not
+                    // move the pair: the saddle holds it.
+                    let aerial = match riding.and_then(|riding| carriers.get(riding.mount).ok()) {
+                        Some((surface, flight)) => steers_in_flight(surface, flight),
+                        None => steers_in_flight(body.surface, body.flight),
+                    };
+                    let mut snapshot = build_enemy_brain_snapshot(
+                        &body,
+                        target_pos,
+                        target_alive,
+                        crowding,
+                        dt,
+                        sim_now,
+                        enemy_gravity_dir,
+                        moveset,
+                        Some(brain_ref),
+                        // THE BODY'S RUNNING MOVE, so the kit can say which
+                        // of its candidates the body could actually BEGIN this
+                        // tick. Threaded rather than re-queried because the
+                        // brain layer reads no ECS, exactly like the moveset
+                        // above.
+                        playback,
+                        // A body with no movement clusters publishes no
+                        // locomotion facts, and "none of them true" is the
+                        // honest reading of that.
+                        &motion_facts.copied().unwrap_or_default(),
+                        capture,
+                        action_set.and_then(|actions| actions.ranged.as_ref()),
+                        // ⭐ HOW WORN THIS BODY'S MOVES ARE, resolved with the
+                        // stage's own rules — the same pair the hit resolver
+                        // spends. Both halves must be present: a ring with no
+                        // declared rules stales nothing, and declared rules
+                        // with no ring have nothing to stale.
+                        stale_moves
+                            .zip(combat_rules.as_ref())
+                            .map(|(recent, rules)| WornMoves {
+                                recent: *recent,
+                                rules: *rules,
+                            }),
+                        aerial,
+                        bodies.get(this_actor_entity).ok().and_then(|(_, _, authored, _)| authored),
+                    );
+                    snapshot.navigation = navigation.of(this_actor_entity);
+                    if let Some(guard) = bodies.get(this_actor_entity).ok().and_then(|(.., guard)| guard) {
+                        snapshot.guard = ambition_characters::brain::GuardFact {
+                            deflects: guard.deflects,
+                            broken: guard.broken(),
+                        };
+                    }
+                    // An `Unmirrored` mount shows no turn, so its rider turns
+                    // by its own box.
+                    if let Some((mount, false, ..)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
+                        snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size.x * 0.5);
+                    }
+                    // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
+                    // whose profile turns there. The rider knows its surface, so
+                    // the question is asked along it: a stride ahead, which is
+                    // half the body plus a margin.
+                    if body.policy.0.turns_at_ledges {
+                        if let ae::MotionModel::SurfaceMomentum(momentum) = motion_model {
+                            snapshot.ground_ends_ahead = ae::movement::ground_ends_ahead(
+                                &ambition_platformer2d_world::collision::without_gates(
+                                    feature_world,
+                                    &open_gates,
+                                ),
+                                &momentum.state,
+                                resolved_frame.get(),
+                                body.kin.facing,
+                                body.kin.size.x * 0.5 + 8.0,
+                            );
+                        }
+                    }
+                    // Headless world-out view for this body (S4/S5), built ALWAYS for the
+                    // brain's tactical queries (line-of-fire over the SAME derived
+                    // collision world `feature_world` the body integrates against — never a
+                    // parallel sensor). Body-generic (guardrail #1): the same
+                    // `build_world_view` the player-robot body uses. The SELF-view is
+                    // HONEST — real (possession-aware) faction, `can_fire` reflecting a real
+                    // ranged slot, hostility against the LIVE `FactionRelations` + grudge.
+                    let self_faction = ambition_combat::targeting::effective_faction(
+                        faction
+                            .copied()
+                            .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
+                        // always `None` on this branch — the loop `continue`s
+                        // above for any body a participant drives — and stated
+                        // rather than folded away, because the SELF-view is
+                        // documented as "real (possession-aware) faction" and a
+                        // future reader must see which term carries that.
+                        driver,
+                    );
+                    // The other bodies this actor perceives (§A7): the shared
+                    // pre-collected snapshot, BORROWED. Self is excluded by one
+                    // comparison inside `build_world_view` against
+                    // `PerceptionBody::viewer`; this used to be a per-actor
+                    // `Vec` clone of every other row and was measured at half
+                    // the hall's cognition cost.
+                    let view_peers = perceived.peers_in(room);
+                    // Self's own move phase / i-frames come from the SAME per-tick
+                    // snapshot every peer's do — one derivation (`body_phase`), so a
+                    // body cannot read itself more precisely than its opponent reads it.
+                    let self_peer = perceived.peer(this_actor_entity);
+                    // WHAT THIS BODY'S BURST BUTTON WOULD DO IF PRESSED NOW.
+                    // The kernel's own rule (`resolve_burst_maneuver`), asked one
+                    // phase early — so the brain names the maneuver the body will
+                    // actually perform instead of re-deriving the precedence.
+                    //
+                    // a body on a NON-axis model has no `AxisManeuverState` to
+                    // read, and the default reads as "no window open, no endlag".
+                    // that is a reading of a PRESENT model that is not
+                    // axis-swept — a crawler genuinely has no air-dodge window —
+                    // and NOT a reading of an absent component, which ADR 0024 §1
+                    // forbids and the query above now makes unrepresentable.
+                    // ⭐ ADR 0034 INCREMENT 1: the brain declares what it needs.
+                    //
+                    // ⛔⛔ THIS CHANGES CHECKSUMMED STATE, ON PURPOSE. A `None`
+                    // brain stops maintaining `PerceptionMemory`, so its
+                    // remembered set stays empty where it used to track peers
+                    // the brain could never read — for a body that BECOMES
+                    // `None` as well as one that starts there, which needed
+                    // `enforce_empty_belief_for_none` below and did not hold
+                    // until 2026-09-02. Deterministic — the gate reads
+                    // `StateMachineCfg`, which is rollback state — but the VALUE
+                    // moves, which is why `GGRS_ROLLBACK_SCHEMA_VERSION` moved
+                    // with it.
+                    //
+                    // ⚠ ONLY `None` SKIPS THE BUILD. `believed_target` derives
+                    // the belief FROM the view, so `TargetBelief` still needs one
+                    // constructed; making that road cheap is a later increment,
+                    // not this one. At `hall_of_characters` the saving is the
+                    // whole authored cast: 129 of 129 declare `None`.
+                    let perception_need = brain_ref.perception_requirement();
+                    let perception_body = super::super::perception::perception_body_for(
+                        &body,
+                        self_faction,
+                        enemy_gravity_dir,
+                        action_set,
+                        self_peer,
+                        aggression,
+                        motion_model,
+                        capture,
+                        // ⚠ RAGE IS THIS BODY'S OWN, so it is resolved per
+                        // body rather than once for the stage: the same
+                        // derivation the hit resolver uses
+                        // (`rules.rage_scale(attacker damage)`), read off the
+                        // meter this fighter is carrying now.
+                        combat_rules.as_ref().map_or_else(
+                            ambition_characters::perception::LaunchLaw::default,
+                            |rules| ambition_characters::perception::LaunchLaw {
+                                growth_scale: rules.victim_percent_knockback_scale,
+                                growth_base: rules.growth_base,
+                                // ⛔ AND THE FALLBACK GROWTH, WITHOUT WHICH A
+                                // VOLUME THAT AUTHORS `None` READS AS A SET
+                                // LAUNCH. The hit resolver spends this on the
+                                // same volumes; the brain reading `0.0` for
+                                // them put `cellular_pulse` at 140px/s where
+                                // the stage throws it 490.
+                                ruleset_growth: rules.knockback_growth,
+                                rage: rules.rage_scale(body.health.damage_taken()),
+                                base_scale: rules.base_knockback_scale,
+                            },
+                        ),
+                    );
+                    // ⭐⭐ ONLY `TacticalWorld` BUILDS A VIEW NOW. `TargetBelief`
+                    // — seven of the nine templates — takes the cheap road
+                    // below, which finds the same foe from borrowed peers and
+                    // folds the same memory without constructing a
+                    // `PerceivedActor` (and its owned `String`) per peer.
+                    let world_view = if perception_need.needs_world_view() {
+                        super::super::perception::build_world_view(
+                            &perception_body,
+                            &view_peers,
+                            perceived.projectiles_in(room),
+                            &[],
+                            feature_world,
+                            &open_gates,
+                            relations,
+                            perception_policy,
+                            sim_now,
+                        )
+                    } else {
+                        ambition_characters::perception::WorldView::default()
+                    };
+                    // The cheap road, for the seven templates that only ever
+                    // wanted a target. One pass over the peers: the nearest
+                    // hostile, and the visible count the census needs.
+                    let cheap = perception_need.needs_target_belief().then(|| {
+                        super::super::perception::nearest_hostile_peer(
+                            &perception_body,
+                            &view_peers,
+                            relations,
+                            perception_policy,
+                        )
+                    });
+                    // ⚠ AN INSTRUMENT, OFF BY DEFAULT: one relaxed load when the
+                    // census is not running. `view_peers` is what the room
+                    // OFFERED this viewer; `actors` is what its viewport and
+                    // faction rules KEPT. The gap between the two is what an
+                    // attention budget would bound.
+                    //
+                    // ⛔ ONLY A VIEW THAT WAS ACTUALLY BUILT. A `None` brain now
+                    // gets `WorldView::default()`, and counting those recorded
+                    // 45,795 views of `kept=0` — a mean over bodies that never
+                    // looked, which is not the population the budget is about.
+                    // ⛔⛔ `kept` COMES FROM WHICHEVER ROAD RAN. A `TargetBelief`
+                    // body no longer builds a view, so `world_view.actors.len()`
+                    // is 0 for it — reading that would drop the census toward
+                    // zero for seven of the nine templates and quietly ruin the
+                    // instrument that priced this change. The cheap road counts
+                    // the same population (everything VISIBLE, allies included)
+                    // on the pass that finds the target.
+                    // ⛔ THE VIEW ROAD FIRST. `TacticalWorld` needs a target
+                    // belief too, so `cheap` is `Some` for it as well — and the
+                    // cheap count is the UNCAPPED visible set. Testing `cheap`
+                    // first recorded `kept = visible` for every world-view brain
+                    // and the density sweep could not see the attention budget
+                    // at all (yardrat, 2026-09-03: `kept_max` 129 with the cap
+                    // at 16). A body that built a view reports what the view
+                    // carries; only a body that did not reports the cheap count.
+                    if perception_need.needs_world_view() {
+                        ambition_characters::perception::census::note_world_view(
+                            view_peers.len(),
+                            world_view.actors.len() + world_view.remainder.actors,
+                            world_view.actors.len(),
+                        );
+                    } else if let Some(cheap) = cheap.as_ref() {
+                        ambition_characters::perception::census::note_world_view(
+                            view_peers.len(),
+                            cheap.visible_count,
+                            cheap.visible_count,
+                        );
+                    }
+                    // `None` means an EMPTY belief state, not a frozen one --
+                    // the rule, and why it lives at the invariant rather than in
+                    // `BrainCommand`, is on the helper.
+                    super::super::perception::enforce_empty_belief_for_none(
+                        perception_need,
+                        perception_memory.as_deref_mut(),
+                    );
+                    // Sight and memory answer together; an `Omniscient` body
+                    // already carries the global `ActorTarget` and is not
+                    // overridden. Perceiving nobody is a real answer (idle).
+                    // ⛔⛔ THE FOLD RUNS ON BOTH ROADS. `WorldMemory` decays every
+                    // actor NOT seen this tick, so skipping it for a body that
+                    // no longer builds a view would fade every remembered foe as
+                    // though it had left the viewport — pursuit (I6) stops, a
+                    // body that can SEE its foe still looks right, and only the
+                    // one CHASING breaks. The cheap road feeds the same fold
+                    // borrowed peer fields instead of constructed actors.
+                    if let Some(cheap) = cheap.as_ref() {
+                        if let Some(memory) = perception_memory.as_deref_mut() {
+                            let viewport = &cheap.viewport;
+                            memory.0.update_from_seen(
+                                sim_now,
+                                dt,
+                                view_peers
+                                    .iter()
+                                    .filter(|p| {
+                                        super::super::perception::peer_is_visible_to_body(
+                                            perception_policy,
+                                            viewport,
+                                            &perception_body,
+                                            p,
+                                        )
+                                    })
+                                    .map(|p| ambition_characters::perception::SeenActor {
+                                        id: p.id.as_str(),
+                                        pos: p.pos,
+                                        vel: p.vel,
+                                        faction: p.faction,
+                                        hostile_to_self:
+                                            super::super::perception::peer_is_hostile_to_body(
+                                                &perception_body,
+                                                relations,
+                                                p,
+                                            ),
+                                    }),
+                            );
+                        }
+                    }
+                    if let Some(believed) = perception_need
+                        .needs_target_belief()
+                        .then(|| match cheap.as_ref() {
+                            Some(cheap) => super::super::perception::belief_from_nearest(
+                                perception_policy,
+                                cheap.nearest_hostile.map(|p| p.pos),
+                                perception_memory.as_deref_mut(),
+                            ),
+                            None => super::super::perception::believed_target(
+                                perception_policy,
+                                &world_view,
+                                perception_memory.as_deref_mut(),
+                                dt,
+                            ),
+                        })
+                        .flatten()
+                    {
+                        match believed {
+                            Some(pos) => {
+                                snapshot.target_pos = pos;
+                                snapshot.target_alive = true;
+                            }
+                            None => {
+                                snapshot.target_pos = body.kin.pos;
+                                snapshot.target_alive = false;
+                            }
+                        }
+                    }
+                    let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
+                    let peaceful = ambition_characters::brain::ActionSet::peaceful();
+                    let actions = action_set.unwrap_or(&peaceful);
+                    with_causal_sink(&mut causal, || {
+                        crate::brain_tick::tick_brain_with_actions(
+                            brain_ref,
+                            actions,
+                            &snapshot,
+                            Some(&world_view),
+                            &mut bf,
+                        )
+                    });
+                    bf
+                } else {
+                    ambition_characters::actor::control::ActorControlFrame::neutral()
+                };
+                let _ = enemy_gravity_dir;
+                // Decision ends in a plain value. The next phase is the only
+                // autonomous writer of `ActorControl`; movement cannot begin until
+                // that publish has completed. A body with no control component still
+                // advances its brain state, matching the old fused path.
+                if has_control {
+                    decisions.frames.push((this_actor_entity, brain_frame));
+                }
+            }
+        }
+    }
+}
+
+/// PUBLISH — commit this tick's autonomous decisions to body control.
+///
+/// This is intentionally the only autonomous `ActorControl` mutation after brain
+/// evaluation. The system is narrow enough that Bevy's access graph expresses
+/// the authority edge directly: DECIDE writes a derived buffer, PUBLISH writes
+/// control, and integration only follows after PUBLISH.
+pub(crate) fn publish_actor_decision_frames(
+    decisions: Res<ActorDecisionFrames>,
+    mut controls: Query<
+        &mut ambition_characters::control::ActorControl,
+        Without<ambition_characters::control::DrivingParticipant>,
+    >,
+) {
+    for (entity, frame) in &decisions.frames {
+        if let Ok(mut control) = controls.get_mut(*entity) {
+            control.0 = *frame;
+        }
+    }
+}
+
+/// Anti-clump route steering for the adhesive crawler: does a same-kind
+/// neighbor sit directly ahead along the crawl tangent (derived from the
+/// published support normal + facing)? Pure, so the reversal rule is
+/// unit-testable without the phase context.
+pub(crate) fn crawler_neighbor_blocks(
+    pos: ae::Vec2,
+    size: ae::Vec2,
+    facing: f32,
+    surface_normal: ae::Vec2,
+    neighbor: ae::Vec2,
+) -> bool {
+    let n = surface_normal;
+    let tangent = ae::Vec2::new(-n.y * facing, n.x * facing);
+    let delta = neighbor - pos;
+    let along = delta.dot(tangent);
+    let perp = delta.dot(n);
+    let body_long = size.x * 0.5;
+    let body_thick = size.y * 0.5;
+    along > 0.0 && along < body_long + 6.0 && perp.abs() < body_thick + 4.0
+}
+
+/// The per-body ACTOR movement integrator — the actor-species sibling of
+/// [`crate::avatar::integrate_home_body`]. Both bottom out in the SAME engine seam
+/// (`ae::step_motion`, reached here via `ActorMut::update` →
+/// `integrate_body`); this wrapper adds the actor-species orchestration the home
+/// body doesn't need (dead/revive, AI evaluation, surface-walker step, flight
+/// tuning) and reacts to the integration: the revive flash on the dead→alive edge,
+/// the shark-charge crash `HitEvent`, the blink SFX/VFX for a teleport, and the
+/// frame-oriented `CenteredAabb` publish. It writes the post-integration frame back
+/// onto `ActorControl` so `emit_brain_action_messages` sees the same frame the old
+/// fused loop did.
+#[allow(clippy::too_many_arguments)]
+fn integrate_actor_body(
+    actor_entity: Entity,
+    // Whose cues this body emits (A13). Read-only, looked up by entity so it does
+    // not have to ride the already-12-wide cluster tuple.
+    presentation_source: Option<&ambition_sfx::PresentationSourceId>,
+    em: &mut ActorMut<'_>,
+    aabb: &mut CenteredAabb,
+    combat: &mut BodyCombat,
+    mut control: Option<&mut ambition_characters::control::ActorControl>,
+    mut anim: Option<&mut ambition_characters::actor::BodyAnimFacts>,
+    // The body's coarse footprint size: `Some` (a boss's composite render
+    // envelope, from `BodyEnvelope`) publishes the `CenteredAabb` at that size;
+    // `None` (every ordinary actor) publishes it at `em.kin.size` — the
+    // collision box IS the footprint. This is the envelope split (AJ5.1) that
+    // lets a boss share this ONE integrator instead of a bespoke arm.
+    envelope: Option<ae::Vec2>,
+    // The body's motion IDENTITY (AJ11 / R9.1): `None` / `AxisSwept` = the
+    // axis-role swept path below; `SurfaceMomentum` dispatches to the
+    // surface-follower solver — a policy field on the ONE integrator, the
+    // `Perception` pattern, never a parallel system.
+    motion_model: &mut MotionModel,
+    // Somebody is riding THIS body. Guards the charge-crash suicide.
+    is_being_ridden: bool,
+    // Somebody is carrying THIS body. Declines the locomotion pass.
+    pose_owned_externally: bool,
+    feature_world: &ae::World,
+    combat_tuning: ambition_combat::events::FeatureCombatTuning,
+    steering: &ActorSteering,
+    motion_frame: ae::MotionFrame,
+    // The live move's authored motion lock (`MoveSpec::motion_scale_at` of the
+    // body's current `MovePlayback`; `1.0` with no move playing). Applied to the
+    // controller's steering intent HERE — controller attempts, body enforces —
+    // so a committed heavy strike damps its owner for every controller alike
+    // (autonomous brain, possession, replay).
+    move_motion_scale: f32,
+    // The move PLAYING on this body — the last term of the helpless derivation,
+    // and the VALUE rather than a bool because only a RECOVERY postpones it.
+    playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
+    // Is this body TUMBLING? The caller reads the PUBLISHED projection
+    // (`BodyMotionFacts::tumbling`), which is what the post-hit gate needs so a
+    // falling body's tech press survives the stagger. Threaded rather than
+    // derived here for the same reason `authored_tuning` below is: the fact
+    // lives on the entity and this function takes clusters.
+    tumbling: bool,
+    // Is this body's death window open (ADR 0033)? Threaded for the same reason
+    // `tumbling` is — the fact lives on the entity and this function takes
+    // clusters — and read on BOTH roads, which is the part that was missing.
+    out_of_play: bool,
+    dt: f32,
+    feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+    // This body's own movement feel, when its character authored one.
+    //
+    // The actor twin of the player loop's `authored_tuning`. Threaded rather
+    // than resolved here because the component lives on the entity and this
+    // function takes clusters, not a `World`.
+    authored_tuning: Option<ae::MovementTuning>,
+    sfx: &mut ambition_sfx::SfxWriter,
+    // Bound to this body's live room: its movement effects are drawn there.
+    vfx: &mut ambition_vfx::vfx::VfxForRoom<'_, '_>,
+    hit_events: &mut MessageWriter<HitEvent>,
+    // The kernel's own operation list, for the causal instrument only. `Option`
+    // for the reason the damage path documents: an instrument that can take
+    // down a composition is worse than no instrument. See
+    // `crate::causal::BodyMovementOps`.
+    #[cfg(feature = "causal")] movement_ops: Option<
+        &mut MessageWriter<crate::causal::BodyMovementOps>,
+    >,
+    // The other solid bodies this one may not walk through, resolved from
+    // the pre-integration snapshot by the caller. Inert for a body whose
+    // composition never granted the capability, which is every body outside a
+    // ruleset that opted its cast in.
+    contact_field: ae::BodyContactField<'_>,
+) {
+    // The brain's intent for this body, produced upstream in `tick_actor_brains`.
+    let brain_frame = control
+        .as_deref()
+        .map(|c| c.0)
+        .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
+    // The move motion lock scales steering INTENT magnitude only — and it is
+    // `ActorControlFrame`'s own rule now, because the HOME road applies the
+    // identical one and two copies would drift.
+    let brain_frame = brain_frame.damped_by_move_motion(move_motion_scale);
+    // The same animation fact that a charging player publishes: the body
+    // displays a held aim pose before the first shot, not a false muzzle flash.
+    if let Some(anim) = anim.as_deref_mut() {
+        anim.aim_anim_active = brain_frame.ranged_aim_held;
+    }
+    let previous_pos = em.kin.pos;
+    let shark_charge_vec = brain_frame.velocity_target.vec();
+    // Respawn blink: `em.update` revives a dead body in place; apply the revive
+    // flash here on the dead→alive transition (the damage-blink lives on
+    // `BodyCombat`).
+    let was_dead = !em.health.alive();
+    // `motion_frame` is the body's per-tick resolved frame, published ONCE by
+    // the frame resolution phase and read from the body's
+    // `ResolvedMotionFrame` by this driver — the same value the brain
+    // interpreted controller input in earlier this tick.
+    // Crawler route steering is CONTROLLER-side: reverse the crawl when a
+    // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
+    // moves; the ECS resolves steering intent.
+    if matches!(motion_model, MotionModel::AdhesiveCrawler(_)) {
+        if let Some(neighbor) = steering.neighbor_by_entity.get(&actor_entity).copied() {
+            if crawler_neighbor_blocks(
+                em.kin.pos,
+                em.kin.size,
+                em.kin.facing,
+                em.surface.surface_normal,
+                neighbor,
+            ) {
+                // Steering is controller intent: flip the crawl direction. The
+                // kernel owns velocity (the attached crawl rewrites it each
+                // tick from the new facing).
+                em.kin.facing = -em.kin.facing;
+            }
+        }
+    }
+    // One named predicate, asked on both roads.
+    //
+    // so if hitlag ever feels too sticky, tune its DURATION or SHAPE.
+    // Restoring a controlled-body/actor asymmetry here is forbidden, and a
+    // comment recommending it is how the last one nearly got restored.
+    let (frame, move_events) = em.update(
+        feature_world,
+        combat_tuning,
+        dt,
+        // ⛔ THE RIDER'S FACT, NOT THE MOUNT'S. `is_being_ridden` guards the
+        // charge-crash below and belongs to a body somebody is sitting ON;
+        // what `update` needs is whether somebody is carrying THIS one.
+        pose_owned_externally,
+        brain_frame,
+        motion_model,
+        motion_frame,
+        playing_a_move,
+        feel,
+        authored_tuning,
+        combat,
+        tumbling,
+        out_of_play,
+        contact_field,
+    );
+    if was_dead && em.health.alive() {
+        combat.hit_flash = 0.24;
+    }
+    let shark_crashed = shark_charge_crashed(em, is_being_ridden, shark_charge_vec, previous_pos);
+    let mut frame = frame;
+    if shark_crashed {
+        // ⛔⛔ THIS KILLS OUTRIGHT, WHATEVER THE POOL IS. The damage below is the
+        // body's ENTIRE remaining health, so a charge crash is a detonation and
+        // not a hit — which is why raising a summoned shark's HP does nothing
+        // about it. Named in the log because "its health pool reached zero" and
+        // "it blew itself up" are the same reading downstream and want different
+        // fixes.
+        bevy::log::info!(
+            target: "ambition::mount",
+            "charge crash DETONATES: entity={actor_entity:?} being_ridden={is_being_ridden}              health_spent={}",
+            em.health.current().max(1),
+        );
+        hit_events.write(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: em.aabb().into(),
+            damage: em.health.current().max(1),
+            source: HitSource::Contact,
+            attacker: Some(actor_entity),
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    }
+    // THE BLAST ZONE. The kernel's gate flags a body that left the world, and
+    // for an actor that flag was read for presentation and then dropped on the
+    // floor — so an enemy that walked into a pit, or a fighter knocked off a
+    // stage, fell FOREVER: still alive, still ticked, still accelerating, still
+    // in every broadcast loop, with nothing anywhere to end it. Actors are never
+    // teleported to the player spawn, and the comment promising that "the
+    // actor's damage / OOB systems own that" named systems that do not exist.
+    //
+    // The fix rides the channel the shark-crash above already uses: a
+    // world-caused death is a lethal hit whose attacker is nobody. That buys
+    // the whole existing death pipeline unchanged — `RulesetOwnsDeath`, the
+    // authored respawn policy, the banner, the death cue, and an
+    // `ActorDiedMessage` carrying `HitSource::LeftTheWorld`.
+    //
+    // Gated on ALIVE, because the gate is a position test and re-fires every tick the body is
+    // past the margin.
+    if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
+        hit_events.write(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: em.aabb().into(),
+            damage: em.health.current().max(1),
+            source: HitSource::LeftTheWorld,
+            // Nobody. Crediting the last attacker for a knock-off is a RULES
+            // question a platform fighter answers with its own hitlag memory,
+            // and this seam must not pre-empt it by guessing.
+            attacker: None,
+            room: None,
+            // This body, resolved: the blast zone caught exactly one body, and
+            // a broadcast over its AABB would also catch whoever chased it out.
+            target: HitTarget::Body(actor_entity),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+    }
+    // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline. The kernel NAMED
+    // what it did; hand that to the instrument beside the FX that already read it. One publish
+    // covers every kernel velocity writer, which is why this is not sixty-eight
+    // instrumentations.
+    #[cfg(feature = "causal")]
+    if let Some(writer) = movement_ops {
+        if !move_events.operations.is_empty() {
+            writer.write(crate::causal::BodyMovementOps {
+                body: actor_entity,
+                ops: move_events.operations.clone(),
+            });
+        }
+    }
+    crate::body::emit_movement_fx(
+        sfx,
+        vfx,
+        &move_events,
+        em.kin.pos,
+        em.kin.facing,
+        em.kin.size,
+        presentation_source,
+    );
+    // Arm the op-driven overlay POSES this body earned this frame (the wall-jump
+    // push-off) on its `BodyAnimFacts`, through the SAME body-generic arming the
+    // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
+    // just the dust (§A9 follow-up). `advance_body_anim_overlay_clocks` decays it.
+    if let Some(anim) = anim.as_deref_mut() {
+        crate::body::arm_ground_contact_anim_overlay(anim, move_events.ground_contact);
+        crate::body::arm_movement_anim_overlays(anim, &move_events);
+    }
+    // Publish the actor's footprint ORIENTED to its reference frame (a
+    // surface-walker's frame is its clung surface; everyone else's is gravity at
+    // their position), the single source of truth read by the debug overlay,
+    // player hurtbox, and target volumes. `surface_normal` is kept LIVE for
+    // every body by `em.update` (§B2), so it IS the frame — no conditional.
+    let down = -em.surface.surface_normal;
+    // The footprint size: a boss's coarse render envelope if it carries one,
+    // else the collision box (`em.kin.size`) — the ordinary actor, whose
+    // collision box IS its footprint. This is the one universal `CenteredAabb`
+    // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
+    // publish, so the same `to_world_half(size*0.5)` box comes out either way.
+    let footprint = envelope.unwrap_or(em.kin.size);
+    ambition_combat::body_geometry::publish_body_footprint(
+        aabb,
+        em.kin.pos,
+        footprint,
+        em.kin.facing,
+        down,
+    );
+    // Publish the post-integration frame (identical to the brain frame except a
+    // shark-crash zeroes it) so `emit_brain_action_messages` — which runs after
+    // WorldPrep — sees the same frame the old fused loop did.
+    if let Some(control) = control.as_deref_mut() {
+        control.0 = frame;
+    }
+}
+
+/// Snapshot grounded solid-body contact boxes before any body integrates.
+///
+/// All bodies resolve against the same entry poses, avoiding query-order
+/// dependence. Airborne bodies are excluded; standing on another body is handled
+/// by footstool semantics. The snapshot is cleared every tick before republishing.
+///
+/// A body in a portal pair is in two places
+/// (`docs/planning/engine/portals-a-body-in-two-places.md`): it blocks with
+/// each of its pieces, the part through the pair where it is, at the far
+/// end, moving as the pair carries it. Its own entry is its whole box, first.
+pub fn snapshot_body_contact(
+    mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
+    bodies: Query<(
+        bevy::prelude::Entity,
+        &ambition_platformer2d_core::BodyKinematics,
+        &ae::BodyGroundState,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::body::BodyContact,
+    )>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // Last tick's pairs and straddlers: where each body is as this tick begins.
+    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+) {
+    snapshot.clear();
+    // Each grounded body's box, and the parts of it a pair carries elsewhere.
+    let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2,
+    )> =
+        Vec::new();
+    for (entity, kinematics, ground, frame, contact) in &bodies {
+        if !ground.on_ground {
+            continue;
+        }
+        let room = rooms.of(entity);
+        let contact_box = kinematics.aabb_oriented(frame.down());
+        // its ENTRY velocity — this pass runs before any body resolves its
+        // controller, which is the whole point of a common snapshot.
+        snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance,
+        );
+        boxes.push((entity, room, contact_box, kinematics.vel));
+        let Some(passages) = passages.as_deref().filter(|passages| passages.straddled_by(entity).is_some()) else {
+            continue;
+        };
+        for piece in passages
+            .pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room,
+            )
+            .iter()
+            .filter(|piece| piece.is_carried())
+        {
+            // The part of the box the pair carries, as a box (exact for a
+            // floor, wall or ceiling pair, which keeps boxes boxes).
+            let Some(part) = piece.region().and_then(|region| bounding_box(&region)) else {
+                continue;
+            };
+            let velocity = piece.carry_dir(kinematics.vel);
+            snapshot.push_part(entity, room, part, velocity);
+            boxes.push((entity, room, part, velocity));
+        }
+    }
+    // A body in a pair meets what is at its far end: each other box in front
+    // of the exit and inside its opening, mapped back through the pair.
+    let Some(passages) = passages.as_deref() else {
+        return;
+    };
+    for (entity, _, ground, ..) in &bodies {
+        let Some(link) = passages.straddled_by(entity).filter(|_| ground.on_ground) else {
+            continue;
+        };
+        let back = ae::frame::Iso2::through(&link.exit.frame, &link.enter.frame, passages.convention());
+        let [behind, lo, hi] = ae::frame::thread::opening(&link.exit);
+        let slab = [behind.flipped(), lo, hi];
+        let room = rooms.of(entity);
+        for (other, other_room, other_box, velocity) in &boxes {
+            if *other == entity || *other_room != room {
+                continue;
+            }
+            let outline = vec![
+                other_box.min,
+                ae::Vec2::new(other_box.max.x, other_box.min.y),
+                other_box.max,
+                ae::Vec2::new(other_box.min.x, other_box.max.y),
+            ];
+            let Some(there) = ae::frame::thread::clip_convex(outline, &slab) else {
+                continue;
+            };
+            let mapped: Vec<ae::Vec2> = there.iter().map(|p| back.point(*p)).collect();
+            if let Some(part) = bounding_box(&mapped) {
+                snapshot.push_seen_by(entity, part, back.vec(*velocity));
+            }
+        }
+    }
+}
+
+/// The box around `points`.
+fn bounding_box(points: &[ae::Vec2]) -> Option<ae::Aabb> {
+    let (lo, hi) = points
+        .iter()
+        .fold((ae::Vec2::splat(f32::MAX), ae::Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)),
+    );
+    ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y)
+}
+
+/// Publish movement cues and hit requests from body integration.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct BodyIntegrationCues<'w> {
+    pub sfx: ambition_sfx::SfxWriter<'w>,
+    pub vfx: ambition_vfx::vfx::VfxWriter<'w>,
+    pub hit_events: MessageWriter<'w, HitEvent>,
+    /// The kernel's operation list, for the causal instrument. `Option` so a
+    /// composition with no inspector registers nothing and publishes nothing —
+    /// the rule the damage path already documents.
+    #[cfg(feature = "causal")]
+    pub movement_ops: Option<MessageWriter<'w, crate::causal::BodyMovementOps>>,
+}
+
+/// Advance all live bodies in the shared integration phase.
+/// Brains publish accepted control before this phase. Each body reads the
+/// collision world for its room and its own contact, tuning, and envelope data.
+#[allow(clippy::too_many_arguments)]
+pub fn integrate_sim_bodies(
+    // A13: whose cues each body emits, looked up by entity. A separate read-only
+    // query rather than another member of the cluster tuple, which is already at
+    // twelve.
+    body_sources: Query<&ambition_sfx::BodyPresentationSource>,
+    // Empty in every composition that has not granted the capability, and an empty snapshot
+    // answers `BodyContactField::NONE` for every body.
+    contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
+    // The per-body blocker list, reused across bodies and across ticks. a
+    // `Local` rather than a fresh `Vec` per body: this is the innermost loop of
+    // the movement phase.
+    mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
+    world_time: Res<WorldTime>,
+    // The one composer of the collision world: the room, its moving platforms
+    // and the feature overlay, as every other simulated collider reads it.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    // The live room each body is in, so it collides with that room's walls
+    // and not another live room's (OW1 cut 3d). A separate read-only query,
+    // for the reason `body_sources` gives.
+    body_rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
+    steering: Res<ActorSteering>,
+    active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
+    mut cues: BodyIntegrationCues,
+    mut actors: Query<
+        (
+            Entity,
+            &mut CenteredAabb,
+            &mut BodyCombat,
+            Option<&mut ambition_characters::control::ActorControl>,
+            Option<&mut ambition_characters::actor::BodyAnimFacts>,
+            // ⛔⛔ THE SADDLE, NOT THE RIDER'S MARKER. This row used to read
+            // `Option<&Mounted>`, and `Mounted` is stamped on the RIDER — see
+            // `mount::board`, which puts `RidingOn`/`Mounted` on the rider and
+            // `MountSlot` on the mount. So a shark CARRYING a rider never had
+            // `Mounted`, this always resolved false, and the `!is_mounted` guard
+            // on the charge-crash suicide never fired. The pirate boarded and the
+            // shark detonated itself against the stage about twenty milliseconds
+            // later, every single time, taking the recovery with it.
+            //
+            // ⭐ THE QUESTION IS "AM I BEING RIDDEN", and only the saddle answers
+            // it. Asking the rider's marker of a mount is a category error that
+            // reads as a plain `false`, which is why it survived: the guard was
+            // there, it was spelled right, and it was wired to a component this
+            // entity can never have.
+            Option<&ambition_mount::MountSlot>,
+            // ⛔⛔ THE OTHER END OF THE SAME RELATIONSHIP, and it is a different
+            // question. `MountSlot` above says "somebody is riding ME"; this
+            // says "somebody is carrying me". A body can be either, neither, or
+            // — a rider on a mount that is itself ridden — both.
+            bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+            &mut MotionModel,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &mut ambition_platformer2d_core::BodyMotionFacts,
+            Option<ambition_body_seed::clusters::ActorClusterQueryData>,
+            // The body's live move, if any — its authored per-window motion
+            // lock scales the steering intent inside `integrate_actor_body`.
+            Option<&ambition_combat::moveset::MovePlayback>,
+            // The body's own FEEL, if its character authored one.
+            //
+            // this component was GRANTED to every seated fighter and read by nobody on this path:
+            // `presentation.rs` inserts it precisely so a seated fighter and a worn player move
+            // alike, and the only consumer in the repository was the PLAYER loop below.
+            Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
+            Option<&ambition_combat::BodyEnvelope>,
+            // Has this body's death window been opened (ADR 0033)? ⛔⛔ THIS WAS
+            // HARD-CODED `false` at the `step_body` call, under a comment
+            // stating as a FACT that `OutOfPlay` is only ever granted to a
+            // participant's body — true only while `open_death_interlude` was
+            // the sole opener. A Smash fighter is NOT a `PlayerEntity`, so when
+            // the stocks respawn beat began opening a window (D201) the body it
+            // was meant to hold still went on integrating: it kept the velocity
+            // that launched it and coasted through the wait, and a held jump
+            // still reached it.
+            //
+            // The player query below has always read this. Two roads, one
+            // question — see the `playing_a_move` note on `ActorMut::update`,
+            // which is the same defect on the same function.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+        ),
+        (
+            With<FeatureSimEntity>,
+            With<ambition_combat::components::ActorTarget>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        ),
+    >,
+    // Home/player bodies (primary + any brain-driven clone). Disjoint from the
+    // actor query (`With<PlayerEntity>` vs `Without<PlayerEntity>`), so both borrow
+    // in the same system. Each carries the SAME movement clusters an actor does; the
+    // home body just also owns the `PlayerBodyFrameOutput` reset/presentation seam.
+    mut players: Query<
+        (
+            // Whose body this is, so the contact snapshot can hand it every
+            // OTHER solid body's box without including its own.
+            Entity,
+            ae::BodyClusterQueryData,
+            // MUTABLE so the body step can bank and spend the automatic
+            // displacement it owes after a hitlag — see `BodyCombat::asdi_owed`.
+            &mut BodyCombat,
+            // the body's own reason set, because a hazard TILE is damage.
+            // A player who cannot be hurt — a super form, a transformation beat,
+            // a scripted grant — must not be reset to spawn by walking over
+            // spikes. `Option` because a home body without health is a valid
+            // scratch/test body and there is nothing to ask.
+            Option<&ambition_characters::actor::BodyHealth>,
+            &ambition_characters::control::ActorControl,
+            &mut CenteredAabb,
+            &mut crate::avatar::PlayerBodyFrameOutput,
+            &mut MotionModel,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &mut ambition_platformer2d_core::BodyMotionFacts,
+            // The body's live move, exactly as the actor query above carries it:
+            // its authored per-window motion lock scales this body's steering
+            // intent too. ⛔⛔ IT WAS ABSENT HERE, so every rule expressed as a
+            // motion lock — a committed swing, and the charge root Jon asked for
+            // by name — was live for brain-driven bodies and silently off for the
+            // one a human drives.
+            Option<&ambition_combat::moveset::MovePlayback>,
+            // A body that authors its own axis feel (a demo protagonist) carries
+            // this; the shared sandbox protagonist does not and tracks the F3
+            // dev tuning live (see the per-body resolve below).
+            Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
+            // The ridden-surface presentation fact this integration publishes
+            // (the roll righting reflex tilts a rider's feet onto it).
+            Option<&mut ambition_platformer2d_shared_tangle::orientation::SurfaceUpright>,
+            // Has this participant's attempt already ended (ADR 0033)? The
+            // world's reset gate must not act on a body that has already lost —
+            // see the guard inside `integrate_home_body`.
+            //
+            // And: does something else have this body's pose? The same fact
+            // the actor query above reads. A home body in a scripted transit
+            // has it.
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+            ),
+        ),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
+) {
+    let dt = world_time.sim_dt();
+    // Each live room is composed once per step, the first time a body in it
+    // asks. A body with no live room (no room loaded, or a room that is not
+    // live) is not integrated: there is nothing to integrate it against.
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
+    let combat_tuning = feel_tuning.feature_combat_tuning();
+    // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
+    for (
+        actor_entity,
+        mut aabb,
+        mut combat,
+        mut control,
+        mut anim,
+        mounted,
+        pose_owned_externally,
+        mut motion_model,
+        resolved_frame,
+        mut motion_facts,
+        clusters,
+        playback,
+        authored_tuning,
+        envelope,
+        out_of_play,
+    ) in &mut actors
+    {
+        let Some(mut cq) = clusters else {
+            continue;
+        };
+        // The walls as they stand for this body: a gate open for it (Q54) is
+        // not among them.
+        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(actor_entity).ok(), actor_entity)
+        else {
+            continue;
+        };
+        let feature_world: &ambition_platformer2d_core::World = &feature_world;
+        let mut em = cq.as_actor_mut();
+        integrate_actor_body(
+            actor_entity,
+            body_sources.get(actor_entity).ok().map(|s| s.id()),
+            &mut em,
+            &mut aabb,
+            &mut combat,
+            control.as_deref_mut(),
+            anim.as_deref_mut(),
+            envelope.map(|envelope| envelope.0),
+            &mut motion_model,
+            // Ridden means somebody is IN the saddle, not merely that a saddle
+            // exists: an empty `MountSlot` outlives its rider's dismount.
+            mounted.is_some_and(|slot| slot.rider.is_some()),
+            pose_owned_externally,
+            feature_world,
+            combat_tuning,
+            &steering,
+            resolved_frame.get(),
+            playback.map_or(1.0, |pb| pb.motion_scale_now()),
+            playback,
+            // LAST TICK's published tumble, which is the read this is owed:
+            // the projection below is written after the step, and a tech window
+            // is many ticks long.
+            motion_facts.tumbling,
+            out_of_play,
+            dt,
+            *feel_tuning,
+            authored_tuning.map(|t| t.0),
+            &mut cues.sfx,
+            &mut cues.vfx.for_room(body_rooms.get(actor_entity).ok().map(|stamp| stamp.0)),
+            &mut cues.hit_events,
+            #[cfg(feature = "causal")]
+            cues.movement_ops.as_mut(),
+            contact.field_for(actor_entity, &mut contact_scratch),
+        );
+        // Publish the semantic movement facts this step produced (ADR 0024):
+        // presentation/combat consumers read THESE, never policy internals.
+        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
+    }
+
+    // ── HOME/PLAYER bodies, integrated in this SAME phase ──────────────────────
+    // The home body is not a separate gameplay species: it runs the LITERAL same
+    // engine entry through `integrate_home_body`, right here beside the actor
+    // bodies. The tuning is built once (gravity direction + control-frame mode) and
+    // shared by every player body (primary + clone); the two-clock precision-blink
+    // affordance rides on `control_dt` inside the helper. No sandbox/room reset and
+    // no presentation happen here — those are the home reset-POLICY and
+    // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
+    // The shared F3 dev tuning is the fallback; a body that authors its own feel
+    // (below) overrides it per-body. Built once, cheaply copied.
+    let editable_player_tuning = active_tuning.0;
+    let player_feel = *feel_tuning;
+    let frame_dt = world_time.wall_dt();
+    let scaled_dt = world_time.sim_dt();
+    for (
+        player_entity,
+        mut cluster_item,
+        mut combat,
+        health,
+        control,
+        mut hurtbox,
+        mut frame_out,
+        mut motion_model,
+        resolved_frame,
+        mut motion_facts,
+        playback,
+        authored_tuning,
+        mut surface_upright,
+        (out_of_play, pose_owned_externally),
+    ) in &mut players
+    {
+        // Per-body feel: an authored protagonist keeps its own tuning; the
+        // sandbox protagonist tracks the live inspector sliders. This is the
+        // axis-path twin of a SurfaceMomentum body's params escaping the refresh.
+        let player_tuning = authored_tuning
+            .map(|t| t.0)
+            .unwrap_or(editable_player_tuning);
+        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(player_entity).ok(), player_entity,
+        )
+        else {
+            continue;
+        };
+        let feature_world: &ambition_platformer2d_core::World = &feature_world;
+        let mut clusters = cluster_item.as_clusters_mut();
+        let player_motion_frame = resolved_frame.get();
+        let riding_up = crate::avatar::integrate_home_body(
+            control.0,
+            feature_world,
+            &mut clusters,
+            &mut combat,
+            health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                h.health.invulnerable
+            }),
+            motion_facts.evading(),
+            motion_facts.tumbling,
+            out_of_play,
+            pose_owned_externally,
+            &mut hurtbox,
+            &mut frame_out,
+            &mut motion_model,
+            player_motion_frame,
+            player_tuning,
+            player_feel,
+            playback.map_or(1.0, |pb| pb.motion_scale_now()),
+            frame_dt,
+            scaled_dt,
+            // The move itself, not merely whether one is playing: only a
+            // RECOVERY postpones helplessness, which is why the derivation reads
+            // the spec's gate rather than the component's presence.
+            playback.map(|pb| &*pb),
+            contact.field_for(player_entity, &mut contact_scratch),
+        );
+        *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
+        // Input-relative facts the model projection can't know: republished
+        // here, beside the ridden-surface fact (all are per-tick projections of
+        // this integration; the roll reflex and the anim picker consume them).
+        motion_facts.skidding =
+            crate::avatar::surface_skidding(&motion_model, control.0.locomotion.x);
+        if let Some(surface) = surface_upright.as_mut() {
+            surface.up = riding_up;
+        }
+    }
+}
+
+/// Observer phase — body-contact damage. Reads each actor's POST-movement body
+/// overlap against the player it targets and emits a `HitEvent` when they touch.
+/// A pure observer of integrated body state: it ticks no brain, moves no body,
+/// and mirrors no read-model — it only watches the world and emits damage facts.
+/// Runs after `update_ecs_actors` (movement) so the overlap it checks is this
+/// frame's resolved position. Body-contact is OFF for a participant-driven
+/// (possessed) body — it holds a `DrivingParticipant`, it fights for you, and its
+/// body must not harm you on contact (the same effective-allegiance rule the melee
+/// strike + boss damage use).
+#[allow(clippy::too_many_arguments)]
+pub fn apply_actor_contact_damage(
+    // The struck body's own victim consumer emits its `HurtFeedback` now, so this system only
+    // writes the `HitEvent`.
+    mut hit_events: MessageWriter<HitEvent>,
+    mut set: bevy::ecs::system::ParamSet<(
+        Query<
+            (
+                Entity,
+                &ambition_combat::components::ActorTarget,
+                Option<&ambition_characters::control::DrivingParticipant>,
+                // ⭐⭐ IS THIS BODY SEATED IN A MATCH? D206. Whether touching a
+                // body hurts is a CHARACTER trait
+                // (`CharacterBodyBlueprint::contact_damage`), and that is right
+                // for the overworld: a goblin you walk into hurts you. It is
+                // wrong for a versus match, where a fighter's body is never a
+                // permanent hazard — the genre puts damage in MOVES.
+                //
+                // MEASURED: goblin vs `perfect_cellular_automaton`, both
+                // authoring a contact-damage block, traded **6,908 Contact hit
+                // events in 3,776 ticks — 109.8/s** against 29.5/s of melee,
+                // because this system writes an event EVERY TICK two bodies
+                // overlap and the only thing pacing it is the victim's i-frames.
+                // That is what Jon heard as *"a bad sfx problem with goblin and
+                // pca"*: every one of those events asks for `player.hit`, the
+                // unauthored default for an enemy-profile victim. A george
+                // mirror was quiet at 223 — not because the engine behaves
+                // differently, but because George authors no contact block.
+                //
+                // ⛔ THE SEAT AND NOT THE TUNING. `actor_clusters` builds this
+                // tuning on the SHARED character→body road, which the overworld
+                // NPC and the seated fighter both take, so it cannot answer a
+                // question about the match. And a ruleset that reached in and
+                // rewrote the tuning would be editing a construction-time fact
+                // that a re-seat puts straight back. The seat is the authority
+                // and this is the read that asks it.
+                //
+                // ⛔ NOT a claim that a fighter can never harm on contact. A
+                // move that wants a damaging body state grants it as a move —
+                // Sanic's ball dash, a super form, a spiked shell — and none of
+                // those flows through this permanent trait.
+                Has<ambition_match::MatchSeat>,
+                Option<ambition_body_seed::clusters::ActorClusterQueryData>,
+                Option<&ambition_combat::actor_tuning::ContactThreatWithdrawn>,
+                // ⛔ THE SADDLE IS NOT A CONTACT. A rider stands IN its mount's
+                // box — the seat is where its soles rest on the mount's back, so
+                // the two footprints overlap by construction, every tick they are
+                // paired. That overlap is the ride, not a body walking into a
+                // body; asked as a contact it killed a player piloting a wild
+                // shark in twelve ticks. Both ends of the one relation, because
+                // either body can be the one authoring contact damage.
+                Option<&ambition_mount::MountSlot>,
+                Option<&ambition_mount::RidingOn>,
+                // A boss's body hurts only while its fight runs: not asleep,
+                // not in its intro (the Inugami lies in Wolfenstein's body
+                // until he falls).
+                Option<&ambition_boss_encounter::BossEncounter>,
+            ),
+            // Bosses are contact attackers through THIS shared system now (fable
+            // AD2): their `body_contact_damage` tuning is driven from
+            // `behavior.body_damage` at spawn, so no `Without<BossConfig>` carve-out.
+            (
+                With<FeatureSimEntity>,
+                Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            ),
+        >,
+        // Victims: any body with a published footprint — a player, an NPC a
+        // provoked enemy tracks, a duel opponent. The ONE vulnerability rule
+        // (§A5) + the ONE published hurtbox (§A6).
+        Query<(
+            &CenteredAabb,
+            &ambition_characters::actor::BodyHealth,
+            &ambition_platformer2d_core::BodyMotionFacts,
+            &ambition_platformer2d_core::BodyShieldState,
+            &ambition_characters::actor::BodyCombat,
+        )>,
+    )>,
+) {
+    // Pass 1 — snapshot each live contact attack while the attacker's clusters
+    // are borrowed.
+    let mut pending: Vec<(Entity, Entity, crate::body::movement::ContactAttack)> = Vec::new();
+    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding, encounter,
+    ) in
+        &mut set.p0()
+    {
+        let Some(mut cq) = clusters else {
+            continue;
+        };
+        let em = cq.as_actor_mut();
+        // Body-contact hazard is off for any participant-driven body; derived
+        // from the DRIVER (no possession special-case), gated by the body's
+        // authored `body_contact_damage` tuning and by any live withdrawal.
+        let fighting = encounter.is_none_or(|encounter| {
+            !matches!(
+                encounter.encounter_phase(),
+                ambition_boss_encounter::BossEncounterPhase::Dormant | ambition_boss_encounter::BossEncounterPhase::Intro
+            )
+        });
+        let enabled = driver.is_none()
+            && !seated_in_a_match
+            && em.config.tuning.body_contact_damage
+            && !withdrawn.is_some_and(|w| w.0)
+            && fighting;
+        if !enabled || !em.health.alive() {
+            continue;
+        }
+        // The body this actor tracks (already resolved relationally by
+        // `select_actor_targets` — a foe by faction or grudge); its entity is
+        // stamped on the emitted `HitEvent::target` so the right victim
+        // consumer lands the hit.
+        let Some(target_entity) = target.entity else {
+            continue;
+        };
+        let carried = saddle.and_then(|slot| slot.rider);
+        let carrier = riding.map(|on| on.mount);
+        if carried == Some(target_entity) || carrier == Some(target_entity) {
+            continue;
+        }
+        if let Some(attack) = em.contact_attack() {
+            pending.push((actor_entity, target_entity, attack));
+        }
+    }
+    // Pass 2 — resolve each victim through its published hurtbox.
+    let victims = set.p1();
+    for (attacker, target_entity, attack) in pending {
+        let Ok((hurtbox, victim_health, facts, shield, combat)) = victims.get(target_entity) else {
+            continue;
+        };
+        if !ambition_combat::util::body_vulnerable(
+            victim_health.health.invulnerable,
+            facts.evading(),
+            shield,
+            combat,
+        ) {
+            continue;
+        }
+        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb()) {
+            hit_events.write(damage);
+        }
+    }
+}
+
+/// Build a `BrainSnapshot` for a Smash-brain enemy. Threads the
+/// crowding signal computed once per tick by the actor driver.
+/// `dt` is the gameplay clock so the Smash brain's mode dwell
+/// accumulator runs on the same time domain as the rest of the
+/// simulation.
+/// Per-actor nearest-same-kind-neighbor index (O(N²), N ≤ a few). Used
+/// by brain snapshots as a "personal space" signal so two aerial actors
+/// close to each other can push apart even when their slot anchors are
+/// far apart. Returns the position of each actor's nearest same-kind
+/// neighbor; actors with no same-kind peer are absent from the map.
+pub(crate) fn compute_nearest_neighbors(
+    requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
+) -> std::collections::HashMap<String, ae::Vec2> {
+    let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
+        std::collections::HashMap::new();
+    for (id_a, pos_a, kind_a) in requests {
+        let mut nearest: Option<(f32, ae::Vec2)> = None;
+        for (id_b, pos_b, kind_b) in requests {
+            if id_a == id_b || kind_a != kind_b {
+                continue;
+            }
+            let d = (*pos_a - *pos_b).length_squared();
+            if nearest.map(|(best, _)| d < best).unwrap_or(true) {
+                nearest = Some((d, *pos_b));
+            }
+        }
+        if let Some((_, pos)) = nearest {
+            neighbor_by_id.insert(id_a.clone(), pos);
+        }
+    }
+    neighbor_by_id
+}
+
+/// Per-actor crowding signal (personal-space pressure) consumed by
+/// brains like Smash so clustered actors push apart. Aerial actors use a
+/// wider radius and only count *other aerial* actors (so flyers like
+/// sharks don't stack), while ground actors use a tighter radius. Pure
+/// over the per-tick slot requests `(id, pos, kind)` so it is
+/// unit-testable in isolation from the actor tick.
+pub(crate) fn compute_crowding_by_id(
+    requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
+    faction_by_id: &std::collections::HashMap<String, ambition_characters::actor::ActorFaction>,
+    // id → the id of the body it's actively fighting (its `ActorTarget`), so a foe is
+    // never mistaken for an ally to spread from — even a SAME-faction one (two `Npc`
+    // duelists feuding via a grudge).
+    opponent_id_by_id: &std::collections::HashMap<String, String>,
+) -> std::collections::HashMap<String, ambition_characters::brain::smash::CrowdingSignal> {
+    const CROWDING_RADIUS_PX: f32 = 80.0;
+    const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
+    let mut crowding_by_id: std::collections::HashMap<
+        String,
+        ambition_characters::brain::smash::CrowdingSignal,
+    > = std::collections::HashMap::new();
+    for (id_a, pos_a, kind_a) in requests {
+        let mut count: u8 = 0;
+        let mut centroid = ae::Vec2::ZERO;
+        let aerial = *kind_a == ambition_combat::crowd::CrowdKind::Aerial;
+        let radius = if aerial {
+            AERIAL_CROWDING_RADIUS_PX
+        } else {
+            CROWDING_RADIUS_PX
+        };
+        let faction_a = faction_by_id.get(id_a);
+        for (id_b, pos_b, kind_b) in requests {
+            if id_a == id_b {
+                continue;
+            }
+            // Anti-clump is for ALLIES spreading out — an OPPONENT is to fight, not a
+            // neighbor to avoid. Counting one freezes hostiles who should close (the
+            // duel). A body is an opponent if it's a different faction OR it's the one
+            // this fighter is actively targeting (its grudge foe in a same-faction
+            // duel) — either way, don't anti-clump away from it.
+            let different_faction = faction_a != faction_by_id.get(id_b);
+            let is_my_target = opponent_id_by_id.get(id_a) == Some(id_b);
+            if different_faction || is_my_target {
+                continue;
+            }
+            if aerial && *kind_b != ambition_combat::crowd::CrowdKind::Aerial {
+                continue;
+            }
+            if pos_a.distance_squared(*pos_b) <= radius * radius {
+                count = count.saturating_add(1);
+                centroid += *pos_b;
+            }
+        }
+        if count > 0 {
+            centroid /= count as f32;
+            let away = (*pos_a - centroid).normalize_or_zero();
+            crowding_by_id.insert(
+                id_a.clone(),
+                ambition_characters::brain::smash::CrowdingSignal {
+                    same_faction_count: count,
+                    away_dir: away,
+                    pressure: ambition_characters::brain::smash::CrowdingSignal::compute_pressure(
+                        count,
+                    ),
+                },
+            );
+        }
+    }
+    crowding_by_id
+}
+
+/// **THE STALING THIS BODY IS CARRYING, AND THE RULES THAT SPEND IT.**
+///
+/// ⛔⛤ **THE HIT RESOLVER HAS ALWAYS SPENT THIS AND THE SCORER COULD NOT SEE
+/// IT.** `apply_hitbox_damage` resolves a landing as `damage × stale_scale(n)`
+/// and its launch's percent term as
+/// `victim_percent_knockback_scale × knockback_stale_scale(..)`; the brain's
+/// `LaunchLaw` carried only the first factor of that product, although
+/// `LaunchConditions::growth_scale`'s own doc names both. On the smash stage's
+/// declared `0.05 / 0.55 / 0.30` a fully worn move deals **55%** of what the
+/// brain priced it at.
+///
+/// ⭐ RESOLVED HERE, and the arithmetic stays in `ambition_combat::rules` —
+/// the brain crate cannot see that crate, and a second copy of the curve is
+/// the defect the launch law was collapsed to remove. This is the same shape
+/// as `LaunchLaw::rage`, which also travels as a number the caller resolved.
+#[derive(Clone, Copy)]
+pub(super) struct WornMoves {
+    /// The body's own ring of recent LANDINGS. A move that whiffed is not in
+    /// it: staling exists to stop one good answer being the only answer.
+    pub recent: ambition_combat::stale::BodyStaleMoves,
+    pub rules: ambition_combat::rules::ResolvedCombatTuning,
+}
+
+impl WornMoves {
+    fn of(self, move_id: &str) -> ambition_characters::brain::attack_kit::MoveWear {
+        let occurrences = self
+            .recent
+            .occurrences(ambition_combat::stale::stale_move_hash(move_id));
+        let damage = self.rules.stale_scale(occurrences);
+        ambition_characters::brain::attack_kit::MoveWear {
+            damage,
+            launch_growth: self.rules.knockback_stale_scale(damage),
+        }
+    }
+}
+
+/// The attacks this body can actually throw, as the fighter brain reads them.
+///
+/// One row per move in the contract, with the frame data a player who read the
+/// tables would know. Declaration order, which `MovesetContract.moves` is a
+/// `Vec` — so the kit is stable across ticks and across a replay, and no sort is
+/// needed to make it deterministic.
+pub(super) fn attack_kit_of(
+    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
+    // The body's REAL posture this tick. The kit is what it can press NOW.
+    grounded: bool,
+    // ⛔⛔ AND ITS REAL STANCE, which is the other half of the same fact and was
+    // MISSING. Like `grounded`, never a choice: a brain that could claim it was
+    // running would be picking a move its body cannot perform.
+    running: bool,
+    // only a FIGHTER brain reads the kit, and building it is a `Vec` of
+    // owned move ids and frame data — per actor, per tick. Every other brain in
+    // the game would have paid for a list nothing looks at, which is a cost
+    // §13.2 explicitly said to fix by rebuilding on moveset CHANGE. It does not
+    // need that yet: the cheaper answer is not to build it for a brain that
+    // cannot use it, and this is the one place that knows which brain a body has.
+    brain: Option<&ambition_characters::brain::Brain>,
+    // The move that currently owns the body, if any. Each candidate carries
+    // whether it could be STARTED this tick, answered by the same
+    // `cancel_permits` call `trigger_moveset_moves` makes — see
+    // `ActionLegality`. `None` means nothing owns the body and everything is
+    // startable.
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
+    // ⭐⭐ **THE BODY'S OWN RANGED ACTION, WHICH IS THE HALF OF A RANGED MOVE
+    // THE CATALOG CANNOT SEE.** A move that pulls `MoveEventKind::Ranged`
+    // fires whatever `RangedActionSpec` the body carries — its speed, its
+    // flight, its lifetime — so `MoveSpec::frame_data()` answers
+    // `MoveHazard::OwnersRangedAction`, a REQUEST, and this is the layer that
+    // answers it. Exactly the join this function already performs between a
+    // grab and its capture params.
+    ranged: Option<&ambition_characters::brain::RangedActionSpec>,
+    // ⭐ AND HOW WORN EACH MOVE IS ON THIS BODY, for the same reason `ranged`
+    // and `capture` are threaded: the caller holds the authority and the brain
+    // layer reads no ECS. `None` is a composition with no staling state or no
+    // declared rules, which is every move fresh. See `WornMoves`.
+    worn: Option<WornMoves>,
+) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
+    use ambition_characters::brain::{Brain, StateMachineCfg};
+    if !matches!(
+        brain,
+        Some(Brain::StateMachine(StateMachineCfg::Fighter { .. }))
+    ) {
+        return Vec::new();
+    }
+    let Some(moveset) = moveset else {
+        return Vec::new();
+    };
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
+
+    // Offer only attacks reachable by the same press resolver used at
+    // execution. Include the body's actual running and grounded state;
+    // otherwise the AI can score a move different from the one it plays.
+    // Carry the resolved press with each candidate.
+    let mut kit: Vec<AttackCandidate> = Vec::new();
+    for (verb, verb_name) in [
+        (AttackVerb::Basic, ambition_combat::moveset::ATTACK_VERB),
+        (AttackVerb::Smash, ambition_combat::moveset::SMASH_VERB),
+        (AttackVerb::Special, ambition_combat::moveset::SPECIAL_VERB),
+    ] {
+        for direction in [
+            AttackDir::Neutral,
+            AttackDir::Forward,
+            AttackDir::Back,
+            AttackDir::Up,
+            AttackDir::Down,
+        ] {
+            // The kit resolves a press with `move_for_attack(.., running)`,
+            // as the press road does, so a running body is offered the dash
+            // attack that its press starts. This was behind the measurement
+            // feature `truthful_attack_kit` until 2026-09-12 (Q117): a
+            // planner that scores one move while the executor does a
+            // different move is incorrect, whatever it does to the matchups.
+            //
+            // ⚠ NOT A GAMEPLAY KNOB. See `SPECIAL` below: the press road resolves
+            // a special in an EARLIER branch that never reaches `move_for_attack`,
+            // so redirecting it here took a running fighter's specials away and
+            // reddened two acceptance tests. Copying a production rule means
+            // copying WHERE THE ROAD APPLIES IT.
+            let running_now =
+                running && grounded && matches!(verb, AttackVerb::Basic | AttackVerb::Smash);
+            let resolve_verb = if running_now {
+                ambition_combat::moveset::ATTACK_VERB
+            } else {
+                verb_name
+            };
+            let Some(spec) =
+                moveset
+                    .0
+                    .move_for_attack(resolve_verb, direction, grounded, running_now)
+            else {
+                continue;
+            };
+            // One entry per (move, press). A base-only moveset answers all five
+            // directions with the same move, and the NEUTRAL press is the
+            // honest binding for it — the others would claim a direction the
+            // resolution ignores, and a scored duplicate is a thumb on the
+            // scale for whichever move happens to answer more presses.
+            if kit.iter().any(|c| c.move_id == spec.id) {
+                continue;
+            }
+            let mut frames = spec.frame_data();
+            resolve_owners_ranged_action(spec, &mut frames, ranged);
+            let wear = worn.map_or(
+                ambition_characters::brain::attack_kit::MoveWear::FRESH,
+                |worn| worn.of(&spec.id),
+            );
+            kit.push(AttackCandidate {
+                move_id: spec.id.clone(),
+                frames,
+                binding: AttackBinding { verb, direction },
+                legality: legality_of(playback, verb_name, running_now, &spec.id),
+                wear,
+            });
+        }
+    }
+    // AND THE GRAB, which the three loops above cannot reach: it answers its
+    // own button, not a direction on one of theirs.
+    if let Some(mut grab) = capture_candidate(moveset, grounded, playback) {
+        // ⚠ A GRAB STALES LIKE EVERYTHING ELSE. It deals no damage, so the
+        // `damage` half moves nothing in `power`; the `launch_growth` half is
+        // what its THROW is priced on, and a thrown opponent is the reason a
+        // repeated grab is supposed to stop working.
+        grab.wear = worn.map_or(
+            ambition_characters::brain::attack_kit::MoveWear::FRESH,
+            |worn| worn.of(&grab.move_id),
+        );
+        kit.push(grab);
+    }
+    kit
+}
+
+/// How far the attack press of this body reaches, from the move geometry.
+///
+/// The moveset owns reach (Q35). A brain that closes to its hit band reads
+/// this number, and no profile authors one. The move is the one that
+/// `trigger_moveset_moves` starts for a forward attack press in the real
+/// posture of the body: `move_for_attack` is the resolver of that road, so a
+/// body that runs reads the reach of its dash attack. The reach is that of
+/// the Active volumes, so it is the same number before the move starts and
+/// during its startup.
+///
+/// It is a fact of the body, so it is derived for every body whatever its
+/// brain. Each brain decides if it reads it: a peaceful patroller does not,
+/// because its own distance is where it stops to talk.
+/// `None` when no move answers the press, or when the move hits nothing by
+/// itself (a move that only fires a shot has no melee reach).
+pub(super) fn melee_reach_of(
+    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
+    grounded: bool,
+    running: bool,
+) -> Option<f32> {
+    let spec = moveset?.0.move_for_attack(
+        ambition_combat::moveset::ATTACK_VERB,
+        ambition_characters::actor::attack_gesture::AttackDir::Forward,
+        grounded,
+        running,
+    )?;
+    let reach = spec.frame_data().reach;
+    (reach > 0.0).then_some(reach)
+}
+
+/// **ANSWER THE CATALOG'S REQUEST FOR THE BODY'S OWN RANGED ACTION.**
+///
+/// ⛔⛤ **THE REVIEW OF 2026-09-20 NAMED THE PLACEHOLDER THIS REPLACES.**
+/// `RANGED_ACTION_REACH = 1_000.0` is wider than any stage this game ships, so
+/// a ranged move was admitted wherever the opponent stood and its own doc said
+/// the honest cost was *"a CPU that fires from further away than its shot can
+/// carry"*. The numbers exist — they are on the body — and this is the only
+/// layer that holds both halves.
+///
+/// ⭐ **REACH IS THE FLIGHT, NOT A CONSTANT.** A shot crosses `speed ×
+/// lifetime` and then expires; a BOOMERANG turns around at
+/// `boomerang_return_s`, so its reach is how far it gets before it turns and
+/// not how far it travels in total. The splash it bursts with is added,
+/// because a shot that stops short of somebody can still catch them.
+///
+/// ⚠ **NO RESOLVABLE SHOT LEAVES THE REQUEST STANDING.** A move authored to
+/// fire a weapon its body does not carry cannot produce a shot at all, and
+/// *"should this be pressed"* is a question for the layer that decides
+/// pressing — not a reach of zero invented at the join. The request keeps
+/// answering with the standing fallback, which is what every reader saw
+/// before this function existed.
+fn resolve_owners_ranged_action(
+    move_spec: &ambition_entity_catalog::MoveSpec,
+    frames: &mut ambition_entity_catalog::MoveFrameData,
+    body_ranged: Option<&ambition_characters::brain::RangedActionSpec>,
+) {
+    use ambition_entity_catalog::MoveHazard;
+    if !matches!(frames.hazard, Some(MoveHazard::OwnersRangedAction)) {
+        return;
+    }
+    // ⛔ **THE RUNTIME'S OWN PRECEDENCE: WHAT THE MOVE EQUIPS, THEN THE BODY'S
+    // STANDING KIT.** The admiral's side-B draws `admiral_gun_sword` and fires
+    // THAT, not whatever he was carrying; reading the body alone would describe
+    // a different shot for the one move in the game that brandishes. The same
+    // order `moveset_export`'s derived view resolves in, and for the same
+    // reason — it is the order `brain_effects` fires in.
+    let equipped = move_spec
+        .equips
+        .as_deref()
+        .and_then(ambition_characters::brain::held_item_by_id)
+        .and_then(|item| item.ranged);
+    // ⛔⛤ **A BODY WITH NO RANGED ACTION MAKES NO OFFER, AND THIS USED TO
+    // LEAVE THE REQUEST STANDING — REVIEWED 2026-09-20.** Returning early left
+    // `OwnersRangedAction` in the frame data, and its unjoined `reach()` is
+    // `RANGED_ACTION_REACH` — 1000px, wider than any stage. So the one layer
+    // that had just PROVEN the press fires nothing handed the brain an
+    // instantaneous stage-crossing threat. The request is answered here or it
+    // is answered nowhere; an unanswerable one is NO hazard.
+    let Some(spec) = equipped.as_ref().or(body_ranged) else {
+        frames.hazard = None;
+        return;
+    };
+    let flight = spec
+        .flight
+        .clone()
+        .unwrap_or(ambition_characters::brain::action_set::ProjectileFlight::STRAIGHT);
+    // ⛔⛤ **A BOOMERANG IS DECELERATING THE WHOLE WAY OUT, SO `speed ×
+    // boomerang_return_s` IS TWICE HOW FAR IT GETS.** `ProjectileFlight`'s own
+    // doc states the displacement — *"the return is a constant acceleration
+    // `-v0 / out_s` … so the shot's displacement is `v0·t − v0·t²/2·out_s`"* —
+    // which at the turnaround is `v0 · out_s / 2`. The ponytail's `430px/s`
+    // over `0.34s` reaches **73px**, not 146; reading the straight-line
+    // product would have offered her side-B at twice the range it covers.
+    // Read the flight's arithmetic, not its two numbers.
+    //
+    // ⚠ THE UNCHARGED SHOT, DELIBERATELY. A `RangedCharge` multiplies speed as
+    // well as damage, so a full hold flies further — but admission asks *"can
+    // this press reach them"* and the press the brain is weighing is the one
+    // it is about to make, not the one it might hold for. Under-claiming a
+    // chargeable weapon refuses a shot; over-claiming throws one that lands
+    // behind them.
+    //
+    // ⛔⛤ **AND THE OUT-LEG IS PUBLISHED AS ITS LAW, NOT AS AN AVERAGE SPEED
+    // — REVIEWED 2026-09-20, the second finding on this join.** The first
+    // version published `reach` beside `travelled / travel_s`, so that
+    // `reach / speed` came out right; it is right at the TURNAROUND and
+    // nowhere else, because the shot is decelerating the whole way. The
+    // ponytail actually covers 40px of centre travel in 0.111s and the average
+    // said 0.186s — 15px of excess lead at a 200px/s closing speed, which is
+    // the size of `ADMISSION_SLACK_PX`. `ThreatTravel::Boomerang` carries `v0`
+    // and the turnaround and solves for the time itself.
+    let v0 = spec.speed.max(0.0);
+    let free = flight.half_extent.x.abs() + flight.splash_half_extent;
+    let travel = match flight.boomerang_return_s {
+        Some(out_s) => ambition_entity_catalog::ThreatTravel::Boomerang {
+            v0,
+            out_s: out_s.max(0.0),
+            free,
+        },
+        None => ambition_entity_catalog::ThreatTravel::Straight {
+            speed: v0,
+            span: v0 * flight.max_lifetime.max(0.0),
+            free,
+        },
+    };
+    // A shot that cannot leave the body is not an offer. `free` alone is the
+    // hazard's own half-extent, which is a description of the object rather
+    // than of anything it can do to somebody standing away from it.
+    // ⭐ **AND WHAT IT TAKES OFF THEM, WHICH IS THE OTHER HALF OF THE SAME
+    // JOIN.** `MoveFrameData::max_damage` folds Active volumes and a shot is
+    // not one, so every ranged move reached the option scorer priced at zero
+    // power. The number is on the same `RangedActionSpec` the reach came from.
+    //
+    // ⚠ THE UNCHARGED SHOT, for the reason stated above the flight: a
+    // `RangedCharge` multiplies damage as well as speed, and the press being
+    // weighed is the one about to be made.
+    frames.hazard = (travel.reach() > free).then_some(MoveHazard::Spawned {
+        travel,
+        damage: spec.damage,
+    });
+}
+
+/// CAN THE BODY BEGIN THIS MOVE THIS TICK? — asked of the same function that
+/// actually decides it.
+///
+/// A brain inferring legality from "I look like I am in recovery" would answer a different question
+/// and be wrong for every move that authors a cancel window — the proxy-instrument failure, one
+/// layer up from where it usually shows up.
+///
+/// the name list must match `trigger_moveset_moves` exactly: the verb the
+/// press resolves through, plus the resolved move id. That is the one cancel
+/// namespace, and asking with a different list would make this answer a
+/// question nothing enforces.
+fn legality_of(
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
+    verb_name: &str,
+    running_attack: bool,
+    move_id: &str,
+) -> ambition_characters::brain::attack_kit::ActionLegality {
+    use ambition_characters::brain::attack_kit::ActionLegality;
+    let Some(pb) = playback else {
+        // Nothing owns the body: every candidate is startable.
+        return ActionLegality::Now;
+    };
+    // ⛔⛤ **THE NAMES, NOT A PAIR — AND THIS FUNCTION'S OWN DOC ASKED FOR IT
+    // WHILE THE CODE DID NOT DO IT.** It said *"the name list must match
+    // `trigger_moveset_moves` exactly"*, and it passed `[verb, move_id]` while
+    // the trigger passes `cancel_names_for(base, running) + move_id` — which for
+    // an attack is `["attack", "any_attack", <id>]`.
+    //
+    // ⇒ A window authored `into: ["any_attack"]` — the CLASS every shipped
+    // cancel uses, because an author writes "cancel into an attack" rather than
+    // naming twenty-six move ids — was INVISIBLE HERE. The trigger would have
+    // accepted the press; the brain was told `BlockedByPlayback` and waited out
+    // the recovery, so a permitting window and a CPU that never takes it.
+    //
+    // ⚠ `cancel_names_for` is the vocabulary's own answer to "which names does
+    // this candidate answer to", and asking it is what makes this the same
+    // question rather than a second one that happens to agree.
+    let mut names: Vec<&str> =
+        ambition_entity_catalog::cancel_names_for(verb_name, running_attack).to_vec();
+    names.push(move_id);
+    if pb.spec.cancel_permits(pb.t, pb.contact(), &names) {
+        ActionLegality::Now
+    } else {
+        ActionLegality::BlockedByPlayback
+    }
+}
+
+/// The authored GRAB, priced as an option like any other technique.
+///
+/// A CPU that knew "George grabs at 44px" would be a CPU that stops working the day George is
+/// retuned, and a second fighter would need a second constant.
+///
+/// Two things the ordinary derivation cannot supply, because a grab lands no hit
+/// volume and `frame_data` reads volumes:
+///
+/// ```text
+/// coverage / reach   the capture ATTEMPT's rect — where this grab can catch
+/// ignores_guard      true; the shield is not the answer to a grab
+/// ```
+///
+/// A grab deals NO DAMAGE, and `max_damage` is what this move does on contact.
+/// What a capture is really worth is that the opponent is HELD — a fact the
+/// generic option scorer has no term for and should not grow one for: "how
+/// valuable is a hold" is platform-fighter policy (the throw it sets up, the
+/// escape risk, the percent, the stage position), and this is a scorer shared by
+/// every actor in every game the engine runs.  the honest number here is
+/// zero, and the missing one is the fighter capability's.
+fn capture_candidate(
+    moveset: &ambition_combat::moveset::ActorMoveset,
+    grounded: bool,
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
+) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
+    use ambition_entity_catalog::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
+
+    let spec = moveset.0.move_for_directional_verb(
+        ambition_entity_catalog::GRAB_VERB,
+        AttackDir::Neutral,
+        grounded,
+    )?;
+    // ⭐ THE GRAB IS STILL THE GATE — a body with no `GRAB_VERB` move offers no
+    // capture candidate — but the REACH, the COVERAGE and the unblockability
+    // are `MoveSpec::frame_data`'s now. They were derived here, which meant
+    // only the move reached through this one verb ever got them: a command grab
+    // bound to `attack_side` carries the same `CAPTURE_ATTEMPT` params and read
+    // as a move with no region at all.
+    spec.windows
+        .iter()
+        .filter_map(|window| window.sustain_effect.as_ref())
+        .find(|effect| effect.key == CAPTURE_ATTEMPT)
+        .and_then(|effect| effect.params.hydrate::<CaptureAttemptParams>().ok())?;
+    let frames = spec.frame_data();
+    Some(AttackCandidate {
+        move_id: spec.id.clone(),
+        frames,
+        binding: AttackBinding {
+            verb: AttackVerb::Grab,
+            direction: AttackDir::Neutral,
+        },
+        // ⚠ A GRAB IS NOT A RUNNING ATTACK HERE: `cancel_names_for` reduces
+        // `grab_dash` to `grab` on its own, and this candidate is the standing
+        // one. `false` is the honest answer rather than a value carried in.
+        legality: legality_of(
+            playback,
+            ambition_entity_catalog::GRAB_VERB,
+            false,
+            &spec.id,
+        ),
+        // Filled by the caller, which is the layer holding the stale ring.
+        wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
+    })
+}
+
+/// Whether a body steers a 2D `velocity_target` instead of walking and jumping.
+///
+/// That is a body in FLIGHT: a pure free-mover (authored `gravity_scale` 0) OR a
+/// grounded-base hybrid that has toggled flight on (`flight.fly_enabled`).
+/// Without the `fly_enabled` half a hybrid that takes off keeps perceiving
+/// itself grounded and re-toggles the fly intent every tick (flip-flop) instead
+/// of sustaining flight. Matches the integrator's flight-limb predicate
+/// (`fly_enabled && abilities.fly`).
+///
+/// ⛔ A RIDER IS ASKED ABOUT ITS MOUNT, not about itself (see the caller). A
+/// hold does not write the held body's `gravity_scale`, so a rider's own scale
+/// says how it moves on foot, not how the pair moves.
+pub(crate) fn steers_in_flight(
+    surface: &ae::ActorSurfaceState,
+    flight: &ae::BodyFlightState,
+) -> bool {
+    surface.gravity_scale <= 0.001 || flight.fly_enabled
+}
+
+/// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.
+/// Carries the per-frame body / target / cooldown view every brain
+/// backend reads from; `crowding` is only consulted by the Smash
+/// brain, but always populating it keeps the snapshot uniform across
+/// state-machine variants.
+/// The movement law a body on the ground moves by: its character's authored
+/// feel when it has one, else its config's own. The integrator resolves it
+/// this way (`resolved_tuning` in `enemies/integration.rs`), and what a brain
+/// is told must be what its body does.
+pub(crate) fn movement_law_of(
+    config: &ambition_combat::actor_tuning::ActorConfig,
+    authored: Option<&ae::AuthoredMovementTuning>,
+) -> ae::MovementTuning {
+    authored
+        .map(|authored| authored.0)
+        .unwrap_or_else(|| {
+        config.tuning.movement.body_tuning(config.tuning.max_run_speed)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_enemy_brain_snapshot(
+    body: &ambition_body_seed::clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
+    target_pos: ae::Vec2,
+    target_alive: bool,
+    crowding: Option<ambition_characters::brain::smash::CrowdingSignal>,
+    dt: f32,
+    sim_time: f32,
+    gravity_dir: ae::Vec2,
+    // FB4b §13.2: the body's own moveset, or `None` for a body that has none.
+    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
+    // Which brain this body carries, so the kit is built only for one that reads
+    // it. See `attack_kit_of`.
+    brain: Option<&ambition_characters::brain::Brain>,
+    // The move that currently owns this body, so the attack kit can say
+    // which candidates could be STARTED this tick. See `attack_kit_of`.
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
+    // What is TRUE of this body's locomotion, published by the movement
+    // kernel — see `turns_at_walls` below for why this replaced a tuning read.
+    motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
+    // The capture relationship, resolved by the caller — which holds the capture
+    // query. Threaded rather than looked up so the brain layer keeps its
+    // property of reading no ECS. A STRUCT rather than loose terms because
+    // inserting one mid-list silently shifted two positional arguments into
+    // the wrong slots and the compiler reported it as a type error three
+    // parameters away — which is why anything added after it goes AFTER it.
+    capture: ambition_combat::capture::systems::CaptureFacts,
+    // The body's own ranged action, for the same reason `capture` is threaded:
+    // it is an authority the caller already holds, and a ranged MOVE's numbers
+    // live on it. See `attack_kit_of`.
+    ranged: Option<&ambition_characters::brain::RangedActionSpec>,
+    // How worn this body's moves are, for the same reason `ranged` is here.
+    // See `WornMoves`.
+    worn: Option<WornMoves>,
+    // Whether the brain steers a 2D `velocity_target`, resolved by the caller,
+    // which knows whether this body rides a mount. See `steers_in_flight`.
+    aerial: bool,
+    // The body's authored movement feel, when it has one. See `movement_law`.
+    authored_tuning: Option<&ae::AuthoredMovementTuning>,
+) -> ambition_characters::brain::BrainSnapshot {
+    let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
+    // THE MOVEMENT LAW THIS BODY MOVES BY, resolved as the integrator
+    // resolves it (`integrate_sim_bodies`: the character's authored feel,
+    // else its config's). The snapshot took the config's alone, and its
+    // comment said it was the same projection. It was not for a body that
+    // authors its feel. Measured in the hall, 2026-10-09: Mary-O's brain was
+    // told run 270, jump 520 and one air jump, and her body moves at run 300,
+    // jump 450 and has no air jump.
+    let movement_law = movement_law_of(body.config, authored_tuning);
+    ambition_characters::brain::BrainSnapshot {
+        actor_pos: body.kin.pos,
+        actor_vel: body.kin.vel,
+        actor_facing: body.kin.facing,
+        // Its own box; `tick_actor_brains` widens it to a mount's.
+        actor_half_width: body.kin.size.x * 0.5,
+        control_down: gravity_dir,
+        movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
+        aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
+        actor_on_ground: body.ground.on_ground,
+        // Semantic side-contact FACT from the shared movement kernel. The brain
+        // decides whether it means "turn around"; integration never mutates
+        // facing merely because a wall exists.
+        side_contact_normal: body
+            .wall
+            .on_wall
+            .then_some(body.wall.wall_normal_x.signum()),
+        // the LOGIC is unchanged and is not a detail: a wall means "turn
+        // around" to a walker and means "keep going" to a body whose entire
+        // locomotion is walls.
+        turns_at_walls: body.policy.0.turns_at_walls && !motion_facts.adhesive_crawling,
+        // Needs the collision world, which this builder does not take; the
+        // caller asks it for the bodies that turn at ledges.
+        ground_ends_ahead: false,
+        // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
+        // brain scores real moves with real frame data and cannot reach a
+        // moveset itself, so this is body-derived truth arriving through the
+        // world-in port — exactly like `actor_aerial`.
+        //
+        // Built every tick like every other snapshot field.
+        attack_kit: attack_kit_of(
+            moveset,
+            body.ground.on_ground,
+            motion_facts.running,
+            brain,
+            playback,
+            ranged,
+            worn,
+        ),
+        // The reach of the attack press, from the same moveset and the same
+        // posture as the kit above. See `melee_reach_of`.
+        melee_reach: melee_reach_of(moveset, body.ground.on_ground, motion_facts.running),
+        // WHICH BODY THIS IS, so a published decision fact can name its
+        // subject. The brain cannot know — a snapshot is body state and identity
+        // is the host's to assign — so it arrives through the world-in port like
+        // the kit above. `ActorIdentity::id` is the id the rest of the actor
+        // system already names this body by (targets, crowding, slot requests),
+        // so an explanation joins against the same identity everything else uses.
+        subject: Some(body.identity.id.clone()),
+        actor_aerial: aerial,
+        alive: body.health.alive(),
+        captured: capture.captured,
+        captured_for: capture.captured_for,
+        holding_captive: capture.holding_captive,
+        pummels_landed: capture.pummels_landed,
+        target_pos,
+        // Resolved from the target entity's body-alive state by the caller.
+        target_alive,
+        // Own health fraction — the Smash brain watches it drop to trigger a regroup
+        // (back off + reset after taking a beating).
+        health_fraction: {
+            let max = body.health.max().max(1) as f32;
+            (body.health.current() as f32 / max).clamp(0.0, 1.0)
+        },
+        // Filled by the caller, which holds the guard query.
+        guard: ambition_characters::brain::GuardFact::default(),
+        // Real, accumulating sim-time (scaled by bullet-time / pause) — NOT a
+        // hardcoded 0.0. The Smash brain's reaction latency (`obs_history`
+        // lookback by `reaction_delay_s`) only functions when this advances, so
+        // threading it is what makes the difficulty knob live in-engine.
+        sim_time,
+        dt,
+        // ⛔⛔ THE THROTTLE SCALE, WHICH FOR A FLYING BODY IS ITS FLIGHT SPEED —
+        // this field's own doc says so (*"a boss's flight speed for a body that
+        // flies"*) and this site handed it the RUN speed regardless. The flight
+        // limb normalises a commanded velocity by `flight_terminal_speed`, so a
+        // human possessing a body whose policy chases faster than it runs got
+        // `max_run_speed / flight_speed` of the stick and could not reach the
+        // body's own top speed (D117). ⚠ latent on the shipped cast — no profile
+        // authors `chase_effort > 1` — which is why it survived: a defect the
+        // content cannot currently express.
+        max_run_speed: if body.flight.fly_enabled {
+            body.config.tuning.flight_speed(&body.policy.0)
+        } else {
+            movement_law.max_run_speed
+        },
+        // THE MOVEMENT LAW THIS BODY PLAYS UNDER, for the brains that
+        // predict rather than steer. The line above takes one number out of the
+        // same tuning as a throttle scale; a rollout has to step the body
+        // forward, so it needs the law and not one field of it.
+        //
+        // `movement_law` is resolved as the integration path resolves it, so the
+        // predictor and the integrator read one source — which is the whole point.
+        movement_tuning: Some(movement_law),
+        // THE VERBS THAT LAW APPLIES TO, from the body's own ability
+        // cluster — the same component the movement kernel reads. A rollout that
+        // asks whether a fall is recoverable has to drive the kernel, and the
+        // kernel gates every air jump, wall grab and glide on this.
+        abilities: Some(body.abilities.abilities),
+        attack_cooldown_remaining: body.attack.cooldown,
+        // The swing phase, from the live move and not from a mirror of it.
+        attack_windup_remaining: swing.as_ref().map_or(0.0, |swing| swing.windup_remaining()),
+        attack_active_remaining: swing.as_ref().map_or(0.0, |swing| swing.active_remaining()),
+        attack_recover_remaining: 0.0,
+        stun_remaining: 0.0,
+        // BossPattern-only inputs — inert for actor bodies.
+        boss_encounter_phase: None,
+        world_size: ae::Vec2::ZERO,
+        front_wall_clearance: None,
+        player_input: None,
+        // The body's own move and what it touched, from the one record of
+        // it: a brain learns from this whether its own attack hit.
+        own_move: playback.map(|pb| ambition_characters::brain::OwnMoveFact {
+            instance: pb.instance,
+            contact: pb.contact(),
+        }),
+        crowding,
+        terrain: None,
+        // `tick_actor_brains` fills it from this tick's advice.
+        navigation: Default::default(),
+        air_jumps_remaining: body.jump.air_jumps_available,
+    }
+}
+
+/// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
+#[derive(Default)]
+pub struct NpcIdleBarkState {
+    rooms: std::collections::HashMap<
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        RoomBarks,
+    >,
+}
+
+/// The bark clocks of one live room, by NPC id. Keyed by room first because
+/// two live rooms can be instances of one room, and they hold the same
+/// authored ids: by id alone, one instance's bark reset the other's clock.
+/// The id is looked up by `&str`, so a tick allocates nothing.
+#[derive(Default)]
+struct RoomBarks {
+    timers: std::collections::HashMap<String, f32>,
+    rotations: std::collections::HashMap<String, u32>,
+}
+
+/// Deterministic ambient-bark interval keyed by NPC id + counter — a tiny FNV
+/// hash so we don't pull `rand` in for one cadence offset (mirrors the boss
+/// idle-bark jitter). `base_s` is the floor and `span_ms` the jitter window:
+/// the result is `base_s..base_s + span_ms/1000` seconds.
+///
+/// Cadence is set by the caller per occasion: a lone ambient NPC mutters fairly
+/// often, but the Hall of Characters has ~100 pedestals barking at once, so it
+/// uses a much longer interval — otherwise the gallery is a wall of noise.
+fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f32 {
+    let mut h: u32 = 2166136261;
+    for b in id.bytes() {
+        h = (h ^ b as u32).wrapping_mul(16777619);
+    }
+    h ^= counter.wrapping_mul(2654435761);
+    base_s + (h % span_ms.max(1)) as f32 / 1000.0
+}
+
+/// Ambient NPC chatter: a peaceful NPC carrying an idle-bark pool
+/// ([`crate::body::npcs::npc_ambient_bark_line`]) mutters a line every
+/// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
+/// still showing a hit-flash bubble (so it never talks over a hit bark). The
+/// stochastic parrot is the first user; any NPC gains barks by adding a pool.
+///
+/// ⭐ EACH NPC BARKS FROM THE POOL OF ITS OWN LIVE ROOM (OW1 cut 7m). The room
+/// was the sole live room's spec, so while two rooms were live it was `None`,
+/// and the pedestals of a gallery room barked the `Idle` pool.
+pub fn tick_npc_idle_barks(
+    world_time: Res<WorldTime>,
+    npcs: Query<
+        (
+            Entity,
+            &ambition_platformer2d_core::BodyKinematics,
+            &ActorIdentity,
+            &ambition_characters::actor::BodyCombat,
+            &ActorInteraction,
+            &ActorDisposition,
+            &ambition_characters::actor::BodyHealth,
+            &ambition_combat::components::FeatureId,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    // Optional so narrow fixtures without a room set still bark.
+    room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    // App-local authored voice. Required so a mis-composed production App
+    // cannot silently erase provider-authored dialogue.
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    mut state: Local<NpcIdleBarkState>,
+) {
+    let dt = world_time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    let catalog = &*character_catalog;
+    // In a GALLERY room (the Hall of Characters), pedestals draw their `Hall`
+    // bark pool (the fun gallery lines); everywhere else NPCs mutter their
+    // `Idle` pool. Same ambient ticker, different occasion — keyed off the
+    // engine-generic `RoomMetadata::gallery` flag, not a content room id (C1).
+    let occasion = |entity: Entity| {
+        let is_gallery = room_set
+            .as_ref()
+            .and_then(|rooms| {
+                let definition = rooms.definition_of(entity)?;
+                Some(rooms.rooms().spec(definition).metadata.gallery)
+            })
+            .unwrap_or(false);
+        // Bark cadence per occasion. The Hall packs ~100 pedestals into one
+        // room, so it barks far less often than a lone ambient NPC to keep the
+        // gallery from becoming a wall of speech bubbles. (base seconds,
+        // jitter window in ms.)
+        if is_gallery {
+            (ambition_characters::actor::character_catalog::BarkSituation::Hall, 28.0, 24_000,
+            )
+        } else {
+            (ambition_characters::actor::character_catalog::BarkSituation::Idle, 12.0, 8_000,
+            )
+        }
+    };
+    for (entity, kin, identity, combat, interaction, disposition, health, feature_id) in &npcs {
+        // Structural tangibility gate: a dead body does not
+        // present — an intangible corpse says nothing, ambient or otherwise.
+        if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
+            continue;
+        }
+        let (situation, bark_base_s, bark_span_ms) = occasion(entity);
+        let room = room_set.as_ref().and_then(|rooms| rooms.live().of(entity));
+        let RoomBarks { timers, rotations } = state.rooms.entry(room).or_default();
+        // ⛔⛔ THE TIMER DECIDES FIRST, AND IT USED TO DECIDE LAST. Resolving the
+        // line is a catalog join per NPC, and the entry API took a `String`
+        // CLONE of the id just to read a float — both paid every tick, for every
+        // NPC, and thrown away on every tick the bark was not due. A bark fires
+        // about once per 28 seconds in the gallery, so at 130 pedestals that was
+        // ~130 joins and ~130 allocations per tick to answer "not yet".
+        //
+        // `perf` put `CharacterCatalog::bark_line` at 1.19% of the whole process
+        // in a headless hall run — beside `slab_sweep`, for ambient chatter that
+        // draws nothing headless.
+        //
+        // ⚠ FIRST SIGHTING STILL COSTS ONE JOIN, deliberately: an NPC with no
+        // line never got a timer before, and giving every NPC one would grow
+        // this map with entries that can never fire.
+        let Some(timer) = timers.get_mut(&identity.id) else {
+            if crate::body::npcs::npc_ambient_bark_line(
+                catalog,
+                &interaction.interactable,
+                situation,
+                *rotations.get(&identity.id).unwrap_or(&0),
+            )
+            .is_none()
+            {
+                continue;
+            }
+            timers.insert(
+                identity.id.clone(),
+                npc_idle_bark_jitter(&identity.id, 0, bark_base_s, bark_span_ms) - dt,
+            );
+            continue;
+        };
+        *timer -= dt;
+        if *timer > 0.0 {
+            continue;
+        }
+        let rotation = *rotations.get(&identity.id).unwrap_or(&0);
+        let Some(line) = crate::body::npcs::npc_ambient_bark_line(
+            catalog,
+            &interaction.interactable,
+            situation,
+            rotation,
+        ) else {
+            continue;
+        };
+        let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0);
+        vfx.write_in(room, ambition_vfx::vfx::VfxMessage::SpeechBubble {
+            pos: anchor,
+            text: line.to_string(),
+        },
+        );
+        vfx.write_in(room, ambition_vfx::vfx::VfxMessage::BarkGesture {
+            feature_id: feature_id.as_str().to_string(),
+            seconds: 0.48,
+        },
+        );
+        let next = rotation.wrapping_add(1);
+        rotations.insert(identity.id.clone(), next);
+        timers.insert(
+            identity.id.clone(),
+            npc_idle_bark_jitter(&identity.id, next, bark_base_s, bark_span_ms),
+        );
+    }
+}
+
+#[cfg(test)]
+mod body_combat_rebuild_contract {
+    /// NOTHING IN `BodyCombat` IS WRITTEN BY THE PER-FRAME ACTOR SYNC.
+    ///
+    /// `landing_lag_timer` joined `BodyCombat` later, never joined the list, and was erased one
+    /// frame after the moveset runtime set it.
+    ///
+    /// Keeping the destructure keeps the claim honest: if a future field is added to this
+    /// component AND written from the cluster, this stops compiling and somebody has to say why
+    /// the read-model is growing a second authority again.
+    #[allow(dead_code)]
+    fn the_per_frame_sync_writes_none_of_these(combat: &ambition_characters::actor::BodyCombat) {
+        let ambition_characters::actor::BodyCombat {
+            // ── Reaction history the body owns. Never disturbed by the sync.
+            damage_invuln_timer: _,
+            hit_flash: _,
+            struck_recently: _,
+            hitstun_timer: _,
+            recoil_lock_timer: _,
+            // A lock a ledge trump owes; the trump writes it, nothing here does.
+            ledge_trump_lock_timer: _,
+            hitstop_timer: _,
+            asdi_owed: _,
+            landing_lag_timer: _,
+            // A sleep a move applied — reaction history like the locks above it,
+            // owned by the body and never rewritten from the cluster.
+            sleep_timer: _,
+            // A slow a puddle applied: owned by the body, never rewritten
+            // from the cluster.
+            slow_timer: _,
+            slow_scale: _,
+            // ── Republished every tick from the live move by
+            // `project_move_defense_windows`, which is the ONE writer. This
+            // sync must never touch it: a second writer would fight the
+            // projection for the same field on alternating frames.
+            armor: _,
+            // ── Authored at construction (AC3.1.D), not re-derived per frame.
+            training_dummy: _,
+        } = combat;
+    }
+}

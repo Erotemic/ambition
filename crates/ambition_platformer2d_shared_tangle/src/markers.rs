@@ -41,7 +41,7 @@ pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 /// name it. The filter is composed of nothing but [`PlayerEntity`] and
 /// [`ControlClaims`](crate::temporary_control::ControlClaims), both of
 /// which are already in this crate — while it sat in
-/// `actor_monolith::features::ecs::pickups` it was the only reason the
+/// `actor_monolith::body::pickups` it was the only reason the
 /// world-item collect pass could not leave the kernel with it. Stating the rule
 /// ONCE, here, is also what keeps it from being restated per system.
 ///

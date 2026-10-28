@@ -19,7 +19,7 @@ standalone audio routing. Each has one consumer system in
 
 NPC strike and aggression flow through `ActorStimulus`
 (`ambition_combat::events`) to `apply_actor_stimuli`
-(`.../features/ecs/aggression.rs`).
+(`.../body/aggression.rs`).
 
 ## Domain-specific messages
 
@@ -48,7 +48,7 @@ specific:
 `HitEvent::attacker`; victim routing comes from `HitTarget`. Do not add
 role-shaped variants (player slash, enemy projectile, boss attack).
 
-`apply_feature_hit_events` (`.../features/ecs/damage/mod.rs`) applies hits to
+`apply_feature_hit_events` (`.../body/damage/mod.rs`) applies hits to
 actors, bosses and breakables; the player-damage reader applies victim-side hits
 to players. Hostile `Hitbox` entities emit `HitEvent`s on overlap during active
 windows.

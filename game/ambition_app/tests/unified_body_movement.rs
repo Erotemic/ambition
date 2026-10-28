@@ -1,11 +1,5 @@
-//! The home/player body and actor bodies share ONE movement integration phase —
-//! this pins the unification through the real headless schedule.
-//!
-//! Both are gone: there is now a SINGLE scheduled system, `integrate_sim_bodies` (WorldPrep), that
-//! integrates every non-boss sim body — home and actor — through the same engine entry. These tests
-//! prove (1) both species move under their `ActorControl` through the real schedule, (2) the old
-//! `player_body_tick` route is not registered, and (3) real participant input reaches the home body
-//! through the canonical slot-owned control path.
+//! Body motion uses one integration phase for home, actor, and boss bodies.
+//! These tests drive the real app and the shared body entry.
 
 #![cfg(feature = "rl_sim")]
 
@@ -161,5 +155,91 @@ fn brain_player_uses_the_slot_owned_control_path() {
         x_after_slot > x_after_neutral + 5.0,
         "driving the canonical slot input moves the home body right: \
          {x_after_neutral} -> {x_after_slot}",
+    );
+}
+
+#[test]
+fn a_boss_body_uses_the_common_integration_step_and_its_own_envelope() {
+    use ambition_platformer2d::characters::control::ActorControl;
+    use ambition_platformer2d::combat::BodyEnvelope;
+    use ambition_platformer2d::engine_core::WorldVec2;
+    use ambition_platformer2d::entity_catalog::placements::BossBrain;
+    use bevy::ecs::system::RunSystemOnce;
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("switch_lab"),
+    )
+    .expect("the simulation builds");
+    let at = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&BodyKinematics, PrimaryPlayerOnly>()
+            .single(world)
+            .unwrap()
+            .pos
+            + ambition_platformer2d::engine_core::Vec2::new(300.0, -150.0)
+    };
+    sim.spawn_boss_at(
+        "common_body_boss",
+        "clockwork_warden",
+        (at.x, at.y),
+        (30.0, 30.0),
+        BossBrain::PhaseScript {
+            script_id: "clockwork_warden".into(),
+        },
+    );
+    let body = {
+        let world = sim.world_mut();
+        world
+            .query::<(Entity, &FeatureId)>()
+            .iter(world)
+            .find(|(_, id)| id.as_str() == "common_body_boss")
+            .unwrap()
+            .0
+    };
+    let envelope = ambition_platformer2d::engine_core::Vec2::new(80.0, 120.0);
+    sim.world_mut()
+        .entity_mut(body)
+        .insert(BodyEnvelope(envelope));
+    sim.world_mut()
+        .get_mut::<ActorControl>(body)
+        .unwrap()
+        .0
+        .velocity_target = WorldVec2::new(120.0, 0.0);
+    let before = sim.world().get::<BodyKinematics>(body).unwrap().pos;
+    sim.world_mut()
+        .run_system_once(ambition_platformer2d::actors::body::integrate_sim_bodies)
+        .expect("the common body step runs");
+    let after = sim.world().get::<BodyKinematics>(body).unwrap().pos;
+    assert!(
+        after.x > before.x,
+        "the common body step did not move the boss: {before:?} -> {after:?}"
+    );
+    let bounds = sim
+        .world()
+        .get::<ambition_platformer2d::combat::components::CenteredAabb>(body)
+        .unwrap();
+    assert_eq!(bounds.center, after);
+    assert_eq!(bounds.size(), envelope);
+
+    // Free flight in clear space advances by velocity times one simulation tick.
+    let mut travel = 0.0;
+    for _ in 0..30 {
+        let before = sim.world().get::<BodyKinematics>(body).unwrap().pos;
+        sim.step(AgentAction::default());
+        let kin = sim.world().get::<BodyKinematics>(body).unwrap();
+        let dt = sim
+            .world()
+            .resource::<ambition_platformer2d::time::WorldTime>()
+            .sim_dt();
+        let displacement = kin.pos - before;
+        assert!((displacement - kin.vel * dt).length() < 0.001,
+            "the free-flight body did not advance by one tick: displacement={displacement:?}, velocity={:?}, dt={dt}", kin.vel);
+        travel += displacement.length();
+    }
+    assert!(
+        travel > 0.0,
+        "the boss remained still throughout the schedule check"
     );
 }

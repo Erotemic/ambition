@@ -1,0 +1,3286 @@
+//! Tests for hit-event application to ECS actors/bosses/breakables and the
+//! death-driven drop/explosion/split spawners.
+
+use super::super::death_effects::{spawn_death_explosion,
+    spawn_split_offspring};
+use super::*;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::actor::BodyHealth;
+use ambition_combat::events::{HitMode, HitTarget};
+use ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_items::loot::{
+    drop_ability_pickup, drop_currency_coin, drop_health_pickup, id_drops_health,
+};
+use ambition_vfx::vfx::VfxInRoom;
+use bevy::prelude::{App, IntoScheduleConfigs, Update};
+
+/// Register hit messages and run the reaction consumer after accepted damage.
+fn install_hit_reaction_consumers(app: &mut App) {
+    app.add_message::<ambition_persistence::npc_provocation::NpcProvocationChanged>();
+    app.add_systems(Update, super::super::aggression::apply_actor_stimuli
+        .after(apply_feature_hit_events)
+        .before(capture_bubbles)
+        .before(capture_hostile_turns));
+
+    // The damage scaling simulation reads — see `ambition_damage::PlayerDamagePolicy`.
+    // Every fixture in this module registers the hit pipeline, so the policy is
+    // installed beside it rather than in 29 hand-rolled `App::new()` blocks.
+    app.init_resource::<ambition_damage::PlayerDamagePolicy>();
+    ambition_combat::hitbox::register_strike_outcome_messages(app);
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxInRoom>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_damage::WalletShieldSpent>();
+    app.add_message::<ambition_combat::hitbox::ResolvedBodyHit>();
+    app.add_message::<ambition_combat::hitbox::BlockedBodyHit>();
+}
+
+fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+        "kernel_guide".to_string(),
+        "Kernel Guide".to_string(),
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
+        &[],
+    );
+    enemy.health =
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    let (disposition, combat) = enemy_component_snapshot(&enemy);
+    app.world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("kernel_guide"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            enemy.into_components(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
+            // Production hostile actors receive this from `EnemyActorBundle`.
+            // Keep the shared damage fixture structurally representative so
+            // body-generic contact resolution can see it as a `StrikeVictim`.
+            ambition_characters::actor::ActorFaction::Enemy,
+            disposition,
+            combat,
+        ))
+        .id()
+}
+
+#[test]
+fn victim_side_enemy_body_hit_does_not_damage_features() {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor_entity = spawn_hostile_actor(&mut app);
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 1,
+        source: HitSource::Contact,
+        // With one `Contact` cause there is no direction left to hide behind, and a hit with no
+        // attacker has no self to exclude, so the fixture was describing a contact nobody made.
+        attacker: Some(actor_entity),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+
+    app.update();
+
+    let health = app
+        .world()
+        .get::<BodyHealth>(actor_entity)
+        .expect("hostile actor exists");
+    assert_eq!(
+        health.health.current, 5,
+        "enemy body contact should not damage the enemy that emitted it"
+    );
+}
+
+/// The attack's authored `strike_sfx` overrides only the sound, so a sword and the victim's
+/// default are heard apart without any `is_player` branch selecting the payload.
+#[test]
+fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
+    use bevy::ecs::message::Messages;
+
+    fn played_sounds(app: &App) -> Vec<ambition_sfx::SfxId> {
+        let msgs = app
+            .world()
+            .resource::<Messages<ambition_sfx::OwnedSfxMessage>>();
+        let mut cursor = msgs.get_cursor();
+        cursor
+            .read(msgs)
+            .filter_map(|m| match m.request {
+                ambition_sfx::SfxMessage::Play { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+    fn red_hurt_bursts(app: &App) -> usize {
+        let msgs = app.world().resource::<Messages<VfxInRoom>>();
+        let mut cursor = msgs.get_cursor();
+        cursor
+            .read(msgs).map(|m| &m.vfx)
+            .filter(|m| {
+                matches!(
+                    m,
+                    VfxMessage::Burst { color, .. } if *color == [1.0, 0.34, 0.28, 0.88]
+                )
+            })
+            .count()
+    }
+    fn strike_an_enemy(strike_sfx: Option<ambition_sfx::SfxId>) -> App {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        let victim = spawn_hostile_actor(&mut app);
+        // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
+        // an enemy-vs-enemy contact, `HitTarget::Body`.
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source: HitSource::Contact,
+            attacker: None,
+            room: None,
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+        app
+    }
+
+    // Authored strike sound (a sword): it plays, and NOT the player's grunt.
+    let sword = ambition_sfx::SfxId::new("weapon.sword");
+    let by_sword = strike_an_enemy(Some(sword));
+    let sounds = played_sounds(&by_sword);
+    assert!(sounds.contains(&sword), "the sword's authored sound plays");
+    assert!(
+        !sounds.contains(&ambition_sfx::ids::PLAYER_DAMAGE),
+        "the enemy must NOT play the player's hurt grunt (the CM8 bug)"
+    );
+    assert_eq!(
+        red_hurt_bursts(&by_sword),
+        0,
+        "an enemy victim throws NO red player-hurt burst"
+    );
+
+    // Unauthored: the enemy's own default tick (PLAYER_HIT), still not the grunt.
+    let unauthored = strike_an_enemy(None);
+    let sounds = played_sounds(&unauthored);
+    assert!(
+        sounds.contains(&ambition_sfx::ids::PLAYER_HIT),
+        "an unauthored hit uses the enemy's default hurt sound"
+    );
+    assert!(
+        !sounds.contains(&ambition_sfx::ids::PLAYER_DAMAGE),
+        "still never the player's grunt"
+    );
+    assert_eq!(red_hurt_bursts(&unauthored), 0);
+}
+
+/// Wave-1 follow-up: the player's OUTGOING power slider scales their MELEE
+/// damage (projectiles already scale at spawn), through the ONE
+/// `apply_feature_hit_events` seam — and it does NOT touch a non-player
+/// (`EnemyBody`) melee source, nor is it the separate incoming difficulty scale.
+#[test]
+fn player_melee_damage_scales_with_the_outgoing_slider() {
+    fn damage_dealt(multiplier: f32, source: HitSource) -> i32 {
+        damage_dealt_from(multiplier, source, true)
+    }
+
+    fn damage_dealt_from(multiplier: f32, source: HitSource, human_controlled: bool) -> i32 {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        let mut settings = ambition_persistence::settings::UserSettings::default();
+        settings.gameplay.player_damage_multiplier = multiplier;
+        app.insert_resource(settings);
+        install_hit_reaction_consumers(&mut app);
+        // ⭐ THE WHOLE ROAD, not the resource the system reads. The slider is set
+        // on `UserSettings` exactly as the settings screen sets it, and
+        // the propose and publish pair that resolves it runs chained ahead of
+        // the consumer. A fixture that wrote
+        // `PlayerDamagePolicy` directly would still pass with the projection
+        // deleted, which is the half of this migration worth guarding.
+        app.init_resource::<ambition_damage::ProposedPlayerDamagePolicy>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.add_systems(
+            Update,
+            (
+                ambition_damage::propose_player_damage_policy,
+                ambition_damage::publish_player_damage_policy,
+                apply_feature_hit_events,
+            )
+                .chain(),
+        );
+        let victim = spawn_hostile_actor(&mut app); // health 5
+        let mut attacker = app.world_mut().spawn_empty();
+        if human_controlled {
+            attacker.insert(ambition_platformer2d_shared_tangle::markers::PlayerEntity);
+        }
+        let attacker = attacker.id();
+        let before = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .unwrap()
+            .health
+            .current;
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 2,
+            source,
+            attacker: Some(attacker),
+            room: None,
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+        let after = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .unwrap()
+            .health
+            .current;
+        before - after
+    }
+
+    // Player slash: base 2 × 2.0 slider = 4.
+    assert_eq!(
+        damage_dealt(2.0, HitSource::Melee),
+        4,
+        "a strong slider raises the player's own melee damage"
+    );
+    // Weak slider: 2 × 0.25 = 0.5, floored to the always-≥1 minimum.
+    assert_eq!(
+        damage_dealt(0.25, HitSource::Melee),
+        1,
+        "a weak slider lowers it, but a hit still deals at least 1"
+    );
+    // The SAME slider must NOT scale a non-player melee source.
+    assert_eq!(
+        damage_dealt(2.0, HitSource::Contact),
+        2,
+        "the OUTGOING player slider never touches enemy melee"
+    );
+    // the poison, and the one the source word could never catch. An
+    // uncontrolled body swinging the very same melee cause must not be scaled by
+    // a HUMAN's difficulty slider. While the gate read `matches!(source,
+    // PlayerSlash)` this was unassertable — the spelling WAS the claim — and it
+    // is exactly what would have broken silently once one `Melee` covers every
+    // swing in the game.
+    assert_eq!(
+        damage_dealt_from(2.0, HitSource::Melee, false),
+        2,
+        "a swing by a body no human drives is not the human's outgoing damage"
+    );
+}
+
+#[test]
+fn enemy_charge_crash_is_processed_as_enemy_damage() {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor_entity = spawn_hostile_actor(&mut app);
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 10,
+        source: HitSource::Contact,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+
+    app.update();
+
+    let health = app
+        .world()
+        .get::<BodyHealth>(actor_entity)
+        .expect("hostile actor exists");
+    assert_eq!(
+        health.health.current, 0,
+        "enemy charge crash should damage and kill the crashing enemy"
+    );
+    let health = app
+        .world()
+        .get::<ambition_characters::actor::BodyHealth>(actor_entity)
+        .expect("hostile actor cluster health exists");
+    assert!(
+        !health.alive(),
+        "charge crash should mark the enemy dead through the normal kill path"
+    );
+}
+
+#[test]
+fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player() {
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let player = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_characters::actor::BodyCombat::default(),
+            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
+        ))
+        .id();
+    let shell = app.world_mut().spawn_empty().id();
+    let victim = spawn_hostile_actor(&mut app);
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        source: HitSource::Contact,
+        attacker: Some(shell),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(victim).unwrap().current(),
+        3,
+        "the shell hit still lands on its feature victim"
+    );
+    let combat = app
+        .world()
+        .get::<ambition_characters::actor::BodyCombat>(player)
+        .unwrap();
+    assert_eq!(combat.hitstop_timer, 0.0);
+    assert_eq!(combat.hit_flash, 0.0);
+    assert!(
+        !app.world().get::<MovePlayback>(player).unwrap().landed_hit,
+        "a remote shell must not confirm the primary player's move"
+    );
+}
+
+/// ⛔⛤ **AN OUTCOME THAT NAMES ANOTHER OCCURRENCE CREDITS NO MOVE — REPAIRED
+/// 2026-09-19, AND THIS ARM ASSERTED THE OPPOSITE FOR ONE AFTERNOON.**
+///
+/// It was written as a *recorded, not endorsed* witness of the gap, on the
+/// reading that any change here needed `Q101`'s ruling first. A review split
+/// the case correctly: `Some(other)` needs no ruling at all. The ruling behind
+/// `Q101` already says an outcome may modify a move's state only with
+/// provenance naming that occurrence, `mark_move_playback_resolved_hits` has
+/// enforced it for `connected`/`blocked` since 2026-09-10, and an event
+/// carrying `Some(3)` is not an unclaimed outcome — it says whose it is.
+///
+/// ⭐ **THE ANTI-VACUITY FLOOR IS THE VICTIM'S HEALTH.** Asserting a flag is
+/// FALSE passes on a fixture where the system never ran; the health assertion
+/// says the event was delivered and applied, so the refusal is this road's
+/// answer and not silence.
+#[test]
+fn an_outcome_naming_another_occurrence_credits_no_move() {
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let attacker = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_characters::actor::BodyCombat::default(),
+            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
+        ))
+        .id();
+    // THE MOVE THAT IS PLAYING IS USE 7. The event below names use 3.
+    app.world_mut()
+        .get_mut::<MovePlayback>(attacker)
+        .expect("the attacker is playing a move")
+        .instance = 7;
+
+    let victim = spawn_hostile_actor(&mut app); // HP 5
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: Some(attacker),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        // USE 3 EARNED THIS, and use 3 is over.
+        attacker_move_instance: Some(3),
+    });
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(victim).unwrap().health.current,
+        3,
+        "the event has to be delivered and applied, or the refusal below is \
+         silence rather than an answer"
+    );
+    let pb = app.world().get::<MovePlayback>(attacker).unwrap();
+    assert!(
+        !pb.landed_hit,
+        "an outcome naming move 3 confirmed move 7 — `overlapped` is derived \
+         from this flag, so the live move would lose its whiff cancel to a \
+         contact it never made"
+    );
+    assert!(
+        pb.hit_targets.is_empty(),
+        "the refused outcome still wrote its victim into move 7's per-strike \
+         dedup ledger, so move 7's own strike would skip a body it never hit"
+    );
+}
+
+/// ⭐⭐ **AN UNCLAIMED OUTCOME CREDITS NOBODY — RULED 2026-09-19, AND THIS ARM
+/// IS THE FLIP ITS PREDECESSOR PROMISED.**
+///
+/// `None` means no move claims the outcome. `blink`, `dive`, `mark_recall` and
+/// `empowerment` all reach `apply_feature_hit_events` with
+/// `attacker: Some(body)` and no instance. The ruling is that an ability
+/// contact is INDEPENDENT BY DEFAULT and satisfies a move's contact condition
+/// only with explicit provenance — so an ability meant to count toward its
+/// launcher threads the occurrence, and one that does not, does not.
+///
+/// ⚠ The damage still lands. This is about ATTRIBUTION, not about whether the
+/// shockwave hurts — which is why the victim's meter is asserted first.
+#[test]
+fn an_unclaimed_outcome_credits_no_move() {
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let attacker = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_characters::actor::BodyCombat::default(),
+            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
+        ))
+        .id();
+    app.world_mut()
+        .get_mut::<MovePlayback>(attacker)
+        .expect("the attacker is playing a move")
+        .instance = 7;
+
+    let victim = spawn_hostile_actor(&mut app); // HP 5
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        // ⚠ WHAT `blink` WRITES: a melee-sourced shockwave owned by the body,
+        // claiming no move use.
+        source: HitSource::Melee,
+        attacker: Some(attacker),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(victim).unwrap().health.current,
+        3,
+        "the event has to be delivered and applied, or the flag below is \
+         silence rather than an answer"
+    );
+    let pb = app.world().get::<MovePlayback>(attacker).unwrap();
+    assert!(
+        !pb.landed_hit,
+        "an outcome claiming no occurrence confirmed move 7 — `overlapped` is \
+         derived from this flag, so a blink shockwave would hand the live move \
+         a contact it never made"
+    );
+    assert!(
+        pb.hit_targets.is_empty(),
+        "the unclaimed outcome wrote its victim into move 7's per-strike dedup \
+         ledger, so move 7's own strike would skip a body it never hit"
+    );
+}
+
+/// With no generation, no session runs (`SessionMechanics`), and the damage
+/// path resolves no hit.
+#[test]
+fn a_hit_with_no_generation_is_not_resolved() {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<BodyHealth>(actor_entity)
+            .unwrap()
+            .health
+            .current,
+        5,
+        "a hit was resolved with no generation"
+    );
+}
+
+#[test]
+fn player_slash_damages_and_can_kill_a_hostile_actor() {
+    // The core attack loop through the unified HitEvent path: a
+    // player slash (attacker-side source) reduces a hostile
+    // actor's HP, and enough damage routes through the normal kill
+    // path. Complements the enemy-side tests above.
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+
+    // First slash: 2 damage → 3 HP, still alive.
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<BodyHealth>(actor_entity)
+            .unwrap()
+            .health
+            .current,
+        3,
+        "a 2-damage player slash should bring the 5-HP enemy to 3"
+    );
+    assert!(
+        app.world().get::<BodyHealth>(actor_entity).unwrap().alive(),
+        "the enemy should still be alive after one slash"
+    );
+
+    app.world_mut()
+        .get_mut::<ambition_characters::actor::BodyCombat>(actor_entity)
+        .unwrap()
+        .damage_invuln_timer = 0.0;
+
+    // Lethal slash: 5 damage → dead through the normal kill path.
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 5,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<BodyHealth>(actor_entity)
+            .unwrap()
+            .health
+            .current,
+        0,
+        "a lethal slash should bring the enemy to 0 HP"
+    );
+    assert!(
+        !app.world().get::<BodyHealth>(actor_entity).unwrap().alive(),
+        "the killed enemy should be marked dead"
+    );
+}
+
+/// A killed body plays the death cue its character authors, and only that
+/// one. A body that authors none plays the death cue of its game.
+#[test]
+fn a_killed_body_plays_the_death_cue_its_character_authors() {
+    use bevy::ecs::message::Messages;
+
+    fn death_cues(authored: Option<&str>) -> Vec<ambition_sfx::SfxMessage> {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+        app.world_mut()
+            .entity_mut(actor_entity)
+            .insert(ambition_combat::CombatCapabilities {
+                death_sound: authored.map(str::to_string),
+                ..Default::default()
+            });
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 5,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        assert!(!app.world().get::<BodyHealth>(actor_entity).unwrap().alive());
+        let msgs = app
+            .world()
+            .resource::<Messages<ambition_sfx::OwnedSfxMessage>>();
+        let scream = ambition_sfx::SfxId::new("voice.wilhelm_scream");
+        msgs.get_cursor()
+            .read(msgs)
+            .map(|message| message.request)
+            .filter(|request| match request {
+                ambition_sfx::SfxMessage::Death { .. } => true,
+                ambition_sfx::SfxMessage::Play { id, .. } => *id == scream,
+                _ => false,
+            })
+            .collect()
+    }
+
+    let scream = ambition_sfx::SfxId::new("voice.wilhelm_scream");
+    assert!(
+        matches!(
+            death_cues(Some("voice.wilhelm_scream"))[..],
+            [ambition_sfx::SfxMessage::Play { id, .. }] if id == scream
+        ),
+        "the authored cue must replace the death cue of the game"
+    );
+    assert!(
+        matches!(death_cues(None)[..], [ambition_sfx::SfxMessage::Death { .. }]),
+        "a body that authors no cue must play the death cue of its game"
+    );
+}
+
+/// OW1 cut 4b: a hit that names no victim (`Volume`) reaches only the
+/// bodies of its attacker's live room.
+///
+/// The slash of `player_slash_damages_and_can_kill_a_hostile_actor`, from an
+/// attacker in #0, with live rooms #0 and #1 both live. The control puts the
+/// enemy in #0 and it takes the 2 damage. The subject puts the same enemy, in
+/// the same place, in #1, and it takes none.
+#[test]
+fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let health_after_a_slash = |enemy_room: LiveRoomInstance| {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        for room in [first, first.next()] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let attacker = app.world_mut().spawn(InRoomInstance(first)).id();
+        let enemy = spawn_hostile_actor(&mut app); // HP 5
+        app.world_mut().entity_mut(enemy).insert(InRoomInstance(enemy_room));
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 2,
+            source: HitSource::Melee,
+            attacker: Some(attacker),
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current
+    };
+    assert_eq!(health_after_a_slash(first), 3, "control: the slash lands in its own room");
+    assert_eq!(health_after_a_slash(first.next()), 5, "a slash reached a body in another live room");
+}
+
+/// The debris of a killed body is thrown in the body's own live room. Two
+/// rooms are live. An enemy in the second room takes a lethal slash from an
+/// attacker in that room. The ragdoll debris row names the second room: two
+/// live rooms share one coordinate space, so a row that names no room is
+/// thrown in no room.
+#[test]
+fn the_debris_of_a_killed_body_is_thrown_in_its_own_live_room() {
+    assert_eq!(
+        (debris_rooms_of_a_kill_in_the_second_room(true), debris_rooms_of_a_kill_in_the_second_room(false)),
+        {
+            let second = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next();
+            (vec![Some(second)], vec![Some(second)])
+        },
+        "the rooms the ragdoll debris of the killed enemy names (the enemy is in the second room), \
+         with a `SimId` and without one"
+    );
+}
+
+/// The rooms the ragdoll debris of an enemy killed in the second of two live
+/// rooms names. `identified` gives the enemy a `SimId`. A body's room is its
+/// stamp (`LiveRooms::of`), whether or not it has an identity.
+fn debris_rooms_of_a_kill_in_the_second_room(
+    identified: bool,
+) -> Vec<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    use ambition_vfx::vfx::PhysicsDebrisCue;
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
+    ];
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+    for room in rooms {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    let attacker = app.world_mut().spawn(InRoomInstance(rooms[1])).id();
+    let enemy = spawn_hostile_actor(&mut app); // HP 5
+    app.world_mut().entity_mut(enemy).insert(InRoomInstance(rooms[1]));
+    if identified {
+        app.world_mut()
+            .entity_mut(enemy)
+            .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("kernel_guide"));
+    }
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 99,
+        source: HitSource::Melee,
+        attacker: Some(attacker),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+    app.update();
+    app.world()
+        .resource::<bevy::ecs::message::Messages<DebrisBurstMessage>>()
+        .iter_current_update_messages()
+        .filter(|row| row.cue == PhysicsDebrisCue::EnemyRagdoll)
+        .map(|row| row.room)
+        .collect()
+}
+
+/// OW1 cut 4b: a blast with no attacker hits only the bodies of the live
+/// room it happens in.
+///
+/// A bomb's blast names no victim (`Volume`) and no attacker, so the
+/// attacker cannot give it a room. The shipped fuse system writes the blast
+/// from a bomb in #0, with live rooms #0 and #1 both live. The control puts
+/// the enemy in #0, at the blast, and it takes damage: a blast that has no
+/// room of its own is in no room while two are live, and hits nothing. The
+/// subject puts the same enemy, in the same place, in #1, and it takes none.
+#[test]
+fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let health_after_a_blast = |enemy_room: LiveRoomInstance| {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        let mut time = ambition_time::WorldTime::default();
+        time.set_sim_dt(0.05);
+        app.insert_resource(time);
+        app.add_systems(
+            Update,
+            (ambition_abilities::ranged::bomb::tick_bomb_fuses, apply_feature_hit_events,
+            ).chain(),
+        );
+        for room in [first, first.next()] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let enemy = spawn_hostile_actor(&mut app); // HP 5, at the origin
+        app.world_mut().entity_mut(enemy).insert(InRoomInstance(enemy_room));
+        app.world_mut().spawn((
+            ambition_held_items::GroundItem::released(
+                ambition_characters::brain::held_item_by_id(ambition_abilities::ranged::bomb::BOMB_ID,
+                )
+                    .expect("the bomb is a shipped held item"),
+                ae::Vec2::ZERO,
+                ae::Vec2::ZERO,
+                ae::Vec2::splat(14.0),
+            ),
+            ambition_abilities::ranged::bomb::BombFuse { timer: 0.001 },
+            InRoomInstance(first),
+        ));
+        app.update();
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current
+    };
+    assert!(
+        health_after_a_blast(first) < 5,
+        "control: a blast with no attacker did not hit a body in its own room"
+    );
+    assert_eq!(health_after_a_blast(first.next()), 5, "a blast reached a body in another live room");
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct CapturedBubbles(usize);
+
+/// ⚠ A CAPTURE SYSTEM, NOT A READ OF `Messages` AT THE END. The first draft of
+/// the threshold poison below read the message buffer after the last `update()`
+/// and counted ZERO even when the flag plainly fired — a message written on an
+/// earlier frame is gone by then, and "no flag" and "a flag I stopped being able
+/// to see" are the same number. ⛔ That is the failure mode the poison exists to
+/// prevent, reproduced inside the poison itself. ⇒ Accumulate as they are
+/// written, which is what `CapturedBubbles` beside this already does.
+#[derive(bevy::prelude::Resource, Default)]
+struct CapturedHostileTurns(usize);
+
+/// Counts ticks whose banner announces the turn — the damage road's own
+/// verdict on "this hit provoked". The DURABLE fact is recorded by the flip
+/// (`apply_actor_stimuli`), not here.
+fn capture_hostile_turns(
+    mut banner: bevy::prelude::ResMut<GameplayBanner>,
+    mut cap: bevy::prelude::ResMut<CapturedHostileTurns>,
+) {
+    if banner.text.ends_with("turns hostile") {
+        cap.0 += 1;
+    }
+    banner.clear();
+}
+
+fn capture_bubbles(
+    mut reader: bevy::prelude::MessageReader<VfxInRoom>,
+    mut cap: bevy::prelude::ResMut<CapturedBubbles>,
+) {
+    for m in reader.read().map(|m| &m.vfx) {
+        if matches!(m, VfxMessage::SpeechBubble { .. }) {
+            cap.0 += 1;
+        }
+    }
+}
+
+/// A talkable peaceful NPC with a provoke accumulator + interaction payload, so
+/// its strike branch reaches the on-hit bark. `hp` sets the initial HP so the
+/// same body can be exercised alive or as a corpse.
+fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
+    spawn_talkable_npc_with_threshold(
+        app,
+        hp,
+        ambition_platformer2d_actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+    )
+}
+
+/// ⛔⛔ THE THRESHOLD IS A PARAMETER NOW, AND THAT IS THE ENTIRE POINT. Every
+/// fixture here used to build `ActorAggression` from
+/// `NPC_HOSTILE_STRIKE_THRESHOLD` — the same constant the damage road compared
+/// against — so both sides computed 3 and agreed no matter which one was the
+/// authority. A test whose fixture supplies both halves of an equality cannot
+/// discover that they are two different facts.
+fn spawn_talkable_npc_with_threshold(
+    app: &mut App,
+    hp: i32,
+    strike_threshold: u8,
+) -> bevy::prelude::Entity {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let interactable = ambition_interaction::Interactable::new(
+        "alice",
+        "Talk",
+        aabb,
+        ambition_interaction::InteractionKind::Npc {
+            character_id: None,
+            dialogue_id: None,
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+            brain_override: None,
+        },
+    );
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+        "alice",
+        "Alice",
+        aabb,
+        &interactable,
+        &[],
+    );
+    let (disposition, combat) = ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(
+        &seed,
+        ambition_combat::components::ActorDisposition::Peaceful,
+    );
+    let aggression = ambition_combat::components::ActorAggression {
+        mode: ambition_combat::components::AggressionMode::RetaliatesWhenHit {
+            strike_threshold },
+        target: None,
+        strikes: 0,
+        grudge: None,
+    };
+    let npc = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("alice"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            aggression,
+            ambition_characters::brain::action_set::IdentityKit::default(),
+            seed.into_components(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
+            ambition_combat::components::ActorInteraction {
+                interactable },
+            disposition,
+            combat,
+        ))
+        .id();
+    app.world_mut()
+        .get_mut::<BodyHealth>(npc)
+        .unwrap()
+        .health
+        .current = hp;
+    npc
+}
+
+/// A peaceful NPC has no death path of its own (it accumulates strikes and turns
+/// hostile), so its strike branch never consulted `alive()`: a body forced to a
+/// zero-HP corpse would keep barking a hit line. The structural tangibility gate
+/// in `apply_feature_hit_events` (`body_is_untouchable` → skip) closes that: a living
+/// peaceful NPC still barks when struck, a dead one is silent — a dead thing
+/// does not present. Poison: remove the gate and the corpse's SpeechBubble
+/// reappears.
+#[test]
+fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
+    fn strike_and_count_bubbles(hp: i32) -> usize {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.init_resource::<CapturedBubbles>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
+
+        spawn_talkable_npc(&mut app, hp);
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: event_volume.into(),
+            damage: 1,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+        app.world().resource::<CapturedBubbles>().0
+    }
+
+    assert_eq!(
+        strike_and_count_bubbles(1),
+        1,
+        "a LIVING peaceful NPC barks a hit line when struck (control)"
+    );
+    assert_eq!(
+        strike_and_count_bubbles(0),
+        0,
+        "a peaceful CORPSE says nothing when struck — a dead thing does not present"
+    );
+}
+
+/// `apply_actor_hit` read the DISPOSITION to decide whether a hit takes
+/// health, so `ActorDisposition` answered two questions at once: how an actor
+/// regards combat, and whether its body can be hurt. A match fighter therefore
+/// had to stay `Hostile` merely to be damageable — and two participant-driven
+/// fighters hold no AI target, so both stood down to `Peaceful` and neither
+/// could hurt the other.
+///
+/// the same body, struck the same way, twice: a bystander is PROVOKED, and
+/// one that is IN A FIGHT takes the blow. Nothing about its brain, its mood or
+/// its faction changed between them.
+///
+/// The third case below is exactly that body.
+#[test]
+fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
+    fn strike(in_a_fight: bool, ruleset_owns_death: bool) -> (i32, usize) {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.init_resource::<CapturedBubbles>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
+
+        let body = spawn_talkable_npc(&mut app, 9);
+        if ruleset_owns_death {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(ambition_combat::components::RulesetOwnsDeath);
+        }
+        if in_a_fight {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(ambition_combat::components::ActiveCombatant);
+        }
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: event_volume.into(),
+            damage: 3,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+        (
+            app.world().get::<BodyHealth>(body).unwrap().health.current,
+            app.world().resource::<CapturedBubbles>().0,
+        )
+    }
+
+    let (bystander_hp, bystander_bubbles) = strike(false, false);
+    assert_eq!(
+        bystander_hp, 9,
+        "a town NPC must still be PROVOKED rather than hurt — the \
+         strike-then-turn-hostile behaviour is what a peaceful body is for"
+    );
+    assert_eq!(bystander_bubbles, 1, "and it barks about it");
+
+    let (combatant_hp, combatant_bubbles) = strike(true, true);
+    assert!(
+        combatant_hp < 9,
+        "a body IN a fight takes the blow, and a fighter that cannot be hurt \
+         cannot lose: {combatant_hp}"
+    );
+    assert_eq!(
+        combatant_bubbles, 0,
+        "and it does not bark a provocation line at somebody it is fighting"
+    );
+
+    // THE POISON, and it is the eliminated fighter. Death ownership without participation: the
+    // match still owns this body's KO and the body is out of the fight.
+    let (eliminated_hp, eliminated_bubbles) = strike(false, true);
+    assert_eq!(
+        eliminated_hp, 9,
+        "a fighter that is OUT is not in the fight, however the match feels \
+         about its corpse: {eliminated_hp}"
+    );
+    assert_eq!(eliminated_bubbles, 1);
+}
+
+#[test]
+fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
+    // With the body-generic `ActorStatus::damage_invuln_timer`, the SAME hit fired twice with the
+    // window still hot lands exactly once. (This minimal app runs no integration tick, so the
+    // window never decays between the two updates — exactly the sustained-overlap case.)
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let slash = || HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    };
+
+    app.world_mut().write_message(slash());
+    app.update();
+    let hp_after_first = app
+        .world()
+        .get::<BodyHealth>(actor_entity)
+        .unwrap()
+        .health
+        .current;
+    assert_eq!(hp_after_first, 3, "first hit lands (5 → 3)");
+
+    // Second identical hit while the i-frame is still hot (no tick decayed it):
+    // ignored, so HP is unchanged — the sustained-overlap stream is collapsed.
+    app.world_mut().write_message(slash());
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<BodyHealth>(actor_entity)
+            .unwrap()
+            .health
+            .current,
+        3,
+        "a re-hit within the i-frame window must be ignored (no per-frame stream)"
+    );
+}
+
+/// Shared setup for the cling-break tests: spawn a hostile actor, make it an
+/// adhesive crawler clung to a LEFT wall (outward normal +x), then slash it.
+fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let actor = spawn_hostile_actor(&mut app); // HP 5 — survives one slash
+    {
+        let mut cfg = app
+            .world_mut()
+            .get_mut::<ambition_combat::actor_tuning::ActorConfig>(actor)
+            .unwrap();
+        cfg.tuning.surface_walker = true;
+        cfg.tuning.cling_breaks_on_hit = cling_breaks_on_hit;
+    }
+    {
+        // The crawler POLICY with a live attachment — the explicit model the
+        // spawn selector installs for `surface_walker` archetypes.
+        let mut model = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d_core::movement::MotionModel>(actor)
+            .unwrap();
+        *model = ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(
+            ae::AdhesiveCrawlerMotion {
+                params: ae::CrawlerParams::default(),
+                state: ae::CrawlerState::attached(ae::Vec2::new(1.0, 0.0)),
+            },
+        );
+    }
+    {
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::BodyGroundState>(actor)
+            .unwrap()
+            .on_ground = true;
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(actor)
+            .unwrap()
+            .surface_normal = ae::Vec2::new(1.0, 0.0);
+    }
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 1,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+    (app, actor)
+}
+
+#[test]
+fn struck_cling_breaker_loses_its_surface_and_falls() {
+    // The puppy-slug "panic on hit": a struck surface-walker authored
+    // `cling_breaks_on_hit` leaves its surface and peels away along that surface
+    // normal. It keeps the last contact normal while airborne; the surface-walk
+    // integration reorients it to the active acceleration frame when it next lands.
+    let (app, actor) = slash_clung_surface_walker(true);
+    let surf = app
+        .world()
+        .get::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(actor)
+        .unwrap();
+    assert!(
+        !app.world()
+            .get::<ambition_platformer2d_core::BodyGroundState>(actor)
+            .unwrap()
+            .on_ground,
+        "a struck cling-breaker should leave its surface and fall"
+    );
+    assert_eq!(
+        surf.surface_normal,
+        ae::Vec2::new(1.0, 0.0),
+        "detaching preserves the last contact normal until gravity-relative landing"
+    );
+    let kin = app
+        .world()
+        .get::<ambition_platformer2d_core::BodyKinematics>(actor)
+        .unwrap();
+    assert!(
+        kin.vel.x > 0.0,
+        "it peels away along the +x wall normal, got vel {:?}",
+        kin.vel
+    );
+}
+
+#[test]
+fn struck_surface_walker_holds_on_when_cling_does_not_break() {
+    // Crawlers authored `cling_breaks_on_hit: false` keep clinging when struck —
+    // their surface state is untouched by the hit.
+    let (app, actor) = slash_clung_surface_walker(false);
+    let surf = app
+        .world()
+        .get::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(actor)
+        .unwrap();
+    assert!(
+        app.world()
+            .get::<ambition_platformer2d_core::BodyGroundState>(actor)
+            .unwrap()
+            .on_ground,
+        "a non-breaking crawler keeps its footing"
+    );
+    assert_eq!(
+        surf.surface_normal,
+        ae::Vec2::new(1.0, 0.0),
+        "and stays oriented to its wall"
+    );
+}
+
+#[test]
+fn player_slash_shatters_a_breakable() {
+    // Completes the attacker-side hit matrix: a player slash on a
+    // 1-HP breakable shatters it through apply_feature_hit_events.
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
+    let breakable = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("crate"),
+            FeatureName::new("crate"),
+            // The identity the construction executor stamps on every authored
+            // placement before its recipe runs. The coin needs it: a drop states
+            // the prop it fell out of, or no render family claims it.
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+        ))
+        .id();
+    assert!(!app
+        .world()
+        .get::<BreakableFeature>(breakable)
+        .unwrap()
+        .broken());
+
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: aabb.into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+
+    assert!(
+        app.world()
+            .get::<BreakableFeature>(breakable)
+            .unwrap()
+            .broken(),
+        "a player slash should shatter a 1-HP breakable"
+    );
+
+    // Shattering a crate drops one collectible coin.
+    let mut q = app.world_mut().query::<&PickupFeature>();
+    let coins = q
+        .iter(app.world())
+        .filter(|p| matches!(p.kind(), ambition_interaction::PickupKind::Currency { .. }))
+        .count();
+    assert_eq!(coins, 1, "shattering a crate drops one coin");
+}
+
+#[test]
+fn enemy_defeat_drops_a_collectible_currency_coin() {
+    let mut app = App::new();
+    app.add_systems(Update, |mut c: Commands| {
+        drop_currency_coin(
+            &mut c,
+            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId::placement("goblin_1"),
+            "goblin_1",
+            ae::Vec2::new(40.0, 50.0),
+            ENEMY_BOUNTY,
+        );
+    });
+    app.update();
+    let mut q = app.world_mut().query::<(&PickupFeature, &FeatureId)>();
+    let rows: Vec<(ambition_interaction::PickupKind, String)> = q
+        .iter(app.world())
+        .map(|(p, id)| (p.kind().clone(), id.as_str().to_string()))
+        .collect();
+    assert_eq!(rows.len(), 1, "exactly one coin dropped");
+    assert_eq!(rows[0].1, "coin:goblin_1", "coin id is keyed to the enemy");
+    assert_eq!(
+        rows[0].0,
+        ambition_interaction::PickupKind::Currency {
+            amount: ENEMY_BOUNTY
+        },
+        "the drop is a currency coin worth the bounty",
+    );
+}
+
+#[test]
+fn defeated_boss_drops_its_signature_ability() {
+    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
+    // Each boss's reward ability is content data (`boss_profiles.ron`):
+    // verify the authored pairings and that each resolves to a real catalog
+    // item. Read off the RON-loaded profile by id — the engine names none.
+    let expect: &[(&str, Option<&str>)] = &[
+        ("flying_spaghetti_monster_boss", Some("blink")),
+        ("trex_boss", Some("grapple")),
+        ("gnu_ton_rider", Some("fireball")),
+        ("clockwork_warden", Some("markrecall")),
+        ("mockingbird", None),
+        ("smirking_behemoth_boss", None),
+    ];
+    for (id, ability) in expect {
+        let profile =
+            BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
+        assert_eq!(
+            profile.reward_ability.as_deref(),
+            *ability,
+            "{id} reward ability drifted from boss_profiles.ron",
+        );
+        if let Some(a) = ability {
+            assert!(
+                ambition_items::test_item_catalog().item_by_dialog_id(a).is_some(),
+                "boss {id} -> ability {a} must be a real catalog item",
+            );
+        }
+    }
+
+    // The drop spawns a single collectible Ability pickup.
+    let mut app = App::new();
+    app.add_systems(Update, |mut c: Commands| {
+        drop_ability_pickup(
+            &mut c,
+            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId::placement("trex_boss"),
+            "trex_boss",
+            ae::Vec2::new(10.0, 20.0),
+            "grapple",
+            "Grapple",
+        );
+    });
+    app.update();
+    let mut q = app.world_mut().query::<&PickupFeature>();
+    let kinds: Vec<ambition_interaction::PickupKind> =
+        q.iter(app.world()).map(|p| p.kind().clone()).collect();
+    assert_eq!(kinds.len(), 1, "one ability pickup dropped");
+    assert_eq!(
+        kinds[0],
+        ambition_interaction::PickupKind::Ability {
+            ability_id: "grapple".to_string()
+        },
+    );
+}
+
+#[test]
+fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
+    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
+    // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
+    // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON
+    // against the ability id consts so the two can't drift apart. The shockwave, volley, beam
+    // meteor, sentry, vortex (2026-10-01) and dive (2026-10-10) are procedural modules; their ids are the
+    // held-item ids spelled.
+    let expect: &[(&str, Option<&str>)] = &[
+        ("trex_boss", Some("shockwave")),
+        ("mockingbird", Some("volley")),
+        ("smirking_behemoth_boss", Some("beam")),
+        ("mode_collapse_boss", Some("vortex")),
+        ("hunny_horror_boss", None),
+        ("overflow_boss", Some("dive")),
+        ("gnu_ton_rider", Some("meteor")),
+        ("clockwork_warden", None),
+        ("flying_spaghetti_monster_boss", None),
+    ];
+    let mut gauntlets = 0;
+    let mut abilities = 0;
+    for (id, gauntlet) in expect {
+        let profile =
+            BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
+        assert_eq!(
+            profile.signature_gauntlet.as_deref(),
+            *gauntlet,
+            "{id} signature gauntlet drifted from boss_profiles.ron",
+        );
+        if let Some(g) = profile.signature_gauntlet.as_deref() {
+            assert!(
+                ambition_characters::brain::held_item_by_id(g).is_some(),
+                "boss {id} -> gauntlet {g} must be a registered held item",
+            );
+            gauntlets += 1;
+        }
+        if profile.reward_ability.is_some() {
+            abilities += 1;
+        }
+    }
+    // trex + mockingbird + smirking + mode_collapse + overflow + the gnu_ton
+    // rider each arm a wielded gauntlet (six "learn its attack" drops; trex and
+    // the rider also grant a catalog ability).
+    assert_eq!(gauntlets, 6, "six bosses drop a signature gauntlet");
+    // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
+    assert_eq!(abilities, 4, "four bosses grant a catalog ability");
+}
+
+#[test]
+fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
+    let mut app = App::new();
+    app.add_systems(Update, |mut c: Commands| {
+        spawn_death_explosion(
+            &mut c,
+            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            Entity::PLACEHOLDER,
+            ae::Vec2::new(50.0, 60.0),
+        );
+    });
+    app.update();
+    let mut q = app.world_mut().query::<&ambition_combat::hitbox::Hitbox>();
+    let boxes: Vec<ambition_combat::hitbox::Hitbox> = q.iter(app.world()).cloned().collect();
+    assert_eq!(boxes.len(), 1, "the mite's death spawns one blast hitbox");
+    assert_eq!(
+        boxes[0].source,
+        ambition_vfx::HitSide::Enemy,
+        "enemy side -> the blast damages the player, not other mites (no chain)",
+    );
+    assert_eq!(boxes[0].damage, EXPLODER_BLAST_DAMAGE);
+    if let ambition_combat::hitbox::HitboxAnchor::World { center } = boxes[0].anchor {
+        assert_eq!(
+            center,
+            ae::Vec2::new(50.0, 60.0),
+            "the blast centers on the corpse"
+        );
+    } else {
+        panic!("the blast should be world-anchored at the death site");
+    }
+}
+
+#[test]
+fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    app.add_systems(
+        Update,
+        |mut c: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >| {
+            spawn_split_offspring(
+                &mut c,
+                &catalog,
+                &Default::default(),
+                Some(&ambition_characters::prepared_fixtures::fixture_cast(&["npc_puppy_slug",
+                ])),
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "divider_1",
+                ae::Vec2::new(100.0, 100.0),
+                "npc_puppy_slug",
+            );
+        },
+    );
+    app.update();
+    let mut q = app
+        .world_mut()
+        .query::<&ambition_characters::actor::ActorFaction>();
+    let factions: Vec<ambition_characters::actor::ActorFaction> =
+        q.iter(app.world()).cloned().collect();
+    assert_eq!(
+        factions.len(),
+        2,
+        "a dividing mite splits into exactly two offspring"
+    );
+    assert!(
+        factions
+            .iter()
+            .all(|f| *f == ambition_characters::actor::ActorFaction::Enemy),
+        "the offspring are hostile (Enemy faction), not player-allies",
+    );
+}
+
+/// With no prepared cast the offspring cannot be built, so the split is refused
+/// and builds nothing. It used to build from an empty stand-in cast and reach
+/// the construction panic.
+#[test]
+fn a_split_with_no_prepared_cast_is_refused() {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.add_systems(
+        Update,
+        |mut c: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >| {
+            spawn_split_offspring(
+                &mut c,
+                &catalog,
+                &Default::default(),
+                None,
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "divider_1",
+                ae::Vec2::new(100.0, 100.0),
+                "npc_puppy_slug",
+            );
+        },
+    );
+    app.update();
+    let built = app
+        .world_mut()
+        .query::<&ambition_characters::actor::ActorFaction>()
+        .iter(app.world())
+        .count();
+    assert_eq!(built, 0, "a split whose offspring cannot be built builds nothing");
+}
+
+#[test]
+fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
+    // The gate is a pure function of the id, so the headless sim is reproducible.
+    assert_eq!(id_drops_health("goblin_42"), id_drops_health("goblin_42"));
+    // The drop spawns one collectible Health pickup.
+    let mut app = App::new();
+    app.add_systems(Update, |mut c: Commands| {
+        drop_health_pickup(
+            &mut c,
+            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId::placement("any"),
+            "any",
+            ae::Vec2::ZERO,
+            ENEMY_HEALTH_DROP,
+        );
+    });
+    app.update();
+    let mut q = app.world_mut().query::<&PickupFeature>();
+    let kinds: Vec<ambition_interaction::PickupKind> =
+        q.iter(app.world()).map(|p| p.kind().clone()).collect();
+    assert_eq!(kinds.len(), 1, "one heart dropped");
+    assert!(
+        matches!(kinds[0], ambition_interaction::PickupKind::Health { .. }),
+        "the drop is a health pickup",
+    );
+}
+
+// It asked a fixture archetype row for its `held_item_spec()` and asserted a gun-sword came
+// back — a test of the row's field resolver. A body's weapon is authored on its CHARACTER
+// (`held_item`) and inserted by the road that believes the character, so the surviving claim is
+// `drops_held_item`'s: what a body drops is its LIVE `HeldItem`, not a table row.
+
+// ── S3c: body-enforced reactive block ───────────────────────────────────────
+//
+// The shield is a body capability: the controller only sets `shield_held` (which
+// the resolver lands on `status.shield_raised`, gated by `caps.can_shield`); the
+// BODY negates a guarded hit from the side it faces. These drive the REAL actor
+// damage system (`apply_feature_hit_events` → `apply_actor_hit`), so they prove
+// the enforcement, not a mocked rule. A possessing human and an AI brain block
+// identically because both only feed `shield_held` (invariants I2/I3).
+
+/// Spawn a hostile actor with the shield capability, body facing +x (right),
+/// 5 HP, with its guard raised iff `shield_raised`.
+fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::Entity {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+        "guard".to_string(),
+        "Guard".to_string(),
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Custom(
+            "cellular_automaton_fighter".into(),
+        ),
+        &[],
+    );
+    enemy.health =
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    enemy.kin.facing = 1.0;
+    // The damage path reads the body's ONE shield component (`BodyShieldState`) —
+    // set it directly, the way the pipeline shield limb would. (The `shield`
+    // movement capability gates whether the pipeline RAISES the guard; the
+    // resolver itself only reads the resulting `shield.active`.)
+    enemy.body.0.shield.active = shield_raised;
+    let (disposition, combat) = enemy_component_snapshot(&enemy);
+    app.world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("guard"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            enemy.into_components(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
+            disposition,
+            combat,
+        ))
+        .id()
+}
+
+fn shield_test_app() -> App {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+    app
+}
+
+/// A player slash whose hitbox is centered at `center` (must overlap the actor's
+/// body AABB to land), dealing `damage`.
+/// The shove a player slash carries, spelled the one way knockback is spelled.
+fn slash_knockback(center: ae::Vec2, dir: f32) -> ambition_combat::events::HitKnockback {
+    ambition_combat::events::HitKnockback {
+        // An ordinary hit: it stuns.
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+        dir,
+        magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
+        source_pos: center,
+        impact_pos: center,
+        launch_dir: None,
+        follow: None,
+        guard: Default::default(),
+    }
+}
+
+fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
+    HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
+        damage,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        // Same resolution as before: side +1, standard feel strength.
+        knockback: Some(slash_knockback(center, 1.0)),
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    }
+}
+
+fn actor_hp(app: &App, entity: bevy::prelude::Entity) -> i32 {
+    app.world()
+        .get::<BodyHealth>(entity)
+        .expect("actor exists")
+        .health
+        .current
+}
+
+#[test]
+fn raised_shield_negates_a_hit_from_the_faced_side() {
+    let mut app = shield_test_app();
+    let actor = spawn_shielding_actor(&mut app, true);
+    // Body faces +x; the slash comes from the front (+x). The hitbox is wide
+    // enough to overlap the body at the origin while its center sits forward.
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+    app.update();
+    assert_eq!(
+        actor_hp(&app, actor),
+        5,
+        "a guarded hit from the faced side must be fully negated by the body"
+    );
+}
+
+#[test]
+fn a_lowered_shield_does_not_block() {
+    let mut app = shield_test_app();
+    let actor = spawn_shielding_actor(&mut app, false);
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+    app.update();
+    assert_eq!(
+        actor_hp(&app, actor),
+        3,
+        "with the guard down the same front hit lands full damage"
+    );
+}
+
+#[test]
+fn a_raised_shield_does_not_guard_the_back() {
+    let mut app = shield_test_app();
+    let actor = spawn_shielding_actor(&mut app, true);
+    // Body faces +x; this hit comes from BEHIND (-x). You can't guard your back.
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(-14.0, 0.0), 2));
+    app.update();
+    assert_eq!(
+        actor_hp(&app, actor),
+        3,
+        "a hit from behind the guard still lands — the block is directional"
+    );
+}
+
+/// WHAT THE RESOLVED CHANNEL SAYS THAT THE OVERLAP CHANNEL CANNOT: a block.
+///
+/// ⭐⭐ THIS IS THE HALF OF D-CANCEL-ONBLOCK THAT NEEDS NO FEEL RULING.
+/// `mark_move_playback_landed_hits` confirms a move's `OnHit` cancel off
+/// `LandedBodyHit`, which the type's own doc says *"MEANS OVERLAP"* — so an
+/// ordinary held guard confirms the cancel and the move wears itself out
+/// (`a_blocked_strike_is_still_recorded_as_a_connection`, in the hitbox suite,
+/// pins that). The channel it should read is `ResolvedBodyHit`, and this states
+/// the two properties that make that possible.
+///
+/// ⛔ THE QUEUE ROW WAS WRONG ABOUT THE PLUMBING, measured 2026-08-31: it said
+/// *"`publish_resolved_hit` is called from the PLAYER road only … the actor road
+/// every match fighter takes publishes nothing"*. The actor road HAS published
+/// since `actor_hit.rs`, and its `Blocked` arm returns before the publish — so
+/// the channel already discriminates a block. What was genuinely missing is the
+/// ATTACKER, without which a move cannot ask whether IT connected, and that is
+/// what the second assertion below is for.
+///
+/// ⚠ WHAT THIS DOES NOT SETTLE: pointing the marker at this channel is a feel
+/// ruling (delay the marker past the damage road and lose the connect-frame
+/// cancel window, or retract on block and leave the window open in between).
+/// See D-CANCEL-ONBLOCK.
+#[test]
+fn a_blocked_hit_publishes_no_resolved_connect_and_a_landed_one_names_its_attacker() {
+    fn resolved(app: &mut App) -> Vec<ambition_combat::hitbox::ResolvedBodyHit> {
+        let world = app.world_mut();
+        let messages =
+            world.resource::<bevy::prelude::Messages<ambition_combat::hitbox::ResolvedBodyHit>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).cloned().collect()
+    }
+
+    // ⛔ THE PREMISE FIRST. A fixture whose hit never lands would satisfy the
+    // blocked arm by doing nothing at all.
+    let mut app = shield_test_app();
+    let open = spawn_shielding_actor(&mut app, false);
+    let attacker = app.world_mut().spawn_empty().id();
+    let mut hit = slash_at(ae::Vec2::new(14.0, 0.0), 2);
+    hit.attacker = Some(attacker);
+    app.world_mut().write_message(hit.clone());
+    app.update();
+    let landed = resolved(&mut app);
+    assert_eq!(
+        landed.len(),
+        1,
+        "an unguarded actor took the hit and the resolver published no connect,          so the blocked arm below would pass on an empty channel: {landed:?}"
+    );
+    assert_eq!(landed[0].victim, open, "{landed:?}");
+    assert_eq!(
+        landed[0].attacker,
+        Some(attacker),
+        "the resolved connect must name WHO landed it, or a move cannot ask          whether ITS strike connected and has to read the overlap instead —          which is the D-CANCEL-ONBLOCK defect: {landed:?}"
+    );
+
+    // AND THE BLOCK. Same hit, same side, guard up.
+    let mut app = shield_test_app();
+    let guarded = spawn_shielding_actor(&mut app, true);
+    app.world_mut().write_message(hit);
+    app.update();
+    assert_eq!(
+        actor_hp(&app, guarded),
+        5,
+        "the guard did not block, so this arm is not measuring a block"
+    );
+    let blocked = resolved(&mut app);
+    assert!(
+        blocked.is_empty(),
+        "a BLOCKED strike published a resolved connect. `ResolvedBodyHit` is the          channel that means CONNECT, and if a block reaches it there is no          channel left that can tell a move it was guarded: {blocked:?}"
+    );
+}
+
+/// ⭐⭐ A BLOCK SAYS SO ON ITS OWN CHANNEL, and until 2026-09-06 nothing asserted
+/// that it did.
+///
+/// ⛔ THE TEST ABOVE IS NEGATIVE ON BOTH ARMS THAT MATTER HERE — "a blocked
+/// strike publishes no `ResolvedBodyHit`" is equally true of a road that
+/// publishes NOTHING AT ALL, so it cannot tell a working block channel from a
+/// missing one. That distinction became load-bearing the moment a consequence
+/// hung off it: `LimitMeterFill::on_block` pays the fighter whose guard ate the
+/// hit, and it can only pay what this road publishes.
+///
+/// ⚠ AND IT NAMES THE ATTACKER, for the reason the resolved-connect arm above
+/// names one: a defensive consequence that cannot say who it answered is the
+/// same dead end the block road spent a year in.
+#[test]
+fn a_blocked_strike_says_so_on_its_own_channel_and_names_who_swung() {
+    fn blocked_hits(app: &mut App) -> Vec<ambition_combat::hitbox::BlockedBodyHit> {
+        let world = app.world_mut();
+        let messages =
+            world.resource::<bevy::prelude::Messages<ambition_combat::hitbox::BlockedBodyHit>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).cloned().collect()
+    }
+
+    // ⛔ THE PREMISE FIRST, exactly as the sibling test does it: an UNGUARDED
+    // actor must publish no block, or "the guard published one" proves nothing.
+    let mut app = shield_test_app();
+    let open = spawn_shielding_actor(&mut app, false);
+    let attacker = app.world_mut().spawn_empty().id();
+    let mut hit = slash_at(ae::Vec2::new(14.0, 0.0), 2);
+    hit.attacker = Some(attacker);
+    app.world_mut().write_message(hit.clone());
+    app.update();
+    assert!(
+        blocked_hits(&mut app).is_empty(),
+        "an actor with no guard up published a BLOCK, so the channel is not \
+         reporting the guard at all",
+    );
+    // ⛔ AND THE PREMISE HAS TO BITE. The line above is satisfied by a fixture
+    // whose strike never reached anybody, so the unguarded actor must actually
+    // have TAKEN the hit — otherwise "no block was published" is true for the
+    // wrong reason and the guarded arm below proves nothing by contrast.
+    assert!(
+        actor_hp(&app, open) < 5,
+        "the unguarded actor took no damage, so this fixture's strike never \
+         landed and neither arm of this test is measuring a guard",
+    );
+
+    let mut app = shield_test_app();
+    let guarded = spawn_shielding_actor(&mut app, true);
+    app.world_mut().write_message(hit);
+    app.update();
+    assert_eq!(
+        actor_hp(&app, guarded),
+        5,
+        "the guard did not block, so this arm is not measuring a block"
+    );
+    let published = blocked_hits(&mut app);
+    assert_eq!(
+        published.len(),
+        1,
+        "a guard ate a strike and the block channel said nothing, so every \
+         consequence hung off a successful block is unreachable: {published:?}",
+    );
+    assert_eq!(published[0].victim, guarded, "{published:?}");
+    assert_eq!(published[0].attacker, Some(attacker), "{published:?}");
+}
+
+// ── §A2 step 6: a struck actor rides the shared knockback resolution ─────────
+
+/// A knockback-carrying hit (an aggressor swing pre-resolved to an actor
+/// victim) launches the actor through `resolved_body_knockback_velocity` —
+/// away from the source along its frame's side, rising against its gravity —
+/// exactly the resolution a player victim gets.
+#[test]
+fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
+    // Attacker to the LEFT of the victim (victim at origin): expect a launch
+    // toward +x with the feel-tuned enemy knockback, rising (world -y).
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback: Some(ambition_combat::events::HitKnockback {
+            // An ordinary hit: it stuns.
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+            dir: 1.0,
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+            follow: None,
+            guard: Default::default(),
+        }),
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+    let kin = app
+        .world()
+        .get::<ambition_platformer2d_core::BodyKinematics>(victim)
+        .unwrap();
+    let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
+    assert!(
+        (kin.vel - expected).length() < 1e-3,
+        "actor knockback should be the shared feel-tuned resolution, got {:?} want {expected:?}",
+        kin.vel
+    );
+    // §A2 step 7: the launch also arms the shared stagger set on `BodyCombat`,
+    // exactly like the player's knockback path.
+    let combat = app.world().get::<BodyCombat>(victim).unwrap();
+    assert!(
+        combat.hitstun_timer > 0.0 && combat.recoil_lock_timer > 0.0 && combat.hitstop_timer > 0.0,
+        "a knockback hit arms hitstun/recoil/hitstop on the struck body: {combat:?}"
+    );
+}
+
+/// GETTING HIT TAKES THE HANG, on the road a platform fighter's roster
+/// actually travels.
+///
+/// Jon, 2026-08-24: *"A character can just stay on the ledge, and there is no
+/// way to knock them off. If you get hit you should fall off the ledge at
+/// least."*
+///
+/// ⛔ THE RULE WAS NEVER MISSING — only this caller was. `knock_off_ledge` has
+/// its own unit test in the kernel and both of the PLAYER's `HitMode::Knockback`
+/// arms call it; the generic actor road did not, and in the arena every fighter
+/// is an actor. So the pure rule was green while an edge-guard could not
+/// dislodge anybody.
+///
+/// The re-grab lockout is asserted beside the hang because they are one
+/// operation: dropping the hang without arming it re-latches the body on the
+/// next frame and the hit reads as nothing at all.
+///
+/// ⛔⛔ AND BOTH KNOCKBACKS ARE MEASURED. A damage-only hit used to skip the
+/// shared reaction outright on this road — the whole call sat inside `if let
+/// Some(k) = knockback` — so a hazard, a chip or a poison tick left the hang
+/// standing. Only the launching half was ever exercised, and the launching half
+/// is the easy one.
+#[test]
+fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
+    for knockback in [
+        Some(ambition_combat::events::HitKnockback {
+            // An ordinary hit: it stuns.
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+            dir: 1.0,
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+            follow: None,
+            guard: Default::default(),
+        }),
+        None,
+    ] {
+        a_hit_knocks_a_hanging_actor_off_the_ledge_with(knockback);
+    }
+}
+
+fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
+    knockback: Option<ambition_combat::events::HitKnockback>,
+) {
+    let launched = knockback.is_some();
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    // Hang it. The kernel writes this from contact geometry; here it is placed
+    // directly, which is what makes the hit the only variable.
+    {
+        let mut model = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d_core::movement::MotionModel>(victim)
+            .expect("the actor carries a motion model");
+        *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
+        let ae::MotionModel::AxisSwept(axis) = &mut *model else {
+            unreachable!("just written")
+        };
+        axis.state.ledge_grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
+            wall_normal_x: 1.0,
+            anchor: ae::Vec2::ZERO,
+            climb_target: ae::Vec2::new(8.0, -16.0),
+        }));
+    }
+
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+
+    let model = app
+        .world()
+        .get::<ambition_platformer2d_core::movement::MotionModel>(victim)
+        .expect("the actor carries a motion model");
+    let ae::MotionModel::AxisSwept(axis) = model else {
+        unreachable!("the fixture installed one")
+    };
+    assert!(
+        axis.state.ledge_grab.is_none(),
+        "a struck fighter kept its ledge hang — an edge-guard cannot dislodge anybody"
+    );
+    let ledge = app
+        .world()
+        .get::<ae::BodyLedgeState>(victim)
+        .expect("the actor carries the ledge cluster");
+    assert!(
+        ledge.release_cooldown > 0.0,
+        "the hang was dropped without arming the re-grab lockout, so the body \
+         re-latches on the next frame and the hit reads as nothing \
+         (launched: {launched})"
+    );
+}
+
+/// ⛔⛔ A HIT GIVES BACK THE AIR DODGE AND **NOT** THE DOUBLE JUMP.
+///
+/// This test used to assert the opposite, and the opposite is what the code did.
+/// The reasoning that put it there was: the player road refreshed all three air
+/// resources after a hit, the actor road did not, therefore "a hit refreshes the
+/// air budget" is a fact of being hit. It is not — it was one road's overreach,
+/// generalised into engine law by a unification pass.
+///
+/// The genre's rule is that a spent double jump STAYS spent through an ordinary
+/// edge-guard hit; taking somebody's second jump is a thing you do to them, and
+/// a hit that handed it straight back would delete the reason to. The jump
+/// returns from a cause that re-seats the body — landing, catching the ledge,
+/// being grabbed, a respawn — and Ambition's traversal dash is its own
+/// capability that no Smash-shaped hit reaction recharges at all.
+///
+/// ⭐ ALL THREE ARE ASSERTED, because the failure this replaces was a rule that
+/// swept up two resources it never named.
+#[test]
+fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    {
+        let mut model = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d_core::movement::MotionModel>(victim)
+            .expect("the actor carries a motion model");
+        *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
+    }
+    // ⭐ GRANTED, not assumed. `air_jump_count` returns 0 without the ability
+    // whatever the tuning authors, so "the jump stays spent" would hold for a
+    // body that never had one — a test that cannot fail.
+    {
+        let mut abilities = app
+            .world_mut()
+            .get_mut::<ae::BodyAbilities>(victim)
+            .expect("the actor carries the ability cluster");
+        abilities.abilities.double_jump = true;
+        abilities.abilities.dash = true;
+    }
+    let authored = {
+        let world = app.world();
+        world
+            .get::<ae::BodyAbilities>(victim)
+            .unwrap()
+            .abilities
+            .air_jump_count(
+                world
+                    .get::<ambition_platformer2d_core::movement::MotionModel>(victim)
+                    .expect("just written")
+                    .air_jumps(),
+            )
+    };
+    let dash_charges = app
+        .world()
+        .get::<ae::BodyAbilities>(victim)
+        .unwrap()
+        .abilities
+        .dash_charge_count();
+    assert!(
+        authored > 0 && dash_charges > 0,
+        "the fixture grants neither resource, so nothing below can fail"
+    );
+    {
+        let mut jump = app
+            .world_mut()
+            .get_mut::<ae::BodyJumpState>(victim)
+            .expect("the actor carries the jump cluster");
+        jump.air_jumps_available = 0;
+        let mut dodge = app
+            .world_mut()
+            .get_mut::<ae::BodyDodgeState>(victim)
+            .expect("the actor carries the dodge cluster");
+        dodge.air_dodge_spent = true;
+        let mut dash = app
+            .world_mut()
+            .get_mut::<ae::BodyDashState>(victim)
+            .expect("the actor carries the dash cluster");
+        dash.charges_available = 0;
+    }
+
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback: Some(ambition_combat::events::HitKnockback {
+            // An ordinary hit: it stuns.
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+            dir: 1.0,
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+            follow: None,
+            guard: Default::default(),
+        }),
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+
+    assert!(
+        !app.world()
+            .get::<ae::BodyDodgeState>(victim)
+            .expect("the actor carries the dodge cluster")
+            .air_dodge_spent,
+        "the air dodge stayed spent through a hit — a launched fighter with no \
+         evade has no answer to the follow-up"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ae::BodyJumpState>(victim)
+            .expect("the actor carries the jump cluster")
+            .air_jumps_available,
+        0,
+        "a hit handed the double jump back, which deletes the point of taking it"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ae::BodyDashState>(victim)
+            .expect("the actor carries the dash cluster")
+            .charges_available,
+        0,
+        "a hit recharged the traversal dash, which is not a platform-fighter \
+         resource and has nothing to do with being struck"
+    );
+}
+
+/// A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
+/// called. `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
+/// source-specific formula for a fact about the striker, and one that could only
+/// ever be true for a body the cause vocabulary happened to have a word for.
+///
+/// Here the very same `EnemyAttack` source lands twice, from two attackers, and
+/// the hitstun differs — so the fact is being read off the attacker. The second
+/// half is the poison: an ordinary attacker must NOT get the heavy launch, or
+/// the query is matching everything and the assertion above proves nothing.
+#[test]
+fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
+    let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
+    assert!(
+        feel.boss_hitstun_time > feel.enemy_hitstun_time,
+        "the fixture only distinguishes the two paths if the tuning does"
+    );
+
+    let hitstun_from = |heavy: bool| {
+        let mut app = shield_test_app();
+        let victim = spawn_hostile_actor(&mut app);
+        let attacker = if heavy {
+            app.world_mut()
+                .spawn(ambition_boss_encounter::BossConfig {
+                    id: "heavy".into(),
+                    name: "Heavy".into(),
+                    spawn: ae::Vec2::ZERO,
+                    practice: false,
+                    wakes_after: None,
+                    brain: ambition_entity_catalog::placements::BossBrain::Dormant,
+                    behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
+                        ambition_boss_encounter::test_boss_catalog(),
+                        "heavy",
+                    ),
+                    seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), "heavy", "Heavy", 18,
+                    ),
+                })
+                .id()
+        } else {
+            app.world_mut().spawn_empty().id()
+        };
+        let center = ae::Vec2::ZERO;
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
+            damage: 1,
+            // the SAME cause in both runs. If the vocabulary were still
+            // deciding, both would land identically.
+            source: HitSource::Melee,
+            attacker: Some(attacker),
+            room: None,
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: Some(slash_knockback(center, 1.0)),
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+        app.world()
+            .get::<BodyCombat>(victim)
+            .expect("victim exists")
+            .hitstun_timer
+    };
+
+    let heavy = hitstun_from(true);
+    let ordinary = hitstun_from(false);
+    assert!(
+        (heavy - feel.boss_hitstun_time).abs() < 1e-4,
+        "a boss-class attacker stuns for the heavy duration, got {heavy}"
+    );
+    assert!(
+        (ordinary - feel.enemy_hitstun_time).abs() < 1e-4,
+        "an ordinary attacker must not inherit the heavy duration, got {ordinary}"
+    );
+}
+
+/// A slash's knockback rides the shared resolution: side from the payload's
+/// `dir`, strength from its magnitude.
+#[test]
+fn a_slash_knockback_rides_the_shared_resolution() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
+    // Slash volume centered on the victim (side derivation degenerates) with a
+    // -x impulse: the stored dir carries the launch side.
+    app.world_mut()
+        .write_message(slash_at(ae::Vec2::new(0.0, 0.0), 1));
+    app.update();
+    let kin = app
+        .world()
+        .get::<ambition_platformer2d_core::BodyKinematics>(victim)
+        .unwrap();
+    // `slash_at` attaches dir +1 at standard feel strength.
+    let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
+    assert!(
+        (kin.vel - expected).length() < 1e-3,
+        "slash knockback should ride the shared resolution, got {:?} want {expected:?}",
+        kin.vel
+    );
+}
+
+// ── S3e: relational actor-vs-actor damage application ────────────────────────
+
+/// A `HitTarget::Body(victim)` event (the pre-resolved actor-vs-actor hit an
+/// Enemy/Boss swing emits) damages EXACTLY that actor, even though its source is
+/// the victim-side `EnemyAttack` — and never spills onto other overlapping actors.
+#[test]
+fn an_actor_targeted_hit_damages_only_the_named_actor() {
+    let mut app = shield_test_app();
+    // Two hostile actors at the same spot (overlapping). HP 5 each.
+    let victim = spawn_hostile_actor(&mut app);
+    let bystander = spawn_hostile_actor(&mut app);
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        // Victim-side source, yet the Actor target routes it to the actor consumer.
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+    assert_eq!(
+        actor_hp(&app, victim),
+        3,
+        "the named actor takes the relational hit"
+    );
+    assert_eq!(
+        actor_hp(&app, bystander),
+        5,
+        "an overlapping non-target actor is untouched (pre-resolved, not broadcast)"
+    );
+}
+
+/// The player-melee one-hit-per-target dedup must PERSIST on the attacker's
+/// `MovePlayback` (the moveset read-model swing is wiped each frame). This drives
+/// `apply_feature_hit_events` directly: a `PlayerSlash` Volume hit whose attacker
+/// carries a live melee move must (a) land, and (b) fold the struck target's key
+/// onto `MovePlayback.hit_targets` so the next tick's emit ignores it.
+#[test]
+fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let attacker = app
+        .world_mut()
+        .spawn(MovePlayback::new(
+            simple_melee(&SimpleMeleeParams::default()),
+            1.0,
+        ))
+        .id();
+    let enemy = spawn_hostile_actor(&mut app); // HP 5, box at origin
+    // ⛔ THE OCCURRENCE IS NAMED, BECAUSE THE PRODUCTION MELEE ROAD NAMES IT.
+    // `hitbox/mod.rs` writes `attacker_move_instance: move_instance.map(..)` on
+    // every strike it resolves; this fixture wrote `None` and, until the
+    // 2026-09-19 ruling that an unclaimed outcome credits nobody, was carried
+    // by the implicit "whatever is playing" road. A fixture that keeps the
+    // shape production cannot produce tests a road that no longer exists.
+    let playing = app
+        .world()
+        .get::<MovePlayback>(attacker)
+        .expect("the attacker is playing a move")
+        .instance;
+    let volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: volume.into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: Some(attacker),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: Some(playing),
+    });
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current,
+        3,
+        "the slash lands (5 -> 3)"
+    );
+    let acc = app
+        .world()
+        .get::<MovePlayback>(attacker)
+        .unwrap()
+        .hit_targets
+        .clone();
+    assert!(
+        acc.iter().any(|k| k.starts_with("enemy:")),
+        "the struck target must be folded onto MovePlayback.hit_targets so the \
+         next active tick ignores it; got {acc:?}"
+    );
+}
+
+/// END-TO-END isolation: a moveset player's FollowOwner strike stays live across
+/// multiple active ticks, but the direct body-victim resolver must emit exactly
+/// ONE targeted hit. Victim i-frames are cleared each tick so the strike's own
+/// `HitboxHits` memory is what prevents the sustained overlap from draining the
+/// enemy every frame.
+#[test]
+fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
+    use ambition_combat::moveset::{
+        ATTACK_VERB, ActorMoveset, MovePlayback, SimpleMeleeParams, simple_melee,
+    };
+    use bevy::prelude::IntoScheduleConfigs;
+    fn clear_iframes(mut q: bevy::prelude::Query<&mut ambition_characters::actor::BodyCombat>) {
+        for mut c in &mut q {
+            c.damage_invuln_timer = 0.0;
+        }
+    }
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(
+        Update,
+        (
+            clear_iframes,
+            ambition_combat::hitbox::apply_hitbox_damage,
+            apply_feature_hit_events,
+        )
+            .chain(),
+    );
+
+    let swing = simple_melee(&SimpleMeleeParams::default());
+    let moveset = ActorMoveset(ambition_entity_catalog::MovesetContract {
+        verbs: std::collections::BTreeMap::from([(ATTACK_VERB.to_string(), swing.id.clone())]),
+        moves: vec![swing.clone()],
+    });
+    let player = app
+        .world_mut()
+        .spawn((
+            MovePlayback::new(swing, 1.0),
+            moveset,
+            ambition_combat::components::BodyMelee::default(),
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                size: ae::Vec2::new(20.0, 40.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ambition_platformer2d_core::movement::MotionModel::default(),
+            ambition_platformer2d_core::CenteredAabb::from_center_size(
+                ae::Vec2::ZERO,
+                ae::Vec2::new(20.0, 40.0),
+            ),
+        ))
+        .id();
+    let enemy = spawn_hostile_actor(&mut app); // HP 5
+    let enemy_center = ae::Vec2::new(50.0, 0.0);
+    app.world_mut()
+        .get_mut::<CenteredAabb>(enemy)
+        .expect("hostile fixture publishes a body box")
+        .center = enemy_center;
+    app.world_mut()
+        .get_mut::<ae::BodyKinematics>(enemy)
+        .expect("hostile fixture publishes body kinematics")
+        .pos = enemy_center;
+
+    let hitbox = ambition_combat::strike::Hitbox {
+        // An ordinary hit, not a gust.
+        strike_sfx: None,
+        owner: player,
+        source: ambition_vfx::HitSide::Player,
+        anchor: ambition_combat::strike::HitboxAnchor::FollowOwner {
+            local_offset: ae::Vec2::new(32.0, 0.0),
+        },
+        half_extent: ae::Vec2::new(20.0, 30.0),
+        shape: None,
+        facing: 1.0,
+        damage: 2,
+        knockback: ambition_combat::strike::HitboxKnockback::FeelScale(0.0),
+        launch_dir: None,
+        frame_down: ae::Vec2::new(0.0, 1.0),
+        reaction: None,
+        guard: Default::default(),
+    };
+    let player_body = app.world().get::<CenteredAabb>(player).unwrap().aabb();
+    let enemy_body = app.world().get::<CenteredAabb>(enemy).unwrap().aabb();
+    assert!(
+        !player_body.strict_intersects(enemy_body),
+        "the regression must not be satisfiable by body-to-body contact"
+    );
+    assert!(
+        hitbox
+            .world_volume(ae::Vec2::ZERO)
+            .intersects_aabb(enemy_body),
+        "the attack volume must reach the separated victim body"
+    );
+    app.world_mut()
+        .spawn((hitbox, ambition_combat::strike::HitboxHits::default()));
+
+    for _ in 0..6 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current,
+        3,
+        "a separated-body strike must land from its attack volume exactly once (5 -> 3)"
+    );
+}
+
+#[test]
+fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
+    // Reproduces the observed "it barks when it's dead". A dying body should present its death
+    // (the Death SFX + burst + debris), not a conversational "ow!". Non-lethal hits still bark.
+    // NOTE: striking an ALREADY-dead corpse was never the culprit here — `resolve_body_hit` has
+    // always dropped hits on a zero-HP body, so that path is silent with or without this
+    // change; the reproducible bark was the death FRAME. Poison: drop the `&& !killed` guard in
+    // `apply_actor_hit` and the lethal case barks again.
+    fn hit_and_count_bubbles(start_hp: i32, damage: i32) -> (usize, bool) {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        // The struck body wears a character whose catalog row has hit lines.
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                r#"(
+                    brain_presets: { "stand_still": StandStill },
+                    action_set_presets: {
+                        "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
+                    },
+                    characters: {
+                        "kernel_guide": (
+                            display_name: "Kernel Guide",
+                            manifest: "sprites/kernel_guide_spritesheet.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "stand_still", default_action_set: "peaceful",
+                            barks: (on_hit: ["ow!", "argh!", "stop!"]),
+                        ),
+                    },
+                )"#,
+            ),
+        ),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.init_resource::<CapturedBubbles>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
+        let e = spawn_hostile_actor(&mut app);
+        app.world_mut()
+            .entity_mut(e)
+            .insert(ambition_characters::actor::WornCharacter::new("kernel_guide",
+            ));
+        app.world_mut()
+            .get_mut::<BodyHealth>(e)
+            .unwrap()
+            .health
+            .current = start_hp;
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+        (
+            app.world().resource::<CapturedBubbles>().0,
+            app.world().get::<BodyHealth>(e).unwrap().alive(),
+        )
+    }
+    // Non-lethal (control): the enemy survives and barks a hit line.
+    let (bubbles, alive) = hit_and_count_bubbles(5, 2);
+    assert!(alive, "a 2-damage hit leaves the 5-HP enemy alive");
+    assert_eq!(bubbles, 1, "a surviving struck enemy barks a hit line");
+    // Lethal: the enemy dies WITHOUT speaking a hit line.
+    let (bubbles, alive) = hit_and_count_bubbles(2, 5);
+    assert!(!alive, "a 5-damage hit kills the 2-HP enemy");
+    assert_eq!(
+        bubbles, 0,
+        "a dying enemy does not speak a hit line — it presents its death instead"
+    );
+}
+
+#[test]
+fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
+    use bevy::ecs::message::Messages;
+
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+    install_hit_reaction_consumers(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    spawn_talkable_npc(&mut app, 1);
+    app.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 1,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+    });
+    app.update();
+
+    let messages = app
+        .world()
+        .resource::<Messages<ambition_sfx::OwnedSfxMessage>>();
+    let mut cursor = messages.get_cursor();
+    let plays = cursor
+        .read(messages)
+        .filter(|message| matches!(message.request, ambition_sfx::SfxMessage::Play { .. }))
+        .count();
+    assert_eq!(plays, 1, "the peaceful victim emits exactly one hit sound");
+}
+
+/// A body that left the world does not come back where it fell.
+///
+/// `RespawnPolicy::InPlace` respawns a body AT ITS CURRENT POSITION. That
+/// position is the whole precondition of the policy, and leaving the world is
+/// exactly what destroys it: the body is outside the room, so an in-place
+/// respawn puts it straight back where the blast gate is waiting. It dies again
+/// on the next tick, respawns again, and the room acquires a body whose entire
+/// behaviour is dying — each death arming a hitstop, which is a global clock
+/// beat, so the cost is paid by every other body in the room.
+///
+/// The `sandbag_finite` archetype is the one that authors `InPlace(0.85)`, so
+/// it is the subject: the ONE archetype for which "gone" and "authored policy"
+/// actually disagree.
+#[test]
+fn leaving_the_world_outranks_an_authored_in_place_respawn() {
+    use super::actor_hit::{KillDisposition, kill_disposition};
+    use ambition_entity_catalog::placements::RespawnPolicy;
+
+    // the policy is STATED here rather than resolved from a fixture archetype row (deleted,
+    // AC6). The claim under test belongs to `kill_disposition`: given a body that respawns in
+    // place, does leaving the world outrank it.
+    let sandbag = RespawnPolicy::InPlace(0.85);
+
+    assert_eq!(
+        kill_disposition(&HitSource::Melee, sandbag),
+        KillDisposition::RespawnInPlace(0.85),
+        "an ordinary kill still honours the authored respawn policy"
+    );
+    assert_eq!(
+        kill_disposition(&HitSource::LeftTheWorld, sandbag),
+        KillDisposition::GoneFromTheWorld,
+        "the blast zone outranks the policy: there is no 'in place' out there"
+    );
+
+    // And a body that stays dead is defeated rather than gone, so the
+    // exploration economy still pays out for an ordinary kill.
+    assert_eq!(
+        kill_disposition(&HitSource::Melee, RespawnPolicy::DeadStaysDead),
+        KillDisposition::Defeated
+    );
+    assert_eq!(
+        kill_disposition(&HitSource::LeftTheWorld, RespawnPolicy::DeadStaysDead),
+        KillDisposition::GoneFromTheWorld,
+        "gone is gone whatever the policy says — no coin dropped into the void"
+    );
+}
+
+/// A projectile hit does not flash its thrower.
+#[test]
+fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
+    fn thrower_flash_after(source: HitSource) -> f32 {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        app.insert_resource(ambition_persistence::settings::UserSettings::default());
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+
+        let victim = spawn_hostile_actor(&mut app);
+        // The thrower: a player body the attacker query can find.
+        let thrower = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+                ambition_characters::actor::BodyCombat::default(),
+            ))
+            .id();
+
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source,
+            attacker: Some(thrower),
+            room: None,
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
+        });
+        app.update();
+
+        app.world()
+            .get::<ambition_characters::actor::BodyCombat>(thrower)
+            .expect("the thrower keeps its combat state")
+            .hit_flash
+    }
+
+    assert_eq!(
+        thrower_flash_after(HitSource::Projectile),
+        0.0,
+        "her fireball landed across the room and SHE flashed — the attacker \
+         flash is contact feel and a shot is not contact"
+    );
+    assert!(
+        thrower_flash_after(HitSource::Melee) > 0.0,
+        "a SLASH must still flash the attacker: this half is what stops the \
+         projectile assertion from passing against a `hit_flash` that was simply \
+         deleted"
+    );
+}
+
+/// That encoding lives in another crate, by omission, and it does not survive every body being able
+/// to swing under one shared melee cause.
+///
+/// So the boss is adjudicated by the same `damage_lands_between` every other
+/// victim already is. This pins the three answers that differ.
+#[test]
+fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
+    use ambition_characters::actor::ActorFaction;
+    use ambition_characters::control::DrivingParticipant;
+    use ambition_combat::targeting::FriendlyFire;
+
+    let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
+    let ff = FriendlyFire::default();
+    let side = |faction: &'static ActorFaction, driver: Option<&'static DrivingParticipant>| {
+        Some((faction, driver, None))
+    };
+
+    assert!(
+        super::boss_damage_allowed(
+            side(&ActorFaction::Player, None),
+            side(&ActorFaction::Boss, None),
+            ff,
+            boss_entity,
+        ),
+        "the shipped case must keep working: a player's hit reaches the boss"
+    );
+    assert!(
+        !super::boss_damage_allowed(
+            side(&ActorFaction::Boss, None),
+            side(&ActorFaction::Boss, None),
+            ff,
+            boss_entity,
+        ),
+        "an ally may not damage a boss just because its volume arrived"
+    );
+    // Allegiance is EFFECTIVE: a POSSESSED boss fights as its driver's side, so
+    // another boss-faction body is now a legal victim of it. A policy reading the
+    // authored faction would have it defending the team it was taken from.
+    assert!(
+        super::boss_damage_allowed(
+            side(
+                &ActorFaction::Boss,
+                Some(&DrivingParticipant(
+                    ambition_characters::control::PlayerSlot(0)
+                ))
+            ),
+            side(&ActorFaction::Boss, None),
+            ff,
+            boss_entity,
+        ),
+        "a possessed attacker fights as its driver's side"
+    );
+    // An unattributed broadcast still lands — hazards and scripted blasts carry
+    // no entity and cannot be adjudicated.
+    assert!(
+        super::boss_damage_allowed(None, side(&ActorFaction::Boss, None), ff, boss_entity),
+        "a hit with no attacker cannot be adjudicated, so it is not refused"
+    );
+}
+
+/// ⭐⭐ BARKS ARE RARE, NOT GONE — and the rate is what makes them unpredictable.
+///
+/// Jon, 2026-08-24: *"not have barks happen every time a character is hit. Make
+/// it a more rare event. Not never, but I'd like it to happen less often."*
+///
+/// ⛔ ALL FOUR CLAUSES ARE ASSERTED, because three of them are the ways this
+/// goes quietly wrong: a rate that silences everything, one that silences
+/// nothing, one that is not actually random, and one that makes every fighter
+/// struck on the same tick speak together.
+mod bark_rate {
+    use super::super::bark_is_allowed;
+    use ambition_combat::rules::ResolvedCombatTuning;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    /// A victim named the way the simulation names one. ⛔ NOT an `Entity`: the
+    /// draw is salted by SIMULATION IDENTITY, because an entity index is
+    /// allocator history and two peers do not agree on it.
+    fn victim_named(name: &str) -> SimId {
+        SimId::placement(name)
+    }
+
+    fn rules(chance: f32) -> ResolvedCombatTuning {
+        ResolvedCombatTuning {
+            bark_chance: chance,
+            ..Default::default()
+        }
+    }
+
+    fn spoke(chance: f32, ticks: u64, victim: &SimId) -> usize {
+        (0..ticks)
+            .filter(|t| {
+                bark_is_allowed(
+                    Some(&rules(chance)),
+                    Some(&ambition_time::SimTick(*t)),
+                    None,
+                    Some(victim),
+                )
+            })
+            .count()
+    }
+
+    /// A world that declares no rate barks on every hit — what every body did
+    /// before the knob existed.
+    #[test]
+    fn an_undeclared_world_still_barks_on_every_hit() {
+        let victim = victim_named("fighter_seven");
+        assert_eq!(spoke(1.0, 200, &victim), 200);
+        assert!(
+            bark_is_allowed(None, None, None, Some(&victim)),
+            "a composition with no combat rules at all went silent"
+        );
+    }
+
+    /// ⛔ AND "RARE" IS NOT "NEVER". Jon said so in the same sentence.
+    #[test]
+    fn a_low_rate_speaks_sometimes_and_is_mostly_quiet() {
+        let victim = victim_named("fighter_seven");
+        let spoke_at_a_fifth = spoke(0.2, 400, &victim);
+        assert!(
+            spoke_at_a_fifth > 0,
+            "a 0.2 rate never spoke in 400 hits, which is the 'never' Jon ruled out"
+        );
+        assert!(
+            spoke_at_a_fifth < 200,
+            "a 0.2 rate spoke {spoke_at_a_fifth} times in 400 hits — that is not rarer"
+        );
+        // Zero is still authorable, and it is the only value that means silence.
+        assert_eq!(spoke(0.0, 100, &victim), 0);
+    }
+
+    /// ⭐⭐ TWO FIGHTERS STRUCK ON THE SAME TICK DECIDE INDEPENDENTLY.
+    ///
+    /// ⛔ THE DEFECT THIS PINS: one salt for the whole draw would make every
+    /// body hit on a tick answer identically — so a multi-hit that caught two
+    /// fighters would have them CHORUS, which is louder than the thing being
+    /// fixed. The victim is the salt.
+    #[test]
+    fn two_victims_on_one_tick_do_not_chorus() {
+        let a = victim_named("fighter_seven");
+        let b = victim_named("fighter_nine");
+        let disagreements = (0..400u64)
+            .filter(|t| {
+                let tick = ambition_time::SimTick(*t);
+                bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&a))
+                    != bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&b))
+            })
+            .count();
+        assert!(
+            disagreements > 40,
+            "two victims disagreed on only {disagreements} of 400 ticks — they \
+             are sharing one draw and will speak in unison"
+        );
+    }
+
+    /// ⛔⛔ AND IT DOES NOT DEPEND ON ENTITY ALLOCATION. The salt was
+    /// `victim.to_bits()` until 2026-08-25 — allocator history, which two peers
+    /// that spawned the same cast in a different order do not agree on. Rollback
+    /// hides it (a rewind reuses the same ids), so only a peer-vs-peer test can
+    /// see it; this arm is that test's cheap local form.
+    ///
+    /// ⭐ THE PREMISE IS THE POINT: the two draws below share a NAME and nothing
+    /// else. If identity ever leaks back into the salt, they diverge.
+    #[test]
+    fn one_fighter_draws_the_same_however_its_entity_was_allocated() {
+        // The same fighter, as two independently constructed identities — which
+        // is what the same fighter looks like on two machines.
+        let here = victim_named("fighter_seven");
+        let there = victim_named("fighter_seven");
+        let other = victim_named("fighter_nine");
+
+        let mut agreed = 0;
+        let mut differed_from_other = 0;
+        for t in 0..400u64 {
+            let tick = ambition_time::SimTick(t);
+            let a = bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&here));
+            let b = bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&there));
+            let c = bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&other));
+            if a == b {
+                agreed += 1;
+            }
+            if a != c {
+                differed_from_other += 1;
+            }
+        }
+        assert_eq!(
+            agreed,
+            400,
+            "two peers holding the SAME fighter disagreed on {} of 400 ticks —              something allocator-derived is back in the salt",
+            400 - agreed
+        );
+        // ⛔ NON-VACUITY: if the salt stopped mattering entirely, every body
+        // would agree and the arm above would pass while saying nothing.
+        assert!(
+            differed_from_other > 40,
+            "a DIFFERENT fighter drew the same answer on all but {differed_from_other}              of 400 ticks, so the name is not reaching the draw at all"
+        );
+    }
+
+    /// ⛔ AND IT IS REPRODUCIBLE, because it is read inside the rollback window:
+    /// a resimulated hit that answered differently would flicker the bubble on
+    /// every rewind.
+    #[test]
+    fn the_same_hit_answers_the_same_way_twice() {
+        let victim = victim_named("fighter_seven");
+        let tick = ambition_time::SimTick(123);
+        let first = bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, Some(&victim));
+        for _ in 0..8 {
+            assert_eq!(
+                bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, Some(&victim)),
+                first,
+                "the same hit answered differently on a re-ask, so a rewind \
+                 changes what the fighter said"
+            );
+        }
+    }
+}
+
+/// ⛔⛔ THE HOSTILE TURN MUST OBEY THE BODY'S OWN THRESHOLD, NOT A GLOBAL DEFAULT.
+///
+/// `ActorAggression::RetaliatesWhenHit { strike_threshold }` is per-body policy
+/// and canonical aggression resolution reads it. The damage road compared against
+/// `NPC_HOSTILE_STRIKE_THRESHOLD` instead — a spawn DEFAULT — before writing the
+/// persistent hostile flag, the hostile bark and the banner.
+///
+/// ⚠ AND THE TWO AGREED BY COINCIDENCE, which is exactly why no test caught it:
+/// ordinary NPC spawn policy sets the field FROM that constant, and every fixture
+/// here did the same, so both sides computed 3 and matched. ⇒ A test whose
+/// fixture supplies both halves of an equality cannot discover that they are two
+/// different facts. These use 5 and 1 — values no default produces — so the
+/// assertion can only pass by reading the field.
+#[test]
+fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
+    fn hostile_flags_after(strikes: usize, strike_threshold: u8) -> usize {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.init_resource::<CapturedHostileTurns>();
+        app.add_systems(
+            Update,
+            (apply_feature_hit_events, capture_hostile_turns).chain(),
+        );
+
+        let body = spawn_talkable_npc_with_threshold(&mut app, 9, strike_threshold);
+        let definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "alice", "Alice", "test",
+        );
+        let mut character = ambition_characters::prepared::prepare_and_finalize_for_test(
+            definition, &ambition_characters::prepared::CharacterBindings::default(),
+        ).prepared;
+        character.provoked_profile = Some(ambition_characters::brain::BrainProfile {
+            template: ambition_characters::brain::CharacterBrainTemplate::MeleeBrute,
+            ..Default::default()
+        });
+        character.provoked_profile_id = Some(ambition_entity_catalog::BrainProfileId::new("test::angry"));
+        let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
+        cast.insert_prepared(character);
+        app.insert_resource(cast);
+        app.world_mut().entity_mut(body).insert(ambition_characters::actor::WornCharacter::new("alice"));
+
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        for _ in 0..strikes {
+            // ⛔ I-FRAMES, AND THEY COST ME THE FIRST RUN. `apply_actor_hit`
+            // returns early on `!combat.vulnerable()`, and this loop never
+            // advances a clock — so five `HitEvent`s produced ONE strike and the
+            // test read "never turns hostile" as a threshold result. ⇒ Decay the
+            // reaction timers between blows, which is what a real tick does.
+            {
+                let mut combat = app
+                    .world_mut()
+                    .get_mut::<ambition_characters::actor::BodyCombat>(body)
+                    .expect("the fixture body carries combat reaction state");
+                combat.decay_reaction_timers(10.0);
+            }
+            app.world_mut().write_message(HitEvent {
+                pieces: Vec::new(),
+                strike_sfx: None,
+                volume: event_volume.into(),
+                damage: 3,
+                source: HitSource::Melee,
+                attacker: None,
+                room: None,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+                            attacker_move_instance: None,
+            });
+            app.update();
+        }
+        let _ = body;
+        app.world().resource::<CapturedHostileTurns>().0
+    }
+
+    // ⛔ THE HIGH POISON. Three hits against a threshold of five: the default says
+    // hostile, the body says not yet. Before the fix this wrote the flag.
+    assert_eq!(
+        hostile_flags_after(3, 5),
+        0,
+        "an NPC authored to retaliate on the FIFTH strike must not be flagged \
+         hostile on the third — that is the spawn default answering for a body \
+         that declined it"
+    );
+    // ...and it does turn at five, so the arm is reachable at all.
+    assert!(
+        hostile_flags_after(5, 5) > 0,
+        "the same body must turn hostile once its OWN threshold is crossed, or \
+         this test proves only that nothing ever fires"
+    );
+    // ⛔ THE LOW POISON, the inverse error: mechanics turn hostile on hit one
+    // while presentation waits for three.
+    assert!(
+        hostile_flags_after(1, 1) > 0,
+        "an NPC authored to retaliate on the FIRST strike must be flagged hostile \
+         on the first — the default made it wait two more hits"
+    );
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct CapturedBubbleTexts(Vec<String>);
+
+fn capture_bubble_texts(
+    mut reader: bevy::prelude::MessageReader<VfxInRoom>,
+    mut cap: bevy::prelude::ResMut<CapturedBubbleTexts>,
+) {
+    for m in reader.read().map(|m| &m.vfx) {
+        if let VfxMessage::SpeechBubble { text, .. } = m {
+            cap.0.push(text.clone());
+        }
+    }
+}
+
+/// ⛔ A STRUCK BODY BARKS AS THE CHARACTER IT IS WEARING, NOT THE ONE IT WAS
+/// SPAWNED AS. The bark once chose its lines by a sprite id the seed filled
+/// once and nothing updated, while `WornCharacter` is the identity a runtime
+/// re-wear changes (a transformation, a power-up form).
+#[test]
+fn a_struck_body_barks_as_the_character_it_is_wearing() {
+    const TWO_FORMS: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "old_form": (
+                display_name: "Old", manifest: "o_spritesheet.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+                barks: ( on_hit: ["the old form's line"] ),
+            ),
+            "new_form": (
+                display_name: "New", manifest: "n_spritesheet.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+                barks: ( on_hit: ["the new form's line"] ),
+            ),
+        },
+    )"#;
+    fn bark_after_one_hit(worn: &str) -> Vec<String> {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+                ambition_characters::actor::character_catalog::parse_catalog(TWO_FORMS),
+            ),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.init_resource::<CapturedBubbleTexts>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubble_texts).chain(),
+        );
+        let e = spawn_hostile_actor(&mut app);
+        app.world_mut()
+            .entity_mut(e)
+            .insert(ambition_characters::actor::WornCharacter::new(worn));
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        app.world().resource::<CapturedBubbleTexts>().0.clone()
+    }
+    // Control: the form it was spawned as speaks its own line.
+    assert_eq!(bark_after_one_hit("old_form"), vec!["the old form's line".to_string()]);
+    assert_eq!(
+        bark_after_one_hit("new_form"),
+        vec!["the new form's line".to_string()],
+        "a body that re-wore itself as `new_form` spoke the line of the form it \
+         was spawned as"
+    );
+}
+
+/// A struck boss speaks the `on_hit` barks of the character row its
+/// encounter names as `voice`, through the real hit road; the same boss with
+/// no voice is silent. GNU-ton's encounter names `npc_gnu_ton_boss`, whose
+/// first hit line is "Counterfeit.".
+#[test]
+fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Said(Vec<String>);
+    fn capture_lines(mut reader: bevy::prelude::MessageReader<VfxInRoom>, mut said: bevy::prelude::ResMut<Said>,
+    ) {
+        for message in reader.read() {
+            if let VfxMessage::SpeechBubble { text, .. } = &message.vfx {
+                said.0.push(text.clone());
+            }
+        }
+    }
+    fn strike_gnu_ton(voiced: bool) -> Vec<String> {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(include_str!(
+                "../../../../../game/ambition_content/assets/data/character_catalog.ron"
+            )),
+        ),
+        );
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.init_resource::<Said>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_lines).chain());
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 60.0));
+        let mut boss = ambition_boss_encounter::BossClusterScratch::new(
+            ambition_boss_encounter::test_boss_catalog(),
+            "gnu_ton",
+            "GNU-ton",
+            aabb,
+            ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                script_id: "gnu_ton_rider".to_string(),
+            },
+        );
+        if !voiced {
+            boss.config.seed.encounter.voice = None;
+        }
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("gnu_ton"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            ambition_combat::components::DamageableVolumes::single(aabb),
+            ambition_characters::actor::BodyCombat::default(),
+            boss.into_components(),
+        ));
+        app.world_mut().write_message(HitEvent {
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: aabb.into(),
+            damage: 1,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        app.world().resource::<Said>().0.clone()
+    }
+    assert_eq!(strike_gnu_ton(true), vec!["Counterfeit.".to_string()], "the voiced boss's first hit line");
+    assert_eq!(strike_gnu_ton(false), Vec::<String>::new(), "a boss with no voice is silent");
+}

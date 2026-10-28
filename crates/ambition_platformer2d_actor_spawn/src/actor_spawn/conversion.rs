@@ -58,7 +58,7 @@ pub fn enemy_component_snapshot(
 }
 
 // ⭐⭐ BOTH OF THESE CAME DOWN 2026-09-06, and the pair had to travel together.
-// `provoked_projection` is consumed here and in `features::ecs::autonomous_reconcile`;
+// `provoked_projection` is consumed here and in `body::autonomous_reconcile`;
 // moving it alone would have RELOCATED its edge rather than removed it, because it
 // calls `config_brain_for` — which turned out to be a twelve-line pure leaf with no
 // intra-crate reference of its own, filed in `features::brain_command` beside its

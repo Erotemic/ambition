@@ -4,7 +4,7 @@
 //! DIALOGUE rather than about interaction: who is speaking, who is being spoken
 //! to, whether the pair has anything to say, and which seat owns the box.
 //!
-//! this lived in `features/ecs/interact.rs`, and that placement was the
+//! this lived in `body/interact.rs`, and that placement was the
 //! last thing pinning `ambition_dialog` into `features`. The decomposition
 //! plan's step 5 is *put integration above the domains it joins*: pressing
 //! Interact is an INTERACTION fact (a body, a reach box, a buffered press) and

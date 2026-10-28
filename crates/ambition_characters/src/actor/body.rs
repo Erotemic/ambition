@@ -618,7 +618,7 @@ pub struct BodyAnimFacts {
 ///
 /// ⭐⭐ **IT LIVES WITH THE COMPONENT IT TICKS, AND THAT MOVE IS A4's LAST NAMED
 /// TASK (2026-09-12).** This was
-/// `ambition_platformer2d_actor_monolith::movement_fx`, which meant the
+/// `ambition_platformer2d_actor_monolith::body::movement_fx`, which meant the
 /// monolith's `control/input_systems.rs` reached across into `crate::features`
 /// for a function that touches **nothing but [`BodyAnimFacts`] fields and one
 /// local constant**. Two callers, one import edge, and no reason for either.

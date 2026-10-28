@@ -28,7 +28,7 @@ use ambition_app::rl_sim::{
     Platformer2dSimHarnessOptions, TimestepMode,
 };
 use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
-use ambition_platformer2d::actors::dormancy::Dormant;
+use ambition_platformer2d::actors::body::dormancy::Dormant;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::combat::ActorTarget;

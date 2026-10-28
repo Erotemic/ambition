@@ -991,6 +991,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_registry_core",
+ "ambition_time",
  "bevy_app",
  "bevy_ecs",
  "bevy_log",

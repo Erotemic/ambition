@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use ambition_demo_mary_o::cosmic::COSMIC_CHARACTER_ID;
 use ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID;
-use ambition_platformer2d::actors::transform_beat::TransformBeat;
+use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::input::ControlFrame;

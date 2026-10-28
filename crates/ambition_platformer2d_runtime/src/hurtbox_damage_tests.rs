@@ -24,7 +24,7 @@ use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-use ambition_platformer2d_actor_monolith::refresh_body_damageable_volumes;
+use ambition_platformer2d_actor_monolith::body::refresh_body_damageable_volumes;
 use ambition_combat::hurtbox_resolution::{AuthoredHurtboxes, ResolvedHurtboxes};
 use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
 

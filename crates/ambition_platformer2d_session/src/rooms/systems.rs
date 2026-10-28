@@ -128,7 +128,7 @@ pub fn detect_room_transition_system(
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
-    talkable: ambition_platformer2d_actor_monolith::TalkableBodies,
+    talkable: ambition_platformer2d_actor_monolith::body::TalkableBodies,
     // A room whose game plays passages: a door or a gate starts one, and the
     // passage records the crossing when its going-in ends (`passage`).
     passage_rules: ambition_combat::governing_rules::RulesOf<super::passage::ZonePassageRules>,
@@ -371,7 +371,7 @@ pub fn detect_room_transition_system(
         // resume, a replay admission or a death respawn got there first this tick,
         // the press is gone, and the crossing is never asked again. The other three
         // callers of a buffered interact (`chests.rs`, and the NPC and switch loops
-        // in `features/ecs/interact.rs`) already consume only after their operation
+        // in `body/interact.rs`) already consume only after their operation
         // has committed; this was the one outlier.
         let admission = pending_lifecycle.record(
             // an eager host has no frames to be ahead of. `0` is not a

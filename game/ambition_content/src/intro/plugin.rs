@@ -57,7 +57,7 @@ impl Plugin for IntroPlugin {
         // present, so an extra run writes nothing.
         //
         // After `GameplayEffects`, where `apply_flag_effects` runs
-        // (`ambition_platformer2d_actor_monolith/src/features/mod.rs`), because the
+        // (`ambition_platformer2d_actor_monolith/src/body/mod.rs`), because the
         // behaviour is next-tick: a target flows through the ordinary flag-effect
         // path on the following tick, with its quest notification. Ordering it
         // before would collapse a chain into one tick and change when notifications

@@ -636,9 +636,8 @@ where
 /// The resource twin of [`census_entity_set`]. A resource has no carrier entity
 /// to pair against, so the ORDER of the projected handles is the pairing: the
 /// index is folded in with each identity, which is what distinguishes
-/// `PossessionState { possessed: A, home: B }` from the same pair swapped — a
-/// restore that exchanged the possessed body and the home avatar would otherwise
-/// fold identically while inverting the whole possession.
+/// a possession target and its home from the same pair swapped. A restore
+/// that exchanges the two bodies must produce a different census.
 pub fn census_resource_entity_set<T>(
     world: &mut World,
     referenced: fn(&T) -> Vec<Entity>,

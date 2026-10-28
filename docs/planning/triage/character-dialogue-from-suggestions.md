@@ -13,7 +13,7 @@ through *interact*:
 | interact conversation | the Yarn node named by the LDtk `dialogue_id` | the `generic_npc` placeholder |
 
 `npc_dialogue_request`
-(`crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs`) reads only
+(`crates/ambition_platformer2d_actor_monolith/src/body/npcs.rs`) reads only
 the LDtk `dialogue_id`, treats a blank value as absent, and falls through to
 `generic_npc`. That placeholder is correct current behaviour, not a bug.
 
@@ -57,7 +57,7 @@ Shape, if built:
 ```bash
 grep -c "hall_dialogue_id: None" game/ambition_content/assets/data/character_catalog.ron
 grep -c "fallback_dialogue" game/ambition_content/assets/data/character_catalog.ron
-rg -n "generic_npc" crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs
+rg -n "generic_npc" crates/ambition_platformer2d_actor_monolith/src/body/npcs.rs
 ```
 
 ## Owner

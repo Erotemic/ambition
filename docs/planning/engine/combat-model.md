@@ -100,7 +100,7 @@ stop, not the world's. A touch in the form is a `HitSource::Contact` hit
 excludes, so these hits never stopped the world; the stops of a flight
 through a line of enemies (Jon, 2026-10-11: "considerably less hit stun")
 were the attacker's own `BodyCombat::hitstop_timer`, set for every hit she
-lands (`features/ecs/damage/mod.rs`, the attacker's hitlag). Measured in
+lands (`body/damage/mod.rs`, the attacker's hitlag). Measured in
 the shipped demo (`mary_o_it the_form_is_its_wearers
 a_hit_in_the_form_stops_her_less_and_not_the_world`): with the clamp her
 stop is at most 0.02 s and the world never freezes; without it her stop is

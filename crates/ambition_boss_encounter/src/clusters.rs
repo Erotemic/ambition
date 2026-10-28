@@ -305,9 +305,7 @@ impl<'a> BossMut<'a> {
     // respawn is a discrete transit (ADR 0024) and needs the unified
     // actor-cluster view and MotionModel, which this view does not carry.
 
-    // Boss body integration is on the shared movement seam:
-    // `integrate_boss_bodies` → `ActorMut::update` → the flight limb in
-    // direct-velocity mode. A boss is an aerial actor.
+    // The common body phase integrates this body's authored motion model.
 }
 
 #[derive(QueryData)]

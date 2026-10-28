@@ -429,10 +429,9 @@ Idle box (`SpriteAuthored`), else the sheet's `body_metrics` scaled by
    `Changed<WornCharacter>`.
 5. A re-wear never writes `AbilityBase`, so the new form's abilities do not
    arrive.
-6. `PrimaryPlayer`, `PossessionState.home`, `ControlClaims` and
-   `DrivingParticipant` each say who drives which body, and possession is
-   wired to seat 0 only (`control/possession.rs`). There is no general control
-   transfer.
+6. Keep worn form, home identity, driving authority, and custody separate.
+   A form change must not replace the participant's driving or custody claims.
+   Possession records and handoffs now apply to each participant seat.
 
 Tests that pin the old behaviour and change with slice 1:
 `a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears`
@@ -2110,7 +2109,7 @@ responsibility to its owner and keep one body, control, and action path.
 
 | # | Item | Next step |
 |---|---|---|
-| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Startup body policy, durable NPC adapters, and rollback declarations now follow their owners. Finish the public body API and remove the old features::ecs topology and foreign forwarding exports. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
+| AP14 | Complete actor-monolith responsibility separation | The module graph is a DAG. Session lifecycle and room-crossing policy now live in `ambition_platformer2d_session`, above the actor kernel. Item integration, character materialization, projectiles, world objects, device input, and global schedules have explicit owners. Startup body policy, durable NPC adapters, and rollback declarations now follow their owners. The public `body` API replaces the old features::ecs tree and root forwarding exports. Global platform advancement and collision-cache retirement now belong to the world owner, between body rescue and the contact snapshot. Trail drawing now consumes plain observation facts in the renderer; its mechanics stay with body/action execution. Runtime now owns fall-rescue integration between mount steering and the world platform step; the empty avatar compatibility modules are deleted. Observation now owns default-view cast initialization. Next audit residual responsibilities and close A4 participant authority and continuity acceptance. Independent possession by two participants now uses one path, including under rollback. Boss bodies now use the common integration phase; the separate scheduled boss movement loop is deleted. Preserve same-tick ordering, rollback, candidate publication, and the number of active systems. Keep accepted control and body execution together. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`
@@ -2660,8 +2659,8 @@ fingerprint; a sheet whose packing alone differs gives the same one.
 
 ### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
 
-**Owner:** `features/brain_command.rs` (`MountedBrainCache`, the source-only
-arm) and the dismounted-rider road (`features/ecs/dismounted_rider.rs`).
+**Owner:** `body/brain_command.rs` (`MountedBrainCache`, the source-only
+arm) and the dismounted-rider road (`body/dismounted_rider.rs`).
 
 **Ruling:** Q76 (2026-10-03): keep mount/rider support and give it an early
 customer (a character riding the dog, or the robot commandeering a shark).

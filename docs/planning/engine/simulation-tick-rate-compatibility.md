@@ -135,7 +135,7 @@ hitstop authority. They can share tests but not a duplicate rate source.
 
 - `crates/ambition_platformer2d_world/src/navigation/envelope.rs`: `EnvelopeProbe::default().dt = 1.0 / 60.0`.
 - `crates/ambition_platformer2d_world/src/navigation/graph.rs`: `NavGraph::build`, `MAX_LEG_STEPS = 360`, `STALL_STEPS = 15`, rollout costs.
-- `crates/ambition_platformer2d_actor_monolith/src/features/ecs/navigation.rs`: `RoomNavigation`, `GraphKey`, and lazy graph construction.
+- `crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs`: `RoomNavigation`, `GraphKey`, and lazy graph construction.
 - `crates/ambition_platformer2d_core/src/navigation.rs` and `crates/ambition_characters/src/brain/state_machine/nav_follower.rs`.
 
 **Problem:** the graph uses the real movement kernel but predicts at a fixed 60 Hz step. A body moving at 30, 40, or 120 Hz does not follow exactly those arcs. The cache key records geometry, body, abilities, size, and motion frame, **not rate**. Step-count limits and stall limits also change their duration when rate changes.

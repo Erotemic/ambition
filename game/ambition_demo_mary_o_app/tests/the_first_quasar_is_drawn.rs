@@ -26,7 +26,7 @@ use bevy::sprite_render::MeshMaterial2d;
 
 use ambition_demo_mary_o::quasar_shader::MaryOQuasarMaterial;
 use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
-use ambition_platformer2d::actors::empowerment::Empowered;
+use ambition_platformer2d::actors::body::empowerment::Empowered;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentedBy;
 use ambition_platformer2d::sprite_sheet::character::rigged::FrameInSprite;

@@ -204,7 +204,6 @@ const WRITES_CONTROL_AFTER_THE_GATE: &[(&str, &str)] = &[
     ("resolve_portal_fire_intent", "spends a press"),
     // It is the body execution that consumes the frame.
     ("integrate_sim_bodies", "integrates"),
-    ("integrate_boss_bodies", "integrates"),
     // It copies a frame that the gate accepted onto a second body. A gate on
     // the second body does not apply to the copy.
     ("steer_mount_from_rider", "derives from the rider's gated frame"),

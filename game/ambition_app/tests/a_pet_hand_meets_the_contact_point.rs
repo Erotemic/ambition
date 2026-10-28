@@ -18,8 +18,8 @@
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_app::Platformer2dSimHarness;
-use ambition_platformer2d::actors::PetBeat;
-use ambition_platformer2d::actors::PetStage;
+use ambition_platformer2d::actors::body::PetBeat;
+use ambition_platformer2d::actors::body::PetStage;
 use ambition_platformer2d::characters::actor::body::{PETTED_CLIPS, PETTING_CLIPS};
 use ambition_platformer2d::characters::actor::{BodyAnimFacts, Landmark, WornCharacter};
 use ambition_platformer2d::combat::body_landmarks::{BodyLandmarks, LandmarkPose};

@@ -20,6 +20,8 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_world::collision::MovingPlatformSet;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
 
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::attack_support::engine_input_from_actor_control;
@@ -237,64 +239,46 @@ pub fn surface_skidding(
     run.abs() >= SKID_MIN_INPUT && v_t.abs() >= SKID_MIN_SPEED && run * v_t < 0.0
 }
 
-/// Advance the world's moving platforms ONCE per frame, ahead of every body
-/// integration (home + actors), so every body rides this frame's platform
-/// positions. Peeled out of the per-entity body loop so it can't multiply.
-///
-/// `InitialBodyPolicy::NoInitialBody` makes zero primary players an ordinary steady state, so in
-/// every match — and in any session that lowers no home avatar — not one moving platform advanced.
-///
-/// the hitstop read was a DUPLICATE AUTHORITY, not a lost feature. The
-/// primary body's hitstop already drives the global clock to zero — hitstop is
-/// the top rung of `emit_player_time_intent_system`'s ladder — so
-/// `WorldTime::sim_dt` carries the freeze that this system was re-deriving from
-/// the same component. Reading the world's own clock is what every body
-/// integrating against these platforms already does.
-///
-/// The platform now freezes on the same frame everything else does.
-///
-/// Every live room's platforms advance, each on its own root: a room that is
-/// live is simulated, whether or not a camera looks at it.
-///
-/// A LIFT waits for a rider, so before it advances it is told whether a body
-/// a participant drives stands on it: grounded, its feet on the lift's top,
-/// in the lift's own live room.
+/// Each live room advances on the simulation clock. A lift responds to a
+/// grounded body in its room and collision plane, regardless of its controller.
 #[allow(clippy::type_complexity)]
 pub fn advance_moving_platforms(
-    world_time: Res<ambition_time::WorldTime>,
-    mut rooms: Query<
-        (
-            Entity,
-            &mut ambition_platformer2d_world::collision::MovingPlatformSet,
-        ),
-        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
-    >,
-    riders: Query<
-        (Entity, &ae::BodyKinematics, &ae::BodyGroundState),
-        bevy::prelude::With<ambition_characters::control::DrivingParticipant>,
-    >,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    time: Res<ambition_time::WorldTime>,
+    mut rooms: Query<(&LiveRoomInstance, &mut MovingPlatformSet), With<RoomInstanceRoot>>,
+    riders: Query<(
+        Entity,
+        &ae::BodyKinematics,
+        &ae::BodyGroundState,
+        Option<&ae::SweepSample>,
+        Option<&ae::DepthPlane>,
+    )>,
+    live: LiveRooms,
 ) {
-    let sim_dt = world_time.sim_dt();
-    for (root, mut platforms) in &mut rooms {
-        // Not through `&mut` when there is nothing to move: a write marks the
-        // set changed, and the shared composed walls are keyed by its change.
+    let dt = time.sim_dt();
+    for (instance, mut platforms) in &mut rooms {
+        // Empty sets must not receive a change tick: composed walls use it.
         if platforms.0.is_empty() {
             continue;
         }
-        let room = live.of(root);
-        for platform in platforms.0.iter_mut() {
+        let room = Some(*instance);
+        for platform in &mut platforms.0 {
             if platform.is_lift() {
-                let ridden = riders.iter().any(|(body, kin, ground)| {
-                    live.of(body) == room
-                        && platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)
+                let ridden = riders.iter().any(|(body, kin, ground, sample, depth)| {
+                    depth.is_none_or(|depth| depth.is_playable())
+                        && live.of(body) == room
+                        && platform.is_supporting_body(
+                            kin.collision_box(sample),
+                            ground.on_ground,
+                            sample.map_or(ae::DEFAULT_GRAVITY_DIR, |sample| sample.down),
+                        )
                 });
                 platform.set_ridden(ridden);
             }
-            platform.update(sim_dt);
+            platform.update(dt);
         }
     }
 }
+
 
 #[cfg(test)]
 mod home_momentum_tests;

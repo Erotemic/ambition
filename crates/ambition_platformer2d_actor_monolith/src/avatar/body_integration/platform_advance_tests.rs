@@ -122,3 +122,46 @@ fn a_stopped_clock_stops_them() {
          and bullet-time reach world geometry"
     );
 }
+
+#[test]
+fn an_ordinary_grounded_body_starts_a_lift() {
+    let mut app = app_with_one_platform(1.0 / 60.0);
+    let lift = MovingPlatformState::lift(
+        "lift",
+        "Lift",
+        ae::Vec2::new(400.0, 800.0),
+        ae::Vec2::new(155.0, 18.0),
+        -100.0,
+        60.0,
+    );
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        MovingPlatformSet(vec![lift]),
+    );
+    for _ in 0..2 {
+        app.update();
+    }
+    let height = |app: &App| {
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<MovingPlatformSet>(app.world())
+            .unwrap().0[0].pos.y
+    };
+    assert_eq!(height(&app), 800.0, "an empty lift waits for a body");
+    app.world_mut().spawn((
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(400.0, 767.0),
+            size: ae::Vec2::new(30.0, 48.0),
+            ..Default::default()
+        },
+        ae::BodyGroundState {
+            on_ground: true,
+            ..Default::default()
+        },
+    ));
+    for _ in 0..2 {
+        app.update();
+    }
+    assert!(
+        height(&app) < 800.0,
+        "a lift must respond to a grounded body without a participant controller"
+    );
+}

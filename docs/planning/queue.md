@@ -1972,7 +1972,7 @@ variants. Also found in that regen:
   moved by +256 and 4 by +3, with their auto-layer tiles. These are editor
   visuals; why the atlas moved is not measured, and the change was not
   committed (Q62: a delta needs a domain-aware reading first).
-10. **Sprite publication (updated 2026-10-28).** In-place writes and reused
+10. **Sprite publication (done 2026-10-28, `58ba17f4a`).** In-place writes and reused
     staging directories could publish mixed files or old companions. The
     [bundle publication contract](engine/sprite-bundle-publication.md) replaces
     the shell cache and staging machinery. It uses clean source snapshots,

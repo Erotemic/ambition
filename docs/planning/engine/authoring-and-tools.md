@@ -48,8 +48,8 @@ build a generic runtime service locator to implement a read-only catalog.
 
 ## A2 - semantic inspection before mutation
 
-The [sprite bundle publication work](sprite-bundle-publication.md) replaces the
-sprite installation and receipt paths with one accepted bundle selection.
+The [sprite publication receipt](sprite-bundle-publication.md) records the
+accepted bundle selection used by generation and inspection.
 
 The [art inspector and character coverage plan](art-inspector-and-character-coverage.md)
 applies this contract to character identity, art families and missing animations.

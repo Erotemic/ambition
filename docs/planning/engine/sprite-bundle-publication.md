@@ -1,44 +1,23 @@
 # Sprite bundle publication
 
-**State:** in progress. Parent: [authoring and tools](authoring-and-tools.md).
+**State:** complete, 2026-10-28. Parent: [authoring and tools](authoring-and-tools.md).
+Implementation: `58ba17f4a`. Integration: `77c367d74`.
 
-## Contract
+Mutable installation and reused staging directories could leave mixed files,
+old companions, and false freshness evidence. Registered products now build from
+source snapshots into immutable bundles. One atomic selection supplies runtime
+loading, embedding, packaging, and inspection. The
+[sprite publication guide](../../tools/sprite-publication.md) defines the workflow.
 
-- The target registry defines available products. A collection selects targets.
-  Discovery does not require generated images. Invalid sources remain visible.
-- A build reads a source snapshot and writes into a clean private directory.
-  Each bundle records its recipe, exact files, hashes, and parent bundles.
-- Sheet, portrait, and part metadata name required pages. The publisher rejects
-  missing pages and invalid sheet metadata. Custom installation hooks do not
-  write runtime files.
-- Accepted bundles stay in `art_publication/bundles/<digest>`. Runtime files,
-  quality tiers, and review files have separate directories.
-- The `published.json` file in the art publication store selects bundles and maps logical
-  paths to immutable files. One file replacement publishes a request. A changed
-  base or failed build keeps the previous selection.
-- Runtime loading, static embedding, packaging, and the inspector read this
-  selection. Old loose images are unmanaged files. They are not runtime input.
-- Native quality rendering and frame conversion retain their different source
-  capabilities. Both publish through the bundle contract.
+Verification built all 466 runtime targets and four shared atlases from source.
+All 470 bundles passed deep freshness checks. The copied package contained all
+9,083 selected runtime files with matching hashes. Quality verification checked
+1,064 products with no defects or missing evidence. Native owner, inspector,
+reload, director-card, and ten assembled-app art checks passed. The app compiled
+with static assets enabled. The broader tooling and documentation checks still
+have unrelated findings; this receipt does not claim those checks pass.
 
-## Queries
-
-`scripts/regen/sprites.sh --plan --json` lists definitions, selected products,
-known paths, and unresolved page membership. `--scope all` includes targets
-outside the runtime collection. `--resolve-layout` builds exact membership
-without changing the published selection. Pixel trimming can require rendering
-before the number of pages is known.
-
-`--check` compares recipes and checks all accepted members. `--deep` bypasses
-digest caches. `--audit` lists unmanaged loose files and historical bundles.
-An imported bundle has unknown source evidence until a real build replaces it.
-
-## Acceptance
-
-- Exercise source changes, missing pages, changed outputs, failed builds,
-  changed publication bases, and derived bundle dependencies.
-- Build representative real targets, including static props, source quality,
-  multipart sheets, and the director card.
-- Generate the runtime collection from source and verify its publication.
-- Verify the sprite owners, the assembled app, reload, packaging, and inspector.
-- Remove the old staging, shell roster, custom installers, and cache checks.
+The renderer's publication-store, artifact, and source-snapshot tests guard
+failed requests, changed bases, required pages, member hashes, source changes,
+and parent dependencies. Do not restore custom runtime installers, reused
+render staging, or raw sprite directory scans as publication evidence.

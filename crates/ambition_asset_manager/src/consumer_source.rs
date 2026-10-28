@@ -19,19 +19,102 @@ use bevy::asset::io::{
 struct LayeredAssetReader {
     authored: FileAssetReader,
     shared: FileAssetReader,
+    art: Option<PublishedReader>,
+    authored_overrides: bool,
+}
+
+// An owned file handle keeps an in-flight read independent of later selections.
+struct PublishedFile(std::fs::File);
+
+impl futures_lite::io::AsyncRead for PublishedFile {
+    fn poll_read(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>, buffer: &mut [u8])
+        -> std::task::Poll<std::io::Result<usize>> {
+        let _ = cx;
+        std::task::Poll::Ready(std::io::Read::read(&mut self.0, buffer))
+    }
+}
+impl futures_lite::io::AsyncSeek for PublishedFile {
+    fn poll_seek(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>, position: std::io::SeekFrom)
+        -> std::task::Poll<std::io::Result<u64>> {
+        let _ = cx;
+        std::task::Poll::Ready(std::io::Seek::seek(&mut self.0, position))
+    }
+}
+impl Reader for PublishedFile {
+    fn seekable(&mut self) -> Result<&mut dyn bevy::asset::io::SeekableReader, bevy::asset::io::ReaderNotSeekableError> {
+        Ok(self)
+    }
+}
+
+struct PublishedReader {
+    root: PathBuf,
+    reader: FileAssetReader,
+    selected: std::sync::Mutex<((std::time::SystemTime, u64), std::sync::Arc<crate::art_publication::Selection>)>,
+}
+
+impl PublishedReader {
+    fn new(root: PathBuf) -> Self {
+        let metadata = std::fs::metadata(root.join("published.json")).unwrap();
+        let stamp = (metadata.modified().unwrap(), metadata.len());
+        let selected = crate::art_publication::Selection::read(&root).unwrap_or_else(|error| panic!("{error}"));
+        Self { reader: FileAssetReader::new(&root), root, selected: std::sync::Mutex::new((stamp, std::sync::Arc::new(selected))) }
+    }
+
+    fn snapshot(&self) -> Result<std::sync::Arc<crate::art_publication::Selection>, AssetReaderError> {
+        let metadata = std::fs::metadata(self.root.join("published.json"))?;
+        let stamp = (metadata.modified()?, metadata.len());
+        let mut held = self.selected.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if held.0 != stamp {
+            let selected = crate::art_publication::Selection::read(&self.root).map_err(std::io::Error::other)?;
+            *held = (stamp, std::sync::Arc::new(selected));
+        }
+        Ok(std::sync::Arc::clone(&held.1))
+    }
 }
 
 impl LayeredAssetReader {
     fn new(authored_root: impl AsRef<Path>, shared_root: impl AsRef<Path>) -> Self {
+        let store = crate::art_publication::store_for_assets(shared_root.as_ref());
+        let art = if store.join("published.json").exists() {
+            Some(PublishedReader::new(store))
+        } else { None };
         Self {
+            authored_overrides: authored_root.as_ref() != shared_root.as_ref(),
             authored: FileAssetReader::new(authored_root),
             shared: FileAssetReader::new(shared_root),
+            art,
         }
     }
 }
 
 impl AssetReader for LayeredAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<dyn Reader + 'a>, AssetReaderError> {
+        if self.authored_overrides {
+            match self.authored.read(path).await {
+                Ok(reader) => return Ok(Box::new(reader)),
+                Err(AssetReaderError::NotFound(_)) => {},
+                Err(error) => return Err(error),
+            }
+        }
+        if let Some(art) = &self.art {
+            if let Some(physical) = path.to_str().and_then(|p| p.strip_prefix(crate::art_publication::ADDRESS_PREFIX)) {
+                if Path::new(physical).components().all(|part| matches!(part, std::path::Component::Normal(_))) {
+                    return art.reader.read(Path::new(physical)).await.map(|reader| Box::new(reader) as Box<dyn Reader>);
+                }
+                return Err(AssetReaderError::NotFound(path.to_path_buf()));
+            }
+            let selected = art.snapshot()?;
+            if selected.manages(path) {
+                return match path.to_str().and_then(|logical| selected.path(logical)) {
+                    Some(physical) => std::fs::File::open(&physical)
+                        .map(|file| Box::new(PublishedFile(file)) as Box<dyn Reader>)
+                        .map_err(|error| if error.kind() == std::io::ErrorKind::NotFound {
+                            AssetReaderError::NotFound(physical)
+                        } else { error.into() }),
+                    None => Err(AssetReaderError::NotFound(path.to_path_buf())),
+                };
+            }
+        }
         match self.authored.read(path).await {
             Ok(reader) => Ok(Box::new(reader)),
             Err(AssetReaderError::NotFound(_)) => match self.shared.read(path).await {
@@ -49,6 +132,13 @@ impl AssetReader for LayeredAssetReader {
         &'a self,
         path: &'a Path,
     ) -> Result<Box<dyn Reader + 'a>, AssetReaderError> {
+        if self.authored_overrides && self.authored.read(path).await.is_ok() {
+            return Ok(Box::new(self.authored.read_meta(path).await?));
+        }
+        let selected = self.art.as_ref().map(PublishedReader::snapshot).transpose()?;
+        if selected.is_some_and(|selected| selected.manages(path)) || path.to_str().is_some_and(|p| p.starts_with(crate::art_publication::ADDRESS_PREFIX)) {
+            return Err(AssetReaderError::NotFound(path.to_path_buf()));
+        }
         match self.authored.read(path).await {
             Ok(_) => Ok(Box::new(self.authored.read_meta(path).await?)),
             Err(AssetReaderError::NotFound(_)) => {
@@ -66,6 +156,22 @@ impl AssetReader for LayeredAssetReader {
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         use futures_lite::StreamExt as _;
+
+        if let Some(art) = &self.art {
+            let selected = art.snapshot()?;
+            if selected.manages(path) {
+                let mut entries: std::collections::BTreeSet<PathBuf> = selected.files.keys().filter_map(|name| {
+                    let rest = Path::new(name).strip_prefix(path).ok()?;
+                    Some(path.join(rest.components().next()?.as_os_str()))
+                }).collect();
+                if self.authored_overrides {
+                    if let Ok(mut authored) = self.authored.read_directory(path).await {
+                        while let Some(entry) = authored.next().await { entries.insert(entry); }
+                    }
+                }
+                return Ok(Box::new(futures_lite::stream::iter(entries.into_iter().collect::<Vec<_>>())));
+            }
+        }
 
         let mut merged: std::collections::BTreeSet<PathBuf> = std::collections::BTreeSet::new();
         let mut found_any = false;
@@ -101,6 +207,16 @@ impl AssetReader for LayeredAssetReader {
     /// [`Self::read`]. An authored file therefore shadows a shared directory of
     /// the same name.
     async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        if self.authored_overrides {
+            if self.authored.is_directory(path).await.unwrap_or(false) { return Ok(true); }
+            if self.authored.read(path).await.is_ok() { return Ok(false); }
+        }
+        if let Some(art) = &self.art {
+            let selected = art.snapshot()?;
+            if selected.manages(path) {
+                return Ok(selected.files.keys().any(|name| Path::new(name).starts_with(path) && Path::new(name) != path));
+            }
+        }
         if self.authored.is_directory(path).await.unwrap_or(false) {
             return Ok(true);
         }
@@ -117,7 +233,7 @@ impl AssetReader for LayeredAssetReader {
 
 /// An asset source that resolves `authored_root` first and `shared_root` second.
 ///
-/// When the two roots are equal, this returns the platform default unchanged.
+/// Equal roots use the platform reader when no publication store exists.
 /// This is required: in a packaged build (Android APK, Steam Deck install,
 /// `BEVY_ASSET_ROOT`) both roots collapse to `"assets"`. The fallback reader
 /// is a `FileAssetReader` that resolves against the CWD and cannot see inside
@@ -132,7 +248,7 @@ pub fn layered_asset_source(
     let shared_root: PathBuf = shared_root.into();
     let authored_display = authored_root.to_string_lossy().into_owned();
     let builder = AssetSourceBuilder::platform_default(&authored_display, None);
-    if authored_root == shared_root {
+    if authored_root == shared_root && !crate::art_publication::store_for_assets(&shared_root).join("published.json").is_file() {
         return builder;
     }
     builder.with_reader(move || {
@@ -163,6 +279,51 @@ mod tests {
         let path = root.join(relative);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn published_files_exclude_unmanaged_copies_and_keep_consumer_overrides() {
+        let (_dir, authored, shared) = roots();
+        write(&shared, "sprites/retired.png", "unmanaged");
+        write(&shared, "sprites/body.png", "old loose pixels");
+        let store = shared.parent().unwrap().join("art_publication");
+        write(&store, "bundles/one/runtime/full/body.png", "accepted pixels");
+        write(&store, "published.json", &serde_json::json!({
+            "schema":crate::art_publication::SCHEMA,"generation":"one","files":{
+                "sprites/body.png":{"path":"bundles/one/runtime/full/body.png","sha256":"fixture","role":"runtime","tier":"full"}}
+        }).to_string());
+        let reader = LayeredAssetReader {
+            authored: FileAssetReader::new(&authored), shared: FileAssetReader::new(&shared),
+            art: Some(PublishedReader::new(store.clone())), authored_overrides: true,
+        };
+        block_on(async {
+            assert!(matches!(reader.read(Path::new("sprites/retired.png")).await, Err(AssetReaderError::NotFound(_))));
+            let mut bytes = Vec::new();
+            reader.read(Path::new("sprites/body.png")).await.unwrap().read_to_end(&mut bytes).await.unwrap();
+            assert_eq!(bytes, b"accepted pixels");
+        });
+        write(&store, "bundles/two/runtime/full/body.png", "new accepted pixels");
+        write(&store, "next.json", &serde_json::json!({
+            "schema":crate::art_publication::SCHEMA,"generation":"two","files":{
+                "sprites/body.png":{"path":"bundles/two/runtime/full/body.png","sha256":"next fixture","role":"runtime","tier":"full"}}
+        }).to_string());
+        std::fs::rename(store.join("next.json"), store.join("published.json")).unwrap();
+        block_on(async {
+            let mut bytes = Vec::new();
+            reader.read(Path::new("sprites/body.png")).await.unwrap().read_to_end(&mut bytes).await.unwrap();
+            assert_eq!(bytes, b"new accepted pixels");
+            bytes.clear();
+            reader.read(Path::new("__art/bundles/one/runtime/full/body.png")).await.unwrap().read_to_end(&mut bytes).await.unwrap();
+            assert_eq!(bytes, b"accepted pixels");
+        });
+        write(&authored, "sprites/body.png", "consumer pixels");
+        write(&authored, "sprites/body.png.meta", "consumer metadata");
+        block_on(async {
+            let mut bytes = Vec::new();
+            reader.read(Path::new("sprites/body.png")).await.unwrap().read_to_end(&mut bytes).await.unwrap();
+            assert_eq!(bytes, b"consumer pixels");
+            assert!(reader.read_meta(Path::new("sprites/body.png")).await.is_ok());
+        });
     }
 
     #[test]

@@ -42,6 +42,11 @@ pub fn describe(pack: &PreparedContentPack, roots: &[PathBuf]) -> Value {
                     Ok(rows) => { sheets.insert(path.to_string_lossy().into_owned(), rows); }
                     Err(error) => failures.push(json!({"path": path, "error": error})),
                 }
+            } else if path.file_name().and_then(|name| name.to_str()).is_some_and(|name|
+                name.ends_with("_portraits.ron") || name.ends_with("_parts.ron") || name.ends_with("_body_rig.ron")) {
+                if let Err(error) = ambition_sprite_sheet::inspection::companion(&path) {
+                    failures.push(json!({"path":path,"error":error}));
+                }
             }
         }
     }

@@ -36,6 +36,10 @@ pub fn load_sheet_image(
     path: impl Into<bevy::asset::AssetPath<'static>>,
 ) -> Handle<Image> {
     let path = path.into();
+    let path = if matches!(path.source(), bevy::asset::io::AssetSourceId::Default) {
+        crate::baked_sheet_rons::current().image_path(&path.path().to_string_lossy())
+            .map(|address| bevy::asset::AssetPath::from(address.to_owned())).unwrap_or(path)
+    } else { path };
     let label = path.to_string();
     let handle = if images_render_world_only() {
         asset_server

@@ -28,22 +28,6 @@ def _with_cores(tmp_path: Path, cores: int) -> dict[str, str]:
     return env
 
 
-def _sprite_jobs(tmp_path: Path, cores: int) -> str:
-    text = (REPO / "scripts/regen/sprites.sh").read_text()
-    block = re.search(r'^if \[ -z "\$\{AMBITION_SPRITE_JOBS:-\}" \]; then\n.*?^fi\n', text, re.S | re.M)
-    assert block, "sprites.sh no longer sets AMBITION_SPRITE_JOBS in one block: find the default again"
-    return subprocess.run(
-        ["bash", "-c", block.group(0) + 'echo "$AMBITION_SPRITE_JOBS"'],
-        env=_with_cores(tmp_path, cores), capture_output=True, text=True, check=True,
-    ).stdout.strip()
-
-
-def test_the_sprite_publish_pool(tmp_path: Path) -> None:
-    assert _sprite_jobs(tmp_path / "big", 32) == str(CAP)
-    # The control: on 4 cores the share (half) is below the cap and stands.
-    assert _sprite_jobs(tmp_path / "small", 4) == "2"
-
-
 def test_the_worktree_budget_of_main(tmp_path: Path) -> None:
     env = _with_cores(tmp_path, 32)
     seen = {

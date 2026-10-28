@@ -19,14 +19,10 @@ silently discards.
 
 ## ⛔ If a test fails in a crate you did not touch, check for missing assets FIRST
 
-The sheet table comes from `assets/sprites` (`ambition_sprite_sheet/src/sprite_tree.rs`
-finds the files): a development build reads it when the game starts, and a
-build with no source tree (`static_content`, wasm, Android) embeds it at
-compile time. An assetless tree has an EMPTY table either way, and fails tests
-that mention neither assets nor your change. Since 2026-10-11 a development
-build sees a publish after a restart, with no crate compiled. **The tell is
-BREADTH** — an empty oracle rejects every name at once, where a real content bug
-names one or two.
+The sheet table comes from the accepted art publication. A development build
+reads its immutable files at runtime. A static build embeds the same selected
+metadata. See [sprite publication](../../docs/tools/sprite-publication.md) for
+planning, generation, exact membership, and unmanaged files.
 
 | symptom | fix |
 |---|---|
@@ -35,9 +31,9 @@ names one or two.
 | `error: couldn't read …/assets/fonts/bundled/InterDisplay-Regular.otf` | `python3 scripts/grab_font_assets.py` |
 | art draws at a stale tier | `./scripts/regen/quality_variants.sh` |
 
-A diagnostic that mutates nothing: `find crates/ambition_platformer2d_actor_monolith/assets/sprites -name '*_spritesheet.ron' | wc -l`.
-Zero means the bake is empty. `./scripts/regen/sprites.sh --check-toolchain`
-says whether this machine can render at all, and exits non-zero when it cannot.
+Read the selected sprite products with `./scripts/regen/sprites.sh --check`.
+Use `--plan --json` to list definitions and `--audit --json` to inspect old loose
+files. `./scripts/regen/sprites.sh --check-toolchain` checks the renderer setup.
 
 ⚠ Do not run a regen concurrently with a `static_content` build or with a
 running test: one writes the files the other is reading.
@@ -89,8 +85,8 @@ python3 scripts/check_quality_variants_are_fresh.py   # says exactly what is sta
 ```
 
 `run_developer_setup.sh` now runs that check at the end and reports rather than
-assuming. ⚠ Regeneration is INCREMENTAL — a sheet is rebuilt only when its
-source or the generator is newer than its output — so re-running is cheap and
+assuming. ⚠ Regeneration is INCREMENTAL — a sprite bundle is rebuilt when its
+recipe or an accepted member has changed — so re-running is cheap and
 `--force` is the escape hatch when a freshness check is what you distrust.
 
 Timings on `calculex` (i7-7700HQ, 6 threads): backgrounds ~3.5s, all 998 sprite

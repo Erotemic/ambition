@@ -6,6 +6,21 @@ use crate::SheetRecord;
 use serde_json::{json, Value};
 use std::path::Path;
 
+/// Validate a published companion with its runtime schema.
+pub fn companion(path: &Path) -> Result<(), String> {
+    let text = std::fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    if name.ends_with("_portraits.ron") {
+        crate::portrait::parse_portrait_manifest(&text).map(drop)
+    } else if name.ends_with("_parts.ron") {
+        crate::character::rigged::RiggedSpriteAsset::from_published_ron(&text)
+            .map(drop).map_err(|error| format!("{error:?}"))
+    } else if name.ends_with("_body_rig.ron") {
+        ambition_characters::actor::BodyRigDefinition::from_published_ron(&text)
+            .and_then(|rig| rig.prepare().map(drop).map_err(|error| format!("{error:?}")))
+    } else { Ok(()) }
+}
+
 /// The product key that selected this loaded sheet.
 pub fn sheet_key(spec: &CharacterSheetSpec) -> &str {
     &spec.record.key

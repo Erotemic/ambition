@@ -56,18 +56,11 @@ dialog is not required. See [`godot-class-2d-capability.md`](godot-class-2d-capa
   error. `target/` is bind-mounted; `df` on the working directory can read the
   wrong filesystem, so read `scripts/setup/target_bindmount.sh --status`. Every
   feature job builds its own graph variant, so carves and wide plans cost disk.
-- **Art preparation was the dominant step of an art edit (B7, measured
-  2026-10-13).** The sprite publish keyed each sheet on every family helper
-  under `targets/`, so one rig edit made all 271 sheets stale; the two
-  republishes after that day's renderer bumps rendered for 3546 s and 4393 s.
-  A sheet's key is now the core plus the files that target imports
-  (`scripts/lib/sprite_target_closure.py`): an edit to the crew's rig moves 30
-  keys, an edit to the crew module moves 11. Of a full publish, half is the
-  cached batches (1904 s) and half is three draw phases with no per-sheet
-  key (1764 s), which re-render on every publish that is not a whole-run
-  cache hit: the next step for an art edit's cost. And a stale sprite set
-  reads as an environment fact in a failed lane row, not as a code failure
-  (queue TEST-LANES item 10).
+- **Art preparation uses accepted bundles.** The
+  [sprite publication contract](sprite-bundle-publication.md) replaces the
+  shell cache and in-place installation. Recipes record source reads and
+  toolchain inputs. Current accepted bundles can be reused. Each request
+  publishes through one atomic selection.
 
 ## Current program areas
 

@@ -995,6 +995,8 @@ pub fn build_visible_app_with(
         app.register_asset_source(bevy::asset::io::AssetSourceId::Default, exe_bundle_asset_source(bundle));
         app.register_asset_source("game", exe_bundle_asset_source(bundle));
     } else {
+        app.register_asset_source(bevy::asset::io::AssetSourceId::Default,
+            ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(asset_root.clone(), asset_root.clone()));
         app.register_asset_source("game", game_asset_source_builder());
     }
     let plugins = ambition_platformer2d::app::default_plugins()

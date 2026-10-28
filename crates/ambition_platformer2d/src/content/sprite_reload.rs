@@ -1,44 +1,12 @@
-//! A RUNNING GAME PLAYS AN EDIT TO ITS SPRITE SHEETS, with no Rust build and
-//! no restart.
+//! Reload sprite metadata and images from an atomic publication selection.
 //!
-//! A build that reads its sprite tree off disk (no `embedded_sprites`) adds
-//! [`SpriteSheetReloadPlugin`]. The plugin looks at each sheet manifest
-//! (`*_spritesheet.ron`), each body rig (`*_body_rig.ron`), each part flipbook
-//! (`*_parts.ron`) and each page image of those sheets and flipbooks. One look at
-//! the published tree (a stat of each of those files) costs 0.2 to 0.4 s in a
-//! debug build (measured 2026-10-16), so a background thread looks when the
-//! operating system reports a change in a sprite folder (`notify`), and a
-//! frame only takes the changes it found. Where no report is possible it
-//! looks once a second.
+//! A publication names immutable files. Sheet generations keep their image
+//! addresses while a new selection is prepared. A change to simulation data
+//! waits for the session boundary. A change to presentation data can apply at
+//! once. Invalid metadata keeps the current generation.
 //!
-//! The rules of the road:
-//!
-//! - A changed page image changes only pixels, so it is loaded again at once
-//!   (`AssetServer::reload`), also inside a session. Bevy loads again only an
-//!   image that is loaded.
-//! - A changed sheet manifest or body rig is read whole and parsed by the
-//!   look that saw it (about a second in a debug build, off the frame). A
-//!   table that changes only where frames are drawn from (pages, rects; a
-//!   repack) is published at once, also inside a session: its new pages are
-//!   loaded at once, so its old rects would cut the new pixels. A table that
-//!   changes records simulation or a cast reads (body sizes, hurtboxes,
-//!   attack volumes, a boss's size, hurt parts, landmarks, portrait names;
-//!   `PreparedSheetTable::changes_mechanics_of`) waits for the end of the
-//!   session, as a restated content schema does. Nothing is published while
-//!   a route prepares a session. A publication is one generation
-//!   (`baked_sheet_rons::publish_prepared_sheet_table`): the `SheetRegistry`
-//!   resource is stated again, each cast made from the sheets is stated again
-//!   where the mechanics changed ([`SheetDerivedRestaters`]), each resident
-//!   character realization is stale (a worn one is made again in place and
-//!   its body binds again; the others are retired), each prop sheet and
-//!   effect sheet made from a changed sheet is made again, and the pages of each changed sheet
-//!   are loaded again.
-//! - A table with a file that does not parse is refused, with each file
-//!   named, and the running table stays.
-//!
-//! Portrait manifests and sprite pack catalogs are on it too. Not on this road
-//! yet: a prop row of the asset catalog (see
-//! `docs/planning/engine/content-generation-and-reload.md`).
+//! Logical image handles, such as prop icons, reload when their selected hashes
+//! change. Sheet handles name immutable bundle members and remain valid.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -125,8 +93,7 @@ struct Found {
     /// (`PreparedSheetTable::changes_mechanics_of`). The digest of the
     /// records is a cost in proportion to the table, so the look finds it.
     changes_mechanics: bool,
-    /// The changed page images.
-    pages: Vec<PathBuf>,
+    logical_images: Vec<String>,
 }
 
 /// The files of one tree, with the time each changed when it was last seen.
@@ -139,34 +106,34 @@ struct Scanner {
     /// Looks taken, the first included.
     looks: u32,
     manifests: Vec<(String, PathBuf, Option<SystemTime>)>,
-    pages: Vec<(PathBuf, Option<SystemTime>)>,
+    images: std::collections::BTreeMap<String, String>,
 }
 
 impl Scanner {
     fn new(owner: PathBuf) -> Self {
-        Self { owner, seen_once: false, looks: 0, manifests: Vec::new(), pages: Vec::new() }
+        Self { owner, seen_once: false, looks: 0, manifests: Vec::new(), images: Default::default() }
     }
 
     fn look(&mut self) -> Found {
         self.looks += 1;
+        let (files, images) = sheet_table::publication_files_under(&self.owner).unwrap_or_else(|_| {
+            (vec![("publication".into(), sheet_table::sprite_dirs_under(&self.owner)[0].join("published.json"))], Default::default())
+        });
+        let now = stamped_manifests(files);
         if !self.seen_once {
             self.seen_once = true;
-            self.manifests = stamped_manifests(&self.owner);
-            self.stamp_pages();
+            self.manifests = now;
+            self.images = images;
             return Found::default();
         }
         let mut found = Found::default();
-        for (page, seen) in &mut self.pages {
-            let now = modified(page);
-            if now != *seen {
-                *seen = now;
-                found.pages.push(page.clone());
-            }
-        }
         // A file can be added or removed, so the list is read again each look.
         // A file is compared by its path too: a second file of one key can
         // come and go while the first stays.
-        let now = stamped_manifests(&self.owner);
+        found.logical_images = images.iter().filter(|(path, hash)| self.images.get(*path) != Some(*hash))
+            .map(|(path, _)| path.clone()).collect();
+        found.logical_images.extend(self.images.keys().filter(|path| !images.contains_key(*path)).cloned());
+        self.images = images;
         found.manifests = now
             .iter()
             .filter(|(key, path, seen)| !self.manifests.iter().any(|(was, at, before)| was == key && at == path && before == seen))
@@ -187,16 +154,7 @@ impl Scanner {
         found
     }
 
-    /// The pages of the manifests `keys`, under the current sheet generation.
-    fn pages_of(&self, keys: &BTreeSet<String>) -> Vec<PathBuf> {
-        pages_of(&self.manifests.iter().filter(|(key, ..)| keys.contains(key)).cloned().collect::<Vec<_>>())
-    }
 
-    /// Read the page list again after a publication: a sheet can name other
-    /// pages now.
-    fn stamp_pages(&mut self) {
-        self.pages = stamped(pages_of(&self.manifests));
-    }
 }
 
 /// The watch over one sprite tree.
@@ -215,7 +173,7 @@ pub struct SpriteSheetWatch {
     candidate_changes_mechanics: bool,
     /// Sheet generations this watch published.
     pub published: u32,
-    /// Page images this watch loaded again.
+    /// Image reload requests sent by this watch.
     pub reloaded_pages: u32,
     /// Why the last changed table was refused, while no later one was
     /// published.
@@ -261,7 +219,7 @@ impl SpriteSheetWatch {
                 };
                 if changed {
                     let look = scanner.lock().unwrap_or_else(PoisonError::into_inner).look();
-                    if !look.manifests.is_empty() || !look.pages.is_empty() {
+                    if !look.manifests.is_empty() || !look.logical_images.is_empty() {
                         found.lock().unwrap_or_else(PoisonError::into_inner).push(look);
                     }
                 }
@@ -284,10 +242,7 @@ impl SpriteSheetWatch {
         self.candidate.is_some()
     }
 
-    /// The asset path of `page`: its path under the tree's `assets/` folder.
-    fn asset_path(&self, page: &Path) -> Option<String> {
-        page.strip_prefix(self.owner.join("assets")).ok().map(|path| path.to_string_lossy().replace('\\', "/"))
-    }
+
 }
 
 /// What the operating system reports about the sprite folders: a file under
@@ -310,7 +265,7 @@ impl ChangeReports {
     #[cfg(not(target_arch = "wasm32"))]
     fn of(owner: &Path) -> Self {
         let (sender, receiver) = std::sync::mpsc::channel();
-        let dirs = sheet_table::sprite_dirs_under(owner).into_iter().chain([sheet_table::pack_catalog_dir_under(owner)]);
+        let dirs = sheet_table::sprite_dirs_under(owner).into_iter();
         let mut reports = Self { reports: None, awaited: dirs.collect(), above: Vec::new() };
         match notify::recommended_watcher(sender) {
             Ok(watcher) => {
@@ -340,7 +295,7 @@ impl ChangeReports {
         let mut awaited = Vec::new();
         for dir in std::mem::take(&mut self.awaited) {
             if dir.is_dir() {
-                watcher.watch(&dir, notify::RecursiveMode::Recursive)?;
+                watcher.watch(&dir, notify::RecursiveMode::NonRecursive)?;
                 came = true;
                 continue;
             }
@@ -404,18 +359,9 @@ impl ChangeReports {
 /// The time a burst of change reports is given to end before the look.
 const SETTLE: Duration = Duration::from_millis(150);
 
-/// A file a sheet generation or a page image is read from.
+/// Only the selected publication can change the runtime asset view.
 fn watched_file(path: &Path) -> bool {
-    use ambition_sprite_sheet::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
-    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-        return false;
-    };
-    name.ends_with("_spritesheet.ron")
-        || name.ends_with(sheet_table::BODY_RIG_SUFFIX)
-        || name.ends_with(PART_FLIPBOOK_SUFFIX)
-        || name.ends_with("_portraits.ron")
-        || name == "ultrapack.json"
-        || name.ends_with(".png")
+    path.file_name().is_some_and(|name| name == "published.json")
 }
 
 fn modified(path: &Path) -> Option<SystemTime> {
@@ -425,87 +371,8 @@ fn modified(path: &Path) -> Option<SystemTime> {
 /// Each sheet manifest, body rig and part flipbook, the files a sheet
 /// generation is read from. A rig or a flipbook is keyed by its file name, so
 /// no such key is a manifest key.
-fn stamped_manifests(owner: &Path) -> Vec<(String, PathBuf, Option<SystemTime>)> {
-    use ambition_sprite_sheet::baked_part_flipbooks::{part_flipbook_files_under, PART_FLIPBOOK_SUFFIX};
-    // Each file, also a second file of one key: the watch sees it come, and
-    // the read refuses the table, and sees it go.
-    let rigs = sheet_table::body_rig_files_under(owner)
-        .files
-        .into_iter()
-        .map(|(target, path)| (format!("{target}{}", sheet_table::BODY_RIG_SUFFIX), path));
-    let flipbooks = part_flipbook_files_under(owner).files.into_iter().map(|(key, path)| (format!("{key}{PART_FLIPBOOK_SUFFIX}"), path));
-    // A portrait is keyed by its path under `assets/` and a catalog by its
-    // tier's: neither is a manifest key.
-    let catalogs = sheet_table::pack_catalog_files_under(owner).into_iter().map(|(tier, path)| (format!("sprite_packs/{tier}/ultrapack.json"), path));
-    sheet_table::sheet_files_under(owner)
-        .files
-        .into_iter()
-        .chain(rigs)
-        .chain(flipbooks)
-        .chain(sheet_table::portrait_files_under(owner))
-        .chain(catalogs)
-        .map(|(key, path)| {
-            let seen = modified(&path);
-            (key, path, seen)
-        })
-        .collect()
-}
-
-fn stamped(paths: Vec<PathBuf>) -> Vec<(PathBuf, Option<SystemTime>)> {
-    paths
-        .into_iter()
-        .map(|path| {
-            let seen = modified(&path);
-            (path, seen)
-        })
-        .collect()
-}
-
-/// Each page image the current sheet generation names for these manifests:
-/// a page file is beside its manifest.
-fn pages_of(manifests: &[(String, PathBuf, Option<SystemTime>)]) -> Vec<PathBuf> {
-    use ambition_sprite_sheet::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
-    // Each folder is listed once: about 160 flipbooks share a few folders.
-    let mut listed: std::collections::HashMap<PathBuf, Vec<PathBuf>> = std::collections::HashMap::new();
-    let registry = sheet_table::current().registry();
-    let mut pages = BTreeSet::new();
-    let portraits = sheet_table::current().portraits();
-    for (key, path, _) in manifests {
-        let Some(dir) = path.parent() else {
-            continue;
-        };
-        if let Some(portrait) = portraits.get(key) {
-            pages.insert(dir.join(&portrait.image));
-            continue;
-        }
-        // A flipbook's atlas pages are beside it, named after it
-        // (`<target>_parts.png`, `<target>_parts_1.png`), and a pack tier's
-        // pages beside its catalog (`ultrapack_<n>.png`).
-        let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
-        let prefix = match name.strip_suffix(PART_FLIPBOOK_SUFFIX) {
-            Some(target) => Some(format!("{target}_parts")),
-            None => (name == "ultrapack.json").then(|| "ultrapack".to_owned()),
-        };
-        if let Some(prefix) = prefix {
-            let files = listed
-                .entry(dir.to_path_buf())
-                .or_insert_with(|| std::fs::read_dir(dir).into_iter().flatten().flatten().map(|entry| entry.path()).collect());
-            let pages_here = files.iter().cloned().filter(|page| {
-                page.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.starts_with(&prefix) && name.ends_with(".png"))
-            });
-            pages.extend(pages_here);
-            continue;
-        }
-        let Some(record) = registry.get(key) else {
-            continue;
-        };
-        for page in 0..record.page_count().max(1) {
-            pages.insert(dir.join(record.page_image(page)));
-        }
-    }
-    pages.into_iter().collect()
+fn stamped_manifests(files: Vec<(String, PathBuf)>) -> Vec<(String, PathBuf, Option<SystemTime>)> {
+    files.into_iter().map(|(key, path)| { let seen = modified(&path); (key, path, seen) }).collect()
 }
 
 fn reload(asset_server: Option<&AssetServer>, paths: Vec<String>) -> u32 {
@@ -526,7 +393,7 @@ fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_serv
     };
     let found = std::mem::take(&mut *watch.found.lock().unwrap_or_else(PoisonError::into_inner));
     for look in found {
-        let paths: Vec<String> = look.pages.iter().filter_map(|page| watch.asset_path(page)).collect();
+        let paths = look.logical_images;
         watch.reloaded_pages += reload(asset_server.as_deref(), paths);
         match look.table {
             None => {}
@@ -589,41 +456,57 @@ fn publish_the_staged_sheets(world: &mut World) {
     // convergence makes a worn one again in place (its body keeps drawing
     // until the new one is ready, then binds again) and retires the others
     // (`converge_character_residency_to_active_quality`).
-    let paths: Vec<String> = {
-        let watch = world.resource::<SpriteSheetWatch>();
-        let mut scanner = watch.scanner.lock().unwrap_or_else(PoisonError::into_inner);
-        let changed = scanner.pages_of(&staged);
-        scanner.stamp_pages();
-        changed.iter().filter_map(|page| watch.asset_path(page)).collect()
-    };
-    let reloaded = reload(world.get_resource::<AssetServer>(), paths);
     let mut watch = world.resource_mut::<SpriteSheetWatch>();
     watch.published += 1;
-    watch.reloaded_pages += reloaded;
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
 
-    /// A quality tier the publisher writes after the watch began is watched
-    /// from when it comes: the folder's coming is reported, and so is a sheet
-    /// written in it. The control: a wait with no change reports none.
     #[test]
-    fn a_tier_written_after_the_watch_began_is_watched() {
+    fn a_loose_image_change_requests_a_reload_without_a_sheet_revision() {
+        let owner = std::env::temp_dir().join(format!("loose_sprite_watch_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&owner);
+        let store = owner.join("art_publication");
+        std::fs::create_dir_all(&store).unwrap();
+        let select = |generation: &str, hash: &str| {
+            let physical = format!("bundles/{generation}/runtime/full/sprites/prop.png");
+            let path = store.join(&physical);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, hash).unwrap();
+            std::fs::write(store.join("next.json"), serde_json::json!({
+                "schema":ambition_asset_manager::art_publication::SCHEMA,"generation":generation,
+                "files":{"sprites/prop.png":{"path":physical,"sha256":hash,"role":"runtime","tier":"full"}}
+            }).to_string()).unwrap();
+            std::fs::rename(store.join("next.json"), store.join("published.json")).unwrap();
+        };
+        select("one", "old");
+        let mut scanner = Scanner::new(owner.clone());
+        assert!(scanner.look().logical_images.is_empty());
+        select("two", "new");
+        let found = scanner.look();
+        assert_eq!(found.logical_images, ["sprites/prop.png"]);
+        assert!(found.table.is_none());
+        let _ = std::fs::remove_dir_all(owner);
+    }
+
+    /// The selection directory can be created after the watch starts.
+    #[test]
+    fn an_atomic_selection_created_after_the_watch_began_is_watched() {
         let owner = std::env::temp_dir().join(format!("sprite_watch_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&owner);
-        let dirs = sheet_table::sprite_dirs_under(&owner);
-        let (main, tier) = (&dirs[0], &dirs[1]);
-        std::fs::create_dir_all(main).unwrap();
+        std::fs::create_dir_all(&owner).unwrap();
+        let store = owner.join("art_publication");
         let mut reports = ChangeReports::of(&owner);
-        assert!(reports.reports.is_some(), "the premise: this system reports changes");
-        assert!(!reports.wait(Duration::from_millis(300)), "the control: nothing changed");
-
-        std::fs::create_dir_all(tier).unwrap();
-        assert!(reports.wait(Duration::from_secs(5)), "the tier came, and no report said so");
-        std::fs::write(tier.join("a_spritesheet.ron"), "()").unwrap();
-        assert!(reports.wait(Duration::from_secs(5)), "a sheet written in the tier that came was not reported");
+        assert!(reports.reports.is_some());
+        assert!(!reports.wait(Duration::from_millis(300)));
+        std::fs::create_dir_all(&store).unwrap();
+        assert!(reports.wait(Duration::from_secs(5)));
+        std::fs::write(store.join("next.json"), "{}").unwrap();
+        std::fs::rename(store.join("next.json"), store.join("published.json")).unwrap();
+        assert!(reports.wait(Duration::from_secs(5)));
         let _ = std::fs::remove_dir_all(&owner);
     }
+
 }

@@ -1,57 +1,25 @@
-//! The published sprite tree: which files the sprite publisher wrote, and the
-//! key each one is read by.
+//! Enumerate files from one accepted sprite publication.
 //!
-//! `build.rs` and the crate use this one file (`build.rs` includes it with
-//! `#[path]`), so a build that embeds the tree and a development build that
-//! reads it at run time find the same files under the same keys. A second
-//! scan would be a second answer to "which sheets are published".
-//!
-//! The tree is under the actor monolith's `assets/`: `sprites/` and its quality
-//! tiers (`sprites_0_5x`, `sprites_0_25x`, `sprites_potato`), each with one
-//! level of subdirectories (a boss publishes into its own), and
-//! `sprite_packs/<tier>/ultrapack.json`.
+//! Build scripts and runtime code use the same selection reader. Logical
+//! paths name assets. Physical paths name immutable bundle members.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// The quality-tier folders beside `sprites/`, and the marker a key carries
 /// for each.
 pub const TIERS: [(&str, &str); 3] = [("sprites_0_5x", "0_5x"), ("sprites_0_25x", "0_25x"), ("sprites_potato", "potato")];
 
-/// The directories a sheet manifest can be in: `assets/sprites` and each tier.
+#[path = "../../ambition_asset_manager/src/art_publication.rs"]
+mod publication;
+pub use publication::Selection;
+
+pub fn selection(owner: &Path) -> Result<Selection, String> {
+    Selection::read(&publication::store_for_assets(&owner.join("assets")))
+}
+
+/// The publication directory contains the atomic selection file.
 pub fn sprite_dirs(owner: &Path) -> Vec<PathBuf> {
-    std::iter::once("sprites".to_owned())
-        .chain(TIERS.iter().map(|(dir, _)| (*dir).to_owned()))
-        .map(|dir| owner.join("assets").join(dir))
-        .collect()
-}
-
-/// `dir` and each directory directly under it.
-fn dir_and_children(dir: &Path) -> Vec<PathBuf> {
-    let mut dirs = vec![dir.to_path_buf()];
-    if let Ok(children) = fs::read_dir(dir) {
-        let mut children: Vec<PathBuf> = children.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()).collect();
-        children.sort();
-        dirs.extend(children);
-    }
-    dirs
-}
-
-/// Every file in `dir` whose name ends with `suffix`, with the name before it.
-fn files_ending(dir: &Path, suffix: &str) -> Vec<(String, PathBuf)> {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return Vec::new();
-    };
-    let mut found: Vec<(String, PathBuf)> = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter_map(|path| {
-            let stem = path.file_name()?.to_str()?.strip_suffix(suffix)?.to_owned();
-            Some((stem, path))
-        })
-        .collect();
-    found.sort();
-    found
+    vec![publication::store_for_assets(&owner.join("assets"))]
 }
 
 /// The key of a sheet whose file root is `root`: the root, and the tier
@@ -123,83 +91,51 @@ fn keyed(mut entries: Vec<(String, PathBuf)>, what: &str) -> KeyedFiles {
 /// Every `*_spritesheet.ron`, keyed by [`sheet_key`], sorted by key. A key
 /// that two files give is refused.
 pub fn sheet_manifests(owner: &Path) -> KeyedFiles {
-    let entries: Vec<(String, PathBuf)> = sprite_dirs(owner)
-        .iter()
-        .flat_map(|dir| dir_and_children(dir))
-        .flat_map(|dir| files_ending(&dir, "_spritesheet.ron"))
-        .map(|(root, path)| (sheet_key(&root, &path), path))
-        .collect();
-    keyed(entries, "sprite sheet")
+    match selection(owner) {
+        Ok(selected) => sheet_manifests_in(&selected),
+        Err(error) => KeyedFiles { files: Vec::new(), refused: vec![("publication".into(), error)] },
+    }
 }
 
-/// Every `<target><suffix>` file of `sprites/` (and, with `tiers`, of each
-/// tier folder), keyed `<target>` or `<target>.<marker>`, sorted by key. A key
-/// that two files give is refused.
+pub fn sheet_manifests_in(selected: &Selection) -> KeyedFiles {
+    keyed(selected.entries().filter(|(logical, _)| logical.ends_with("_spritesheet.ron"))
+        .map(|(logical, path)| {
+            let stem = Path::new(logical).file_name().unwrap().to_str().unwrap().trim_end_matches("_spritesheet.ron");
+            (sheet_key(stem, Path::new(logical)), path)
+        }).collect(), "sprite sheet")
+}
+
 pub fn companions(owner: &Path, suffix: &str, tiers: bool) -> KeyedFiles {
-    let mut roots = vec![(owner.join("assets/sprites"), None)];
-    if tiers {
-        roots.extend(TIERS.iter().map(|(dir, marker)| (owner.join("assets").join(dir), Some(*marker))));
+    match selection(owner) {
+        Ok(selected) => companions_in(&selected, suffix, tiers),
+        Err(error) => KeyedFiles { files: Vec::new(), refused: vec![("publication".into(), error)] },
     }
-    let mut entries: Vec<(String, PathBuf)> = Vec::new();
-    for (root, marker) in &roots {
-        for dir in dir_and_children(root) {
-            for (target, path) in files_ending(&dir, suffix) {
-                let key = match marker {
-                    Some(marker) => format!("{target}.{marker}"),
-                    None => target,
-                };
-                entries.push((key, path));
-            }
-        }
-    }
-    keyed(entries, suffix)
 }
 
-/// Every `*_portraits.ron` under `sprites/` and each quality tier, at any
-/// depth, keyed by its path relative to `assets/` with `/` separators, sorted
-/// by key. A tier's manifest is the cheaper product of the same portrait (Q84).
+pub fn companions_in(selected: &Selection, suffix: &str, tiers: bool) -> KeyedFiles {
+    keyed(selected.entries().filter(|(logical, _)| logical.ends_with(suffix) && (tiers || logical.starts_with("sprites/")))
+        .map(|(logical, path)| {
+            let stem = Path::new(logical).file_name().unwrap().to_str().unwrap().trim_end_matches(suffix);
+            (sheet_key(stem, Path::new(logical)), path)
+        }).collect(), suffix)
+}
+
 pub fn portrait_manifests(owner: &Path) -> Vec<(String, PathBuf)> {
-    fn walk(dir: &Path, assets: &Path, out: &mut Vec<(String, PathBuf)>) {
-        let Ok(entries) = fs::read_dir(dir) else {
-            return;
-        };
-        for path in entries.flatten().map(|entry| entry.path()) {
-            if path.is_dir() {
-                walk(&path, assets, out);
-            } else if path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.ends_with("_portraits.ron")) {
-                if let Ok(relative) = path.strip_prefix(assets) {
-                    out.push((relative.to_string_lossy().replace('\\', "/"), path));
-                }
-            }
-        }
-    }
-    let assets = owner.join("assets");
-    let mut entries = Vec::new();
-    walk(&assets.join("sprites"), &assets, &mut entries);
-    for (dir, _) in TIERS {
-        walk(&assets.join(dir), &assets, &mut entries);
-    }
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    entries
+    selection(owner).map(|selected| portraits_in(&selected)).unwrap_or_default()
 }
 
-/// Each quality tier's ultrapack catalog (`sprite_packs/<tier>/ultrapack.json`),
-/// keyed by the tier's folder name, sorted by key.
+pub fn portraits_in(selected: &Selection) -> Vec<(String, PathBuf)> {
+    selected.entries().filter(|(logical, _)| logical.ends_with("_portraits.ron"))
+        .map(|(logical, path)| (logical.to_owned(), path)).collect()
+}
+
 pub fn pack_catalogs(owner: &Path) -> Vec<(String, PathBuf)> {
-    let Ok(entries) = fs::read_dir(owner.join("assets/sprite_packs")) else {
-        return Vec::new();
-    };
-    let mut tiers: Vec<(String, PathBuf)> = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter_map(|tier| {
-            let catalog = tier.join("ultrapack.json");
-            let name = tier.file_name()?.to_str()?.to_owned();
-            (tier.is_dir() && catalog.is_file()).then_some((name, catalog))
-        })
-        .collect();
-    tiers.sort_by(|a, b| a.0.cmp(&b.0));
-    tiers
+    selection(owner).map(|selected| packs_in(&selected)).unwrap_or_default()
+}
+
+pub fn packs_in(selected: &Selection) -> Vec<(String, PathBuf)> {
+    selected.entries().filter(|(logical, _)| logical.starts_with("sprite_packs/") && logical.ends_with("/ultrapack.json"))
+        .map(|(logical, path)| (logical.split('/').nth(1).unwrap().to_owned(), path)).collect()
 }
 
 /// Read a published part flipbook with the schema the crate reads it with.
@@ -274,6 +210,7 @@ pub fn landmarks_of(published: &super::published::Published) -> Option<super::la
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     /// An owner in a temporary folder with `files` (relative to `assets/`).
     fn tree(name: &str, files: &[&str]) -> PathBuf {
@@ -284,6 +221,20 @@ mod tests {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(&path, "").unwrap();
         }
+        let selected: std::collections::BTreeMap<_, _> = files.iter().map(|file| (file.to_string(), serde_json::json!({
+            "path":format!("../assets/{file}"), "sha256":"fixture", "role":"runtime", "tier":"full"
+        }))).collect();
+        let store = owner.join("art_publication");
+        fs::create_dir_all(&store).unwrap();
+        let mut selected = selected;
+        for member in selected.values_mut() {
+            let relative = member["path"].as_str().unwrap().trim_start_matches("../assets/").to_owned();
+            let target = store.join("files").join(&relative);
+            fs::create_dir_all(target.parent().unwrap()).unwrap();
+            fs::copy(owner.join("assets").join(&relative), &target).unwrap();
+            member["path"] = format!("files/{relative}").into();
+        }
+        fs::write(store.join("published.json"), serde_json::json!({"schema":publication::SCHEMA,"generation":"fixture","files":selected}).to_string()).unwrap();
         owner
     }
 
@@ -322,7 +273,7 @@ mod tests {
             let owner = tree(name, &files);
             let message = refusal(companions(&owner, "_parts.ron", true), 2);
             assert!(
-                files.iter().all(|file| message.contains(&owner.join("assets").join(file).display().to_string())),
+                files.iter().all(|file| message.contains(&owner.join("art_publication/files").join(file).display().to_string())),
                 "{name}: the refusal names both files: {message}"
             );
         }

@@ -21,22 +21,6 @@ def page_names(manifest: Path) -> set[str]:
     return set(page_filenames_safe(manifest))
 
 
-def stale_pairs(source_dir: Path, tier_dir: Path) -> list[tuple[Path, str]]:
-    """Check runtime sheet members. Optional sidecars cannot make a sheet stale."""
-    hashes = Digests()
-    result = []
-    for manifest in sorted(tier_dir.rglob('*_spritesheet.ron')) if tier_dir.is_dir() else []:
-        status = conversion_status(manifest.parent, manifest.stem, hashes)
-        if status['state'] in ('stale', 'missing', 'partial'):
-            result.append((manifest, status['state']))
-    return result
-
-
-def absent_variants(source_dir: Path, tier_dir: Path) -> list[Path]:
-    return [path for path in sorted(source_dir.rglob('*_spritesheet.ron'))
-            if not (tier_dir / path.relative_to(source_dir)).is_file()]
-
-
 def main() -> int:
     if not os.environ.get("AMBITION_QUALITY_CHECK_OWNER"):
         selected = subprocess.run(["bash", "-c", 'source "$1/scripts/lib/tool_python.sh"; ambition_select_tool_python "$2" AMBITION_SPRITE_PYTHON',
@@ -51,7 +35,31 @@ def main() -> int:
     parser.add_argument('--require-evidence', action='store_true', help='fail if a conversion has no accepted receipt')
     args = parser.parse_args()
     hashes, failures, unknown, checked = Digests(), [], [], 0
-    for source, tier_names in ((args.asset_root / 'sprites', SPRITE_TIERS), (args.asset_root / 'backgrounds/parallax_layers', PARALLAX_TIERS)):
+    from ambition_sprite2d_renderer.publication_store import Store
+    store = Store(Path(os.environ.get("AMBITION_ART_STORE", args.asset_root.parent / "art_publication")))
+    from ambition_sprite2d_renderer.publication import source_files, toolchain, recipe_state
+    sources, chain = source_files(), toolchain()
+    selected = store.selected()
+    if not selected["generation"]:
+        failures.append("No accepted art publication. Run scripts/regen/sprites.sh.")
+    for unit, key in selected["bundles"].items():
+        manifest = store.bundle(key)
+        checked += 1
+        failures += [f"{unit}: {defect}" for defect in store.integrity(key)]
+        if manifest["recipe"] is None:
+            unknown.append(unit)
+        else:
+            state, reasons = recipe_state(manifest["recipe"], sources, chain, hashes)
+            if state != "current":
+                failures.append(f"{unit}: {state}: {reasons}")
+            if manifest["recipe"].get("quality") is False:
+                failures.append(f"{unit}: quality representations were not generated")
+        if unit.startswith("target:"):
+            supported = (manifest["recipe"] or {}).get("tiers", ["full", "half", "quarter", "potato"])
+            for tier in SPRITE_TIERS if len(supported) > 1 else ():
+                if not any(path.startswith(tier + "/") for path in manifest["files"]):
+                    failures.append(f"{unit}: missing {tier}")
+    for source, tier_names in ((args.asset_root / 'backgrounds/parallax_layers', PARALLAX_TIERS),):
         manifests = list(source.rglob('*_spritesheet.ron'))
         metadata = manifests + list(source.rglob('*_parts.ron')) + list(source.rglob('*_portraits.ron'))
         claimed = {path.parent / name for path in metadata for name in page_names(path)}

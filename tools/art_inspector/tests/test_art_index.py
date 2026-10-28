@@ -111,6 +111,14 @@ def built(tmp_path_factory):
     ]}]}]}
     (repo / "game" / "ambition_map_assets").mkdir(parents=True)
     (repo / "game" / "ambition_map_assets" / "w.ldtk").write_text(json.dumps(world))
+    from lib.art_publication import Store
+    store = Store((repo / ASSETS).parent / "art_publication")
+    full = {f"sprites/{name}": (sprites / name, "runtime", "full") for name in (
+        "foo_spritesheet.png", "foo_spritesheet.yaml", "foo_spritesheet.ron", "foo_actor.ron")}
+    half = repo / ASSETS / "sprites_0_5x/foo_spritesheet.png"
+    full["sprites_0_5x/foo_spritesheet.png"] = (half, "runtime", "half")
+    key = store.accept("target:foo", full, {"inputs":{"tools/foo.py":"0"*64}})
+    store.publish({"target:foo":key}, None)
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     out = repo / ".agent" / "art_inspector"
@@ -123,7 +131,8 @@ def test_each_file_links_to_its_generator_with_its_confidence(built):
     prov = {p: r["provenance"] for p, r in c["products"].items()}
     assert prov["sprites/foo_spritesheet.png"]["confidence"] == "verified"
     assert prov["sprites/foo_spritesheet.png"]["generator"] == "target:foo"
-    assert prov["sprites_0_5x/foo_spritesheet.png"] == {"confidence": "derived", "derived_from": "sprites/foo_spritesheet.png", "generator": "script:quality_variants"}
+    assert prov["sprites_0_5x/foo_spritesheet.png"]["confidence"] == "verified"
+    assert prov["sprites_0_5x/foo_spritesheet.png"]["generator"] == "target:foo"
     assert prov["sprites/bar.png"]["confidence"] == "unknown"
     assert prov["room_dressing/hub_fill.png"]["confidence"] == "declared"
     assert prov["room_dressing/hub_fill.png"]["made_by"]["callable"] == "terrain.skins:fill"
@@ -153,11 +162,11 @@ def test_uses_resolve_through_content_rows_and_ldtk_placements(built):
     assert any(p["field"] == "parallax_theme" for p in c["assets"]["skin:hub"]["placements"])
 
 
-def test_findings_name_unknown_files_changed_inputs_and_unresolved_placements(built):
+def test_findings_name_unknown_files_and_unresolved_placements(built):
     _repo, _out, c = built
     codes = {(f["code"], f["subject"]) for f in c["findings"]}
     assert ("unknown-generator", "sprites/bar.png") in codes
-    assert ("inputs-changed", "target:foo") in codes
+    assert ("inputs-changed", "target:foo") not in codes
     assert ("ldtk-unresolved", "EnemySpawn.character_id=npc_missing") in codes
 
 
@@ -170,7 +179,9 @@ def test_the_page_and_its_catalog_are_written_beside_each_other(built):
     c = json.loads(text[len("window.ART_CATALOG = "):].rstrip().rstrip(";"))
     # Every link is relative, so the page opens in place from file://.
     href = c["products"]["sprites/foo_spritesheet.png"]["href"]
-    assert not href.startswith("/") and (out / href).resolve() == (Path(_repo) / ASSETS / "sprites" / "foo_spritesheet.png").resolve()
+    from lib.art_publication import Store
+    accepted = Store((Path(_repo) / ASSETS).parent / "art_publication").paths()["sprites/foo_spritesheet.png"]
+    assert not href.startswith("/") and (out / href).resolve() == accepted.resolve()
 
 
 @pytest.mark.parametrize("shape", ["image", "images", "pages"])

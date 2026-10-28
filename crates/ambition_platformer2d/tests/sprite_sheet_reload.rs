@@ -39,9 +39,43 @@ fn collision_scale(app: &App) -> (f32, f32) {
 }
 
 /// Look at the files once more, and take what the look found.
-fn look(app: &mut App) {
+fn look(app: &mut App, owner: &std::path::Path) {
+    publish_fixture(owner);
     app.world().resource::<SpriteSheetWatch>().look_now();
     app.update();
+}
+
+// Each edit selects a new immutable fixture bundle.
+fn publish_fixture(owner: &std::path::Path) {
+    use std::hash::{Hash, Hasher};
+    let assets = owner.join("assets");
+    let mut pending = vec![assets.clone()];
+    let mut files = std::collections::BTreeMap::new();
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { pending.push(path); }
+            else {
+                files.insert(path.strip_prefix(&assets).unwrap().to_string_lossy().replace('\\', "/"), std::fs::read(path).unwrap());
+            }
+        }
+    }
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    files.hash(&mut hash);
+    let key = format!("{:016x}", hash.finish());
+    let store = owner.join("art_publication");
+    let mut selected = serde_json::Map::new();
+    for (logical, bytes) in files {
+        let physical = format!("bundles/{key}/runtime/full/{logical}");
+        let dest = store.join(&physical);
+        std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        if !dest.exists() { std::fs::write(dest, bytes).unwrap(); }
+        selected.insert(logical, serde_json::json!({"path":physical,"sha256":"fixture","role":"runtime","tier":"full"}));
+    }
+    std::fs::write(store.join("next.json"), serde_json::json!({
+        "schema":ambition_asset_manager::art_publication::SCHEMA,"generation":key,"files":selected
+    }).to_string()).unwrap();
+    std::fs::rename(store.join("next.json"),store.join("published.json")).unwrap();
 }
 
 #[test]
@@ -58,7 +92,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
     app.init_resource::<ambition_sprite_sheet::SheetRegistry>();
     app.add_plugins(SpriteSheetReloadPlugin { owner: Some(owner.clone()), manual: true });
-    look(&mut app);
+    look(&mut app, &owner);
     assert!(!app.world().resource::<SpriteSheetWatch>().is_staged(), "control: an unchanged tree stages nothing");
     let first = current().id();
 
@@ -66,7 +100,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     app.world_mut().resource_mut::<ambition_platformer2d::actor::ActiveSessionScope>().begin();
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text("2.25")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(current().id(), first, "an edit was published inside a session");
     assert!(app.world().resource::<SpriteSheetWatch>().is_staged(), "the edit was not seen");
 
@@ -98,6 +132,13 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssetConfig::default());
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
     app.register_prop_sheet("probe_prop", PropSheetSource { target: PROBE.to_owned(), tuning: Default::default(), packed: false });
+    let server = app.world().resource::<AssetServer>().clone();
+    let prop = app.world_mut().resource_scope(|_, mut layouts: Mut<Assets<bevy::image::TextureAtlasLayout>>| {
+        ambition_platformer2d::assets::character_sprites::load_prop_sheet_for_target(
+            &server, &mut layouts, "sprites", PROBE, &Default::default()).unwrap()
+    });
+    app.world_mut().resource_mut::<ambition_sprite_sheet::game_assets::GameAssets>()
+        .characters.props.insert("probe_prop".into(), prop);
     reload_prop_sheets_of_targets(app.world_mut(), &[PROBE.to_owned()].into());
     let prop_layout = |app: &App| app.world().resource::<ambition_sprite_sheet::game_assets::GameAssets>().characters.props.get("probe_prop").map(|asset| asset.layout.id());
     let first_prop = prop_layout(&app);
@@ -117,20 +158,20 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     session(&mut app, true);
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text("2.25").replace("label_width: 0", "label_width: 8")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert!(prop_layout(&app).is_some_and(|layout| Some(layout) != first_prop), "the prop keeps the realization of the old records");
     assert!(fx_layout(&app).is_some_and(|layout| Some(layout) != first_fx), "the effect sheet keeps the realization of the old records");
     assert_eq!(current().id(), first + 2, "an edit to where frames are drawn from waited for the end of the session");
     assert_eq!(label_width(&app), (Some(8), Some(8)), "the generation or the SheetRegistry resource is not the edited sheet");
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text("3.0").replace("label_width: 0", "label_width: 8")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!((current().id(), collision_scale(&app)), (first + 2, (2.25, 2.25)), "control: an edit to a record simulation reads was published inside a session");
     // The table is read whole: a later edit that takes the mechanical change
     // back is a change of the label band alone, and is played at once.
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, sheet_text("2.25")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!((current().id(), label_width(&app), collision_scale(&app)), (first + 3, (Some(0), Some(0)), (2.25, 2.25)));
     assert!(!app.world().resource::<SpriteSheetWatch>().is_staged(), "the superseded edit is still staged");
     session(&mut app, false);
@@ -140,7 +181,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     // A manifest that does not parse is refused; the running sheets stay.
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&manifest, "[ (target: ").unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     let watch = app.world().resource::<SpriteSheetWatch>();
     assert!(watch.refused.as_deref().is_some_and(|why| why.contains(PROBE)), "the refusal does not name the sheet: {:?}", watch.refused);
     assert_eq!(current().id(), first + 3, "a broken sheet was published");
@@ -151,9 +192,11 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     // tracks a hand, under the probe's name.
     use ambition_sprite_sheet::baked_landmarks::{body_landmarks, landmarks_digest};
     use ambition_sprite_sheet::character::rigged::RiggedSpriteAsset;
-    let shipped = ambition_sprite_sheet::baked_sheet_rons::published_tree_owner()
-        .expect("a development build reads its sprite tree")
-        .join("assets/sprites/hand_saint_parts.ron");
+    let owner_assets = ambition_sprite_sheet::baked_sheet_rons::published_tree_owner()
+        .expect("a development build reads its sprite tree").join("assets");
+    let shipped_selection = ambition_asset_manager::art_publication::Selection::read(
+        &ambition_asset_manager::art_publication::store_for_assets(&owner_assets)).unwrap();
+    let shipped = shipped_selection.path("sprites/hand_saint_parts.ron").unwrap();
     let flipbook_text = std::fs::read_to_string(&shipped).expect("the hand saint publishes a flipbook").replace("target: \"hand_saint\"", &format!("target: \"{PROBE}\""));
     let flipbook = sprites.join(format!("{PROBE}_parts.ron"));
     // The feet are read from the decoded table, the frame height by the
@@ -166,7 +209,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     assert_eq!(flipbook_text.matches("frame_size: (232, 208)").count(), 1, "the probe edits one frame size");
     std::fs::write(&flipbook, feet("104.0")).unwrap();
     std::fs::write(&manifest, sheet_text("2.25")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     app.update();
     assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None);
     let feet_x = || RiggedSpriteAsset::baked(PROBE).map(|table| table.feet_pixel.x);
@@ -176,14 +219,14 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
 
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&flipbook, feet("120.0")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     app.update();
     assert_eq!(feet_x(), Some(120.0), "the decoded flipbook is not the saved file");
     assert_ne!(landmarks_digest(), digest, "the landmarks are not projected from the saved flipbook");
 
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&flipbook, "( schema_version: 3, target: ").unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     let refused = app.world().resource::<SpriteSheetWatch>().refused.clone();
     assert!(refused.as_deref().is_some_and(|why| why.contains(&format!("{PROBE}_parts.ron"))), "the refusal does not name the flipbook: {refused:?}");
     assert_eq!(feet_x(), Some(120.0), "a broken flipbook changed the running one");
@@ -194,43 +237,43 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     // so each later edit was not seen. Its removal is seen, also while the
     // first file of the key did not change.
     let second = sprites.join("copy").join(format!("{PROBE}_spritesheet.ron"));
-    look(&mut app);
+    look(&mut app, &owner);
     let before = current().id();
     std::fs::create_dir_all(second.parent().unwrap()).unwrap();
     std::fs::write(&second, sheet_text("4.0")).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     let refused = app.world().resource::<SpriteSheetWatch>().refused.clone().unwrap_or_default();
     assert!(
-        [&manifest, &second].iter().all(|file| refused.contains(&file.display().to_string())),
+        [&manifest, &second].iter().all(|file| refused.contains(&file.strip_prefix(owner.join("assets")).unwrap().to_string_lossy().to_string())),
         "the refusal does not name both files of the key: {refused}"
     );
     assert_eq!((current().id(), collision_scale(&app)), (before, (2.25, 2.25)), "a second file of one key changed the running sheets");
     std::fs::remove_dir_all(second.parent().unwrap()).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "the removal of the second file was not seen");
 
     // A quality tier's table is decoded where a sheet realizes at that tier,
     // which panics on one that does not decode, so a changed tier table is
     // checked before it is played. The control: the shipped tier table of
     // the same flipbook, under the probe's name, is played.
-    let tier_text = std::fs::read_to_string(shipped.parent().unwrap().parent().unwrap().join("sprites_0_5x/hand_saint_parts.ron"))
+    let tier_text = std::fs::read_to_string(shipped_selection.path("sprites_0_5x/hand_saint_parts.ron").unwrap())
         .expect("the hand saint publishes a tier flipbook")
         .replace("target: \"hand_saint\"", &format!("target: \"{PROBE}\""));
     let tier = owner.join(format!("assets/sprites_0_5x/{PROBE}_parts.ron"));
     std::fs::create_dir_all(tier.parent().unwrap()).unwrap();
     std::fs::write(&tier, &tier_text).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "control: a tier table that decodes is refused");
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&tier, "( schema_version: 3, target: ").unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     let refused = app.world().resource::<SpriteSheetWatch>().refused.clone();
     assert!(
         refused.as_deref().is_some_and(|why| why.contains(&format!("sprites_0_5x/{PROBE}_parts.ron"))),
         "the refusal does not name the tier flipbook: {refused:?}"
     );
     std::fs::remove_file(&tier).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None, "the removal of the tier table was not seen");
 
     // A portrait manifest and a sprite pack catalog are parts of it too: the
@@ -257,7 +300,7 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&portrait, portrait_text(256)).unwrap();
     std::fs::write(&catalog, catalog_text(64)).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(app.world().resource::<SpriteSheetWatch>().refused, None);
     assert_eq!(widths(&app), (Some(256), Some(256)), "an added portrait is not in the generation or the resource");
     assert!(available_portrait_targets().contains(&PROBE), "the portrait vocabulary is not the generation's");
@@ -265,18 +308,18 @@ fn an_edited_sheet_is_played_from_the_next_session_and_a_broken_one_is_refused()
 
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&portrait, portrait_text(128)).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(widths(&app), (Some(128), Some(128)), "the portrait is not the saved file");
     // Alone: a change to another file reads the whole table again.
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&catalog, catalog_text(128)).unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     assert_eq!(page_size(), Some(128), "the catalog is not the saved file");
 
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(&portrait, "(target: ").unwrap();
     std::fs::write(&catalog, "{ \"page_size\": ").unwrap();
-    look(&mut app);
+    look(&mut app, &owner);
     let refused = app.world().resource::<SpriteSheetWatch>().refused.clone().unwrap_or_default();
     assert!(refused.contains(&portrait_key) && refused.contains("sprite_packs/full/ultrapack.json"), "the refusal does not name both files: {refused}");
     assert_eq!((widths(&app), page_size()), ((Some(128), Some(128)), Some(128)), "a broken portrait or catalog changed the running ones");

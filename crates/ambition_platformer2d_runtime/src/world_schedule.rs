@@ -122,12 +122,9 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 // Pull nearby loot toward the player, then collect on overlap.
                 magnetize_pickups.in_set(PickupMagnetize),
                 collect_ecs_pickups.in_set(PickupCollect),
-                // A METER MUTATOR on the controlled subject, scaled by sim dt.
-                // In the simulation, not in `Update`: `body.mana` is rollback
-                // state, and a render-rate write does not resimulate on a
-                // rewind.
-                ambition_platformer2d_actor_monolith::avatar::regen_player_mana
-                    .run_if(bevy::prelude::resource_exists::<ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen>),
+                // ActorResources is rollback state. Refill it in the simulation schedule.
+                ambition_abilities::mana::regenerate_driven_mana
+                    .run_if(bevy::prelude::resource_exists::<ambition_abilities::mana::ManaRegen>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureCollection),

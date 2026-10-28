@@ -2274,7 +2274,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // body's `ActorResources`, `component-canonical`), which is exactly the
     // split the entry below draws.
     (
-        "ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen",
+        "ambition_abilities::mana::ManaRegen",
         "the composition's mana refill rate: a policy no system writes during play; the meter it fills (the Mana level in a body's ActorResources) is registered component-canonical",
     ),
     (

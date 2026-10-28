@@ -1,4 +1,4 @@
-//! The main game's Mana: the resource the held abilities in this crate spend.
+//! Mana pool access, spending, and regeneration policy.
 //!
 //! A body holds Mana only because the experience that built it declared the
 //! pool (the Ambition provider declares it on the home body). A body without
@@ -11,6 +11,13 @@ use ambition_platformer2d_core::resources::{ActorResources, ResourceLevel};
 use ambition_resource_spec::ResourceCost;
 
 pub use ambition_entity_catalog::mana::{MANA, POOL, REGEN_PER_SEC};
+
+/// Mana regeneration rate for driven bodies. An absent policy gives no refill.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq)]
+pub struct ManaRegen(pub f32);
+
+mod regeneration;
+pub use regeneration::regenerate_driven_mana;
 
 /// Pay `amount` Mana from `bank`; `false`, and nothing paid, when the body
 /// holds no Mana or not enough of it.

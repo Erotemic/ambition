@@ -6,7 +6,6 @@
 mod kernel_death;
 pub mod bundles;
 pub mod character_execution;
-pub mod systems;
 pub mod trail;
 
 pub use kernel_death::publish_kernel_reset_death;
@@ -17,7 +16,6 @@ pub use character_execution::{
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
     HomeBodyAbilities,
 };
-pub use systems::regen_player_mana;
 
 /// Build the scratch state of a home body at `at`, with its abilities. Each
 /// seat's home body starts from this (`session::setup::spawn_home_body`).
@@ -27,3 +25,6 @@ pub fn home_body_scratch(
 ) -> ambition_platformer2d_core::BodyClusterScratch {
     ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(at, abilities)
 }
+
+#[cfg(test)]
+mod tests;

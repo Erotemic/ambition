@@ -14,6 +14,5 @@ pub const MANA: ResourceId = ResourceId::from_static("mana");
 /// The main game's pool: 100 points, starting (and resetting) full.
 pub const POOL: ResourceDeclaration = ResourceDeclaration::new(MANA, 100.0, ResourceStart::Full);
 
-/// The main game's refill rate, in Mana per second of simulation — stated by
-/// the composition that declares the pool (`PlayerManaRegen`).
+/// Mana refill rate per simulation second, set by the experience that declares the pool.
 pub const REGEN_PER_SEC: f32 = 14.0;

@@ -651,6 +651,9 @@ other actor bodies. Boss phase maintenance runs after integration.
 Body reactions use one early phase with proper-time recovery and unscaled
 hitstop expiry. Observer requests follow the body that holds the driving seat.
 The empty actor-maintenance phase and the body-role clock paths are deleted.
+Real simulation arms now cover removal of one possessed body while another
+participant keeps control, and active-move continuity when a seat is released.
+The broader no-double-body-tick acceptance remains open.
 Keep accepted control, body custody, motion, and action execution together.
 Capability profiles remain a separate C2/SDK exit.
 
@@ -723,7 +726,7 @@ and 52 Smash tests; six app and six Smash tests stay ignored. All 35
 workspace policies and 53 absence contracts pass. The default-feature app
 compiles with no warnings. The full workspace feature union was not run.
 Do not restore a separate primary-seat possession path. A4 still owes its
-remaining body-removal, action-continuity, and body-tick acceptance arms.
+remaining body-tick acceptance arm.
 
 ### K25 — Shared boss body integration
 

@@ -167,6 +167,8 @@ for one target grant neither seat.
 | two participants | `possession_end_to_end::two_participants_possess_drive_and_release_independently` |
 | two participants under rollback | `possession_end_to_end::rollback_preserves_two_participants_possession_handoffs` |
 | body clocks and freeze expiry | `body_reaction_clocks::a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes` |
+| removal of a controlled body | `possession_end_to_end::a_removed_possessed_body_returns_only_its_participants_seat` |
+| action continuity on release | `possession_end_to_end::releasing_a_seat_keeps_the_active_move_on_its_original_body` |
 
 **Control ordering:**
 `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
@@ -179,10 +181,10 @@ hitstop expiry follows the unscaled simulation step. Observer time requests
 follow the body's driving seat, not its home marker.
 
 **Open:** continue the regrouping and the distinction of home-avatar, driver,
-camera and participant identities; full simulation arms for removal of a controlled body,
-action continuity and no double body tick (the schedule-level
+camera and participant identities. Complete the no-double-body-tick acceptance;
+the boss free-flight arm covers one fixture. The schedule-level
 `no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by
-two systems).
+two systems.
 
 ## A5. Give destructible world objects their full transition authority
 

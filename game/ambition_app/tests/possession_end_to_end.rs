@@ -145,7 +145,7 @@ fn possessed_actor_reads_this_frame_slot_input() {
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::combat::hitbox::Hitbox;
-    use ambition_platformer2d::combat::moveset::{melee_swing_of, ActorMoveset, MovePlayback};
+    use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback, melee_swing_of};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
@@ -409,7 +409,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
     );
 }
 
-fn exercise_two_seat_handoffs(rollback: bool) {
+fn possess_two_seats(rollback: bool) -> (Platformer2dSimHarness, [Entity; 2], [Entity; 2], u64) {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::platformer::lifecycle::InCustodyOf;
     let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
@@ -498,6 +498,17 @@ fn exercise_two_seat_handoffs(rollback: bool) {
             home
         );
     }
+    (sim, [home_a, home_b], targets, loads_before)
+}
+
+fn exercise_two_seat_handoffs(rollback: bool) {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    let (mut sim, [home_a, home_b], targets, loads_before) = possess_two_seats(rollback);
+    let gesture = ae::ControlFrame {
+        axis_y: 1.0,
+        interact_held: true,
+        ..Default::default()
+    };
     let before = targets.map(|body| sim.world().get::<BodyKinematics>(body).unwrap().pos.x);
     for _ in 0..20 {
         sim.drive_seat(
@@ -552,4 +563,105 @@ fn two_participants_possess_drive_and_release_independently() {
 #[test]
 fn rollback_preserves_two_participants_possession_handoffs() {
     exercise_two_seat_handoffs(true);
+}
+
+#[test]
+fn a_removed_possessed_body_returns_only_its_participants_seat() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    assert!(sim.world_mut().despawn(targets[0]));
+    let other_before = sim.world().get::<BodyKinematics>(targets[1]).unwrap().pos.x;
+    for _ in 0..3 {
+        sim.drive_seat(
+            1,
+            ae::ControlFrame {
+                axis_x: -1.0,
+                ..Default::default()
+            },
+        );
+        sim.step_frame(ae::ControlFrame {
+            axis_x: 1.0,
+            ..Default::default()
+        });
+    }
+    let state = sim.world().resource::<PossessionState>();
+    assert!(state.get(PlayerSlot::PRIMARY).possessed.is_none());
+    assert!(state.get(PlayerSlot::PRIMARY).home.is_none());
+    assert_eq!(state.get(PlayerSlot(1)).possessed, Some(targets[1]));
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(homes[0]).unwrap().0,
+        PlayerSlot::PRIMARY
+    );
+    assert!(sim.world().get::<DrivingParticipant>(homes[1]).is_none());
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(targets[1]).unwrap().0,
+        PlayerSlot(1)
+    );
+    assert_eq!(
+        sim.world()
+            .resource::<ambition_platformer2d::platformer::markers::ControlledSubject>()
+            .0,
+        Some(homes[0])
+    );
+    assert!(
+        sim.world()
+            .get::<ActorControl>(homes[0])
+            .unwrap()
+            .0
+            .locomotion
+            .x
+            > 0.5,
+        "the returned seat did not accept current input"
+    );
+    assert!(
+        sim.world().get::<BodyKinematics>(targets[1]).unwrap().pos.x < other_before,
+        "the other participant stopped driving its possessed body"
+    );
+}
+
+#[test]
+fn releasing_a_seat_keeps_the_active_move_on_its_original_body() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    sim.drive_seat(1, ae::ControlFrame::default());
+    sim.step_frame(ae::ControlFrame::default());
+    sim.step_frame(ae::ControlFrame {
+        axis_x: 1.0,
+        attack_pressed: true,
+        attack_held: true,
+        ..Default::default()
+    });
+    let playing = sim
+        .world()
+        .get::<MovePlayback>(targets[0])
+        .expect("the participant started its body's authored attack");
+    let occurrence = playing.instance;
+    let definition = playing.spec.clone();
+    let elapsed = playing.t;
+    sim.step_frame(ae::ControlFrame {
+        axis_y: 1.0,
+        interact_held: true,
+        ..Default::default()
+    });
+    let playing = sim
+        .world()
+        .get::<MovePlayback>(targets[0])
+        .expect("release must not cancel the body's active move");
+    assert_eq!(playing.instance, occurrence);
+    assert!(std::sync::Arc::ptr_eq(&playing.spec, &definition));
+    assert!(playing.t >= elapsed, "release restarted the move timeline");
+    assert!(
+        sim.world().get::<MovePlayback>(homes[0]).is_none(),
+        "the active move followed the seat into its home body"
+    );
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(homes[0]).unwrap().0,
+        PlayerSlot::PRIMARY
+    );
+    assert!(sim.world().get::<DrivingParticipant>(targets[0]).is_none());
+    assert_eq!(
+        sim.world().get::<DrivingParticipant>(targets[1]).unwrap().0,
+        PlayerSlot(1)
+    );
 }

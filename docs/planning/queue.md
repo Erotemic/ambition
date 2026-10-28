@@ -268,11 +268,12 @@ camera's view, layers, screen effects and its own half of the display),
 The maintainer reports the co-op baseline now works in the main game
 with two players (2026-10-24); see `MULTIPLAYER-SEAMS` for new playtest defects.
 
-**Next action, in slices:**
+**Built 2026-10-28 (join placement, `1f0956abb`):** the common body recipe
+now joins at a clear nearby position in the primary body's live room.
+The search has a fixed limit and declines a blocked join. See the guards in
+[local-coop integration](engine/local-coop-integration.md).
 
-- **Join placement (needed before slice 3):** the joining body is built on the primary's exact
-  position. Place it by a deterministic, collision-safe rule in the intended
-  live room (no frame-order randomness, no unbounded scan).
+**Next action, in slices:**
 
 3. **Leave:** pause-menu actions "remove Player 2" (Player 1) and "leave"
    (Player 2). Leaving releases the claim, retires the body by an explicit

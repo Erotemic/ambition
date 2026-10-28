@@ -789,6 +789,19 @@ The sprite-publication fixture lockfile remains stale (52 of 53 absence
 contracts pass). The full feature union and Android performance were not run.
 Do not expose a home-body helper as a second public movement route.
 
+### K29 — Control-owned participant input
+
+`f941e5547`: generic participant input and held-frame history lived under
+avatar. Control now owns their producer, state and ordering set. Runtime
+registers the same persona, input and body-mode phases directly. The avatar
+forwarding installer is deleted. State fields, clone probe, key, checksum and
+phase edges stay the same. No systems were added.
+Guards: 16 selected owner tests, six real-app control and rollback tests, and
+35 workspace policies pass. The default app compiles with no warnings; codec
+layouts stay the same and the kernel graph is a DAG. The full feature union
+and Android performance were not run.
+Do not make the primary home identity the owner of participant input history.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

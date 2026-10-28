@@ -31,6 +31,11 @@ use crate::collision_semantics::{is_full_collision_surface, Contact, ContactSour
 use crate::world::{SurfaceChain, SurfaceFrame, SurfacePort, World};
 use crate::{MotionFrame, Vec2};
 
+/// The radius that puts the ride circle's foot at the body's foot.
+pub(super) fn body_radius(size: Vec2) -> f32 {
+    size.y * 0.5
+}
+
 /// Motion-feel parameters for a surface-momentum body. RON-authorable on the
 /// archetype row (the gameplay layer hydrates these; the kernel just consumes).
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]

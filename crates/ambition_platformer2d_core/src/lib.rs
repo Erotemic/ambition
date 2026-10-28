@@ -120,7 +120,7 @@ pub use movement::{
     MechanicalDomain, MechanicalEditAdmission, MechanicalEditSet, PendingMechanicalEdits,
     ArrivalMomentum, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisManeuverState,
     AxisSweptMotion, AxisSweptParams, BlinkEvent, BodyContactBlocker, BodyContactField,
-    BodyMotionFacts, BurstManeuver, CrawlAttachment, CrawlerParams, CrawlerState,
+    BodyMotionFacts, BodySpawnShape, BurstManeuver, CrawlAttachment, CrawlerParams, CrawlerState,
     DepthOcclusions, Edge, FlightTuning, FootstoolTuning, FrameEvents, GroundContactTransition,
     InputState, LedgeFacts, LedgeMomentumTuning, MomentumHorizontalTuning, MomentumParams,
     MotionModel, MotionModelKind, MotionModelSpec, MotionStepContext, MotionStepResult,

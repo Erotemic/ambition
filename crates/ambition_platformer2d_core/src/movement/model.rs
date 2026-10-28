@@ -52,6 +52,32 @@ pub enum MotionModelSpec {
     AdhesiveCrawler(CrawlerParams),
 }
 
+/// The space a new body needs before its first movement step.
+#[derive(Clone, Copy, Debug)]
+pub struct BodySpawnShape {
+    /// Half size of the body box in world coordinates.
+    pub body_half: crate::Vec2,
+    /// Half size that covers the box and the movement model's contact probe.
+    pub terrain_half: crate::Vec2,
+    /// The surface lane of a new body. `None` permits all lanes.
+    pub line_depth: Option<i8>,
+}
+
+impl MotionModelSpec {
+    /// Resolve construction clearance from the body size and its initial down.
+    pub fn spawn_shape(self, size: crate::Vec2, down: crate::Vec2) -> BodySpawnShape {
+        let body_half = crate::AccelerationFrame::new(down).to_world_half(size * 0.5);
+        let (terrain_half, line_depth) = match self {
+            Self::SurfaceMomentum(_) => (
+                body_half.max(crate::Vec2::splat(super::surface_momentum::body_radius(size))),
+                Some(0),
+            ),
+            Self::AxisSwept(_) | Self::AdhesiveCrawler(_) => (body_half, None),
+        };
+        BodySpawnShape { body_half, terrain_half, line_depth }
+    }
+}
+
 /// Persistent state for a phased-gravity jump arc.
 ///
 /// The selected launch band and release latch survive frame changes and rollback,

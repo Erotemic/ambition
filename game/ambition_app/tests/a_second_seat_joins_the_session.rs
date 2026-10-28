@@ -15,7 +15,7 @@ use ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
-use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
+use ambition_platformer2d::engine_core::{AabbExt, BodyKinematics, ControlFrame, SweepSample};
 use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::sim_id::SimId;
@@ -111,7 +111,7 @@ pub(crate) fn die(sim: &mut Platformer2dSimHarness, body: Entity) {
 /// THE JOIN, under a two-seat sync test that rewinds and resimulates the
 /// frames around the press. Controls: 30 frames with seat 1 neutral build no
 /// body, and neither does a Jump press (Jump is play, never the join gesture). The press builds one body of seat 1 (identity `slot:1`, not primary),
-/// in the primary's room and where the primary stands. The resimulated
+/// in the primary's room and clear of its collision box. The resimulated
 /// frames agree (no checksum mismatch). A second press builds no second body,
 /// and seat 1's input moves its own body and not the primary.
 #[test]
@@ -146,9 +146,13 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
         "(identity, primary, room) of the body seat 1 joined with"
     );
     let at = place_of(&sim, body);
+    let primary_box = sim.world().get::<BodyKinematics>(primary).unwrap()
+        .collision_box(sim.world().get::<SweepSample>(primary));
+    let joined_box = sim.world().get::<BodyKinematics>(body).unwrap()
+        .collision_box(sim.world().get::<SweepSample>(body));
     assert!(
-        (at.0 - primary_at.0).abs() <= 8 && (at.1 - primary_at.1).abs() <= 24,
-        "the body of seat 1 is at {at:?}, not beside the primary at {primary_at:?}"
+        !primary_box.strict_intersects(joined_box),
+        "the joining body at {at:?} overlaps the primary at {primary_at:?}: {joined_box:?}, {primary_box:?}"
     );
     for frame in 0..30 {
         sim.drive_seat(SEAT, if frame == 10 { start() } else { ControlFrame::default() });

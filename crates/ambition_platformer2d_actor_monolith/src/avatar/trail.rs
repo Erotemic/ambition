@@ -7,10 +7,9 @@
 //! a trail whose endpoint returns near its start closes into a cycle; otherwise it
 //! collapses away as an unfinished chain.
 //!
-//! This module keeps the simulation deterministic and mostly presentation-free:
-//! the pure helpers decide how a path is sampled, chunked across topological
-//! continuity breaks, closed, or collapsed, while the Bevy systems only attach it
-//! to the primary player and draw the resulting debug polylines. Future
+//! Pure helpers sample, split, close, and collapse the path. ECS systems own
+//! trail creation and advancement. Observation publishes the trail geometry;
+//! rendering owns the drawings. Future
 //! homology/cohomology spells should consume [`PlayerTrail`] cycles rather than
 //! raw input gestures.
 
@@ -632,123 +631,8 @@ fn trail_anchor(kin: &ambition_platformer2d_core::BodyKinematics) -> ae::Vec2 {
     kin.aabb().center()
 }
 
-const TRAIL_EMITTING_COLOR: Color = Color::srgb(0.62, 0.47, 0.30);
-const TRAIL_CLOSED_COLOR: Color = Color::srgb(0.95, 0.78, 0.32);
-const TRAIL_COLLAPSING_COLOR: Color = Color::srgb(0.40, 0.32, 0.26);
-const TRAIL_SELF_LOOP_COLLAPSING_COLOR: Color = Color::srgb(0.80, 0.56, 0.36);
-
-/// One trail drawing: the retained gizmo of every trail strip in one live
-/// room's band (`camera_layers::live_room_band`), or with `None` of every
-/// strip drawn on layer 0 (one live room, or a room past the bands). A band
-/// keeps its picture to its room's cameras, so a trail never shows in another
-/// player's view.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TrailDrawing(pub Option<usize>);
-
-/// Draw the trails as retained gizmo linestrips in Bevy world space, one
-/// drawing for each band that has strips. Closed cycles remain visible after
-/// emission stops; chunks split by a continuity break are drawn apart, so a
-/// portal transit never appears as a straight line across the room.
-///
-/// A drawing is rebuilt only when the strips change: a still trail costs one
-/// comparison, and nothing is extracted again. In the trails' presentation
-/// set, so the frame after the last room using trails goes takes them down.
-pub fn present_player_trails(
-    mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    ropes: Query<(Entity, &PlayerTrail), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
-    drawings: Query<(Entity, &TrailDrawing, &bevy::gizmos::retained::Gizmo)>,
-    mut assets: ResMut<Assets<bevy::gizmos::GizmoAsset>>,
-    mut drawn: Local<Vec<(Option<usize>, Vec<Vec2>, Color)>>,
-) {
-    let strips = trail_strips(&world, &ropes);
-    if *drawn == strips {
-        return;
-    }
-    let mut by_band: std::collections::BTreeMap<Option<usize>, bevy::gizmos::GizmoAsset> =
-        std::collections::BTreeMap::new();
-    for (position, points, color) in &strips {
-        by_band
-            .entry(*position)
-            .or_insert_with(bevy::gizmos::GizmoAsset::new)
-            .linestrip_2d(points.iter().copied(), *color);
-    }
-    for (entity, band, gizmo) in &drawings {
-        match by_band.remove(&band.0) {
-            Some(picture) => {
-                let _ = assets.insert(gizmo.handle.id(), picture);
-            }
-            None => commands.entity(entity).despawn(),
-        }
-    }
-    for (band, picture) in by_band {
-        let mut drawing = commands.spawn((
-            TrailDrawing(band),
-            bevy::gizmos::retained::Gizmo {
-                handle: assets.add(picture),
-                ..default()
-            },
-            Name::new("player trail"),
-        ));
-        if let Some(position) = band {
-            drawing.insert(bevy::camera::visibility::RenderLayers::none().with(
-                ambition_platformer2d_shared_tangle::camera_layers::live_room_render_layer(position),
-            ));
-        }
-    }
-    *drawn = strips;
-}
-
-/// Each trail's strips in Bevy world space, with their colours and the band
-/// position of the trail's live room (`None` while one room is live, or past
-/// the bands). Each
-/// trail is placed by the live room of the body that carries it (OW1): the
-/// sole live room was read, so while two rooms were live no trail was drawn.
-/// A trail whose room cannot be told draws nothing.
-pub(crate) fn trail_strips(
-    world: &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    ropes: &Query<(Entity, &PlayerTrail), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
-) -> Vec<(Option<usize>, Vec<Vec2>, Color)> {
-    let z = ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.1;
-    let mut strips = Vec::new();
-    for (entity, rope) in ropes {
-        // The band position, the index the room trail groups are banded by.
-        let position = world.room_of(entity).and_then(|room| ambition_platformer2d_shared_tangle::camera_layers::live_room_band(world.instances(), room)).map(|band| {
-            band - ambition_platformer2d_shared_tangle::camera_layers::LIVE_ROOM_RENDER_LAYER_BASE
-        });
-        let Some(world) = world.of(entity) else {
-            continue;
-        };
-        let to_bevy = |pts: Vec<ae::Vec2>| -> Vec<Vec2> {
-            pts.into_iter()
-                .map(|p| ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate())
-                .collect()
-        };
-        let color = match rope.status {
-            TrailStatus::Emitting => TRAIL_EMITTING_COLOR,
-            TrailStatus::Closed => TRAIL_CLOSED_COLOR,
-            TrailStatus::Collapsing { .. } => TRAIL_COLLAPSING_COLOR,
-        };
-        for pts in rope.render_polylines() {
-            if pts.len() >= 2 {
-                strips.push((position, to_bevy(pts), color));
-            }
-        }
-        for pts in rope.collapsing_loop_polylines() {
-            if pts.len() >= 2 {
-                strips.push((position, to_bevy(pts), TRAIL_SELF_LOOP_COLLAPSING_COLOR));
-            }
-        }
-    }
-    strips
-}
-
-/// Trail plugin: registers the emission state, continuity-break message,
-/// sampling/update, and debug-line rendering. Input systems may toggle
+/// Register emission state, continuity messages, sampling, and advancement.
+/// Input systems may toggle
 /// [`PlayerTrailEnabled`], but this module does not know which physical key or
 /// device action caused that change; portal adapters may emit
 /// [`TrailContinuityBreak`], but this module does not depend on the portal crate.
@@ -773,16 +657,7 @@ impl Plugin for PlayerTrailPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationSync)
                 .in_set(TRAILS),
         );
-        // The drawing follows whatever the last sim tick emitted, once per
-        // rendered frame, where gizmos draw.
-        app.add_systems(
-            Update,
-            present_player_trails
-                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(
-                    ambition_platformer2d_shared_tangle::capability::Capability::Trails,
-                ))
-                .run_if(resource_exists::<Assets<bevy::gizmos::GizmoAsset>>),
-        );
+
     }
 }
 
@@ -974,119 +849,6 @@ mod tests {
 
     fn v(x: f32, y: f32) -> ae::Vec2 {
         ae::Vec2::new(x, y)
-    }
-
-    /// The strips of every trail in `world`, as the draw makes them, with the
-    /// band position of each one's room.
-    fn strips(world: &mut World) -> Vec<(Option<usize>, Vec<Vec2>, Color)> {
-        use bevy::ecs::system::RunSystemOnce as _;
-        world
-            .run_system_once(
-                |rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
-                    ambition_platformer2d_core::RoomGeometry,
-                >,
-                 ropes: Query<
-                    (Entity, &PlayerTrail),
-                    With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-                >| trail_strips(&rooms, &ropes),
-            )
-            .expect("the draw's parameters are in the world")
-    }
-
-    /// A live room of size `size` with a player whose trail runs from
-    /// (10, 10) to (60, 10).
-    fn a_room_with_a_trail(world: &mut World, ordinal: u32, size: ae::Vec2) {
-        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
-        let room = LiveRoomInstance::from_ordinal(ordinal);
-        world.spawn((
-            RoomInstanceRoot,
-            room,
-            ambition_platformer2d_core::RoomGeometry(ae::World::new("room", size, ae::Vec2::ZERO, Vec::new())),
-        ));
-        let mut trail = PlayerTrail::emitting_from(v(10.0, 10.0));
-        trail.emit_to(v(60.0, 10.0));
-        world.spawn((ambition_platformer2d_shared_tangle::markers::PlayerEntity, InRoomInstance(room), trail));
-    }
-
-    /// OW1: with two live rooms each trail is drawn, placed by its own room.
-    /// The rooms differ in size, so one point lands at two places. Before,
-    /// the draw read the sole live room and drew nothing while two were
-    /// live. The control is one room, which draws its one trail.
-    #[test]
-    fn each_trail_is_drawn_in_its_own_live_room() {
-        let mut one = World::new();
-        a_room_with_a_trail(&mut one, 0, v(400.0, 300.0));
-        assert_eq!(strips(&mut one).len(), 1, "control: one live room draws its trail");
-
-        let mut two = World::new();
-        a_room_with_a_trail(&mut two, 0, v(400.0, 300.0));
-        a_room_with_a_trail(&mut two, 1, v(800.0, 900.0));
-        let starts: Vec<Vec2> = strips(&mut two).iter().map(|(_, points, _)| points[0]).collect();
-        let z = ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.1;
-        let placed = |size: ae::Vec2| {
-            ambition_platformer2d_core::config::world_size_to_bevy(size, v(10.0, 10.0), z).truncate()
-        };
-        let mut expected = vec![placed(v(400.0, 300.0)), placed(v(800.0, 900.0))];
-        let mut starts = starts;
-        let key = |p: &Vec2| (p.x.to_bits(), p.y.to_bits());
-        starts.sort_by_key(key);
-        expected.sort_by_key(key);
-        assert_eq!(starts, expected, "each trail's first point, placed by its own room");
-    }
-
-    /// Each trail is drawn on its own room's band, so only the camera that
-    /// shows that room draws it. Before bands, every trail was drawn on layer
-    /// 0, which every view's camera draws: Bob's trail showed over Alice's room
-    /// in her view.
-    ///
-    /// The drawing is chosen by the room's BAND POSITION, not by its instance
-    /// number: rooms #7 and #12 draw in drawings 0 and 1, on the layers a camera
-    /// of each room draws. Control: one live room draws on layer 0 (`None`).
-    /// A still trail is not drawn again: a second pass changes no drawing.
-    #[test]
-    fn each_trail_is_drawn_on_its_rooms_band() {
-        use bevy::ecs::system::RunSystemOnce as _;
-        let positions = |world: &mut World| {
-            let mut positions: Vec<_> = strips(world).into_iter().map(|(position, ..)| position).collect();
-            positions.sort();
-            positions
-        };
-        let mut one = World::new();
-        a_room_with_a_trail(&mut one, 12, v(400.0, 300.0));
-        assert_eq!(positions(&mut one), vec![None], "control: one live room draws on layer 0");
-
-        let mut two = World::new();
-        a_room_with_a_trail(&mut two, 7, v(400.0, 300.0));
-        a_room_with_a_trail(&mut two, 12, v(800.0, 900.0));
-        assert_eq!(positions(&mut two), vec![Some(0), Some(1)], "the band positions of rooms #7 and #12");
-
-        two.init_resource::<Assets<bevy::gizmos::GizmoAsset>>();
-        two.run_system_once(present_player_trails).expect("the trail pass runs");
-        let drawings = |world: &mut World| {
-            let mut drawings: Vec<_> = world
-                .query::<(Entity, &TrailDrawing, Option<&bevy::camera::visibility::RenderLayers>)>()
-                .iter(world)
-                .map(|(entity, band, layers)| (band.0, entity, layers.cloned()))
-                .collect();
-            drawings.sort_by_key(|(band, ..)| *band);
-            drawings
-        };
-        let first = drawings(&mut two);
-        let live = [7, 12].map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal);
-        assert_eq!(first.len(), 2, "one drawing for each band with a trail");
-        for (position, (band, _, layers)) in first.iter().enumerate() {
-            let camera = ambition_platformer2d_shared_tangle::camera_layers::live_room_band(live, live[position])
-                .expect("two rooms are banded");
-            assert_eq!(*band, Some(position));
-            assert_eq!(
-                layers.clone(),
-                Some(bevy::camera::visibility::RenderLayers::none().with(camera)),
-                "drawing {position} is on the band a camera of room #{} draws",
-                [7, 12][position]
-            );
-        }
-        two.run_system_once(present_player_trails).expect("the trail pass runs");
-        assert_eq!(drawings(&mut two), first, "a still trail keeps its drawings");
     }
 
     #[test]

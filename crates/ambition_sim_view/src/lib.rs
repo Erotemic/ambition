@@ -2,8 +2,8 @@
 //!
 //! Simulation read-models are rebuilt from authoritative state in the sim tail;
 //! observers consume these snapshots instead of querying live simulation ECS.
-//! [`camera_snapshot`] is presentation-clock state and is rebuilt once per
-//! rendered frame, but follows the same one-way observation boundary.
+//! Camera and trail snapshots use the presentation clock. They follow the
+//! same one-way observation boundary.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod affordances;
@@ -21,6 +21,8 @@ mod pose_view;
 pub mod presented_pose;
 mod rollback_registration;
 mod view_index;
+mod trail_snapshot;
+pub use trail_snapshot::{snapshot_emitted_trails, TrailSnapshot, TrailStrip, TrailStripState};
 
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,

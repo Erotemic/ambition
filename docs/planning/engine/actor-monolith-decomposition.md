@@ -627,11 +627,17 @@ to the world owner. Runtime installs that step between body rescue and the
 body-contact snapshot. The phase, deferred visibility, and invocation count
 stay the same.
 
-**Remaining D33 work:** separate retained trail drawing from the body kernel.
-`avatar::trail` still creates gizmo assets and render layers. Keep trail
-mechanics with body/action execution. Publish the drawing facts through
-observation and let presentation own the assets and drawing systems.
-Capability profiles remain a separate C2/SDK exit.
+Observation captures trail geometry on the presentation clock. Rendering owns
+its colors, retained gizmo assets, room bands, and retirement. A system pipe
+passes plain drawing facts across that boundary in one Update invocation.
+Trail creation and advancement stay in the body kernel.
+
+**Remaining D33 work:** move fall-rescue integration to runtime. It combines
+room policy, boss activity, body contacts, and world platform creation; it is
+not a body algorithm. Keep rescue after mount steering and before the world
+platform step. Remove the empty avatar compatibility modules. Keep accepted
+control and body execution together. Capability profiles remain a separate
+C2/SDK exit.
 
 ### K19 — Owned body API
 

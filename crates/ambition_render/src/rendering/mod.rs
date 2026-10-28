@@ -141,6 +141,7 @@ pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
 pub(crate) mod slash_visuals;
+mod emitted_trails;
 mod unauthored_volumes;
 pub mod view_isolation;
 mod wielded_item_visuals;
@@ -300,7 +301,16 @@ pub struct PlayerVisualSchedulePlugin;
 
 impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
+        use bevy::prelude::{IntoScheduleConfigs, IntoSystem, Startup, Update};
+        app.add_systems(
+            Update,
+            ambition_sim_view::snapshot_emitted_trails
+                .pipe(emitted_trails::draw_emitted_trails)
+                .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(
+                    ambition_platformer2d_shared_tangle::capability::Capability::Trails,
+                ))
+                .run_if(bevy::prelude::resource_exists::<bevy::asset::Assets<bevy::gizmos::GizmoAsset>>),
+        );
         app.init_resource::<item_visuals::FailedItemArt>()
             .configure_sets(
                 Update,

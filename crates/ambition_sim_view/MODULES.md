@@ -20,9 +20,10 @@
 | [`pose_view`](src/pose_view.rs) | Per-body presentation POSE read-model for player-bodied entities (E4). |
 | [`presented_pose`](src/presented_pose.rs) | Presentation-time body poses sampled from tick read-models. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_sim_view`. |
+| [`trail_snapshot`](src/trail_snapshot.rs) | Trail geometry captured on the presentation clock. |
 | [`view_index`](src/view_index.rs) | `FeatureViewIndex` resource and the per-frame rebuild pass. |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

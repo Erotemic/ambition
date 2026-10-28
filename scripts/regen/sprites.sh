@@ -1669,6 +1669,11 @@ publish_cached_batch() {
     local -a freshness_flags=()
     [ "$force_regen" -ne 1 ] || freshness_flags+=(--force)
     [ "$records_ok" -eq 1 ] || freshness_flags+=(--portraits-failed)
+    local installs_tsv portraits_tsv
+    installs_tsv="$(mktemp "${TMPDIR:-/tmp}/sprite-installs.XXXXXX")"
+    portraits_tsv="$(mktemp "${TMPDIR:-/tmp}/sprite-portraits.XXXXXX")"
+    printf '%s\n' "$install_lines" > "$installs_tsv"
+    printf '%s\n' "$records" > "$portraits_tsv"
     local freshness=""
     if ! freshness="$(
         cd "$renderer_dir" && "$python_bin" "$repo_root/scripts/lib/sprite_freshness.py" \

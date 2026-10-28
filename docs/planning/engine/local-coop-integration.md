@@ -80,10 +80,15 @@ Existing app witnesses primarily exercise D-pad button input. A new left-stick
 regression is included, but the agent must confirm how Bevy populates sampled
 axes under the actual input schedule, including newly connected devices.
 
-The joined body is also currently created at the primary body's location;
-collision-safe deterministic join placement is still needed. That is not
-proven to be the cause of the controller problem and must not be used as a
-substitute for tracing the input/body pipeline.
+**Join placement built 2026-10-28 (`1f0956abb`):** a join no longer puts
+its body on the primary body. The common body recipe supplies its standing
+footprint, including the motion model's terrain clearance. Placement checks
+16 fixed nearby positions against the live room's composed terrain and its
+occupied body boxes. It does not copy the primary body's passage permissions.
+If all positions are blocked, no body is built; another Start press can retry.
+Guards: the six nearby-placement tests in `rooms/spawn.rs` and
+`a_seat_with_no_body_joins_beside_the_primary_on_a_start_press` (including
+rollback). The app compile, 168 session tests and 35 workspace policy tests pass.
 
 ## Model and ownership boundaries
 

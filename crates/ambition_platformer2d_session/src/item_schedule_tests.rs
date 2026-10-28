@@ -75,23 +75,11 @@ mod held_item_steps {
     }
 
     fn with_graph(f: impl FnOnce(&ScheduleGraph)) {
-        graph_of(false, f)
-    }
-
-    /// ⭐ THE ITEM DOMAIN ALONE, or the item domain PLUS the session's checkpoint
-    /// offer. The two fixtures exist because A1b moved the startup resume out of
-    /// this plugin: `false` is what an item-only composition installs, and `true`
-    /// is the full Ambition shape. Asserting only the second would hide the move;
-    /// asserting only the first would let the resume lose its edges unseen.
-    fn graph_of(with_session_checkpoint: bool, f: impl FnOnce(&ScheduleGraph)) {
         let mut app = App::new();
         app.add_plugins((
             ambition_held_items::HeldItemSimulationPlugin,
             ambition_platformer2d_items::pickup::ItemPickupSimulationPlugin,
         ));
-        if with_session_checkpoint {
-            app.add_plugins(crate::checkpoint::SessionCheckpointHorizonPlugin);
-        }
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         f(schedules.get(sim).expect("the sim schedule exists").graph());
@@ -166,11 +154,6 @@ mod held_item_steps {
             // shrine heal before Release and the match spawn between Throw and
             // Settle. The gun that sat between Use and Throw is a wielded
             // ability now, registered by `ambition_abilities`.
-            //
-            // ⛔ ONE, NOT TWO, SINCE A1b. The second was the checkpoint resume,
-            // which this plugin installed and no longer does — see
-            // `the_session_checkpoint_resume_keeps_the_edges_it_was_carved_from`
-            // for the half of that claim this fixture cannot see.
             assert_eq!(
                 attached_between(graph, None, Some(HeldItemStep::Release)),
                 1,
@@ -180,29 +163,6 @@ mod held_item_steps {
                 attached_between(graph, Some(HeldItemStep::Throw), Some(HeldItemStep::Settle)),
                 1,
                 "the match spawn drops before the physics that settles it"
-            );
-        });
-    }
-
-    /// ⛔⛔ **A CARVE DROPS THE SET MEMBERSHIP OF WHAT IT MOVES**, and nothing in
-    /// the moved file says which set it lost. A1b took the checkpoint resume out
-    /// of this plugin's chain; `SessionCheckpointHorizonPlugin` re-declares the
-    /// same membership and the same `before` edge, and this is what says so.
-    ///
-    /// ⚠ IT PINS THE INHERITED EDGES, NOT A DERIVED REQUIREMENT. Nothing has
-    /// established that a body placement belongs among held-item steps — see
-    /// A1c, which re-derives this ordering on the accepted-restore road. Until
-    /// then the contract is "the move changed no order", and that is exactly
-    /// what this measures.
-    #[test]
-    fn the_session_checkpoint_resume_keeps_the_edges_it_was_carved_from() {
-        graph_of(true, |graph| {
-            assert_eq!(
-                attached_between(graph, None, Some(HeldItemStep::Release)),
-                2,
-                "the session's checkpoint resume no longer sits inside \
-                 CoreHeldItems before Release, where the item-pickup chain used \
-                 to put it — the carve moved the system and dropped its set"
             );
         });
     }

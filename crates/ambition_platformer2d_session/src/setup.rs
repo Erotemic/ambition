@@ -197,6 +197,24 @@ pub struct HomeBody<'a> {
     pub abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
 }
 
+impl HomeBody<'_> {
+    fn definition(&self) -> Option<&ambition_characters::prepared::PreparedCharacterDefinition> {
+        self.prepared_characters?.get(self.character.effective_id(self.default_character_id))
+    }
+
+    pub(crate) fn placement_shape(&self) -> ae::BodySpawnShape {
+        let definition = self.definition();
+        let size = definition.map(ambition_body_seed::PhysicalBaseline::of)
+            .and_then(|physical| physical.standing_size())
+            .unwrap_or_else(ae::default_player_body_size);
+        let model = definition.map_or(
+            ae::MotionModelSpec::AxisSwept(Default::default()),
+            |definition| definition.motion_model,
+        );
+        model.spawn_shape(size, ae::DEFAULT_GRAVITY_DIR)
+    }
+}
+
 /// Build the home body of one seat, owned by the session of `session_scope`.
 ///
 /// ⛔ ONE RECIPE FOR EACH SEAT. The primary body of a session is seat 0 built
@@ -209,14 +227,13 @@ pub struct HomeBody<'a> {
 /// The body is session-scoped and not room-scoped, so a room replay does not
 /// sweep it. The room instance it is in comes from `session_scope`.
 ///
-/// ⚠ No production caller builds a seat above 0. When a second seat joins,
-/// where it enters and what it shares are open (`Q153`).
 pub fn spawn_home_body(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     body: HomeBody<'_>,
     markers: impl Bundle,
 ) -> Entity {
+    let physical = body.definition().map(ambition_body_seed::PhysicalBaseline::of);
     let HomeBody {
         seat,
         at,
@@ -298,9 +315,6 @@ pub fn spawn_home_body(
     // The registry now folds the catalog row at its barrier, so consulting the prepared value is
     // strictly more informed than consulting the row — and a registered-only character (every
     // versus fighter) has no row to consult.
-    let physical = prepared_characters
-        .and_then(|registry| registry.get(worn_id))
-        .map(ambition_body_seed::PhysicalBaseline::of);
     let player_health = ambition_characters::actor::Health::new(match physical.as_ref() {
         Some(physical) => physical.max_health_over(DEFAULT_PLAYER_HEALTH),
         // An id the cast does not hold: every catalog row is prepared (AP30),

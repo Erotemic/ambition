@@ -86,7 +86,7 @@ pub use integration::{winch_rate_for, WIRE_CRUISE_FRAC};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
     catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, switch_motion_model,
-    AxisManeuverState, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
+    AxisManeuverState, AxisSweptMotion, BodySpawnShape, MotionModel, MotionModelKind, MotionModelSpec,
     MomentumBoost, PhasedJumpState, SurfaceMomentumMotion, WireState,
 };
 pub use ops::MovementOp;

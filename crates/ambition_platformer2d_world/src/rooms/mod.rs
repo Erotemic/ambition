@@ -27,5 +27,5 @@ pub use rollback::register_rollback_state;
 pub use loading_zone::*;
 pub use metadata::*;
 pub use room_graph::*;
-pub use spawn::validated_spawn;
+pub use spawn::{spawn_near_body, validated_spawn};
 pub use specs::*;

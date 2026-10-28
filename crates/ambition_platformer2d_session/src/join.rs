@@ -14,8 +14,9 @@ use bevy::prelude::*;
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_world::collision::CollisionWorld;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, InRoomInstance, LiveRoomOf, SessionCommands, SessionRoot,
+    ActiveSessionScope, InRoomInstance, LiveRoomOf, SessionCommands, SessionRoot, SessionScopedEntity,
 };
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
@@ -27,7 +28,7 @@ use crate::setup::{spawn_home_body, HomeBody};
 ///
 /// Only a session that builds a home body for its primary seat seats a second
 /// one: a match owns its whole cast (`InitialBodyPolicy`). The primary must be
-/// in play, because the new body stands where the primary stands.
+/// in play, because the new body enters its live room.
 #[allow(clippy::too_many_arguments)]
 pub fn seat_a_joining_participant(
     mut commands: SessionCommands,
@@ -37,11 +38,19 @@ pub fn seat_a_joining_participant(
     cast: Option<Res<ambition_characters::session_cast::ActiveSessionCast>>,
     roots: Query<(&SessionRoot, &InitialBodyPolicy, &HomeBodyResources, &HomeBodyAbilities)>,
     rooms: LiveRoomOf<ae::RoomGeometry>,
+    collision: CollisionWorld,
     primary: Query<
-        (Entity, &ae::BodyKinematics, &ambition_characters::actor::WornCharacter, Option<&InRoomInstance>),
+        (Entity, &ae::BodyKinematics, &ambition_characters::actor::WornCharacter, Option<&InRoomInstance>, Option<&ae::SweepSample>),
         (With<PrimaryPlayer>, Without<ambition_combat::death_rules::OutOfPlay>),
     >,
     seated: Query<&DrivingParticipant, With<PlayerEntity>>,
+    bodies: Query<(
+        &ae::BodyKinematics,
+        Option<&ae::SweepSample>,
+        Option<&InRoomInstance>,
+        Option<&SessionScopedEntity>,
+        Option<&ae::DepthPlane>,
+    )>,
 ) {
     // Every row, not only the seats the session holds a handle for. A row the
     // session holds no handle for is not republished from GGRS input (the
@@ -65,7 +74,7 @@ pub fn seat_a_joining_participant(
     if !matches!(policy, InitialBodyPolicy::SpawnCharacter(_)) {
         return;
     }
-    let Ok((primary, kin, worn, room)) = primary.single() else {
+    let Ok((primary, kin, worn, room, sample)) = primary.single() else {
         return;
     };
     let Some(world) = rooms.of(primary) else {
@@ -76,23 +85,41 @@ pub fn seat_a_joining_participant(
     };
     let scope = scope.in_room(room.map(|room| room.0));
     let character = StartingCharacter::new(worn.id());
+    let Some(walls) = collision.room(room).and_then(|room| room.solids()) else {
+        return;
+    };
+    let reference = kin.collision_box(sample);
+    let frame = ae::AccelerationFrame::new(sample.map_or(ae::DEFAULT_GRAVITY_DIR, |sample| sample.down));
+    let mut occupied: Vec<_> = bodies.iter()
+        .filter(|(_, _, body_room, owner, depth)| {
+            body_room.copied() == room.copied()
+                && owner.is_none_or(|owner| owner.0 == session)
+                && depth.is_none_or(|depth| depth.is_playable())
+        })
+        .map(|(kin, sample, ..)| kin.collision_box(sample))
+        .collect();
     for seat in joining {
-        let body = spawn_home_body(
-            &mut commands,
-            scope,
-            HomeBody {
-                seat,
-                at: kin.pos,
-                world,
-                tuning: &tuning,
-                character: &character,
-                default_character_id: worn.id(),
-                prepared_characters: cast.as_deref().and_then(|cast| cast.cast()),
-                resources,
-                abilities,
-            },
-            (),
-        );
+        let mut body = HomeBody {
+            seat,
+            at: kin.pos,
+            world,
+            tuning: &tuning,
+            character: &character,
+            default_character_id: worn.id(),
+            prepared_characters: cast.as_deref().and_then(|cast| cast.cast()),
+            resources,
+            abilities,
+        };
+        let shape = body.placement_shape();
+        let Some(at) = ambition_platformer2d_world::rooms::spawn_near_body(
+            &walls, reference, frame, shape, &occupied,
+        ) else {
+            info!(target: "ambition_platformer2d::session", "seat {} could not join: no clear position near the primary body", seat.0);
+            continue;
+        };
+        body.at = at;
+        let body = spawn_home_body(&mut commands, scope, body, ());
+        occupied.push(ae::Aabb::new(at, shape.body_half));
         info!(target: "ambition_platformer2d::session", "seat {} joined as {body:?}", seat.0);
     }
 }

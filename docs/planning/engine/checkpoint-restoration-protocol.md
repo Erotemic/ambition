@@ -55,6 +55,12 @@ unless stated otherwise.
   installed: each domain's fresh-run reducer runs and the pinned values become
   the checkpoint. It outranks a reset asked on the same tick.
 
+**Startup composition (2026-10-28, `acb5ec5f6`):** item-set membership
+suppressed startup when a room declared no held use. Startup now belongs to
+`Platformer2dSimulationPhase::PlayerSimulation`, with the same shrine and
+release order. The real-host guard below covers enabled, unused and omitted
+held use. Keep session startup outside item capability sets.
+
 ## Request policy
 
 | Request | Target | Completion |
@@ -174,6 +180,7 @@ Every row has a witness that fails for that row's property.
 | Restore then frame-zero rollback | the `rollback_lifecycle_reset` suite |
 | Eager and confirmed hosts | `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` and the eager suite |
 | Checkpoint-only composition | `a_checkpoint_only_composition_resumes_without_the_item_domain` |
+| Held use enabled, unused, or omitted | `checkpoint_startup_does_not_depend_on_held_use` (`crates/ambition_platformer2d_host/tests/supported_profiles.rs`) |
 | Domain reducers only through inputs | `the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs`; `domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation` |
 | Teardown and re-entry | `a_key_from_a_retired_session_matches_nothing_in_the_next_one` |
 | A row about another room | `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding` |

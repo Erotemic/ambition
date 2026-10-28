@@ -234,40 +234,6 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
-### PART-CUT-PUBLISH — publish filtered part atlases
-
-**Owner:** [rigged sprite presentation](engine/runtime-rigged-sprite-animation.md).
-
-**Current state:** the compiler fix is verified for the robot's door pose and
-Behemoth idle. Both keep shared parts. Other installed full-resolution atlases
-can still hold the old transparent RGB. The two targets' reduced tiers are rebuilt.
-
-**Next:** finish the full sprite publication, then the quality-variant and
-freshness checks. Keep the tree fixed during publication.
-
-**Acceptance:** the full publication and all quality checks pass. App admission
-accepts the published art. Keep shared rasters and existing presentation paths.
-
-
-### ARCH-SESSION-RESUME — keep checkpoint startup independent of held use
-
-**Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),
-with [system composition S3](engine/system-composition-audit.md#s3--each-game-declares-the-engine-capabilities-it-uses-large--done-2026-10-21).
-
-**Current state:** checkpoint startup is a member of the held-item set. The
-held-use capability can suppress this session operation. The checkpoint-only
-witness covers an absent item plugin, but does not cover an installed plugin
-whose room declares no held use.
-
-**Next:** test startup through the real host with held use enabled, unused by
-the room, and omitted by the profile. Give checkpoint startup its session phase
-and required ordering, outside the item capability.
-
-**Acceptance:** each composition resumes the constructed body at the saved
-checkpoint. Keep the admitted restore road and required deferred flushes. No
-item-use placeholder or extra scheduled system is needed.
-
-
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
 
 **Owner:** `ambition_input` (seating, `sources.rs`), Ambition's seating
@@ -302,11 +268,12 @@ camera's view, layers, screen effects and its own half of the display),
 The maintainer reports the co-op baseline now works in the main game
 with two players (2026-10-24); see `MULTIPLAYER-SEAMS` for new playtest defects.
 
-**Next action, in slices:**
+**Built 2026-10-28 (join placement, `1f0956abb`):** the common body recipe
+now joins at a clear nearby position in the primary body's live room.
+The search has a fixed limit and declines a blocked join. See the guards in
+[local-coop integration](engine/local-coop-integration.md).
 
-- **Join placement (needed before slice 3):** the joining body is built on the primary's exact
-  position. Place it by a deterministic, collision-safe rule in the intended
-  live room (no frame-order randomness, no unbounded scan).
+**Next action, in slices:**
 
 3. **Leave:** pause-menu actions "remove Player 2" (Player 1) and "leave"
    (Player 2). Leaving releases the claim, retires the body by an explicit

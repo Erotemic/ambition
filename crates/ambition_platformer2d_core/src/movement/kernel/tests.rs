@@ -1756,5 +1756,5 @@ fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
 #[test]
 fn a_tall_body_rides_a_circle_whose_bottom_is_its_feet() {
     let size = Vec2::new(30.0, 48.0);
-    assert_eq!(surface_ride_radius(size), size.y * 0.5);
+    assert_eq!(surface_momentum::body_radius(size), size.y * 0.5);
 }

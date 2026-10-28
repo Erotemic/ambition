@@ -345,3 +345,43 @@ fn a_second_session_in_one_process_steps_as_the_first() {
     println!("PROFILE-REENTRY ok {compared:?}");
     assert!(!compared.is_empty(), "precondition: some supported profile is headless");
 }
+
+#[test]
+fn checkpoint_startup_does_not_depend_on_held_use() {
+    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_runtime::profile::{
+        COLLECTION_WITHOUT_HELD_USE, HEADLESS_BODY_WORLD,
+    };
+    use ambition_platformer2d_shared_tangle::capability::UsedCapabilities;
+
+    for (profile, used) in [
+        (&HEADLESS_BODY_WORLD, UsedCapabilities::ALL),
+        (
+            &HEADLESS_BODY_WORLD,
+            UsedCapabilities::ALL.without(Capability::HeldUse),
+        ),
+        (
+            &COLLECTION_WITHOUT_HELD_USE,
+            UsedCapabilities::ALL.without(Capability::HeldUse),
+        ),
+    ] {
+        let mut app = build(profile);
+        app.declare_rules(RulesScope::EveryRoom, used);
+        let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+        save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+            "fixture_room", 412, 128,
+        ));
+        app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+        for _ in 0..4 {
+            app.update();
+        }
+        assert!(app.world().resource::<SimTick>().get() > 0);
+        assert_eq!(
+            body_position(&mut app).expect("the host constructed a body").x,
+            412.0,
+            "{} with held use {} did not resume at the saved checkpoint",
+            profile.name,
+            used.uses(Capability::HeldUse),
+        );
+    }
+}

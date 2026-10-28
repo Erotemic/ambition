@@ -122,13 +122,8 @@ MIRRORED_TREES = (
     # Which generator made each file of the trees above (the art inspector's
     # provenance records): they describe the same bytes, so they travel with them.
     "crates/ambition_platformer2d_actor_monolith/asset_provenance",
-    # Content-side generated art lives outside the monolith and must be mirrored
-    # with the rest of the generated asset tree.
-    # The vanity card's part sheet, produced by scripts/regen/sprites.sh. The old
-    # `vanity_card` tree was the superseded full-frame card and no longer
-    # exists; mirroring that name copied nothing while the sheet the shipped
-    # manifest actually names was left behind.
-    "game/ambition_content/assets/vanity_card_made_this_meme",
+    "crates/ambition_platformer2d_actor_monolith/art_publication",
+    # Content-side reference and generated background art.
     "game/ambition_content/assets/backgrounds",
     "game/ambition_content/assets/concept_art",
     "game/ambition_content/assets/icons",

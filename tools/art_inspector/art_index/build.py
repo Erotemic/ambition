@@ -73,10 +73,10 @@ def build(
         inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path)
         if inspection["profile"]["state"] != "available":
             raise ContentUnavailable("Cannot build the character catalog.\n" + "\n".join(inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]))
-        targets = {uid[7:]: dict(unit["generator"], outputs=unit["required"] + unit["optional"])
+        targets = {uid[7:]: dict(unit["generator"], root=unit["root"], outputs=unit["required"] + unit["optional"])
                    for uid, unit in inspection["units"].items() if uid.startswith("target:")}
         warnings = inspection["warnings"]
-    ev = generators.load_evidence(repo, targets)
+    ev = generators.load_evidence(repo, targets, inspection["units"] if inspection else None)
     ev.warnings += warnings
     actor_targets: dict[str, str] = {}
     step("grouping assets and reading sidecars")

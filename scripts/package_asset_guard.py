@@ -358,7 +358,12 @@ def collect_source_files(repo: Path, profile: str) -> dict[str, SourceFile]:
     by_path: dict[str, SourceFile] = {}
     for root_name, root in roots:
         root_paths: list[str] = []
-        for rel, path in iter_regular_files(root, excludes=excludes):
+        from lib.art_publication import files as art_files, store as art_store, MANAGED_ROOTS
+        managed = set(MANAGED_ROOTS) | set(art_store(repo / ACTOR_ASSET_ROOT).selected().get("roots", []))
+        ordinary = [(rel, path) for rel, path in iter_regular_files(root, excludes=excludes)
+                    if rel.split("/", 1)[0] not in managed]
+        published = list(art_files(root).items()) if root_name == "actors" else []
+        for rel, path in ordinary + published:
             normalized = normalize_package_path(rel)
             if normalized != rel:
                 raise AssetContractError(f"non-canonical source asset path: {path}")

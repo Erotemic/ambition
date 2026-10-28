@@ -26,6 +26,13 @@ fn asset_roots() -> Vec<PathBuf> {
 /// Whether `declared` names a real file under any mounted root.
 fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
     let relative = declared.rsplit("://").next().unwrap_or(declared);
+    use ambition_platformer2d::asset_manager::art_publication::{Selection, store_for_assets};
+    static SELECTED: std::sync::OnceLock<Selection> = std::sync::OnceLock::new();
+    let selected = SELECTED.get_or_init(|| Selection::read(&store_for_assets(&roots[0]))
+        .expect("Generate the runtime art before checking its declarations"));
+    if selected.manages(Path::new(relative)) {
+        return selected.path(relative).is_some_and(|path| path.is_file());
+    }
     roots.iter().any(|root| root.join(relative).is_file())
 }
 

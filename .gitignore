@@ -265,3 +265,6 @@ ambition.local.toml
 
 # Scratch diff/measurement output. `out` was tracked once by accident (61d966493).
 out/
+
+# Immutable generated art and accepted publication selections.
+crates/ambition_platformer2d_actor_monolith/art_publication/

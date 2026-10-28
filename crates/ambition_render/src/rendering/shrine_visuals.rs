@@ -295,7 +295,7 @@ fn shrine_visual_source_from_record(
     let image = ambition_sprite_sheet::game_assets::load_sheet_image(
         asset_server,
         "shrine-sheet",
-        format!("sprites/props/{}", record.image),
+        format!("sprites/{}", record.image),
     );
 
     let mut ledger = BindingLedger::new();

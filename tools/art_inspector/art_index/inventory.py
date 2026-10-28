@@ -52,13 +52,17 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                 "generator": generator, "sha256": item.get("sha256"), "basis": receipt.get("basis"),
                 "renderer": receipt.get("renderer"), "written_at": receipt.get("written_at"), "evidence": "declared",
                 "lineages": known_history.get(generator.get("id"), [])})
+    root_list = roots(repo)
     sheets = defaultdict(list)
     manifests = defaultdict(list)
     for path, records in prepared.get("sheets", {}).items():
         for record in records:
-            published = dict(record, path=path, tier=next((r.tier for r in roots(repo) if Path(path).is_relative_to(r.path)), "unknown"))
+            published = dict(record, path=path, tier=next((r.tier for r in root_list if Path(path).is_relative_to(r.path)), "unknown"))
             sheets[record["product"]].append(published)
             manifests[Path(path).name].append(published)
+    publication = product_report.get("publication", {})
+    publication_store = Path(product_report.get("store", repo / "crates/ambition_platformer2d_actor_monolith/art_publication"))
+    physical = {logical: (publication_store / row["path"]).resolve() for logical, row in publication.get("files", {}).items()}
     claims = defaultdict(list)
     for uid, unit in units.items():
         unit["identities"] = []
@@ -88,6 +92,9 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                 frame_count_mismatch=sorted(name for name in preview["rows"].keys() & runtime_rows.keys() if preview["rows"][name] != runtime_rows[name]))
         for rel in unit.get("required", []) + unit.get("optional", []):
             claims[(asset_root(repo) / unit["root"] / rel).resolve()].append(uid)
+            logical = unit["root"] + "/" + rel
+            if logical in physical:
+                claims[physical[logical]].append(uid)
         unit["runtime_defects"] = [{"tier": sheet["tier"], "path": sheet["path"],
             "missing_pages": [page["path"] for page in sheet["pages"] if not page["exists"]],
             "invalid_rows": [row["name"] for row in sheet["rows"] if not row["valid"]]}
@@ -97,6 +104,8 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
     for asset in prepared.get("assets", []):
         path = asset["path"]
         candidates = [(pack_root / path).resolve(), (asset_root(repo) / path).resolve()]
+        if path in physical:
+            candidates.append(physical[path])
         owners = {uid for candidate in candidates for uid in claims.get(candidate, [])}
         art = Path(path)
         if not owners and (art.suffix.lower() in (".png", ".webp", ".svg", ".jpg", ".jpeg") or art.name.endswith(("_spritesheet.ron", "_parts.ron", "_portraits.ron"))):
@@ -206,8 +215,9 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
             concepts[str(concept)].append(uid)
     warnings = product_report.get("warnings", []) + prepared.get("warnings", [])
     return {"schema": "ambition.art_inspection.v1", "profile": {k: prepared.get(k) for k in ("state", "provider", "pack", "profile", "fingerprint", "cache", "sources", "warnings")},
-        "complete": product_report.get("complete", False) and prepared.get("state") == "available" and all(w["state"] == "available" for w in world_sources),
+        "complete": product_report.get("complete", False) and prepared.get("state") == "available" and all(w["state"] == "available" for w in world_sources) and not prepared.get("failures"),
         "world_sources": world_sources,
+        "publication": publication, "publication_store": str(publication_store),
         "units": units, "identities": identities, "character_groups": character_groups(identities),
         "concepts": dict(concepts), "lineages": lineages, "local_products": local,
         "runtime": runtime, "warnings": warnings, "sheet_failures": prepared.get("failures", [])}

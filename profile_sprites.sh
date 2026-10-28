@@ -125,7 +125,7 @@ for target in "${targets[@]}"; do
         publish)
             publish_dir="$output_dir/published/$target"
             mkdir -p "$publish_dir"
-            command+=(publish "$target" --dest-root "$publish_dir")
+            command=(env "AMBITION_ART_STORE=$publish_dir" "AMBITION_ART_PROFILE_DIR=$output_dir" "$python_bin" -m ambition_sprite2d_renderer.publication --target "$target" --resolve-layout --force --jobs 1)
             ;;
     esac
 

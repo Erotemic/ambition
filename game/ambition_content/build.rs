@@ -5,7 +5,20 @@
 
 use std::path::Path;
 
+#[allow(dead_code)]
+#[path = "../../crates/ambition_asset_manager/src/art_publication.rs"]
+mod art_publication;
+
 fn main() {
+    println!("cargo:rerun-if-env-changed=AMBITION_ART_STORE");
+    if std::env::var_os("CARGO_FEATURE_STATIC_CONTENT").is_some() {
+        let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/ambition_platformer2d_actor_monolith/assets");
+        let store = art_publication::store_for_assets(&assets);
+        let selected = art_publication::Selection::read(&store).unwrap_or_else(|error| panic!("{error}"));
+        let path = selected.path("vanity_card_made_this_meme/manifest.ron").expect("Publish the director card before embedding content");
+        println!("cargo:rerun-if-changed={}", store.join("published.json").display());
+        println!("cargo:rustc-env=AMBITION_VANITY_CARD_RON={}", path.display());
+    }
     ambition_content_pack::embed::embed_pack("assets");
     embed_worlds();
 }

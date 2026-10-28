@@ -42,9 +42,28 @@ TIERS = {"_0_5x": "half", "_0_25x": "quarter", "_potato": "potato"}
 
 def roots(repo: Path) -> list[Root]:
     a = asset_root(repo)
-    out = [Root("sprites", a / "sprites")]
-    out += [Root(f"sprites{suffix}", a / f"sprites{suffix}", tier, "sprites") for suffix, tier in TIERS.items()]
-    out.append(Root("sprite_packs", a / "sprite_packs"))
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+    from lib.art_publication import files as art_files
+    out = [Root("sprites", a / "sprites", origin="unmanaged")]
+    out += [Root("sprites"+suffix, a / ("sprites"+suffix), tier, "sprites", "unmanaged") for suffix, tier in TIERS.items()]
+    out.append(Root("sprite_packs", a / "sprite_packs", origin="unmanaged"))
+    published = art_files(a)
+    managed = {"sprites", "sprite_packs"} | {"sprites" + suffix for suffix in TIERS}
+    for name in sorted({logical.split("/", 1)[0] for logical in published} - managed):
+        for base in (a, repo / "game/ambition_content/assets"):
+            out.append(Root(name, base / name, origin="unmanaged"))
+    seen = set()
+    for logical, physical in published.items():
+        name, rel = logical.split("/", 1)
+        base = physical
+        for _ in Path(rel).parts:
+            base = base.parent
+        if (name, base) in seen:
+            continue
+        seen.add((name, base))
+        suffix = next((suffix for suffix in TIERS if name == "sprites" + suffix), None)
+        out.append(Root(name, base, TIERS[suffix] if suffix else "full", "sprites" if suffix else None))
     out.append(Root("backgrounds/parallax_layers", a / "backgrounds" / "parallax_layers"))
     out += [
         Root(f"backgrounds/parallax_layers{suffix}", a / "backgrounds" / f"parallax_layers{suffix}", tier, "backgrounds/parallax_layers")

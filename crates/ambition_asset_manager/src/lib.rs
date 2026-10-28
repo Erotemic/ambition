@@ -20,6 +20,7 @@
 //! hot-reload availability, and Bevy `AssetSource` wiring recommendations.
 
 pub mod asset_publish;
+pub mod art_publication;
 pub mod id;
 pub mod kind;
 pub mod location;

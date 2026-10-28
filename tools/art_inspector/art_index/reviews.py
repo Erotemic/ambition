@@ -26,7 +26,8 @@ def subjects(catalog: dict) -> dict:
         units = [inventory["units"][uid] for uid in actor["units"]]
         paths = {unit["root"] + "/" + path for unit in units for path in unit["required"] + unit.get("optional", [])}
         products = [{"path": path, "sha256": catalog["products"].get(path, {}).get("sha256")} for path in sorted(paths)]
-        identity = {"manifest": actor["catalog"].get("manifest"), "products": products}
+        identity = {"manifest": actor["catalog"].get("manifest"), "products": products,
+                    "bundle_ids": {unit["id"]: unit["bundle"] for unit in units if unit.get("bundle")}}
         generation = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
         result[key] = dict(identity, generation_id=generation, character=key, display=actor["display"],
                            content_fingerprint=inventory["profile"].get("fingerprint"),
@@ -36,8 +37,13 @@ def subjects(catalog: dict) -> dict:
 
 
 def check_products(repo: Path, subject: dict) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+    from lib.art_publication import resolve, store
+    current = store(repo / ASSETS).selected()
+    if any(current["bundles"].get(unit) != key for unit, key in subject.get("bundle_ids", {}).items()):
+        raise ConflictError("The published art changed. Rebuild the inspector before adding this note.")
     for product in subject["products"]:
-        path = repo / ASSETS / product["path"]
+        path = resolve(repo / ASSETS, product["path"]) if subject.get("bundle_ids") else repo / ASSETS / product["path"]
         digest = None
         if path.is_file():
             with path.open("rb") as stream:

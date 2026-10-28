@@ -47,6 +47,11 @@ def findings(
             out.append(_d("claimed-output-missing", "info", path, f"target:{target} claims this file; it is not published here.", generator=f"target:{target}"))
     # Rendered records whose inputs changed since.
     for gid, record in ev.records.items():
+        if "status" in record:
+            for reason in record["status"].get("reasons", []):
+                if reason["code"] in ("changed-input", "changed-source-membership", "changed-toolchain"):
+                    out.append(_d("inputs-changed", "warn", gid, "The publication owner reports changed generation inputs.", generator=gid, inputs=[reason.get("path")]))
+            continue
         if record.get("basis") != "rendered":
             continue
         changed = []

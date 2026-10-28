@@ -1,7 +1,7 @@
 //! Programmatic startup vanity-card segment.
 //!
 //! Rig solving and choreography are baked offline into
-//! `assets/data/vanity_card_made_this_meme.ron`; runtime code only places baked
+//! the selected director-card bundle. Runtime code places baked
 //! parts from one packed texture. The scene is scoped to its shell segment and
 //! reports `ProgrammaticSegmentCompleted` when finished, so ordinary shell
 //! teardown handles skip, route replacement, and failure.
@@ -18,13 +18,11 @@ use serde::Deserialize;
 /// Registered shell-segment kind for the vanity card.
 pub const MADE_THIS_MEME_CARD_SEGMENT_KIND: &str = "ambition_vanity_card_made_this_meme";
 
-/// The baked animation. Committed, and generated — see the module docs. Read
-/// off disk unless the build embeds content (`static_content`), so a re-render
-/// rebuilds nothing.
-const MADE_THIS_MEME_SOURCE_PATH: &str = "data/vanity_card_made_this_meme.ron";
+/// Read the selected animation, or embed it with `static_content`.
+const MADE_THIS_MEME_SOURCE_PATH: &str = "vanity_card_made_this_meme/manifest.ron";
 #[cfg(feature = "static_content")]
 const MADE_THIS_MEME_RON_STATIC: Option<&'static str> =
-    Some(include_str!("../../assets/data/vanity_card_made_this_meme.ron"));
+    Some(include_str!(env!("AMBITION_VANITY_CARD_RON")));
 #[cfg(not(feature = "static_content"))]
 const MADE_THIS_MEME_RON_STATIC: Option<&'static str> = None;
 
@@ -99,8 +97,22 @@ fn card() -> &'static RigCard {
     use std::sync::OnceLock;
     static CARD: OnceLock<RigCard> = OnceLock::new();
     CARD.get_or_init(|| {
-        ron::from_str(&crate::pack::source_text(MADE_THIS_MEME_SOURCE_PATH, MADE_THIS_MEME_RON_STATIC))
-            .expect("vanity_card_made_this_meme.ron is generated; it must parse")
+        let (text, selected) = if let Some(text) = MADE_THIS_MEME_RON_STATIC {
+            (text.to_owned(), None)
+        } else {
+            use ambition_platformer2d::asset_manager::art_publication::{Selection, store_for_assets};
+            let assets = std::path::PathBuf::from(ambition_platformer2d::asset_manager::actors_desktop_asset_root());
+            let selected = Selection::read(&store_for_assets(&assets)).expect("An accepted art publication");
+            let text = std::fs::read_to_string(selected.path(MADE_THIS_MEME_SOURCE_PATH).expect("The director card is published"))
+                .expect("The accepted director card is readable");
+            (text, Some(selected))
+        };
+        let mut card: RigCard = ron::from_str(&text).expect("The director card metadata must parse");
+        // Keep atlas pixels with the placement table that names their rectangles.
+        if let Some(selected) = selected {
+            card.sheet = selected.address(&card.sheet).expect("The card atlas is in its publication");
+        }
+        card
     })
 }
 

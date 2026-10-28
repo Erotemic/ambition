@@ -1741,6 +1741,13 @@ pub fn default_plugins() -> bevy::app::PluginGroupBuilder {
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use bevy::asset::AssetApp as _;
+        let root = crate::asset_manager::actors_desktop_asset_root();
+        app.register_asset_source(bevy::asset::io::AssetSourceId::Default,
+            crate::asset_manager::consumer_source::layered_asset_source(root.clone(), root));
+    }
     let window = matches!(display, Display::Window);
     let plugins = default_plugins()
         .set(bevy::asset::AssetPlugin {

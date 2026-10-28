@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import regen_music_registry as music_registry
+from lib.art_publication import resolve as resolve_art
 
 
 def tool_json(tool: str, override: str, code: str):
@@ -66,7 +67,7 @@ def check_sprites(asset_root: Path, sources, plans_only: bool) -> list[str]:
     for asset, owners in sorted(required.items()):
         if asset not in planned:
             failures.append(f"sprites: no regen target publishes {asset} (used by {', '.join(sorted(owners))})")
-        elif not plans_only and not (asset_root / asset).is_file():
+        elif not plans_only and not resolve_art(asset_root, asset).is_file():
             failures.append(f"sprites: missing {asset}; run scripts/regen/sprites.sh")
     print(f"sprites: {len(required)} required sheet files, {len(planned)} planned outputs")
     return failures

@@ -1973,57 +1973,14 @@ variants. Also found in that regen:
   moved by +256 and 4 by +3, with their auto-layer tiles. These are editor
   visuals; why the atlas moved is not measured, and the change was not
   committed (Q62: a delta needs a domain-aware reading first).
-10. **The sprite publish costs in proportion to what changed (converged
-    2026-10-15).** It was a 1-hour publish that wrote the runtime roots in
-    place, so a stopped run left a mixed set that app_it reported as a code
-    defect (2026-10-13). Built, each with its witness in the commit:
-    - A staging root swapped in only when every sprite phase passed
-      (`scripts/lib/sprite_staging.sh`), made from the set the last swap
-      replaced (`.cache/publish_mirror`, `rsync --delete`: 0.7 s, was 41 s).
-    - A per-sheet key: the recorder, the files the registry says a
-      target is made of, and the files its last render opened and the
-      renderer modules it imported (`read_record.py`,
-      `scripts/lib/sprite_cache_key.sh`). One process
-      judges a batch (`scripts/lib/sprite_freshness.py`, 6 s for 240
-      targets, the bytes of the bash key).
-    - `draw-review`, `draw-all` and `draw-factions` deleted: their targets
-      publish in the cached batch. The vanity card is keyed as a target.
-    - Ultrapack: a tier is skipped when its inputs hold, patched when only
-      pixels changed (6.7 s), and otherwise packed on threads within the
-      job cap (the four tiers 82 s, was 362 s one after another).
-    - The variants read only page fields (6 s, was 72 s) and build on the
-      job cap's processes (a full rebuild 102 s in a publish, was 554 s on
-      one; the same files); the LDtk
-      manifest reads only the sheets it registers (1.7 s, was 25 s), for
-      each world in `worlds.ron`.
-    - A run with a cargo job names a stale sprite set and its remedy in a
-      failed job's lane-ledger row (`environment`).
-    **Measured 2026-10-15:** no change, 37 s (the whole-run hit); nothing
-    to render, 54 s; a recolour of one sheet, its render plus about 7 s of
-    packing; a frame that changes size, its render plus 74 s (every tier
-    re-packs). A change to the shared core re-rendered every sheet: 56 min
-    (tack-ons 2255 s of render, the variants 575 s before they built on
-    six processes). Since 2026-10-15 a sheet's key holds the modules its
-    render imported, not the whole core (68 files): ten sampled renders
-    imported 15 to 69 of them, and 35 were imported by none. Each record
-    gets its modules at its next render, so the first full publish after
-    the change rendered every sheet once (44 min 20 s, 2026-10-16). Then,
-    of the 68 core files, 21 make no sheet stale, 15 make at most 10, 5 at
-    most 100, 14 more than 100 and 13 all 294 (`core/draw.py`,
-    `registry/discovery.py`, `authoring/actor_contract.py` and the package
-    markers among them); the mean is 107 sheets, was 294. Measured: a
-    comment added to `authoring/faction_lineup.py` re-rendered 4 sheets, a
-    publish of 3 min 37 s (was a full publish).
-    The tiers pack only the runtime groups since 2026-10-15 (the full tier
-    1.1 s, was 126 s; the same bytes), so a frame size change outside them
-    re-packs nothing (the tier runs, finds no runtime sheet changed, and
-    keeps its pages). A focused publish (`sprites.sh --target NAME`, 22 s
-    for `mallory`: its render and its tiers) packs the runtime groups too,
-    so the one prop that draws from a pack (`intro_cart`, `packed: true` in
-    Ambition's `prop_sheets.ron`) shows its new art at once
-    (`test_a_focused_publish_packs_the_runtime_groups.py`), and it writes
-    through the staging root as a full publish does (8.3 s for
-    `intro_cart`, 2026-10-16).
+10. **Sprite publication (updated 2026-10-28).** In-place writes and reused
+    staging directories could publish mixed files or old companions. The
+    [bundle publication contract](engine/sprite-bundle-publication.md) replaces
+    the shell cache and staging machinery. It uses clean source snapshots,
+    immutable bundles, exact member hashes, and one atomic selection. Failed
+    requests keep the selected generation. Parent bundle identities bind shared
+    atlases to their input products. Do not restore raw sprite directory scans
+    as publication evidence.
 11. **Where `app_it`'s time goes (measured 2026-10-18).** It is most of a
     pre-push lane: 2467 s of about 3300 s. Per-test times come from libtest's
     `--report-time`, run on the built binary with `RUSTC_BOOTSTRAP=1` set at

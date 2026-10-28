@@ -46,6 +46,7 @@ pub struct SheetGeneration {
     /// first table is not checked, so a later preparation checks again a rig
     /// it holds unchanged.
     rigs_checked: bool,
+    image_paths: std::collections::BTreeMap<String, String>,
 }
 
 impl SheetGeneration {
@@ -70,6 +71,7 @@ impl SheetGeneration {
             parsed_files,
             digest: OnceLock::new(),
             rigs_checked: false,
+            image_paths: texts.image_paths,
         }
     }
 
@@ -89,7 +91,12 @@ impl SheetGeneration {
             parsed_files: prepared.parsed_files,
             digest: OnceLock::new(),
             rigs_checked: true,
+            image_paths: prepared.texts.image_paths,
         }
+    }
+
+    pub fn image_path(&self, logical: &str) -> Option<&str> {
+        self.image_paths.get(logical).map(String::as_str)
     }
 
     /// Which generation this is: 0 for the table the process read first.
@@ -181,6 +188,7 @@ fn first_table() -> SheetTexts {
             part_flipbooks: crate::baked_part_flipbooks::BAKED_PART_FLIPBOOKS.to_vec(),
             portraits: crate::baked_portrait_rons::BAKED_PORTRAIT_RONS.to_vec(),
             pack_catalogs: crate::sprite_packs::baked::BAKED_PACK_CATALOGS.to_vec(),
+            image_paths: Default::default(),
         }
     }
     // The process has no sheets to keep yet, so a refused first table stops
@@ -191,10 +199,22 @@ fn first_table() -> SheetTexts {
     }
 }
 
-/// The folder of the sprite pack catalogs of the tree under `owner`, one
-/// folder for each tier.
-pub fn pack_catalog_dir_under(owner: &std::path::Path) -> std::path::PathBuf {
-    owner.join("assets/sprite_packs")
+/// Manifest paths and image hashes from one publication selection.
+pub fn publication_files_under(owner: &std::path::Path)
+    -> Result<(Vec<(String, std::path::PathBuf)>, std::collections::BTreeMap<String, String>), String> {
+    let selected = crate::sprite_tree::selection(owner)?;
+    let rigs = crate::sprite_tree::companions_in(&selected, BODY_RIG_SUFFIX, false).files.into_iter()
+        .map(|(key, path)| (format!("{key}{BODY_RIG_SUFFIX}"), path));
+    let suffix = crate::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
+    let parts = crate::sprite_tree::companions_in(&selected, suffix, true).files.into_iter()
+        .map(|(key, path)| (format!("{key}{suffix}"), path));
+    let packs = crate::sprite_tree::packs_in(&selected).into_iter()
+        .map(|(tier, path)| (format!("sprite_packs/{tier}/ultrapack.json"), path));
+    let files = crate::sprite_tree::sheet_manifests_in(&selected).files.into_iter()
+        .chain(rigs).chain(parts).chain(crate::sprite_tree::portraits_in(&selected)).chain(packs).collect();
+    let images = selected.files.iter().filter(|(logical, _)| logical.ends_with(".png"))
+        .map(|(logical, member)| (logical.clone(), member.sha256.clone())).collect();
+    Ok((files, images))
 }
 
 /// Each sprite pack catalog of the tree under `owner`, keyed by its tier.
@@ -222,6 +242,7 @@ pub struct SheetTexts {
     pub portraits: Vec<(&'static str, &'static str)>,
     /// Each sprite pack tier's catalog, as `(tier, json_text)` sorted by tier.
     pub pack_catalogs: Vec<(&'static str, &'static str)>,
+    pub image_paths: std::collections::BTreeMap<String, String>,
 }
 
 impl SheetTexts {
@@ -234,6 +255,7 @@ impl SheetTexts {
             part_flipbooks: generation.part_tables().rows().to_vec(),
             portraits: generation.portrait_rons().to_vec(),
             pack_catalogs: generation.pack_catalog_texts().to_vec(),
+            image_paths: generation.image_paths.clone(),
         }
     }
 }
@@ -423,8 +445,9 @@ fn read_texts_under(owner: &std::path::Path, previous: Option<&SheetGeneration>)
             refused.append(&mut why);
             Vec::new()
         });
-        let (sheets, rigs) = (one_for_each_key(sheet_files_under(owner)), one_for_each_key(body_rig_files_under(owner)));
-        let flipbooks = one_for_each_key(crate::baked_part_flipbooks::part_flipbook_files_under(owner));
+        let selected = crate::sprite_tree::selection(owner).map_err(|error| SheetTableRefused(vec![("publication".into(), error)]))?;
+        let (sheets, rigs) = (one_for_each_key(crate::sprite_tree::sheet_manifests_in(&selected)), one_for_each_key(crate::sprite_tree::companions_in(&selected, BODY_RIG_SUFFIX, false)));
+        let flipbooks = one_for_each_key(crate::sprite_tree::companions_in(&selected, crate::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX, true));
         if !refused.is_empty() {
             return Err(SheetTableRefused(refused));
         }
@@ -432,8 +455,9 @@ fn read_texts_under(owner: &std::path::Path, previous: Option<&SheetGeneration>)
             sheets: texts_reusing(sheets, was(SheetGeneration::rons)),
             body_rigs: texts_reusing(rigs, was(SheetGeneration::body_rigs)),
             part_flipbooks: crate::baked_part_flipbooks::rows_of(flipbooks),
-            portraits: texts_reusing(portrait_files_under(owner), was(SheetGeneration::portrait_rons)),
-            pack_catalogs: texts_reusing(pack_catalog_files_under(owner), was(SheetGeneration::pack_catalog_texts)),
+            portraits: texts_reusing(crate::sprite_tree::portraits_in(&selected), was(SheetGeneration::portrait_rons)),
+            pack_catalogs: texts_reusing(crate::sprite_tree::packs_in(&selected), was(SheetGeneration::pack_catalog_texts)),
+            image_paths: selected.files.keys().filter_map(|name| selected.address(name).map(|address| (name.clone(), address))).collect(),
         })
     }
 }

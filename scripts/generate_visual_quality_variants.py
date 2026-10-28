@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Generate visual-quality asset variants (smaller textures for weak hardware).
 
-Post-publish helper: full-resolution sprite/background generation stays
-unchanged, then this mirrors the installed folders into smaller-resolution
-siblings the runtime loads under the Low / Medium / Potato quality profiles:
+Sprite requests publish complete bundles through the sprite owner. Background
+requests convert full-resolution files into smaller representations:
 
     sprites/                            -> sprites_0_5x/ sprites_0_25x/ sprites_potato/
     backgrounds/parallax_layers/        -> ..._0_5x/ ..._0_25x/ ..._potato/
@@ -66,17 +65,13 @@ from publish_safely import break_mirrored_destination  # noqa: E402
 
 from PIL import Image
 
-# A baked sheet that the game draws from parts is still published, and the
-# giant gnu's is 180 megapixels (15040 x 11973, 2026-10-24): over PIL's
-# default guard against decompression bombs (179 megapixels). The sheets are
-# our own outputs, so the guard is set over the largest page a sheet may have
-# (16384 texels a side).
-Image.MAX_IMAGE_PIXELS = 16384 * 16384
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SPRITE_RENDERER_ROOT = REPO_ROOT / "tools" / "ambition_sprite2d_renderer"
 if str(SPRITE_RENDERER_ROOT) not in sys.path:
     sys.path.insert(0, str(SPRITE_RENDERER_ROOT))
+
+from ambition_sprite2d_renderer.image_io import configure_generated_image_reads
+configure_generated_image_reads()
 
 from ambition_sprite2d_renderer.authoring.packer import FrameInput, pack_frames  # noqa: E402
 from ambition_sprite2d_renderer.registry import (  # noqa: E402
@@ -1378,24 +1373,6 @@ def build_portrait_variant(ron_src: Path, png_src: Path, ron_dst: Path, variant:
     return nfw, nfh
 
 
-def source_publishable_targets() -> dict[str, Target]:
-    """Targets that can render quality tiers directly from vector/source data.
-
-    The quality publisher's primary path is source render -> pack. Today the
-    YAML config surface is scale-aware end-to-end; module-authored targets are
-    left on the frame-local fallback until their render functions accept the
-    same `quality_scale` protocol.
-
-    The renderer unified `TackonTarget`/`AdapterTarget` into one `Target` with a
-    `kind` discriminator, so this selects `kind == "config"` — the YAML-authored
-    path that `AdapterTarget` used to name.
-    """
-    report = discover_all_targets()
-    return {
-        name: target
-        for name, target in report.targets.items()
-        if target.kind == "config"
-    }
 
 
 def publish_source_quality_target(
@@ -1427,7 +1404,7 @@ def publish_source_quality_target(
     if variant.suffix == "potato" and source_scale > variant.nominal_scale:
         ron_src = out_dir / f"{target.name}_spritesheet.ron"
         if not ron_src.exists():
-            return 0
+            raise ValueError(f"Missing source quality manifest: {ron_src}")
         final_variant = Variant(
             variant.suffix,
             variant.nominal_scale / source_scale,
@@ -1442,7 +1419,8 @@ def publish_source_quality_target(
             )
         finally:
             intermediate.close()
-    copied = target.install(out_dir, dst_root)
+    from ambition_sprite2d_renderer.artifacts import install
+    copied = install(target, out_dir, dst_root, portraits=False)
     return sum(
         1 for path in copied if path.suffix == ".png" and "_canonical" not in path.name
     )
@@ -1506,89 +1484,12 @@ def assert_one_manifest_per_page(claims: dict[Path, list[Path]], src: Path) -> N
     raise SystemExit("\n".join(lines))
 
 
-@dataclass(frozen=True)
-class SheetUnit:
-    """One sheet's worth of work, across every selected tier."""
-
-    stem: str
-    ron: Path
-    rel: Path
-    pages: tuple[Path, ...]
-    target: Target | None  # not None => render this tier from source art
 
 
-def _source_counterpart(rel: Path) -> Path:
-    """The authored file a variant file mirrors.
-
-    Almost always the same relative path; a multi-page atlas publishes
-    `<stem>.<n>.<ext>` siblings of `<stem>.<ext>`, and those trace back to the
-    same authored sheet.
-    """
-    parts = rel.name.split(".")
-    if len(parts) >= 3 and parts[-2].isdigit():
-        return rel.with_name(".".join(parts[:-2] + parts[-1:]))
-    return rel
 
 
-def prune_orphans(src: Path, dst: Path) -> int:
-    """Delete variant files whose authored counterpart is gone.
-
-    This is what the tier-wide `rmtree` used to accomplish incidentally, at the
-    cost of making every run a full rebuild. Deleting a character now removes
-    its three variants on the next unfiltered run, and nothing else moves.
-    """
-    if not dst.exists():
-        return 0
-    removed = 0
-    for path in sorted(dst.rglob("*")):
-        if not path.is_file():
-            continue
-        if (src / _source_counterpart(path.relative_to(dst))).exists():
-            continue
-        path.unlink()
-        removed += 1
-    return removed
 
 
-def verify_published_sheets(
-    asset_root: Path,
-    units: list["SheetUnit"],
-    tiers: tuple[Variant, ...],
-) -> None:
-    """Postcondition, DERIVED from the plan this run just executed.
-
-    ⛔ the shape matters more than the check. Both this script's wrapper and
-    `scripts/regen/sprites.sh` used to assert a hand-written list of filenames; both
-    lists drifted off the target list (`player_robot_spritesheet.*` has had no
-    producer for months, and the wrapper spent weeks asserting the same dead
-    stem), and a list that names a file nothing publishes can only ever fail —
-    aborting real work over an entry nobody maintains. A postcondition
-    generated from the units actually planned cannot drift, because there is
-    no second list to drift from.
-    """
-    missing: list[Path] = []
-    for unit in units:
-        for variant in tiers:
-            ron_dst = asset_root / f"sprites_{variant.suffix}" / unit.rel
-            if not ron_dst.is_file():
-                missing.append(ron_dst)
-                continue
-            names = page_filenames_safe(ron_dst)
-            if not names:
-                missing.append(ron_dst)
-                continue
-            missing.extend(
-                ron_dst.parent / name
-                for name in names
-                if not (ron_dst.parent / name).is_file()
-            )
-    if not missing:
-        return
-    lines = [f"{len(missing)} planned quality-variant file(s) were not published:"]
-    lines.extend(f"    {path}" for path in missing[:20])
-    if len(missing) > 20:
-        lines.append(f"    … and {len(missing) - 20} more")
-    raise SystemExit("\n".join(lines))
 
 
 def _conversion(inputs: tuple[Path, ...], destination: Path, variant: Variant, kind: str, target=None) -> dict:
@@ -1614,249 +1515,37 @@ def _accept_variant(destination: Path, evidence: dict) -> None:
     accept_conversion(destination.parent, destination.stem, evidence, outputs)
 
 
-def _variant_task(task: tuple, asset_root: Path, src: Path, force: bool, clock: PhaseClock) -> dict:
-    """Do one task of `generate_sprite_variants`; return `{suffix: (sheets
-    built, sheets current, loose images built)}`."""
-    from ambition_sprite2d_renderer.products import conversion_current
-    kind, subject, tiers = task
-    counts = {variant.suffix: [0, 0, 0] for variant in tiers}
-    if kind in ("source", "sheet"):
-        unit = subject
-        source: SheetSource | None = None
-        try:
-            for variant in tiers:
-                dst_root = asset_root / f"sprites_{variant.suffix}"
-                ron_dst = dst_root / unit.rel
-                evidence = _conversion((unit.ron,) + unit.pages, ron_dst, variant, kind, unit.target)
-                if not force and conversion_current(ron_dst.parent, ron_dst.stem, evidence):
-                    counts[variant.suffix][1] += 1
-                    continue
-                # the phases are DISJOINT — nesting the parse inside the build
-                # would bill its seconds to both, and a phase table that sums to
-                # more than the run is a table nobody can reason from.
-                if unit.target is not None:
-                    with clock.phase("source-render", unit=unit.stem):
-                        publish_source_quality_target(unit.target, variant, dst_root)
-                else:
-                    if source is None:
-                        with clock.phase("sheet parse + decode", unit=unit.stem):
-                            source = SheetSource.load(unit.ron)
-                            source.pages  # decode here so this phase owns the cost
-                    with clock.phase("frame-local fallback", unit=unit.stem):
-                        build_sheet_variant(source, ron_dst, variant)
-                _accept_variant(ron_dst, evidence)
-                counts[variant.suffix][0] += 1
-        finally:
-            if source is not None:
-                source.close()
-    elif kind == "flipbook":
-        ron, pages = subject
-        for variant in tiers:
-            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
-            evidence = _conversion((ron, *pages), ron_dst, variant, kind)
-            if not force and conversion_current(ron_dst.parent, ron_dst.stem, evidence):
-                continue
-            with clock.phase("part flipbook", unit=ron.stem):
-                build_parts_variant(ron, ron_dst, variant)
-            _accept_variant(ron_dst, evidence)
-    elif kind == "portrait":
-        ron, png = subject
-        for variant in tiers:
-            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
-            evidence = _conversion((ron, png), ron_dst, variant, kind)
-            if not force and conversion_current(ron_dst.parent, ron_dst.stem, evidence):
-                continue
-            with clock.phase("portrait", unit=ron.stem):
-                build_portrait_variant(ron, png, ron_dst, variant)
-            _accept_variant(ron_dst, evidence)
-    else:
-        png = subject
-        rel = png.relative_to(src)
-        for variant in tiers:
-            dst = asset_root / f"sprites_{variant.suffix}" / rel
-            evidence = _conversion((png,), dst, variant, kind)
-            if not force and conversion_current(dst.parent, dst.stem, evidence):
-                continue
-            # Loose props/icons still load as standalone images. A future prop
-            # atlas should be added at this seam and reuse the renderer packer,
-            # but character-sheet variants above must remain pre-pack frame
-            # generation, not post-pack atlas resizing.
-            with clock.phase("loose png", unit=rel.as_posix()):
-                resize_png(
-                    png,
-                    dst,
-                    variant.nominal_scale,
-                    min_px=variant.min_frame_px,
-                    resampling=resampling_for_variant(variant),
-                )
-            _accept_variant(dst, evidence)
-            counts[variant.suffix][2] += 1
-    return {suffix: tuple(values) for suffix, values in counts.items()}
 
 
-#: The work of one `_run_tasks` call, for the forked workers to index.
-_TASKS: tuple = ()
 
 
-def _forked_task(index: int) -> tuple:
-    tasks, asset_root, src, force = _TASKS
-    clock = PhaseClock()
-    counts = _variant_task(tasks[index], asset_root, src, force, clock)
-    return clock.state(), counts
 
 
-def _run_tasks(tasks: list[tuple], asset_root: Path, src: Path, force: bool, jobs: int, clock: PhaseClock):
-    """Yield `(clock state or None, counts)` for each task, on `jobs` processes.
-
-    The workers are forked, so they have the tasks (and the targets the
-    tasks name) without pickling them, and each times its own phases."""
-    global _TASKS
-    if jobs <= 1 or len(tasks) <= 1:
-        for task in tasks:
-            yield None, _variant_task(task, asset_root, src, force, clock)
-        return
-    _TASKS = (tasks, asset_root, src, force)
-    try:
-        with multiprocessing.get_context("fork").Pool(processes=jobs) as pool:
-            yield from pool.imap_unordered(_forked_task, range(len(tasks)), chunksize=1)
-    finally:
-        _TASKS = ()
 
 
 def generate_sprite_variants(
-    asset_root: Path,
-    *,
-    tiers: tuple[Variant, ...] = VARIANTS,
-    selectors: tuple[str, ...] = (),
-    force: bool = False,
-    clean: bool = False,
-    clock: PhaseClock | None = None,
-    jobs: int = 1,
+    asset_root: Path, *, tiers: tuple[Variant, ...] = VARIANTS,
+    selectors: tuple[str, ...] = (), force: bool = False, clean: bool = False,
+    clock: PhaseClock | None = None, jobs: int = 1,
 ) -> None:
-    """Publish each selected sheet into each selected tier.
-
-    ⛔ the loop is per-sheet OUTER, tier INNER, and that is not a preference:
-    the tier-outer form owned a destination directory it had just deleted, so
-    "rebuild just the patent clerk" could not be expressed at all. Ultrapack's
-    loop stays tier-outer for the opposite reason — its pages are shared across
-    characters, so no page can be finalized until every character is known.
-    """
-    clock = clock or PhaseClock()
-    src = asset_root / "sprites"
-    if not src.exists():
-        print(f"skip missing sprite root: {src}")
-        return
-
-    with clock.phase("manifest scan"):
-        claims = sheet_page_claims(src)
-        assert_one_manifest_per_page(claims, src)
-        source_targets = source_publishable_targets()
-
-    units: list[SheetUnit] = []
-    for ron, pages in claims.items():
-        stem = ron.name.removesuffix("_spritesheet.ron")
-        # A target's folder holds the sheets of its bodies (`gnu_ton_boss/`
-        # holds `giant_gnu`'s): a focused publish names the target.
-        if not (selects(stem, selectors) or (ron.parent != src and selects(ron.parent.name, selectors))):
-            continue
-        target = source_targets.get(stem)
-        units.append(
-            SheetUnit(
-                stem=stem,
-                ron=ron,
-                rel=ron.relative_to(src),
-                pages=tuple(pages),
-                target=target if (target is not None and ron.parent == src) else None,
-            )
-        )
-
-    all_flipbooks = part_flipbook_claims(src)
-    flipbooks = {
-        ron: pages
-        for ron, pages in all_flipbooks.items()
-        # A body's flipbook is named for the body (`giant_gnu`), and sits in
-        # its target's folder (`gnu_ton_boss/`): a focused publish names the
-        # target, so the folder selects it too.
-        if selects(ron.name.removesuffix("_parts.ron"), selectors) or selects(ron.parent.name, selectors)
-    }
-    flipbook_pngs = {
-        page.resolve() for pages in all_flipbooks.values() for page in pages
-    }
-    portraits = {
-        ron: png
-        for ron, png in portrait_claims(src).items()
-        if selects(ron.name.removesuffix("_portraits.ron"), selectors)
-    }
-    sheet_pngs = {page.resolve() for pages in claims.values() for page in pages}
-    sheet_pngs |= flipbook_pngs
-    # A portrait image is a grid of frames with a manifest: its tiers are
-    # built below, never resized whole.
-    sheet_pngs |= {png.resolve() for png in portrait_claims(src).values()}
-    loose_srcs: list[Path] = []
-    for png in sorted(src.rglob("*.png")):
-        rel = png.relative_to(src)
-        if png.resolve() in sheet_pngs or is_diagnostic_png(rel):
-            continue  # a sheet page, or a human-only diagnostic that never ships
-        if selects(rel.with_suffix("").as_posix(), selectors) or selects(
-            png.stem, selectors
-        ):
-            loose_srcs.append(png)
-
-    if selectors and not units and not loose_srcs and not flipbooks and not portraits:
-        raise SystemExit(
-            f"no sprite sheet or loose PNG under {src} matched {list(selectors)}"
-        )
-
-    if clean:
-        for variant in tiers:
-            tier_root = asset_root / f"sprites_{variant.suffix}"
-            if tier_root.exists():
-                shutil.rmtree(tier_root)
-
-    # Each task writes only its own files: one sheet in one tier when the
-    # tier renders from source (a tier render of `alice` is 45 s), or one
-    # sheet, part flipbook, portrait set or loose image in each tier. So the
-    # tasks run on `jobs` processes, the source renders first. Measured
-    # 2026-10-15 after a full re-render: 554 s on one process.
-    tasks: list[tuple] = []
-    for unit in units:
-        if unit.target is not None:
-            tasks.extend(("source", unit, (variant,)) for variant in tiers)
-    tasks.extend(("sheet", unit, tiers) for unit in units if unit.target is None)
-    tasks.extend(("flipbook", (ron, pages), tiers) for ron, pages in flipbooks.items())
-    tasks.extend(("portrait", (ron, png), tiers) for ron, png in portraits.items())
-    tasks.extend(("loose", png, tiers) for png in loose_srcs)
-
-    built = {variant.suffix: 0 for variant in tiers}
-    skipped = {variant.suffix: 0 for variant in tiers}
-    loose_built = {variant.suffix: 0 for variant in tiers}
-    for clock_state, counts in _run_tasks(tasks, asset_root, src, force, jobs, clock):
-        if clock_state is not None:
-            clock.merge(clock_state)
-        for suffix, (sheet_built, sheet_skipped, loose) in counts.items():
-            built[suffix] += sheet_built
-            skipped[suffix] += sheet_skipped
-            loose_built[suffix] += loose
-
-    pruned = {variant.suffix: 0 for variant in tiers}
-    if not selectors:
-        with clock.phase("prune orphans"):
-            for variant in tiers:
-                pruned[variant.suffix] = prune_orphans(
-                    src, asset_root / f"sprites_{variant.suffix}"
-                )
-
-    for variant in tiers:
-        dst = asset_root / f"sprites_{variant.suffix}"
-        orphans = f", {pruned[variant.suffix]} orphan(s) pruned" if pruned[variant.suffix] else ""
-        print(
-            f"sprites {variant.suffix}: {built[variant.suffix]} sheet(s) built, "
-            f"{skipped[variant.suffix]} already current; "
-            f"{loose_built[variant.suffix]}/{len(loose_srcs)} loose png "
-            f"(scale~{variant.nominal_scale}){orphans} -> {dst}"
-        )
-
-    verify_published_sheets(asset_root, units, tiers)
+    """Publish complete selected bundles, including every quality representation."""
+    import os
+    from ambition_sprite2d_renderer import publication
+    planned = publication.plan("all" if selectors else "runtime")
+    names = [unit["target"] for unit in planned["units"].values()
+             if not selectors or selects(unit["target"], selectors)
+             or any(selects(Path(path).stem, selectors) or selects(path, selectors) for path in unit["required"])]
+    if selectors and not names:
+        raise SystemExit(f"No registered product matches {list(selectors)}")
+    previous = os.environ.get("AMBITION_ART_STORE")
+    os.environ["AMBITION_ART_STORE"] = previous or str(asset_root.parent / "art_publication")
+    try:
+        publication.build("runtime", names if selectors else (), force=force or clean, jobs=jobs)
+    finally:
+        if previous is None:
+            os.environ.pop("AMBITION_ART_STORE", None)
+        else:
+            os.environ["AMBITION_ART_STORE"] = previous
 
 
 _PAGE_FIELDS = frozenset(("pages", "images", "image"))
@@ -1973,7 +1662,7 @@ def main() -> None:
         default=[],
         metavar="SUFFIX",
         help=(
-            "only this quality tier (repeatable): "
+            "only this background tier (sprite requests include all tiers): "
             + ", ".join(variant.suffix for variant in VARIANTS)
         ),
     )
@@ -1995,7 +1684,7 @@ def main() -> None:
     parser.add_argument(
         "--clean",
         action="store_true",
-        help="delete each selected tier root first (whole tiers only)",
+        help="rebuild sprite bundles and clear selected background tiers",
     )
     parser.add_argument("--jobs", type=int, default=1, help="build on N processes")
     args = parser.parse_args()

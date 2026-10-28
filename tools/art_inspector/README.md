@@ -159,16 +159,18 @@ remain outside this reference closure. A registered unit with no known use is
 not proof that no runtime path can use it.
 
 The renderer owns the current/missing/partial/stale/unknown decision. Publication
-and inspection call that owner. Accepted receipts record file inputs, directory
-membership, render parameters, toolchain versions, and output digests. Sprite
-publication stages receipts with the corresponding pixels. Quality conversions
+and inspection call that owner. Accepted sprite bundles record source inputs,
+source membership, parameters, toolchain versions, and every output digest.
+One publication manifest selects immutable bundles and their exact files. Quality conversions
 and atlases record their inputs and conversion parameters in the same provenance
 root, outside runtime asset roots.
 
 Legacy receipts with no complete input record stay unknown. A known changed
 input or changed output can still prove staleness. `--needs-generation` selects
 positive missing or stale evidence; unknown generation evidence needs review.
-A focused publish records evidence for that bundle:
+See [sprite publication](../../docs/tools/sprite-publication.md) for planning,
+source snapshots, exact membership, and unmanaged files. A focused publish
+records evidence for that bundle:
 
 ```bash
 ./scripts/regen/sprites.sh --target tower_voss

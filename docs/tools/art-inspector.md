@@ -51,8 +51,8 @@ new strips. `--authorship` adds the optional Git blame and model attribution.
 Normal queries do not draw art, decode pixels, or walk history. `--deep`
 rehashes bytes. The renderer owns the status decision used by publication.
 Receipts record inputs, directories, parameters, toolchains, and output digests.
-Quality conversions and atlases name their source bundles. Sprite receipts move
-with staged runtime products. Legacy receipts with incomplete inputs remain
+Quality conversions and atlases name their source bundles. Accepted sprite bundles are immutable. One publication manifest selects their
+exact members. Legacy receipts with incomplete inputs remain
 unknown until a publish records complete evidence.
 
 `capture_scene --art-snapshot` writes read-only actor and presentation facts.

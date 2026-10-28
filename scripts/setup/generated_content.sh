@@ -80,49 +80,8 @@ verify_generated_content_is_current() {
 # quality-variant row above is that a checker nothing acts on is a checker
 # nobody runs.
 regenerate_missing_published_sheets() {
-    have python3 || return 0
-    local checker="$repo_root/scripts/check_published_sheets_are_present.py"
-    [ -f "$checker" ] || return 0
-
-    # Through the renderer's own interpreter: the check asks each target what it
-    # DECLARES it installs, which needs the package importable. Without it the
-    # script says "cannot check" and succeeds rather than inventing a verdict.
-    #
-    # ⛔ WHICH MADE THIS A FALSE GREEN FOR AS LONG AS IT EXISTED. The call here
-    # was `tool_python ambition_sprite2d_renderer` — a function that is not
-    # defined anywhere, given a bare tool name where the resolver wants a
-    # DIRECTORY. It therefore always fell through to the bare `python3` that
-    # cannot import the renderer, the checker duly reported "cannot check" and
-    # exited 0, and setup logged "every rostered sheet is published" without
-    # having checked one. `[ -x "$py" ]` could not catch it either: that test is
-    # false for the bare name `python3`, so the guard "corrected" a good path to
-    # the same fallback.
-    local py
-    py="$(ambition_select_tool_python \
-        "$repo_root/tools/ambition_sprite2d_renderer" AMBITION_SPRITE_PYTHON)"
-    ambition_python_exists "$py" || py="python3"
-
-    local missing
-    if missing="$("$py" "$checker" 2>/dev/null)"; then
-        log "every rostered sheet is published"
-        return 0
-    fi
-
-    warn "rostered sheets are MISSING — regenerating them"
-    printf '%s\n' "$missing" | sed 's/^/     /'
-    local names
-    names="$(printf '%s\n' "$missing" | awk '/^ *missing /{print $2}')"
-    [ -n "$names" ] || return 0
-    local name
-    for name in $names; do
-        log "  publishing $name"
-        "$repo_root/scripts/regen/sprites.sh" --target "$name" --force >/dev/null 2>&1 \
-            || warn "  could not publish $name — run sprites.sh --target $name to see why"
-    done
-    if "$py" "$checker" >/dev/null 2>&1; then
-        log "every rostered sheet is published"
-    else
-        warn "some rostered sheets are still missing; see the list above"
+    if ! "$repo_root/scripts/regen/sprites.sh" --check; then
+        "$repo_root/scripts/regen/sprites.sh"
     fi
 }
 
@@ -137,6 +96,9 @@ regenerate_assets() {
     fi
 
     fetch_bundled_fonts
+    "$repo_root/scripts/setup/target_bindmount.sh" --status
+    "$repo_root/scripts/setup/target_bindmount.sh" --check || "$repo_root/scripts/setup/target_bindmount.sh"
+    cargo build --manifest-path "$repo_root/Cargo.toml" -p ambition_content_schemas --bin ambition_content_check
     log "regenerating all runtime assets"
     "$repo_root/scripts/regen/assets.sh"
     regenerate_missing_published_sheets

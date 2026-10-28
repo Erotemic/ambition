@@ -1,0 +1,97 @@
+[
+  {
+    "name": "FONT_DIALOG_REGULAR_URL",
+    "url": "ambition_platformer2d_actor_monolith/fonts/bundled/InterDisplay-Regular.otf",
+    "path": "fonts/bundled/InterDisplay-Regular.otf"
+  },
+  {
+    "name": "FONT_DIALOG_SEMIBOLD_URL",
+    "url": "ambition_platformer2d_actor_monolith/fonts/bundled/InterDisplay-SemiBold.otf",
+    "path": "fonts/bundled/InterDisplay-SemiBold.otf"
+  },
+  {
+    "name": "FONT_DEBUG_MONO_URL",
+    "url": "ambition_platformer2d_actor_monolith/fonts/bundled/JetBrainsMono-Regular.ttf",
+    "path": "fonts/bundled/JetBrainsMono-Regular.ttf"
+  },
+  {
+    "name": "SPRITE_PLAYER_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/player_robot_v3_spritesheet.png",
+    "path": "sprites/player_robot_v3_spritesheet.png"
+  },
+  {
+    "name": "SPRITE_ROBOT_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/robot_spritesheet.png",
+    "path": "sprites/robot_spritesheet.png"
+  },
+  {
+    "name": "SPRITE_GOBLIN_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/goblin_spritesheet.png",
+    "path": "sprites/goblin_spritesheet.png"
+  },
+  {
+    "name": "SPRITE_SANDBAG_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/sandbag_spritesheet.png",
+    "path": "sprites/sandbag_spritesheet.png"
+  },
+  {
+    "name": "SPRITE_CHEST_CLOSED_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/chest_closed.png",
+    "path": "sprites/entities/chest_closed.png"
+  },
+  {
+    "name": "SPRITE_CHEST_OPEN_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/chest_open.png",
+    "path": "sprites/entities/chest_open.png"
+  },
+  {
+    "name": "SPRITE_PICKUP_HEALTH_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/pickup_health.png",
+    "path": "sprites/entities/pickup_health.png"
+  },
+  {
+    "name": "SPRITE_PICKUP_CURRENCY_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/pickup_currency.png",
+    "path": "sprites/entities/pickup_currency.png"
+  },
+  {
+    "name": "SPRITE_PICKUP_ABILITY_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/pickup_ability.png",
+    "path": "sprites/entities/pickup_ability.png"
+  },
+  {
+    "name": "SPRITE_DOOR_ZONE_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/door_zone.png",
+    "path": "sprites/entities/door_zone.png"
+  },
+  {
+    "name": "SPRITE_EDGE_EXIT_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/edge_exit.png",
+    "path": "sprites/entities/edge_exit.png"
+  },
+  {
+    "name": "SPRITE_PROJECTILE_ENERGY_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/projectile_energy.png",
+    "path": "sprites/entities/projectile_energy.png"
+  },
+  {
+    "name": "SPRITE_SOLID_TILE_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/solid_tile.png",
+    "path": "sprites/entities/solid_tile.png"
+  },
+  {
+    "name": "SPRITE_ONE_WAY_TILE_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/one_way_tile.png",
+    "path": "sprites/entities/one_way_tile.png"
+  },
+  {
+    "name": "SPRITE_HAZARD_TILE_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/hazard_tile.png",
+    "path": "sprites/entities/hazard_tile.png"
+  },
+  {
+    "name": "SPRITE_BOSS_CORE_URL",
+    "url": "ambition_platformer2d_actor_monolith/sprites/entities/boss_core.png",
+    "path": "sprites/entities/boss_core.png"
+  }
+]

@@ -192,8 +192,8 @@ Rule readers borrow the declared values. Owned projections copy them when they
 store state.
 
 **Open:** continue the regrouping and the distinction of home-avatar, driver,
-camera and participant identities. Complete the no-double-body-tick acceptance;
-the boss free-flight arm covers one fixture. The schedule-level
+camera and participant identities. Complete the constrained-body tick acceptance. Free-motion checks cover a
+boss and two homes plus two unmounted actors before and after seat releases. The schedule-level
 `no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by
 two systems.
 

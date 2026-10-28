@@ -773,6 +773,20 @@ no warnings; the kernel graph is a DAG. The full feature union was not run.
 Sprite-publication census and fixture-lockfile findings remain with that work.
 Do not use the primary observation projection to grant body techniques.
 
+### K28 — Body-owned movement output
+
+`e3f9f237b`: body integration depended on avatar-owned movement facts and public
+per-body helpers. `body::BodyFrameOutput` and private integration helpers now
+own those facts. Avatar policy consumes the output. The app forwarding export
+is deleted. Required components, the derived rollback key, phases and codec
+layouts stay the same. No systems were added.
+Guards: 61 selected library tests, 31 app tests, 11 power-loop tests, 12 Mary-O
+host tests, 70 Smash tests and 35 workspace policies pass. Six Smash tests stay
+ignored. The default app compiles with no warnings; the kernel graph is a DAG.
+The sprite-publication fixture lockfile remains stale (52 of 53 absence
+contracts pass). The full feature union and Android performance were not run.
+Do not expose a home-body helper as a second public movement route.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

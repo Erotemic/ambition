@@ -490,14 +490,16 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
 /// nothing; the transform is D.
 #[test]
 fn the_start_line_sign_names_the_keys_his_actions_are_on() {
-    use ambition_platformer2d::render::rendering::WorldLabel;
+    use ambition_platformer2d::render::rendering::{WorldLabel, WorldLabelFamily};
 
     let mut app = drawn_demo();
     let sign = |app: &mut App| -> Option<String> {
         let mut query = app.world_mut().query::<(&WorldLabel, &Text2d)>();
         query
             .iter(app.world())
-            .find(|(label, _)| label.owner_id.starts_with("signage:") && label.owner_id.ends_with("start"))
+            .find(|(label, text)| {
+                label.family == WorldLabelFamily::Signage && text.0.starts_with("START")
+            })
             .map(|(_, text)| text.0.clone())
     };
     let mut shown = None;

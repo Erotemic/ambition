@@ -32,6 +32,11 @@ RiggedSpriteAsset   # optional visual: part atlas + per-frame draw table
 
 A character can have a body rig without a rigged sprite, and the reverse.
 
+**Filtered-cut receipt (2026-10-28, renderer `3243b40`):** packed frames keep
+edge RGB under alpha zero; the Behemoth's repeated tiles include source context.
+The sampling, coverage and incremental-pack tests and real door/Hall captures
+hold the fix. Keep shared rasters. See [the filter contract](../../../dev/benchmark-candidates/shared-part-cuts-under-linear-filtering.md).
+
 ### Switches
 
 | Switch | Default | Environment | Effect |
@@ -184,7 +189,7 @@ landmark is a named fallback the consumer states, not a silent offset.
 | Action shot (`Discharge::muzzle`) | ✅ 2026-10-05: `Muzzle::Hand { ahead }` fires `ahead` past the hand the landmark query answers on that tick (`ambition_held_items::holding_hand_world`). `BodyOrigin` and `Offset { x, y }` are authored and read no hand (`action_set/mod.rs`) | done for `Hand` |
 | Held item place, and the prop drawn over the hand | ✅ 2026-10-05: the same `holding_hand_world` (`ItemWorldPos`; `rebuild_hostile_wielded_items_view`), so a bomb bursts, a prop is drawn and a shot leaves at one hand | done |
 | A holder with no answer | `HAND_OFFSET_NORM` × body height (`ambition_mount/src/lib.rs`, `rider_hand_world_pos_in_frame`): the named fallback of `holding_hand_world`, for a body that publishes no hand or states no art scale | hand |
-| Player fireball | ✅ 2026-10-05: the landmark query. The shot is born with its rear edge at the hand of the `shoot` row (`projectile/systems.rs`, `player_projectile_hand_local_offset`), lifted clear of the feet line. The box edge plus `PLAYER_PROJECTILE_MUZZLE_CLEARANCE` is the named fallback for a body that publishes no hand | done; the reach it cost (292 from 419) is range tuning: Q158 kept the hand, 2026-10-19 |
+| Player ranged shot | The shot starts at the first-frame hand of the `shoot` row. Guard: `a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it` | done; keep the authored hand (Q158) |
 | Pet ("pet the dog") | ✅ 2026-10-05: the landmark query. The petter stands where its near hand, in the `pet` row, is on the petted body's head, in the `petted` row, plus the offset its catalog row authors (`petting.contact_offset`). The box mark is the named fallback for a pair that publishes no such landmark | done |
 | Rig attachments | `BodyRigPose` attachments, live only under `BodyRigAdmission` (off) | all of the above |
 | Part flipbook tracks | ✅ 2026-10-05: the package's per-pose points. `build.rs` projects each `<target>_parts.ron` to its hand, head and foot tracks, in each of the three ways the rig families name them (`ambition_sprite_sheet::baked_landmarks`, `LANDMARK_TRACKS`, 124 tables, 1.1 MB) | the answer for a body without a rig |

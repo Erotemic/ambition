@@ -234,6 +234,21 @@ neither side of it.
 
 ## P0 — architecture and correctness
 
+### PART-CUT-PUBLISH — publish filtered part atlases
+
+**Owner:** [rigged sprite presentation](engine/runtime-rigged-sprite-animation.md).
+
+**Current state:** the compiler fix is verified for the robot's door pose and
+Behemoth idle. Both keep shared parts. Other installed full-resolution atlases
+can still hold the old transparent RGB. The two targets' reduced tiers are rebuilt.
+
+**Next:** finish the full sprite publication, then the quality-variant and
+freshness checks. Keep the tree fixed during publication.
+
+**Acceptance:** the full publication and all quality checks pass. App admission
+accepts the published art. Keep shared rasters and existing presentation paths.
+
+
 ### ARCH-SESSION-RESUME — keep checkpoint startup independent of held use
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),

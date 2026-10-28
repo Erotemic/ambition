@@ -324,15 +324,8 @@ fn governing<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &mut App) -
         .expect("the rule reader runs")
 }
 
-/// Smash's rooms read Smash's presentation and Limit, and the stage writes
-/// neither the portal configuration nor any other owner's resource.
-///
-/// The stage borrowed `PortalViewConeConfig` and
-/// `PortalCameraContinuitySelection` on entry and restored a saved copy on
-/// exit, and it inserted the Limit rule the same way. A missed exit left all
-/// three standing in the next game. This demo has no portal plugin, so the
-/// test plants another owner's configuration before Smash runs: a stage that
-/// wrote it would show here.
+/// The stage's rules override its room's reading of a prior owner's
+/// configuration. They must not replace that configuration on entry or exit.
 #[test]
 fn the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration() {
     use ambition_demo_smash::limit::SmashLimitFill;
@@ -341,6 +334,7 @@ fn the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration() {
     let owners = portal_view::PortalViewConeConfig {
         mode: portal_view::PortalViewConeMode::Dynamic,
         dynamic_depth_close: 999.0,
+        tint: Color::linear_rgba(1.0, 1.0, 1.0, 1.0),
         ..Default::default()
     };
     let mut app = a_live_match_from(|app| {

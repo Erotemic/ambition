@@ -681,6 +681,18 @@ Guards: 595 actor, 481 render, 140 observation, 15 app, and five profile tests;
 kernel graph remains a DAG. Android performance was not measured.
 Do not restore render assets or drawing systems in the body kernel.
 
+### K22 — Runtime-owned fall rescue
+
+`66317caff`: runtime owns room-policy rescue, boss checks, and carrier creation.
+Rescue stays after mount steering and before platform advancement. Body contact
+snapshots stay after the world step. Empty avatar compatibility modules and the
+old rescue export are deleted. State, wire keys, and invocation counts stay the
+same. The causal fixture now includes the owner of its observers.
+Guards: 595 actor, 270 runtime, six causal, 35 app, and five profile tests;
+35 workspace policies and 53 absence contracts. The app compiles and the
+kernel graph remains a DAG. No Android performance measurement was made.
+Do not move room rescue policy back into the body kernel.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

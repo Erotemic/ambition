@@ -1996,18 +1996,12 @@ fn a_session_that_can_reset_with(
     app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
     app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
     let sim = app.sim_schedule();
-    // ⛔ THE PRODUCTION ORDER, STATED. `CheckpointRestore` sits in `PlayerInput`,
-    // before the `PlayerSimulation` set that holds the startup resume. The
-    // fixture composes no phases, and which of the two ran first was whatever
-    // the executor's access sets happened to give: the death road (the one this
-    // fixture exists for) ran first while the coordinator was a pair of
-    // resources, and the startup road won the slot once it was components on the
-    // root (2026-10-07). A startup crossing with the slot taken is not what the
-    // arms below measure.
+    // Checkpoint admission runs before startup resume in production.
+    // This fixture has no phase composition, so it must state that order.
     app.configure_sets(
         sim,
         ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore
-            .before(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems),
+            .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
     );
     if lifecycle_horizon {
         app.add_plugins(

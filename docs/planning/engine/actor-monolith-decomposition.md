@@ -802,6 +802,20 @@ layouts stay the same and the kernel graph is a DAG. The full feature union
 and Android performance were not run.
 Do not make the primary home identity the owner of participant input history.
 
+### K30 — Mana policy at its ability owner
+
+`d694e20fc`: avatar held the named Mana rate and refill system. The ability
+owner now provides `ManaRegen` and `regenerate_driven_mana` beside its pool and
+spending API. The old systems module and exports are deleted. Selection, rate,
+phase, resource gate and bank rollback identity stay the same. No systems or
+dependencies were added.
+Guards: 17 selected owner tests, eight app tests, 17 Mary-O/Sanic host tests,
+70 Smash tests and 35 workspace policies pass. Six Smash tests stay ignored.
+The default app compiles with no warnings; codec layouts stay the same and
+the kernel graph is a DAG. The known sprite fixture lockfile remains stale.
+The full feature union and Android performance were not run.
+Do not put named ability resource policy back in the body kernel.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

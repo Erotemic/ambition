@@ -191,7 +191,8 @@ observation projection grants no technique. The prompt uses the same relation.
 `body::BodyFrameOutput` owns the retained movement facts. Integration helpers
 are private to `body`; `avatar` publishes the home death policy from those facts.
 Rule readers borrow the declared values. Owned projections copy them when they
-store state.
+store state. Mana rate and refill policy live at `ambition_abilities::mana`;
+the avatar systems module is deleted.
 
 **Open:** continue the regrouping and the distinction of home-avatar, driver,
 camera and participant identities. Complete the constrained-body tick acceptance. Free-motion checks cover a

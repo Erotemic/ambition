@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | Body traversal through authored room geometry. |
-| [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
+| [`avatar`](src/avatar/mod.rs) | Controlled body capabilities and execution. |
 | [`body`](src/body/mod.rs) | Accepted body control, decisions, movement, and action execution. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode transitions from accepted control and contact facts. |

@@ -412,17 +412,11 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
         );
-        // Rescue creates geometry before the world step. Contact snapshots
-        // read the bodies after platform movement and collision-cache retirement.
+        // Contacts read bodies after platform movement and cache retirement.
         app.add_systems(
             sim,
-            (
-                crate::avatar::rescue_falling_bodies
-                    .before(ambition_platformer2d_world::platforms::MovingPlatformStep),
-                snapshot_body_contact
-                    .after(ambition_platformer2d_world::platforms::MovingPlatformStep),
-            )
-                .chain()
+            snapshot_body_contact
+                .after(ambition_platformer2d_world::platforms::MovingPlatformStep)
                 .after(ambition_mount::MountsSteeredByRiders)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,

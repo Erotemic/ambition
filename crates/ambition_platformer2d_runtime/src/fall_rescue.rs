@@ -1,16 +1,8 @@
-//! The fall rescue: a room that catches a fall (`RoomMetadata::fall_rescue`).
+//! Create and retire rescue platforms under authored room policy.
 //!
-//! The Mockingbird's air chase is fought on burning sharks fleeing across an
-//! open sky. Jon (2026-10-06): a player who falls off "is caught by a shark
-//! and carried back up, so the fight keeps going". A driven body that falls
-//! toward the room's bottom gets a FERRY (`MovingPlatformState::ferry`, drawn
-//! as the room's carrier sheet) spawned right under its feet: it rises into
-//! play, then flies off with the flock and, past the room's left edge, is
-//! taken away.
-//!
-//! Only while the room's fight is on: once every boss in the room is dead, a
-//! fall is a fall, and the bottom's exit takes the body to the room below
-//! (where the boss's treasure fell).
+//! This runtime adapter combines room policy, boss activity, body contacts,
+//! and world geometry. A room with no bosses keeps its rescue policy active.
+//! A room with bosses stops rescue when all of them are dead.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
@@ -20,16 +12,16 @@ use bevy::prelude::*;
 /// A falling body is caught when its feet come within this of the room's
 /// bottom: high enough that the bottom's exit (a strip along the edge) is
 /// never reached first.
-pub const RESCUE_LINE_PX: f32 = 64.0;
-/// The ferry's size: a shark's back.
-pub const FERRY_SIZE: ae::Vec2 = ae::Vec2::new(120.0, 22.0);
+const RESCUE_LINE_PX: f32 = 64.0;
+/// The rescue platform size.
+const FERRY_SIZE: ae::Vec2 = ae::Vec2::new(120.0, 22.0);
 /// How fast it rises, and where to: a little under the room's middle.
-pub const FERRY_RISE_SPEED: f32 = 300.0;
-pub const FERRY_RISE_TO: f32 = 0.56;
-/// Risen, it flies off with the flock (left, toward the boss) at this speed.
-pub const FERRY_DRIFT: f32 = -85.0;
-/// The id every ferry's starts with.
-pub const FERRY_ID_PREFIX: &str = "fall_rescue";
+const FERRY_RISE_SPEED: f32 = 300.0;
+const FERRY_RISE_TO: f32 = 0.56;
+/// Horizontal speed after the platform has risen.
+const FERRY_DRIFT: f32 = -85.0;
+/// Prefix for rescue platform identities.
+const FERRY_ID_PREFIX: &str = "fall_rescue";
 
 /// Catch every falling driven body in a room that catches falls, and take away
 /// the ferries whose rescue is over.
@@ -37,7 +29,7 @@ pub const FERRY_ID_PREFIX: &str = "fall_rescue";
 /// Before the platforms advance, so a ferry spawned under a body this tick
 /// rises under it with the rest of the room's platforms.
 #[allow(clippy::type_complexity)]
-pub fn rescue_falling_bodies(
+pub(crate) fn rescue_falling_bodies(
     mut rooms: Query<
         (Entity, &mut MovingPlatformSet, &ae::RoomGeometry),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
@@ -106,7 +98,7 @@ pub fn rescue_falling_bodies(
                 -FERRY_SIZE.x,
             )
             .with_visual(carrier.clone())
-            // Like the flock: a body lands on its back from above.
+            // Bodies land on the platform from above.
             .one_way();
             platforms.0.push(ferry);
             // Caught: the fall stops on the carrier's back.

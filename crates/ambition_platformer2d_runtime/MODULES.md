@@ -17,6 +17,7 @@
 | [`effect_bus`](src/effect_bus.rs) | Apply typed flag, quest, switch, and audio effects. |
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
 | [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
+| [`fall_rescue`](src/fall_rescue.rs) | Create and retire rescue platforms under authored room policy. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`input`](src/input.rs) | Device input, participant seating, context claims, and frame publication adapters. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
@@ -51,7 +52,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_44 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_45 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

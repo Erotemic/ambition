@@ -19,6 +19,7 @@ pub mod combat_rules;
 pub mod stocks_match;
 pub mod effect_bus;
 pub mod world_overlay;
+mod fall_rescue;
 mod world_schedule;
 pub use world_schedule::{WorldPrepSchedulePlugin, GameplayEffectsSchedulePlugin, FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin, register_damage_facing_volume_publication};
 #[cfg(test)]

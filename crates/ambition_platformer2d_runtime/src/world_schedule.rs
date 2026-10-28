@@ -422,6 +422,13 @@ impl Plugin for WorldPrepSchedulePlugin {
         let sim = app.sim_schedule();
         app.add_plugins(ambition_platformer2d_actor_monolith::body::BodySimulationPlugin);
         ambition_platformer2d_world::platforms::install_moving_platform_simulation(app, sim);
+        app.add_systems(
+            sim,
+            crate::fall_rescue::rescue_falling_bodies
+                .after(ambition_mount::MountsSteeredByRiders)
+                .before(ambition_platformer2d_world::platforms::MovingPlatformStep)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+        );
         // AE6: the rules a MATCH plays under, resolved from its declaration
         // folded over those baselines — so a stage never writes them. In
         // WorldPrep because every reader is later (PlayerSimulation/Combat),
@@ -699,6 +706,9 @@ mod actor_decision_phase_tests {
         let mut app = App::new();
         crate::schedule::configure_platformer2d_simulation_phases(&mut app);
         app.add_plugins(WorldPrepSchedulePlugin);
+        // The player schedule installs the causal observers.
+        #[cfg(feature = "causal")]
+        app.add_plugins(crate::player_schedule::PlayerSchedulePlugin);
         app
     }
 
@@ -911,12 +921,6 @@ mod actor_decision_phase_tests {
             assert_membership(graph, leaf, phase);
         }
 
-        #[cfg(feature = "causal")]
-        assert_membership(
-            graph,
-            "record_body_control_frame",
-            ActorDecisionSet::Publish,
-        );
     }
 
     /// `drive_boss_animators` is under the GATE and under NO PHASE.

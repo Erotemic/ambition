@@ -1,12 +1,12 @@
 //! The HUD's movement combo readout ("J o D o D").
 //!
 //! Presentation state only: it is fed from the movement step's published
-//! [`ae::FrameEvents`] (via [`PlayerBodyFrameOutput`]) after the kernel ran, it
+//! [`ae::FrameEvents`] (via [`BodyFrameOutput`]) after the kernel ran, it
 //! is not rollback state, and nothing in the simulation reads it.
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::body::BodyFrameOutput;
 use ambition_platformer2d::engine_core as ae;
 
 /// How many marks the readout keeps.
@@ -70,7 +70,7 @@ pub fn record_combo_trace(
     world_time: Res<ambition_platformer2d::time::WorldTime>,
     replay: Option<Res<ambition_platformer2d::platformer::schedule::SimulationReplayState>>,
     mut bodies: Query<
-        (Entity, &PlayerBodyFrameOutput, Option<&mut ComboTrace>),
+        (Entity, &BodyFrameOutput, Option<&mut ComboTrace>),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {

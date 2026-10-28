@@ -15,7 +15,7 @@ use ambition_platformer2d::characters::equipment::{
     EquipmentRow, WornEquipment};
 
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
-use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::body::BodyFrameOutput;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
@@ -403,7 +403,7 @@ pub fn bonk_power_blocks(
     mut players: Query<
         (
             Entity,
-            &PlayerBodyFrameOutput,
+            &BodyFrameOutput,
             Option<&WornEquipment>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
@@ -1887,7 +1887,7 @@ mod tests {
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        let mut frame = PlayerBodyFrameOutput::default();
+        let mut frame = BodyFrameOutput::default();
         frame
             .events
             .contacts
@@ -1960,7 +1960,7 @@ mod tests {
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        let mut frame = PlayerBodyFrameOutput::default();
+        let mut frame = BodyFrameOutput::default();
         frame
             .events
             .contacts
@@ -2055,7 +2055,7 @@ mod tests {
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        let mut frame = PlayerBodyFrameOutput::default();
+        let mut frame = BodyFrameOutput::default();
         frame
             .events
             .contacts
@@ -2148,7 +2148,7 @@ mod tests {
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        let mut frame = PlayerBodyFrameOutput::default();
+        let mut frame = BodyFrameOutput::default();
         frame
             .events
             .contacts
@@ -2286,11 +2286,11 @@ mod tests {
     ) -> (
         ambition_platformer2d::platformer::lifecycle::InRoomInstance,
         PlayerEntity,
-        PlayerBodyFrameOutput,
+        BodyFrameOutput,
         ambition_platformer2d::characters::actor::BodyWallet,
         ambition_platformer2d::platformer::sim_id::SimId,
     ) {
-        let mut frame = PlayerBodyFrameOutput::default();
+        let mut frame = BodyFrameOutput::default();
         frame.events.contacts.push(ae::collision_semantics::Contact {
             // A hand-built fixture contact: nothing arrived at this surface.
             impact_speed: 0.0,
@@ -2377,7 +2377,7 @@ mod tests {
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        let mut frame = PlayerBodyFrameOutput::default();
+        let mut frame = BodyFrameOutput::default();
         frame
             .events
             .contacts

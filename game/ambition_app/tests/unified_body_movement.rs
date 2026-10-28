@@ -92,41 +92,6 @@ fn home_body_and_actor_body_move_through_the_same_integration_phase() {
     );
 }
 
-/// Inspects the real Update schedule after a step (so it's initialized). Fails the moment a
-/// separate player movement system is reintroduced.
-#[test]
-fn player_body_tick_is_not_the_gameplay_movement_route() {
-    use bevy::ecs::schedule::Schedules;
-    use bevy::prelude::Update;
-
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    // One step so the Update schedule is initialized (systems() needs that).
-    sim.step(AgentAction::default());
-
-    let schedules = sim.world().resource::<Schedules>();
-    let update = schedules.get(Update).expect("Update schedule exists");
-    let names: Vec<String> = update
-        .systems()
-        .expect("Update schedule is initialized after a step")
-        .map(|(_, system)| system.name().to_string())
-        .collect();
-
-    assert!(
-        names.iter().any(|n| n.contains("integrate_sim_bodies")),
-        "the unified body-integration phase `integrate_sim_bodies` must be registered"
-    );
-    assert!(
-        !names.iter().any(|n| n.contains("player_body_tick")),
-        "the old separate home-body movement route `player_body_tick` must be gone; \
-         found it still registered in the Update schedule"
-    );
-    assert!(
-        !names.iter().any(|n| n.contains("player_body_phase")),
-        "the old `player_body_phase` movement route must be gone"
-    );
-}
-
 /// Real participant input reaches the driven body through the canonical slot
 /// publication path and becomes body-facing `ActorControl`. Neutral slot input
 /// leaves the body at rest; driving the slot moves it.

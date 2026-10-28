@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d_actor_monolith::body::BodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameplayGated};
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -21,7 +21,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Every player body carries the movement→presentation hand-off the
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
-        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, PlayerBodyFrameOutput>();
+        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, BodyFrameOutput>();
         app.register_required_components_with::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(
             || ambition_platformer2d_core::CenteredAabb::new(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::ZERO),
         );
@@ -364,7 +364,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Kernel deaths bypass hit resolution, so publish their death fact here after
                 // movement has flagged the reset. This remains ungated so suspended dialogue
                 // cannot swallow a pit/drown/tile-hazard death.
-                ambition_platformer2d_actor_monolith::avatar::body_integration::publish_kernel_reset_death,
+                ambition_platformer2d_actor_monolith::avatar::publish_kernel_reset_death,
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
                 ambition_platformer2d_session::death::open_death_interlude

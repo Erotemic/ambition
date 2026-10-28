@@ -169,6 +169,7 @@ for one target grant neither seat.
 | body clocks and freeze expiry | `body_reaction_clocks::a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes` |
 | removal of a controlled body | `possession_end_to_end::a_removed_possessed_body_returns_only_its_participants_seat` |
 | action continuity on release | `possession_end_to_end::releasing_a_seat_keeps_the_active_move_on_its_original_body` |
+| one tick before and after two seat releases | `possession_end_to_end::possession_handoffs_do_not_advance_a_free_body_twice` (two homes and two unmounted actors in clear space) |
 | room techniques for two participants | `body_control_acceptance::two_participants_route_a_room_granted_attack_through_the_same_gate` |
 
 **Control ordering:**
@@ -185,6 +186,8 @@ follow the body's driving seat, not its home marker.
 `BodyControlGate` is the action-scheme ordering point. Each body reads its own
 room's driven techniques when it has `DrivingParticipant`; the primary
 observation projection grants no technique. The prompt uses the same relation.
+`body::BodyFrameOutput` owns the retained movement facts. Integration helpers
+are private to `body`; `avatar` publishes the home death policy from those facts.
 Rule readers borrow the declared values. Owned projections copy them when they
 store state.
 

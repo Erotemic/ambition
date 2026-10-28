@@ -14,6 +14,8 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
 pub mod brain_command;
 mod movement;
+mod integration;
+pub use integration::{BodyFrameOutput, BodyReset};
 pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.

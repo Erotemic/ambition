@@ -179,7 +179,7 @@ where
         },
     );
 
-    registrar.declare_rollback_derived_component::<crate::avatar::body_integration::PlayerBodyFrameOutput>(
+    registrar.declare_rollback_derived_component::<crate::body::BodyFrameOutput>(
         OWNER,
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",

@@ -67,9 +67,6 @@ pub use cli::{
 };
 pub use feedback::{GameplayFeedbackWriters, ProgressionResources};
 pub use hud::update_quest_panel;
-// Re-exported here so existing `ambition_app::app::PlayerBodyFrameOutput` paths (tests) keep
-// working.
-pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
     add_presentation_plugins, add_simulation_plugins, AmbitionGamePresentationPlugin,

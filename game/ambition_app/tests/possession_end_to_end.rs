@@ -665,3 +665,43 @@ fn releasing_a_seat_keeps_the_active_move_on_its_original_body() {
         PlayerSlot(1)
     );
 }
+
+#[test]
+fn possession_handoffs_do_not_advance_a_free_body_twice() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    let bodies = [homes[0], homes[1], targets[0], targets[1]];
+    let start = player_pos(sim.world_mut());
+    let neutral = ae::ControlFrame::default();
+
+    // Release includes a discrete transit. Measure free motion after that transit.
+    for releasing in [None, Some(PlayerSlot::PRIMARY), Some(PlayerSlot(1))] {
+        if let Some(slot) = releasing {
+            let release = ae::ControlFrame { axis_y: 1.0, interact_held: true, ..neutral };
+            sim.drive_seat(1, if slot == PlayerSlot(1) { release } else { neutral });
+            sim.step_frame(if slot == PlayerSlot::PRIMARY { release } else { neutral });
+            assert_eq!(sim.world().get::<DrivingParticipant>(homes[slot.0 as usize]).unwrap().0, slot);
+            assert!(sim.world().get::<DrivingParticipant>(targets[slot.0 as usize]).is_none());
+        }
+        let before: [f32; 4] = std::array::from_fn(|index| {
+            let body = bodies[index];
+            let mut kin = sim.world_mut().get_mut::<BodyKinematics>(body).unwrap();
+            kin.pos = start + ae::Vec2::new(100.0 * (index + 1) as f32, -150.0);
+            kin.vel = ae::Vec2::new(120.0, 0.0);
+            let x = kin.pos.x;
+            sim.world_mut().get_mut::<ae::BodyGroundState>(body).unwrap().invalidate();
+            x
+        });
+        sim.drive_seat(1, neutral);
+        sim.step_frame(neutral);
+        let dt = sim.world().resource::<ambition_platformer2d::time::WorldTime>().sim_dt();
+        assert!(dt > 0.0);
+        for (body, x) in bodies.into_iter().zip(before) {
+            let kin = sim.world().get::<BodyKinematics>(body).unwrap();
+            let displacement = kin.pos.x - x;
+            assert!(displacement.abs() > 0.01, "body {body:?} did not move: kin={kin:?}, dt={dt}, releasing={releasing:?}");
+            assert!((displacement - kin.vel.x * dt).abs() < 0.001,
+                "body {body:?} did not advance by one tick: displacement={displacement}, velocity={}, dt={dt}, releasing={releasing:?}", kin.vel.x);
+        }
+    }
+}

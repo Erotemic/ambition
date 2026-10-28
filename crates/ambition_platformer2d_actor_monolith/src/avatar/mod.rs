@@ -1,18 +1,15 @@
-//! Controlled body capabilities and execution.
+//! Home-body capabilities and policy.
 //!
-//! `PrimaryPlayer` identifies the exploration home body; `ControlledSubject` identifies current
-//! control authority. Generic body simulation must not branch on this module or player identity.
+//! `PrimaryPlayer` identifies the exploration home body. `DrivingParticipant`
+//! identifies a driven body. `ControlledSubject` is the primary observation projection.
 
-pub mod body_integration;
+mod kernel_death;
 pub mod bundles;
 pub mod character_execution;
 pub mod systems;
 pub mod trail;
 
-pub use body_integration::{
-    integrate_home_body, surface_skidding, BodyReset,
-    PlayerBodyFrameOutput,
-};
+pub use kernel_death::publish_kernel_reset_death;
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use character_execution::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,

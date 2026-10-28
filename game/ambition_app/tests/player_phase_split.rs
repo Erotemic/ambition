@@ -3,7 +3,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::app::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::body::BodyFrameOutput;
 use ambition_app::AmbitionSim;
 use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
@@ -36,9 +36,9 @@ fn player_handoff_seam_holds(fixed_tick: bool) {
     // player body) — the movement/presentation phases both key on it.
     assert!(
         sim.world_mut()
-            .get::<PlayerBodyFrameOutput>(player)
+            .get::<BodyFrameOutput>(player)
             .is_some(),
-        "the player body carries the PlayerBodyFrameOutput movement→presentation seam"
+        "the player body carries the BodyFrameOutput movement→presentation seam"
     );
 
     // Press Jump and scan a short window for the movement phase publishing a Jump
@@ -49,7 +49,7 @@ fn player_handoff_seam_holds(fixed_tick: bool) {
             jump: true,
             ..AgentAction::default()
         });
-        if let Some(out) = sim.world_mut().get::<PlayerBodyFrameOutput>(player) {
+        if let Some(out) = sim.world_mut().get::<BodyFrameOutput>(player) {
             if out
                 .events
                 .operations
@@ -63,7 +63,7 @@ fn player_handoff_seam_holds(fixed_tick: bool) {
     }
     assert!(
         saw_jump_handoff,
-        "the player MOVEMENT phase published a Jump event into PlayerBodyFrameOutput \
+        "the player MOVEMENT phase published a Jump event into BodyFrameOutput \
          for the PRESENTATION phase to consume — the movement→presentation seam is live"
     );
 }

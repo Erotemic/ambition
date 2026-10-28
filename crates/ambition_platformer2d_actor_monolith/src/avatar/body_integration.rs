@@ -20,8 +20,6 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_world::collision::MovingPlatformSet;
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
 
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::attack_support::engine_input_from_actor_control;
@@ -239,51 +237,8 @@ pub fn surface_skidding(
     run.abs() >= SKID_MIN_INPUT && v_t.abs() >= SKID_MIN_SPEED && run * v_t < 0.0
 }
 
-/// Each live room advances on the simulation clock. A lift responds to a
-/// grounded body in its room and collision plane, regardless of its controller.
-#[allow(clippy::type_complexity)]
-pub fn advance_moving_platforms(
-    time: Res<ambition_time::WorldTime>,
-    mut rooms: Query<(&LiveRoomInstance, &mut MovingPlatformSet), With<RoomInstanceRoot>>,
-    riders: Query<(
-        Entity,
-        &ae::BodyKinematics,
-        &ae::BodyGroundState,
-        Option<&ae::SweepSample>,
-        Option<&ae::DepthPlane>,
-    )>,
-    live: LiveRooms,
-) {
-    let dt = time.sim_dt();
-    for (instance, mut platforms) in &mut rooms {
-        // Empty sets must not receive a change tick: composed walls use it.
-        if platforms.0.is_empty() {
-            continue;
-        }
-        let room = Some(*instance);
-        for platform in &mut platforms.0 {
-            if platform.is_lift() {
-                let ridden = riders.iter().any(|(body, kin, ground, sample, depth)| {
-                    depth.is_none_or(|depth| depth.is_playable())
-                        && live.of(body) == room
-                        && platform.is_supporting_body(
-                            kin.collision_box(sample),
-                            ground.on_ground,
-                            sample.map_or(ae::DEFAULT_GRAVITY_DIR, |sample| sample.down),
-                        )
-                });
-                platform.set_ridden(ridden);
-            }
-            platform.update(dt);
-        }
-    }
-}
-
-
 #[cfg(test)]
 mod home_momentum_tests;
-#[cfg(test)]
-mod platform_advance_tests;
 
 // ⛔ THIS SYSTEM MOVED HERE FROM `ambition_damage`, 2026-08-26, and
 // it was the LAST monolith-owned thing that module named. Its own doc says

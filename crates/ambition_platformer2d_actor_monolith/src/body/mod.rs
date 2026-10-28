@@ -412,30 +412,15 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
         );
-        // The walls every reader of a tick shares (F24, P14).
-        app.init_resource::<ambition_platformer2d_world::collision::ComposedSolids>();
-        // ⭐ THE LOCAL TAIL KEEPS ITS CHAIN AND HANGS OFF THE LAST PUBLISHED SET,
-        // so the four-step contract is unchanged end to end: capture holds, then
-        // mount steering, then platforms, then the contact snapshot.
+        // Rescue creates geometry before the world step. Contact snapshots
+        // read the bodies after platform movement and collision-cache retirement.
         app.add_systems(
             sim,
             (
-                crate::avatar::rescue_falling_bodies,
-                crate::avatar::advance_moving_platforms
-                    .run_if(
-                        |rooms: Query<
-                            &ambition_platformer2d_world::collision::MovingPlatformSet,
-                            bevy::prelude::With<
-                                ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
-                            >,
-                        >| {
-                            rooms.iter().any(|platforms| !platforms.0.is_empty())
-                        },
-                    )
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
-                // The platforms moved: free the walls composed from where they were.
-                ambition_platformer2d_world::collision::retire_stale_composed_solids,
-                snapshot_body_contact,
+                crate::avatar::rescue_falling_bodies
+                    .before(ambition_platformer2d_world::platforms::MovingPlatformStep),
+                snapshot_body_contact
+                    .after(ambition_platformer2d_world::platforms::MovingPlatformStep),
             )
                 .chain()
                 .after(ambition_mount::MountsSteeredByRiders)

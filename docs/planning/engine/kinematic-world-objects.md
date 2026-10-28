@@ -23,8 +23,9 @@ Moving platforms are ordinary deterministic world geometry.
   projection.
 - `MovingPlatformSet` is a component on each live room root
   (`RoomInstanceRoot`, rollback row `root.moving_platform_set`), not a process
-  resource. `advance_moving_platforms` advances every live room's platforms once
-  per frame.
+  resource. `platforms::install_moving_platform_simulation` installs one world
+  step for every live room. Runtime places it between body rescue and contact
+  snapshots. Lifts use each grounded body's room, collision plane, and frame.
 - Platforms expose `last_delta`, so riders and ledge contacts are carried
   without advancing the platform per actor.
 - `CollisionWorld::room(Option<&InRoomInstance>)` composes one live room's

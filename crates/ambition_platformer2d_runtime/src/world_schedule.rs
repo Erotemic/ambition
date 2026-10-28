@@ -421,6 +421,7 @@ impl Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_plugins(ambition_platformer2d_actor_monolith::body::BodySimulationPlugin);
+        ambition_platformer2d_world::platforms::install_moving_platform_simulation(app, sim);
         // AE6: the rules a MATCH plays under, resolved from its declaration
         // folded over those baselines — so a stage never writes them. In
         // WorldPrep because every reader is later (PlayerSimulation/Combat),

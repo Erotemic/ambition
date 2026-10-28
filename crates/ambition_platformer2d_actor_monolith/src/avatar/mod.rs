@@ -13,7 +13,7 @@ pub mod systems;
 pub mod trail;
 
 pub use body_integration::{
-    advance_moving_platforms, integrate_home_body, surface_skidding, BodyReset,
+    integrate_home_body, surface_skidding, BodyReset,
     PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};

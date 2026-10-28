@@ -622,11 +622,16 @@ The public `body` API owns body execution. The old `features::ecs` tree,
 controller-named movement wrapper, and crate-root forwarding exports are gone.
 Foreign types are read from their owners.
 
-**Remaining D33 work:** move global moving-platform advancement and collision
-cache retirement out of the avatar/body kernel. The world owner advances all
-live rooms. Runtime composes it between body rescue and the body-contact
-snapshot, with the same phase and deferred visibility. Capability profiles
-remain a separate C2/SDK exit.
+Global moving-platform advancement and collision-cache retirement now belong
+to the world owner. Runtime installs that step between body rescue and the
+body-contact snapshot. The phase, deferred visibility, and invocation count
+stay the same.
+
+**Remaining D33 work:** separate retained trail drawing from the body kernel.
+`avatar::trail` still creates gizmo assets and render layers. Keep trail
+mechanics with body/action execution. Publish the drawing facts through
+observation and let presentation own the assets and drawing systems.
+Capability profiles remain a separate C2/SDK exit.
 
 ### K19 — Owned body API
 

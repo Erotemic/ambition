@@ -282,3 +282,16 @@ probe took 107 seconds, against about 347 seconds for the serial scan. Plain and
 LV2 score probes produce the same fingerprints in serial and parallel. The 23
 affected cues must be refreshed under the consistent environment. Other cue
 renders remain reusable. Final publication, SFX, and setup checks remain open.
+
+The SFX stage found a blocker: three howls used a wide direct box convolution
+and were still running after more than six minutes. The linear-time mean keeps
+the centered, zero-padded result. All three complete renders now take 1.13 s.
+The same audit found 715 source files but only 701 cue IDs. Fourteen generic
+recipes collided with role-specific recipes and wrote the same cache entries.
+Keep the canonical role-specific sources. Collection discovery now refuses two
+sources for one ID before rendering.
+
+Move 321 ignored filter fields in 198 cues into supported effect chains. The
+schema now refuses the old field. All 34 SFX renderer tests pass. These fixes
+are in SFX commit `b0f6669`. Regenerate the SFX bank, pass the full setup gate,
+and verify a live demo before the final migration receipt.

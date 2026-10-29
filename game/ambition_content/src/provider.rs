@@ -181,7 +181,7 @@ fn install_ambition_game(app: &mut App) {
         app.add_plugins(ambition_platformer2d_ldtk::LdtkRuntimePlugin);
         // After `LdtkPlugin`: the collection holds a typed LDtk handle, so the
         // LDtk asset type must be registered before the handles are made.
-        app.init_collection::<ambition_platformer2d_assets::loading::Platformer2dStartupAssets>();
+        app.init_collection::<crate::loading::AmbitionStartupAssets>();
     }
     // Yarn compiles its project through the asset server; an App with no
     // asset server (a provider declaration test) gets no dialogue runtime.

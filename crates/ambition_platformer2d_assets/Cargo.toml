@@ -4,11 +4,10 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Asset catalog assembly, character materialization, and startup asset loading."
+description = "Asset catalog assembly and character materialization."
 
 [features]
 default = []
-ldtk_runtime = ["dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
 
 [dependencies]
 ambition_combat = { path = "../ambition_combat" }
@@ -16,8 +15,6 @@ ambition_time = { path = "../ambition_time" }
 bevy = { version = "0.19.1", default-features = false }
 serde.workspace = true
 ron.workspace = true
-bevy_ecs_ldtk = { version = "0.15.0", optional = true }
-bevy_asset_loader = { version = "0.27.0", optional = true }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
 ambition_audio = { path = "../ambition_audio" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }

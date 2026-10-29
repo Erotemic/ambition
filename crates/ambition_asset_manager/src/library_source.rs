@@ -12,13 +12,24 @@ pub struct LibraryAssets(Arc<Mutex<LibraryState>>);
 struct LibraryState {
     libraries: ContentLibraries,
     files: Arc<BTreeMap<String, LibraryFile>>,
+    relative_sources: BTreeSet<String>,
 }
 
 impl LibraryAssets {
     pub fn replace(&self, snapshot: LibrarySnapshot) {
-        *self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = LibraryState {
-            libraries: snapshot.libraries, files: snapshot.files,
-        };
+        let mut state = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.libraries = snapshot.libraries;
+        state.files = snapshot.files;
+    }
+
+    pub fn register_relative_source(&self, name: &str) {
+        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+            .relative_sources.insert(name.to_owned());
+    }
+
+    pub fn relative_sources(&self) -> Vec<String> {
+        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+            .relative_sources.iter().cloned().collect()
     }
 
     /// The files and library definitions admitted by this App.
@@ -39,6 +50,18 @@ impl LibraryAssets {
         if library.is_embedded() { return None; }
         Some(library.publication_root()?.join(physical))
     }
+}
+
+/// Register a game source with its selected library imports.
+pub fn register_game_source(app: &mut bevy::prelude::App, name: impl Into<bevy::asset::io::AssetSourceId<'static>>, root: &str) {
+    use bevy::asset::AssetApp;
+    app.init_resource::<LibraryAssets>();
+    let assets = app.world().resource::<LibraryAssets>().clone();
+    let name = name.into();
+    if let bevy::asset::io::AssetSourceId::Name(name) = &name {
+        assets.register_relative_source(name);
+    }
+    app.register_asset_source(name, library_asset_source(root, assets, false));
 }
 
 pub fn library_asset_source(root: &str, libraries: LibraryAssets, namespaced: bool) -> AssetSourceBuilder {

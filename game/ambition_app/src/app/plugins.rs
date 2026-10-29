@@ -1,12 +1,4 @@
-// NOT `#[cfg(feature = "ui")]`. It was, while its three use sites were not — so
-// `--no-default-features --features web` had the uses without the import and the web build did not
-// compile. `Platformer2dStartupAssets` is an asset collection and has nothing to do with the UI
-// feature; the gate was on the wrong half of the pair.
-//
-// That is safe here for a reason worth stating rather than re-deriving: `ldtk_map` on the line
-// below is ALREADY unconditional, so this file has never been able to compile without an LDtk
-// runtime. The two imports stand or fall together, and the warning above still applies to both —
-// gate the USES and the IMPORT as one pair, or neither.
+//! Ambition app plugin composition.
 
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::dev_tools::dev_tools::{

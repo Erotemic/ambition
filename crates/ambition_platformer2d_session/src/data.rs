@@ -1,39 +1,8 @@
-//! Data manifests for the sandbox.
-//!
-//! The goal of this module is to keep tuning/audio iteration data in RON while
-//! still letting the current code synthesize assets at startup. `bevy_common_assets` registers
-//! `Platformer2dGameplayDefaults` as a real Bevy asset type; `load` gives us a
-//! synchronous bootstrap path until the sandbox grows a loading state.
-//!
-//! Bevy resolves `ambition/platformer_defaults.ron` relative to the sandbox crate asset root
-//! (`game/ambition_content_library/generated/runtime`) when this package is run through
-//! Cargo, so the embedded copy intentionally lives there too. Audio lives in its own App-local
-//! registries (a provider registers an `ambition_audio::catalog::AudioCatalogFragment`; hosts
-//! read them from the `AudioCatalogRegistry` resource) — SFX and music are separate concerns
-//! from gameplay tuning and from each other.
+//! Authored audio and tuning fixtures for session tests.
 
-use bevy::asset::{AssetServer};
-use bevy::prelude::{Commands, Handle, Res, Resource};
-#[cfg(test)]
-use ambition_audio::spec::{MusicRegistry, SfxRegistry};
-#[cfg(test)]
-use std::collections::HashSet;
-
-// ⛔ THE DEFAULTS ASSET MOVED TO `ambition_platformer2d_assets::gameplay_defaults`, and that
-// single `use` in `assets/loading.rs` was the whole of the `assets -> session`
-// edge — the one that held `assets` and `character_sprites` inside the kernel's
-// 15-module cycle. Imported here now, in the correct direction.
 use ambition_platformer2d_assets::gameplay_defaults::Platformer2dGameplayDefaults;
-
-
-// Authored audio is App-local now (R3.2: the engine ships no tracks and no
-// cues). A provider registers an `ambition_audio::catalog::AudioCatalogFragment`
-// from `ambition_content`'s `music_registry.ron` / `sfx_registry.ron`; hosts
-// read the assembled registries from the `AudioCatalogRegistry` resource (or
-// pass a selected `MusicRegistry` explicitly to the catalog builders). The
-// former process-global install/override seam is retired — the only remaining
-// access is the `#[cfg(test)]` fixtures below, which let core audio tests
-// exercise the game's real data cross-crate without core embedding it.
+use ambition_audio::spec::{MusicRegistry, SfxRegistry};
+use std::collections::HashSet;
 
 /// Test-only handle to the game's authored music registry. Not a runtime seam.
 #[cfg(test)]
@@ -67,33 +36,6 @@ static TEST_FIXTURE_SFX_REGISTRY: std::sync::LazyLock<SfxRegistry> =
         ))
         .expect("ambition_content sfx_registry.ron should parse")
     });
-
-#[derive(Resource, Clone, Debug)]
-pub struct Platformer2dGameplayDefaultsHandle(pub Handle<Platformer2dGameplayDefaults>);
-
-/// Bevy startup system: register a `Handle<Platformer2dGameplayDefaults>` so the
-/// asset server keeps the underlying `.ron` alive (and emits hot
-/// reload events under `bevy_dev_hot_reload`).
-///
-/// Resolves the path through the active
-/// [`ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog`] when one is
-/// installed. The catalog entry
-/// [`ambition_asset_manager::platformer_assets::ids::sandbox_data`] is required, so the
-/// catalog never returns `Disabled` outside of `NoAssets`/`Headless`.
-/// Falls back to the raw asset-path constant when no catalog resource
-/// is present (visible-only init order / tests).
-pub fn load_data_asset_handle(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
-) {
-    let Some(path) = catalog
-        .as_ref()
-        .and_then(|c| c.path_for(&ambition_asset_manager::platformer_assets::ids::sandbox_data()))
-    else { return; };
-    commands.insert_resource(Platformer2dGameplayDefaultsHandle(asset_server.load(path)));
-}
-
 
 #[cfg(test)]
 mod tests;

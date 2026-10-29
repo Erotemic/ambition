@@ -1588,8 +1588,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "authored data-spec value",
     ),
     (
-        "ambition_platformer2d_session::data::Platformer2dGameplayDefaultsHandle",
-        "authored data asset handle",
+        "ambition_content::loading::AmbitionStartupAssets",
+        "game-owned startup asset handles",
     ),
     (
         "::provider::AmbitionPreparedWorld",

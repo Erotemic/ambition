@@ -4,7 +4,8 @@
 /// death/retry reset. Carved out of `shrine` in A1b — a shrine owns an
 /// interaction, coming back owns the session's room, subject and lifecycle slot.
 pub mod checkpoint;
-pub mod data;
+#[cfg(test)]
+mod data;
 /// The death interlude and the roster question that decides a level reset
 /// (ADR 0033).
 pub mod death;

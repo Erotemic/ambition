@@ -194,9 +194,6 @@ fn ambition_owns_the_sandbox_save_file() {
 // engine crates; this provider contributes only its authored fragments. The
 // character entries live in `assets/data/character_catalog.ron`.
 
-/// Inbound `crate::data::…` paths keep working.
-pub use ambition_platformer2d_session::data;
-
 /// Declare every rollback row owned by Ambition-specific content.
 ///
 /// Content plugins record the same declarations into host-independent schema
@@ -207,3 +204,6 @@ pub fn register_rollback_state(
 ) {
     bosses::register_rollback_state(registrar);
 }
+
+#[cfg(feature = "ldtk_runtime")]
+pub mod loading;

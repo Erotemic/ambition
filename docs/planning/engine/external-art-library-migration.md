@@ -87,6 +87,22 @@ Verification:
   three preparations instead of retaining about 140 MB per preparation.
   A weak-reference test verifies release after the last session drops.
 
+## Expanded generated-content scope
+
+Jon confirmed on 2026-10-29 that this applies to every generated game product:
+SFX, VFX, music, backgrounds, fonts, sprites, and atlases. Audit each producer's
+library selection, source and output roots, runtime consumers, package inputs,
+and presence/freshness checks. Verify the complete route from
+`run_developer_setup.sh` through the generation setup and family scripts.
+Generation must be part of developer setup. Generated products stay ignored.
+
+The first GPU capture rendered the shared scene, but its log found remaining
+path assumptions: a game startup collection still lived in the engine, relative
+LDtk images did not see declared library imports, and three renderers prefixed
+qualified image identities. These fixes are in progress. Named game source
+readers must use the same import and collision rules as the default reader.
+Loaded relative image handles must reload when the imported publication changes.
+
 ## Remaining work
 
 1. Push the acceptance fixes. The broad Smash host run passed 51 tests; its
@@ -114,5 +130,5 @@ library selection, which is sufficient for its music-path claim.
 
 The target volume filled during verification. Only this migration's compiled
 test binaries and recent incremental sessions were removed. The cleanup record
-is `.agent/library-build-cleanup.json`. Check target storage before another
+is `/tmp/ambition-library-build-cleanup.json`. Check target storage before another
 large feature-cell build. Never delete another worktree's data.

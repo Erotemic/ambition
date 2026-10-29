@@ -5,31 +5,11 @@
 
 use crate::AssetId;
 
-pub const SANDBOX_LDTK: &str = "world.sandbox_ldtk";
-pub const INTRO_LDTK: &str = "world.intro_ldtk";
-pub const CUT_ROPE_LDTK: &str = "world.cut_rope_ldtk";
-pub const HALL_LDTK: &str = "world.hall_ldtk";
-pub const SANDBOX_DATA: &str = "data.sandbox";
 pub const SFX_BANK: &str = "audio.sfx_bank";
 pub const FONT_DIALOG_REGULAR: &str = "font.dialog_regular";
 pub const FONT_DIALOG_SEMIBOLD: &str = "font.dialog_semibold";
 pub const FONT_DEBUG_MONO: &str = "font.debug_mono";
 
-pub fn sandbox_ldtk() -> AssetId {
-    AssetId::new(SANDBOX_LDTK)
-}
-pub fn intro_ldtk() -> AssetId {
-    AssetId::new(INTRO_LDTK)
-}
-pub fn cut_rope_ldtk() -> AssetId {
-    AssetId::new(CUT_ROPE_LDTK)
-}
-pub fn hall_ldtk() -> AssetId {
-    AssetId::new(HALL_LDTK)
-}
-pub fn sandbox_data() -> AssetId {
-    AssetId::new(SANDBOX_DATA)
-}
 pub fn sfx_bank() -> AssetId {
     AssetId::new(SFX_BANK)
 }

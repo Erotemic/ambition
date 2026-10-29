@@ -278,7 +278,7 @@ fn build_sheet_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
     let mut sprite = Sprite::from_image(load_sheet_image(&sprite_content,
         asset_server,
         "projectile-art",
-        format!("sprites/{}", record.image),
+        ambition_asset_manager::platformer_assets::logical_asset_path("sprites", &record.image),
     ));
     sprite.custom_size = Some(render_size(size, body, frame_aspect));
     sprite.rect = Some(first);

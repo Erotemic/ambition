@@ -988,8 +988,7 @@ impl PlatformerApp {
         }
 
         for source in sources {
-            use bevy::asset::AssetApp as _;
-            app.register_asset_source(source.name, bevy::asset::io::AssetSourceBuilder::platform_default(&source.root, None));
+            ambition_asset_manager::library_source::register_game_source(app, source.name, &source.root);
         }
 
         // ── Rules 2, 3, 4 ── the Bevy foundation.

@@ -128,17 +128,8 @@ pub fn portrait_for_declared_character(
             );
         }
     }
-    // the manifest's `image` is a BARE FILENAME (`"alice_portraits.png"`) while every loader
-    // speaks asset-relative paths.
-    let directory = manifest_path
-        .rsplit_once('/')
-        .map(|(head, _)| head)
-        .unwrap_or("");
-    let image = if directory.is_empty() {
-        manifest.image.clone()
-    } else {
-        format!("{directory}/{}", manifest.image)
-    };
+    let directory = manifest_path.rsplit_once('/').map(|(head, _)| head).unwrap_or("");
+    let image = ambition_asset_manager::platformer_assets::logical_asset_path(directory, &manifest.image);
     Some(CharacterPortraitRef {
         image,
         manifest: manifest_path.to_string(),

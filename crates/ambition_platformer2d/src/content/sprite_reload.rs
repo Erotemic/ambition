@@ -418,14 +418,25 @@ fn stamped_manifests(files: Vec<(String, PathBuf)>) -> Vec<(String, PathBuf, Opt
     files.into_iter().map(|(key, path)| { let seen = modified(&path); (key, path, seen) }).collect()
 }
 
-fn reload(asset_server: Option<&AssetServer>, paths: Vec<String>) -> u32 {
+fn reload(asset_server: Option<&AssetServer>, libraries: Option<&ambition_asset_manager::library_source::LibraryAssets>, paths: Vec<String>) -> u32 {
     let Some(asset_server) = asset_server else {
         return 0;
     };
-    for path in &paths {
-        asset_server.reload(path.clone());
+    let sources = libraries.map(|libraries| libraries.relative_sources()).unwrap_or_default();
+    let mut aliases = std::collections::BTreeSet::from_iter(paths);
+    for path in aliases.clone() {
+        let relative = path.strip_prefix("content://")
+            .and_then(|path| path.split_once('/').map(|(_, relative)| relative))
+            .or_else(|| (!path.contains("://")).then_some(path.as_str()));
+        let Some(relative) = relative else { continue; };
+        if asset_server.get_path_id(relative.to_owned()).is_some() { aliases.insert(relative.to_owned()); }
+        for source in &sources {
+            let qualified = format!("{source}://{relative}");
+            if asset_server.get_path_id(qualified.clone()).is_some() { aliases.insert(qualified); }
+        }
     }
-    paths.len() as u32
+    for path in &aliases { asset_server.reload(path.clone()); }
+    aliases.len() as u32
 }
 
 /// Load each changed page image again at once, and stage each changed
@@ -491,7 +502,7 @@ fn publish_the_staged_sheets(world: &mut World) {
         }
         world.get_resource_or_insert_with(ambition_asset_manager::library_source::LibraryAssets::default).replace(snapshot);
     }
-    let reloaded = reload(world.get_resource::<AssetServer>(), images);
+    let reloaded = reload(world.get_resource::<AssetServer>(), world.get_resource::<ambition_asset_manager::library_source::LibraryAssets>(), images);
     world.resource_mut::<SpriteSheetWatch>().reloaded_pages += reloaded;
     let generation = sheet_table::publish_prepared_sheet_table(&mut sprite_content, table);
     world.insert_resource(sprite_content.clone());

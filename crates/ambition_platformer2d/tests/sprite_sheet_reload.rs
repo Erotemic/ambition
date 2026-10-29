@@ -98,3 +98,61 @@ fn native_admission_keeps_files_metadata_and_apps_together() {
     assert!(!app.world().resource::<SpriteSheetWatch>().is_staged());
     std::fs::remove_dir_all(owner).unwrap();
 }
+
+#[derive(Asset, TypePath)]
+struct ImportedImage(Vec<u8>);
+
+#[derive(Default, TypePath)]
+struct ImportedImageLoader;
+
+impl bevy::asset::AssetLoader for ImportedImageLoader {
+    type Asset = ImportedImage;
+    type Settings = ();
+    type Error = std::io::Error;
+
+    async fn load(&self, reader: &mut dyn bevy::asset::io::Reader, _: &(), _: &mut bevy::asset::LoadContext<'_>) -> Result<ImportedImage, Self::Error> {
+        let mut bytes = Vec::new();
+        bevy::asset::io::Reader::read_to_end(reader, &mut bytes).await?;
+        Ok(ImportedImage(bytes))
+    }
+
+    fn extensions(&self) -> &[&str] { &["png"] }
+}
+
+fn wait_for_imported_image(app: &mut App, handle: &Handle<ImportedImage>, expected: &[u8]) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        app.update();
+        if app.world().resource::<Assets<ImportedImage>>().get(handle).is_some_and(|image| image.0 == expected) { return; }
+        assert!(std::time::Instant::now() < deadline, "the imported image did not reach the requested bytes");
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+}
+
+#[test]
+fn a_game_relative_image_uses_and_reloads_its_selected_library() {
+    use ambition_platformer2d::content::libraries::{register_game_source, register_sources};
+    use bevy::asset::AssetApp;
+    let owner = std::env::temp_dir().join(format!("game_library_reload_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&owner);
+    std::fs::create_dir_all(owner.join("assets/sprites")).unwrap();
+    std::fs::create_dir_all(owner.join("game")).unwrap();
+    library(&owner, true);
+    save(&owner, 1.0, 0, b"first");
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    register_sources(&mut app, "assets");
+    register_game_source(&mut app, "game", owner.join("game").to_str().unwrap());
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<ImportedImage>().init_asset_loader::<ImportedImageLoader>();
+    install(&mut app, &owner);
+    app.add_plugins(SpriteSheetReloadPlugin { manual: true });
+    app.finish();
+    let image = app.world().resource::<AssetServer>().load("game://sprites/body.png");
+    wait_for_imported_image(&mut app, &image, b"first");
+    look(&mut app);
+    save(&owner, 1.0, 0, b"second");
+    look(&mut app);
+    wait_for_imported_image(&mut app, &image, b"second");
+    std::fs::remove_dir_all(owner).unwrap();
+}

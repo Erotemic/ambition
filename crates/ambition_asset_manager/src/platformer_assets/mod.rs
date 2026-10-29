@@ -73,7 +73,7 @@ pub fn is_source_qualified(path: &str) -> bool {
 /// `game://sprites/x.png` as relative and produces
 /// `sprites/game://sprites/x.png`.
 pub fn logical_asset_path(folder: &str, filename: &str) -> String {
-    if is_source_qualified(filename) {
+    if folder.is_empty() || is_source_qualified(filename) {
         filename.to_owned()
     } else {
         format!("{folder}/{filename}")

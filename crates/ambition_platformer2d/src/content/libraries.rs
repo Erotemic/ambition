@@ -36,3 +36,5 @@ pub fn register_sources(app: &mut App, game_root: &str) {
     app.register_asset_source(AssetSourceId::Default, library_asset_source(game_root, assets.clone(), false));
     app.register_asset_source("content", library_asset_source("assets", assets, true));
 }
+
+pub use ambition_asset_manager::library_source::register_game_source;

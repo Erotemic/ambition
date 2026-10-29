@@ -42,8 +42,10 @@ pub fn publish_fixture(owner: &std::path::Path) {
         let physical = format!("bundles/{key}/runtime/full/{logical}");
         let dest = store.join(&physical);
         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
-        if !dest.exists() { std::fs::write(dest, bytes).unwrap(); }
-        selected.insert(logical, serde_json::json!({"path":physical,"sha256":"fixture","role":"runtime","tier":"full"}));
+        if !dest.exists() { std::fs::write(dest, &bytes).unwrap(); }
+        let mut content = std::collections::hash_map::DefaultHasher::new();
+        bytes.hash(&mut content);
+        selected.insert(logical, serde_json::json!({"path":physical,"sha256":format!("{:016x}", content.finish()),"role":"runtime","tier":"full"}));
     }
     std::fs::write(store.join("next.json"), serde_json::json!({
         "schema":ambition_asset_manager::art_publication::SCHEMA,"generation":key,"files":selected

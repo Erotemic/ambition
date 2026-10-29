@@ -134,7 +134,7 @@ dev_tools = [
 ]
 dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
 static_map = ["ambition_asset_manager/static_map", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/static_map"]
-ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime", "ambition_platformer2d_assets/ldtk_runtime"]
+ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
 # Load procedural modules from `.wasm` files at startup, so a module edit
 # rebuilds the module and not the engine. Off by default: see the runtime's
 # feature of the same name.

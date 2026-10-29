@@ -672,10 +672,12 @@ The shape now:
    body is caught. Every 2.4 s it alternates a ghost fire lunge and lightning
    on a marked point. Horizontal catches launch the target forward and up;
    a catch in the shaft follows the direction of travel. The camera zones
-   keep their authored zoom and offsets. Each view of the target also frames
-   the warded head, with enough space for both bodies. Pursuit reads no camera
-   state. The live route test checks visibility; the separate camera test
-   checks zone handovers after both bosses die.
+   keep their authored zoom and offsets. A view also frames the warded head
+   while it is within 1000 units of its target. A larger gap must not force
+   both bodies into the view. Pursuit reads no camera state. Its waypoints
+   use the same room bounds as flight. The live route test reaches the outer
+   shaft wall; the separate camera test checks zone handovers after both
+   bosses die.
 4. **Kagero's spell.** The final hall is the room's end farthest from where
    it rose: under the gatehouse. When it has howled over the hall and you
    are in it and it has stalked you to within 400, Kagero comes beside you

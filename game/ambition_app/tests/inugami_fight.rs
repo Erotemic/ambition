@@ -156,7 +156,8 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
             }
             sim.step(AgentAction::default());
             let h = head(&mut sim);
-            if h.view.is_some_and(|v| v.running) {
+            let runner = sim.world_mut().get::<ae::BodyKinematics>(body).unwrap().pos;
+            if h.view.is_some_and(|v| v.running) && h.kin.pos.distance(runner) < 900.0 {
                 let world = sim.world_mut();
                 let view = ambition_platformer2d::sim_view::the_only_view(world);
                 let snap = &world.get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(view)
@@ -232,7 +233,7 @@ fn chase_route() -> Vec<ae::Vec2> {
     const STEP: f32 = 888.0;
     // The arena and the way east are hopped too, over the gate's sill and
     // the way's barricade.
-    let mut route = vec![ae::Vec2::new(7000.0, 708.0), ae::Vec2::new(10150.0, 708.0), ae::Vec2::new(10150.0, 1640.0)];
+    let mut route = vec![ae::Vec2::new(7000.0, 708.0), ae::Vec2::new(10400.0, 708.0), ae::Vec2::new(10400.0, 1640.0)];
     // A hop over the floor (the body's middle 124 over it): over the run's
     // barricades and rubble, as a runner jumps them. A body carried into one
     // is pushed out of it, and the camera rightly follows that jump.

@@ -63,7 +63,7 @@ pub fn conductor_of(world: &World, head: Entity) -> Option<InugamiView> {
     })
 }
 
-/// The warded pursuer stays in views of its target. Ending the ward removes the relation.
+/// Frame the warded pursuer while it is near its target.
 pub fn frame_the_pursuit(
     mut commands: Commands,
     heads: Query<(
@@ -85,7 +85,7 @@ pub fn frame_the_pursuit(
             .and_then(|record| Conductor::from_record(record).ok())
             .filter(|state| health.alive() && state.warded())
             .and(target.entity)
-            .map(FrameAlongside);
+            .map(|subject| FrameAlongside { subject, max_distance: 1000.0 });
         match (follows, framed) {
             (Some(want), Some(have)) if want == *have => {}
             (Some(want), _) => { commands.entity(entity).insert(want); }

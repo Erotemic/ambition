@@ -910,10 +910,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     c.clock += dt;
     c.ticks = c.ticks.wrapping_add(1);
     let target = inu.target_body.as_ref().map(|body| body.position).or(inu.target).map_or(Vec2::new((hall.left + hall.right) * 0.5, hall.floor - 24.0), Vec2::from);
+    let bottom = if c.run.is_some() {
+        inu.room.map_or(hall.floor, |room| room[1])
+    } else {
+        hall.floor
+    };
     let clamp = |p: Vec2| {
         Vec2::new(
             within(p.x, hall.left + half.x + 8.0, hall.right - half.x - 8.0),
-            within(p.y, top, hall.floor - half.y - 8.0),
+            within(p.y, top, bottom - half.y - 8.0),
         )
     };
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
@@ -1168,7 +1173,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             last_feet: &mut c.run_last_feet,
             pace: &mut c.run_pace,
             forward: &mut c.run_forward,
-        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt)
+        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt, clamp)
     });
     if let Some(step) = &pursuit {
         if step.forward.x.abs() > 0.2 {
@@ -1440,7 +1445,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             hover(side)
         }
     };
-    let pos = clamp(pos).min(Vec2::new(f32::MAX, ground));
+    let pos = if c.run.is_some() { clamp(pos) } else { clamp(pos).min(Vec2::new(f32::MAX, ground)) };
 
     // ── The strike's own onsets ──
     if let Some(part @ Part { striking: true, .. }) = part {

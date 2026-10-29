@@ -177,9 +177,12 @@ impl Default for CameraSnapshot2d {
     }
 }
 
-/// Include this body in each view that follows the named subject in the same room.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct FrameAlongside(pub bevy::prelude::Entity);
+/// Include a nearby body in views that follow its subject in the same room.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct FrameAlongside {
+    pub subject: bevy::prelude::Entity,
+    pub max_distance: f32,
+}
 
 /// The body/focus that a follow camera should frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1691,11 +1694,14 @@ pub fn resolve_camera_observation(
         let mut bounds = must_frame_world.unwrap_or_else(|| ae::Aabb::new(focus.center_world, focus.size * 0.5));
         let mut companions = false;
         for (entity, kin, relation) in &body_kinematics {
-            if !relation.is_some_and(|relation| relation.0 == framed) || geometry.room_of(entity) != Some(room) {
+            if !relation.is_some_and(|relation| relation.subject == framed) || geometry.room_of(entity) != Some(room) {
+                continue;
+            }
+            let at = kin.pos + presented.get(entity).map_or(ae::Vec2::ZERO, |pose| pose.delta());
+            if at.distance(focus.center_world) > relation.expect("a companion relation").max_distance {
                 continue;
             }
             companions = true;
-            let at = kin.pos + presented.get(entity).map_or(ae::Vec2::ZERO, |pose| pose.delta());
             bounds.min = bounds.min.min(at - kin.size * 0.5);
             bounds.max = bounds.max.max(at + kin.size * 0.5);
         }
@@ -3474,7 +3480,7 @@ mod resolved_snapshot_lifetime_tests {
         let mut app = app_with_a_framed_cast();
         let subject = cast_member(&mut app, ae::Vec2::new(2000.0, 2000.0));
         let companion = cast_member(&mut app, ae::Vec2::new(1300.0, 1600.0));
-        app.world_mut().entity_mut(companion).insert(FrameAlongside(subject));
+        app.world_mut().entity_mut(companion).insert(FrameAlongside { subject, max_distance: 1000.0 });
         app.world_mut()
             .resource_mut::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
             .0 = Some(subject);
@@ -3494,6 +3500,22 @@ mod resolved_snapshot_lifetime_tests {
         let alone = frame_of(&app).expect("the other subject has a view").snapshot;
         assert!(alone.visible_view.x < paired.visible_view.x);
         assert!(alone.visible_view.y < paired.visible_view.y);
+    }
+
+    #[test]
+    fn a_distant_companion_does_not_expand_the_subjects_view() {
+        let mut app = app_with_a_framed_cast();
+        let subject = cast_member(&mut app, ae::Vec2::new(2000.0, 2000.0));
+        let companion = cast_member(&mut app, ae::Vec2::new(300.0, 300.0));
+        app.world_mut().entity_mut(companion).insert(FrameAlongside { subject, max_distance: 1000.0 });
+        app.world_mut().resource_mut::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>().0 = Some(subject);
+        app.update();
+        let distant = frame_of(&app).unwrap().snapshot;
+        app.world_mut().entity_mut(companion).remove::<FrameAlongside>();
+        app.update();
+        let alone = frame_of(&app).unwrap().snapshot;
+        assert_eq!(distant.visible_view, alone.visible_view);
+        assert_eq!(distant.center_world, alone.center_world);
     }
 
     #[test]

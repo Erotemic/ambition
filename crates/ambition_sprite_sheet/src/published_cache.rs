@@ -1,21 +1,5 @@
-//! A development build's cache of what it derives from the published sprite
-//! tree.
-//!
-//! A development build embeds no sprite table, so that a sprite publish
-//! compiles nothing. It then derived each table from RON text while the game
-//! ran: about 50 ms for each part flipbook, on the main thread, the first time
-//! a sheet realized it. The neighbour prefetch of the hub realized the cast of
-//! the hall of characters in one call of 1.1 s (profile of 2026-10-14).
-//!
-//! The derived bytes are kept in a file here, under a key made from the size
-//! and the modification time of each published file they come from. A publish
-//! writes its files again, so the key changes and the bytes are derived one
-//! more time. A run after that reads the file. Nothing is compiled, and the
-//! published tree stays the only authority.
-//!
-//! The cache is under `target/`, so `cargo clean` removes it. A cache that
-//! cannot be written or read costs the derivation, as before; it does not fail
-//! the game.
+//! Cache derived sprite metadata. Selected source files define each key.
+//! The cache is temporary. A failed read or write costs a derivation.
 
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -23,9 +7,9 @@ use std::time::UNIX_EPOCH;
 /// Bump when the layout of the cache itself changes.
 const FORMAT: u32 = 1;
 
-/// The folder of the cache: `target/ambition_published_cache` of this tree.
+/// The shared temporary cache. No path depends on the engine checkout.
 pub(crate) fn dir() -> PathBuf {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/ambition_published_cache")).to_path_buf()
+    std::env::temp_dir().join("ambition/published-metadata")
 }
 
 /// FNV-1a. The key is a file name; a clash gives bytes that the reader
@@ -78,6 +62,9 @@ pub(crate) fn derived_in<T>(
     decode: impl Fn(&[u8]) -> Option<T>,
     derive: impl FnOnce() -> Option<Vec<u8>>,
 ) -> Option<T> {
+    if sources.is_empty() {
+        return decode(&derive()?);
+    }
     let Some(key) = key(kind, schema, sources) else {
         return decode(&derive()?);
     };
@@ -97,7 +84,7 @@ pub(crate) fn derived_in<T>(
     decode(&bytes)
 }
 
-/// [`derived_in`] the cache of this tree.
+/// Read or derive metadata in the temporary cache.
 pub(crate) fn derived<T>(
     kind: &str,
     schema: &[&str],

@@ -86,108 +86,41 @@ fn consumer_owned_authoritative_state_survives_real_resimulation() {
     );
 }
 
-/// A third party gets REAL ART, not coloured rectangles. (Phase 6, the
-/// visible-shell half)
-///
-/// A stranger cloning this engine and running their game saw untextured boxes — the most visible
-/// way "an engine another game can be built on" can fail, and it failed for want of a function.
-///
-/// `ambition_platformer2d::game_assets::PlatformerAssetsPlugin` is that function, and this is
-/// the test that it works from OUTSIDE the workspace: the fixture resolves its
-/// own dependency graph, so this is the build a third party gets.
-///
-/// Asserts the two resources the generic presentation actually reads.
+/// The asset plugin binds the character that the consumer declares.
 #[test]
-fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
-    // The REAL composition, not a hand-rolled subset of it.
-    //
-    // `with_game_assets` because that is exactly the subject: a display-less
-    // host that still prepares art. It is policy rather than a face, and the
-    // default is off — preparing art is not free.
+fn the_asset_install_resolves_the_consumers_character() {
     let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .with_game_assets()
         .mount(outlander::OutlanderModule)
         .build();
     app.update();
 
-    let catalog = app
-        .world()
-        .get_resource::<ambition_platformer2d::view::Platformer2dAssetCatalog>()
-        .expect(
-            "the plugin did not install a Platformer2dAssetCatalog, so every asset path \
-             policy the presentation reads is missing",
-        );
-    assert!(
-        catalog
-            .path_for(&ambition_platformer2d::view::ids::sfx_bank())
-            .is_some(),
-        "the installed catalog resolves no paths at all, so it was built from \
-         nothing — the composition-order failure this plugin is supposed to make \
-         loud"
-    );
-
-    let assets = app
-        .world()
-        .get_resource::<ambition_platformer2d::view::GameAssets>()
-        .expect("the plugin did not install GameAssets");
-    assert!(
-        !assets.entities.is_empty(),
-        "GameAssets carries no entity sprites, so the world still draws as \
-         coloured primitives — which is the exact state this plugin was written \
-         to end, and a green compile would not have noticed"
-    );
+    let catalog = app.world()
+        .resource::<ambition_platformer2d::view::Platformer2dAssetCatalog>();
+    let path = catalog.path_for(
+        &ambition_platformer2d::view::ids::character_sprite(outlander::OUTLANDER_CHARACTER_ID),
+    ).expect("the consumer's declared character has an image binding");
+    assert_eq!(path, "game://sprites/outlander_spritesheet.png");
 }
 
-/// A consumer's OWN art has a home. (Phase 6, recorded SDK leak #3)
-///
-/// The visible binary's second recorded finding read: "the AssetServer file root
-/// must be pointed at the ENGINE's asset tree … consumer-owned art still has no
-/// home, and a consumer that forgets this line gets bare boxes." So a third
-/// party could load the engine's sprites or nothing; there was nowhere for its
-/// own to live, because the two-root reader that lets Ambition's content crate
-/// own a world tree lived inside `ambition_app`'s CLI module.
-///
-/// It is `ambition_asset_manager::consumer_source` now.
+/// A source with no library imports reads only the consumer's own files.
 #[test]
-fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
+fn a_consumer_owns_its_own_asset_tree() {
     use bevy::prelude::*;
 
-    // Through the game's real composition: the `game://` source is DECLARED on
-    // the module and installed by the engine before `AssetPlugin` seals its
-    // sources. A test that registered it by hand would be asserting that the
-    // test can call `register_asset_source`, not that a consumer's declaration
-    // reaches the AssetServer.
     let app = outlander::build_outlander_app();
-
-    // Through the real `AssetServer`, which is what every load path uses — not
-    // a hand-built reader that would only prove this test can construct one.
     let server = app.world().resource::<AssetServer>();
     let source = server
         .get_source(bevy::asset::io::AssetSourceId::from("game"))
         .expect("the consumer registered a `game://` source");
     let reader = source.reader();
-
     let read = |path: &str| -> bool {
         bevy::tasks::block_on(async { reader.read(std::path::Path::new(path)).await.is_ok() })
     };
 
-    assert!(
-        read("sprites/outlander_marker.txt"),
-        "a file that exists ONLY in this consumer's own assets dir did not \
-         resolve through its `game://` source, so consumer-owned art still has \
-         nowhere to live"
-    );
-    assert!(
-        read("sprites/robot_spritesheet.ron"),
-        "a file that exists only in the ENGINE's tree did not resolve, so the \
-         consumer source shadowed the engine instead of layering over it — the \
-         opposite failure, and the one that makes every shared sprite vanish"
-    );
-    assert!(
-        !read("sprites/definitely_not_authored_anywhere.txt"),
-        "a path in NEITHER tree resolved, so this test cannot tell a hit from a \
-         reader that says yes to everything"
-    );
+    assert!(read("sprites/outlander_marker.txt"));
+    assert!(!read("sprites/robot_spritesheet.ron"), "an unselected library supplied art");
+    assert!(!read("sprites/definitely_not_authored_anywhere.txt"));
 }
 
 /// Authoring failures exposed through the public API must name the file, ID, or
@@ -365,6 +298,7 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
         .expect("the consumer's composed app prepares the Outlander")
         .clone();
     let spec = ambition_platformer2d::character::sheet_for_prepared_character(
+        composed.world().resource::<ambition_platformer2d::character::SpriteContent>(),
         composed.world().resource::<AuthoredSheets>(),
         &prepared,
     )

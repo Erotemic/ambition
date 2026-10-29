@@ -245,3 +245,16 @@ are removed from the game provider. The app compiles; all 35 workspace policy
 tests and 21 rollback-coverage tests pass (two separate tests were ignored).
 The capture still renders correctly. The existing page-size failure remains
 95 full-tier pages above 2048 pixels against a limit of 83.
+
+Independent consumer acceptance passes: 29 tests, one ignored. A debug artifact
+runs from outside the checkout with its own character loaded and no failed
+asset loads. Its three asset reads stay inside the artifact. The test found
+and removed an engine-checkout cache dependency and three unconditional shield
+image requests. Shield images now use declared semantic roles. The shared
+library binds those roles. A consumer with no bindings requests no shield art.
+
+The source-only music coverage check now derives registry rows from authored
+scores and policy. It does not require generated files. All four media families
+pass plan coverage. Four producer behavior tests and all 53 absence contracts
+pass. The native and static assembled apps compile; all 35 workspace policy
+tests pass. Music and SFX publication still need the final setup run.

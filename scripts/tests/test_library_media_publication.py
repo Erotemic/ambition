@@ -94,3 +94,25 @@ def test_all_media_check_refuses_a_source_only_sprite_library():
         assert result.returncode == 1, result.stdout + result.stderr
         assert "target:goblin: missing" in result.stdout, result.stdout + result.stderr
         assert not (library / "generated").exists()
+
+
+def test_music_plan_uses_sources_without_a_generated_registry(tmp_path):
+    (tmp_path / "authored").mkdir()
+    (tmp_path / "authored/music.json").write_bytes(
+        (ROOT / "game/ambition_content_library/authored/music.json").read_bytes())
+    manifest = tmp_path / "library.json"
+    manifest.write_text(json.dumps({
+        "schema": "ambition.content_library.v1", "id": "fixture", "version": "1",
+        "asset_roots": {"generated": "generated/runtime/full"},
+        "publication": "generated/art_publication",
+        "producers": {"music": {"policy": "authored/music.json",
+            "registry": "audio/music_registry.ron", "collection": "radio"}},
+    }))
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check_regeneration_coverage.py"),
+            "--family", "music", "--plans-only"],
+        cwd=ROOT, env=dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest)),
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / "generated").exists()

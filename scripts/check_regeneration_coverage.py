@@ -11,18 +11,24 @@ import struct
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from lib.content_libraries import selected_manifest, generated_root, producer
-from lib.art_publication import resolve as resolve_art
+from lib.content_libraries import selected_manifest, generated_root, producer, runtime_files
 
 
-def product_file(root: Path, logical: str) -> Path | None:
-    if os.environ.get("AMBITION_PRODUCER_WORKER"):
-        path = root / logical
-        return path if path.is_file() else None
-    return resolve_art(selected_manifest(ROOT), logical)
+ProductReader = Callable[[str], Path | None]
+
+
+def product_reader(root: Path | None, plans_only: bool) -> ProductReader:
+    if plans_only:
+        return lambda logical: None
+    files = runtime_files(ROOT) if root is None else None
+    def read(logical: str) -> Path | None:
+        path = root / logical if root is not None else files.get(logical)
+        return path if path is not None and path.is_file() else None
+    return read
 
 
 def tool_json(tool: str, override: str, code: str):
@@ -64,7 +70,7 @@ def referenced_files(sources, pattern: str) -> dict[str, set[str]]:
     return found
 
 
-def check_sprites(asset_root: Path, sources, plans_only: bool) -> list[str]:
+def check_sprites(read_product: ProductReader, sources, plans_only: bool) -> list[str]:
     result = subprocess.run(
         [str(ROOT / "scripts/regen/sprites.sh"), "--list-outputs"],
         cwd=ROOT, check=True, capture_output=True, text=True,
@@ -75,21 +81,25 @@ def check_sprites(asset_root: Path, sources, plans_only: bool) -> list[str]:
     for asset, owners in sorted(required.items()):
         if asset not in planned:
             failures.append(f"sprites: no regen target publishes {asset} (used by {', '.join(sorted(owners))})")
-        elif not plans_only and not ((resolved := resolve_art(selected_manifest(ROOT), asset)) and resolved.is_file()):
+        elif not plans_only and not read_product(asset):
             failures.append(f"sprites: missing {asset}; run scripts/regen/sprites.sh")
     print(f"sprites: {len(required)} required sheet files, {len(planned)} planned outputs")
     return failures
 
 
-def check_music(asset_root: Path, plans_only: bool) -> list[str]:
+def check_music(read_product: ProductReader, plans_only: bool) -> list[str]:
     import regen_music_registry as music_registry
     cues = music_registry.generation_cues()
     if not cues:
         raise ValueError("music discovery returned no cues")
-    registry = product_file(asset_root, producer(ROOT, "music")["registry"])
-    if registry is None:
-        raise ValueError("The selected library has no accepted music registry")
-    registered = music_registry.tracked_ids(registry.read_text())
+    if plans_only:
+        registry_text = music_registry.render_registry()
+    else:
+        registry = read_product(producer(ROOT, "music")["registry"])
+        if registry is None:
+            raise ValueError("The selected library has no accepted music registry")
+        registry_text = registry.read_text()
+    registered = music_registry.tracked_ids(registry_text)
     failures = []
     aliases = {entry[0] for entry in music_registry.SPECIAL_ENTRIES}
     for track in sorted(registered - set(cues) - aliases):
@@ -97,12 +107,12 @@ def check_music(asset_root: Path, plans_only: bool) -> list[str]:
     for cue in cues:
         if cue not in music_registry.CLAIMED_DIRS and not music_registry.is_denied(cue) and cue not in registered:
             failures.append(f"music: {cue} has a score but no registry entry; run scripts/regen/music.sh")
-        if not plans_only and product_file(asset_root, f"audio/music/generated/{cue}/full.ogg") is None:
+        if not plans_only and read_product(f"audio/music/generated/{cue}/full.ogg") is None:
             failures.append(f"music: missing {cue}/full.ogg; run scripts/regen/music.sh")
     for track, _, asset in music_registry.SPECIAL_ENTRIES:
         if track not in registered:
             failures.append(f"music: missing registry entry {track}")
-        if not plans_only and product_file(asset_root, asset) is None:
+        if not plans_only and read_product(asset) is None:
             failures.append(f"music: missing {asset}; run scripts/regen/music.sh")
     print(f"music: {len(cues)} planned cues, {len(registered)} registered tracks")
     return failures
@@ -121,17 +131,17 @@ def bank_names(path: Path) -> set[str]:
         return names
 
 
-def check_sfx(asset_root: Path, plans_only: bool) -> list[str]:
+def check_sfx(read_product: ProductReader, plans_only: bool) -> list[str]:
     cues = tool_json(
         "ambition_sfx_renderer", "AMBITION_SFX_PYTHON",
         "import json; from ambition_sfx_renderer.schema import iter_cue_files, load_cue; "
-        "print(json.dumps([load_cue(path).cue_id for path in iter_cue_files()]))",
+        f"print(json.dumps([load_cue(path).cue_id for path in iter_cue_files(group={producer(ROOT, 'sfx')['collection']!r})]))",
     )
     if not cues:
         raise ValueError("SFX discovery returned no cues")
     failures = []
     if not plans_only:
-        path = product_file(asset_root, "audio/sfx.bank")
+        path = read_product("audio/sfx.bank")
         if path is None:
             raise ValueError("The selected library has no accepted SFX bank")
         bank = bank_names(path)
@@ -141,7 +151,7 @@ def check_sfx(asset_root: Path, plans_only: bool) -> list[str]:
     return failures
 
 
-def check_backgrounds(asset_root: Path, sources, plans_only: bool) -> list[str]:
+def check_backgrounds(read_product: ProductReader, sources, plans_only: bool) -> list[str]:
     required = referenced_files(sources, r'"((?:backgrounds|room_dressing)/[^"{}\n]+\.png)"')
     planned = set(tool_json(
         "ambition_sprite2d_renderer", "AMBITION_SPRITE_PYTHON",
@@ -169,7 +179,7 @@ print(json.dumps(paths))
         failures.append(f"backgrounds: no regen target publishes {asset}")
     if not plans_only:
         for asset in sorted(planned):
-            if product_file(asset_root, asset) is None:
+            if read_product(asset) is None:
                 failures.append(f"backgrounds: missing {asset}; run scripts/regen/backgrounds.sh")
     print(f"backgrounds: {len(planned)} planned files, {len(required)} literal references")
     return failures
@@ -181,7 +191,14 @@ def main() -> int:
     parser.add_argument("--plans-only", action="store_true", help="check coverage without requiring generated files")
     parser.add_argument("--asset-root", type=Path, default=None)
     args = parser.parse_args()
-    args.asset_root = args.asset_root or generated_root(ROOT)
+    root = args.asset_root
+    if root is None and os.environ.get("AMBITION_PRODUCER_WORKER"):
+        root = generated_root(ROOT)
+    try:
+        read_product = product_reader(root, args.plans_only)
+    except (OSError, ValueError) as error:
+        print(f"regeneration coverage: FAILED: {error}", file=sys.stderr)
+        return 1
     sources = list(authored_sources())
     if not sources:
         parser.error("no authored game sources found")
@@ -190,13 +207,13 @@ def main() -> int:
     for family in args.family or [name for name in ("sprites", "music", "sfx", "backgrounds") if name in declared]:
         try:
             if family == "sprites":
-                failures.extend(check_sprites(args.asset_root, sources, args.plans_only))
+                failures.extend(check_sprites(read_product, sources, args.plans_only))
             elif family == "backgrounds":
-                failures.extend(check_backgrounds(args.asset_root, sources, args.plans_only))
+                failures.extend(check_backgrounds(read_product, sources, args.plans_only))
             elif family == "music":
-                failures.extend(check_music(args.asset_root, args.plans_only))
+                failures.extend(check_music(read_product, args.plans_only))
             else:
-                failures.extend(check_sfx(args.asset_root, args.plans_only))
+                failures.extend(check_sfx(read_product, args.plans_only))
         except (OSError, ValueError, struct.error, subprocess.CalledProcessError) as error:
             detail = error.stderr if isinstance(error, subprocess.CalledProcessError) else str(error)
             failures.append(f"{family}: cannot check coverage: {detail}")

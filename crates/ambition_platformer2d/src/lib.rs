@@ -1169,6 +1169,8 @@ pub mod character {
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
+    /// The admitted sprite metadata for this App.
+    pub use ambition_sprite_sheet::SpriteContent;
     pub use ambition_sprite_sheet::PortraitSheetRegistry;
 }
 

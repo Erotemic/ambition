@@ -23,11 +23,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use bevy::prelude::*;
 
-/// The pictures of the bubble (the sprite submodule's `bubble_shield`).
-const FIELD_PICTURE: &str = "sprites/bubble_shield_field.png";
-const LATTICE_PICTURE: &str = "sprites/bubble_shield_lattice.png";
-const CRACKS_PICTURE: &str = "sprites/bubble_shield_cracks.png";
-
 /// The authored pictures of the bubble. Loaded once at startup.
 #[derive(Resource, Clone, Default)]
 pub struct BubbleShieldSprite {
@@ -95,13 +90,21 @@ fn new_bubble_sprite(handle: Handle<Image>) -> impl Bundle {
 /// silhouette is never covered by its own guard.
 const BUBBLE_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05;
 
-/// Startup system: ask for the authored pictures and keep their handles.
-pub fn build_bubble_shield_sprite(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>, mut commands: Commands, asset_server: Res<AssetServer>) {
+/// Load only the shield images that the selected catalog declares.
+pub fn build_bubble_shield_sprite(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
+) {
     use ambition_sprite_sheet::game_assets::load_sheet_image;
+    let image = |role: &str| catalog.as_ref()
+        .and_then(|catalog| catalog.try_path_for_load(&ambition_asset_manager::AssetId::new(role)))
+        .map(|path| load_sheet_image(None, &asset_server, "bubble-shield", path))
+        .unwrap_or_default();
     commands.insert_resource(BubbleShieldSprite {
-        handle: load_sheet_image(Some(&sprite_content), &asset_server, "bubble-shield", FIELD_PICTURE),
-        lattice: load_sheet_image(Some(&sprite_content), &asset_server, "bubble-shield", LATTICE_PICTURE),
-        cracks: load_sheet_image(Some(&sprite_content), &asset_server, "bubble-shield", CRACKS_PICTURE),
+        handle: image("fx.shield.field"),
+        lattice: image("fx.shield.lattice"),
+        cracks: image("fx.shield.cracks"),
     });
 }
 

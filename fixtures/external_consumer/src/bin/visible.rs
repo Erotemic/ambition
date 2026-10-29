@@ -4,12 +4,8 @@
 //! `OutlanderModule`; only the host FACE differs, and that is now one builder
 //! call rather than a composition this binary had to spell out.
 //!
-//! Leak #3 read: "the AssetServer file root must be pointed at the ENGINE's
-//! asset tree via `actors_desktop_asset_root()` — consumer-owned art still has
-//! no home, and a consumer that forgets this line gets bare boxes." A consumer
-//! now registers its OWN `game://` source layered over the engine's tree
-//! (`ambition_asset_manager::consumer_source`), so its art has somewhere to
-//! live and anything it did not author still resolves.
+//! The game declares its own `game://` asset source. It selects no shared
+//! content library, so the artifact needs only this game's assets.
 
 fn main() {
     // `--smoke <frames>`: the same composition with no GPU, driven for a fixed

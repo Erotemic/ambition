@@ -2,6 +2,7 @@
 """Stage and publish the selected library's generated media."""
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -89,19 +90,35 @@ def input_files(family: str, selected) -> list[Path]:
     return result
 
 
+def music_batch_dependencies(batch: tuple[str, list[str]]) -> dict:
+    """Read one cue batch with one instrument scan."""
+    from ambition_music_renderer.cli import find_score
+    from ambition_music_renderer.render.generated_layout import compute_score_render_dependencies
+    from ambition_music_renderer.render.dependencies import dependency_scan
+    backend, cues = batch
+    dependencies = {}
+    with dependency_scan():
+        for cue in cues:
+            dependencies[cue] = compute_score_render_dependencies(find_score(cue), backend).fingerprint
+            print(f"music dependencies: {cue}", flush=True)
+    return dependencies
+
+
 def owner_dependencies(family: str) -> dict:
     if family not in _DEPENDENCIES:
         dependencies = {}
         if family == "music":
             import regen_music_registry as registry
-            from ambition_music_renderer.cli import find_score
-            from ambition_music_renderer.render.generated_layout import compute_score_render_dependencies
-            from ambition_music_renderer.render.dependencies import dependency_scan
             backend = os.environ.get("AMBITION_MUSIC_BACKEND", "pretty-midi")
-            with dependency_scan():
-                for cue in registry.generation_cues():
-                    dependencies[cue] = compute_score_render_dependencies(find_score(cue), backend).fingerprint
-                    print(f"music dependencies: {cue}", flush=True)
+            cues = registry.generation_cues()
+            jobs = max(1, min(len(cues), int(os.environ.get("AMBITION_MUSIC_JOBS", "6"))))
+            batches = [(backend, cues[index::jobs]) for index in range(jobs)]
+            if jobs == 1:
+                dependencies = music_batch_dependencies(batches[0])
+            else:
+                with ProcessPoolExecutor(max_workers=jobs) as workers:
+                    for result in workers.map(music_batch_dependencies, batches):
+                        dependencies.update(result)
         elif family == "sfx":
             from ambition_sfx_renderer.schema import iter_cue_files, load_cue
             from ambition_sfx_renderer.render import cue_hash

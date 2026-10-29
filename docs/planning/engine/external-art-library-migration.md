@@ -269,3 +269,16 @@ it used the SFZ-only resolver. It now uses the renderer's shared instrument
 resolution plan for each declared backend. All 21 dependency and preflight
 tests pass, and every sampled reference of `nine_rooftops` resolves. The setup
 run must now complete music rendering, SFX, and final freshness admission.
+
+All 125 cues rendered. The staging registry write then failed on a status path
+that assumed the checkout root. This path is fixed in `6392fbdec`; the external
+registry-write test passes. Cached publication then refused 23 LV2-processed
+cues because the child loaded the instrument environment a second time. That
+load duplicates `LV2_PATH` and changes plugin discovery metadata. The child now
+keeps the environment selected by the producer owner.
+
+The dependency scan now uses the declared six-worker budget. The full-catalog
+probe took 107 seconds, against about 347 seconds for the serial scan. Plain and
+LV2 score probes produce the same fingerprints in serial and parallel. The 23
+affected cues must be refreshed under the consistent environment. Other cue
+renders remain reusable. Final publication, SFX, and setup checks remain open.

@@ -87,7 +87,10 @@ audio_tools_env="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}/env.sh"
 if [ -f "$audio_tools_env" ]; then
     echo "==> instrument libraries: $audio_tools_env"
     # shellcheck disable=SC1090
-    source "$audio_tools_env"
+    # Keep the instrument environment that the producer owner selected.
+    if [ "${AMBITION_PRODUCER_OWNER:-}" != "music" ]; then
+        source "$audio_tools_env"
+    fi
 else
     # ⛔ NOT AN FYI. Rendering without these produces General-MIDI stand-ins
     # that are indistinguishable downstream from the real cues — same .ogg, same

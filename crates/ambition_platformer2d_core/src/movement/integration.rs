@@ -826,8 +826,12 @@ fn resolve_initial_dash(
     // ⛔ AND THEY ARE THE SAME VALUE WHENEVER NOTHING IS DAMPING, which is every
     // body outside a motion-scaled window.
     let steer = input.local_axis().x;
+    // THE DASH THRESHOLD, not the steer deadzone: a push under it walks, and
+    // only a push past it is an edge this memory recognises. The deadzone
+    // stays the floor so an undeclared body (0.5) dashes as it always did.
+    let threshold = tuning.locomotion.dash_deflection.max(STEER_DEADZONE);
     let deadzoned = |x: f32| {
-        if x.abs() > STEER_DEADZONE {
+        if x.abs() >= threshold {
             x.signum()
         } else {
             0.0

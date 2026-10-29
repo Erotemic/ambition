@@ -435,6 +435,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.crouch_speed_frac);
     put_f32(out, l.initial_dash_time);
     put_f32(out, l.initial_dash_speed);
+    put_f32(out, l.dash_deflection);
     put_f32(out, l.turnaround_time);
     put_f32(out, l.teeter_margin);
     put_f32(out, l.max_fall_speed);
@@ -566,6 +567,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             crouch_speed_frac: r.f32()?,
             initial_dash_time: r.f32()?,
             initial_dash_speed: r.f32()?,
+            dash_deflection: r.f32()?,
             turnaround_time: r.f32()?,
             teeter_margin: r.f32()?,
             max_fall_speed: r.f32()?,

@@ -137,6 +137,8 @@ impl AuthoredMatchRules {
                 ("jab_lock_speed", body.jab_lock_speed),
                 ("crouch_speed_frac", body.crouch_speed_frac),
                 ("initial_dash_time", body.initial_dash_time),
+                ("dash_deflection", body.dash_deflection),
+                ("coyote_time", body.coyote_time),
                 ("turnaround_time", body.turnaround_time),
                 ("teeter_margin", body.teeter_margin),
             ] {

@@ -1147,6 +1147,14 @@ pub struct MatchBody {
     /// ([`MovementTuning::initial_dash_speed`]) is the fighter's, because how
     /// hard a first step bursts is the fighter's gait.
     pub initial_dash_time: f32,
+    /// See [`MovementTuning::dash_deflection`]: the stick push that dashes
+    /// rather than walks. A mode's, because walk-versus-dash is the genre's
+    /// neutral game and not a fighter's gait.
+    pub dash_deflection: f32,
+    /// See [`MovementTuning::coyote_time`]. A mode's: a platform fighter
+    /// gives no grace off a ledge (the ledge grab is its grace); an
+    /// exploration game keeps the engine's.
+    pub coyote_time: f32,
     /// See [`MovementTuning::turnaround_time`] — what reversing out of a
     /// committed run costs. `0.0` = facing flips instantly.
     pub turnaround_time: f32,
@@ -1199,6 +1207,8 @@ impl MatchBody {
             footstool: self.footstool,
             crouch_speed_frac: self.crouch_speed_frac,
             initial_dash_time: self.initial_dash_time,
+            dash_deflection: self.dash_deflection,
+            coyote_time: self.coyote_time,
             turnaround_time: self.turnaround_time,
             teeter_margin: self.teeter_margin,
             ..base
@@ -1265,6 +1275,8 @@ mod tests {
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
             crouch_speed_frac: 1.0,
             initial_dash_time: 0.0,
+            dash_deflection: 0.5,
+            coyote_time: 0.0,
             turnaround_time: 0.0,
             teeter_margin: 0.0,
         };

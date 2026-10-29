@@ -154,7 +154,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 385 -> 386: body recovery timers use proper time for every body. Hitstop
 /// expiry uses the unscaled simulation step for every body. Observer time
 /// requests follow the driven body instead of its home identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 386;
+/// 386 -> 387: the locomotion parameters carry `dash_deflection`, the stick
+/// push that dashes rather than walks (one f32 in the motion-model codec).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 387;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

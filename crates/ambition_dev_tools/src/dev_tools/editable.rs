@@ -281,6 +281,8 @@ pub struct EditableMovementTuning {
     #[reflect(ignore)]
     pub initial_dash_speed: f32,
     #[reflect(ignore)]
+    pub dash_deflection: f32,
+    #[reflect(ignore)]
     pub turnaround_time: f32,
     #[reflect(ignore)]
     pub teeter_margin: f32,
@@ -359,6 +361,7 @@ impl EditableMovementTuning {
             // which `reflect(ignore)` does.
             initial_dash_time: self.initial_dash_time,
             initial_dash_speed: self.initial_dash_speed,
+            dash_deflection: self.dash_deflection,
             turnaround_time: self.turnaround_time,
             teeter_margin: self.teeter_margin,
             max_fall_speed: self.max_fall_speed,
@@ -539,6 +542,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             crouch_speed_frac: value.crouch_speed_frac,
             initial_dash_time: value.initial_dash_time,
             initial_dash_speed: value.initial_dash_speed,
+            dash_deflection: value.dash_deflection,
             turnaround_time: value.turnaround_time,
             teeter_margin: value.teeter_margin,
             parry_window_time: value.parry_window_time,

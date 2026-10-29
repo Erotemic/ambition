@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v386
+ggrs-rollback-schema-v387
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -194,7 +194,7 @@ derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase 
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
-derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
+derived.player_body_frame_output	derived	BodyFrameOutput	republished by body integration every simulation frame
 derived.portal.held_light_lines	derived	HeldLightLines	written again each tick from the module's rollback record; presentation reads it
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
 derived.portal_host_depths	derived	PortalHostDepthsByRoom	republished from the authoritative collision world each frame

@@ -43,6 +43,10 @@ fn default_run_commit_frac() -> f32 {
     RUN_COMMIT_FRAC
 }
 
+fn default_dash_deflection() -> f32 {
+    DASH_DEFLECTION
+}
+
 // First-pass movement constants. These remain constants for easy grep/tuning,
 // but the simulation accepts a `MovementTuning` so experiments can override
 // them without recompiling every assumption into the update function.
@@ -108,6 +112,9 @@ pub const FLIGHT_TERMINAL_SPEED: f32 = 760.0;
 pub const FLIGHT_HOVER_SPEED: f32 = 35.0;
 pub const FLIGHT_HOVER_HZ: f32 = 0.85;
 pub const COYOTE_TIME: f32 = 0.120;
+/// See [`MovementTuning::dash_deflection`]: the steer deadzone, so an
+/// undeclared body dashes on any push, as it always did.
+pub const DASH_DEFLECTION: f32 = 0.5;
 pub const JUMP_BUFFER: f32 = 0.135;
 /// Window during which the vertical sweep continues to ignore one-way
 /// platforms after a drop-through gesture. Long enough to clear the 8px
@@ -582,6 +589,15 @@ pub struct MovementTuning {
     /// byte-identical, and a platform fighter declares its own.
     #[serde(default)]
     pub initial_dash_time: f32,
+    /// THE DASH THRESHOLD: how far the stick is pushed (0 to 1) before a
+    /// fresh push arms the initial dash. Under it the body WALKS at the run
+    /// continuum's speed for that deflection; over it, a push from a different
+    /// held direction bursts into the dash. `0.5` is the engine's steer
+    /// deadzone, which is what every body did before this field existed: any
+    /// push was a dash. A platform fighter declares about `0.8`, so a tilt of
+    /// the stick walks up to a poke and only a hard push dashes.
+    #[serde(default = "default_dash_deflection")]
+    pub dash_deflection: f32,
     /// How fast the initial dash moves, in engine units per second. `0.0`
     /// inherits `max_run_speed`, which is the sensible default: the phase is
     /// about WHEN you may turn around, not about being faster.
@@ -1094,6 +1110,9 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::initial_dash_speed`]. `0.0` inherits the run speed.
     #[serde(default)]
     pub initial_dash_speed: f32,
+    /// See [`MovementTuning::dash_deflection`]. `0.5` = the steer deadzone.
+    #[serde(default = "default_dash_deflection")]
+    pub dash_deflection: f32,
     /// See [`MovementTuning::turnaround_time`]. `0.0` = facing flips instantly.
     #[serde(default)]
     pub turnaround_time: f32,
@@ -1658,6 +1677,7 @@ impl MovementTuning {
                 crouch_speed_frac: self.crouch_speed_frac,
                 initial_dash_time: self.initial_dash_time,
                 initial_dash_speed: self.initial_dash_speed,
+                dash_deflection: self.dash_deflection,
                 turnaround_time: self.turnaround_time,
                 teeter_margin: self.teeter_margin,
                 max_fall_speed: self.max_fall_speed,
@@ -1760,6 +1780,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // continuum, which is what every world in this repo walks on.
     initial_dash_time: 0.0,
     initial_dash_speed: 0.0,
+    dash_deflection: DASH_DEFLECTION,
     turnaround_time: 0.0,
     teeter_margin: 0.0,
     max_fall_speed: MAX_FALL_SPEED,

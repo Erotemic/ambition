@@ -92,6 +92,8 @@ tools/experimental/**/output/
 tools/**/.venv/
 tools/**/__pycache__/
 tools/**/*.egg-info/
+# Python package builds include links used by editable installs.
+tools/*/build/
 *.ogg
 *.wav
 *.mid

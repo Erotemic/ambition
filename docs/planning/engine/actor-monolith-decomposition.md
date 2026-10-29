@@ -816,6 +816,19 @@ the kernel graph is a DAG. The known sprite fixture lockfile remains stale.
 The full feature union and Android performance were not run.
 Do not put named ability resource policy back in the body kernel.
 
+### K31 — Conversation-owned entry selection
+
+`752655df3`: the body kernel selected dialogue entry IDs through a temporary
+combat-domain request. Conversation opening now owns the selector. Interaction
+and content validation call that rule. The old helper, forwarding export and
+request carrier are deleted. Blank and authored IDs keep their meaning. The
+selector borrows its result; it adds no system, dependency or rollback state.
+Guards: 37 selected owner tests, four app conversation tests and all
+35 workspace policies pass. The default app compiles with no warnings; codec
+layouts stay the same and the kernel graph is a DAG. The global doc-link check
+reports five links in untouched docs. The full feature union and Android
+performance were not run. Keep dialogue entry policy at the conversation owner.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

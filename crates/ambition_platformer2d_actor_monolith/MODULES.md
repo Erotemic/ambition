@@ -16,10 +16,9 @@
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
 | [`control`](src/control/mod.rs) | Participant driving authority, seat input, and body control acceptance. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
-| [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

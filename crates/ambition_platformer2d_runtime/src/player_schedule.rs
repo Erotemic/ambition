@@ -143,6 +143,14 @@ impl Plugin for PlayerSchedulePlugin {
             ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay
                 .in_set(PlayerInputSet::Persona),
         );
+        // Rebuild granted actions after the persona phase.
+        app.add_systems(
+            sim,
+            ambition_combat::hand::reconcile_effective_repertoire
+                .in_set(ambition_combat::hand::EffectiveRepertoireReconciled)
+                .after(PlayerInputSet::Persona)
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
+        );
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::control::tick_controlled_brains

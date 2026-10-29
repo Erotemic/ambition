@@ -1673,7 +1673,7 @@ pub mod grapple {
                     kind: ambition_vfx::vfx::ParticleKind::Spark,
                 });
             }
-            vfx.write(ambition_vfx::vfx::VfxMessage::Impact { pos: hit });
+            vfx.write(ambition_vfx::vfx::VfxMessage::Impact { pos: hit, blow: ambition_vfx::ImpactBlow::PLAIN });
         }
     }
 }

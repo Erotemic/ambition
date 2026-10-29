@@ -1130,6 +1130,7 @@ pub(crate) fn apply_player_knockback(
         damage.damage,
         strike_weight,
         impact_pos,
+        knockback.and_then(|knockback| knockback.launch_dir.map(|dir| dir.world())),
         attacker_source,
         victim_source,
     );

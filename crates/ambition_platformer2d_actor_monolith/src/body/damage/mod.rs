@@ -670,7 +670,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                     &mut feature,
                     event.damage.max(1),
                 );
-                writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center });
+                writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center, blow: ambition_vfx::ImpactBlow::PLAIN });
                 if broke {
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
@@ -1098,7 +1098,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                     pos: impact,
                 });
             }
-            writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact });
+            writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });
             if broke {
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible

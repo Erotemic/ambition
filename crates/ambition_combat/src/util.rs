@@ -323,6 +323,9 @@ pub fn emit_hit_feedback(
     // The game's line between light and heavy hits in the struck body's room.
     weight: Option<crate::strike_weight::StrikeWeightRules>,
     pos: ae::Vec2,
+    // The launch the hit gave the victim, in world space, when it gave one:
+    // the spark is turned along it.
+    launch: Option<ae::Vec2>,
     // BOTH sides' presentation sources, because this function emits ONE sound
     // whose provenance depends on which cue won.
     //
@@ -354,7 +357,17 @@ pub fn emit_hit_feedback(
             pos,
         },
     );
-    vfx.write(VfxMessage::Impact { pos });
+    vfx.write(VfxMessage::Impact {
+        pos,
+        blow: ambition_vfx::ImpactBlow {
+            strength: weight.map_or(1.0, |weight| {
+                damage.max(0) as f32 / weight.heavy_at_damage.max(1) as f32
+            }),
+            heavy: crate::strike_weight::StrikeWeightRules::is_heavy(weight, damage),
+            material: hurt.material,
+            launch,
+        },
+    });
     if let Some(burst) = hurt.burst {
         vfx.write(burst.message(pos));
     }
@@ -410,6 +423,7 @@ mod hit_feedback_tests {
             input.damage,
             None,
             ae::Vec2::ZERO,
+            None,
             None,
             None,
         );
@@ -610,6 +624,7 @@ mod hit_feedback_tests {
                 1,
                 None,
                 ae::Vec2::ZERO,
+                None,
                 None,
                 None,
             );

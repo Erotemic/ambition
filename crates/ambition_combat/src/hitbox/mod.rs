@@ -1507,6 +1507,7 @@ pub fn apply_hitbox_damage(
                 if hits.hit.insert(hitbox.owner) {
                     out.vfx.write_in(strike_room, VfxMessage::Impact {
                         pos: world_volume.center(),
+                        blow: ambition_vfx::ImpactBlow::PLAIN,
                     });
                     out.hit_events.write(HitEvent {
                         pieces: feature_pieces(),

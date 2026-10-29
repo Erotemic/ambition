@@ -707,7 +707,7 @@ fn lower_hit_marks(
             continue;
         };
         // Drawn in the live room of the body.
-        vfx.for_room(room.map(|stamp| stamp.0)).write(ambition_vfx::vfx::VfxMessage::Impact { pos });
+        vfx.for_room(room.map(|stamp| stamp.0)).write(ambition_vfx::vfx::VfxMessage::Impact { pos, blow: ambition_vfx::ImpactBlow::PLAIN });
     }
 }
 

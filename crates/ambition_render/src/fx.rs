@@ -367,8 +367,8 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
             VfxMessage::Dust { pos, facing } => {
                 spawn_dust(&mut commands, spawn_scope, world, pos, facing)
             }
-            VfxMessage::Impact { pos } => {
-                spawn_hit_marker(&sprite_content, &mut commands, spawn_scope, world, assets.as_deref(), pos)
+            VfxMessage::Impact { pos, blow } => {
+                spawn_hit_marker(&sprite_content, &mut commands, spawn_scope, world, assets.as_deref(), pos, blow)
             }
             VfxMessage::CoinPop { pos } => spawn_coin_pop(&mut commands, spawn_scope, world, pos),
             VfxMessage::Hearts { pos, count } => {
@@ -524,11 +524,12 @@ fn spawn_hit_marker(sprite_content: &ambition_sprite_sheet::SpriteContent,
     world: &ae::World,
     assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     pos: ae::Vec2,
+    blow: ambition_vfx::ImpactBlow,
 ) {
     let Some(scope) = session_scope else {
         return;
     };
-    let Some((effect, asset, slot)) = resolve_drawable(&sprite_content, assets, GENERIC_HIT_FX) else {
+    let Some((effect, asset, slot)) = resolve_drawable(&sprite_content, assets, hit_marker_row(blow)) else {
         spawn_impact(commands, Some(scope), world, pos);
         return;
     };
@@ -540,10 +541,44 @@ fn spawn_hit_marker(sprite_content: &ambition_sprite_sheet::SpriteContent,
         effect,
         asset,
         slot,
-        GENERIC_HIT_FX_SCALE,
-        ambition_vfx::FxPose::UPRIGHT,
+        hit_marker_scale(blow),
+        hit_marker_pose(blow),
     );
 }
+
+/// Which authored row a connect draws: the victim's material picks the
+/// family, the room's light/heavy line picks the tier.
+fn hit_marker_row(blow: ambition_vfx::ImpactBlow) -> FxId {
+    match (blow.material, blow.heavy) {
+        (ambition_vfx::ImpactMaterial::Metal | ambition_vfx::ImpactMaterial::Robot, _) => HIT_METAL_FX,
+        (_, true) => HIT_HARD_FX,
+        (_, false) => GENERIC_HIT_FX,
+    }
+}
+
+/// How big a connect draws: a hit on the heavy line at 1.4x the generic size,
+/// a jab at a quarter of the line at 0.8x, a charged smash past it bigger,
+/// clamped so a 1-damage poke still marks and a charge does not fill the view.
+fn hit_marker_scale(blow: ambition_vfx::ImpactBlow) -> f32 {
+    GENERIC_HIT_FX_SCALE * (HIT_SCALE_FLOOR + HIT_SCALE_PER_STRENGTH * blow.strength.max(0.0)).clamp(0.6, 2.2)
+}
+
+/// The spark turned along the launch, so a spike's mark points down and a
+/// kill blow's points off the stage; upright where nothing was thrown.
+fn hit_marker_pose(blow: ambition_vfx::ImpactBlow) -> ambition_vfx::FxPose {
+    match blow.launch {
+        Some(launch) if launch.length_squared() > 1e-6 => ambition_vfx::FxPose {
+            mirror: false,
+            angle: screen_angle(launch),
+        },
+        _ => ambition_vfx::FxPose::UPRIGHT,
+    }
+}
+
+const HIT_HARD_FX: FxId = FxId::from_static("hit_hard");
+const HIT_METAL_FX: FxId = FxId::from_static("hit_metal");
+const HIT_SCALE_FLOOR: f32 = 0.6;
+const HIT_SCALE_PER_STRENGTH: f32 = 0.8;
 
 /// Spawn one resolved effect clip. Shared by [`spawn_effect`] and
 /// [`spawn_hit_marker`] so both size, pose, animate, and scope effects the

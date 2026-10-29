@@ -369,7 +369,7 @@ pub fn resolve_deflects(
         };
         sfx.write(ambition_sfx::SfxMessage::Play { id: cue, pos: deflect.contact });
         let mut room = vfx.for_room(rooms.of(deflect.defender));
-        room.write(ambition_vfx::vfx::VfxMessage::Impact { pos: deflect.contact });
+        room.write(ambition_vfx::vfx::VfxMessage::Impact { pos: deflect.contact, blow: ambition_vfx::ImpactBlow::PLAIN });
         room.write(ambition_vfx::vfx::VfxMessage::Burst {
             pos: deflect.contact,
             count: if broke { 24 } else { 10 },

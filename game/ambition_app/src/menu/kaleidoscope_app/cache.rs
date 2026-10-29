@@ -107,7 +107,7 @@ pub(crate) fn cache_system_menu(
 pub(crate) fn republish_kaleidoscope_pages(
     ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
-    // The primary hand (I1): what the cube shows as equipped.
+    // The primary hand and worn abilities (I1): what the cube shows as equipped.
     hand: PrimaryHand,
     // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
@@ -158,7 +158,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         active: pages.active,
         open_entry: system_nav.open_entry,
         owned_counts: Item::ALL.map(|item| owned.count(item)),
-        equipped: hand.in_hand(),
+        equipped: hand.equipped(),
         settings: settings.clone(),
         radio: cache.radio.clone(),
         dev: cache.dev.clone(),
@@ -232,7 +232,7 @@ pub(crate) struct RebuildKey {
     /// Complete inventory value snapshot. `OwnedItems` intentionally does not expose
     /// its storage, so derive the stable catalog-order counts through its public API.
     owned_counts: [u32; ambition_platformer2d::items::ITEM_COUNT],
-    equipped: Option<Item>,
+    equipped: ambition_platformer2d::items::EquippedItems,
     /// Complete persisted settings value.
     settings: UserSettings,
     radio: RadioSnapshot,

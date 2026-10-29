@@ -4,7 +4,7 @@ use ambition_platformer2d::menu::MenuNode;
 #[test]
 fn items_face_wires_all_24_slots_from_our_catalog() {
     let owned = OwnedItems::default();
-    let spec = items_spec(&owned, ambition_platformer2d::items::test_item_catalog(), None);
+    let spec = items_spec(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
     assert_eq!(
         spec.cells.len(),
         ambition_platformer2d::items::ITEM_COUNT,
@@ -20,9 +20,9 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
 #[test]
 fn owned_and_equipped_flags_reflect_inventory_state() {
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
-    let spec = items_spec(&owned, ambition_platformer2d::items::test_item_catalog(), Some(Item::Blink));
-    let blink = &spec.cells[Item::Blink.index()];
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
+    let spec = items_spec(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(Item::Grapple), None));
+    let blink = &spec.cells[Item::Grapple.index()];
     assert!(blink.owned, "granted item reads owned");
     assert!(blink.equipped, "equipped item reads equipped");
     assert!(blink.action.is_some(), "owned item has an action");
@@ -54,7 +54,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
     // Items with authored art emit an `icon` on their grid control; items
     // without art carry `None` (the lib then renders the text label).
     let owned = OwnedItems::default();
-    let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), None);
+    let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
     // Item-grid controls are emitted in catalog slot order, so the icon list
     // lines up 1:1 with `Item::ALL`.
     let icons: Vec<Option<String>> = page
@@ -71,7 +71,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
         .collect();
     assert_eq!(icons.len(), Item::ALL.len(), "one control per catalog item");
     for (item, icon) in Item::ALL.into_iter().zip(icons.iter()) {
-        match item.icon_path() {
+        match ambition_platformer2d::items::test_item_catalog().icon(item) {
             Some(path) => assert_eq!(
                 icon.as_deref(),
                 Some(path),
@@ -91,7 +91,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
 #[test]
 fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     let owned = OwnedItems::default();
-    let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), None);
+    let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
     for node in &page.nodes {
         if let ambition_platformer2d::menu::MenuNode::Control {
             detail: Some(d),
@@ -101,7 +101,7 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
         {
             if *kind == MenuControlKind::Item {
                 assert!(
-                    !d.contains(ambition_platformer2d::items::test_item_catalog().description(Item::Blink).unwrap()),
+                    !d.contains(ambition_platformer2d::items::test_item_catalog().description(Item::Grapple).unwrap()),
                     "grid cell must not render the full description: {d:?}"
                 );
             }
@@ -122,14 +122,14 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     );
     // The in-place text for a focused item renders its description (this is what
     // `kaleidoscope_sync_detail_text` writes into the dynamic slots each move).
-    let slot_text = items_detail_slot_text(&owned, ambition_platformer2d::items::test_item_catalog(), None, MenuFocus::Item(Item::Blink.index()));
+    let slot_text = items_detail_slot_text(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), MenuFocus::Item(Item::Grapple.index()));
     let joined: String = slot_text
         .iter()
         .map(|(_, s)| s.as_str())
         .collect::<Vec<_>>()
         .join(" ");
     assert!(
-        joined.contains(ambition_platformer2d::items::test_item_catalog().description(Item::Blink).unwrap()),
+        joined.contains(ambition_platformer2d::items::test_item_catalog().description(Item::Grapple).unwrap()),
         "focused item's description is supplied by the in-place detail slots: {joined:?}"
     );
 }
@@ -638,7 +638,7 @@ fn viewer_left_button_turns_to_the_right_neighbor() {
     assert_eq!(MenuPage::Items.on_viewer_left(), MenuPage::Map);
     assert_eq!(MenuPage::Items.on_viewer_right(), MenuPage::System);
     let owned = OwnedItems::default();
-    let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), None);
+    let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
     let left = page.nodes.iter().find_map(|n| match n {
         ambition_platformer2d::menu::MenuNode::Control {
             action: Some(MenuPageAction::ChangePage(p)),
@@ -688,7 +688,7 @@ fn the_radio_screen_says_what_is_playing() {
 #[test]
 fn the_menu_wears_what_the_host_file_states() {
     let look = menu_look();
-    let items = build_items_page(&OwnedItems::default(), ambition_platformer2d::items::test_item_catalog(), None);
+    let items = build_items_page(&OwnedItems::default(), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
     let panel = items.nodes.iter().find_map(|node| match node {
         MenuNode::Panel { rect, color, .. } if *rect == DETAIL_PANEL_RECT => Some(*color),
         _ => None,

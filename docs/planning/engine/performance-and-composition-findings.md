@@ -1414,7 +1414,8 @@ Open: `bevy_ecs_ldtk` `clean_respawn_entities` (~0.8%), `bevy_yarnspinner`
 ### F10 — Content in engine crates (composition hygiene, not CPU)
 
 MEASURED. `HELD_ITEMS` (`ambition_characters/src/brain/action_set/mod.rs`, 25
-Ambition items), the closed `ambition_items::Item` enum and `icon_path`,
+Ambition items), the closed `ambition_items::Item` enum (its icons are now authored:
+`ItemCatalog::icon`, 2026-10-29),
 `fire_puppy_slug_gun_system` and its rollback key in every game, portal-gun
 `gun_*` modules in the generic `ambition_portal2d`, `BUILTIN_STRIKE_KEYS` with a
 second list of the same 11 keys, the invented `gradient_sentinel` boss.

@@ -12,6 +12,7 @@
 | [`dive`](src/dive.rs) | Overflow Crash: Attack while holding the dive gauntlet lunges the body up to [`LUNGE`] along the aim, snapped to its larger body axis, walls permitting, and hits everything in the corridor it crossed. |
 | [`echo_fan`](src/echo_fan.rs) | The Mockingbird's echo fan: one strike copies a shot across a cone aimed at the boss's target. |
 | [`eye_beam`](src/eye_beam.rs) | The Smirking Behemoth's eye beam: during the telegraph the boss locks where its target is; on the first strike tick it fires a short line of fast bolts from its eye toward that point. |
+| [`eye_laser`](src/eye_laser.rs) | Eye Laser: while a body holds the slot its worn eye laser takes, a wide straight laser leaves its whole visor along its facing, as far as the first wall. |
 | [`fsm`](src/fsm.rs) | The Flying Spaghetti Monster's conductor: it flies the god and performs its moves. |
 | [`gnu_ton`](src/gnu_ton/mod.rs) | GNU-ton, the scholar who rides the giant gnu and lectures with its fists. |
 | [`gradient_cascade`](src/gradient_cascade.rs) | Gradient cascade: on the first strike tick, minions drop in from the top of the arena, spread evenly about the boss. |
@@ -37,7 +38,7 @@
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 | [`wolfenstein`](src/wolfenstein.rs) | Wolfenstein's conductor: it walks the monster and performs his moves. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

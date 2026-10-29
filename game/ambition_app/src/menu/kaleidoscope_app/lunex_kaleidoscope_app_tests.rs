@@ -69,6 +69,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemEquipRequested>>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
@@ -920,6 +921,7 @@ fn real_input_cube_app(
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::input::MenuInputState>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemEquipRequested>>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
@@ -1405,22 +1407,22 @@ fn bug2_item_equip_click_survives_a_hover_republish() {
     // distinct hover target exist as live controls.
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
         owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
     }
     app.update();
     assert!(
-        crate::menu::effects::hand_of_primary_player(app.world_mut()) != Some(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) != Some(Item::Grapple),
         "precondition: Blink not equipped yet"
     );
     // Hover Axe (moves focus → old rebuild), then click Blink (was despawned).
     hover_then_click(
         &mut app,
         MenuPageAction::Equip(Item::Axe),
-        MenuPageAction::Equip(Item::Blink),
+        MenuPageAction::Equip(Item::Grapple),
     );
     assert!(
-        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Grapple),
         "clicking an item after a hover-move must still equip it (Bug 2)"
     );
 }
@@ -1849,26 +1851,26 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
     let (mut app, _player) = click_app();
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
     }
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .active = Some(MenuPage::Items);
     app.update();
     assert!(
-        crate::menu::effects::hand_of_primary_player(app.world_mut()) != Some(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) != Some(Item::Grapple),
         "precondition: Blink not equipped yet"
     );
 
     // 1. Arm a press on the Blink control.
-    let pressed = arm_press(&mut app, MenuPageAction::Equip(Item::Blink));
+    let pressed = arm_press(&mut app, MenuPageAction::Equip(Item::Grapple));
     assert_eq!(
         app.world()
             .resource::<KaleidoscopePointerPress>()
             .0
             .armed()
             .copied(),
-        Some(MenuPageAction::Equip(Item::Blink)),
+        Some(MenuPageAction::Equip(Item::Grapple)),
         "the press armed the control's action in the guard"
     );
 
@@ -1887,7 +1889,7 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
         app.world_mut()
             .spawn(AmbitionMenuControl::<MenuPageAction> {
                 kind: ambition_platformer2d::menu::MenuControlKind::OptionToggle,
-                action: Some(MenuPageAction::Equip(Item::Blink)),
+                action: Some(MenuPageAction::Equip(Item::Grapple)),
                 focus: ambition_platformer2d::menu::MenuFocusKey::default(),
             });
     }
@@ -1900,7 +1902,7 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
     //    stored at press time, not the release entity — so it still equips.
     fire_release(&mut app, pressed);
     assert!(
-        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Grapple),
         "release dispatches the action armed at press time even after the control \
          was despawned + respawned between press and release (the GUI mouse-click fix)"
     );
@@ -1912,16 +1914,16 @@ fn press_then_release_equips_an_item() {
     let (mut app, _player) = click_app();
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Blink, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
     }
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .active = Some(MenuPage::Items);
     app.update();
-    let entity = arm_press(&mut app, MenuPageAction::Equip(Item::Blink));
+    let entity = arm_press(&mut app, MenuPageAction::Equip(Item::Grapple));
     fire_release(&mut app, entity);
     assert!(
-        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Blink),
+        crate::menu::effects::hand_of_primary_player(app.world_mut()) == Some(Item::Grapple),
         "a clean press→release on an item control equips it"
     );
 }
@@ -2043,7 +2045,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     let pages = build_inventory_pages(
         &app.world().resource::<OwnedItems>().clone(),
         ambition_platformer2d::items::test_item_catalog(),
-        None,
+        ambition_platformer2d::items::EquippedItems::default(),
         MenuFocus::Item(owned_item.index()),
         &app.world().resource::<UserSettings>().clone(),
         &RadioSnapshot::default(),

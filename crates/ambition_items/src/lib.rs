@@ -18,18 +18,28 @@ pub const ITEM_COUNT: usize = ITEM_GRID_COLS * ITEM_GRID_ROWS; // 24
 
 /// Broad behavior class for an item. Drives how the menu's confirm action treats
 /// the slot and how the slot reads ("Equip" vs "Use" vs key item).
+///
+/// A body equips an item in one of two ways, and the two are different facts:
+///
+/// * a [`Self::Held`] item is an object in the body's hand ([`Inventory::in_hand`]);
+/// * an [`Self::Ability`] is a variant the body wears into an action slot
+///   ([`ItemMeta::wears`]). Abilities whose rows name one exclusive slot are
+///   mutually exclusive: to equip one replaces the other.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ItemCategory {
-    /// An equippable weapon/tool that grants an `ActionSet` via a `HeldItem`
-    /// (portal gun, axe, gun-sword, …). Confirm = equip/unequip.
-    Weapon,
-    /// A movement/utility ability (blink, fly, morph ball, …). Owned = available;
-    /// confirm currently just inspects (real toggle wiring is a follow-up).
+    /// An object the body holds: a weapon or tool that grants an `ActionSet` via
+    /// a `HeldItem` (portal gun, axe, grapple gauntlet, …). Confirm = equip to
+    /// the hand, or stow it.
+    Held,
+    /// An ability variant. Confirm = wear its [`ItemMeta::wears`] row. A row
+    /// with an exclusive slot replaces the variant that held the slot. An
+    /// ability with no row is a placeholder: nothing grants it and nothing
+    /// equips it.
     Ability,
-    /// A stackable consumable (health/mana cell, bomb, …). Confirm = use one.
+    /// A stackable consumable (health/mana cell, …). Confirm = use one.
     Consumable,
-    /// A unique quest/key item (map fragment, sealed note, gate key, …). Owned
-    /// flag only; not directly usable from the grid.
+    /// A unique quest/key item (map fragment, sealed note, …). Owned flag only;
+    /// not directly usable from the grid.
     KeyItem,
     /// A reserved slot kept to hold the grid's shape — a future item lands here.
     Reserved,
@@ -43,40 +53,41 @@ impl ItemCategory {
     }
 }
 
-/// The complete, finite set of pickup items, in OoT grid order (row-major:
+/// The complete, finite set of grid items, in grid order (row-major:
 /// slot index = `row * 6 + col`). The discriminant order is the grid order;
-/// do not reorder without updating saves/authoring that key off the index.
+/// do not reorder without updating `items.ron`. Saves and scripts name an item
+/// by its `dialog_id`, not by its index.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(usize)]
 pub enum Item {
-    // Row 1 — offensive held tools.
-    PortalGun = 0,
-    Axe = 1,
-    Javelin = 2,
-    GunSword = 3,
-    PuppySlugGun = 4,
-    Fireball = 5,
-    // Row 2 — movement / utility abilities (the "math theorem" verbs).
-    Blink = 6,
-    Fly = 7,
-    Grapple = 8,
-    MorphBall = 9,
-    MarkRecall = 10,
-    BubbleShield = 11,
-    // Row 3 — consumables & resources.
-    HealthCell = 12,
-    ManaCell = 13,
-    SpareBattery = 14,
-    DataChip = 15,
-    Bomb = 16,
-    GoldPouch = 17,
-    // Row 4 — key / quest items.
-    MapFragment = 18,
-    SealedNote = 19,
-    FieldSurvey = 20,
-    GateKey = 21,
-    DebugLens = 22,
-    ReservedSlot = 23,
+    // Row 1 — combat ability variants: the projectile and the stance.
+    Fireball = 0,
+    EyeLaser = 1,
+    Lightning = 2,
+    SwordStance = 3,
+    AxeStance = 4,
+    WhipStance = 5,
+    // Row 2 — movement ability variants, then the movement gauntlets.
+    PrecisionBlink = 6,
+    ContextualBlink = 7,
+    Dash = 8,
+    DashTwo = 9,
+    Grapple = 10,
+    MarkRecall = 11,
+    // Row 3 — held weapons and tools.
+    PortalGun = 12,
+    Axe = 13,
+    Javelin = 14,
+    GunSword = 15,
+    PuppySlugGun = 16,
+    Bomb = 17,
+    // Row 4 — consumables, then key items.
+    HealthCell = 18,
+    ManaCell = 19,
+    SpareBattery = 20,
+    MapFragment = 21,
+    SealedNote = 22,
+    FieldSurvey = 23,
 }
 
 /// Per-item metadata, one row per catalog slot (Refactor 1). Replaces the five
@@ -101,6 +112,14 @@ pub struct ItemMeta {
     pub held_item_id: Option<String>,
     /// Stable lowercase authoring id (`condition("inventory.holds", "portalgun")`).
     pub dialog_id: String,
+    /// For an [`ItemCategory::Ability`], the equipment row a body wears when
+    /// it equips the ability. `None` for every other category, and for an
+    /// ability that is only a placeholder.
+    #[serde(default)]
+    pub wears: Option<ambition_characters::equipment::EquipmentRow>,
+    /// The cell's picture, relative to the asset root. `None` shows the name.
+    #[serde(default)]
+    pub icon: Option<String>,
 }
 
 /// The item CATALOG one `App` plays (C1): what each grid slot is called, what it
@@ -162,7 +181,7 @@ impl ItemCatalog {
         self.meta(item).map(|meta| meta.description.as_str())
     }
 
-    /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
+    /// For [`ItemCategory::Held`] items, the `HeldItem` id whose `ActionSet` the
     /// player gains on equip. `None` for non-equippables and for weapons whose
     /// held-item wiring is not built yet. PortalGun equips through its own
     /// `PortalGun` component (handled by the menu), so its row says `None`.
@@ -174,6 +193,26 @@ impl ItemCatalog {
     /// corresponds to, so picking one up grants the right slot.
     pub fn item_by_held_item_id(&self, id: &str) -> Option<Item> {
         Item::ALL.into_iter().find(|item| self.held_item_id(*item) == Some(id))
+    }
+
+    /// For an ability, the equipment row a body wears when it equips it.
+    pub fn wears(&self, item: Item) -> Option<&ambition_characters::equipment::EquipmentRow> {
+        self.meta(item)?.wears.as_ref()
+    }
+
+    /// The cell's picture, if the catalog names one.
+    pub fn icon(&self, item: Item) -> Option<&str> {
+        self.meta(item)?.icon.as_deref()
+    }
+
+    /// Does confirming this item EQUIP it, to the hand or into an action slot?
+    /// An ability with no row is a placeholder and equips nothing.
+    pub fn equips(&self, item: Item) -> bool {
+        match self.category(item) {
+            Some(ItemCategory::Held) => true,
+            Some(ItemCategory::Ability) => self.wears(item).is_some(),
+            _ => false,
+        }
     }
 
     /// Stable lowercase id for dialogue/authoring, e.g.
@@ -248,30 +287,30 @@ impl Item {
     /// All 24 items in grid order. The compile-time length check below pins the
     /// catalog to exactly [`ITEM_COUNT`].
     pub const ALL: [Item; ITEM_COUNT] = [
+        Item::Fireball,
+        Item::EyeLaser,
+        Item::Lightning,
+        Item::SwordStance,
+        Item::AxeStance,
+        Item::WhipStance,
+        Item::PrecisionBlink,
+        Item::ContextualBlink,
+        Item::Dash,
+        Item::DashTwo,
+        Item::Grapple,
+        Item::MarkRecall,
         Item::PortalGun,
         Item::Axe,
         Item::Javelin,
         Item::GunSword,
         Item::PuppySlugGun,
-        Item::Fireball,
-        Item::Blink,
-        Item::Fly,
-        Item::Grapple,
-        Item::MorphBall,
-        Item::MarkRecall,
-        Item::BubbleShield,
+        Item::Bomb,
         Item::HealthCell,
         Item::ManaCell,
         Item::SpareBattery,
-        Item::DataChip,
-        Item::Bomb,
-        Item::GoldPouch,
         Item::MapFragment,
         Item::SealedNote,
         Item::FieldSurvey,
-        Item::GateKey,
-        Item::DebugLens,
-        Item::ReservedSlot,
     ];
 
     /// Grid slot index 0..24 (row-major). Equal to the enum discriminant.
@@ -297,41 +336,6 @@ impl Item {
         }
         Item::from_index(row * ITEM_GRID_COLS + col)
     }
-
-    /// Asset path (relative to Bevy's asset root) of this item's icon sprite, if
-    /// one already exists in `sprites/props/`. Items render this picture in the OoT
-    /// cube's Items grid instead of their name; items with no authored sprite return
-    /// `None` and fall back to the text label.
-    ///
-    /// The set of available sprites is the same `sprites/props/` art used for
-    /// ground/held items (the provider-contributed `HeldItemArtManifest`, resolved
-    /// into the render layer's `HeldItemArt`):
-    /// the three physical weapons (axe/javelin/gunsword), the portal gun, and the
-    /// abstract gauntlet abilities that have a generated icon. This is a deliberate,
-    /// explicit map (not a derived lookup) so a missing sprite is a visible `None`
-    /// here, not a silent runtime miss. Items with no art (Flight, Morph Ball,
-    /// Bubble Shield, the cells/resources, and all the key/quest items) stay text.
-    pub fn icon_path(self) -> Option<&'static str> {
-        use Item::*;
-        let path = match self {
-            PortalGun => "sprites/props/portal_gun_blue.png",
-            Axe => "sprites/props/axe.png",
-            Javelin => "sprites/props/javelin.png",
-            GunSword => "sprites/props/gunsword.png",
-            PuppySlugGun => "sprites/props/gauntlet_puppy_slug_gun.png",
-            Fireball => "sprites/props/gauntlet_fireball.png",
-            Blink => "sprites/props/gauntlet_blink.png",
-            Grapple => "sprites/props/gauntlet_grapple.png",
-            MarkRecall => "sprites/props/gauntlet_mark_recall.png",
-            Bomb => "sprites/props/gauntlet_bomb.png",
-            // No authored sprite — these fall back to the text label in the grid.
-            Fly | MorphBall | BubbleShield | HealthCell | ManaCell | SpareBattery | DataChip
-            | GoldPouch | MapFragment | SealedNote | FieldSurvey | GateKey | DebugLens
-            | ReservedSlot => return None,
-        };
-        Some(path)
-    }
-
 }
 
 /// Quantity-owned catalog items: the BAG.
@@ -398,6 +402,61 @@ impl<'a> Inventory<'a> {
     }
 }
 
+/// Which catalog items one body has equipped: the item in its hand, and each
+/// ability whose variant is in effect on its slot.
+///
+/// A value, read from the body each time: the hand and the worn set are the
+/// records, and this is only their projection to grid items.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct EquippedItems(u32);
+
+const _: () = assert!(ITEM_COUNT <= u32::BITS as usize, "EquippedItems has one bit per grid item");
+
+impl EquippedItems {
+    /// What a body with `in_hand` in its hand, wearing `worn`, has equipped.
+    pub fn of(
+        catalog: &ItemCatalog,
+        in_hand: Option<Item>,
+        worn: Option<&ambition_characters::equipment::WornEquipment>,
+    ) -> Self {
+        let mut bits = 0u32;
+        for item in Item::ALL {
+            if in_hand == Some(item) || ability_in_effect(catalog, item, worn) {
+                bits |= 1 << item.index();
+            }
+        }
+        Self(bits)
+    }
+
+    pub fn contains(self, item: Item) -> bool {
+        self.0 & (1 << item.index()) != 0
+    }
+}
+
+/// Is the ability `item` in effect on the body that wears `worn`?
+///
+/// It is in effect when the body wears its row. A row that changes nothing is
+/// the body's own action on its exclusive slot
+/// ([`EquipmentRow::changes_nothing`](ambition_characters::equipment::EquipmentRow::changes_nothing)),
+/// so it is also in effect while no row holds that slot.
+pub fn ability_in_effect(
+    catalog: &ItemCatalog,
+    item: Item,
+    worn: Option<&ambition_characters::equipment::WornEquipment>,
+) -> bool {
+    let Some(row) = catalog.wears(item) else {
+        return false;
+    };
+    if worn.is_some_and(|worn| worn.wears(&row.id)) {
+        return true;
+    }
+    row.changes_nothing()
+        && row
+            .exclusive_slot
+            .as_deref()
+            .is_some_and(|slot| worn.is_none_or(|worn| worn.in_slot(slot).is_none()))
+}
+
 /// Simulation-side request to grant an item.
 ///
 /// `count` is already normalized to a whole number by the command/parser layer;
@@ -406,6 +465,16 @@ impl<'a> Inventory<'a> {
 pub struct ItemGrantRequested {
     pub item: Item,
     pub count: u32,
+}
+
+/// Simulation-side request to equip an owned ability: the primary player
+/// wears its row.
+///
+/// A menu asks for this; the simulation changes the worn set on one stamped
+/// tick, so a rewind across the equip replays it.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemEquipRequested {
+    pub item: Item,
 }
 
 /// Simulation-side request to use one of an owned consumable.
@@ -475,18 +544,19 @@ impl OwnedItems {
         removed
     }
 
-    /// Seed a small starter set so a fresh sandbox run has something to show in
-    /// the grid: the consumables (health/mana cells, battery, chip), a couple of
-    /// starter abilities, plus the items the sandbox debug-spawns.
+    /// The demo's starting bag: a few consumables and EVERY ability that has a
+    /// row to wear. The demo unlocks all real abilities; a placeholder ability
+    /// (no row) stays locked.
     pub fn starter(catalog: &ItemCatalog) -> Self {
         let mut owned = Self::default();
         owned.grant(catalog, Item::HealthCell, 3);
         owned.grant(catalog, Item::ManaCell, 2);
         owned.grant(catalog, Item::SpareBattery, 1);
-        owned.grant(catalog, Item::DataChip, 1);
-        owned.grant(catalog, Item::Fireball, 1);
-        owned.grant(catalog, Item::BubbleShield, 1);
-        owned.grant(catalog, Item::Blink, 1);
+        for item in Item::ALL {
+            if catalog.category(item) == Some(ItemCategory::Ability) && catalog.wears(item).is_some() {
+                owned.grant(catalog, item, 1);
+            }
+        }
         owned
     }
 

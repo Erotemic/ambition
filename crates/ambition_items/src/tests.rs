@@ -36,38 +36,38 @@ fn item_meta_table_is_index_aligned() {
     // moved row carries its own dialog_id), so pin the variant→name mapping
     // by NAME here — referencing each variant directly, not by index.
     let expected: [(Item, &str); ITEM_COUNT] = [
+        (Item::Fireball, "Fireball"),
+        (Item::EyeLaser, "Eye Laser"),
+        (Item::Lightning, "Lightning"),
+        (Item::SwordStance, "Sword Stance"),
+        (Item::AxeStance, "Axe Stance"),
+        (Item::WhipStance, "Whip Stance"),
+        (Item::PrecisionBlink, "Precision Blink"),
+        (Item::ContextualBlink, "Contextual Blink"),
+        (Item::Dash, "Dash"),
+        (Item::DashTwo, "Dash II"),
+        (Item::Grapple, "Grapple Hook"),
+        (Item::MarkRecall, "Mark / Recall"),
         (Item::PortalGun, "Portal Gun"),
         (Item::Axe, "Axe"),
         (Item::Javelin, "Javelin"),
         (Item::GunSword, "Gun-Sword"),
         (Item::PuppySlugGun, "Puppy-Slug Gun"),
-        (Item::Fireball, "Fireball"),
-        (Item::Blink, "Blink"),
-        (Item::Fly, "Flight"),
-        (Item::Grapple, "Grapple Hook"),
-        (Item::MorphBall, "Morph Ball"),
-        (Item::MarkRecall, "Mark / Recall"),
-        (Item::BubbleShield, "Bubble Shield"),
+        (Item::Bomb, "Bomb"),
         (Item::HealthCell, "Health Cell"),
         (Item::ManaCell, "Mana Cell"),
         (Item::SpareBattery, "Spare Battery"),
-        (Item::DataChip, "Data Chip"),
-        (Item::Bomb, "Bomb"),
-        (Item::GoldPouch, "Gold Pouch"),
         (Item::MapFragment, "Map Fragment"),
         (Item::SealedNote, "Sealed Note"),
         (Item::FieldSurvey, "Field Survey"),
-        (Item::GateKey, "Gate Key"),
-        (Item::DebugLens, "Debug Lens"),
-        (Item::ReservedSlot, "—"),
     ];
     for (item, name) in expected {
         assert_eq!(shipped().display_name(item), Some(name), "row for {item:?} is misaligned");
     }
     // Category + held-item anchors that would also catch a shift.
     assert_eq!(shipped().category(Item::Fireball), Some(ItemCategory::Ability));
-    assert_eq!(shipped().category(Item::Bomb), Some(ItemCategory::Weapon));
-    assert_eq!(shipped().category(Item::ReservedSlot), Some(ItemCategory::Reserved));
+    assert_eq!(shipped().category(Item::Bomb), Some(ItemCategory::Held));
+    assert_eq!(shipped().category(Item::FieldSurvey), Some(ItemCategory::KeyItem));
 }
 
 #[test]
@@ -81,12 +81,12 @@ fn held_item_ids_round_trip_for_every_wired_item() {
             );
         }
     }
-    // The wired set is exactly these nine (everything else is None).
+    // The wired set is exactly these seven (everything else is None).
     let wired: Vec<Item> = Item::ALL
         .into_iter()
         .filter(|i| shipped().held_item_id(*i).is_some())
         .collect();
-    assert_eq!(wired.len(), 9, "wired held-items: {wired:?}");
+    assert_eq!(wired.len(), 7, "wired held-items: {wired:?}");
 }
 
 #[test]
@@ -115,12 +115,11 @@ fn legacy_health_alias_resolves_to_health_cell() {
         Some(Item::HealthCell)
     );
     assert_eq!(shipped().item_by_dialog_id("healthcell"), Some(Item::HealthCell));
-    // The other two overlapping items already share their ids — no alias needed.
+    // The other overlapping item already shares its id — no alias needed.
     assert_eq!(
         shipped().item_by_dialog_id("sparebattery"),
         Some(Item::SpareBattery)
     );
-    assert_eq!(shipped().item_by_dialog_id("datachip"), Some(Item::DataChip));
 }
 
 #[test]
@@ -198,19 +197,61 @@ fn a_catalog_is_its_rows_and_a_slot_it_does_not_name_is_no_item() {
         (
             display_name: "Warp Cannon",
             description: "A second game's item, authored purely as data.",
-            category: Weapon,
+            category: Held,
             held_item_id: Some("warp_cannon"),
             dialog_id: "warpcannon",
         ),
     ]"#;
     let catalog = ItemCatalog::from_ron(ron);
-    let row = catalog.meta(Item::PortalGun).expect("the first slot is authored");
+    let row = catalog.meta(Item::Fireball).expect("the first slot is authored");
     assert_eq!(row.display_name, "Warp Cannon");
     assert_eq!(row.held_item_id.as_deref(), Some("warp_cannon"));
     assert_eq!(catalog.meta(Item::Axe), None, "a slot the rows do not reach is no item");
     let mut owned = OwnedItems::default();
     owned.grant(&catalog, Item::Axe, 1);
-    owned.grant(&catalog, Item::PortalGun, 1);
+    owned.grant(&catalog, Item::Fireball, 1);
     assert!(!owned.has(Item::Axe), "an item the catalog does not name is not granted");
-    assert!(owned.has(Item::PortalGun), "control: the authored item is granted");
+    assert!(owned.has(Item::Fireball), "control: the authored item is granted");
+}
+
+/// The variants of one exclusive slot are mutually exclusive, and the variant
+/// whose row changes nothing is the body's own action: it is in effect until
+/// another variant takes its slot.
+#[test]
+fn one_variant_of_a_slot_is_in_effect() {
+    use ambition_characters::equipment::WornEquipment;
+    let catalog = shipped();
+    let fresh = EquippedItems::of(catalog, None, None);
+    assert!(fresh.contains(Item::Fireball), "the body's own projectile is in effect");
+    assert!(!fresh.contains(Item::EyeLaser));
+    assert!(fresh.contains(Item::SwordStance) && fresh.contains(Item::Dash) && fresh.contains(Item::PrecisionBlink));
+    assert!(!fresh.contains(Item::Lightning), "a placeholder is never in effect");
+
+    let mut worn = WornEquipment::default();
+    worn.equip(catalog.wears(Item::EyeLaser).unwrap().clone());
+    let lasing = EquippedItems::of(catalog, None, Some(&worn));
+    assert!(lasing.contains(Item::EyeLaser));
+    assert!(!lasing.contains(Item::Fireball), "the laser took the projectile slot");
+    assert!(lasing.contains(Item::SwordStance), "another slot is not touched");
+
+    worn.equip(catalog.wears(Item::Fireball).unwrap().clone());
+    assert_eq!(worn.rows.len(), 1, "equipping the fireball replaced the laser in its slot");
+    let back = EquippedItems::of(catalog, Some(Item::Axe), Some(&worn));
+    assert!(back.contains(Item::Fireball) && !back.contains(Item::EyeLaser));
+    assert!(back.contains(Item::Axe), "the hand is equipped too");
+}
+
+/// The demo unlocks every ability that has a row, and no placeholder.
+#[test]
+fn the_starter_bag_unlocks_every_real_ability() {
+    let catalog = shipped();
+    let owned = OwnedItems::starter(catalog);
+    for item in Item::ALL {
+        if catalog.category(item) != Some(ItemCategory::Ability) {
+            continue;
+        }
+        assert_eq!(owned.has(item), catalog.wears(item).is_some(), "{item:?}");
+        assert_eq!(catalog.equips(item), catalog.wears(item).is_some(), "{item:?}");
+    }
+    assert!(owned.has(Item::EyeLaser) && !owned.has(Item::AxeStance));
 }

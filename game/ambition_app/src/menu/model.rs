@@ -24,7 +24,7 @@ use ambition_platformer2d::menu::{
     MenuTextAlign,
 };
 
-use ambition_platformer2d::items::{Item, ItemCatalog, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_platformer2d::settings_menu::system::{
@@ -415,12 +415,12 @@ pub enum MenuPageAction {
 /// A short, cell-sized verb hint for an item, mirroring the demo's
 /// `item_slot_detail` (e.g. "equip" / "use" / "key item"). Deliberately NOT the
 /// full description — the description lives in the detail panel.
-fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: Option<Item>, item: Item) -> &'static str {
+fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> &'static str {
     if !owned.has(item) {
         "--"
-    } else if equipped == Some(item) {
+    } else if equipped.contains(item) {
         "equipped"
-    } else if items.held_item_id(item).is_some() {
+    } else if items.equips(item) {
         "equip"
     } else {
         "use"
@@ -444,7 +444,7 @@ fn cell_label(name: &str) -> String {
 pub fn items_spec(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
 ) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
     let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, line("menu.items.title"))
         .with_grid(ITEM_GRID_ROWS, ITEM_GRID_COLS)
@@ -465,17 +465,17 @@ pub fn items_spec(
             // The description is rendered once, in the detail panel.
             node = node
                 .detail(cell_hint(owned, items, equipped, item))
-                .equipped(equipped == Some(item));
+                .equipped(equipped.contains(item));
             // Render the item's sprite in the cell when it has one; the catalog
             // returns `None` for items with no authored art, which keeps the text
             // label (the lib falls back to text when `icon` is `None`). The item's
             // name still shows in the detail panel either way.
-            if let Some(icon) = item.icon_path() {
+            if let Some(icon) = items.icon(item) {
                 node = node.icon(icon);
             }
             if owns {
-                // Held-item weapons/abilities equip; everything else "uses".
-                let (action, label) = if items.held_item_id(item).is_some() {
+                // Held items and abilities equip; everything else "uses".
+                let (action, label) = if items.equips(item) {
                     (MenuPageAction::Equip(item), line("menu.items.equip"))
                 } else {
                     (MenuPageAction::Use(item), line("menu.items.use"))
@@ -494,7 +494,7 @@ pub fn items_spec(
 pub fn build_items_page(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
     let mut model = items_spec(owned, items, equipped).into_page_model();
     add_detail_panel(&mut model);
@@ -538,7 +538,7 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
 pub fn items_detail_slot_text(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     focus: MenuFocus,
 ) -> Vec<(u32, String)> {
     let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
@@ -557,7 +557,7 @@ pub fn items_detail_slot_text(
 fn detail_lines(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     item: Item,
 ) -> Vec<String> {
     let mut lines = Vec::new();
@@ -570,9 +570,9 @@ fn detail_lines(
     lines.push(String::new());
     let status = if !owned.has(item) {
         line("menu.items.not_owned")
-    } else if equipped == Some(item) {
+    } else if equipped.contains(item) {
         line("menu.items.equipped")
-    } else if items.held_item_id(item).is_some() {
+    } else if items.equips(item) {
         line("menu.items.activate_to_equip")
     } else {
         line("menu.items.activate_to_use")
@@ -589,7 +589,7 @@ fn detail_lines(
 pub fn build_inventory_pages(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     focus: MenuFocus,
     settings: &UserSettings,
     radio: &RadioSnapshot,
@@ -617,7 +617,7 @@ pub fn build_inventory_pages(
 pub fn build_inventory_pages_with_quality_prompt(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     focus: MenuFocus,
     settings: &UserSettings,
     radio: &RadioSnapshot,

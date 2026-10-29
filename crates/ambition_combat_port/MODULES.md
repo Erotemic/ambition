@@ -24,10 +24,11 @@
 | [`special`](src/special.rs) | The ports of a fighter's special: what a special move does when its fighter presses it, decided by a module in `technique_execution` (`ambition_extension_sdk::phases::TECHNIQUE_EXECUTION`). |
 | [`status`](src/status.rs) | A body's statuses: state a module puts on a body and ticks there. |
 | [`targets`](src/targets.rs) | What a body may aim at: the facts a module's targeting reads. |
+| [`technique`](src/technique.rs) | The trigger port of a technique a body's action scheme puts on a control slot: what pressing that slot does, decided by a module. |
 | [`think`](src/think.rs) | The ports of a custom brain: a body whose brain is a `CharacterBrain::Custom` key that a module binds decides through `actor_think` (`ambition_extension_sdk::phases::ACTOR_THINK`). |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

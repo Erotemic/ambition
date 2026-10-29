@@ -275,8 +275,8 @@ impl Port for SetMarkPort {
 /// * **Operation** — take `amount` from the body's mana pool.
 /// * **Owner** — `ambition_abilities::extension` (the bank's `pay`).
 /// * **Scope** — the body the invocation ran for.
-/// * **Time** — `wielded_use`, settled before any request of the phase is
-///   lowered.
+/// * **Time** — `wielded_use` and `technique_execution`, settled before any
+///   request of the phase is lowered.
 /// * **Result** — a COST: the invocation's costs are paid together or not at
 ///   all. A body that cannot pay pays nothing, and the whole invocation is
 ///   refused: none of its requests is lowered, and the refusal is logged.

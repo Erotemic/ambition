@@ -20,9 +20,10 @@ pub mod body_param {
 /// [`WornEquipment`]; a content game authors rows as RON and equips them through
 /// the ordinary wear seam.
 ///
-/// `Deserialize`-only, matching the codebase's authored-content convention
-/// (`HeldItemSpec`): rows are read from content, never written back.
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+/// Rows are read from content and never written back. A row also serializes,
+/// because an item catalog that names the row it wears puts the row in the
+/// canonical form of its content fingerprint.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct EquipmentRow {
     /// Optional EXCLUSIVE slot. Two rows naming the same slot cannot be worn at
     /// once: equipping one replaces the other.
@@ -46,9 +47,20 @@ pub struct EquipmentRow {
     pub on_hit: Option<OnHit>,
 }
 
+impl EquipmentRow {
+    /// True when wearing this row changes nothing on the body: it has no
+    /// modifier, no grant and no hit rule.
+    ///
+    /// Such a row in an exclusive slot is the body's own action on that slot.
+    /// To wear it is only to take the slot from the row that held it.
+    pub fn changes_nothing(&self) -> bool {
+        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none()
+    }
+}
+
 /// A numeric modifier one worn row contributes to a resolved param. See
 /// [`resolved_param`] for the fold rule (all Adds, then all Muls).
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct ParamModifier {
     /// The param key this modifier moves — a body-param key ([`body_param`]) for a
     /// [`ModifierScope::Body`] modifier, or a move's own authored param key for a
@@ -62,7 +74,7 @@ pub struct ParamModifier {
 }
 
 /// Add or multiply. Adds apply before Muls (see [`resolved_param`]).
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum ModifierOp {
     Add(f32),
     Mul(f32),
@@ -70,7 +82,7 @@ pub enum ModifierOp {
 
 /// Where a modifier applies. A `Body` modifier folds at body-param reads; a
 /// `Move`/`Verb` modifier folds only when THAT move/verb resolves its params.
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum ModifierScope {
     /// Body-level params (size, max HP). The default, so a terse body modifier
     /// authors no `scope`.
@@ -110,7 +122,7 @@ impl ModifierScope {
 /// A capability a row confers on equip and revokes on unequip. A verb grant is
 /// an ordinary `ActionSet` verb — the flower grants a ranged verb, from which the
 /// moveset derives its `simple_ranged` move — never a bespoke mechanism.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum EquipmentGrant {
     /// Grant a ranged verb (overlaid onto `ActionSet.ranged`).
     Ranged(RangedActionSpec),
@@ -151,7 +163,7 @@ impl EquipmentGrant {
 }
 
 /// What being hit does to a worn row.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum OnHit {
     /// A downgrade row is expected to be grant-free (modifiers/armor only): the
     /// armor spend happens inside the victim-side resolver, which can rewrite the
@@ -179,6 +191,11 @@ impl WornEquipment {
     /// True iff a row with this id is worn.
     pub fn wears(&self, id: &str) -> bool {
         self.rows.iter().any(|r| r.id == id)
+    }
+
+    /// The row worn in the exclusive slot `slot`, if one is worn there.
+    pub fn in_slot(&self, slot: &str) -> Option<&EquipmentRow> {
+        self.rows.iter().find(|r| r.exclusive_slot.as_deref() == Some(slot))
     }
 
     /// Equip a row. A row naming an [`EquipmentRow::exclusive_slot`] REPLACES

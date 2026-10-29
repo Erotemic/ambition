@@ -245,11 +245,11 @@ mod tests {
     fn re_buying_an_owned_unique_is_refused_without_spending() {
         let mut wallet = BodyWallet { balance: 100 };
         let mut owned = OwnedItems::default();
-        owned.grant(shipped(), Item::Blink, 1); // an ability — unique
-        let tx = buy(&mut wallet, &mut owned, shipped(), Item::Blink, 45);
+        owned.grant(shipped(), Item::Grapple, 1); // a held gauntlet — unique
+        let tx = buy(&mut wallet, &mut owned, shipped(), Item::Grapple, 45);
         assert_eq!(tx, ShopTx::AlreadyOwned, "can't re-buy a unique you own");
         assert_eq!(wallet.balance, 100, "wallet untouched");
-        assert_eq!(owned.count(Item::Blink), 1, "still just one");
+        assert_eq!(owned.count(Item::Grapple), 1, "still just one");
     }
 
     #[test]

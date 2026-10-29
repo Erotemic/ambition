@@ -374,6 +374,7 @@ message.gameplay_sfx_requested	message-clear	GameplaySfxRequested	clear abandone
 message.gate_terminal_intent	message-clear	GateTerminalIntent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.grabs_parried	message-clear	GrabsParried	clear abandoned-future message buffer in LoadWorld::Mapping
 message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.item_equip_requested	message-clear	ItemEquipRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.item_use_requested	message-clear	ItemUseRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.knockout_beat	message-clear	KnockoutBeatRequested	clear abandoned-future message buffer in LoadWorld::Mapping

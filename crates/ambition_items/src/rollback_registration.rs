@@ -26,4 +26,8 @@ where
         OWNER,
         "message.item_use_requested",
     );
+    registrar.clear_message_on_rollback::<crate::ItemEquipRequested>(
+        OWNER,
+        "message.item_equip_requested",
+    );
 }

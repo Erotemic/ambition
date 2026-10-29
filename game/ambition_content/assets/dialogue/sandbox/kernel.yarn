@@ -97,9 +97,6 @@ Merchant Prototype: Shop's open. Anything you can't afford is greyed out.
 -> Buy Fireball — 40g <<if can_afford(40)>>
     <<buy_item "fireball" 40>>
     <<jump merchant_seed>>
--> Buy Blink — 45g <<if can_afford(45)>>
-    <<buy_item "blink" 45>>
-    <<jump merchant_seed>>
 -> Buy Grapple — 45g <<if can_afford(45)>>
     <<buy_item "grapple" 45>>
     <<jump merchant_seed>>

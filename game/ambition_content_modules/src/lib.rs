@@ -16,6 +16,7 @@ pub mod blink;
 pub mod dive;
 pub mod echo_fan;
 pub mod eye_beam;
+pub mod eye_laser;
 pub mod fsm;
 pub mod gnu_ton;
 pub mod gradient_cascade;
@@ -53,6 +54,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     dive::module,
     echo_fan::module,
     eye_beam::module,
+    eye_laser::module,
     fsm::module,
     gnu_ton::conductor::module,
     gradient_cascade::module,

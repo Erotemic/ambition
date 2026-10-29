@@ -223,10 +223,16 @@ Nothing above has been played by a human yet. Every number is a first cut.
 tracks Ultimate's 0.4 × KB at these launches (jab 10 f at 120 px/s, fsmash 29
 at 370). On-hit advantage (`adv_f`) is still negative for most moves below
 80% (jab −11 at 0%, ftilt −14, nair −31, fair −24; utilt +6, usmash +13 at
-40%, bair +5 at 80%). That is a per-move BASE KNOCKBACK question now (the
-polygons' tilts and aerials launch 120–290 px/s at 0%, which is short stun
-against 24–40 frame moves), not a rules gap: the R5 play pass should decide
-whether to raise tilt/aerial base knockback ~25% or accept a slower neutral.
+40%, bair +5 at 80%). That was a per-move BASE KNOCKBACK question (the
+polygons' tilts and aerials launched 120–290 px/s at 0%, short stun against
+24–40 frame moves). Answered the same evening with
+`SmashFighterFacet::move_knockback` (a factor on each move's base launch on
+the Smash stage, growth untouched; written by `scripts/smash_retime.py`:
+forward/down tilt ×1.6, dash attack ×1.5, nair/fair ×1.5, bair/uair ×1.3,
+dair ×1.4, up tilt and smashes ×1.0). Re-measured: ftilt −6 at 0% and −1 at
+40%, dtilt −7 / −2, bair −7 / +2, utilt +6 / +21; aerials stay negative in
+the air as Ultimate's do unless landed (the tool does not model landing). A
+first cut for the play pass.
 Also measured: `smash_tool match-report 30 --runs 2` plays through (KOs,
 launches, techs; no panics) under the new rules.
 

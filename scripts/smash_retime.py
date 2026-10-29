@@ -129,7 +129,27 @@ SWINGS = {
     "attack_air_up": "swing.aerial",
     "attack_air_down": "swing.aerial",
 }
-FACET_BLOCK = re.compile(r"\n    // SMASH-STAGE MOVE CLOCKS.*?\n    move_timing: \{.*?\n    \},\n", re.S)
+FACET_BLOCK = re.compile(r"\n    // SMASH-STAGE MOVE CLOCKS.*?\n    move_timing: \{.*?\n    \},\n(?:    // SMASH-STAGE BASE KNOCKBACK.*?\n    move_knockback: \{.*?\n    \},\n)?", re.S)
+# The factor a move's BASE knockback is scaled by on the stage. Measured
+# 2026-10-29 (`ko_envelope feel pointed_polygon pugnacious_polygon`): with
+# Ultimate's hitstun law the tilts and aerials launched 120-290 px/s at 0%,
+# a stun shorter than the swing, so no low-percent hit led anywhere. A
+# quarter harder moves the floor of the launch and barely the KO percent
+# (growth is untouched). Smashes and jabs keep their own.
+# Second pass, same measurement: at 1.25 the forward tilt was still -11 at
+# 0%. Up tilt keeps its own base (it was authored as the juggle launcher and
+# is +14 at 0% already); the back and up airs are launchers too. First cut
+# for the play pass; the KO percents of these moves barely move.
+KNOCKBACK = {
+    "attack_forward": 1.6,
+    "attack_down": 1.6,
+    "attack_dash": 1.5,
+    "attack_air": 1.5,
+    "attack_air_forward": 1.5,
+    "attack_air_back": 1.3,
+    "attack_air_up": 1.3,
+    "attack_air_down": 1.4,
+}
 
 MOVE_HEAD = re.compile(r'\(\s*id:\s*"([a-z_0-9]+)",\s*display_name')
 VERBS = re.compile(r'verbs:\s*\{(.*?)\}', re.S)
@@ -230,7 +250,19 @@ def facet_block(rows: list[tuple[str, str, tuple[int, int, int, int | None]]]) -
         frames_note = f"{hit}/{last}/{total}" + (f" L{lag}" if verb in AERIALS and lag is not None else "")
         lines.append(f'        // {verb}: {frames_note}')
         lines.append(f'        "{move_id}": ({", ".join(parts)}),')
-    lines += ["    },", ""]
+    lines += ["    },"]
+    kb = [(verb, move_id) for verb, move_id, _ in rows if verb in KNOCKBACK]
+    if kb:
+        lines += [
+            "    // SMASH-STAGE BASE KNOCKBACK: the factor each move's base launch is",
+            "    // scaled by here, so a tilt or an aerial at 0% stuns past its own",
+            "    // swing. Written by `scripts/smash_retime.py`.",
+            "    move_knockback: {",
+        ]
+        for verb, move_id in kb:
+            lines.append(f'        "{move_id}": {KNOCKBACK[verb]},')
+        lines += ["    },"]
+    lines += [""]
     return "\n".join(lines)
 
 

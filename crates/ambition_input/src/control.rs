@@ -151,6 +151,17 @@ pub fn read_gameplay_control_frame_with_settings(
         .right_stick_mode
         .attack_strength()
         .filter(|_| aim_stick_flicked);
+    // TAP JUMP: the stick's up flick is a jump press, and the stick held up is
+    // the jump held. The frame's `axis_y` is `-axis.y`, so up is `-axis.y`.
+    let stick_up = if controls.tap_jump { (-axis.y).clamp(0.0, 1.0) } else { 0.0 };
+    let (next_tap_jump_state, tap_jumped) = crate::settings::update_trigger_edge(
+        edges.tap_jump,
+        stick_up,
+        crate::settings::TAP_JUMP_RELEASE_THRESHOLD,
+        crate::settings::TAP_JUMP_PRESS_THRESHOLD,
+    );
+    let tap_jump_held = controls.tap_jump
+        && matches!(next_tap_jump_state, crate::settings::TriggerEdgeState::Pressed);
 
     let frame = ControlFrame {
         // The device adapter does not know the seat's frame policy. That mode is
@@ -164,9 +175,13 @@ pub fn read_gameplay_control_frame_with_settings(
         // A short-hop press is a jump press with no hold: the squat sees the
         // button up at takeoff and launches the short hop.
         jump_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Jump)
-            || actions.just_pressed(&Platformer2dInputActionMonolith::ShortHop),
-        jump_held: actions.pressed(&Platformer2dInputActionMonolith::Jump),
-        jump_released: actions.just_released(&Platformer2dInputActionMonolith::Jump),
+            || actions.just_pressed(&Platformer2dInputActionMonolith::ShortHop)
+            || tap_jumped,
+        jump_held: actions.pressed(&Platformer2dInputActionMonolith::Jump) || tap_jump_held,
+        jump_released: actions.just_released(&Platformer2dInputActionMonolith::Jump)
+            || (controls.tap_jump
+                && matches!(edges.tap_jump, crate::settings::TriggerEdgeState::Pressed)
+                && !tap_jump_held),
         burst_pressed,
         left_pressed,
         right_pressed,
@@ -234,6 +249,7 @@ pub fn read_gameplay_control_frame_with_settings(
         crate::settings::GameplayEdgeState {
             burst: next_burst_state,
             aim_stick: next_aim_stick_state,
+            tap_jump: next_tap_jump_state,
         },
     )
 }

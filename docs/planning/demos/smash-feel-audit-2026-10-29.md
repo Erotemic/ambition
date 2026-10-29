@@ -210,10 +210,10 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P6 authored puffs, dash/turn skid | ✔ (squash/stretch open) | 1005e9ad7 |
 | P2 tiered hit and swing sounds | ✔ 12 cues (reel in `untracked/sfx-candidates/smash-feel/`), tier pick in `resolve_strike_sfx` | 865e5e460 |
 | R3 frame data | ✔ per fighter, in the facet (`move_timing`), 16 fighters; sanic has no facet; George is Rust-authored | 223dc85e7 |
-| R6 buffer 10 f | ✔ `action_buffer_s` | this commit |
+| R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
 | P4 posing keys, P5 slash arcs | in progress (art agent, robot v3 first) | — |
-| P7 fighter camera | open: `resolve_follow_camera_snapshot` floors the scale at 1.0 (never closer than the base view); a Smash framing rule needs a fit-the-subjects target under that floor | — |
-| R5 play with Jon; R6 tap jump, short-hop button, angled air-dodge lag; P6 squash | open | — |
+| P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
+| R5 play with Jon; R6 angled air-dodge lag, authored walk speed; P6 squash; a tap-jump menu toggle | open | — |
 
 Nothing above has been played by a human yet. Every number is a first cut.
 

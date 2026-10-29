@@ -38,6 +38,10 @@ matter": the hit does not freeze, and the victim swings back before the attacker
 can move. Combos, trades, frame advantage and the "crunch" of a connect all
 follow from those two numbers.
 
+The other half is presentation (P1–P7, below): one spark and one thud for
+every hit, a flat white blink on the victim, one held pose per attack phase,
+no dust anywhere. Those are what a longer hitlag would make visible.
+
 ## Evidence
 
 ### Movement is in band (MEASURED)
@@ -173,7 +177,33 @@ What the table says:
 deadzone 0.3; jump buffer 8 f. Keyboard: a `SmashAttack` binding and the
 `Walk` cap exist. Nothing here explains the feel; leave it.
 
+## Presentation: what a hit shows and sounds like
+
+Jon, 2026-10-29: "some of our simplistic posing and sfx and vfx could also be
+the issue." Audited the same day with `moveset_render --overlay art`
+(robot v3 vs `smash_duelist_a`: dash attack connecting, nair, forward tilt,
+forward smash) and the FX/SFX roads. Contact sheets were built from the
+per-tick PNGs; re-render with the command in each row to look again.
+
+| # | Finding | Kind | Ultimate | Ambition |
+|---|---|---|---|---|
+| P1 | **One hit spark for every hit.** `VfxMessage::Impact { pos }` carries only a position; the marker is `hit_soft` at 0.6 scale, upright (`fx.rs:507-515`); the fallback is a 12 px yellow square. On the rendered dash attack it is an ~8 px white star. | CODE-READ + RENDER | spark size grows with damage, is rotated to the launch angle, has element families (slash, punch, fire, electric); a smash connect fills a quarter of the fighter | one asset, one size, one orientation |
+| P2 | **One hit sound for the cast.** 155 of ~200 authored hit volumes name `player.hit` (a 120 ms brown-noise thud); the robot's 19 `slash.impact` cues are the only per-move set. Nothing scales a hit cue by strength at playback (no consumer of `hit_strength_fraction` in the audio crates). Nine `fighter.{sword,brawler,gunner}.smash_*` cues exist in the bank and **nothing names them**. | AUTHORED + CODE-READ | weak / mid / strong / kill impact families per element, a swing whoosh per move, and the kill-hit sound is a feel pillar | one thud; per-move whooshes only on the robot's blade |
+| P3 | **The victim does not sell the hit.** Flash is a flat full-white body for the hitlag (2–6 f, so a blink); no per-frame jitter of the victim during hitlag; `hit` row is 5 frames, `launch` 7; a trail only at hard launch. The two bodies overlap through the connect. | RENDER + CODE-READ | victim shakes ±2 px every frame of hitlag, the launch pose is a distinct silhouette, smoke/dust at the launch | a white blink and a small slide |
+| P4 | **Attacker posing holds one picture.** 6–7 art frames per attack; the dash attack shows the same lunge for ticks 3–8; the nair's silhouette barely differs from idle; no anticipation snap, no smear/overshoot frame at contact, no settle. The blade is a 2 px line while its hit volume is 40 × 28 px. The smash charge is the held pose plus an orange tint (`CHARGE_TINT`), no shake, no sparks. | RENDER | anticipation (the body stretches away), 1–2 smear frames through the swing, an overshoot pose at contact, a settle; charge shakes the body and sparkles | one pose per phase |
+| P5 | **The slash VFX reads as a halo.** A translucent grey disc sits behind the body rather than an arc that travels with the blade (Jon's standing note: a slash travels and follows through). | RENDER | the arc is the swing | a disc |
+| P6 | **No movement FX at all.** `VfxMessage::Dust` has no sender; no landing puff, dash dust, turnaround dust, jump dust; no squash/stretch on land or jump (none in `pose_view`). | CODE-READ | dust on every dash start, turnaround, landing, jump, roll; landing squash | nothing |
+| P7 | **Camera.** At the match zoom a fighter is ~50 px tall, so posing and sparks are read at thumbnail size. | RENDER | a tight two-fighter camera that zooms in on a close exchange | wide |
+
+How this interacts with the simulation findings: P1–P3 are mostly invisible
+today *because* hitlag is 2–6 frames (finding 2). R2 makes a connect last 8–19
+frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
+
 ## Roadmap
+
+Two tracks. The simulation track (R) changes what a hit is; the presentation
+track (P) changes what it shows. R1–R2 and P1–P3 are one feel change and
+should be played together.
 
 Order is by feel-per-effort. Each step names its instrument, because the
 inventory's lesson is that a wired mechanism and a felt mechanism are different
@@ -255,6 +285,72 @@ speeds, and the jump squat's 2-vs-3 frame rounding.
 Parry `OnRelease` as Ultimate (both are live; stage choice). Tap jump and a
 short-hop button (`§9` rows). Attack buffer 10 f. Directional air dodge
 landing lag 11–19 f by angle (one number today).
+
+### P1. The hit spark carries the hit (engine E1 + art, M)
+
+- `VfxMessage::Impact` gains what the resolved hit knows: damage (or the
+  `hit_strength_fraction`), launch angle, and the volume's element/family
+  (slash, blunt, pierce, fire, electric; a `HitVolume` field with a default).
+  One send site per road already exists (`hitbox/mod.rs:1508`, `actor_hit.rs`,
+  `damage/mod.rs`); pass the facts, do not infer them in the renderer.
+- Three authored spark tiers per family (weak / mid / strong) in the FX sheet,
+  drawn by the sprite renderer, scaled by strength between tiers and rotated to
+  the launch; the kill tier adds the ring. ⛔ Authored assets, not a shader.
+- Instrument: `moveset_render` on a jab, a tilt and a charged smash connect;
+  the spark must be visibly three sizes.
+
+### P2. Hit and swing sounds by strength (content, M)
+
+- A hit cue per family and tier: `hit.<family>.{weak,mid,strong,kill}`;
+  the playback picks the tier from the same strength the spark uses, and
+  nudges pitch down with strength. Retire `player.hit` as the roster's hit.
+- A swing whoosh per move class (jab, tilt, smash, aerial), authored once per
+  weapon family (blade, fist, gun) and named by each fighter's moves; bind the
+  nine unused `fighter.*.smash_*` cues or delete them.
+- Audition candidates on a reel first (the SFX rule), then port exactly.
+- Instrument: a `moveset_takes` run with the cue log; every connect must name
+  a tier.
+
+### P3. The victim sells it (engine E1 + art, S/M)
+
+- Hitlag jitter: the presented pose (not the sim pose) offsets ±2 px on
+  alternate ticks of hitlag, scaled by strength; the attacker holds still.
+  `presented_pose.rs` already separates the two.
+- Flash: keep the white pop, but let it fall off over the hitlag instead of a
+  flat hold (`FLASH_HOLD_FRACTION` 0.8 → a curve), so a strong hit reads as a
+  longer glow and a jab as a tick.
+- Launch pose: `launch` and `tumble` rows need a silhouette that is not
+  `hit`; add launch dust at the victim's feet on a grounded launch.
+- Instrument: `moveset_render` of a tilt and a smash connect at 0% and 100%.
+
+### P4. Posing keys per attack (art, M, per fighter)
+
+Each attack row gets four keys: anticipation (body and weapon pulled the other
+way, 2–4 f), smear (1–2 f, the weapon as a shape across the arc), contact
+(overshoot: weapon past the target, body leaning in), settle (back to idle
+over the recovery). Draw the blade with a width at the smear, not a line.
+Smash charge: the body shakes 1 px on the row and the charge sparkles. Start
+with the robot (its generator is the reference rig), then one fighter per
+archetype. Frame budgets come from R3 so the keys land on the windows.
+
+### P5. The slash is an arc that travels (art, S)
+
+Re-author `slash_rise/fall/arc/poke` as a bright arc that follows the blade
+across the active window and fades on the follow-through; delete the disc.
+Jon's standing note on slash VFX applies.
+
+### P6. Movement dust and squash (engine E1 + art, S/M)
+
+Send `VfxMessage::Dust` from the movement facts that already exist: initial
+dash start, turnaround, landing (puff size by fall speed), jump takeoff, roll
+start. Squash on landing and stretch on takeoff as a presented-pose scale over
+3–4 frames. ⛔ No drop shadows.
+
+### P7. A fighter camera (engine, M, after P1–P4)
+
+Frame the two fighters tighter (Ultimate's camera: the pair fills the view
+with a margin, zooms in on a close exchange, out on a launch), with the finish
+zoom already built as the model. Mobile keeps the wide frame if it needs it.
 
 ### Not in this roadmap
 

@@ -168,5 +168,14 @@
         // Double-jump cancel: an aerial from an air jump ends the jump's rise.
         // A feel call.
         double_jump_cancel: Some(true),
+        // Ultimate's freeze, 0.65 x damage + 6 frames, on both bodies: a 3%
+        // jab is 8 frames, a 15% smash 16. The engine's scaled law gave 2 to
+        // 6, which is why a connect read as a blink (feel audit 2026-10-29).
+        hitlag: Some(Affine(base_s: 0.1, per_damage_s: 0.010833334, max_s: 0.5)),
+        // A struck fighter can DI and nothing else until the stun ends.
+        hitstun_locks_actions: Some(true),
+        // Ultimate's 0.4 x knockback frames, at the reference launch on this
+        // stage's scale (launch px/s / 810).
+        hitstun_time: Some(0.185),
     )),
 )

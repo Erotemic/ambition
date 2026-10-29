@@ -162,8 +162,10 @@
         // release. The stage chooses; `OnRelease` is fully live (guarded by
         // `the_parry_window_opens_where_the_ruleset_says_it_does`).
         parry_timing: OnRaise,
-        // SDI, 3 px per hitlag tick: shift out of the next hit while frozen.
-        sdi_step: 3.0,
+        // SDI, 1 px per hitlag tick: shift out of the next hit while frozen.
+        // Was 3 under a 2-6 frame freeze; the affine hitlag law runs 8-19
+        // frames, so the per-hit total stays about where it was.
+        sdi_step: 1.0,
         // ASDI: one nudge per hit, paid when the freeze lifts. It gives a
         // defender something against multihits, where `sdi_step` gives little.
         asdi_step: 6.0,

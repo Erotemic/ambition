@@ -1582,13 +1582,7 @@ pub fn apply_player_hit_events(
         let combat_rules = room_rules.of(player_entity).unwrap_or_default();
         let friendly_fire = combat_rules.friendly_fire();
         let mut feel = base_feel;
-        feel.di_max_angle = combat_rules.di_max_angle;
-        feel.sakurai_angle = combat_rules.sakurai_angle;
-        // the same fold, for the same reason: a stage's rule is the authority and
-        // the baseline is only what an undeclared world keeps.
-        feel.meteor_lock_time = combat_rules.meteor_lock_time;
-        feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
-        feel.hit_repeat_window_scale = combat_rules.hit_repeat_window_scale;
+        combat_rules.fold_into_feel(&mut feel);
         let target_events: Vec<FeatureHitEvent> = resolved
             .iter()
             .filter(|(t, _)| *t == player_entity)

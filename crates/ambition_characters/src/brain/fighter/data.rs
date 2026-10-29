@@ -330,6 +330,7 @@ impl ShadowTuning {
                 // clock beat it does not simulate, so the row carries the
                 // engine default rather than a second opinion about feel.
                 hitlag_time: 0.070,
+                hitlag_law: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
                 di_max_angle: 0.0,
                 sakurai: None,
             },
@@ -375,6 +376,7 @@ impl ShadowTuning {
                 // clock beat it does not simulate, so the row carries the
                 // engine default rather than a second opinion about feel.
                 hitlag_time: 0.070,
+                hitlag_law: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
                 di_max_angle: 0.0,
                 sakurai: None,
             },

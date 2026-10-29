@@ -407,6 +407,25 @@ pub struct CombatRules {
     /// the cancel sheds exactly what the jump put in and leaves a launch the
     /// fighter is riding alone.
     pub double_jump_cancel: Option<bool>,
+    /// THE HITLAG LAW: how long both bodies freeze on a connect, from the
+    /// damage. `None` keeps the engine's scaled law (a share of the world's
+    /// `hitlag_time`). A platform fighter declares the affine law in frames:
+    /// Ultimate's is `0.65 × damage + 6`, so `base_s: 0.1, per_damage_s:
+    /// 0.0108`. The freeze is the "crunch" of a hit; it is also the window a
+    /// defender has to SDI, so `sdi_step` moves with it.
+    pub hitlag: Option<ambition_platformer2d_core::hit_response::HitlagLaw>,
+    /// Does hitstun take EVERY action? `None`/`false` is the engine's rule: a
+    /// struck body keeps the attack verb once the short recoil lock clears.
+    /// `true` is the genre's: a body in hitstun can DI and nothing else, which
+    /// is what makes a landed hit an advantage. See
+    /// `crate::feel::Platformer2dFeelTuningMonolith::hitstun_locks_actions`.
+    pub hitstun_locks_actions: Option<bool>,
+    /// Hitstun a reference-strength launch
+    /// (`hit_response::STANDARD_LAUNCH_SPEED`) charges, in seconds; the stun
+    /// scales with the launch from there. `None` keeps the world's
+    /// `enemy_hitstun_time`. Ultimate's `0.4 × knockback` frames is 0.185 s at
+    /// the reference on the Smash stage's scale.
+    pub hitstun_time: Option<f32>,
 }
 
 /// The rules combat actually reads this tick.
@@ -478,6 +497,12 @@ pub struct ResolvedCombatTuning {
     pub ledge_occupancy: LedgeOccupancy,
     /// See [`CombatRules::double_jump_cancel`].
     pub double_jump_cancel: bool,
+    /// See [`CombatRules::hitlag`].
+    pub hitlag: ambition_platformer2d_core::hit_response::HitlagLaw,
+    /// See [`CombatRules::hitstun_locks_actions`].
+    pub hitstun_locks_actions: bool,
+    /// See [`CombatRules::hitstun_time`].
+    pub hitstun_time: Option<f32>,
     /// See [`CombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`CombatRules::grab_hold_per_damage`].
@@ -583,6 +608,29 @@ pub const FLAT_GRAB_HOLD_SECONDS: f32 = 4.0;
 pub const FLAT_GRAB_MASH_SECONDS: f32 = FLAT_GRAB_HOLD_SECONDS / 20.0;
 
 impl ResolvedCombatTuning {
+    /// Fold the match's rules into the feel row the hit path reads.
+    ///
+    /// ONE fold for every road (the body resolver, the monolith's damage road,
+    /// the input gate): the stage's rule is the authority and the baseline is
+    /// only what an undeclared world keeps. A field added here reaches every
+    /// reader; a field folded at one site reached one.
+    pub fn fold_into_feel(&self, feel: &mut crate::feel::Platformer2dFeelTuningMonolith) {
+        feel.di_max_angle = self.di_max_angle;
+        feel.sakurai_angle = self.sakurai_angle;
+        feel.meteor_lock_time = self.meteor_lock_time;
+        feel.crouch_cancel_scale = self.crouch_cancel_scale;
+        feel.hit_repeat_window_scale = self.hit_repeat_window_scale;
+        feel.hitlag_law = self.hitlag;
+        // Every strength readout divides by `hitlag_time`, so under the affine
+        // law it becomes that law's ordinary freeze and a jab still reads weak.
+        feel.hitlag_time = self.hitlag.reference_s(feel.hitlag_time);
+        feel.hitstun_locks_actions = self.hitstun_locks_actions;
+        if let Some(stun) = self.hitstun_time {
+            feel.enemy_hitstun_time = stun;
+            feel.boss_hitstun_time = stun;
+        }
+    }
+
     /// What a move is worth after `occurrences` recent landings of it, as a
     /// multiplier, floored. `1.0` for a game that declares no staling and for a
     /// move nobody has thrown lately.
@@ -708,6 +756,9 @@ impl ResolvedCombatTuning {
                 ledge_trump_lockout: rules.ledge_trump_lockout.unwrap_or(0.0).max(0.0),
                 ledge_occupancy: rules.ledge_occupancy.unwrap_or_default(),
                 double_jump_cancel: rules.double_jump_cancel.unwrap_or(false),
+                hitlag: rules.hitlag.unwrap_or_default(),
+                hitstun_locks_actions: rules.hitstun_locks_actions.unwrap_or(false),
+                hitstun_time: rules.hitstun_time.filter(|t| *t > 0.0),
                 strike_weight: None,
                 landing_lag: None,
             },
@@ -767,6 +818,9 @@ impl ResolvedCombatTuning {
                 ledge_trump_lockout: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
                 double_jump_cancel: false,
+                hitlag: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
+                hitstun_locks_actions: false,
+                hitstun_time: None,
                 strike_weight: None,
                 landing_lag: None,
             },
@@ -1011,6 +1065,9 @@ mod tests {
                 ledge_trump_lockout: None,
                 ledge_occupancy: None,
                 double_jump_cancel: None,
+                hitlag: None,
+                hitstun_locks_actions: None,
+                hitstun_time: None,
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
@@ -1060,6 +1117,9 @@ mod tests {
             ledge_trump_lockout: None,
             ledge_occupancy: None,
             double_jump_cancel: None,
+            hitlag: None,
+            hitstun_locks_actions: None,
+            hitstun_time: None,
             di_max_angle: 0.30,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
@@ -1108,6 +1168,9 @@ mod tests {
                 ledge_trump_lockout: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
                 double_jump_cancel: false,
+                hitlag: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
+                hitstun_locks_actions: false,
+                hitstun_time: None,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,

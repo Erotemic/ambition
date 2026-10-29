@@ -394,10 +394,19 @@ pub fn apply_body_hit_reaction(
     // DISCHARGE one. A body already reeling from a real hit that drifts through
     // a gust keeps the beat it was already owed.
     if !knockback.is_windbox() {
-        combat.recoil_lock_timer = if meteor {
+        let recoil = if meteor {
             feel.knockback_recoil_lock_time.max(feel.meteor_lock_time)
         } else {
             feel.knockback_recoil_lock_time
+        };
+        // THE GENRE'S LOCKOUT: under `hitstun_locks_actions` the hard lock
+        // runs the whole stun, so a struck body can DI and nothing else until
+        // it ends. That is what turns a landed hit into frame advantage; the
+        // home game keeps the short recoil and swings back while flashing.
+        combat.recoil_lock_timer = if feel.hitstun_locks_actions {
+            recoil.max(combat.hitstun_timer)
+        } else {
+            recoil
         };
     }
     // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
@@ -483,6 +492,7 @@ pub fn hit_response_tuning(
         hitstun_reference_launch: ae::hit_response::STANDARD_LAUNCH_SPEED,
         hitstun_max_scale: ae::hit_response::MAX_HITSTUN_SCALE,
         hitlag_time: feel.hitlag_time,
+        hitlag_law: feel.hitlag_law,
         di_max_angle: feel.di_max_angle,
         sakurai: feel.sakurai_angle,
     }
@@ -548,6 +558,53 @@ mod super_armor_tests {
             feel(),
         );
         (vel, flight, combat)
+    }
+
+    /// The genre's rule: under `hitstun_locks_actions` the hard lock runs the
+    /// whole stun, so a struck fighter cannot swing back inside it. Off, the
+    /// lock is the short recoil and the attack verb comes back while the stun
+    /// still ticks (the home game). Poison: the fold removed, red at the first
+    /// assertion.
+    #[test]
+    fn under_the_genre_rule_the_control_lock_runs_the_whole_hitstun() {
+        let strike = |locks: bool| -> BodyCombat {
+            let mut vel = ae::Vec2::new(120.0, 0.0);
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat::default();
+            let mut feel = feel();
+            feel.hitstun_locks_actions = locks;
+            apply_body_hit_reaction(
+                &mut vel,
+                &mut flight,
+                &mut combat,
+                ae::Vec2::new(20.0, 0.0),
+                1.0,
+                ae::Vec2::new(0.0, 1.0),
+                false,
+                Some(&hard_knockback()),
+                10,
+                ae::Vec2::ZERO,
+                VictimStance::default(),
+                None,
+                None,
+                None,
+                feel,
+            );
+            combat
+        };
+        let home = strike(false);
+        assert!(
+            home.hitstun_timer > home.recoil_lock_timer + 1e-6,
+            "the fixture's stun must outlast the recoil lock, or the rule has nothing to extend"
+        );
+        let genre = strike(true);
+        assert!(
+            (genre.recoil_lock_timer - genre.hitstun_timer).abs() < 1e-6,
+            "under hitstun_locks_actions the hard lock ({}) must run the whole stun ({})",
+            genre.recoil_lock_timer,
+            genre.hitstun_timer
+        );
+        assert!((genre.hitstun_timer - home.hitstun_timer).abs() < 1e-6, "the rule changes the lock, not the stun");
     }
 
     /// Armor is about AUTHORITY, not about damage: the hit lands (damage is the

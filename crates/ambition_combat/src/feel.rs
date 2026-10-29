@@ -99,6 +99,16 @@ pub struct Platformer2dFeelTuningMonolith {
     /// `player_damage_hitstop_time` (0.070, victim): two unscaled constants at
     /// two sites for one event.
     pub hitlag_time: f32,
+    /// How the freeze follows the damage. A match's `CombatRules::hitlag` is
+    /// folded here ([`crate::rules::ResolvedCombatTuning::fold_into_feel`]);
+    /// an undeclared world keeps the engine's scaled law.
+    #[reflect(ignore)]
+    pub hitlag_law: ambition_platformer2d_core::hit_response::HitlagLaw,
+    /// Does hitstun take every action? A platform fighter says yes: a struck
+    /// body can DI and nothing else until the stun ends. Off, the body keeps
+    /// the attack verb once the short recoil lock clears (the home game's
+    /// "fight back while flashing"). Folded from `CombatRules::hitstun_locks_actions`.
+    pub hitstun_locks_actions: bool,
     pub reset_flash_time: f32,
     pub edge_transition_cooldown: f32,
     pub door_transition_cooldown: f32,
@@ -187,6 +197,8 @@ impl Default for Platformer2dFeelTuningMonolith {
             interaction_buffer_time: 0.120,
             interaction_hold_time: 2.0,
             hitlag_time: 0.070,
+            hitlag_law: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
+            hitstun_locks_actions: false,
             reset_flash_time: 0.18,
             edge_transition_cooldown: 0.14,
             door_transition_cooldown: 0.16,

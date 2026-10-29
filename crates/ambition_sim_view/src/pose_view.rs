@@ -419,6 +419,9 @@ pub fn rebuild_body_pose_views(
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    // The room's hitlag law: under an affine law the reference is that law's
+    // ordinary freeze, not the world's, or a smash would read as a blink.
+    rules: ambition_combat::rules::CombatTuningOf,
     // The cast a granted body is compared against. See `PoseGeometry`.
     // The running session's frozen cast, or the published one with no
     // session (`SessionCast`).
@@ -524,7 +527,12 @@ pub fn rebuild_body_pose_views(
 ) {
     // No feel tuning means no hitlag law to measure against: every body reports
     // no strength rather than a number derived from a reference nobody set.
-    let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    let hitlag_reference_of = |entity: Entity| {
+        rules
+            .of(entity)
+            .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference))
+    };
     for (
         (
             entity,
@@ -868,7 +876,7 @@ pub fn rebuild_body_pose_views(
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(
                 combat.map_or(0.0, |c| c.hitstop_timer),
-                hitlag_reference,
+                hitlag_reference_of(entity),
             ),
             // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
             // body missing one of these clusters cannot be protected by it, so

@@ -273,6 +273,8 @@ pub fn rebuild_feature_view_index(
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    // The room's hitlag law, for the strength reference (see `pose_view`).
+    rules: ambition_combat::rules::CombatTuningOf,
     // Which live room each feature is in, for the row's `room`.
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     pickups: Query<(Entity, &FeatureId, &CenteredAabb, Option<&Collected>), With<PickupFeature>>,
@@ -634,7 +636,9 @@ pub fn rebuild_feature_view_index(
                 training_dummy: combat.is_some_and(|c| c.training_dummy),
                 hit_strength: ae::hit_response::hit_strength_fraction(
                     combat.map_or(0.0, |c| c.hitstop_timer),
-                    hitlag_reference,
+                    rules
+                        .of(entity)
+                        .map_or(hitlag_reference, |rules| rules.hitlag.reference_s(hitlag_reference)),
                 ),
                 // THE DAMAGE RULE ITSELF, inverted — not a second reading of
                 // it. A body missing one of these clusters cannot be protected

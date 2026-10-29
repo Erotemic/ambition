@@ -398,8 +398,13 @@ pub struct HitResponseTuning {
     /// Ceiling on the reaction scale, so a launch at kill percent cannot stun
     /// for seconds. Applied after the reference division.
     pub hitstun_max_scale: f32,
-    /// Hitlag at reaction scale `1.0`: the shared freeze a connect buys.
+    /// Hitlag at reaction scale `1.0`: the shared freeze a connect buys. Under
+    /// [`HitlagLaw::Scaled`] it is the whole law; under [`HitlagLaw::Affine`]
+    /// it is only the presentation's reference (see [`HitlagLaw::reference_s`]).
     pub hitlag_time: f32,
+    /// How the freeze is computed from the damage. A match declares it
+    /// (`CombatRules::hitlag`); an undeclared world keeps [`HitlagLaw::Scaled`].
+    pub hitlag_law: HitlagLaw,
     /// DI budget (radians). `0.0` disables directional influence entirely.
     pub di_max_angle: f32,
     /// The stage's angle rule for near-horizontal launches. `None` = every
@@ -542,7 +547,42 @@ pub const MAX_HITLAG_SCALE: f32 = 1.5;
 /// both sides freeze for the SAME duration, which is what makes a connect
 /// read as one event rather than two things happening near each other.
 pub fn hitlag_duration(damage: i32, tuning: &HitResponseTuning) -> f32 {
-    tuning.hitlag_time * hitlag_scale(damage)
+    match tuning.hitlag_law {
+        HitlagLaw::Scaled => tuning.hitlag_time * hitlag_scale(damage),
+        HitlagLaw::Affine { base_s, per_damage_s, max_s } => {
+            (base_s + per_damage_s * damage.max(0) as f32).min(max_s)
+        }
+    }
+}
+
+/// How a connect's freeze follows its damage.
+///
+/// A platform fighter's law is affine in frames (`0.65 × damage + 6` in
+/// Ultimate, both bodies): a jab is a tick, a smash is a beat, and nothing
+/// caps it but the match. [`Self::Scaled`] is the engine's own shape, a share
+/// of one reference freeze clamped to a narrow band, which is what an
+/// exploration game wants from a hit on a wandering enemy.
+#[derive(Clone, Copy, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
+pub enum HitlagLaw {
+    /// `hitlag_time × clamp(0.46 + 0.54 × damage / 11, 0.5, 1.5)`.
+    #[default]
+    Scaled,
+    /// `min(base_s + per_damage_s × damage, max_s)`, in seconds.
+    Affine { base_s: f32, per_damage_s: f32, max_s: f32 },
+}
+
+impl HitlagLaw {
+    /// The freeze an ordinary hit ([`HITLAG_REFERENCE_DAMAGE`]) buys under this
+    /// law: the reference every strength readout (flash, shake, HUD) divides
+    /// by, so a jab and a smash keep reading weak and strong under either law.
+    pub fn reference_s(self, scaled_reference_s: f32) -> f32 {
+        match self {
+            HitlagLaw::Scaled => scaled_reference_s,
+            HitlagLaw::Affine { base_s, per_damage_s, max_s } => {
+                (base_s + per_damage_s * HITLAG_REFERENCE_DAMAGE).min(max_s)
+            }
+        }
+    }
 }
 
 /// The damage term of the hitlag law, in units of the reference freeze.
@@ -709,6 +749,7 @@ mod hitlag_tests {
             hitstun_reference_launch: STANDARD_LAUNCH_SPEED,
             hitstun_max_scale: MAX_HITSTUN_SCALE,
             hitlag_time: 0.070,
+            hitlag_law: HitlagLaw::Scaled,
             di_max_angle: 0.0,
             sakurai: None,
         }
@@ -730,6 +771,26 @@ mod hitlag_tests {
 
     /// A connect is ONE event, so it buys ONE freeze — and the freeze is the
     /// HIT's, not the launch's.
+    /// The affine law is the genre's: frames grow with damage from a floor,
+    /// uncapped until the match's ceiling, and the presentation reference is
+    /// that law's ordinary freeze. Ultimate's numbers at 60 Hz.
+    #[test]
+    fn the_affine_hitlag_law_is_frames_from_a_floor_and_states_its_own_reference() {
+        let law = HitlagLaw::Affine { base_s: 6.0 / 60.0, per_damage_s: 0.65 / 60.0, max_s: 0.5 };
+        let t = HitResponseTuning { hitlag_law: law, ..tuning() };
+        let frames = |damage| hitlag_duration(damage, &t) * 60.0;
+        assert!((frames(3) - 7.95).abs() < 1e-3, "a 3% jab: {}", frames(3));
+        assert!((frames(11) - 13.15).abs() < 1e-3);
+        assert!((frames(20) - 19.0).abs() < 1e-3, "a 20% smash is not clipped by the scaled law's cap");
+        assert!((hitlag_duration(1_000, &t) - 0.5).abs() < 1e-6, "the match's ceiling holds");
+        assert!((law.reference_s(0.070) - 13.15 / 60.0).abs() < 1e-6);
+        assert_eq!(HitlagLaw::Scaled.reference_s(0.070), 0.070);
+        // Under the affine law a jab still reads weak and a smash strong.
+        let reference = law.reference_s(0.070);
+        assert!(hit_strength_fraction(hitlag_duration(3, &t), reference) < 0.2);
+        assert!(hit_strength_fraction(hitlag_duration(20, &t), reference) > 0.9);
+    }
+
     #[test]
     fn hitlag_is_one_duration_for_both_bodies_and_scales_with_the_damage() {
         let t = tuning();
@@ -912,6 +973,7 @@ mod launch_direction_tests {
             hitstun_reference_launch: STANDARD_LAUNCH_SPEED,
             hitstun_max_scale: MAX_HITSTUN_SCALE,
             hitlag_time: 0.070,
+            hitlag_law: HitlagLaw::Scaled,
             di_max_angle: 0.0,
             sakurai: None,
         }
@@ -1116,6 +1178,7 @@ mod autolink_tests {
             hitstun_reference_launch: STANDARD_LAUNCH_SPEED,
             hitstun_max_scale: MAX_HITSTUN_SCALE,
             hitlag_time: 0.070,
+            hitlag_law: HitlagLaw::Scaled,
             di_max_angle: 0.0,
             sakurai: None,
         }

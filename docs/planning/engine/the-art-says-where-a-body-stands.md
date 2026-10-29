@@ -23,7 +23,7 @@ ledges a body can hang from while they tilt less than 20 degrees
 `SurfaceTable::segment` puts a surface at its frame in the middle of the
 frame's time and goes smoothly to the next. The giant's two shoulders are
 the first (`giant_art.surfaces`). `mount.back` is now a span, not ground.
-Tests: `gnu_ton_fight::a_body_on_a_shoulder_rides_it_through_the_giants_blows`.
+Tests: `gnu_ton_fight::a_body_on_a_shoulder_rides_it_through_a_hammer`.
 
 ## The rule the debts break
 

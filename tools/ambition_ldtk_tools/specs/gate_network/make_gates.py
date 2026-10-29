@@ -59,6 +59,7 @@ from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 SANDBOX = default_worlds_dir() / "sandbox.ldtk"
 INTRO = default_worlds_dir() / "intro.ldtk"
 SCIENCE = default_worlds_dir() / "science.ldtk"
+DINOSAUR = default_worlds_dir() / "dinosaur.ldtk"
 
 HUB = "central_hub_main"
 WING = "central_hub_dev_wing"
@@ -411,7 +412,7 @@ edits:
 #: Terminals for the receive-only rings, east of each ring on its floor:
 #: (world, level, label, terminal id, dialer x, floor).
 RECEIVER_TERMINALS = [
-    (SANDBOX, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 380, 480),
+    (DINOSAUR, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 380, 480),
     (SCIENCE, "gnu_ton_works_approach", "Trail Survey Gate", "trail_survey_gate_terminal", 972, 352),
 ]
 

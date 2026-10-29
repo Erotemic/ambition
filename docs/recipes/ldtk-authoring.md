@@ -13,8 +13,17 @@ LDtk is Ambition's spatial source of truth. Use the editor or
 `ambition_ldtk_tools`; do not hand-edit `.ldtk` JSON.
 
 The main provider worlds currently live under
-`game/ambition_content/assets/worlds/`. Localize a room/entity contract before
-editing:
+`game/ambition_content/assets/worlds/`. **One world file is one dimension**
+(`data/worlds.ron` lists them): `dinosaur.ldtk`, `noodle.ldtk`, `evil.ldtk`,
+`math.ldtk`, `science.ldtk`, `pvn.ldtk` (pirates and ninjas), and so
+on. `sandbox.ldtk` is the test bed (the hub, the test rooms, the halls): a new
+room of a dimension goes in that dimension's file. Rooms join one room set, so a
+`LoadingZone` leads to a room in any file by its id. A standalone demo has its
+own files in its own crate. To move rooms to another file whole (ids, iids and
+doors kept), use `world move-levels <src> <dst> --level ... [--init]`; it
+refuses a reference that would cross files and a def that differs.
+
+Localize a room/entity contract before editing:
 
 ```bash
 python scripts/agent_query.py "LDtk <room or entity type>"

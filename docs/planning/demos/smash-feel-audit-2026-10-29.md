@@ -199,6 +199,37 @@ How this interacts with the simulation findings: P1–P3 are mostly invisible
 today *because* hitlag is 2–6 frames (finding 2). R2 makes a connect last 8–19
 frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 
+## Status (2026-10-29, evening)
+
+| Step | State | Commit |
+|---|---|---|
+| R1 hitstun lockout, R2 hitlag law, hitstun scale | ✔ shipped as `CombatRules` (`hitstun_locks_actions`, `hitlag: Affine`, `hitstun_time`), Smash declares them | 0f8c99ecb |
+| R4 walk/dash threshold, crouch, coyote 0, parry on release | ✔ `dash_deflection` 0.8 (schema 387) | 71381014c |
+| P1 spark carries the blow | ✔ tiered rows, scaled, turned to the launch | 6420ab194 |
+| P3 victim shake, flash lasts the freeze | ✔ shake; flash ≥ hitlag | 1005e9ad7, this commit |
+| P6 authored puffs, dash/turn skid | ✔ (squash/stretch open) | 1005e9ad7 |
+| P2 tiered hit and swing sounds | ✔ 12 cues (reel in `untracked/sfx-candidates/smash-feel/`), tier pick in `resolve_strike_sfx` | 865e5e460 |
+| R3 frame data | ✔ per fighter, in the facet (`move_timing`), 16 fighters; sanic has no facet; George is Rust-authored | 223dc85e7 |
+| R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
+| P4 posing keys, P5 slash arcs | ✔ for the three polygons (Jon: the polygons are the Smash test players, not the robot): 12-frame rows with anticipation / smear / contact-overshoot / settle posed to each fighter's Smash windows, a shaking, glinting `smash_charge`, travelling arcs in the `*_strike_fx` rows (renderer c752183, generation 55069d31; review sheets `untracked/art-review/polygon-keys/`). Open: the beast's coil is subtle; the other fighters' rows are still one picture per phase | 96552c2c6 |
+| P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
+| R5 play with Jon; R6 angled air-dodge lag, authored walk speed; P6 squash; a tap-jump menu toggle | open | — |
+
+Nothing above has been played by a human yet. Every number is a first cut.
+
+**Measured after the pass** (`ko_envelope feel pointed_polygon pugnacious_polygon`,
+2026-10-29): hitlag is the genre's (jab 8 f, tilts 10, aerials 12, fsmash
+16); the facet clocks are live (nair 38 f, fair 40, fsmash 42); hitstun
+tracks Ultimate's 0.4 × KB at these launches (jab 10 f at 120 px/s, fsmash 29
+at 370). On-hit advantage (`adv_f`) is still negative for most moves below
+80% (jab −11 at 0%, ftilt −14, nair −31, fair −24; utilt +6, usmash +13 at
+40%, bair +5 at 80%). That is a per-move BASE KNOCKBACK question now (the
+polygons' tilts and aerials launch 120–290 px/s at 0%, which is short stun
+against 24–40 frame moves), not a rules gap: the R5 play pass should decide
+whether to raise tilt/aerial base knockback ~25% or accept a slower neutral.
+Also measured: `smash_tool match-report 30 --runs 2` plays through (KOs,
+launches, techs; no panics) under the new rules.
+
 ## Roadmap
 
 Two tracks. The simulation track (R) changes what a hit is; the presentation

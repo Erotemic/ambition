@@ -223,6 +223,8 @@ pub struct MatchRules {
     /// damage scale. The capability that authors a scale gives its name to the
     /// composition. See [`ambition_combat::worn_kit::SeatTerms`].
     pub move_damage: Option<ambition_characters::move_damage::DamageScale>,
+    /// How tightly the camera frames the fighters; `None` keeps the engine's.
+    pub cast_framing: Option<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>,
 }
 
 impl MatchRules {

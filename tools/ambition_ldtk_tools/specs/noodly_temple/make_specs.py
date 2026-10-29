@@ -66,12 +66,15 @@ TOOLS = HERE.parents[1]
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk, default_worlds_dir  # noqa: E402
 
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 import gates  # noqa: E402
 
-LDTK = default_sandbox_ldtk()
+#: The noodle dimension's world file: the rooms of the temple.
+LDTK = default_worlds_dir() / "noodle.ldtk"
+#: The central hub's: the door to the temple.
+HUB_LDTK = default_sandbox_ldtk()
 
 BIOME = "noodly"
 MUSIC = "flying_spaghetti_monster_roots_stage_choir_backing"
@@ -551,7 +554,7 @@ ROOMS = (narthex, nave, scullery, cistern, belfry, reliquary, sanctum)
 
 def hub_door_is_placed():
     """The central hub has the door of this level already."""
-    world = json.loads(Path(LDTK).read_text())
+    world = json.loads(Path(HUB_LDTK).read_text())
     hub = next((level for level in world["levels"] if level["identifier"] == HUB_LEVEL), None)
     return hub is not None and HUB_DOOR_ID in json.dumps(hub)
 
@@ -565,11 +568,14 @@ def main(argv):
         made.append(path)
         print(path.relative_to(TOOLS))
     if "--apply" in argv:
+        if not hub_door_is_placed():
+            print(f"the hub has no door to the temple ({HUB_LEVEL} in {HUB_LDTK}): a link places a door only in its own file")
+            return 2
         for path in made:
             spec = path
-            if path == made[0] and hub_door_is_placed():
-                # The hub is not replaced, so its door is there already: make
-                # the narthex again without the link that would place it.
+            if path == made[0]:
+                # The hub is in another file, and its door is there already:
+                # make the narthex without the link that would place it.
                 spec = Path(tempfile.mkdtemp()) / path.name
                 spec.write_text(re.sub(r"connect_to: \[.*?\n    \],", "connect_to: [],", path.read_text(), flags=re.S))
             done = subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "area", "create", str(spec), "--ldtk",

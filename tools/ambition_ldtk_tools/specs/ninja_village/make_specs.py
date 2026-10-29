@@ -7,7 +7,7 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 The Ninja Village is a mountain village of the ninja dimension, its own world
-file (`ninja_village.ldtk`). Gate address SILENT arrives at its gate shrine.
+file (`pvn.ldtk`, the PvN dimension of pirates and ninjas). Gate address SILENT arrives at its gate shrine.
 The design is in `README.md` here. In short:
 
 - `ninja_village_gate_shrine`: the shrine where the ring stands (Agent GATE
@@ -19,7 +19,7 @@ The design is in `README.md` here. In short:
 - `ninja_village_dojo`: the village dojo and its rank exam (an encounter).
 - `ninja_village_forest`: the cedar forest. Its branches step down from the
   west to the floor; at its east end, the door to the Shadow Dojo (the
-  sandbox's `ninja_dojo`, the clan of the Shadow Oni).
+  `ninja_dojo`, the clan of the Shadow Oni).
 
 THE LOOP: the low road (shrine floor, street, forest floor) and the high
 road (the forest's branches, the roofs of the street, the torii terrace and
@@ -44,7 +44,9 @@ from district_kit import (  # noqa: E402
 
 import props  # noqa: E402  (this directory's scenery)
 
-WORLD_LDTK = WORLDS / "ninja_village.ldtk"
+#: The PvN dimension's world file (Jon, 2026-10-29: the pirate and ninja
+#: dimensions are one): the port and the village are both in it.
+WORLD_LDTK = WORLDS / "pvn.ldtk"
 UID_OFFSET = 700000
 GENERATOR = "specs/ninja_village/make_specs.py"
 
@@ -58,7 +60,7 @@ ARRIVAL = "ninja_village_gate_arrival"
 #: Until GATE's ring and return terminal stand, the arrival zone is a
 #: one-way door home for testing: GATE makes it the ring's arrival pad.
 
-#: The sandbox's Shadow Dojo, and its new door to the forest.
+#: The Shadow Dojo (in this dimension's world file since 2026-10-29), and its door to the forest.
 CLAN = "ninja_dojo"
 CLAN_DOOR = "ninja_dojo_village_door"
 
@@ -71,11 +73,14 @@ VILLAGE_MUSIC = "morning_on_the_eaves"
 FOREST_MUSIC = "the_last_lantern"
 DOJO_MUSIC = "nine_rooftops"
 
+#: The village is 10000 px under the port in the PvN world file (`pvn.ldtk`):
+#: the two were laid out each in its own file, from the same corner.
+VILLAGE_Y = 10000
 ROOMS_AT = {
-    SHRINE: ((0, 0), (1600, 832)),
-    STREET: ((1856, 0), (2816, 896)),
-    FOREST: ((4928, 0), (2816, 960)),
-    DOJO: ((1856, 1152), (1600, 576)),
+    SHRINE: ((0, VILLAGE_Y), (1600, 832)),
+    STREET: ((1856, VILLAGE_Y), (2816, 896)),
+    FOREST: ((4928, VILLAGE_Y), (2816, 960)),
+    DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
 }
 
 
@@ -263,7 +268,7 @@ def main(argv):
         return code
     if code := make_rooms(WORLD_LDTK, made):
         return code
-    if code := add_entities(CLAN_DOOR_YAML, SANDBOX_LDTK, HERE / "clan_door.yaml", unless=f'"{CLAN_DOOR}"'):
+    if code := add_entities(CLAN_DOOR_YAML, WORLD_LDTK, HERE / "clan_door.yaml", unless=f'"{CLAN_DOOR}"'):
         return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")

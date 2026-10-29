@@ -16,6 +16,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
 
     world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
     world auto-layout <ldtk>      Arrange Free-layout levels by LoadingZone graph
+    world move-levels <src> <dst> Move whole levels to another world file (a dimension's own).
                                    (--strategy greedy/layered/clustered).
 
     generate hall-of-characters    Rebuild the Hall of Characters area spec from
@@ -158,6 +159,8 @@ def cmd_world(args, rest):
         return _delegate(
             "ambition_ldtk_tools.edit.world_repack", [args.world_action, *rest]
         )
+    if args.world_action == "move-levels":
+        return _delegate("ambition_ldtk_tools.edit.world_move", rest)
     if args.world_action == "auto-layout":
         return _delegate(
             "ambition_ldtk_tools.edit.world_layout", [args.world_action, *rest]
@@ -485,6 +488,14 @@ def build_parser() -> argparse.ArgumentParser:
             "activeArea groups. Usage: world auto-layout <ldtk> "
             "[--start central_hub_main] [--origin 0,0] [--gap 256] [--padding N] [--svg-report PATH] "
             "(--dry-run | --in-place | --output PATH)"
+        ),
+    )
+    world_sub.add_parser(
+        "move-levels",
+        help=(
+            "Move whole levels to another world file (a dimension's own), keeping "
+            "their ids and iids. Usage: world move-levels <src> <dst> --level L ... "
+            "[--prefix P] [--init --identifier IID --uid-base N] [--dry-run]"
         ),
     )
     sp_world.set_defaults(func=cmd_world)

@@ -34,12 +34,14 @@ A coconut palm (a `Prop`, scenery) stands by each coconut on the ground.
   fight needs its width, and its two ledges with a step to each); this
   placement has its own encounter id, so its progress is its own.
 
-Each room after the first has its door back, and puts the door forward in the
-room before it (`connect_to`), so the rooms are made in order. A room that is
-in the map already is replaced, with the doors that other rooms put in it:
-make all six again, in order (`--apply` does). The central hub is not
-replaced, so its door stays: a second `--apply` makes the trailhead without
-the link that placed it.
+The rooms are the dinosaur dimension's world file (`dinosaur.ldtk`); the door
+to them is in the central hub's developer wing (`sandbox.ldtk`). Each room
+after the first has its door back, and puts the door forward in the room
+before it (`connect_to`), so the rooms are made in order. A room that is in
+the map already is replaced, with the doors that other rooms put in it: make
+all six again, in order (`--apply` does). A link places a door only in its own
+file, so the trailhead is made without its link to the hub, whose door
+(`gate_network/make_gates.py`) stays where it is.
 
 An enemy is an `EnemySpawn` with the `character_id` of a row of the character
 catalog; the row's own profile is what makes it hunt. The size of its box is
@@ -59,12 +61,15 @@ TOOLS = HERE.parents[1]
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk, default_worlds_dir  # noqa: E402
 
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 import gates  # noqa: E402
 
-LDTK = default_sandbox_ldtk()
+#: The dinosaur dimension's world file: the rooms of the trail.
+LDTK = default_worlds_dir() / "dinosaur.ldtk"
+#: The central hub's: the door to the trail.
+HUB_LDTK = default_sandbox_ldtk()
 
 BIOME = "primeval"
 MUSIC = "dinosaur_liberators"
@@ -375,7 +380,7 @@ ROOMS = (trailhead, run, rookery, ridge, canopy, tyrant_hall)
 
 def hub_door_is_placed():
     """The central hub has the door of this level already."""
-    world = json.loads(Path(LDTK).read_text())
+    world = json.loads(Path(HUB_LDTK).read_text())
     hub = next((level for level in world["levels"] if level["identifier"] == HUB_LEVEL), None)
     return hub is not None and "primeval_hub_door" in json.dumps(hub)
 
@@ -389,15 +394,17 @@ def main(argv):
         made.append(path)
         print(path.relative_to(TOOLS))
     if "--apply" in argv:
-        if hub_door_is_placed():
-            # The name of a door that is there already (`HUB_DOOR_NAME`).
-            subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "entity", "set-field", str(HERE / "hub_door_name.yaml"),
-                            "--ldtk", str(LDTK), "--in-place"], cwd=TOOLS, check=True)
+        if not hub_door_is_placed():
+            print(f"the hub has no door to the trail ({HUB_LEVEL} in {HUB_LDTK}): make it first (gate_network/make_gates.py)")
+            return 2
+        # The name of the door (`HUB_DOOR_NAME`).
+        subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "entity", "set-field", str(HERE / "hub_door_name.yaml"),
+                        "--ldtk", str(HUB_LDTK), "--in-place"], cwd=TOOLS, check=True)
         for path in made:
             spec = path
-            if path == made[0] and hub_door_is_placed():
-                # The hub is not replaced, so its door is there already: make
-                # the trailhead again without the link that would place it.
+            if path == made[0]:
+                # The hub is in another file, and its door is there already:
+                # make the trailhead without the link that would place it.
                 spec = Path(tempfile.mkdtemp()) / path.name
                 spec.write_text(re.sub(r"connect_to: \[.*?\n    \],", "connect_to: [],", path.read_text(), flags=re.S))
             done = subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "area", "create", str(spec), "--ldtk",

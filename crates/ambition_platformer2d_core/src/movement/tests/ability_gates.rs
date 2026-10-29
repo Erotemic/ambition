@@ -394,6 +394,49 @@ fn an_attack_pressed_with_the_sticks_first_tick_starts_no_dash() {
 /// the window is INSTANT, which is what makes a dash-dance a conversation
 /// rather than a commitment — and the fifth is what keeps every other world in
 /// this repo exactly where it was.
+/// A stick under the dash threshold walks, and a walk never reads as a run
+/// however fast the continuum carries it; the same stick on a body at the
+/// engine's threshold runs as it always did. So a walking attack stays a
+/// tilt. Poison: the stick gate removed from `running`, red at the first arm.
+#[test]
+fn a_stick_under_the_dash_threshold_walks_and_never_reads_as_a_run() {
+    let world = test_world();
+    let with_threshold = |dash_deflection: f32| {
+        let mut tuning = super::TEST_TUNING;
+        tuning.initial_dash_time = 10.0 / 60.0;
+        tuning.dash_deflection = dash_deflection;
+        tuning
+    };
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let walk = |tuning, stick: f32| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(&world, &mut scratch, InputState::default(), 1.0 / 60.0, tuning);
+        }
+        assert!(scratch.ground.on_ground, "the fixture never reached the floor");
+        for _ in 0..60 {
+            super::update_player_with_tuning_scratch(&world, &mut scratch, hold(stick), 1.0 / 60.0, tuning);
+        }
+        scratch
+    };
+    let top = super::TEST_TUNING.params().locomotion.max_run_speed;
+    let walked = walk(with_threshold(0.8), 0.7);
+    assert!(
+        walked.kinematics.vel.x.abs() > 0.55 * top,
+        "a 0.7 stick must carry the body past the commit speed ({} of {top}) or the arm proves nothing",
+        walked.kinematics.vel.x
+    );
+    assert!(!crate::movement::BodyMotionFacts::from_model(&walked.model).running, "a stick under the dash threshold read as a RUN");
+    let ran = walk(with_threshold(0.8), 1.0);
+    assert!(crate::movement::BodyMotionFacts::from_model(&ran.model).running, "a stick past the dash threshold did not read as a run");
+    let engine = walk(with_threshold(0.5), 0.7);
+    assert!(crate::movement::BodyMotionFacts::from_model(&engine.model).running, "a body at the engine's threshold lost its speed-only run");
+}
+
 #[test]
 fn an_initial_dash_is_at_speed_at_once_and_may_still_reverse() {
     let world = test_world();

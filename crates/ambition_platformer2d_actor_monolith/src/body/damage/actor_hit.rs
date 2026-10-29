@@ -213,7 +213,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
         // A protected body registers the hit without health damage. The
         // stimulus consumer owns retaliation, strike counts and speech.
         let pos = em.kin.pos;
-        combat.hit_flash = 0.18;
+        combat.hit_flash = combat.hit_flash.max(0.18);
         combat.note_struck();
         combat.damage_invuln_timer = ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);

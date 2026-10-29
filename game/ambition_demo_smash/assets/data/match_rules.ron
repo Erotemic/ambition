@@ -284,4 +284,8 @@
     // Fighters are solid to each other (jostle). The engine owns the
     // constraint; the match only says its cast has it.
     fighter_contact: Some((resistance: 0.85)),
+    // The camera: two fighters trading blows fill the screen. The view may
+    // close to 45% of the stage view (the engine's exploration framing stops
+    // at 75%), with 40 px around the pair. A launch opens it back out.
+    cast_framing: Some((min_view_scale: 0.45, margin: 40.0)),
 )

@@ -31,7 +31,7 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
             MusicLayerSpec { id: id.into(), slot }
         }).collect(),
         states: ["intro", "song"].into_iter().map(|id| MusicStateSpec {
-            id: id.into(), section_id: id.into(),
+            id: id.into(), section_id: id.into(), next_state: (id == "intro").then(|| "song".into()),
             gains: ["bed", "tune"].into_iter().map(|layer| MusicLayerGainSpec {
                 layer_id: layer.into(), gain: 1.0,
             }).collect(),
@@ -101,4 +101,33 @@ fn decoding_layers_does_not_consume_the_intro_or_split_their_start() {
     assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveLoop);
     step(&mut app, 0.25);
     assert_eq!(app.world().resource::<MusicDirectorState>().seconds_in_loop, 0.25);
+}
+
+#[test]
+fn a_held_intro_request_continues_on_real_time_while_the_world_is_paused() {
+    let (mut app, handles) = fixture();
+    app.init_resource::<Time<Virtual>>();
+    app.world_mut().resource_mut::<Time<Virtual>>().pause();
+    for handle in &handles { decode(&mut app, handle); }
+    step(&mut app, 0.25);
+    for _ in 0..15 { step(&mut app, 0.25); }
+    assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveIntro);
+    step(&mut app, 0.25);
+    for _ in 0..40 { step(&mut app, 0.25); }
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(director.current_state_id.as_deref(), Some("song"));
+    assert_eq!(director.seconds_in_loop, 10.0);
+    assert_eq!(app.world().resource::<Time<Virtual>>().elapsed_secs(), 0.0);
+    // The encounter catches up after resume; the playing loop keeps its clock.
+    app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
+        cue_id: "trail".into(), state_id: "song".into(),
+    });
+    step(&mut app, 0.25);
+    assert_eq!(app.world().resource::<MusicDirectorState>().seconds_in_loop, 10.25);
+    // A later entry into the one-shot is a new request and must play it again.
+    app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
+        cue_id: "trail".into(), state_id: "intro".into(),
+    });
+    for _ in 0..20 { step(&mut app, 0.25); }
+    assert_eq!(app.world().resource::<MusicDirectorState>().mode, MusicDirectorMode::AdaptiveIntro);
 }

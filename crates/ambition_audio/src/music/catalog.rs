@@ -428,6 +428,7 @@ mod provider_registry_tests {
                 states: vec![MusicStateSpec {
                     id: "main".to_owned(),
                     section_id: "loop".to_owned(),
+                    next_state: None,
                     gains: vec![MusicLayerGainSpec {
                         layer_id: "full".to_owned(),
                         gain: 1.0,

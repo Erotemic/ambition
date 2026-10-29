@@ -30,7 +30,7 @@
             // renderer masters per-stem outputs and each stem is audible.
             layers: [(id: "full", slot: 0)],
             states: [
-                (id: "intro", section_id: "intro", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "intro", section_id: "intro", next_state: Some("wave1"), gains: [(layer_id: "full", gain: 1.0)]),
                 (id: "wave1", section_id: "wave1", gains: [(layer_id: "full", gain: 1.0)]),
                 (id: "wave2", section_id: "wave2", gains: [(layer_id: "full", gain: 1.0)]),
                 // With one full mix per section this state is the same as
@@ -103,7 +103,7 @@
             // +0.6. At a gain of one the heavy guitar adds 0.5 dB and the
             // horns 0.2: the gains over one are what make them a step.
             states: [
-                (id: "intro", section_id: "intro", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "intro", section_id: "intro", next_state: Some("soft"), gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
                 (id: "soft", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
                 (id: "rolling", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0)]),
                 (id: "driving", section_id: "song", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "crunch", gain: 1.5)]),
@@ -202,9 +202,9 @@
                 (id: "tune", slot: 2),
             ],
             states: [
-                (id: "awaken", section_id: "awaken", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "awaken", section_id: "awaken", next_state: Some("march"), gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
                 (id: "march", section_id: "march", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
-                (id: "unleash", section_id: "unleash", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "unleash", section_id: "unleash", next_state: Some("march"), gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
                 (id: "howl", section_id: "howl", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
                 (id: "storm", section_id: "storm", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
             ],
@@ -236,7 +236,7 @@
             ],
             layers: [(id: "full", slot: 0)],
             states: [
-                (id: "intro", section_id: "intro", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "intro", section_id: "intro", next_state: Some("fight"), gains: [(layer_id: "full", gain: 1.0)]),
                 (id: "fight", section_id: "fight", gains: [(layer_id: "full", gain: 1.0)]),
                 (id: "outro", section_id: "outro", gains: [(layer_id: "full", gain: 1.0)]),
             ],
@@ -278,7 +278,7 @@
                 (id: "lead", slot: 2),
             ],
             states: [
-                (id: "intro", section_id: "intro", gains: [(layer_id: "band", gain: 1.0), (layer_id: "orchestra", gain: 1.0), (layer_id: "lead", gain: 1.0)]),
+                (id: "intro", section_id: "intro", next_state: Some("decree"), gains: [(layer_id: "band", gain: 1.0), (layer_id: "orchestra", gain: 1.0), (layer_id: "lead", gain: 1.0)]),
                 (id: "decree", section_id: "song", gains: [(layer_id: "band", gain: 1.0), (layer_id: "orchestra", gain: 1.0), (layer_id: "lead", gain: 1.0)]),
             ],
         ),

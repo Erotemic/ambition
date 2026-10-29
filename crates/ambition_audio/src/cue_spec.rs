@@ -106,6 +106,9 @@ pub struct MusicLayerSourceSpec {
 pub struct MusicStateSpec {
     pub id: String,
     pub section_id: String,
+    /// Start this state when this one-shot ends, even if its request holds.
+    #[serde(default)]
+    pub next_state: Option<String>,
     pub gains: Vec<MusicLayerGainSpec>,
 }
 
@@ -262,6 +265,12 @@ pub fn cue_reference_errors<'a>(
                     cue.id, state.id, state.section_id
                 ));
             }
+            if let Some(next) = &state.next_state {
+                if !states.contains(next.as_str()) {
+                    errors.push(format!("cue '{}' state '{}' references unknown next state '{}'", cue.id, state.id, next));
+                }
+            }
+
             for gain in &state.gains {
                 if !layers.contains(gain.layer_id.as_str()) {
                     errors.push(format!(

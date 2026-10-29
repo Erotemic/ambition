@@ -847,6 +847,14 @@ timed dismount and later rollback. Guards: 14 mount, 14 app, 70 Smash and 35 pol
 tests; six Smash diagnostics ignored; default app compiles with no warnings.
 Keep release independent of controller kind. No production systems or state added.
 
+### K33 — Runtime identity diagnostics
+
+`6efa03591`: damageable-body identity observation moved from the kernel to runtime.
+Both identity censuses remain. The old module and forwarding API are gone.
+Guards: 14 runtime, five app and 35 policy tests; default app and strict rustdoc pass.
+Schedule, gates, state lifetime and codec shapes stay the same. Keep diagnostics
+outside body execution. Full feature union and Android were not run.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

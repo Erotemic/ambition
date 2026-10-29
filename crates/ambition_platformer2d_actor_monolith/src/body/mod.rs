@@ -1,7 +1,6 @@
 //! Accepted body control, decisions, movement, and action execution.
 
 use ambition_characters::actor::limb::fan_out_limb_intents;
-use ambition_persistence::save_data::npc_talked_flag;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -17,9 +16,6 @@ mod movement;
 mod integration;
 pub use integration::{BodyFrameOutput, BodyReset};
 pub(crate) mod npcs;
-/// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
-/// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
-pub use npcs::npc_talk_dialogue_id;
 
 pub mod empowerment;
 pub mod ledge_grab;

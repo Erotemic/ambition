@@ -2,10 +2,6 @@
 
 use super::*;
 
-/// When the player gets within this many world pixels, a patrolling NPC stops and faces the
-/// player so the dialog interact is reachable. ~80 px ≈ 2.5 player widths — close enough to
-/// commit to dialog, far enough that an NPC doesn't freeze the moment you walk past their
-/// patrol range.
 /// Engine-generic on-hit barks for an interactable actor whose catalog row
 /// authors no `barks.on_hit` pool (an unnamed mob, or a placed NPC carrying no
 /// `character_id`). Named per-character voices live in the catalog — this is
@@ -16,40 +12,7 @@ const GENERIC_HIT_BARKS: &[&str] = &["Hey.", "Cut it out.", "Okay, now I'm mad."
 /// catalog `barks.provoked` pool). Named archetypes author their own.
 const GENERIC_HOSTILE_BARK: &str = "That's it!";
 
-/// Resolve the explicit initial brain (plus its runtime [`BrainBinding`] and the
-/// [`AuthoredBrainContext`] it will rebuild from) for a placed NPC.
-///
-/// Precedence is entirely explicit: the placement's `brain_override` preset, else
-/// the character's catalog `default_brain`. The placement's `patrol_radius` is
-/// threaded only as a PARAMETER a *selected* patrol preset consumes (its lane
-/// radius); it never SELECTS the brain. A `patrol_path_id` is a separate movement
-/// attachment, not a brain-build parameter. This function never inspects the
-/// resulting brain — no "basic brain" classification, no `is_hostile` gate, and no
-/// `patrol_radius == 0` sentinel.
-///
-/// An NPC placed without a `character_id` (legacy / synthetic) has no catalog
-/// identity to resolve a default from: it gets a plain stand-still brain and no
-/// binding (nothing to switch or snapshot). A catalog-backed NPC returns its
-/// binding + authored context so runtime gameplay can switch its brain, rebuild
-/// its default around the authored home, and snapshot the selection.
-///
-/// Fails loud (panics) on an unknown preset name — matching the catalog's
-/// pre-release fail-loud stance; unknown presets never fall back silently. An
-/// unknown `character_id` is tolerated (stand-still, no binding): a partial-provider
-/// composition (a Hall character whose provider fragment isn't registered in this
-/// host) is an intentional content contract, not a spawn-time crash — the
-/// prepared-content validation test is where unknown ids are caught for a host
-/// that DOES claim to own them.
-// --- Interaction-based free helpers -----------------------------------
-//
-// These derive flags + bark/dialogue lines from the actor's *interaction*
-// payload (`Interactable`) plus its identity (`name`/`id`) and a couple of
-// status scalars (`strikes`/`hostile`), explicitly threaded — never from a
-// per-family cluster. That keeps dialogue an actor capability (the
-// `ActorInteraction` seam): any talkable actor can drive them.
-
 use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
-use ambition_combat::events::NpcDialogueRequest;
 use ambition_interaction::{Interactable, InteractionKind};
 
 /// The catalog `character_id` carried by an NPC interaction payload, if any.
@@ -123,84 +86,10 @@ pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool
     }
 }
 
-/// The dialogue that a talk to an NPC starts, from the id its placement
-/// authors.
-///
-/// An authored id must be non-EMPTY, not merely present. Blank is the same
-/// statement as absent: this character has no bespoke scene, so it gets the
-/// generic one. The content validator asks here too, so that the talk flags it
-/// knows ([`npc_talked_flag`]) are those that a talk sets.
-pub fn npc_talk_dialogue_id(authored: Option<&str>) -> String {
-    match authored {
-        Some(dialogue_id) if !dialogue_id.trim().is_empty() => dialogue_id.to_string(),
-        _ => "generic_npc".to_string(),
-    }
-}
-
-pub(crate) fn npc_dialogue_request(
-    interactable: &Interactable,
-    name: &str,
-    id: &str,
-) -> NpcDialogueRequest {
-    let dialogue_id = match &interactable.kind {
-        InteractionKind::Npc { dialogue_id, .. } => npc_talk_dialogue_id(dialogue_id.as_deref()),
-        _ => npc_talk_dialogue_id(None),
-    };
-    NpcDialogueRequest {
-        npc_id: id.to_string(),
-        npc_name: name.to_string(),
-        dialogue_id,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// LDtk writes an unset string field as `""`, so a pedestal with no bespoke conversation
-    /// reaches the dialogue bridge as `Some("")`.
-    #[test]
-    fn a_blank_dialogue_id_means_absent_not_a_yarn_node_named_nothing() {
-        let blank = Interactable::new(
-            "voice",
-            "Talk",
-            ambition_platformer2d_core::Aabb::new(
-                ambition_platformer2d_core::Vec2::ZERO,
-                ambition_platformer2d_core::Vec2::new(1.0, 1.0),
-            ),
-            InteractionKind::Npc {
-                character_id: Some("npc_marie_curry".to_string()),
-                dialogue_id: Some(String::new()),
-                patrol_radius: 0.0,
-                patrol_path_id: None,
-                brain_override: None,
-            },
-        );
-        assert_eq!(
-            npc_dialogue_request(&blank, "Marie Curry", "pedestal").dialogue_id,
-            "generic_npc",
-        );
-        // Whitespace is blank too.
-        let spaces = Interactable::new(
-            "voice",
-            "Talk",
-            ambition_platformer2d_core::Aabb::new(
-                ambition_platformer2d_core::Vec2::ZERO,
-                ambition_platformer2d_core::Vec2::new(1.0, 1.0),
-            ),
-            InteractionKind::Npc {
-                character_id: None,
-                dialogue_id: Some("   ".to_string()),
-                patrol_radius: 0.0,
-                patrol_path_id: None,
-                brain_override: None,
-            },
-        );
-        assert_eq!(
-            npc_dialogue_request(&spaces, "X", "y").dialogue_id,
-            "generic_npc",
-        );
-    }
     use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
 
     const FIRST: &str = r#"(

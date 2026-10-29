@@ -241,11 +241,10 @@ pub fn interact_ecs_actors_and_switches(
             {
                 continue;
             }
-            let request = crate::body::npcs::npc_dialogue_request(
-                interactable,
-                &identity.name,
-                &identity.id,
-            );
+            let dialogue_id = ambition_conversation::npc_talk_dialogue_id(match &interactable.kind {
+                ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+                _ => None,
+            });
             let listener_id =
                 ambition_conversation::character_id_of(interactable).unwrap_or(&identity.id);
 
@@ -271,8 +270,8 @@ pub fn interact_ecs_actors_and_switches(
             if !dialogue.open_between(
                 subject,
                 actor_entity,
-                &request.dialogue_id,
-                &request.npc_name,
+                dialogue_id,
+                &identity.name,
                 speaker_id,
                 listener_id,
                 input_owner,
@@ -314,7 +313,7 @@ pub fn interact_ecs_actors_and_switches(
                 on: true,
             });
             set_flag.write(SetFlagRequested {
-                id: crate::body::npc_talked_flag(&request.dialogue_id),
+                id: ambition_persistence::save_data::npc_talked_flag(dialogue_id),
                 on: true,
             });
             vfx.for_room(live_rooms.of(actor_entity)).write(VfxMessage::Burst {

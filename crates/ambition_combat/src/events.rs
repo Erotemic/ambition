@@ -413,13 +413,6 @@ impl GameplayBannerRequested {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NpcDialogueRequest {
-    pub npc_id: String,
-    pub npc_name: String,
-    pub dialogue_id: String,
-}
-
 /// Semantic cause of a [`HitEvent`]. Attacker identity comes from
 /// [`HitEvent::attacker`], victim routing from the named target, and launch
 /// strength from authored hit data. Add new attack causes here rather than

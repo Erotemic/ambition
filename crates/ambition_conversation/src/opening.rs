@@ -4,20 +4,6 @@
 //! DIALOGUE rather than about interaction: who is speaking, who is being spoken
 //! to, whether the pair has anything to say, and which seat owns the box.
 //!
-//! this lived in `body/interact.rs`, and that placement was the
-//! last thing pinning `ambition_dialog` into `features`. The decomposition
-//! plan's step 5 is *put integration above the domains it joins*: pressing
-//! Interact is an INTERACTION fact (a body, a reach box, a buffered press) and
-//! entering a Yarn node is a DIALOGUE fact. `interact` owns the first and asks
-//! this for the second, so `features` names no dialogue type at all.
-//! (`docs/planning/engine/actor-monolith-decomposition.md`,
-//! the whole coupling was TWO production lines.)
-//!
-//! the port takes `&str` and `Entity` and nothing else. It would have been
-//! easy to hand it the monolith's `NpcDialogueRequest` and add a third inward
-//! edge to this module; it takes the two strings out of that request instead, so
-//! the carve accounting in [`super`] does not grow.
-
 use bevy::prelude::*;
 
 use ambition_combat::components::{ActorIdentity, ActorInteraction};
@@ -170,6 +156,16 @@ impl DialogueDispatch<'_, '_> {
     }
 }
 
+/// Select the entry node for an NPC talk. An absent or blank authored ID
+/// selects the generic conversation. Runtime and content validation use this
+/// rule so that their dialogue IDs agree.
+pub fn npc_talk_dialogue_id(authored: Option<&str>) -> &str {
+    match authored {
+        Some(dialogue_id) if !dialogue_id.trim().is_empty() => dialogue_id,
+        _ => "generic_npc",
+    }
+}
+
 /// The catalog character this interactable IS, if it is a character at all.
 ///
 /// A Hall pedestal, a hub NPC, a possessed body — each authors a `character_id`.
@@ -205,6 +201,15 @@ fn dialogue_identity(
 mod tests {
     use super::*;
     use ambition_platformer2d_core as ae;
+
+    #[test]
+    fn a_blank_dialogue_id_means_absent_not_a_yarn_node_named_nothing() {
+        for authored in [None, Some(""), Some("   ")] {
+            assert_eq!(npc_talk_dialogue_id(authored), "generic_npc");
+        }
+        assert_eq!(npc_talk_dialogue_id(Some("hub_guide")), "hub_guide");
+        assert_eq!(npc_talk_dialogue_id(Some(" authored ")), " authored ");
+    }
 
     /// CHARACTER identity beats PLACEMENT identity, and `$speaker_is_self`
     /// is why: it must fire when you walk up to the Hall pedestal of the

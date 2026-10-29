@@ -46,7 +46,7 @@ pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };
 pub use music::NarrativeMusicRequest;
-pub use opening::{character_id_of, DialogueDispatch};
+pub use opening::{character_id_of, npc_talk_dialogue_id, DialogueDispatch};
 pub use plugin::ConversationPlugin;
 pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
 pub use ui_bridge::{

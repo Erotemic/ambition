@@ -157,6 +157,10 @@ A reset request with two primary bodies gets `Cancelled { AmbiguousSubject }`
 and is spent; a startup resume in that world ends as a checkpoint in an unknown
 room ends, because it admitted no operation.
 
+Checkpoint history readers run in `CheckpointCapture`, in the frame that
+emits `CheckpointCommitted`. This includes grant, bag-spend and pickup-consumption
+history. A prior frame's message is not available after a rollback load.
+
 ## Acceptance matrix
 
 Every row has a witness that fails for that row's property.
@@ -178,6 +182,7 @@ Every row has a witness that fails for that row's property.
 | Failure after destructive apply | `a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure` |
 | Held, thrown and minted carried items | the death suite; `custody_verification_names_the_custodian_and_refuses_a_duplicate` |
 | Restore then frame-zero rollback | the `rollback_lifecycle_reset` suite |
+| Deferred runtime-item materialization before the confirmed baseline | `a_confirmed_restore_materializes_banked_custody_before_the_new_baseline`: non-empty capture, missing instance, one restored custodian, preserved provenance and later loads without another rebase |
 | Eager and confirmed hosts | `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` and the eager suite |
 | Checkpoint-only composition | `a_checkpoint_only_composition_resumes_without_the_item_domain` |
 | Held use enabled, unused, or omitted | `checkpoint_startup_does_not_depend_on_held_use` (`crates/ambition_platformer2d_host/tests/supported_profiles.rs`) |
@@ -191,8 +196,9 @@ filter is not a pass.
 
 ## Open work
 
-- Widen post-apply verification: checkpoint replay consequences, deferred
-  flushes and the final rollback baseline.
+- Widen post-apply verification of checkpoint replay consequences. The confirmed
+  runtime-item arm covers deferred custody materialization and its frame-zero
+  baseline; clocks and portals still have no accepted snapshot.
 - A subject that is gone or cannot transit has a unit witness only. No
   production road removes the primary body or its `MotionModel`, cluster or
   `BodyCombat` while its session lives, so a composed arm would remove it by

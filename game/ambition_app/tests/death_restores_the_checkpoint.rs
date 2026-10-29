@@ -188,7 +188,10 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
     if let Some(room) = room {
         shrine.insert(room);
     }
+    shrine.insert(SimId::placement("checkpoint-test-shrine"));
     let shrine = shrine.id();
+    sim.rebase_rollback_history()
+        .expect("the shrine enters the fixture baseline");
     for _ in 0..8 {
         sim.step(AgentAction {
             interact: true,
@@ -197,6 +200,8 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
         sim.step(base());
     }
     sim.world_mut().entity_mut(shrine).despawn();
+    sim.rebase_rollback_history()
+        .expect("the fixture baseline releases the shrine");
     assert!(
         sim.world()
             .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
@@ -686,6 +691,193 @@ fn equip_the_minted_item(
         player,
         &mut repertoire,
         spec,
+    );
+}
+
+/// Restore a missing runtime item before frame zero, then load that baseline.
+#[test]
+fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
+    use ambition_app::{AmbitionSim, Platformer2dSimHarnessOptions, TimestepMode};
+    use ambition_platformer2d::item::OwnedItems;
+    use ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline;
+    use ambition_platformer2d::platformer::lifecycle::session_world_component;
+    use ambition_platformer2d::session::checkpoint::{
+        CheckpointRestoreOutcome, SessionCheckpointOutcomes,
+    };
+    use bevy::ecs::system::RunSystemOnce;
+
+    const ROOM: &str = "switch_lab";
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the confirmed host builds");
+    let before = dynamic_occurrences(&mut sim);
+    sim.world_mut().resource_mut::<OwnedItems>().grant(
+        ambition_platformer2d::items::test_item_catalog(),
+        MINTED_ITEM,
+        1,
+    );
+    sim.world_mut()
+        .run_system_once(equip_the_minted_item)
+        .unwrap();
+    sim.rebase_rollback_history()
+        .expect("the equipped quantity enters the baseline");
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    });
+    sim.step_n(base(), 120);
+    let minted: Vec<_> = dynamic_occurrences(&mut sim)
+        .into_iter()
+        .filter(|id| !before.contains(id))
+        .collect();
+    assert_eq!(
+        minted.len(),
+        1,
+        "the throw must create one runtime occurrence"
+    );
+    let minted = minted.into_iter().next().unwrap();
+
+    let at = resting_place(&mut sim, &minted);
+    sim.teleport_player(at);
+    sim.rebase_rollback_history()
+        .expect("pickup starts at the item's position");
+    for _ in 0..40 {
+        sim.step(AgentAction {
+            attack: true,
+            ..base()
+        });
+        if occurrences(&mut sim, &minted)
+            .iter()
+            .any(|(_, custody)| !custody.in_world())
+        {
+            break;
+        }
+    }
+    assert_still_held(&mut sim, &minted, "pickup before the checkpoint");
+    let consumed = SimId::placement("checkpoint-test-consumed");
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::item_runtime::pickups::ConsumedSinceCheckpoint>()
+        .record(
+            consumed.clone(),
+            ROOM.to_string(),
+            vec![ambition_platformer2d::characters::control::PlayerSlot::PRIMARY],
+        );
+    commit_a_checkpoint(&mut sim);
+    assert!(
+        sim.world()
+            .resource::<ambition_platformer2d::item_runtime::pickups::ConsumedSinceCheckpoint>()
+            .owners(&consumed)
+            .is_none(),
+        "the checkpoint did not clear consumption history"
+    );
+    assert!(
+        session_world_component::<MintedItemBaseline>(sim.world())
+            .unwrap()
+            .description_of(&minted)
+            .is_some(),
+        "the checkpoint did not bank the runtime recipe"
+    );
+
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    });
+    sim.step_n(base(), 10);
+    assert_returned(
+        &mut sim,
+        &minted,
+        "the banked object is released before removal",
+    );
+    let old = occurrences(&mut sim, &minted);
+    assert_eq!(old.len(), 1);
+    sim.world_mut().entity_mut(old[0].0).despawn();
+    let floor = {
+        let world = sim.world_mut();
+        let geometry = world
+            .query::<&ambition_platformer2d::engine_core::RoomGeometry>()
+            .single(world)
+            .expect("one live room");
+        geometry.0.size.y + geometry.0.edges.fall
+    };
+    let player = body(&mut sim);
+    {
+        let mut kin = sim
+            .world_mut()
+            .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(player)
+            .unwrap();
+        kin.pos.y = floor + kin.size.y;
+        kin.vel = Default::default();
+    }
+    sim.rebase_rollback_history()
+        .expect("the missing item enters the pre-restore baseline");
+    assert!(occurrences(&mut sim, &minted).is_empty());
+    let before = session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .unwrap()
+        .latest()
+        .cloned();
+    let sessions_before = sim.rollback_execution_stats().unwrap().sessions_installed;
+    sim.step(base());
+    let mut committed = false;
+    for _ in 0..240 {
+        sim.step(base());
+        sim.rollback_health()
+            .expect("the restore stays deterministic");
+        let outcome = session_world_component::<SessionCheckpointOutcomes>(sim.world())
+            .unwrap()
+            .latest()
+            .cloned();
+        if outcome != before {
+            assert!(
+                matches!(outcome, Some(CheckpointRestoreOutcome::Committed { .. })),
+                "the restore did not commit: {outcome:?}"
+            );
+            committed = true;
+            break;
+        }
+    }
+    assert!(committed, "the confirmed host did not finish the restore");
+    assert_still_held(
+        &mut sim,
+        &minted,
+        "the committed restore must apply its queued materialization",
+    );
+    let boundary = sim.rollback_execution_stats().unwrap();
+    assert!(
+        boundary.sessions_installed > sessions_before,
+        "the restore did not install frame zero"
+    );
+
+    for _ in 0..80 {
+        sim.step(base());
+        sim.rollback_health()
+            .expect("the restored baseline stays deterministic");
+        assert_still_held(
+            &mut sim,
+            &minted,
+            "a later load must retain the restored occurrence",
+        );
+        let instance = occurrences(&mut sim, &minted)[0].0;
+        assert!(
+            matches!(
+                sim.world().get::<SpawnOrigin>(instance),
+                Some(SpawnOrigin::Dynamic { .. })
+            ),
+            "the restored item lost its runtime provenance"
+        );
+    }
+    let later = sim.rollback_execution_stats().unwrap();
+    assert_eq!(
+        later.sessions_installed, boundary.sessions_installed,
+        "another rebase replaced the baseline under examination"
+    );
+    assert!(
+        later.lifetime_load_runs > boundary.lifetime_load_runs,
+        "no rollback loaded the restored baseline"
     );
 }
 

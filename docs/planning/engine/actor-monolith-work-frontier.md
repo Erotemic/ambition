@@ -74,9 +74,9 @@ no occurrence, custody or owned-item state. The P2P road stays inert below
 `commit_confirmed_lifecycle`'s `LocalSyncTest` gate. A coordinated peer-level
 rule is a new packet.
 
-**Open remainder:** widen post-apply verification beyond the ledger, the bag and
-custody presence: checkpoint replay consequences, deferred flushes and the final
-rollback baseline. Pin typed immutable checkpoint data on admission when
+**Open remainder:** widen post-apply verification of checkpoint replay
+consequences. The real confirmed-host runtime-item arm checks deferred custody
+materialization and later loads of its frame-zero baseline. Pin typed immutable checkpoint data on admission when
 deferred application makes it load-bearing. No live-ledger swap and no generic
 snapshot registry.
 

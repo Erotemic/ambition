@@ -313,6 +313,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             .add_systems(
                 sim,
                 ambition_platformer2d_items::pickups::forget_consumed_pickups_at_checkpoint
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCapture)
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted,
                     >,
                 ),

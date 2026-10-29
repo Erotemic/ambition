@@ -705,7 +705,11 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         )
         .init_resource::<RewardGrantsSinceCheckpoint>()
         .init_resource::<ambition_held_items::BagSpendsSinceCheckpoint>()
-        .add_systems(sim, forget_bag_records_at_checkpoint.run_if(ambition_platformer2d_core::a_message_waits::<CheckpointCommitted>))
+        // All checkpoint readers must consume the commit in its simulation frame.
+        // LoadWorld clears messages before a replay of the next frame.
+        .add_systems(sim, forget_bag_records_at_checkpoint
+            .in_set(CheckpointCapture)
+            .run_if(ambition_platformer2d_core::a_message_waits::<CheckpointCommitted>))
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an
         // unconfirmed request is what the confirmed-frame lifecycle exists to

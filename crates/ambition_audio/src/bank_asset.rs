@@ -240,11 +240,13 @@ impl AssetLoader for SfxBankLoader {
 }
 
 #[derive(Resource, Default)]
-pub struct PendingSfxBankHandles {
+pub struct SfxBankHandles {
     handles: BTreeMap<String, Handle<SfxBankAsset>>,
+    admitted: BTreeMap<String, Arc<BankProvider>>,
+    rejected: BTreeMap<String, Arc<BankProvider>>,
 }
 
-impl PendingSfxBankHandles {
+impl SfxBankHandles {
     /// This provider's bank is still loading, so a cue that misses now may
     /// play soon. The miss diagnostic depends on "not yet" versus "never".
     pub fn is_loading(&self, provider_id: &str, asset_server: &AssetServer) -> bool {
@@ -256,8 +258,7 @@ impl PendingSfxBankHandles {
 
 /// Provider bank assets that reached a terminal load failure.
 ///
-/// Kept after the pending handle is removed, so later diagnostics say "the
-/// bank failed", not "no bank is registered yet".
+/// A failed reload keeps the accepted bank available.
 #[derive(Resource, Default)]
 pub struct FailedSfxBankLoads {
     errors: BTreeMap<String, String>,
@@ -326,7 +327,6 @@ fn kick_off_bank_load(
     catalog: Res<SfxBankAssetCatalog>,
     legacy_path: Option<Res<SfxBankAssetPath>>,
     audio_catalogs: Option<Res<crate::catalog::AudioCatalogRegistry>>,
-    banks: Res<SfxBankResource>,
 ) {
     let mut requested = BTreeMap::<String, String>::new();
     for (provider, path) in catalog.iter() {
@@ -351,11 +351,8 @@ fn kick_off_bank_load(
             }
         }
     }
-    let mut pending = PendingSfxBankHandles::default();
+    let mut pending = SfxBankHandles::default();
     for (provider_id, asset_path) in requested {
-        if banks.provider(&provider_id).is_some() {
-            continue;
-        }
         info!(
             target: AUDIO_LOG_TARGET,
             "ambition audio: loading provider '{}' SFX bank from '{}'",
@@ -373,12 +370,9 @@ fn kick_off_bank_load(
     }
 }
 
-/// Promote a late bank transactionally and refresh the live context only when
-/// it belongs to the same provider. Missing handles are never cached, so the
-/// active session can resolve the bank immediately after this system runs.
+/// Retain loaded handles and admit changed banks as one transaction.
 fn promote_loaded_sfx_bank(
-    mut commands: Commands,
-    pending: Option<ResMut<PendingSfxBankHandles>>,
+    handles: Option<ResMut<SfxBankHandles>>,
     asset_server: Res<AssetServer>,
     assets: Res<Assets<SfxBankAsset>>,
     mut banks: ResMut<SfxBankResource>,
@@ -386,65 +380,43 @@ fn promote_loaded_sfx_bank(
     mut selection: ResMut<ActiveAudioSelection>,
     mut failed_banks: ResMut<FailedSfxBankLoads>,
 ) {
-    let Some(mut pending) = pending else {
+    let Some(mut handles) = handles else { return; };
+    let mut ready = BTreeMap::new();
+    for (provider, handle) in &handles.handles {
+        if let Some(asset) = assets.get(handle) {
+            if !handles.admitted.get(provider).is_some_and(|old| Arc::ptr_eq(old, &asset.provider)) {
+                ready.insert(provider.clone(), asset.provider.clone());
+            }
+        } else if let LoadState::Failed(error) = asset_server.load_state(handle) {
+            if !failed_banks.errors.contains_key(provider) {
+                let message = format!("SFX bank failed to load: {error:?}");
+                bevy::log::error!(target: AUDIO_LOG_TARGET, "provider '{provider}': {message}");
+                failed_banks.errors.insert(provider.clone(), message);
+            }
+        }
+    }
+    if ready.is_empty() || (ready.len() == handles.rejected.len() && ready.iter().all(|(provider, bank)|
+        handles.rejected.get(provider).is_some_and(|old| Arc::ptr_eq(old, bank)))) { return; }
+    let fingerprints = ready.iter().map(|(provider, bank)|
+        (provider.clone(), bank.content_fingerprints())).collect();
+    if let Err(error) = bank_ids.replace_banks(fingerprints) {
+        for provider in ready.keys() {
+            let message = format!("SFX bank composition failed: {error}");
+            if failed_banks.errors.get(provider) != Some(&message) {
+                bevy::log::error!(target: AUDIO_LOG_TARGET, "provider '{provider}': {message}");
+                failed_banks.errors.insert(provider.clone(), message);
+            }
+        }
+        handles.rejected = ready;
         return;
-    };
-    let failed: Vec<(String, String)> = pending
-        .handles
-        .iter()
-        .filter_map(|(provider, handle)| match asset_server.load_state(handle) {
-            LoadState::Failed(error) => Some((provider.clone(), format!("{error:?}"))),
-            _ => None,
-        })
-        .collect();
-    for (provider_id, error) in failed {
-        let handle = pending
-            .handles
-            .remove(&provider_id)
-            .expect("failed provider handle remains pending");
-        let path = asset_server
-            .get_path(handle.id())
-            .map(|path| path.to_string())
-            .unwrap_or_else(|| "<no path>".to_owned());
-        bevy::log::error!(
-            target: AUDIO_LOG_TARGET,
-            "ambition audio: provider '{provider_id}' SFX bank '{path}' failed to load: {error}",
-        );
-        failed_banks
-            .errors
-            .insert(provider_id, format!("{path}: {error}"));
     }
-    let ready: Vec<String> = pending
-        .handles
-        .iter()
-        .filter_map(|(provider, handle)| assets.get(handle).map(|_| provider.clone()))
-        .collect();
-    for provider_id in ready {
-        let handle = pending
-            .handles
-            .remove(&provider_id)
-            .expect("ready provider handle remains pending");
-        let asset = assets
-            .get(&handle)
-            .expect("ready provider bank asset remains available");
-        let provider = asset.provider.clone();
-        failed_banks.errors.remove(&provider_id);
-        let fingerprints = provider.content_fingerprints();
-        bank_ids
-            .register(provider_id.clone(), fingerprints)
-            .unwrap_or_else(|error| panic!("provider SFX bank composition failed: {error}"));
-        banks
-            .register(provider_id.clone(), provider)
-            .unwrap_or_else(|error| panic!("provider SFX bank promotion failed: {error}"));
-        selection.refresh_provider_sfx_ids(&provider_id, bank_ids.ids_for(&provider_id));
-        info!(
-            target: AUDIO_LOG_TARGET,
-            "ambition audio: provider '{}' SFX bank is ready",
-            provider_id,
-        );
-    }
-    if pending.handles.is_empty() {
-        commands.remove_resource::<PendingSfxBankHandles>();
+    handles.rejected.clear();
+    for (provider, bank) in ready {
+        failed_banks.errors.remove(&provider);
+        banks.providers.insert(provider.clone(), bank.clone());
+        handles.admitted.insert(provider.clone(), bank);
+        selection.refresh_provider_sfx_ids(&provider, bank_ids.ids_for(&provider));
+        info!(target: AUDIO_LOG_TARGET, "provider '{provider}' SFX bank is ready");
     }
 }
 
@@ -485,7 +457,7 @@ pub fn audio_play_sfx_messages(
     mut messages: MessageReader<OwnedSfxMessage>,
     selection: Res<ActiveAudioSelection>,
     banks: Res<SfxBankResource>,
-    pending: Option<Res<PendingSfxBankHandles>>,
+    pending: Option<Res<SfxBankHandles>>,
     failed_banks: Res<FailedSfxBankLoads>,
     asset_server: Res<AssetServer>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
@@ -607,12 +579,59 @@ mod tests {
     use bevy::prelude::{App, MinimalPlugins};
 
     use super::{
-        describe_sfx_id, FailedSfxBankLoads, PendingSfxBankHandles, SfxBankAssetAppExt,
+        describe_sfx_id, FailedSfxBankLoads, SfxBankHandles, SfxBankAssetAppExt,
         SfxBankAssetPlugin, SfxBankResource,
     };
     use crate::catalog::SfxBankRegistry;
     use crate::selection::ActiveAudioSelection;
     use crate::spec::{SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec};
+
+    fn bank_asset(payload: u8) -> super::SfxBankAsset {
+        let id = SfxId::from_static("fixture.cue");
+        let mut bytes = vec![0u8; 105];
+        bytes[..8].copy_from_slice(b"AMBNDSFX");
+        bytes[8..12].copy_from_slice(&1u32.to_le_bytes());
+        bytes[12..16].copy_from_slice(&1u32.to_le_bytes());
+        bytes[16..24].copy_from_slice(&40u64.to_le_bytes());
+        bytes[24..32].copy_from_slice(&104u64.to_le_bytes());
+        bytes[32..40].copy_from_slice(&105u64.to_le_bytes());
+        bytes[40..48].copy_from_slice(&id.hash().to_le_bytes());
+        bytes[48..56].copy_from_slice(&104u64.to_le_bytes());
+        bytes[56..60].copy_from_slice(&1u32.to_le_bytes());
+        bytes[61] = 1;
+        bytes[64..68].copy_from_slice(&48000u32.to_le_bytes());
+        bytes[104] = payload;
+        super::SfxBankAsset { provider: std::sync::Arc::new(ambition_sfx::BankProvider::from_bytes(bytes).unwrap()) }
+    }
+
+    #[test]
+    fn a_shared_bank_reload_updates_all_providers_and_keeps_conflicting_bytes_out() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(AssetPlugin::default())
+            .init_resource::<ActiveAudioSelection>()
+            .add_plugins(SfxBankAssetPlugin);
+        app.update();
+        let handle = app.world_mut().resource_mut::<bevy::asset::Assets<super::SfxBankAsset>>().add(bank_asset(1));
+        app.world_mut().insert_resource(super::SfxBankHandles {
+            handles: [("a".to_owned(), handle.clone()), ("b".to_owned(), handle.clone())].into(),
+            ..Default::default()
+        });
+        app.update();
+        let first = app.world().resource::<SfxBankResource>().fingerprints_for("a");
+        app.world_mut().resource_mut::<bevy::asset::Assets<super::SfxBankAsset>>().insert(handle.id(), bank_asset(2)).unwrap();
+        app.update();
+        let banks = app.world().resource::<SfxBankResource>();
+        let second = banks.fingerprints_for("a");
+        assert_ne!(first, second);
+        assert_eq!(second, banks.fingerprints_for("b"));
+        let conflict = app.world_mut().resource_mut::<bevy::asset::Assets<super::SfxBankAsset>>().add(bank_asset(3));
+        app.world_mut().resource_mut::<super::SfxBankHandles>().handles.insert("c".to_owned(), conflict);
+        app.update();
+        assert_eq!(app.world().resource::<SfxBankResource>().fingerprints_for("a"), second);
+        assert!(app.world().resource::<SfxBankResource>().provider("c").is_none());
+        assert_eq!(app.world().resource::<SfxBankRegistry>().ids_for("c"), BTreeSet::new());
+    }
 
     fn sfx_registry(cue: SoundCueKey) -> SfxRegistry {
         SfxRegistry {
@@ -665,9 +684,9 @@ mod tests {
         );
         assert!(
             app.world()
-                .get_resource::<PendingSfxBankHandles>()
+                .get_resource::<SfxBankHandles>()
                 .map_or(true, |pending| {
-                    !pending.handles.contains_key("broken_provider")
+                    !pending.is_loading("broken_provider", app.world().resource::<bevy::asset::AssetServer>())
                 }),
             "a failed handle must not remain classified as loading forever"
         );

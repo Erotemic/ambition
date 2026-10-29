@@ -147,7 +147,7 @@ fn build_slash_source(sprite_content: &ambition_sprite_sheet::SpriteContent,
     let source = SlashSource {
         // `fx-sheet`, the label the catalog's effect loads use. A bare `load`
         // would leave the image with no demand (`demand=unknown`).
-        image: ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+        image: ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
             asset_server,
             "fx-sheet",
             ambition_asset_manager::platformer_assets::logical_asset_path("sprites", &record.image),

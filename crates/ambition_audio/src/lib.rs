@@ -36,7 +36,7 @@ pub use output::{AudioBackendState, AudioOutputMode};
 
 #[cfg(feature = "kira")]
 pub use bank_asset::{
-    a_cue_waits_or_was_played, audio_play_sfx_messages, PendingSfxBankHandles, SfxBankAsset, SfxBankAssetAppExt,
+    a_cue_waits_or_was_played, audio_play_sfx_messages, SfxBankHandles, SfxBankAsset, SfxBankAssetAppExt,
     SfxBankAssetCatalog, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
 };
 #[cfg(feature = "kira")]

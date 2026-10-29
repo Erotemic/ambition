@@ -210,7 +210,7 @@ fn build_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
             }
         }
         ProjectileArtSource::Image { path } => {
-            let mut sprite = Sprite::from_image(load_sheet_image(&sprite_content,
+            let mut sprite = Sprite::from_image(load_sheet_image(Some(&sprite_content),
                 asset_server,
                 "projectile-art",
                 path.clone(),
@@ -275,7 +275,7 @@ fn build_sheet_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
         Vec2::new(record.frame_width as f32, record.frame_height as f32),
     ));
     let frame_aspect = (first.width() / first.height()).max(0.0001);
-    let mut sprite = Sprite::from_image(load_sheet_image(&sprite_content,
+    let mut sprite = Sprite::from_image(load_sheet_image(Some(&sprite_content),
         asset_server,
         "projectile-art",
         ambition_asset_manager::platformer_assets::logical_asset_path("sprites", &record.image),

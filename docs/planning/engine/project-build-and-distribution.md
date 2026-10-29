@@ -201,8 +201,7 @@ One-click GUI export is not an acceptance requirement.
 scripts/package_outlander.py` produces the release artifact of Outlander
 (`fixtures/external_consumer`, the SDK game) and checks that it reads every
 asset from inside itself. The exit code tells a missing prerequisite (2) from a
-failed build (3) and a failed artifact (1). Linux only; the asset list is
-measured, not authored (`--measure`).
+failed build (3) and a failed artifact (1). Linux only. Outlander carries its own assets and selects no shared library.
 
 ### B7 - agent iteration budget
 

@@ -121,6 +121,10 @@ def discover_active_scores() -> dict[str, bool]:
     return active_scores
 
 
+def generation_cues() -> list[str]:
+    return sorted({*discover_active_scores(), *_policy["EXTRA_CUES"], *CLAIMED_DIRS})
+
+
 def discover_cues() -> list[str]:
     return [cue for cue in _policy["EXTRA_CUES"] if cue not in CLAIMED_DIRS and not is_denied(cue)]
 
@@ -175,6 +179,7 @@ def tracked_ids(text: str) -> set[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--list-cues", action="store_true", help="list selected source cue IDs as JSON")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -191,6 +196,9 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+    if args.list_cues:
+        print(json.dumps(generation_cues()))
+        return 0
     if args.generated_dir is not None:
         global GENERATED_DIR
         GENERATED_DIR = args.generated_dir.expanduser().resolve()

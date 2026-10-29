@@ -8,38 +8,22 @@
 
 use bevy::prelude::*;
 #[cfg(feature = "audio")]
-use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
-
-#[cfg(feature = "audio")]
-// The platform VISUAL spawn is presentation and lives in the actor monolith;
-// the platform STATE it renders is the world crate's and is named there.
-#[cfg(feature = "audio")]
-use ambition_platformer2d::asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
+use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::library::AudioLibrary;
-#[cfg(feature = "audio")]
-use ambition_platformer2d::audio::SfxBankResource;
 use ambition_platformer2d::content::MusicRegistry;
-use ambition_platformer2d::content::SfxRegistry;
 use ambition_platformer2d::render::rendering::{HudText, QuestPanelText};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
-#[cfg(feature = "audio")]
-use ambition_platformer2d::sfx::BankProvider;
 
-/// Build and insert the host-resident audio library (packed SFX bank +
-/// catalog-resolved music assets) and its playback state. An asset CACHE —
-/// host-owned, shared across sessions; the per-session audio AUTHORITY is
-/// `ambition_platformer2d::audio::selection::ActiveAudioSelection`.
+/// Insert the shared music cache and its playback state.
+/// The active audio selection controls playback authority.
 #[cfg(feature = "audio")]
 pub fn install_audio_library(
     commands: &mut Commands,
-    audio_sources: &mut Assets<KiraAudioSource>,
     asset_server: &AssetServer,
     catalog: &Platformer2dAssetCatalog,
     music_registry: &MusicRegistry,
-    sfx_registry: &SfxRegistry,
 ) {
-    let bank_provider = try_load_sfx_bank_via_catalog(catalog);
     // Resolve music-track ids through the sandbox asset catalog so the
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
@@ -49,13 +33,7 @@ pub fn install_audio_library(
         )
     };
     let (mut audio_library, music_state) = AudioLibrary::new_with_playback_state(
-        audio_sources,
-        sfx_registry,
         music_registry,
-        Some(asset_server),
-        bank_provider
-            .as_ref()
-            .map(|provider| provider as &dyn ambition_platformer2d::sfx::SfxProvider),
         Some(&resolve_track_path),
     );
     // Direct startup and shell activation can now include the initial track in
@@ -64,87 +42,6 @@ pub fn install_audio_library(
     audio_library.preload_track(music_state.active_track(), asset_server);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);
-    if let Some(provider) = bank_provider {
-        info!("loaded sfx bank: {} entries", provider.entry_count());
-        let mut banks = SfxBankResource::default();
-        banks
-            .register(
-                ambition_content::AMBITION_CONTENT_PROVIDER,
-                std::sync::Arc::new(provider),
-            )
-            .expect("initial Ambition SFX bank registration should be unique");
-        commands.insert_resource(banks);
-    }
-}
-
-/// Load the bank from the selected asset catalog.
-#[cfg(feature = "audio")]
-fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<BankProvider> {
-    let id = ids::sfx_bank();
-    let resolved = match catalog.resolve(&id) {
-        Ok(r) => r,
-        Err(error) => {
-            warn!("sfx bank catalog resolve failed: {error}");
-            return None;
-        }
-    };
-
-    // Use an explicit local candidate without a second root lookup.
-    if let Some(local) = resolved.location.as_local_path() {
-        return load_bank_from_path(local);
-    }
-
-    // 2. Synthesized BevyPath (or any other Bevy-pathable location)
-    //    located via the catalog's centralized desktop candidate-roots
-    //    walker. `resolve_local_file_path` returns None for
-    //    non-desktop profiles or when the file isn't present.
-    //    A packaged game holds the bank inside its own file, and that comes
-    //    first: the game then reads no bank from the disk.
-    if let Some(rel_path) = resolved.bevy_asset_path() {
-        if let Some(bytes) = catalog.library_bytes(&rel_path) {
-            return BankProvider::from_bytes(bytes.to_vec()).map_err(|error| warn!("The selected SFX bank failed to parse: {error}")).ok();
-        }
-        if let Some(bundle) = catalog.exe_bundle() {
-            match bundle.read(&ambition_platformer2d::asset_manager::content_library::package_path(&rel_path)) {
-                Ok(Some(bytes)) => match BankProvider::from_bytes(bytes) {
-                    Ok(provider) => {
-                        info!("loaded sfx bank from the program's own file: {} entries", provider.entry_count());
-                        return Some(provider);
-                    }
-                    Err(error) => warn!("the sfx bank inside the program failed to parse: {error}"),
-                },
-                Ok(None) => {}
-                Err(error) => warn!("the sfx bank inside the program could not be read: {error}"),
-            }
-        }
-        if let Some(local) = catalog.resolve_local_file_path(&rel_path) {
-            return load_bank_from_path(&local);
-        }
-    }
-
-    info!(
-        "no sfx bank found for {} profile (resolved {:?}); SFX will play short silent stubs",
-        catalog.profile().label(),
-        resolved.location,
-    );
-    None
-}
-
-#[cfg(feature = "audio")]
-fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
-    match BankProvider::from_path(path) {
-        Ok(provider) => {
-            debug!("sfx bank loaded from {}", path.display());
-            Some(provider)
-        }
-        Err(error) => {
-            warn!(
-                "sfx bank at {} failed to parse: {error}; SFX will play short silent stubs",
-                path.display()
-            );
-            None
-        }
-    }
 }
 
 /// HOST-resident presentation scaffolding: the primary + front-HUD cameras.

@@ -174,7 +174,7 @@ impl RoomDressingSet {
     /// Ask for each part of `theme`'s dressing that is not loaded. Returns how
     /// many handles it added.
     pub fn ensure_theme_loaded(
-        &mut self, content: &crate::SpriteContent,
+        &mut self,
         catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
         asset_server: &AssetServer,
         theme: ParallaxTheme,
@@ -189,7 +189,7 @@ impl RoomDressingSet {
                 continue;
             };
             self.handles
-                .insert((theme, part), load_sheet_image(&content, asset_server, "room-dressing", path));
+                .insert((theme, part), load_sheet_image(None, asset_server, "room-dressing", path));
             added += 1;
         }
         added

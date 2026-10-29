@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path, PurePosixPath
 
 from .art_publication import Store, MANAGED_ROOTS
@@ -33,19 +34,29 @@ class Library:
             if selected["generation"] is None:
                 raise ValueError(f"Library {self.id!r} has no publication: {root}")
         managed = set(MANAGED_ROOTS) | set(selected.get("roots", [])) if selected else set()
+        def is_managed(logical: str) -> bool:
+            return bool(selected and logical in selected["files"]) or any(logical == prefix or logical.startswith(prefix + "/") for prefix in managed)
         files: dict[str, Path] = {}
-        for declared in self.manifest["asset_roots"].values():
+        for role, declared in self.manifest["asset_roots"].items():
             root = self.path.parent / relative(declared)
-            for path in sorted(root.rglob("*")):
-                if not path.is_file() or any(part.startswith(".") for part in path.relative_to(root).parts):
+            candidates = []
+            for directory, folders, names in os.walk(root):
+                folders[:] = sorted(folder for folder in folders if not folder.startswith(".") and
+                                    not (role != "authored" and is_managed((Path(directory) / folder).relative_to(root).as_posix())))
+                candidates.extend(Path(directory) / name for name in sorted(names) if not name.startswith("."))
+            for path in candidates:
+                if not path.is_file():
                     continue
                 logical = path.relative_to(root).as_posix()
-                if logical.split("/", 1)[0] in managed:
+                if role != "authored" and is_managed(logical):
                     continue
                 if logical in files:
                     raise ValueError(f"Library {self.id!r} declares {logical!r} twice: {files[logical]} and {path}")
                 files[logical] = path
         if selected:
+            collision = set(files) & set(selected["files"])
+            if collision:
+                raise ValueError(f"Authored files collide with published products: {sorted(collision)}")
             files.update({logical: self.path.parent / store / relative(row["path"]) for logical, row in selected["files"].items()})
         return files
 
@@ -73,6 +84,9 @@ def selected_manifest(repo: Path) -> Path:
 
 
 def generated_root(repo: Path) -> Path:
+    import os
+    if os.environ.get("AMBITION_GENERATION_ROOT"):
+        return Path(os.environ["AMBITION_GENERATION_ROOT"])
     path = selected_manifest(repo)
     library = next(iter(read_libraries([path]).values()))
     return path.parent / relative(library.manifest["asset_roots"]["generated"])
@@ -85,3 +99,8 @@ def producer(repo: Path, name: str) -> dict:
         return manifest["producers"][name]
     except KeyError:
         raise ValueError(f"Library {path} declares no {name!r} producer") from None
+
+
+def runtime_files(repo: Path) -> dict[str, Path]:
+    library = next(iter(read_libraries([selected_manifest(repo)]).values()))
+    return library.files()

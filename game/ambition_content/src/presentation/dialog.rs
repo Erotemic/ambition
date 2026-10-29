@@ -526,7 +526,7 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     let portrait_image = portrait_image_path
         .zip(asset_server.as_deref())
         .map(|(path, server)| {
-            ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content, server, "portrait", path)
+            ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), server, "portrait", path)
         });
 
     let selected_marker = ui_fonts

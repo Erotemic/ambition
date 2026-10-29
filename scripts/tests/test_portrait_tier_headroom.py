@@ -86,12 +86,10 @@ def test_a_frame_under_the_smallest_box_upscales_at_every_scale():
     )
 
 
-def test_frames_scale_with_the_png_and_absence_is_reported(monkeypatch):
-    """A reduced tier has no manifest — that is the finding — so its frame is
-    derived from the PNG ratio. A tier with no PNG must be reported absent, not
-    silently given the full-resolution frame."""
+def test_selected_tier_metadata_reports_reduced_frames(monkeypatch):
+    """Each tier reports the frame dimensions that its renderer reads."""
     module = load()
-    if not (module.ASSETS / "sprites").is_dir():
+    if not module.runtime_files(module.REPO):
         pytest.skip("the sprite tree is gitignored generated output; absent here")
     frames = module.portrait_frames("alice_portraits")
     if not frames:

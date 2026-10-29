@@ -12,7 +12,8 @@ import statistics
 import sys
 from pathlib import Path
 
-SHEETS = Path("game/ambition_content_library/generated/runtime/sprites")
+from lib.content_libraries import runtime_files
+REPO = Path(__file__).resolve().parents[1]
 
 REFERENCE = ("alice", "bob")
 
@@ -61,11 +62,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    if not SHEETS.is_dir():
-        print(f"no sheet directory at {SHEETS} — run from the repo root", file=sys.stderr)
-        return 2
-
-    rows = [m for p in sorted(SHEETS.glob("*_spritesheet.ron")) if (m := measure(p))]
+    paths = [path for logical, path in runtime_files(REPO).items() if logical.startswith("sprites/") and logical.endswith("_spritesheet.ron")]
+    rows = [m for path in sorted(paths) if (m := measure(path))]
     if not rows:
         print("no sheets carried a body bbox", file=sys.stderr)
         return 2

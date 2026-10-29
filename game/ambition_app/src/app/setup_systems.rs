@@ -1,9 +1,6 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-#[cfg(feature = "audio")]
-use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
-
 use ambition_platformer2d::game_assets as actor_game_assets;
 
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
@@ -39,11 +36,9 @@ pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<
     mut commands: Commands,
     // Absent in a hub without Ambition (`hub_games`).
     prepared_world: Option<Res<ambition_content::provider::AmbitionPreparedWorld>>,
-    sfx_registry: Res<ambition_platformer2d::content::SfxRegistry>,
     audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     catalogs: PresentationCatalogs,
     hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
-    mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     libraries: Res<ambition_platformer2d::asset_manager::content_library::ContentLibraries>,
@@ -105,11 +100,9 @@ pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<
     scene_setup::host_presentation_scaffold(&mut commands);
     scene_setup::install_audio_library(
         &mut commands,
-        &mut audio_sources,
         &asset_server,
         asset_catalog,
         &music_registry,
-        &sfx_registry,
     );
     commands.insert_resource(game_assets);
     // Publish the merged superset catalog so gameplay-time sprite/asset lookups

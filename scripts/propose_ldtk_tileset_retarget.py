@@ -52,12 +52,17 @@ REPO = Path(
     ).stdout.strip()
 )
 MAP_ASSETS = REPO / "game/ambition_map_assets"
-ASSETS = REPO / "game/ambition_content_library/generated/runtime"
+from lib.content_libraries import runtime_files
+
+def asset_path(logical: str) -> Path | None:
+    return runtime_files(REPO).get(logical)
 SHEET = "player_robot_v3_spritesheet.png"
 CURRENT_REL = f"../sprites/{SHEET}"
 
 
-def png_size(path: Path) -> tuple[int, int] | None:
+def png_size(path: Path | None) -> tuple[int, int] | None:
+    if path is None:
+        return None
     try:
         header = path.open("rb").read(24)
     except OSError:
@@ -95,7 +100,7 @@ def retarget_world(world: Path, tier: str) -> tuple[list[str], list[str]] | None
     ]
     if not tilesets:
         return None
-    new_size = png_size(ASSETS / tier / SHEET)
+    new_size = png_size(asset_path(f"{tier}/{SHEET}"))
     if new_size is None:
         return None
     new_w, new_h = new_size
@@ -152,7 +157,7 @@ def main(argv: list[str]) -> int:
             "`git submodule update --init --recursive`.\n⛔ Absent is not zero."
         )
         return 2
-    if png_size(ASSETS / args.tier / SHEET) is None:
+    if png_size(asset_path(f"{args.tier}/{SHEET}")) is None:
         print(
             f"NO {args.tier}/{SHEET} ON DISK. The sprite tiers are gitignored "
             "generated output;\nthis proposal needs the real header of the file "

@@ -164,11 +164,11 @@ impl ContentLibrary {
         }
         let selected = self.selection()?;
         let mut files = BTreeMap::new();
-        for relative in self.manifest.asset_roots.values() {
+        for (role, relative) in &self.manifest.asset_roots {
             let root = self.root.join(relative);
             if !root.is_dir() { continue; }
-            for (logical, physical) in regular_files(&root)? {
-                if selected.as_ref().is_some_and(|selection| selection.manages(Path::new(&logical))) {
+            for (logical, physical) in regular_files(&root, if role == "authored" { None } else { selected.as_ref() })? {
+                if role != "authored" && selected.as_ref().is_some_and(|selection| selection.manages(Path::new(&logical))) {
                     continue;
                 }
                 let file = LibraryFile { library: self.manifest.id.clone(), logical: logical.clone(),
@@ -182,6 +182,7 @@ impl ContentLibrary {
         }
         if let Some(selected) = selected {
             for (logical, physical) in selected.entries() {
+                if files.contains_key(logical) { return Err(format!("Authored asset {logical:?} collides with its published product")); }
                 files.insert(logical.to_owned(), LibraryFile { library: self.manifest.id.clone(),
                     logical: logical.to_owned(), data: LibraryFileData::Native(physical), generation: selected.generation.clone(),
                     address: format!("content://{}/__art/{}", self.manifest.id, selected.files[logical].path) });
@@ -279,14 +280,15 @@ impl ContentLibraries {
     }
 }
 
-fn regular_files(root: &Path) -> Result<Vec<(String, PathBuf)>, String> {
-    fn visit(root: &Path, directory: &Path, files: &mut Vec<(String, PathBuf)>) -> Result<(), String> {
+fn regular_files(root: &Path, selected: Option<&Selection>) -> Result<Vec<(String, PathBuf)>, String> {
+    fn visit(root: &Path, directory: &Path, files: &mut Vec<(String, PathBuf)>, selected: Option<&Selection>) -> Result<(), String> {
         for entry in std::fs::read_dir(directory).map_err(|error| format!("{}: {error}", directory.display()))? {
             let entry = entry.map_err(|error| error.to_string())?;
             let path = entry.path();
             if entry.file_name().to_string_lossy().starts_with('.') { continue; }
+            if selected.is_some_and(|selection| selection.manages(path.strip_prefix(root).unwrap())) { continue; }
             if entry.file_type().map_err(|error| error.to_string())?.is_dir() {
-                visit(root, &path, files)?;
+                visit(root, &path, files, selected)?;
             } else if path.is_file() {
                 files.push((path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/"), path));
             }
@@ -294,7 +296,7 @@ fn regular_files(root: &Path) -> Result<Vec<(String, PathBuf)>, String> {
         Ok(())
     }
     let mut files = Vec::new();
-    visit(root, root, &mut files)?;
+    visit(root, root, &mut files, selected)?;
     files.sort_by(|left, right| left.0.cmp(&right.0));
     Ok(files)
 }

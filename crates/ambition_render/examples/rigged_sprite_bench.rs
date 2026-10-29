@@ -78,7 +78,9 @@ const CAMERA_SCALE: f32 = 2.0;
 /// sprites extracted and batched are the same, and almost no pixel is filled,
 /// so the difference to the full target is the rasterizer.
 const TINY: u32 = 10;
-const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime");
+mod selected_library;
+use ambition_asset_manager::content_library::LibrarySnapshot;
+use ambition_sprite_sheet::SpriteContent;
 
 struct Row {
     actors: usize,
@@ -92,6 +94,7 @@ struct Row {
 }
 
 fn main() {
+    let (snapshot, content) = selected_library::read();
     let mut target = "pirate_admiral".to_string();
     let mut frames: usize = 3000;
     let mut counts = vec![1usize, 10, 50, 100];
@@ -119,7 +122,7 @@ fn main() {
             }
         }
     }
-    let flipbook = RiggedSpriteAsset::baked(&target)
+    let flipbook = RiggedSpriteAsset::baked(&content, &target)
         .unwrap_or_else(|| panic!("`{target}` publishes no part flipbook: run scripts/regen/sprites.sh"));
     println!(
         "[rigged_sprite_bench] target={target} max_draws={} parts={} frames={frames} views={views:?} tiny={tiny}",
@@ -127,8 +130,8 @@ fn main() {
         flipbook.parts.len()
     );
     for &actors in &counts {
-        let baked = run(&target, actors, false, frames, views, tiny);
-        let rigged = run(&target, actors, true, frames, views, tiny);
+        let baked = run(&snapshot, &content, &target, actors, false, frames, views, tiny);
+        let rigged = run(&snapshot, &content, &target, actors, true, frames, views, tiny);
         for row in [&baked, &rigged] {
             let render = row.render.map_or(String::new(), |(extracted, batches)| {
                 format!(" extracted_sprites={extracted} sprite_batches={batches}")
@@ -153,12 +156,13 @@ fn main() {
 /// The sheet of `target`: with default handles and no pages when nothing
 /// draws, or with its pages loaded from the published assets.
 fn sheet(
+    content: &SpriteContent,
     target: &str,
     rigged: bool,
     loader: Option<(&AssetServer, &mut Assets<TextureAtlasLayout>)>,
 ) -> CharacterSpriteAsset {
-    let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
-    let flipbook = rigged.then(|| RiggedSpriteAsset::baked(target).expect("a published flipbook"));
+    let spec = try_load_spec_for_character_id(content, target).expect("a baked sheet: run scripts/regen/sprites.sh");
+    let flipbook = rigged.then(|| RiggedSpriteAsset::baked(content, target).expect("a published flipbook"));
     let (texture, layout, pages, part_pages) = match loader {
         None => (
             Handle::default(),
@@ -175,13 +179,13 @@ fn sheet(
                         spec.page_images[page as usize].clone()
                     };
                     CharacterSpritePage {
-                        texture: server.load(format!("sprites/{file}")),
+                        texture: ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-sheet", if file.contains("://") { file } else { format!("sprites/{file}") }),
                         layout: layouts.add(spec.build_atlas_for_page(page)),
                     }
                 })
                 .collect();
             let part_pages = flipbook.as_ref().map_or(Vec::new(), |flipbook| {
-                flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(server, "character-parts", format!("sprites/{page}"))).collect()
+                flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-parts", format!("sprites/{page}"))).collect()
             });
             (pages[0].texture.clone(), pages[0].layout.clone(), pages, part_pages)
         }
@@ -230,10 +234,6 @@ fn add_renderer(app: &mut App, views: usize, tiny: bool) {
                 exit_condition: bevy::window::ExitCondition::DontExit,
                 ..default()
             })
-            .set(AssetPlugin {
-                file_path: ASSETS.to_string(),
-                ..default()
-            })
             // No window and no display: `update` is called by hand.
             .disable::<bevy::winit::WinitPlugin>(),
     );
@@ -277,8 +277,9 @@ fn add_renderer(app: &mut App, views: usize, tiny: bool) {
     }
 }
 
-fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<usize>, tiny: bool) -> Row {
+fn run(snapshot: &LibrarySnapshot, content: &SpriteContent, target: &str, actors: usize, rigged: bool, frames: usize, views: Option<usize>, tiny: bool) -> Row {
     let mut app = App::new();
+    selected_library::install(&mut app, snapshot, content);
     if let Some(views) = views {
         add_renderer(&mut app, views, tiny);
     }
@@ -293,11 +294,11 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
         let world = app.world_mut();
         let server = world.resource::<AssetServer>().clone();
         let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
-        sheet(target, rigged, Some((&server, &mut layouts)))
+        sheet(content, target, rigged, Some((&server, &mut layouts)))
     } else {
         // No renderer: the pages are images made present by hand, so the
         // binder (which waits for every page) binds at once.
-        let mut asset = sheet(target, rigged, None);
+        let mut asset = sheet(content, target, rigged, None);
         let mut images = Assets::<Image>::default();
         if let Some(pages) = asset.rigged.as_mut() {
             for page in &mut pages.pages {
@@ -313,7 +314,7 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
     }
     let mut assets = GameAssets::default();
     assets.characters.declare("bench");
-    assets.characters.publish("bench", asset.clone());
+    assets.characters.publish(content, "bench", asset.clone());
     app.insert_resource(assets);
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
     let rows = actors.min(CELLS).div_ceil(COLUMNS);

@@ -41,9 +41,7 @@ from pathlib import Path
 import sys
 
 REPO = Path(__file__).resolve().parent.parent
-SHEET_DIRS = [
-    REPO / "game/ambition_content_library/generated/runtime/sprites",
-]
+from lib.content_libraries import runtime_files
 
 # `PLAYER_PLACEHOLDER_VISUAL_SCALE` in
 # crates/ambition_sprite_sheet/src/character/sheets/geometry.rs — a
@@ -77,12 +75,9 @@ class Sheet:
 def load_sheet(name: str) -> Sheet:
     import pyron
 
-    for directory in SHEET_DIRS:
-        candidate = directory / f"{name}_spritesheet.ron"
-        if candidate.exists():
-            break
-    else:
-        raise SystemExit(f"no sheet ron found for {name!r} under {SHEET_DIRS[0]}")
+    candidate = runtime_files(REPO).get(f"sprites/{name}_spritesheet.ron")
+    if candidate is None:
+        raise SystemExit(f"No selected sheet for {name!r}")
 
     record = pyron.loads(candidate.read_text())[0]
     tuning = record.get("tuning") or {}
@@ -318,7 +313,7 @@ def main() -> int:
     if args.all:
         names = sorted(
             p.name[: -len("_spritesheet.ron")]
-            for p in SHEET_DIRS[0].glob("*_spritesheet.ron")
+            for logical, p in runtime_files(REPO).items() if logical.startswith("sprites/") and logical.endswith("_spritesheet.ron")
         )
     if not names:
         ap.error("name a target or pass --all")

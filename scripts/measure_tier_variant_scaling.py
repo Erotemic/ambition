@@ -59,7 +59,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-ASSETS = REPO / "game/ambition_content_library/generated/runtime"
+from lib.content_libraries import runtime_files
 
 # Tier dir -> the fraction of Full's LINEAR size it claims. `potato` has no
 # declared ratio (the generator floors every frame at 8px), so it is reported
@@ -117,14 +117,15 @@ def collect() -> dict[Path, dict[str, tuple[float, int]]]:
     """Keyed by path RELATIVE TO THE TIER DIR, so a sheet in a subdirectory
     matches its own variant rather than a same-named sheet at the top level."""
     rows: dict[Path, dict[str, tuple[float, int]]] = collections.defaultdict(dict)
+    files = runtime_files(REPO)
     for tier, _ in TIERS:
-        tier_dir = ASSETS / tier
-        if not tier_dir.is_dir():
-            continue
-        for manifest in sorted(tier_dir.rglob("*_spritesheet.ron")):
+        for logical, manifest in sorted(files.items()):
+            relative = logical.removeprefix(tier + "/")
+            if relative == logical or not logical.endswith("_spritesheet.ron"):
+                continue
             measured = sheet_megapixels(manifest)
             if measured is not None:
-                rows[manifest.relative_to(tier_dir)][tier] = measured
+                rows[Path(relative)][tier] = measured
     return rows
 
 
@@ -139,9 +140,9 @@ def report_ages(names: list[str]) -> None:
     import datetime
     import statistics
 
+    files = runtime_files(REPO)
     for tier, _ in TIERS[1:3]:
-        tier_dir = ASSETS / tier
-        sheets = list(tier_dir.glob("*_spritesheet.png"))
+        sheets = [path for logical, path in files.items() if logical.startswith(tier + "/") and logical.endswith("_spritesheet.png")]
         if not sheets:
             continue
         times = sorted(sheet.stat().st_mtime for sheet in sheets)
@@ -151,9 +152,9 @@ def report_ages(names: list[str]) -> None:
             f"{datetime.datetime.fromtimestamp(median):%Y-%m-%d %H:%M}"
         )
         for name in names:
-            variant = tier_dir / f"{name}_spritesheet.png"
-            full = ASSETS / "sprites" / f"{name}_spritesheet.png"
-            if not variant.exists() or not full.exists():
+            variant = files.get(f"{tier}/{name}_spritesheet.png")
+            full = files.get(f"sprites/{name}_spritesheet.png")
+            if variant is None or full is None:
                 print(f"   {name:<12} absent at this tier")
                 continue
             at = variant.stat().st_mtime

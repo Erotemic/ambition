@@ -44,7 +44,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-PACKS = REPO / "game/ambition_content_library/generated/runtime/sprite_packs"
+from lib.content_libraries import runtime_files
 TIERS = ["full", "half", "quarter", "potato"]
 
 # A `prop_sheets` row: `"kind": ( fields ),` where a field value can hold one
@@ -99,16 +99,17 @@ def pages_used_by(catalog: dict, targets: set[str]) -> set[int]:
 
 def measure(targets: set[str]) -> dict:
     tiers = []
+    files = runtime_files(REPO)
     for tier in TIERS:
-        catalog_path = PACKS / tier / "ultrapack.json"
-        if not catalog_path.exists():
+        catalog_path = files.get(f"sprite_packs/{tier}/ultrapack.json")
+        if catalog_path is None:
             continue
         catalog = json.loads(catalog_path.read_text())
         used = pages_used_by(catalog, targets)
         rows = []
         for index, name in enumerate(catalog["pages"]):
-            page = PACKS / tier / Path(name).name
-            if page.exists():
+            page = files.get(f"sprite_packs/{tier}/{Path(name).name}")
+            if page is not None:
                 rows.append((index, page.stat().st_size))
         tiers.append(
             {
@@ -128,7 +129,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    if not PACKS.is_dir():
+    if not any(name.startswith("sprite_packs/") for name in runtime_files(REPO)):
         print(
             "NO `assets/sprite_packs/` IN THIS CHECKOUT. The packs are gitignored\n"
             "generated output; run the sprite regen before reading this as 0 MB.\n"

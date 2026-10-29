@@ -22,7 +22,7 @@ pub(crate) fn fixture_sfx_registry() -> &'static SfxRegistry {
 #[cfg(test)]
 static TEST_FIXTURE_MUSIC_REGISTRY: std::sync::LazyLock<MusicRegistry> =
     std::sync::LazyLock::new(|| {
-        ron::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime/full/audio/music_registry.ron")).expect("shared audio fixture"))
+        ron::from_str(&String::from_utf8(ambition_asset_manager::content_library::ContentLibrary::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/library.json")).expect("shared audio library").files().expect("shared audio publication")["audio/music_registry.ron"].read().expect("shared registry")).expect("registry UTF-8"))
         .expect("ambition_content music_registry.ron should parse")
     });
 

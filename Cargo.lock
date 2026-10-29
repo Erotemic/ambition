@@ -1165,6 +1165,7 @@ dependencies = [
 name = "ambition_platformer2d_audio"
 version = "0.1.0"
 dependencies = [
+ "ambition_asset_manager",
  "ambition_audio",
  "ambition_boss_encounter",
  "ambition_characters",

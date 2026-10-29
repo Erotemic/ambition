@@ -252,9 +252,9 @@ pub fn attach_puppy_slug_deep_dream_overlays(sprite_content: bevy::prelude::Res<
             tint: Vec4::ONE,
             color_texture: sprite.image.clone(),
             frame_rect: frame_rect(frame),
-            skin: ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content, &asset_server, "fx-sheet", DREAM_SKIN_PICTURE),
+            skin: ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), &asset_server, "fx-sheet", DREAM_SKIN_PICTURE),
             skin_tiles: skin_tiles(render_size, frame_rect(frame)),
-            faces: ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content, &asset_server, "fx-sheet", DREAM_FACES_PICTURE),
+            faces: ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), &asset_server, "fx-sheet", DREAM_FACES_PICTURE),
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);

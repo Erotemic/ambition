@@ -16,6 +16,10 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 # shellcheck disable=SC1091
+if [ "${AMBITION_PRODUCER_WORKER:-}" != "backgrounds" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
+    exec python3 "$repo_root/scripts/generate_library_content.py" backgrounds "$@"
+fi
+
 source "$repo_root/scripts/lib/tool_python.sh"
 source "$repo_root/scripts/lib/asset_roots.sh"
 background_profiles="$(ambition_library_producer backgrounds profiles)"
@@ -86,20 +90,17 @@ echo "==> terrain skins -> $terrain_dir"
         --out-dir "$terrain_dir"
 )
 
-required_outputs=(
-    "$background_root/default/sky.png"
-    "$background_root/default/manifest.txt"
-    "$parallax_dir/hub_sky.png"
-    "$parallax_dir/hub_clean_sky.png"
-    "$sky_parts_dir/mockingbird_moon.png"
-    "$terrain_dir/lab_fill.png"
-)
-for output in "${required_outputs[@]}"; do
-    if [ ! -s "$output" ]; then
-        echo "background generation did not produce: $output" >&2
-        exit 1
-    fi
-done
+"$scene_python" - "$repo_root" <<'PYTHON'
+from pathlib import Path
+import sys
+repo = Path(sys.argv[1])
+sys.path.insert(0, str(repo / "scripts"))
+from lib.content_libraries import generated_root, producer, relative
+for logical in producer(repo, "backgrounds")["required_outputs"]:
+    output = generated_root(repo) / relative(logical)
+    if not output.is_file() or not output.stat().st_size:
+        raise SystemExit(f"Background generation did not produce: {output}")
+PYTHON
 
 "$scene_python" "$repo_root/scripts/check_regeneration_coverage.py" --family backgrounds
 

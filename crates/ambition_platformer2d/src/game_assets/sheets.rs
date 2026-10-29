@@ -405,7 +405,7 @@ pub fn load_game_assets(sprite_content: &ambition_sprite_sheet::SpriteContent,
         quality,
         &mut characters.props,
     );
-    let entities = load_entity_sprites(&sprite_content, catalog, asset_server, quality);
+    let entities = load_entity_sprites(catalog, asset_server, quality);
     // The engine's own effect art. Not a character, not an LDtk prop, and not
     // content's job to declare — see `ambition_sprite_sheet::fx`.
     let fx = character_sprites::load_fx_sheets(&sprite_content, asset_server, layouts, quality);
@@ -431,7 +431,7 @@ pub fn load_game_assets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     let boss_sprites: HashMap<String, sprites::BossSpriteAsset> = HashMap::new();
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
     let parallax_layers =
-        load_parallax_layers_for_theme(&sprite_content, catalog, asset_server, active_parallax_theme, quality);
+        load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme, quality);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {

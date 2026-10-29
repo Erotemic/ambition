@@ -49,7 +49,10 @@ REPO = Path(
     ).stdout.strip()
 )
 MAP_ASSETS = REPO / "game/ambition_map_assets"
-ASSETS = REPO / "game/ambition_content_library/generated/runtime"
+from lib.content_libraries import runtime_files
+
+def asset_path(logical: str) -> Path | None:
+    return runtime_files(REPO).get(logical)
 TARGET_REL = "../sprites/player_robot_v3_spritesheet.png"
 
 
@@ -65,7 +68,9 @@ def _shown(path: Path) -> str:
     return str(path.relative_to(REPO) if path.is_relative_to(REPO) else path)
 
 
-def png_size(path: Path) -> tuple[int, int] | None:
+def png_size(path: Path | None) -> tuple[int, int] | None:
+    if path is None:
+        return None
     """IHDR only — never decode; these are the images the finding is about."""
     try:
         header = path.open("rb").read(24)
@@ -202,12 +207,12 @@ def main(argv: list[str]) -> int:
                     f"{rect.get('w')}x{rect.get('h')}"
                 )
 
-    actual = png_size(ASSETS / "sprites/player_robot_v3_spritesheet.png")
+    actual = png_size(asset_path("sprites/player_robot_v3_spritesheet.png"))
     print(f"\n{naming} tileset definition(s) name {TARGET_REL}")
     if actual:
         print(f"\nthe file they name is actually {actual[0]}x{actual[1]}")
         for tier in ["sprites_0_5x", "sprites_0_25x", "sprites_potato"]:
-            size = png_size(ASSETS / tier / "player_robot_v3_spritesheet.png")
+            size = png_size(asset_path(f"{tier}/player_robot_v3_spritesheet.png"))
             if size:
                 print(
                     f"  {tier:<16} {size[0]}x{size[1]}  "

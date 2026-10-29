@@ -1,6 +1,23 @@
 
 # Generated audio tools
 
+The selected library declares its music and SFX producers. The root scripts
+publish complete immutable bundles. Generated audio and registries are ignored
+by Git. The library keeps shared SFX definitions and music naming policy in
+`authored/`. Games can select no libraries.
+
+```bash
+./scripts/regen/music.sh
+./scripts/regen/sfx.sh
+python3 scripts/generate_library_content.py --check music
+python3 scripts/generate_library_content.py --check sfx
+```
+
+These scripts are part of developer setup. A missing tool or stale product makes
+setup fail. Publishing with `--skip-render` requires current renderer dependency
+receipts. A failed build keeps the accepted audio. Playback retains bank asset
+handles, so an accepted bank change can update the runtime without a Rust build.
+
 ## Music renderer
 
 Location: `tools/ambition_music_renderer/`

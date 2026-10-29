@@ -26,7 +26,6 @@ from pathlib import Path
 
 # The directory of the runtime sprite roots, relative to the repo root, and
 # the roots in it. Mirrors asset_publish::RUNTIME_SPRITE_ROOTS.
-ASSET_ROOT = "game/ambition_content_library/generated/runtime"
 RUNTIME_SPRITE_ROOTS = ("sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato")
 
 # Filename suffixes that mark a visual diagnostic. Mirrors DIAGNOSTIC_SUFFIXES
@@ -91,8 +90,8 @@ def main() -> None:
     parser.add_argument(
         "--asset-root",
         type=Path,
-        default=None,
-        help="Directory of the runtime sprite roots (default: the repo's). "
+        required=True,
+        help="Directory of an unpublished staging tree. "
         "A sprite publish passes its staging root.",
     )
     parser.add_argument(
@@ -105,7 +104,7 @@ def main() -> None:
     repo_root: Path = args.repo_root
     dest_base: Path = args.dest or (repo_root / "target/ambition_publish/diagnostics")
 
-    asset_root: Path = args.asset_root or (repo_root / ASSET_ROOT)
+    asset_root: Path = args.asset_root
 
     total = 0
     for root_name in RUNTIME_SPRITE_ROOTS:

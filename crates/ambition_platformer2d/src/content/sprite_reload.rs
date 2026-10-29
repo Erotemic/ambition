@@ -125,7 +125,7 @@ impl Scanner {
                 .map(|selection| selection.as_ref().and_then(|selection| selection.generation.clone()))
                 .map_err(Clone::clone));
             if let Ok(Some(selected)) = &selected {
-                images.extend(selected.files.iter().filter(|(name, _)| name.ends_with(".png"))
+                images.extend(selected.files.iter()
                     .map(|(name, member)| (format!("content://{}/{name}", library.manifest.id), member.sha256.clone())));
             }
             if let Ok(selected) = library.files() {

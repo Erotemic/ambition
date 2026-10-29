@@ -41,7 +41,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-ASSETS = REPO / "game/ambition_content_library/generated/runtime"
+from lib.content_libraries import runtime_files
 DIALOG = REPO / "game/ambition_content/src/presentation/dialog.rs"
 TIERS = ["sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato"]
 
@@ -51,7 +51,9 @@ SIZE_RE = re.compile(
 FRAME_RE = re.compile(r"frame_width:\s*(\d+),\s*\n\s*frame_height:\s*(\d+),")
 
 
-def png_size(path: Path) -> tuple[int, int] | None:
+def png_size(path: Path | None) -> tuple[int, int] | None:
+    if path is None:
+        return None
     try:
         header = path.open("rb").read(24)
     except OSError:
@@ -75,28 +77,13 @@ def draw_sizes() -> list[tuple[float, float]]:
 
 
 def portrait_frames(name: str) -> dict[str, tuple[int, int]]:
-    """Each tier's frame size for one portrait sheet.
-
-    Only the full-resolution manifest exists (that is the finding), so the
-    reduced tiers' frames are derived from the PNG dimension ratio — the
-    generator downsamples the whole sheet, so the frame scales with it.
-    """
-    manifest = ASSETS / "sprites" / f"{name}.ron"
-    full_png = png_size(ASSETS / "sprites" / f"{name}.png")
-    if not manifest.exists() or full_png is None:
-        return {}
-    found = FRAME_RE.search(manifest.read_text())
-    if not found:
-        return {}
-    frame_w, frame_h = int(found.group(1)), int(found.group(2))
-    out = {"sprites": (frame_w, frame_h)}
-    for tier in TIERS[1:]:
-        size = png_size(ASSETS / tier / f"{name}.png")
-        if size:
-            out[tier] = (
-                max(1, round(frame_w * size[0] / full_png[0])),
-                max(1, round(frame_h * size[1] / full_png[1])),
-            )
+    """Read the frame dimensions from each selected tier's metadata."""
+    files = runtime_files(REPO)
+    out = {}
+    for tier in TIERS:
+        manifest = files.get(f"{tier}/{name}.ron")
+        if manifest is not None and (found := FRAME_RE.search(manifest.read_text())):
+            out[tier] = (int(found[1]), int(found[2]))
     return out
 
 

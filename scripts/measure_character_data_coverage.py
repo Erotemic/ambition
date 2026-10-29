@@ -46,7 +46,10 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SHEETS = REPO / "game/ambition_content_library/generated/runtime/sprites"
+from lib.content_libraries import runtime_files
+
+def sheet_files():
+    return sorted(path for logical, path in runtime_files(REPO).items() if logical.startswith("sprites/") and logical.endswith("_spritesheet.ron"))
 CATALOG = REPO / "game/ambition_content/assets/data/character_catalog.ron"
 KNOCKDOWN_ROWS = ("knockdown", "getup", "tech", "getup_attack")
 DEFAULT_HEIGHT = 48.0
@@ -66,7 +69,7 @@ def sheet_has_row(text: str, row: str) -> bool:
 def knockdown_coverage() -> dict[str, list[str]]:
     """sheet target -> the knockdown rows it carries."""
     out: dict[str, list[str]] = {}
-    for manifest in sorted(SHEETS.rglob("*_spritesheet.ron")):
+    for manifest in sheet_files():
         text = manifest.read_text(errors="ignore")
         name = manifest.name[: -len("_spritesheet.ron")]
         out[name] = [row for row in KNOCKDOWN_ROWS if sheet_has_row(text, row)]
@@ -103,7 +106,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    if not SHEETS.is_dir():
+    if not sheet_files():
         print(
             "NO SPRITE TREE IN THIS CHECKOUT. `assets/sprites` is gitignored\n"
             "generated output; run the regen before reading this as zero coverage.\n"

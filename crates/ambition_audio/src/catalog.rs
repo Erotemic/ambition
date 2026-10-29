@@ -335,6 +335,22 @@ pub struct SfxBankRegistry {
 }
 
 impl SfxBankRegistry {
+    #[cfg(feature = "kira")]
+    pub(crate) fn replace_banks(
+        &mut self,
+        replacements: BTreeMap<String, BTreeMap<SfxId, u64>>,
+    ) -> Result<(), AudioCatalogError> {
+        let mut next = self.clone();
+        for provider in replacements.keys() {
+            next.fragments.remove(provider);
+        }
+        for (provider, entries) in replacements {
+            next.register(provider, entries)?;
+        }
+        *self = next;
+        Ok(())
+    }
+
     /// Record the bank ids `provider_id` contributes, each with a content
     /// fingerprint. Re-registering the same map is idempotent. A different
     /// map, or an id that collides with another provider's different

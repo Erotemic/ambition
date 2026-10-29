@@ -99,9 +99,9 @@ const BUBBLE_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05;
 pub fn build_bubble_shield_sprite(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>, mut commands: Commands, asset_server: Res<AssetServer>) {
     use ambition_sprite_sheet::game_assets::load_sheet_image;
     commands.insert_resource(BubbleShieldSprite {
-        handle: load_sheet_image(&sprite_content, &asset_server, "bubble-shield", FIELD_PICTURE),
-        lattice: load_sheet_image(&sprite_content, &asset_server, "bubble-shield", LATTICE_PICTURE),
-        cracks: load_sheet_image(&sprite_content, &asset_server, "bubble-shield", CRACKS_PICTURE),
+        handle: load_sheet_image(Some(&sprite_content), &asset_server, "bubble-shield", FIELD_PICTURE),
+        lattice: load_sheet_image(Some(&sprite_content), &asset_server, "bubble-shield", LATTICE_PICTURE),
+        cracks: load_sheet_image(Some(&sprite_content), &asset_server, "bubble-shield", CRACKS_PICTURE),
     });
 }
 

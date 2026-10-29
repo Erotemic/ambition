@@ -154,7 +154,7 @@ pub fn rigged_pages_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
             } else {
                 format!("{directory}/{page}")
             };
-            ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content, asset_server, RIGGED_SPRITE_ROAD, path)
+            ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), asset_server, RIGGED_SPRITE_ROAD, path)
         })
         .collect();
     Some(RiggedSpritePages {

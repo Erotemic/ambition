@@ -25,6 +25,10 @@ renderer_dir="$repo_root/tools/ambition_sfx_renderer"
 pack_script="$repo_root/tools/ambition_sfx_pack/pack.py"
 
 # shellcheck disable=SC1091
+if [ "${AMBITION_PRODUCER_WORKER:-}" != "sfx" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
+    exec python3 "$repo_root/scripts/generate_library_content.py" sfx "$@"
+fi
+
 source "$repo_root/scripts/lib/tool_python.sh"
 source "$repo_root/scripts/lib/asset_roots.sh"
 sfx_collection="$(ambition_library_producer sfx collection)"

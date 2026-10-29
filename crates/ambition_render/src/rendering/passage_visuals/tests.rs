@@ -318,7 +318,6 @@ fn put_strip_image(app: &mut App, strip: &Handle<Image>) {
 
 fn add_door_art_catalog(app: &mut App) {
     app.init_resource::<ambition_sprite_sheet::SpriteContent>();
-    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     use ambition_asset_manager::{platformer_assets::Platformer2dAssetCatalog, AmbitionAssetCatalog, AssetProfile};
     use ambition_sprite_sheet::game_assets::{load_entity_sprites, GameAssets};
 
@@ -327,6 +326,6 @@ fn add_door_art_catalog(app: &mut App) {
         AssetProfile::AndroidBundle,
     ).with_libraries(&ambition_sprite_sheet::test_support::shared_libraries()).unwrap();
     let assets = app.world().resource::<AssetServer>().clone();
-    let entities = load_entity_sprites(&sprite_content, &catalog, &assets, None);
+    let entities = load_entity_sprites(&catalog, &assets, None);
     app.insert_resource(GameAssets { entities, ..Default::default() });
 }

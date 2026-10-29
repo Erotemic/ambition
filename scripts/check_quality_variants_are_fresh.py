@@ -52,6 +52,8 @@ def main() -> int:
         if not selected["generation"]:
             failures.append("No accepted art publication. Run scripts/regen/sprites.sh.")
         for unit, key in selected["bundles"].items():
+            if not unit.startswith(("target:", "atlas:")):
+                continue
             manifest = store.bundle(key)
             checked += 1
             failures += [f"{unit}: {defect}" for defect in store.integrity(key)]
@@ -68,7 +70,12 @@ def main() -> int:
                 for tier in SPRITE_TIERS if len(supported) > 1 else ():
                     if not any(path.startswith(tier + "/") for path in manifest["files"]):
                         failures.append(f"{unit}: missing {tier}")
-    for source, tier_names in (((args.asset_root / 'backgrounds/parallax_layers', PARALLAX_TIERS),) if 'backgrounds' in producers else ()):
+    if "backgrounds" in producers and not override:
+        checked += 1
+        result = subprocess.call([sys.executable, str(ROOT / "scripts/generate_library_content.py"), "--check", "variants"])
+        if result:
+            failures.append("Background quality publications are missing or stale")
+    for source, tier_names in (((args.asset_root / 'backgrounds/parallax_layers', PARALLAX_TIERS),) if 'backgrounds' in producers and override else ()):
         manifests = list(source.rglob('*_spritesheet.ron'))
         metadata = manifests + list(source.rglob('*_parts.ron')) + list(source.rglob('*_portraits.ron'))
         claimed = {path.parent / name for path in metadata for name in page_names(path)}

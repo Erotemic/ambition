@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import struct
 import subprocess
@@ -15,6 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from lib.content_libraries import selected_manifest, generated_root, producer
 from lib.art_publication import resolve as resolve_art
+
+
+def product_file(root: Path, logical: str) -> Path | None:
+    if os.environ.get("AMBITION_PRODUCER_WORKER"):
+        path = root / logical
+        return path if path.is_file() else None
+    return resolve_art(selected_manifest(ROOT), logical)
 
 
 def tool_json(tool: str, override: str, code: str):
@@ -75,13 +83,13 @@ def check_sprites(asset_root: Path, sources, plans_only: bool) -> list[str]:
 
 def check_music(asset_root: Path, plans_only: bool) -> list[str]:
     import regen_music_registry as music_registry
-    cues = tool_json(
-        "ambition_music_renderer", "AMBITION_MUSIC_PYTHON",
-        "import json; from ambition_music_renderer.cli import radio_cues; print(json.dumps(radio_cues()))",
-    )
+    cues = music_registry.generation_cues()
     if not cues:
         raise ValueError("music discovery returned no cues")
-    registered = music_registry.tracked_ids(music_registry.REGISTRY_PATH.read_text())
+    registry = product_file(asset_root, producer(ROOT, "music")["registry"])
+    if registry is None:
+        raise ValueError("The selected library has no accepted music registry")
+    registered = music_registry.tracked_ids(registry.read_text())
     failures = []
     aliases = {entry[0] for entry in music_registry.SPECIAL_ENTRIES}
     for track in sorted(registered - set(cues) - aliases):
@@ -89,12 +97,12 @@ def check_music(asset_root: Path, plans_only: bool) -> list[str]:
     for cue in cues:
         if cue not in music_registry.CLAIMED_DIRS and not music_registry.is_denied(cue) and cue not in registered:
             failures.append(f"music: {cue} has a score but no registry entry; run scripts/regen/music.sh")
-        if not plans_only and not (asset_root / "audio/music/generated" / cue / "full.ogg").is_file():
+        if not plans_only and product_file(asset_root, f"audio/music/generated/{cue}/full.ogg") is None:
             failures.append(f"music: missing {cue}/full.ogg; run scripts/regen/music.sh")
     for track, _, asset in music_registry.SPECIAL_ENTRIES:
         if track not in registered:
             failures.append(f"music: missing registry entry {track}")
-        if not plans_only and not (asset_root / asset).is_file():
+        if not plans_only and product_file(asset_root, asset) is None:
             failures.append(f"music: missing {asset}; run scripts/regen/music.sh")
     print(f"music: {len(cues)} planned cues, {len(registered)} registered tracks")
     return failures
@@ -123,7 +131,10 @@ def check_sfx(asset_root: Path, plans_only: bool) -> list[str]:
         raise ValueError("SFX discovery returned no cues")
     failures = []
     if not plans_only:
-        bank = bank_names(asset_root / "audio/sfx.bank")
+        path = product_file(asset_root, "audio/sfx.bank")
+        if path is None:
+            raise ValueError("The selected library has no accepted SFX bank")
+        bank = bank_names(path)
         for cue in sorted(set(cues) - bank):
             failures.append(f"sfx: {cue} is absent from sfx.bank; run scripts/regen/sfx.sh")
     print(f"sfx: {len(cues)} authored cues")
@@ -135,6 +146,7 @@ def check_backgrounds(asset_root: Path, sources, plans_only: bool) -> list[str]:
     planned = set(tool_json(
         "ambition_sprite2d_renderer", "AMBITION_SPRITE_PYTHON",
         """import json
+import os
 from ambition_sprite2d_renderer.backgrounds.scenes import THEMES, LAYERS
 from ambition_sprite2d_renderer.backgrounds.sky_parts import PARTS
 from ambition_sprite2d_renderer.terrain import skins, motes, decor, doors, shimmer, water_backdrops
@@ -157,7 +169,7 @@ print(json.dumps(paths))
         failures.append(f"backgrounds: no regen target publishes {asset}")
     if not plans_only:
         for asset in sorted(planned):
-            if not (asset_root / asset).is_file():
+            if product_file(asset_root, asset) is None:
                 failures.append(f"backgrounds: missing {asset}; run scripts/regen/backgrounds.sh")
     print(f"backgrounds: {len(planned)} planned files, {len(required)} literal references")
     return failures

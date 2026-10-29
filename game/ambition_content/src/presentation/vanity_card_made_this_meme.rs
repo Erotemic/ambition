@@ -195,7 +195,7 @@ fn spawn_vanity_card(card: Res<RigCard>, sprite_content: bevy::prelude::Res<ambi
     // reports it as `demand=unknown` — the census sees the insertion and has
     // nothing to measure it against, which is the one shape that instrument
     // cannot explain.
-    let sheet: Handle<Image> = ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+    let sheet: Handle<Image> = ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
         &assets,
         "vanity-card",
         card.sheet.clone(),

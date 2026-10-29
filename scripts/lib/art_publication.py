@@ -23,13 +23,20 @@ def files(manifest: Path) -> dict[str, Path]:
 def resolve(manifest: Path, logical: str) -> Path | None:
     data = json.loads(manifest.read_text())
     publication = store(manifest)
+    candidates = []
+    managed = False
     if publication:
         selected = publication.selected()
-        if logical.split("/", 1)[0] in set(MANAGED_ROOTS) | set(selected.get("roots", [])):
-            item = selected["files"].get(logical)
-            return publication.root / item["path"] if item else None
-    candidates = [manifest.parent / relative(root) / relative(logical) for root in data["asset_roots"].values()]
-    existing = [path for path in candidates if path.is_file()]
-    if len(existing) > 1:
-        raise ValueError(f"The library declares {logical!r} twice: {existing}")
-    return existing[0] if existing else None
+        managed = logical in selected["files"] or any(logical == prefix or logical.startswith(prefix + "/")
+                      for prefix in set(MANAGED_ROOTS) | set(selected.get("roots", [])))
+        if item := selected["files"].get(logical):
+            candidates.append(publication.root / item["path"])
+    for role, root in data["asset_roots"].items():
+        if role != "authored" and managed:
+            continue
+        path = manifest.parent / relative(root) / relative(logical)
+        if path.is_file():
+            candidates.append(path)
+    if len(candidates) > 1:
+        raise ValueError(f"The library declares {logical!r} twice: {candidates}")
+    return candidates[0] if candidates else None

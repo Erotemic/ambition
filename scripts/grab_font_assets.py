@@ -42,7 +42,7 @@ class FontSource:
 def font_sources() -> tuple[FontSource, ...]:
     from lib.content_libraries import producer, selected_manifest, relative
     policy = selected_manifest(REPO_ROOT).parent / relative(producer(REPO_ROOT, "fonts")["policy"])
-    return tuple(FontSource(**{**row, "extracts": tuple(tuple(pair) for pair in row["extracts"]),
+    return tuple(FontSource(**{**row, "extracts": tuple((name, relative(destination)) for name, destination in row["extracts"]),
                               "license_candidates": tuple(row["license_candidates"])})
                  for row in json.loads(policy.read_text()))
 
@@ -206,6 +206,11 @@ def safe_name(name: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import os
+    import subprocess
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not os.environ.get("AMBITION_PRODUCER_WORKER") and not any(arg == "--dry-run" or arg.startswith("--out-dir") for arg in arguments):
+        return subprocess.call([sys.executable, str(REPO_ROOT / "scripts/generate_library_content.py"), "fonts", *arguments])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)

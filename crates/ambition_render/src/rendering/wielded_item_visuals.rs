@@ -188,7 +188,7 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
         let texture = textures
             .entry(spec.texture_path.clone())
             .or_insert_with(|| {
-                ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+                ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
                     &asset_server,
                     "held-item",
                     spec.texture_path.clone(),

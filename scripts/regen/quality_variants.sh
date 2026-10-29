@@ -20,6 +20,10 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
 
 # shellcheck disable=SC1091
+if [ "${AMBITION_PRODUCER_WORKER:-}" != "variants" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
+    exec python3 "$repo_root/scripts/generate_library_content.py" variants "$@"
+fi
+
 source "$repo_root/scripts/lib/tool_python.sh"
 
 print_help() {
@@ -36,13 +40,13 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --sprites-only|--backgrounds-only|--force|--clean)
             args+=("$1"); shift ;;
-        --target|--tier|--library|--asset-root|--jobs)
+        --target|--tier|--library|--asset-root|--source-root|--jobs)
             if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then
                 echo "$1 requires a value" >&2
                 exit 2
             fi
             args+=("$1" "$2"); shift 2 ;;
-        --target=*|--tier=*|--library=*|--asset-root=*|--jobs=*)
+        --target=*|--tier=*|--library=*|--asset-root=*|--source-root=*|--jobs=*)
             args+=("$1"); shift ;;
         -h|--help) print_help; exit 0 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;

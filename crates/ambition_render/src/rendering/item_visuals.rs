@@ -249,7 +249,7 @@ pub fn build_held_item_art(sprite_content: bevy::prelude::Res<ambition_sprite_sh
         manifest.item_ids(),
         manifest.effective().into_iter().map(|entry| {
             (
-                ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+                ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
                     &assets,
                     "held-item",
                     entry.asset_path.clone(),
@@ -408,7 +408,7 @@ pub fn build_world_item_art(sprite_content: bevy::prelude::Res<ambition_sprite_s
             manifest.sprite_ids(),
             manifest.effective().into_iter().map(|entry| {
                 (
-                    ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+                    ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
                         &assets,
                         "held-item",
                         entry.asset_path.clone(),

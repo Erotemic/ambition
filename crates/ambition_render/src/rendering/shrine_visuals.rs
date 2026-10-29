@@ -292,7 +292,7 @@ fn shrine_visual_source_from_record(sprite_content: &ambition_sprite_sheet::Spri
     // (`write_shrine_prop`). The record's `image` is a bare file name. A load
     // of `sprites/shrine_spritesheet.png` failed in every game with a shrine,
     // and the shrine drew from a handle with no image.
-    let image = ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+    let image = ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
         asset_server,
         "shrine-sheet",
         ambition_asset_manager::platformer_assets::logical_asset_path("sprites", &record.image),

@@ -96,7 +96,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-ASSETS = REPO / "game/ambition_content_library/generated/runtime"
+from lib.content_libraries import runtime_files
 TIER_DIRS = ["sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato"]
 
 IMAGES_LIST_RE = re.compile(r"images:\s*\[([^\]]*)\]")
@@ -283,11 +283,16 @@ def age_signal(paths: list[Path], reference) -> dict:
     }
 
 
-def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
-    pngs, claimed = scan(assets, tiers or TIER_DIRS)
+def census(assets: Path | None = None, tiers: list[str] | None = None) -> dict:
+    files = ({path.relative_to(assets).as_posix(): path for path in assets.rglob("*") if path.is_file()}
+             if assets is not None else runtime_files(REPO))
+    selected = {name: path for name, path in files.items() if name.split("/", 1)[0] in (tiers or TIER_DIRS)}
+    labels = {path: name for name, path in selected.items()}
+    pngs = [path for name, path in selected.items() if name.endswith(".png")]
+    claimed = {key(path.parent / name) for logical, path in selected.items() if logical.endswith(".ron") for name in manifest_pages(path)}
     stranded = stranded_pages(pngs, claimed)
     unmanifested = sheets_without_manifest(pngs, claimed)
-    portraits = reduced_tier_portraits(pngs, assets)
+    portraits = [path for path in pngs if path.name.endswith("_portraits.png") and not labels[path].startswith("sprites/") and key(path) not in claimed]
     seen = (
         {key(p) for p in stranded}
         | {key(p) for p in unmanifested}
@@ -296,7 +301,7 @@ def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
     rest = unmentioned(pngs, claimed, seen)
     def rows(paths):
         return [
-            {"path": str(p.relative_to(assets)), "bytes": p.stat().st_size}
+            {"path": labels[p], "bytes": p.stat().st_size}
             for p in sorted(paths, key=lambda q: -q.stat().st_size)
         ]
     def own_manifest(png: Path) -> Path | None:
@@ -306,7 +311,7 @@ def census(assets: Path = ASSETS, tiers: list[str] | None = None) -> dict:
         return next(iter(sorted(png.parent.glob("*_spritesheet.ron"))), None)
 
     def full_resolution_twin(png: Path) -> Path | None:
-        return assets / "sprites" / png.name
+        return files.get("sprites/" + png.name)
 
     return {
         "total_pngs": len(pngs),
@@ -328,7 +333,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    if not (ASSETS / "sprites").is_dir():
+    if not any(name.startswith("sprites/") for name in runtime_files(REPO)):
         print(
             "NO `assets/sprites/` IN THIS CHECKOUT. The sprite tree is gitignored\n"
             "generated output; run the regen before reading this as 'no orphans'.\n"

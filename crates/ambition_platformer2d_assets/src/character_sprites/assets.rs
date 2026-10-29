@@ -578,7 +578,7 @@ fn load_sprite_pages(sprite_content: &ambition_sprite_sheet::SpriteContent,
                 // population that actually dominates a room's megapixels.
                 // Readiness reads the asset server's load state, not
                 // `Assets<Image>` (see `inspect_room_asset_manifest`).
-                texture: ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+                texture: ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
                     asset_server,
                     road,
                     page_path,

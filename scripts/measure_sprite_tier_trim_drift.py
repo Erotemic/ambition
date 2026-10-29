@@ -36,9 +36,8 @@ import pathlib
 import re
 import sys
 
-ASSETS = pathlib.Path(__file__).resolve().parents[1] / (
-    "game/ambition_content_library/generated/runtime"
-)
+from lib.content_libraries import runtime_files
+REPO = pathlib.Path(__file__).resolve().parents[1]
 TIERS = ["sprites_0_5x", "sprites_0_25x", "sprites_potato"]
 #: A row must be trimmed on both sides to be comparable at all.
 UNTRIMMED = 0.999
@@ -70,12 +69,13 @@ def main() -> int:
     ap.add_argument("--show", type=int, default=6, help="worst rows to print per tier")
     args = ap.parse_args()
 
-    base_dir = ASSETS / "sprites"
-    if not base_dir.is_dir():
-        print(f"no base sheets at {base_dir} — nothing to compare")
+    files = runtime_files(REPO)
+    base_files = [(name, path) for name, path in files.items() if name.startswith("sprites/") and name.endswith("_spritesheet.ron")]
+    if not base_files:
+        print("No selected base sheets; generate the library first.")
         return 0
 
-    present = [t for t in TIERS if (ASSETS / t).is_dir()]
+    present = [t for t in TIERS if any(name.startswith(t + "/") for name in files)]
     absent = [t for t in TIERS if t not in present]
     print(f"tiers present: {present or 'none'}")
     if absent:
@@ -84,14 +84,14 @@ def main() -> int:
         print(f"tiers ABSENT (gitignored, unmeasured — NOT a pass): {absent}")
 
     findings = {tier: [] for tier in present}
-    for base_file in sorted(base_dir.glob("*_spritesheet.ron")):
+    for logical, base_file in sorted(base_files):
         base = parse_sheet(base_file)
         if not base:
             continue
         base_w, base_h, base_rows = base
         for tier in present:
-            tier_file = ASSETS / tier / base_file.name
-            if not tier_file.exists():
+            tier_file = files.get(tier + "/" + logical.removeprefix("sprites/"))
+            if tier_file is None:
                 continue
             other = parse_sheet(tier_file)
             if not other:

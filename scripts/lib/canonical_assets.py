@@ -1,64 +1,4 @@
-"""Is THIS checkout the box whose generated assets are the canonical ones?
-
-Ten asset ratchets — five in `test_shipped_sheet_pages_are_claimed.py`, five in
-`test_tier_variants_are_actually_smaller.py` — were gated on
-`AMBITION_ASSETS_ARE_CANONICAL`, and ⛔ **nothing in the repository ever set it**,
-so no lane had evaluated them and two planning paragraphs called them ratchets
-anyway (queue.md).
-
-⭐ **THE GATE WAS NOT A MISTAKE, which is why the fix is not deleting it.** The
-sprite tree is gitignored and machine-local; every PNG under `assets/sprites*` is
-generated, and `mirror_assets_for_worktree.py` gives a worktree SYMLINKS at the
-main checkout's copies. On a box that regenerates cleanly the `KNOWN_` lists read
-as stale and the guards fail for the wrong reason — which is the failure the gate
-was added to prevent.
-
-⇒ **So detect the condition instead of asking someone to remember a variable.**
-A checkout whose sprite tree holds REAL FILES generated it; one holding symlinks
-is borrowing another checkout's, and its assets are not its own to ratchet.
-
-    absent tree          → not canonical (nothing to check)
-    real dir, symlinks   → not canonical (a mirrored worktree — this box)
-    real dir, real files → CANONICAL (the box that generated them)
-    env var set          → canonical, whatever the tree looks like
-
-⚠ **The env variable stays as an override**, because it is the only way to
-exercise the enabled path somewhere the detection says no, and because removing
-a documented opt-in would break anyone using it.
-
-⛔ **The enabled arm is UNEXERCISED on a mirrored worktree** — this file's own
-tests build real and symlinked trees in `tmp_path` to check both answers, but
-"the ten ratchets pass on the canonical box" is a claim only that box can make.
-Nothing here should be read as evidence that they do.
-
-✔ **AND THAT CLAIM HAS NOW BEEN MADE, 2026-09-06: 23 passed, 1 skipped** across
-`test_shipped_sheet_pages_are_claimed.py` and
-`test_tier_variants_are_actually_smaller.py`, on a checkout this function reported
-canonical. ⇒ The enabled arm is no longer unexercised, and the ten ratchets do
-pass on a real canonical box rather than only in `tmp_path`.
-⚠ **GETTING THERE TOOK A REGENERATION, WHICH IS THE PART WORTH KNOWING.** The
-checkout was NOT canonical: its sprite trees were its own, but 42 quality-tier
-files were older than the art they derive from, so `why_not` correctly refused —
-a size assertion there measures regeneration history rather than content.
-`./scripts/regen/quality_variants.sh --sprites-only` (199 s, incremental) cleared
-it. ⇒ **On a working box the usual reason these ten skip is stale tiers rather
-than borrowed assets**, and the fix is three minutes, so a lane that reports them
-skipped is worth one command rather than a shrug.
-⭐ **What it buys, measured on the same box:** the `scripts/tests` lane went from
-**836 passed / 16 skipped** to **850 passed / 7 skipped**. Nine of those skips
-were these ratchets.
-⚠ **AND IT COSTS DISK — 1.3 GB here, which was enough to break unrelated tests.**
-Free space went 40.6 → 39.3 GB, under `MIN_FREE_GB`, and
-`test_run_tests_job_cap.py` then failed FIVE cases with *"run_tests ABORTED on
-disk headroom, not on caps"*. ⇒ The failure names itself correctly, but it arrives
-in a file about job caps immediately after an asset command, so check headroom
-after regenerating rather than reading it as a regression.
-(`./scripts/clean_workspace_crates.sh --incremental-only --apply` returned 37 GB
-here and invalidates no fingerprint.)
-⚠ Read `why_not`'s FULL string. Truncating it at a terminal width chops the
-"but the quality tiers are STALE" clause and leaves a reason that reads as the
-canonical condition — which looks exactly like an inverted detector.
-"""
+"""Check ownership and freshness of the selected sprite corpus."""
 
 from __future__ import annotations
 
@@ -75,7 +15,7 @@ CANONICAL_ENV = "AMBITION_ASSETS_ARE_CANONICAL"
 #: The generated tier trees. `sprites` alone is enough to answer the question —
 #: the variants are produced from it by the same run — but a box may have been
 #: interrupted, so any tree holding real files counts.
-SPRITE_TREE_GLOB = "game/ambition_content_library/generated/runtime/sprites*"
+SPRITE_TREE_GLOB = "the selected library publication"
 
 #: ⛔⛔ THE SCAN IS EXHAUSTIVE, AND USED TO STOP AT 25 FILES.
 #:
@@ -98,29 +38,24 @@ SPRITE_TREE_GLOB = "game/ambition_content_library/generated/runtime/sprites*"
 #: get to guess.
 
 
+def selected_pngs(repo: Path) -> list[Path]:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib.content_libraries import runtime_files
+    try:
+        files = runtime_files(repo)
+    except (OSError, ValueError):
+        return []
+    return [path for logical, path in files.items() if logical.split("/", 1)[0].startswith("sprites") and logical.endswith(".png")]
+
+
 def sprite_trees(repo: Path) -> list[Path]:
-    """Every generated sprite tier tree that exists, in a stable order."""
-    return sorted(p for p in repo.glob(SPRITE_TREE_GLOB) if p.is_dir())
+    return sorted({path.parent for path in selected_pngs(repo)})
 
 
 def _scan_tree_files(repo: Path) -> tuple[int, int]:
-    """(real, symlink) counts over EVERY png in the generated sprite trees.
-
-    Shared by the predicate and by `why_not` ON PURPOSE: a reason derived from a
-    different scan than the decision is how the two come to disagree. ⚠ That
-    sharing was already stated here and was still only half true — the predicate
-    kept an inlined copy of this loop, so the two walked the tree separately.
-    Both roads call this now.
-    """
-    real = 0
-    linked = 0
-    for tree in sprite_trees(repo):
-        for png in tree.rglob("*.png"):
-            if png.is_symlink():
-                linked += 1
-            else:
-                real += 1
-    return real, linked
+    paths = selected_pngs(repo)
+    linked = sum(path.is_symlink() for path in paths)
+    return len(paths) - linked, linked
 
 
 @functools.lru_cache(maxsize=8)

@@ -107,28 +107,17 @@ def png_dimensions(path: Path) -> tuple[int, int] | None:
 def survey() -> dict[str, tuple[int, int, int, int]]:
     found: dict[str, list[int]] = {}
     seen: set[Path] = set()
-    # ⚠ RECURSIVE, and the variant is the segment after `assets/`, not the parent
-    # directory. `sprite_packs` nests one deeper (`sprite_packs/full/*.png`), so
-    # reading `path.parent.name` silently dropped the ONE variant that proves
-    # the packer's cap works.
-    for pattern in ("crates/*/assets/**/*.png", "game/*/assets/**/*.png"):
-        for path in REPO.glob(pattern):
-            # ⚠ The web build's asset tree is SYMLINKS into these same files.
-            # Following both would double every count and make the ratchet a
-            # measure of how many trees link the file rather than how big it is.
-            real = path.resolve()
-            if real in seen:
-                continue
-            seen.add(real)
-            parts = path.relative_to(REPO).parts
-            if "assets" not in parts:
-                continue
-            variant = parts[parts.index("assets") + 1]
-            if variant not in RATCHET:
-                continue
-            size = png_dimensions(path)
-            if size is None:
-                continue
+    from lib.content_libraries import runtime_files
+    for logical, path in runtime_files(REPO).items():
+        variant = logical.split("/", 1)[0]
+        if variant not in RATCHET or not logical.endswith(".png"):
+            continue
+        real = path.resolve()
+        if real in seen:
+            continue
+        seen.add(real)
+        size = png_dimensions(path)
+        if size is not None:
             found.setdefault(variant, []).append(max(size))
     return {
         variant: (
@@ -196,7 +185,6 @@ def test_the_ultrapack_path_still_caps_its_pages():
 
 import re as _re  # noqa: E402
 
-ACTORS_ROOT = REPO / "game/ambition_content_library/generated/runtime"
 
 # tier -> characters known to have no variant there. Shrinking this is the
 # improvement; a name appearing that is not listed means a character silently
@@ -209,12 +197,12 @@ UNCOVERED = {
 
 
 def _character_stems(variant: str) -> set[str]:
-    directory = ACTORS_ROOT / variant
-    if not directory.is_dir():
-        return set()
+    from lib.content_libraries import runtime_files
     return {
-        _re.sub(r"(\.\d+)?\.png$", "", page.name)
-        for page in directory.glob("*spritesheet*.png")
+        _re.sub(r"(\.\d+)?\.png$", "", Path(logical).name)
+        for logical in runtime_files(REPO)
+        if logical.startswith(variant + "/") and "/" not in logical[len(variant) + 1:]
+        and "spritesheet" in logical and logical.endswith(".png")
     }
 
 

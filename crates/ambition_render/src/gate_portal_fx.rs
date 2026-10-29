@@ -108,7 +108,7 @@ impl Plugin for GatePortalFxPlugin {
 fn load_gate_portal_fx_art(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>, mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>) {
     use ambition_sprite_sheet::game_assets::load_sheet_image;
     commands.insert_resource(GatePortalFxArt {
-        tunnel: load_sheet_image(&sprite_content, &asset_server, "gate-portal", TUNNEL_PICTURE),
+        tunnel: load_sheet_image(Some(&sprite_content), &asset_server, "gate-portal", TUNNEL_PICTURE),
         quad: meshes.add(Rectangle::new(1.0, 1.0)),
     });
 }

@@ -38,7 +38,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "tools/ambition_sprite2d_renderer"))
 from ambition_sprite2d_renderer.core.equivalence import parse_ron  # noqa: E402
 
-SPRITES = REPO / "game/ambition_content_library/generated/runtime/sprites"
+from lib.content_libraries import runtime_files
 
 #: The least alpha of paint that is part of the figure.
 SOLID = 192
@@ -85,10 +85,12 @@ def _row_bottom(pages: list[np.ndarray], row: dict) -> int | None:
     return lowest
 
 
-def census(sprites: Path) -> list[tuple[str, dict[str, int]]]:
+def census(sprites: Path | None = None) -> list[tuple[str, dict[str, int]]]:
     """Every body with an idle row: ``(target, {row: gap px})``."""
     out = []
-    for path in sorted(sprites.glob("*_spritesheet.ron")):
+    paths = sorted(sprites.glob("*_spritesheet.ron")) if sprites else sorted(path for logical, path in runtime_files(REPO).items() if logical.startswith("sprites/") and logical.endswith("_spritesheet.ron"))
+    for path in paths:
+        sprites = path.parent
         target = path.name[: -len("_spritesheet.ron")]
         if _body_plan(sprites, target) in NOT_BODIES | {None}:
             continue
@@ -116,7 +118,7 @@ def worst(gaps: dict[str, int]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--sprites", type=Path, default=SPRITES)
+    parser.add_argument("--sprites", type=Path, default=None)
     parser.add_argument("--all", action="store_true", help="print every body, not only those off the floor")
     args = parser.parse_args()
     off = []

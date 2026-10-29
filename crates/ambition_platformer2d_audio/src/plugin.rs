@@ -41,11 +41,6 @@ impl Plugin for Platformer2dAudioPlugin {
         app.init_resource::<ambition_audio::AudioOutputMode>()
             .add_plugins(ambition_audio::AmbitionAudioBackendPlugin)
             .add_message::<ambition_audio::selection::AudioContextChanged>()
-            // Async SFX-bank loader for profiles whose bank is not picked
-            // up by the sync fast path in `setup::try_load_sfx_bank_via_catalog`
-            // (web HTTP fetch, plain desktop loose FS without env override).
-            // Idempotent against the sync path; both insert the same
-            // `SfxBankResource` and the second writer no-ops.
             .add_plugins(ambition_audio::SfxBankAssetPlugin)
             // Browser AudioContext unlock telemetry.
             .add_plugins(ambition_audio::web_unlock::WebAudioUnlockPlugin)

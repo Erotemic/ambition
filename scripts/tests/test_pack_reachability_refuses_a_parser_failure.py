@@ -99,7 +99,7 @@ def test_it_refuses_when_the_pack_directory_is_absent(tmp_path, monkeypatch):
     """A fresh checkout has no packs. Reporting 0 MB would read as 'the pack
     costs nothing', which is the opposite of what absence means here."""
     module = load()
-    monkeypatch.setattr(module, "PACKS", tmp_path / "nope")
+    monkeypatch.setattr(module, "runtime_files", lambda _: {})
     code = module.main([])
     assert code == 2
 
@@ -115,7 +115,7 @@ def test_it_refuses_when_no_opt_in_row_parses(tmp_path, monkeypatch, capsys):
     )
     rows = tmp_path / "prop_sheets.ron"
     rows.write_text("rows that the regex cannot read")
-    monkeypatch.setattr(module, "PACKS", tmp_path / "sprite_packs")
+    monkeypatch.setattr(module, "runtime_files", lambda _: {"sprite_packs/" + path.relative_to(tmp_path / "sprite_packs").as_posix(): path for path in (tmp_path / "sprite_packs").rglob("*") if path.is_file()})
     monkeypatch.setattr(module, "prop_sheet_files", lambda: [rows])
 
     code = module.main([])
@@ -142,7 +142,7 @@ def test_measure_reports_reachable_bytes_against_total(tmp_path, monkeypatch):
     )
     for index, size in enumerate([10, 100, 1000]):
         (tier / f"ultrapack_{index}.png").write_bytes(b"x" * size)
-    monkeypatch.setattr(module, "PACKS", tmp_path)
+    monkeypatch.setattr(module, "runtime_files", lambda _: {"sprite_packs/" + path.relative_to(tmp_path).as_posix(): path for path in tmp_path.rglob("*") if path.is_file()})
     monkeypatch.setattr(module, "TIERS", ["full"])
 
     row = module.measure({"cart"})["tiers"][0]

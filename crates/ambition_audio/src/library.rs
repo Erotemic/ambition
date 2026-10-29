@@ -3,11 +3,9 @@
 //! track-switch/radio/default-start helpers. Game-side adapters (which
 //! requests apply, where the bank bytes come from) stay in the host.
 
-use crate::render::{audio_source_from_sfx_clip, silent_audio_source};
-use crate::spec::{MusicRegistry, SfxRegistry, SoundCueKey};
+use crate::spec::{MusicRegistry, SoundCueKey};
 use crate::web_unlock::AudioUnlockState;
-use ambition_sfx::{SfxId, SfxMessage, SfxProvider};
-use bevy::platform::collections::HashMap;
+use ambition_sfx::{SfxId, SfxMessage};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
     AudioChannel, AudioControl, AudioEasing, AudioSource as KiraAudioSource, AudioTween,
@@ -171,8 +169,6 @@ impl MusicTrackRuntime {
 
 #[derive(Resource)]
 pub struct AudioLibrary {
-    sfx: HashMap<SoundCue, Handle<KiraAudioSource>>,
-    fallback_sfx: Handle<KiraAudioSource>,
     music_tracks: Vec<MusicTrackRuntime>,
 }
 
@@ -206,109 +202,33 @@ impl AudioLibrary {
     /// same registry in one operation. Hosts may still preload the returned
     /// state's active track before inserting both resources.
     pub fn new_with_playback_state(
-        audio_sources: &mut Assets<KiraAudioSource>,
-        sfx_registry: &SfxRegistry,
         music_registry: &MusicRegistry,
-        asset_server: Option<&AssetServer>,
-        sfx_provider: Option<&dyn SfxProvider>,
         resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
     ) -> (Self, MusicPlaybackState) {
-        let library = Self::new(
-            audio_sources,
-            sfx_registry,
-            music_registry,
-            asset_server,
-            sfx_provider,
-            resolve_track_path,
-        );
+        let library = Self::new(music_registry, resolve_track_path);
         let playback = MusicPlaybackState::from_music_registry(music_registry, &library);
         (library, playback)
     }
 
-    /// Build the audio library + music track table.
-    ///
-    /// `resolve_track_path` (when `Some`) resolves each track id through the
-    /// host's asset catalog, instead of the conventional
-    /// `audio/music/generated/{id}/full.ogg`. A missing OGG shows up later as a
-    /// load warning; there is no procedural fallback.
-    ///
-    /// `None` is the test-fixture / pre-catalog path: each track's
-    /// [`MusicTrack::resolved_asset_path`] is used directly.
+    /// Build the music track table from declared paths.
     pub fn new(
-        audio_sources: &mut Assets<KiraAudioSource>,
-        sfx_registry: &SfxRegistry,
         music_registry: &MusicRegistry,
-        _asset_server: Option<&AssetServer>,
-        sfx_provider: Option<&dyn SfxProvider>,
         resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
     ) -> Self {
-        if let Err(error) = sfx_registry.validate() {
-            warn!("invalid sfx registry: {error}");
-        }
         if let Err(error) = music_registry.validate() {
             warn!("invalid music registry: {error}");
         }
-        let sample_rate = sfx_registry.sample_rate.max(8_000);
-
-        // SFX: every cue tries the bank. Missing entries get a short silent
-        // stub, so playback stays uniform; the bank-cache layer logs the gap
-        // once.
-        let silent_handle = audio_sources.add(silent_audio_source(sample_rate));
-        let mut sfx_handles = HashMap::default();
-        let mut missing_cues: Vec<SoundCue> = Vec::new();
-        for cue in SoundCue::ALL {
-            let from_bank = sfx_provider
-                .and_then(|provider| provider.provide_clip(cue.sfx_id()))
-                .and_then(|clip| match audio_source_from_sfx_clip(clip) {
-                    Ok(source) => Some(audio_sources.add(source)),
-                    Err(error) => {
-                        warn!("bank entry for {cue:?} failed to decode ({error})");
-                        None
-                    }
-                });
-            let handle = match from_bank {
-                Some(handle) => handle,
-                None => {
-                    missing_cues.push(cue);
-                    silent_handle.clone()
-                }
-            };
-            sfx_handles.insert(cue, handle);
-        }
-        if !missing_cues.is_empty() {
-            warn!(
-                "audio library: no SFX bank entry for {} cue(s): {:?} — playing silent stubs. \
-                 Repack the bank via `tools/ambition_sfx_pack` or check the active asset profile.",
-                missing_cues.len(),
-                missing_cues
-            );
-        }
-        let fallback_sfx = silent_handle;
-
-        // Music: each track resolves to a pre-rendered OGG path (the catalog
-        // path with a resolver, else `MusicTrack::resolved_asset_path`). A
-        // missing OGG shows up later as a load warning; no fundsp fallback.
-        let mut music_tracks = Vec::with_capacity(music_registry.tracks.len());
-        for track in &music_registry.tracks {
-            let asset_path = resolve_track_path
-                .and_then(|resolve| resolve(&track.id))
-                .unwrap_or_else(|| track.resolved_asset_path());
-            music_tracks.push(MusicTrackRuntime {
-                id: track.id.clone(),
-                display_name: track.display_name.clone(),
-                one_shot: track.one_shot,
-                source: TrackSource {
-                    asset_path,
-                    handle: None,
-                },
-            });
-        }
-
-        Self {
-            sfx: sfx_handles,
-            fallback_sfx,
-            music_tracks,
-        }
+        let music_tracks = music_registry.tracks.iter().map(|track| MusicTrackRuntime {
+            id: track.id.clone(),
+            display_name: track.display_name.clone(),
+            one_shot: track.one_shot,
+            source: TrackSource {
+                asset_path: resolve_track_path.and_then(|resolve| resolve(&track.id))
+                    .unwrap_or_else(|| track.resolved_asset_path()),
+                handle: None,
+            },
+        }).collect();
+        Self { music_tracks }
     }
 
     /// Replace one provider's tracks, for a reload of that provider's pack:
@@ -345,13 +265,6 @@ impl AudioLibrary {
                 None => self.music_tracks.push(runtime),
             }
         }
-    }
-
-    pub fn sfx_handle(&self, cue: SoundCue) -> Handle<KiraAudioSource> {
-        self.sfx
-            .get(&cue)
-            .cloned()
-            .unwrap_or_else(|| self.fallback_sfx.clone())
     }
 
     pub fn track(&self, id: &str) -> Option<&MusicTrackRuntime> {
@@ -715,8 +628,6 @@ mod tests {
 
     fn library(tracks: &[(&str, &str)]) -> AudioLibrary {
         AudioLibrary {
-            sfx: HashMap::new(),
-            fallback_sfx: Handle::default(),
             music_tracks: tracks
                 .iter()
                 .map(|(id, path)| MusicTrackRuntime {

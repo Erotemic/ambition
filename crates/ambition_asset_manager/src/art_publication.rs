@@ -39,7 +39,7 @@ impl Selection {
         let path = root.join("published.json");
         let bytes = std::fs::read(&path).map_err(|error| format!("{}: {error}", path.display()))?;
         let mut selection: Self = serde_json::from_slice(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
-        if selection.schema != SCHEMA || selection.files.iter().any(|(name, member)| !safe(name) || !safe(&member.path)) {
+        if selection.schema != SCHEMA || selection.files.iter().any(|(name, member)| !safe(name) || !safe(&member.path)) || selection.roots.iter().any(|root| !safe(root)) {
             return Err(format!("Invalid art publication: {}", path.display()));
         }
         selection.root = root.to_path_buf();
@@ -49,8 +49,8 @@ impl Selection {
     pub fn root(&self) -> &Path { &self.root }
 
     pub fn manages(&self, path: &Path) -> bool {
-        managed(path) || path.components().next().is_some_and(|part|
-            self.roots.iter().any(|root| part.as_os_str() == std::ffi::OsStr::new(root)))
+        self.files.contains_key(&path.to_string_lossy().replace('\\', "/"))
+            || managed(path) || self.roots.iter().any(|root| path.starts_with(root))
     }
 
     pub fn path(&self, logical: &str) -> Option<PathBuf> {

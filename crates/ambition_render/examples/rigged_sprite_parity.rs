@@ -41,7 +41,9 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::GameAssets;
 
-const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime");
+mod selected_library;
+use ambition_asset_manager::content_library::LibrarySnapshot;
+use ambition_sprite_sheet::SpriteContent;
 /// Transparent pixels around the drawn frame, so nothing touches the edge.
 const MARGIN: u32 = 16;
 
@@ -62,6 +64,7 @@ struct Pin {
 struct Captured(Arc<Mutex<Option<Vec<u8>>>>);
 
 fn main() {
+    let (snapshot, content) = selected_library::read();
     let mut targets: Vec<String> = Vec::new();
     let mut out = PathBuf::from("target/rig_parity");
     let mut scale: f32 = 1.0;
@@ -94,8 +97,8 @@ fn main() {
     for target in &targets {
         let dir = out.join(target);
         std::fs::create_dir_all(&dir).expect("create the output directory");
-        let baked = capture_all(target, false, scale, &flips, phase, centre_anchored);
-        let parts = capture_all(target, true, scale, &flips, phase, centre_anchored);
+        let baked = capture_all(&snapshot, &content, target, false, scale, &flips, phase, centre_anchored);
+        let parts = capture_all(&snapshot, &content, target, true, scale, &flips, phase, centre_anchored);
         assert_eq!(baked.len(), parts.len(), "`{target}`: the two runs pinned different frames");
         for ((pin, size, (feet, root_x, frame_tl, cell), baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
             let stem = format!("{}_{}{}", pin.row, pin.frame, if pin.flip { "_flip" } else { "" });
@@ -142,6 +145,8 @@ fn save(path: &std::path::Path, size: UVec2, pixels: &[u8]) {
 /// is the image rectangle (+y down) the part road can draw in at all — the
 /// body's impostor cell, mirrored with it.
 fn capture_all(
+    snapshot: &LibrarySnapshot,
+    content: &SpriteContent,
     target: &str,
     rigged: bool,
     scale: f32,
@@ -149,11 +154,11 @@ fn capture_all(
     phase: f32,
     centre_anchored: bool,
 ) -> Vec<(Pin, UVec2, (Vec2, f32, Vec2, Rect), Vec<u8>)> {
-    let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
+    let spec = try_load_spec_for_character_id(content, target).expect("a baked sheet: run scripts/regen/sprites.sh");
     let frame = Vec2::new(spec.frame_width as f32, spec.frame_height as f32);
     let render = frame * scale;
     let size = UVec2::new(render.x.ceil() as u32 + 2 * MARGIN, render.y.ceil() as u32 + 2 * MARGIN);
-    let (mut app, image) = renderer(size);
+    let (mut app, image) = renderer(snapshot, content, size);
     let captured = Captured::default();
     app.add_observer(give_back_the_cell_of_a_removed_presentation);
     app.init_resource::<RiggedImpostorAtlas>()
@@ -165,12 +170,12 @@ fn capture_all(
         let world = app.world_mut();
         let server = world.resource::<AssetServer>().clone();
         let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
-        sheet(target, rigged, &server, &mut layouts)
+        sheet(content, target, rigged, &server, &mut layouts)
     };
     wait_for_pages(&mut app, &asset);
     let mut assets = GameAssets::default();
     assets.characters.declare("parity");
-    assets.characters.publish("parity", asset.clone());
+    assets.characters.publish(content, "parity", asset.clone());
     app.insert_resource(assets);
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
     let built_at = if centre_anchored { Anchor::CENTER } else { Anchor(feet) };
@@ -205,7 +210,7 @@ fn capture_all(
     // A frame no cell fits is not drawn from parts at all: nothing to clip.
     // The target's flipbook's margin, in both captures: the baked one's sheet
     // carries no flipbook, and a margin of 0 clipped the oracle to the frame.
-    let margin = RiggedSpriteAsset::baked(target).map_or(IMPOSTOR_MARGIN, |flipbook| impostor_margin(&flipbook));
+    let margin = RiggedSpriteAsset::baked(content, target).map_or(IMPOSTOR_MARGIN, |flipbook| impostor_margin(&flipbook));
     let cell_px = impostor_cell_class(frame, margin).map_or(1.0e6, |class| IMPOSTOR_CELL_CLASSES[class].0);
     let cell_min = tl - Vec2::splat(margin * scale);
     let cell = Rect::from_corners(cell_min, cell_min + Vec2::splat(cell_px * scale));
@@ -217,7 +222,7 @@ fn capture_all(
         Visibility::Inherited,
         BoundSpriteQuality::of_tier(TextureResolutionScale::Full),
     ));
-    let rows: Vec<(String, usize, f32)> = ambition_sprite_sheet::character::sheets::record_for_sheet_key(target)
+    let rows: Vec<(String, usize, f32)> = ambition_sprite_sheet::character::sheets::record_for_sheet_key(content, target)
         .expect("a baked sheet record")
         .rows
         .iter()
@@ -292,17 +297,14 @@ fn readback(app: &mut App, image: &Handle<Image>, captured: &Captured, size: UVe
 
 /// Bevy's renderer with no window, one camera drawing 1:1 into an offscreen
 /// image with a transparent clear.
-fn renderer(size: UVec2) -> (App, Handle<Image>) {
+fn renderer(snapshot: &LibrarySnapshot, content: &SpriteContent, size: UVec2) -> (App, Handle<Image>) {
     let mut app = App::new();
+    selected_library::install(&mut app, snapshot, content);
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: None,
                 exit_condition: bevy::window::ExitCondition::DontExit,
-                ..default()
-            })
-            .set(AssetPlugin {
-                file_path: ASSETS.to_string(),
                 ..default()
             })
             .disable::<bevy::winit::WinitPlugin>(),
@@ -346,13 +348,14 @@ fn renderer(size: UVec2) -> (App, Handle<Image>) {
 /// The sheet of `target` with its pages (and part pages when `rigged`) loaded
 /// from the published assets.
 fn sheet(
+    content: &SpriteContent,
     target: &str,
     rigged: bool,
     server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> CharacterSpriteAsset {
-    let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
-    let flipbook = rigged.then(|| RiggedSpriteAsset::baked(target).expect("a published flipbook"));
+    let spec = try_load_spec_for_character_id(content, target).expect("a baked sheet: run scripts/regen/sprites.sh");
+    let flipbook = rigged.then(|| RiggedSpriteAsset::baked(content, target).expect("a published flipbook"));
     let pages: Vec<CharacterSpritePage> = (0..spec.page_count().max(1))
         .map(|page| {
             let file = if page == 0 {
@@ -361,13 +364,13 @@ fn sheet(
                 spec.page_images[page as usize].clone()
             };
             CharacterSpritePage {
-                texture: server.load(format!("sprites/{file}")),
+                texture: ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-sheet", if file.contains("://") { file } else { format!("sprites/{file}") }),
                 layout: layouts.add(spec.build_atlas_for_page(page)),
             }
         })
         .collect();
     let part_pages = flipbook.as_ref().map_or(Vec::new(), |flipbook| {
-        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(server, "character-parts", format!("sprites/{page}"))).collect()
+        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(Some(content), server, "character-parts", format!("sprites/{page}"))).collect()
     });
     CharacterSpriteAsset {
         texture: pages[0].texture.clone(),

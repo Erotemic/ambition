@@ -144,7 +144,7 @@ pub(super) fn install(app: &mut App) {
 fn load_glyph_icons(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>, mut commands: Commands, asset_server: Res<AssetServer>) {
     use ambition_sprite_sheet::game_assets::load_sheet_image;
     commands.insert_resource(GlyphIcons {
-        image: load_sheet_image(&sprite_content, &asset_server, "gate-terminal", GLYPH_ICONS),
+        image: load_sheet_image(Some(&sprite_content), &asset_server, "gate-terminal", GLYPH_ICONS),
         layout: None,
     });
 }

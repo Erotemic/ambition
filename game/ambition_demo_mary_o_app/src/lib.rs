@@ -244,23 +244,12 @@ fn install_mary_o_audio(app: &mut App) {
 fn setup_mary_o_audio_library(
     mut commands: Commands,
     catalogs: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
-    mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
 ) {
     let music = catalogs
         .music_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local music catalog");
-    let sfx = catalogs
-        .sfx_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
-        .expect("Mary-O provider registered its App-local SFX catalog");
     let (library, music_state) =
-        ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
-            &mut audio_sources,
-            sfx,
-            music,
-            None,
-            None,
-            None,
-        );
+        ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(music, None);
     commands.insert_resource(library);
     commands.insert_resource(music_state);
 }

@@ -400,7 +400,7 @@ fn portrait_art(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteCont
         .and_then(|registry| registry.get(id))
         .and_then(|prepared| prepared.portrait.as_deref());
     let reference = portrait_for_declared_character(portraits, catalog, target, id)?;
-    let handle = ambition_platformer2d::sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+    let handle = ambition_platformer2d::sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
         asset_server?,
         "portrait",
         reference.image.clone(),

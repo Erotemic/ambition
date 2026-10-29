@@ -13,32 +13,60 @@
   "producers": {
     "fonts": {
       "tool": "font_download",
-      "policy": "authored/fonts.json"
+      "policy": "authored/fonts.json",
+      "roots": [
+        "fonts"
+      ]
     },
     "backgrounds": {
       "tool": "ambition_sprite2d_renderer",
-      "profiles": "all"
+      "profiles": "all",
+      "required_outputs": [
+        "backgrounds/default/sky.png",
+        "backgrounds/default/manifest.txt",
+        "backgrounds/parallax_layers/hub_sky.png",
+        "backgrounds/parallax_layers/hub_clean_sky.png",
+        "backgrounds/sky_parts/mockingbird_moon.png",
+        "room_dressing/lab_fill.png"
+      ],
+      "roots": [
+        "backgrounds",
+        "room_dressing"
+      ]
     },
     "sprites": {
       "tool": "ambition_sprite2d_renderer",
       "collection": "runtime",
       "policy": "authored/sprites.yaml",
       "sources": [
-        "authored"
+        "authored/sprites.yaml",
+        "authored/references"
       ]
     },
     "variants": {
-      "tool": "ambition_sprite2d_renderer"
+      "tool": "ambition_sprite2d_renderer",
+      "roots": [
+        "backgrounds/parallax_layers_0_5x",
+        "backgrounds/parallax_layers_0_25x",
+        "backgrounds/parallax_layers_potato"
+      ]
     },
     "music": {
       "tool": "ambition_music_renderer",
       "collection": "radio",
       "registry": "audio/music_registry.ron",
-      "policy": "authored/music.json"
+      "policy": "authored/music.json",
+      "roots": [
+        "audio/music",
+        "audio/music_registry.ron"
+      ]
     },
     "sfx": {
       "tool": "ambition_sfx_renderer",
-      "collection": "active"
+      "collection": "active",
+      "roots": [
+        "audio/sfx.bank"
+      ]
     }
   },
   "catalog": "authored/catalog.json",

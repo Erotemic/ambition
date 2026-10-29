@@ -28,6 +28,10 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_music_renderer"
 
 # shellcheck disable=SC1091
+if [ "${AMBITION_PRODUCER_WORKER:-}" != "music" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
+    exec python3 "$repo_root/scripts/generate_library_content.py" music "$@"
+fi
+
 source "$repo_root/scripts/lib/tool_python.sh"
 # WHERE generated music lands, declared once for every tool that touches it.
 # shellcheck disable=SC1091
@@ -47,6 +51,7 @@ print_help() {
 skip_render=0
 force_render=0
 radio_args=()
+radio_args+=(--backend "${AMBITION_MUSIC_BACKEND:-pretty-midi}")
 for arg in "$@"; do
     case "$arg" in
         --skip-render)
@@ -94,9 +99,11 @@ else
     echo "      tools/ambition_music_renderer/download_ambition_audio_tools.sh /data/audio-tools" >&2
 fi
 
-echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES; adaptive cues per-section)"
+cue_selection="$("$renderer_py" "$repo_root/scripts/regen_music_registry.py" --list-cues)"
+radio_args+=(--cue "$cue_selection")
+echo "==> selected library music cues"
 if [ "$skip_render" -eq 1 ]; then
-    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer "$music_collection" publish)
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer "$music_collection" publish "${radio_args[@]}")
 else
     (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer "$music_collection" render-publish "${radio_args[@]}")
 fi

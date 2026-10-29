@@ -1593,24 +1593,11 @@ under `--features visible`. Still linked through the monolith and not used by
 Outlander: menu, items, encounter, boss_encounter, cutscene, conversation,
 held_items, audio (the deferred monolith carve).
 
-**SG2 done 2026-10-09:** the release artifact. `python3
-scripts/package_outlander.py` builds `outlander_visible` (release,
-`--features visible`) and writes `fixtures/external_consumer/dist/outlander/`
-(binary, `run.sh`, `assets/`, `MANIFEST.json` with the engine revision and a
-sha256 per file) and `outlander.tar.gz` (72.5 MB; 37 engine assets, 1.5 MB).
-It then runs `run.sh --smoke 300` from the artifact under strace and refuses
-it when an asset load failed or a file was read outside the artifact. Exit 2
-is a missing prerequisite, 3 a failed build, 1 a failed artifact. The full lane
-runs it (unrunnable without strace). Measured on the way:
-`outlander_asset_root` baked `CARGO_MANIFEST_DIR` in, so it now follows the
-engine's rule (`BEVY_ASSET_ROOT` → `assets`). Outlander's three windowed tests
-were red and no lane compiled them (`#![cfg(feature = "visible")]`): they
-stepped an app whose plugins were never finished, so the trail gizmo groups
-were never registered. `stepped_windowed_app` finishes it, and the full lane
-runs `cargo test --features visible`. The shrine sheet path was wrong in the
-engine (180f89923). Poisons: an asset dropped from `package_assets.txt`, red
-naming that file inside the artifact; a launcher without `BEVY_ASSET_ROOT`,
-red naming the checkout files read. `--measure` writes the asset list again.
+**SG2 done 2026-10-09:** `scripts/package_outlander.py` builds and verifies
+Outlander's desktop artifact. The smoke run must load the game's own art and
+must read no asset outside the artifact. Outlander selects no shared library.
+The external library migration removes the inherited engine-asset list and its
+measurement command. Guard: the artifact smoke run under strace.
 
 **SG3 done 2026-10-09:** reduced profiles through the shipped composition.
 `PlatformerApp::profile(EngineProfile)` (profiles at `app::profile`) installs

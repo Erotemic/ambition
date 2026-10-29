@@ -87,7 +87,7 @@ def test_the_live_tree_sees_both_shapes_at_once():
     """⭐ POSITIVE CONTROL. If the count collapses to the handful only one shape
     produces, the two-shape handling has regressed."""
     module = load()
-    if not module.SHEETS.is_dir():
+    if not module.sheet_files():
         pytest.skip("the sprite tree is gitignored generated output; absent here")
     rows = module.knockdown_coverage()
     full = [n for n, got in rows.items() if len(got) == len(module.KNOCKDOWN_ROWS)]

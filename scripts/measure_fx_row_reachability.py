@@ -32,7 +32,8 @@ targets = sorted(
     for module in targets_root.rglob("*.py")
     if re.search(r"^FX = \{", module.read_text(errors="ignore"), re.M)
 )
-sheets = repo / "game/ambition_content_library/generated/runtime/sprites"
+from lib.content_libraries import runtime_files
+files = runtime_files(repo)
 
 tracked = subprocess.run(["git","ls-files"], capture_output=True, text=True,
                          cwd=repo).stdout.split()
@@ -58,8 +59,8 @@ dead_sheets = []
 owner_report: list[tuple[str, list[tuple[str, int]]]] = []
 print(f"{'sheet':<32} {'rows':>5} {'named':>6} {'unnamed':>8}")
 for t in targets:
-    manifest = sheets / f"{t}_spritesheet.ron"
-    if not manifest.exists():
+    manifest = files.get(f"sprites/{t}_spritesheet.ron")
+    if manifest is None:
         print(f"{t:<32} (no baked manifest)")
         continue
     rows = sorted(set(re.findall(r'animation: "([a-z_0-9]+)"', manifest.read_text())))

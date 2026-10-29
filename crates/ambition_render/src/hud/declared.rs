@@ -661,7 +661,7 @@ impl RetainedHudImages {
             .or_insert_with_key(|path| {
                 // Stamped like every other portrait load, so the ledger records its
                 // demand (a bare `load` shows as `demand=unknown`).
-                ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
+                ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
                     asset_server,
                     "portrait",
                     path.clone(),

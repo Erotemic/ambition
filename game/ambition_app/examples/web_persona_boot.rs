@@ -47,7 +47,8 @@ fn main() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     println!("web-persona-boot: composed; stepping");
 
-    for frame in 0..ambition_app::app::shared_host_startup_ticks() {
+    let startup_ticks = ambition_app::app::shared_host_startup_ticks(app.world_mut());
+    for frame in 0..startup_ticks {
         app.update();
         if frame % 20 == 0 {
             println!("  frame {frame}");
@@ -124,7 +125,7 @@ fn main() {
              unfed latch, so seat zero is still neutral every tick — the same dead \
              gameplay input, with the resource present. The accumulator was left behind \
              when the latch moved.",
-            ambition_app::app::shared_host_startup_ticks()
+            startup_ticks
         );
         std::process::exit(1);
     }

@@ -33,8 +33,11 @@ import canonical_assets as ca  # noqa: E402
 
 def _tree(root: Path, *, files: int, linked: bool) -> Path:
     """A sprite tier tree, either generated here or mirrored from elsewhere."""
-    tree = root / "game/ambition_content_library/generated/runtime/sprites"
+    tree = root / "game/ambition_content_library/generated/runtime/full/sprites"
     tree.mkdir(parents=True, exist_ok=True)
+    (root / "game/ambition_content_library/library.json").write_text(
+        '{"schema":"ambition.content_library.v1","id":"fixture","version":"1","asset_roots":{"generated":"generated/runtime/full"}}'
+    )
     source = root / "elsewhere"
     source.mkdir(exist_ok=True)
     for i in range(files):
@@ -161,16 +164,6 @@ def test_a_regenerated_PREFIX_does_not_make_a_borrowing_tree_canonical(tmp_path)
     reason = ca.why_not(tmp_path)
     assert "SYMLINK" in reason, reason
     assert "mirror_assets_for_worktree" in reason, reason
-
-
-def test_the_scan_counts_every_file_rather_than_a_prefix(tmp_path):
-    """The counts the reason quotes must be the population, not a window —
-    otherwise a reader cannot tell a 1-in-26 borrow from a 1-in-2000 one."""
-    tree = _tree(tmp_path, files=30, linked=False)
-    (tree / "zz_a.png").symlink_to(tmp_path / "missing_a.png")
-    (tree / "zz_b.png").symlink_to(tmp_path / "missing_b.png")
-
-    assert ca._scan_tree_files(tmp_path) == (30, 2)
 
 
 def test_the_live_repo_answers_and_the_answer_matches_its_tree(tmp_path):

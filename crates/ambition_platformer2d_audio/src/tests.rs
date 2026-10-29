@@ -19,14 +19,10 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 /// explicit cross-crate test fixture. Parsed per call: a shared static would
 /// be a channel between tests.
 fn fixture_music_registry() -> MusicRegistry {
-    ron::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime/full/audio/music_registry.ron")).expect("shared audio fixture"))
+    ron::from_str(&String::from_utf8(ambition_asset_manager::content_library::ContentLibrary::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/library.json")).expect("shared audio library").files().expect("shared audio publication")["audio/music_registry.ron"].read().expect("shared registry")).expect("registry UTF-8"))
         .expect("ambition_content music_registry.ron should parse")
 }
 
-fn fixture_sfx_registry() -> ambition_audio::spec::SfxRegistry {
-    ron::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/authored/runtime/audio/sfx_registry.ron")).expect("shared audio fixture"))
-        .expect("ambition_content sfx_registry.ron should parse")
-}
 
 #[test]
 fn amplitude_to_decibels_silent_floor() {
@@ -98,19 +94,9 @@ fn sfx_message_carries_position() {
 
 #[test]
 fn audio_library_loads_every_cue_from_real_bank() {
-    let bank_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("audio")
-        .join("sfx.bank");
-    if !bank_path.exists() {
-        eprintln!(
-            "(skipped) {} missing — run `python3 tools/ambition_sfx_pack/pack.py`",
-            bank_path.display()
-        );
-        return;
-    }
-
-    let provider = ambition_sfx::BankProvider::from_path(&bank_path).expect("load real bank");
+    let library = ambition_asset_manager::content_library::ContentLibrary::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/library.json")).expect("shared audio library");
+    let bytes = library.files().expect("shared publication")["audio/sfx.bank"].read().expect("selected bank");
+    let provider = ambition_sfx::BankProvider::from_bytes(bytes).expect("load real bank");
     for cue in SoundCue::ALL {
         assert!(
             provider.has(cue.sfx_id()),
@@ -120,13 +106,11 @@ fn audio_library_loads_every_cue_from_real_bank() {
         );
     }
 
-    let sfx = fixture_sfx_registry().clone();
-    let music = fixture_music_registry().clone();
     let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &sfx, &music, None, Some(&provider), None);
+    let mut cache = ambition_audio::ProviderSfxHandleCache::default();
 
     for cue in SoundCue::ALL {
-        let handle = library.sfx_handle(cue);
+        let handle = cache.handle_for("fixture", cue.sfx_id(), None, Some(&provider), provider.fingerprint_of(cue.sfx_id()), &mut assets).expect("bank clip decodes").handle;
         assert_ne!(
             handle,
             Handle::<KiraAudioSource>::default(),
@@ -158,7 +142,6 @@ fn embedded_music_tracks_resolve_to_ogg_assets() {
 /// skip/None path anymore.
 #[test]
 fn audio_library_resolves_default_and_override_paths() {
-    let sfx = fixture_sfx_registry().clone();
     let music = MusicRegistry {
         default_track: "convention".into(),
         tracks: vec![
@@ -183,8 +166,7 @@ fn audio_library_resolves_default_and_override_paths() {
     );
     assert_eq!(music.tracks[1].resolved_asset_path(), "audio/music/x.ogg");
 
-    let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &sfx, &music, None, None, None);
+    let library = AudioLibrary::new(&music, None);
     assert_eq!(library.track_count(), 2);
     assert!(library.track("convention").is_some());
     assert!(library.track("override").is_some());
@@ -210,10 +192,8 @@ fn embedded_audio_catalog_includes_tech_bro_banger_tracks() {
 
 #[test]
 fn music_track_order_cycles() {
-    let sfx = fixture_sfx_registry().clone();
     let music = fixture_music_registry().clone();
-    let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &sfx, &music, None, None, None);
+    let library = AudioLibrary::new(&music, None);
     let ids: Vec<&str> = music.tracks.iter().map(|track| track.id.as_str()).collect();
     assert_eq!(library.track_count(), ids.len());
     assert!(
@@ -413,7 +393,6 @@ fn the_platformer_audio_crate_uses_only_bevy_kira_audio() {
 /// one plays from its new file.
 #[test]
 fn a_revised_music_registry_replaces_the_track_table() {
-    let sfx = fixture_sfx_registry().clone();
     let track = |id: &str, asset_path: Option<&str>| MusicTrack {
         id: id.to_string(),
         display_name: id.to_string(),
@@ -428,8 +407,7 @@ fn a_revised_music_registry_replaces_the_track_table() {
         default_track: "kept".to_string(),
         tracks: vec![track("kept", None), track("moved", Some("audio/music/new.ogg")), track("added", None)],
     };
-    let mut assets = Assets::<KiraAudioSource>::default();
-    let mut library = AudioLibrary::new(&mut assets, &sfx, &before, None, None, None);
+    let mut library = AudioLibrary::new(&before, None);
     library.revise_provider_tracks(Some(&before), Some(&after));
 
     assert_eq!(library.track_count(), 3);

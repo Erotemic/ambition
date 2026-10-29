@@ -38,12 +38,28 @@ files. `./scripts/regen/sprites.sh --check-toolchain` checks the renderer setup.
 ⚠ Do not run a regen concurrently with a `static_content` build or with a
 running test: one writes the files the other is reading.
 
-## ⚠ FONTS ARE NOT A CATEGORY HERE
+## Selected library and accepted products
 
-`assets.sh` covers `backgrounds sprites variants music sfx`. Fetch the bundled
-UI fonts with `python3 scripts/grab_font_assets.py`. The library manifest owns
-font selection and static embedding. The engine has no font payload dependency.
-`scripts/setup/generated_content.sh` runs both steps.
+The `producers` table in `game/ambition_content_library/library.json` selects
+fonts, backgrounds, sprites, quality variants, music, and SFX. Set
+`AMBITION_CONTENT_LIBRARY` to use another library manifest.
+
+Each producer writes to a private staging root. The existing immutable store
+accepts a complete result. A failed build keeps the accepted selection. Runtime
+readers and packages use that selection. Old loose outputs do not define runtime
+membership within a published producer's declared roots.
+
+```bash
+python3 scripts/generate_library_content.py --check        # all declared media
+python3 scripts/generate_library_content.py --check music  # one family
+./scripts/regen/sprites.sh --check                         # sprite bundles
+python3 scripts/check_quality_variants_are_fresh.py        # quality products
+```
+
+Freshness includes source files, generator code, tool versions, and the audio
+renderer's dependency identities. Audio generation can reuse current renders.
+`--skip-render` refuses stale audio. Review reports and conversion receipts stay
+in review roots. They are not runtime package members.
 
 ## The umbrella, and the pieces
 
@@ -52,14 +68,15 @@ font selection and static embedding. The engine has no font payload dependency.
 ./scripts/regen/assets.sh sprites variants   # just these, same order rules
 ```
 
-`assets.sh` with no arguments runs `backgrounds sprites variants music sfx`.
-`run_developer_setup.sh` calls exactly that, so **a full developer setup already
-regenerates all of it** — see the trap below for how that can still leave a
-machine with stale content.
+`assets.sh` with no arguments runs every declared producer in dependency order.
+`run_developer_setup.sh` calls `scripts/setup/generated_content.sh`, which builds
+the validator, runs the producers, and checks accepted products. A required
+producer or freshness failure makes setup fail.
 
 | script | what it rebuilds | notes |
 |---|---|---|
 | `assets.sh` | the umbrella | takes category names; `--help` lists them |
+| `../grab_font_assets.py` | declared fonts and licenses | archive hashes are pinned in library policy |
 | `backgrounds.sh` | procedural background / parallax families | |
 | `sprites.sh` | the sprite suite and shared atlases | the long one |
 | `quality_variants.sh` | reduced-resolution tiers of the above | `--sprites-only`, `--backgrounds-only`, `--tier`, `--target`, `--force` |
@@ -82,8 +99,8 @@ python3 scripts/check_quality_variants_are_fresh.py   # says exactly what is sta
 ./scripts/regen/quality_variants.sh                   # fixes it, incrementally
 ```
 
-`run_developer_setup.sh` now runs that check at the end and reports rather than
-assuming. ⚠ Regeneration is INCREMENTAL — a sprite bundle is rebuilt when its
+`run_developer_setup.sh` runs that check at the end. A stale result makes setup
+fail. ⚠ Regeneration is INCREMENTAL — a sprite bundle is rebuilt when its
 recipe or an accepted member has changed — so re-running is cheap and
 `--force` is the escape hatch when a freshness check is what you distrust.
 

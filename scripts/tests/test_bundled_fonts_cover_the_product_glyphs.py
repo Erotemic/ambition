@@ -15,10 +15,15 @@ from pathlib import Path
 
 import pytest
 
-BUNDLED = (
-    Path(__file__).resolve().parents[2]
-    / "game/ambition_content_library/generated/runtime/full/fonts/bundled"
-)
+import sys
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "scripts"))
+from lib.content_libraries import runtime_files
+
+
+def bundled_file(name: str) -> Path:
+    return runtime_files(REPO)["fonts/bundled/" + name]
+
 
 #  Every one of these has been drawn as an empty box in this game at some point.
 #
@@ -107,7 +112,7 @@ def test_the_product_faces_draw_every_glyph_ambition_ships(filename: str) -> Non
     only appears on plates, which is exactly the kind of gap a single-face check
     would miss.
     """
-    path = BUNDLED / filename
+    path = bundled_file(filename)
     if not path.exists():
         pytest.skip(f"{filename} is a git-ignored bundled asset and is absent here")
     covered = _covered_codepoints(path)
@@ -128,7 +133,7 @@ def test_the_reader_actually_reads_something() -> None:
     silently parsed to a huge range, would go green forever. Pin a character the
     face must NOT have, so the check is proven to discriminate.
     """
-    path = BUNDLED / "InterDisplay-Regular.otf"
+    path = bundled_file("InterDisplay-Regular.otf")
     if not path.exists():
         pytest.skip("bundled font absent")
     covered = _covered_codepoints(path)

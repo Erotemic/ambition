@@ -143,7 +143,6 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     };
     let route = chase_route();
     let mut last = head(&mut sim).kin.pos;
-    let mut jump = (0.0_f32, last, last);
     for leg in route.windows(2) {
         let (a, b) = (leg[0], leg[1]);
         let ticks = ((b - a).length() / 260.0 * 60.0).ceil() as usize;
@@ -167,13 +166,11 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
                     "the live pursuer is outside the camera: head={:?}, camera={snap:?}", h.kin);
             }
             let now = h.kin.pos;
-            if (now - last).length() > jump.0 {
-                jump = ((now - last).length(), last, now);
-            }
+            assert!(now.distance(last) < MOST_IN_A_TICK,
+                "it jumped {} px in one tick on its run, from {last} to {now}; runner={runner}", now.distance(last));
             last = now;
         }
     }
-    assert!(jump.0 < MOST_IN_A_TICK, "it jumped {} px in one tick on its run, from {} to {}", jump.0, jump.1, jump.2);
     step_until(&mut sim, 60 * 15, "it to come into the final hall after you", |sim| {
         let h = head(sim);
         h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_EAST && h.view.is_some_and(|v| !v.running)

@@ -1441,6 +1441,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     };
     let pos = clamp(pos).min(Vec2::new(f32::MAX, ground));
+    // A new floor height or a lunge must use the same flight limit as pursuit.
+    let pos = if pursuit.is_some() { at.move_towards(pos, chase::MAX_SPEED * dt) } else { pos };
 
     // ── The strike's own onsets ──
     if let Some(part @ Part { striking: true, .. }) = part {

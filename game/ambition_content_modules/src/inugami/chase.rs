@@ -5,7 +5,7 @@ use bevy_math::Vec2;
 use super::{RUN_GAP, SCENT_MAX, SCENT_REACH, SCENT_STEP};
 
 const MIN_SPEED: f32 = 90.0;
-const MAX_SPEED: f32 = 1100.0;
+pub(super) const MAX_SPEED: f32 = 1100.0;
 const GAP_RATE: f32 = 1.8;
 const PACE_RATE: f32 = 8.0;
 
@@ -53,9 +53,8 @@ impl Trail<'_> {
             previous = p;
         }
         let speed = (*self.pace + (distance - RUN_GAP) * GAP_RATE).clamp(MIN_SPEED, MAX_SPEED);
-        let step = goal - at;
         Step {
-            position: at + step.normalize_or_zero() * step.length().min(speed * dt),
+            position: at.move_towards(goal, speed * dt),
             distance,
             forward: Vec2::from(*self.forward),
         }

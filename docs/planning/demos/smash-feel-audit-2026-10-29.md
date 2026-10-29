@@ -211,7 +211,7 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P2 tiered hit and swing sounds | ✔ 12 cues (reel in `untracked/sfx-candidates/smash-feel/`), tier pick in `resolve_strike_sfx` | 865e5e460 |
 | R3 frame data | ✔ per fighter, in the facet (`move_timing`), 16 fighters; sanic has no facet; George is Rust-authored | 223dc85e7 |
 | R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
-| P4 posing keys, P5 slash arcs | in progress (art agent, robot v3 first) | — |
+| P4 posing keys, P5 slash arcs | ✔ for the three polygons (Jon: the polygons are the Smash test players, not the robot): 12-frame rows with anticipation / smear / contact-overshoot / settle posed to each fighter's Smash windows, a shaking, glinting `smash_charge`, travelling arcs in the `*_strike_fx` rows (renderer c752183, generation 55069d31; review sheets `untracked/art-review/polygon-keys/`). Open: the beast's coil is subtle; the other fighters' rows are still one picture per phase | 96552c2c6 |
 | P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
 | R5 play with Jon; R6 angled air-dodge lag, authored walk speed; P6 squash; a tap-jump menu toggle | open | — |
 

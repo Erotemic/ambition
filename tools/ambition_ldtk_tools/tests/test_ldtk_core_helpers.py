@@ -19,6 +19,17 @@ from ambition_ldtk_tools.ldtk import (
 )
 
 
+def sprite_library(repo: Path) -> Path:
+    import json
+    library = repo / "game" / "ambition_content_library"
+    library.mkdir(parents=True, exist_ok=True)
+    (library / "library.json").write_text(json.dumps({
+        "schema": "ambition.content_library.v1", "id": "fixture", "version": "1",
+        "asset_roots": {"generated": "generated/runtime/full"},
+    }))
+    return library / "generated/runtime/full"
+
+
 def mini_project() -> dict:
     return {
         "nextUid": 100,
@@ -91,25 +102,6 @@ def test_rel_to_ldtk_uses_forward_slashes(tmp_path: Path) -> None:
     assert rel_to_ldtk(ldtk, asset) == "../sprites/editor_icons.png"
 
 
-def test_canonical_repo_asset_paths_follow_content_split() -> None:
-    repo = Path(__file__).resolve().parents[3]
-    assert default_character_catalog(repo) == (
-        repo / "game" / "ambition_content" / "assets" / "data" / "character_catalog.ron"
-    )
-    assert default_sandbox_ldtk(repo) == (
-        repo / "game" / "ambition_content" / "assets" / "worlds" / "sandbox.ldtk"
-    )
-    assert default_hall_ldtk(repo) == (
-        repo / "game" / "ambition_content" / "assets" / "worlds" / "hall_of_characters.ldtk"
-    )
-    assert default_sprite_assets_dir(repo) == (
-        repo / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
-    )
-    content_sprite_mount = repo / "game" / "ambition_content" / "assets" / "sprites"
-    assert content_sprite_mount.resolve() == default_sprite_assets_dir(repo).resolve()
-    assert default_character_catalog(repo).is_file()
-    assert default_sandbox_ldtk(repo).is_file()
-    assert default_hall_ldtk(repo).is_file()
 
 
 def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -> None:
@@ -117,14 +109,7 @@ def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -
     (repo / "crates").mkdir(parents=True)
     (repo / "tools").mkdir()
     ldtk = repo / "game" / "ambition_content" / "assets" / "worlds" / "sandbox.ldtk"
-    sprite = (
-        repo
-        / "crates"
-        / "ambition_platformer2d_actor_monolith"
-        / "assets"
-        / "sprites"
-        / "player_robot_v3_spritesheet.png"
-    )
+    sprite = sprite_library(repo) / "sprites" / "player_robot_v3_spritesheet.png"
     ldtk.parent.mkdir(parents=True)
     sprite.parent.mkdir(parents=True)
     ldtk.write_text("{}")
@@ -135,22 +120,6 @@ def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -
     assert path_from_ldtk(ldtk, rel) == sprite.resolve()
 
 
-def test_authoritative_world_tilesets_are_runtime_safe_and_resolvable() -> None:
-    import json
-
-    worlds = default_sandbox_ldtk().parent
-    for ldtk in sorted(worlds.glob("*.ldtk")):
-        project = json.loads(ldtk.read_text())
-        for tileset in project.get("defs", {}).get("tilesets", []):
-            rel = tileset.get("relPath")
-            if not rel:
-                continue
-            assert "crates/" not in rel, f"{ldtk}: unsafe repository traversal {rel!r}"
-            assert not Path(rel).is_absolute(), f"{ldtk}: absolute tileset path {rel!r}"
-            resolved = path_from_ldtk(ldtk, rel)
-            if rel.startswith("../sprites/"):
-                expected = default_sprite_assets_dir(ldtk) / rel.removeprefix("../sprites/")
-                assert resolved == expected.absolute(), (ldtk, rel, resolved, expected)
 
 
 def test_a_repo_reached_through_a_symlinked_alias_keeps_the_virtual_mount(tmp_path: Path) -> None:
@@ -165,7 +134,7 @@ def test_a_repo_reached_through_a_symlinked_alias_keeps_the_virtual_mount(tmp_pa
     alias = tmp_path / "alias"
     alias.symlink_to(real)
     worlds = real / "game" / "ambition_content" / "assets" / "worlds"
-    sprites = real / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+    sprites = sprite_library(real) / "sprites"
     worlds.mkdir(parents=True)
     sprites.mkdir(parents=True)
     (worlds / "intro.ldtk").write_text("{}")

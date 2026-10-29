@@ -9,6 +9,7 @@
     fill_collision: "empty",
     bg_color: "#16200F",
     biome: "primeval",
+    parallax_theme: "primeval",
     music_track: "dinosaur_liberators",
     entities: [
         ( type: "Solid", px: [0, 672], size: [2000, 32], fields: ( name: "floor" ) ),

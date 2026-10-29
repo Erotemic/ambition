@@ -100,11 +100,30 @@ impl SheetTexts {
 /// Keep the source of a metadata reference when it names an image.
 pub(crate) fn image_in(source: &str, image: &str) -> String {
     if image.contains("://") { return image.to_owned(); }
-    let Some((_, rest)) = source.split_once("://") else { return image.to_owned() };
-    let Some((library, _)) = rest.split_once('/') else { return image.to_owned() };
-    let logical = if image.contains('/') { image.to_owned() } else {
+    let Some((scheme, rest)) = source.split_once("://") else { return image.to_owned() };
+    if !image.contains('/') {
         let directory = source.rsplit_once('/').map(|(directory, _)| directory).unwrap_or(source);
         return format!("{directory}/{image}");
-    };
-    format!("content://{library}/{logical}")
+    }
+    if scheme == "content" {
+        let Some((library, _)) = rest.split_once('/') else { return image.to_owned() };
+        format!("content://{library}/{image}")
+    } else {
+        format!("{scheme}://{image}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::image_in;
+
+    #[test]
+    fn an_image_keeps_its_metadata_source_or_its_explicit_owner() {
+        for source in ["game://sprites/body.ron", "content://shared/sprites/body.ron"] {
+            assert_eq!(image_in(source, "body.png"), source.replace(".ron", ".png"));
+            assert_eq!(image_in(source, "content://other/art/body.png"), "content://other/art/body.png");
+        }
+        assert_eq!(image_in("game://sprites/body.ron", "sprites/body.png"), "game://sprites/body.png");
+        assert_eq!(image_in("content://shared/sprites/body.ron", "sprites/body.png"), "content://shared/sprites/body.png");
+    }
 }

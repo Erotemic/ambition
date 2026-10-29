@@ -115,7 +115,7 @@ def manifest_has_idle(manifest_path: Path) -> bool:
     return False
 
 
-def classify(character_id: str, catalog: dict, sprites_dir: Path) -> tuple[str, str]:
+def classify(character_id: str, catalog: dict, sprites_dir: Path, files: dict[str, Path] | None = None) -> tuple[str, str]:
     """Return (status_code, detail_message)."""
     if character_id not in catalog["characters"]:
         if character_id in PROVIDER_HALL_IDS:
@@ -127,15 +127,15 @@ def classify(character_id: str, catalog: dict, sprites_dir: Path) -> tuple[str, 
     entry = catalog["characters"][character_id]
     # The sheet image is the manifest path with `.png` in place of `.ron`.
     spritesheet = entry["manifest"].removesuffix(".ron") + ".png"
-    png_path = sprites_dir / spritesheet.removeprefix("sprites/")
-    manifest = find_manifest_path(spritesheet, sprites_dir)
+    png_path = files.get(spritesheet) if files is not None else sprites_dir / spritesheet.removeprefix("sprites/")
+    manifest = files.get(entry["manifest"]) if files is not None else find_manifest_path(spritesheet, sprites_dir)
     if manifest is None:
         return (
             "no_manifest",
-            f"missing {png_path.parent.name}/{png_path.name.replace('.png', '.ron')}",
+            f"missing {entry['manifest']}",
         )
-    if not png_path.exists():
-        return ("no_png", f"missing {png_path}")
+    if png_path is None or not png_path.exists():
+        return ("no_png", f"missing {spritesheet}")
     if not manifest_has_idle(manifest):
         return ("no_idle", f"manifest {manifest.name} lacks Idle-equivalent row")
     return ("ok", "")
@@ -145,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH)
     parser.add_argument("--ldtk", type=Path, default=LDTK_PATH)
-    parser.add_argument("--sprites-dir", type=Path, default=SPRITES_DIR)
+    parser.add_argument("--sprites-dir", type=Path)
     parser.add_argument(
         "--only-issues",
         action="store_true",
@@ -156,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
     from .ron_parse import load as ron_load
 
     catalog = ron_load(args.catalog.read_text())
+    from .ldtk.paths import published_runtime_files
+    files = published_runtime_files(args.ldtk) if args.sprites_dir is None else None
+    sprites_dir = args.sprites_dir or SPRITES_DIR
     spawns = hall_npc_spawns(args.ldtk)
     print(f"# {len(spawns)} NpcSpawn pedestals in `hall_of_characters`.\n")
 
@@ -169,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     for spawn in sorted(spawns, key=lambda s: s.get("character_id", "")):
         cid = spawn.get("character_id", "")
-        status, detail = classify(cid, catalog, args.sprites_dir)
+        status, detail = classify(cid, catalog, sprites_dir, files)
         counts[status] += 1
         if args.only_issues and status in {"ok", "provider_owned"}:
             continue

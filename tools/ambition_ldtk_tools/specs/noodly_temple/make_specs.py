@@ -234,6 +234,7 @@ def room(rid, entities, label, connect=(), music=MUSIC, title_at=(240, 32)):
     fill_collision: "empty",
     bg_color: "{BG}",
     biome: "{BIOME}",
+    parallax_theme: "{BIOME}",
     music_track: "{music}",
     entities: [
         {body}

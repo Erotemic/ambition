@@ -109,6 +109,7 @@ def hall_spec() -> str:
     fill_collision: "empty",
     bg_color: "#141019",
     biome: "hub",
+    parallax_theme: "hub",
     entities: [
         ( type: "Solid", px: [0, {FLOOR}], size: [{HALL_W}, 32], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [{HALL_W}, 16], fields: ( name: "ceiling" ) ),

@@ -191,13 +191,27 @@ impl LoadedMusicCueAssets {
         for section in &cue.sections {
             for source in &section.sources {
                 let key = MusicSourceKey::new(provider_id, &cue.id, &section.id, &source.layer_id);
-                let rel = format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
+                let rel = cue.source_path(source);
                 if !self.holds(&key, &rel) {
                     let handle = asset_server.load(rel.clone());
                     self.sources.insert(key, (rel, handle));
                 }
             }
         }
+    }
+
+    pub(super) fn cue_ready(
+        &self,
+        provider_id: &str,
+        cue: &MusicCueSpec,
+        decoded: &Assets<KiraAudioSource>,
+    ) -> bool {
+        cue.sections.iter().flat_map(|section| {
+            section.sources.iter().map(move |source| (section, source))
+        }).all(|(section, source)| {
+            self.get(provider_id, &cue.id, &section.id, &source.layer_id)
+                .is_some_and(|handle| decoded.contains(handle.id()))
+        })
     }
 }
 
@@ -614,5 +628,13 @@ mod provider_registry_tests {
         let (path, handle) = &assets.sources[&key(&after)];
         assert_eq!(path, "audio/adaptive/a_v2.ogg", "the cache kept the replaced file's path");
         assert_ne!(*handle, first, "the replaced file was never requested");
+
+        for path in ["content://other/audio/a.ogg", "game://audio/a.ogg"] {
+            let qualified = cue_of(path);
+            assets.ensure_cue_loaded("a", &qualified, &server);
+            let (loaded, handle) = &assets.sources[&key(&qualified)];
+            assert_eq!(loaded, path);
+            assert_eq!(handle.path().unwrap().to_string(), path);
+        }
     }
 }

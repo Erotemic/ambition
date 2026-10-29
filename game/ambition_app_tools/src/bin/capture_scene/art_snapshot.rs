@@ -11,7 +11,19 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
     let mut bodies = Vec::new();
     let mut visuals = Vec::new();
+    let mut views = Vec::new();
     for entity in world.iter_entities() {
+        if let Some(view) = entity.get::<engine::sim_view::camera_snapshot::CameraViewState>() {
+            let frame = entity.get::<engine::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+                .and_then(|resolved| resolved.frame());
+            views.push(json!({
+                "center": [view.center_world.x, view.center_world.y],
+                "visible_size": [view.visible_view.x, view.visible_view.y],
+                "zoom": view.zoom_multiplier, "zone": view.active_camera_zone,
+                "follow": frame.map(|frame| [frame.follow_world.x, frame.follow_world.y]),
+                "room": frame.map(|frame| format!("{:?}", frame.room)),
+            }));
+        }
         if let Some(worn) = entity.get::<WornCharacter>() {
             bodies.push(json!({"character_id": worn.id(),
                 "stable_id": entity.get::<engine::observation::SimId>().map(|id| id.as_str()),
@@ -19,6 +31,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 "feature_id": entity.get::<engine::combat::components::FeatureId>().map(|id| &id.0),
                 "alive": entity.get::<BodyHealth>().map(|health| health.alive()),
                 "death": entity.get::<engine::combat::components::DeathBeat>().map(|beat| format!("{beat:?}")),
+                "position": entity.get::<engine::engine_core::BodyKinematics>().map(|body| [body.pos.x, body.pos.y]),
             }));
         }
         if let Some(animator) = entity.get::<CharacterAnimator>() {
@@ -48,11 +61,21 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     }
     bodies.sort_by_key(|row| row.to_string());
     visuals.sort_by_key(|row| row.to_string());
+    views.sort_by_key(|row| row.to_string());
+    let music = world.get_resource::<engine::audio::music::MusicDirectorState>().map(|director| json!({
+        "mode": format!("{:?}", director.mode), "cue": director.active_cue_id,
+        "base_track": world.get_resource::<engine::audio::library::MusicPlaybackState>().map(|state| state.active_track()),
+        "state": director.current_state_id, "section": director.current_section_id,
+        "section_seconds": director.seconds_in_mode, "loop_seconds": director.seconds_in_loop,
+        "intent": world.get_resource::<engine::audio::music::MusicIntent>().map(|intent| json!({
+            "adaptive": format!("{:?}", intent.adaptive), "tracks": intent.simple_track_candidates,
+        })),
+    }));
     let content = world.get_resource::<ambition_content::pack::SelectedContentPack>()
         .map(|pack| pack.0.fingerprint.hex());
     json!({"schema": "ambition.art_runtime.v1", "tick": world.get_resource::<engine::time::SimTick>().map(|tick| tick.get()),
         "build": {"package": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION"), "revision": option_env!("AMBITION_BUILD_COMMIT")},
         "content_fingerprint": content,
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
-        "bodies": bodies, "visuals": visuals})
+        "bodies": bodies, "visuals": visuals, "views": views, "music": music})
 }

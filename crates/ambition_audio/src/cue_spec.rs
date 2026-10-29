@@ -34,6 +34,18 @@ pub struct MusicCueSpec {
     pub runtime_balance_overrides: Vec<MusicStateBalanceOverride>,
 }
 
+#[cfg(any(feature = "kira", feature = "content_pack"))]
+impl MusicCueSpec {
+    /// Resolve a source relative to the cue root. A qualified source keeps its owner.
+    pub(crate) fn source_path(&self, source: &MusicLayerSourceSpec) -> String {
+        if source.path.contains("://") || self.asset_root.is_empty() {
+            source.path.clone()
+        } else {
+            format!("{}/{}", self.asset_root.trim_end_matches('/'), source.path)
+        }
+    }
+}
+
 // The director's lookups; it is the only reader.
 #[cfg(feature = "kira")]
 impl MusicCueSpec {

@@ -1,15 +1,16 @@
 """Canonical repository paths and image helpers for LDtk tooling.
 
 Ambition keeps durable game content under ``game/ambition_content/assets`` and
-publishes generated character sprite products under
-``game/ambition_content_library/generated/runtime/sprites``.  Keep that split explicit here so
-individual commands do not recreate stale repository-layout assumptions.
+publishes generated sprites through its selected content library. Read accepted
+products with ``published_runtime_files``; use ``default_sprite_assets_dir``
+for loose generator output.
 """
 
 from __future__ import annotations
 
 import os
 import struct
+import sys
 from pathlib import Path
 
 
@@ -106,14 +107,28 @@ def default_character_catalog(anchor: Path | None = None) -> Path:
 
 
 def default_sprite_assets_dir(anchor: Path | None = None) -> Path:
-    """Return the published generated character-sprite directory."""
-    return (
-        _repo_root(anchor)
-        / "crates"
-        / "ambition_platformer2d_actor_monolith"
-        / "assets"
-        / "sprites"
-    )
+    """Return the selected library's loose sprite output directory."""
+    return _library_tools().generated_root(_repo_root(anchor)) / "sprites"
+
+
+def _library_tools():
+    root = str(_repo_root())
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from scripts.lib import content_libraries
+    return content_libraries
+
+
+def published_runtime_files(anchor: Path | None = None) -> dict[str, Path]:
+    """Read accepted products, including their qualified library references."""
+    tools = _library_tools()
+    libraries = tools.read_libraries([tools.selected_manifest(_repo_root(anchor))])
+    files: dict[str, Path] = {}
+    for name, library in libraries.items():
+        for logical, path in library.files().items():
+            files[logical] = path
+            files[f"content://{name}/{logical}"] = path
+    return files
 
 
 def _as_posix_relpath(path: Path, start: Path) -> str:
@@ -178,7 +193,8 @@ def path_from_ldtk(ldtk: Path, rel: str) -> Path:
         sprite_rel = direct.relative_to(virtual_sprites)
     except ValueError:
         return direct
-    return Path(os.path.abspath(default_sprite_assets_dir(ldtk) / sprite_rel))
+    logical = "sprites/" + sprite_rel.as_posix()
+    return published_runtime_files(ldtk).get(logical, default_sprite_assets_dir(ldtk) / sprite_rel).absolute()
 
 
 def png_dimensions(path: Path) -> tuple[int, int] | None:

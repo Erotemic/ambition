@@ -339,9 +339,8 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
 
 
 # Optional level-field identifiers handled by `build_level_field_instances`.
-# These map directly to `defs.levelFields` entries that every shipped project
-# declares (`tests/test_level_field_defs.py`). Specs may set any subset; missing
-# fields are simply not emitted as level field instances.
+# A project declares the fields it supports in `defs.levelFields`.
+# Specs may set a subset; fields with no value are not emitted.
 OPTIONAL_LEVEL_FIELDS = (
     "biome",
     "music_track",

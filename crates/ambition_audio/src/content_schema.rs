@@ -202,7 +202,7 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
             for section in &cue.sections {
                 for source in &section.sources {
                     out.need_asset(AssetRequirement::new(
-                        format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path),
+                        cue.source_path(source),
                         id.clone(),
                         "sections.sources.path",
                     ));

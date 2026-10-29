@@ -9,6 +9,7 @@
     fill_collision: "empty",
     bg_color: "#15131F",
     biome: "noodly",
+    parallax_theme: "noodly",
     music_track: "flying_spaghetti_monster_roots_stage_choir_backing",
     entities: [
         ( type: "Solid", px: [0, 864], size: [1600, 32], fields: ( name: "floor" ) ),

@@ -79,36 +79,30 @@ OVERFIT_ENTRY_TO = (3328, 1280)
 PULSE_VOYAGER_AT = (-1024, 768)
 
 #: The doors that leave the main floor for the wing, as they are authored
-#: (id, name, target_room, target_zone, bidirectional). Test rooms, and the
+#: (id, name, target_room, target_zone, bidirectional, x). Test rooms, and the
 #: doors to other dimensions that the public gate replaces.
 DEV_DOORS = [
-    ("hall_of_bosses_door", "to hall of bosses", "hall_of_bosses", "hall_entry", True),
-    ("hall_of_characters_door", "to hall of characters", "hall_of_characters", "hall_of_characters_entry", True),
-    ("hall_of_biomes_door", "to hall of biomes", "hall_of_biomes", "hall_of_biomes_entry", True),
-    ("gravity_lab_door", "to gravity lab", "gravity_lab", "gravity_lab_entry", True),
-    ("gradient_ascent_door", "to gradient ascent", "gradient_ascent", "gradient_ascent_entry", True),
-    ("skirmish_heights_door", "to skirmish heights", "skirmish_heights", "skirmish_heights_entry", True),
-    ("proving_grounds_hub_door", "to proving grounds", "proving_grounds", "proving_grounds_to_hub", True),
-    ("overfit_annex_hub_door", "to overfit annex", "overfit_annex_entry", "overfit_annex_entry_to_hub", True),
-    ("volatile_cache_door", "to volatile cache", "volatile_cache", "volatile_cache_entry", True),
-    ("falling_sand_main_door", "to falling sand", "falling_sand_room", "falling_sand_entry", True),
-    ("pirate_cove_door", "to pirate cove", "pirate_cove", "pirate_cove_entry", True),
-    ("ninja_dojo_door", "to ninja dojo", "ninja_dojo", "ninja_dojo_entry", True),
-    ("primeval_hub_door", "to the primeval trail", "primeval_trailhead", "primeval_trailhead_to_hub", True),
-    ("noodly_hub_door", "to the Noodly Temple", "noodly_narthex", "noodly_narthex_to_hub", True),
-    ("gnu_ton_handle_hub_door", "to GNU-ton gravity handle", "gnu_ton_orchard", "orchard_hub_door", True),
+    ("hall_of_bosses_door", "to hall of bosses", "hall_of_bosses", "hall_entry", True, 64),
+    ("hall_of_characters_door", "to hall of characters", "hall_of_characters", "hall_of_characters_entry", True, 132),
+    ("hall_of_biomes_door", "to hall of biomes", "hall_of_biomes", "hall_of_biomes_entry", True, 200),
+    ("gravity_lab_door", "to gravity lab", "gravity_lab", "gravity_lab_entry", True, 268),
+    ("gradient_ascent_door", "to gradient ascent", "gradient_ascent", "gradient_ascent_entry", True, 336),
+    ("skirmish_heights_door", "to skirmish heights", "skirmish_heights", "skirmish_heights_entry", True, 404),
+    ("proving_grounds_hub_door", "to proving grounds", "proving_grounds", "proving_grounds_to_hub", True, 472),
+    ("overfit_annex_hub_door", "to overfit annex", "overfit_annex_entry", "overfit_annex_entry_to_hub", True, 540),
+    ("volatile_cache_door", "to volatile cache", "volatile_cache", "volatile_cache_entry", True, 608),
+    ("pirate_cove_door", "to pirate cove", "pirate_cove", "pirate_cove_entry", True, 744),
+    ("ninja_dojo_door", "to ninja dojo", "ninja_dojo", "ninja_dojo_entry", True, 812),
+    ("primeval_hub_door", "to the primeval trail", "primeval_trailhead", "primeval_trailhead_to_hub", True, 880),
+    ("noodly_hub_door", "to the Noodly Temple", "noodly_narthex", "noodly_narthex_to_hub", True, 948),
+    ("gnu_ton_handle_hub_door", "to GNU-ton gravity handle", "gnu_ton_orchard", "orchard_hub_door", True, 1016),
 ]
-DOOR_X0, DOOR_STEP = 64, 68
 
 
 #: The doors of DEV_DOORS that Jon put back on the main floor (2026-10-24,
 #: in the LDtk editor): the halls of bosses, characters and biomes. The hub
 #: keeps them and the wing does not draw them; the others keep their places.
 HUB_KEEPS = {"hall_of_bosses_door", "hall_of_characters_door", "hall_of_biomes_door"}
-
-
-def wing_door_x(index: int) -> int:
-    return DOOR_X0 + index * DOOR_STEP
 
 
 #: The public gate on the main floor.
@@ -241,10 +235,10 @@ def wing_spec() -> str:
         gates.ron_entity("DebugLabel", 96, 72, 960, 24, name="dev_wing_title", category="Room",
                          text="DEVELOPER WING: test rooms and old door routes. Not public travel: the public gate is in the hall."),
     ]
-    for index, (zone, name, room, far, both) in enumerate(DEV_DOORS):
+    for zone, name, room, far, both, x in DEV_DOORS:
         if zone in HUB_KEEPS:
             continue
-        e.append(gates.ron_entity("LoadingZone", wing_door_x(index), WING_FLOOR - 96, 48, 96, id=zone, name=name,
+        e.append(gates.ron_entity("LoadingZone", x, WING_FLOOR - 96, 48, 96, id=zone, name=name,
                                   activation="Door", target_room=room, target_zone=far, bidirectional=both))
     body = "\n        ".join(e)
     return f"""// Written by specs/gate_network/make_gates.py. Change the script, not this file.
@@ -257,6 +251,7 @@ def wing_spec() -> str:
     px_hei: {WING_H},
     fill_collision: "empty",
     biome: "hub",
+    parallax_theme: "hub",
     entities: [
         {body}
     ],

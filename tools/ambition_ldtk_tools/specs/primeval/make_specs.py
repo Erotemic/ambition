@@ -165,6 +165,7 @@ def room(rid, entities, connect, label):
     fill_collision: "empty",
     bg_color: "{BG}",
     biome: "{BIOME}",
+    parallax_theme: "{BIOME}",
     music_track: "{MUSIC}",
     entities: [
         {body}

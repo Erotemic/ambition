@@ -12,6 +12,7 @@
     fill_collision: "empty",
     bg_color: "#141019",
     biome: "hub",
+    parallax_theme: "hub",
     entities: [
         ( type: "Solid", px: [0, 384], size: [2176, 32], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [2176, 16], fields: ( name: "ceiling" ) ),

@@ -38,31 +38,39 @@ def png_dimensions(path: Path) -> tuple[int, int]:
     return width, height
 
 
-def portrait_paths(entry: dict[str, Any], sprites_dir: Path) -> tuple[Path, Path] | None:
+def portrait_references(entry: dict[str, Any]) -> tuple[str, str] | None:
     explicit = entry.get("portrait")
     if isinstance(explicit, dict):
         image = explicit.get("image")
         manifest = explicit.get("manifest")
         if isinstance(image, str) and isinstance(manifest, str):
-            return (
-                sprites_dir / image.removeprefix("sprites/"),
-                sprites_dir / manifest.removeprefix("sprites/"),
-            )
+            return image, manifest
     manifest = entry.get("manifest")
     if not isinstance(manifest, str) or not manifest.endswith("_spritesheet.ron"):
         return None
     base = manifest[: -len("_spritesheet.ron")]
-    return (
-        sprites_dir / f"{base.removeprefix('sprites/')}_portraits.png",
-        sprites_dir / f"{base.removeprefix('sprites/')}_portraits.ron",
-    )
+    return f"{base}_portraits.png", f"{base}_portraits.ron"
 
 
-def classify(entry: dict[str, Any], sprites_dir: Path) -> tuple[str, str]:
-    paths = portrait_paths(entry, sprites_dir)
-    if paths is None:
+def portrait_paths(entry: dict[str, Any], sprites_dir: Path) -> tuple[Path, Path] | None:
+    references = portrait_references(entry)
+    if references is None:
+        return None
+    return tuple(sprites_dir / reference.removeprefix("sprites/") for reference in references)
+
+
+def classify(entry: dict[str, Any], sprites_dir: Path, files: dict[str, Path] | None = None) -> tuple[str, str]:
+    references = portrait_references(entry)
+    if references is None:
         return ("no_contract", "manifest path cannot derive a portrait product")
-    image_path, manifest_path = paths
+    if files is not None:
+        image_path, manifest_path = (files.get(reference) for reference in references)
+    else:
+        image_path, manifest_path = portrait_paths(entry, sprites_dir)
+    if image_path is None:
+        return ("no_png", f"missing {references[0]}")
+    if manifest_path is None:
+        return ("no_manifest", f"missing {references[1]}")
     if not image_path.exists():
         return ("no_png", f"missing {image_path}")
     try:
@@ -123,17 +131,20 @@ def catalog_hall_rows(catalog: dict[str, Any]) -> list[tuple[str, dict[str, Any]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH)
-    parser.add_argument("--sprites-dir", type=Path, default=SPRITES_DIR)
+    parser.add_argument("--sprites-dir", type=Path)
     parser.add_argument("--only-issues", action="store_true")
     args = parser.parse_args(argv)
 
     from .ron_parse import load as ron_load
 
     catalog = ron_load(args.catalog.read_text(encoding="utf8"))
+    from .ldtk.paths import published_runtime_files
+    files = published_runtime_files(args.catalog) if args.sprites_dir is None else None
+    sprites_dir = args.sprites_dir or SPRITES_DIR
     rows = sorted(catalog_hall_rows(catalog), key=lambda item: item[0])
     counts: dict[str, int] = {}
     for character_id, entry in rows:
-        status, detail = classify(entry, args.sprites_dir)
+        status, detail = classify(entry, sprites_dir, files)
         counts[status] = counts.get(status, 0) + 1
         if args.only_issues and status == "ok":
             continue

@@ -7,6 +7,9 @@ mod logging;
 mod simple;
 mod timing;
 
+#[cfg(test)]
+mod playback_tests;
+
 pub use loader::load_music_cues;
 
 use adaptive::{drive_adaptive_cue_state, drive_outro_tail, shutdown_adaptive_cue};
@@ -57,6 +60,7 @@ pub fn drive_music_director(
     base_music_channel: Res<AudioChannel<MusicChannel>>,
     mut library: ResMut<AudioLibrary>,
     asset_server: Res<AssetServer>,
+    decoded: Res<Assets<KiraAudioSource>>,
     mut music_state: ResMut<MusicPlaybackState>,
     settings: Res<MusicMix>,
 ) {
@@ -114,17 +118,21 @@ pub fn drive_music_director(
                 // provider-local, so the loaded-source key includes provider.
                 let provider_id = provider_id.expect("selected adaptive catalog has a provider");
                 assets.ensure_cue_loaded(provider_id, cue, &asset_server);
-                drive_adaptive_cue_state(
-                    &mut director,
-                    provider_id,
-                    cue,
-                    target_state,
-                    &assets,
-                    &layer_channels,
-                    &base_music_channel,
-                    &settings,
-                    dt,
-                );
+                // Start all layers together, after decoding. A queued play is not
+                // a playing section and must not start its transition clock.
+                if assets.cue_ready(provider_id, cue, &decoded) {
+                    drive_adaptive_cue_state(
+                        &mut director,
+                        provider_id,
+                        cue,
+                        target_state,
+                        &assets,
+                        &layer_channels,
+                        &base_music_channel,
+                        &settings,
+                        dt,
+                    );
+                }
             } else {
                 warn!(
                     target: MUSIC_LOG_TARGET,

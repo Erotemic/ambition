@@ -1051,6 +1051,7 @@ struct CastFraming {
 
 /// Half the extra room left around the cast's bounding box, in world units.
 /// The box with this margin is the composition the view asks for.
+#[cfg(test)]
 const CAST_FRAMING_MARGIN: f32 = 48.0;
 
 /// The hard bound on how far a framed cast may zoom the view in, and the room

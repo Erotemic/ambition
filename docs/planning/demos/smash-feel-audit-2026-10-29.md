@@ -217,6 +217,19 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 
 Nothing above has been played by a human yet. Every number is a first cut.
 
+**Measured after the pass** (`ko_envelope feel pointed_polygon pugnacious_polygon`,
+2026-10-29): hitlag is the genre's (jab 8 f, tilts 10, aerials 12, fsmash
+16); the facet clocks are live (nair 38 f, fair 40, fsmash 42); hitstun
+tracks Ultimate's 0.4 × KB at these launches (jab 10 f at 120 px/s, fsmash 29
+at 370). On-hit advantage (`adv_f`) is still negative for most moves below
+80% (jab −11 at 0%, ftilt −14, nair −31, fair −24; utilt +6, usmash +13 at
+40%, bair +5 at 80%). That is a per-move BASE KNOCKBACK question now (the
+polygons' tilts and aerials launch 120–290 px/s at 0%, which is short stun
+against 24–40 frame moves), not a rules gap: the R5 play pass should decide
+whether to raise tilt/aerial base knockback ~25% or accept a slower neutral.
+Also measured: `smash_tool match-report 30 --runs 2` plays through (KOs,
+launches, techs; no panics) under the new rules.
+
 ## Roadmap
 
 Two tracks. The simulation track (R) changes what a hit is; the presentation

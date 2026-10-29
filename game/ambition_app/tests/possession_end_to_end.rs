@@ -409,7 +409,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
     );
 }
 
-fn possess_two_seats(rollback: bool) -> (Platformer2dSimHarness, [Entity; 2], [Entity; 2], u64) {
+fn possess_two_seats(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, rollback: bool) -> (Platformer2dSimHarness, [Entity; 2], [Entity; 2], u64) {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::platformer::lifecycle::InCustodyOf;
     let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
@@ -431,7 +431,7 @@ fn possess_two_seats(rollback: bool) -> (Platformer2dSimHarness, [Entity; 2], [E
             .unwrap()
     };
     let home_b =
-        crate::a_home_body_is_built_for_a_seat::build_a_home_body(&mut sim, PlayerSlot(1), ());
+        crate::a_home_body_is_built_for_a_seat::build_a_home_body(&sprite_content, &mut sim, PlayerSlot(1), ());
     let start = player_pos(sim.world_mut());
     sim.world_mut()
         .get_mut::<BodyKinematics>(home_b)
@@ -501,9 +501,9 @@ fn possess_two_seats(rollback: bool) -> (Platformer2dSimHarness, [Entity; 2], [E
     (sim, [home_a, home_b], targets, loads_before)
 }
 
-fn exercise_two_seat_handoffs(rollback: bool) {
+fn exercise_two_seat_handoffs(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, rollback: bool) {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
-    let (mut sim, [home_a, home_b], targets, loads_before) = possess_two_seats(rollback);
+    let (mut sim, [home_a, home_b], targets, loads_before) = possess_two_seats(&sprite_content, rollback);
     let gesture = ae::ControlFrame {
         axis_y: 1.0,
         interact_held: true,
@@ -557,18 +557,21 @@ fn exercise_two_seat_handoffs(rollback: bool) {
 
 #[test]
 fn two_participants_possess_drive_and_release_independently() {
-    exercise_two_seat_handoffs(false);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    exercise_two_seat_handoffs(&sprite_content, false);
 }
 
 #[test]
 fn rollback_preserves_two_participants_possession_handoffs() {
-    exercise_two_seat_handoffs(true);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    exercise_two_seat_handoffs(&sprite_content, true);
 }
 
 #[test]
 fn a_removed_possessed_body_returns_only_its_participants_seat() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
-    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    let (mut sim, homes, targets, _) = possess_two_seats(&sprite_content, false);
     assert!(sim.world_mut().despawn(targets[0]));
     let other_before = sim.world().get::<BodyKinematics>(targets[1]).unwrap().pos.x;
     for _ in 0..3 {
@@ -621,9 +624,10 @@ fn a_removed_possessed_body_returns_only_its_participants_seat() {
 
 #[test]
 fn releasing_a_seat_keeps_the_active_move_on_its_original_body() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::combat::moveset::MovePlayback;
-    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    let (mut sim, homes, targets, _) = possess_two_seats(&sprite_content, false);
     sim.drive_seat(1, ae::ControlFrame::default());
     sim.step_frame(ae::ControlFrame::default());
     sim.step_frame(ae::ControlFrame {
@@ -669,7 +673,7 @@ fn releasing_a_seat_keeps_the_active_move_on_its_original_body() {
 #[test]
 fn possession_handoffs_do_not_advance_a_free_body_twice() {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
-    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    let (mut sim, homes, targets, _) = possess_two_seats(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), false);
     let bodies = [homes[0], homes[1], targets[0], targets[1]];
     let start = player_pos(sim.world_mut());
     let neutral = ae::ControlFrame::default();

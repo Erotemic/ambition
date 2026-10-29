@@ -526,7 +526,7 @@ const SEAT_BODY_PX: Vec2 = Vec2::new(30.0, 48.0);
 /// Reports every problem, not the first, so a lobby can fix everything at
 /// once.
 #[allow(clippy::too_many_arguments)]
-pub fn prepare_match(
+pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
     roster: &MatchParticipantRoster,
     registry: &PreparedCharacterRegistry,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -683,7 +683,7 @@ pub fn prepare_match(
 
         // The authored physical identity, read through `PhysicalBaseline`
         // like the exploration player.
-        let baseline = ambition_body_seed::PhysicalBaseline::of(definition);
+        let baseline = ambition_body_seed::PhysicalBaseline::of(&sprite_content, definition);
         // `hint_px` is only a hint: for a named catalog character,
         // `ActorClusterSeed::new_peaceful_npc_in` resizes to the authored
         // sprite's collision, and `seat.body_px` reads that size back.
@@ -719,7 +719,7 @@ pub fn prepare_match(
         // A match seat is never a practice target: such a body is skipped by
         // targeting and nobody could fight it.
         body.practice_target = false;
-        let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(
+        let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
             authored_sheets,
             catalog,
             body_id.clone(),

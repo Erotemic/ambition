@@ -35,6 +35,7 @@ fn booted() -> App {
 /// world where no assets loaded at all fails the second half rather than passing the first.
 #[test]
 fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let app = booted();
     let assets = app
         .world()
@@ -51,7 +52,7 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
     // The CORE set at boot — the generic vocabulary and projectile art. The
     // character-owned sheets follow their character (below); before 2026-09-02
     // all thirteen decoded here and sat resident in every room.
-    let mut core: Vec<&str> = core_fx_targets().collect();
+    let mut core: Vec<&str> = core_fx_targets(&sprite_content).collect();
     core.sort_unstable();
     assert_eq!(
         assets.fx.targets(),
@@ -59,7 +60,7 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
         "the core FX sheets decoded at boot, and only those"
     );
     assert!(
-        fx_sheets().len() > assets.fx.len(),
+        fx_sheets(&sprite_content).len() > assets.fx.len(),
         "NON-VACUITY: some sheets are character-owned, or the seam below tests nothing"
     );
 
@@ -67,7 +68,7 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
         ("classic_burst", "generic_explosions"),
         ("sonic_boom", "generic_exotic_fx"),
     ] {
-        let (effect, _asset, slot) = resolve_drawable(Some(assets), FxId::new(name))
+        let (effect, _asset, slot) = resolve_drawable(&sprite_content, Some(assets), FxId::new(name))
             .unwrap_or_else(|| panic!("`{name}` must resolve to sheet art, not a particle burst"));
         assert_eq!(effect.name, name);
         assert_eq!(effect.sheet, sheet);
@@ -79,7 +80,7 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
 
     // …and an id no sheet carries still falls back, so the check above is a
     // property of the name rather than of `resolve_drawable` answering `Some`.
-    assert!(resolve_drawable(Some(assets), FxId::new("kaboom")).is_none());
+    assert!(resolve_drawable(&sprite_content, Some(assets), FxId::new("kaboom")).is_none());
 }
 
 /// A CHARACTER-OWNED SHEET DECODES WHEN ITS CHARACTER IS REALIZED, NOT BEFORE.
@@ -92,12 +93,13 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
 /// loaded the sheet itself would prove nothing about who owes it.
 #[test]
 fn a_characters_own_effect_sheet_follows_its_realization() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = booted();
     let fx = |app: &App| {
         let assets = app.world().resource::<GameAssets>();
         (
             assets.fx.contains("pca_vfx"),
-            resolve_drawable(Some(assets), FxId::new("cell_birth")).is_some(),
+            resolve_drawable(&sprite_content, Some(assets), FxId::new("cell_birth")).is_some(),
         )
     };
     assert_eq!(fx(&app), (false, false), "premise: nobody at boot fires a PCA effect");

@@ -98,30 +98,17 @@ regenerate_assets() {
     fetch_bundled_fonts
     "$repo_root/scripts/setup/target_bindmount.sh" --status
     "$repo_root/scripts/setup/target_bindmount.sh" --check || "$repo_root/scripts/setup/target_bindmount.sh"
-    cargo build --manifest-path "$repo_root/Cargo.toml" -p ambition_content_schemas --bin ambition_content_check
+    cargo build --manifest-path "$repo_root/Cargo.toml" -p ambition_content_cli --bin ambition_content
     log "regenerating all runtime assets"
     "$repo_root/scripts/regen/assets.sh"
     regenerate_missing_published_sheets
     verify_generated_content_is_current
 }
 
-# ⛔⛔ THREE FONTS ARE A COMPILE-TIME DEPENDENCY, NOT AN ASSET THE GAME LOADS.
-# `crates/ambition_render/tests/typography.rs` `include_bytes!`s them, so their
-# absence is not a missing picture at runtime — it is
-#
-#   error: couldn't read .../fonts/bundled/InterDisplay-Regular.otf
-#   error: could not compile `ambition_render` (test "typography")
-#
-# and `cargo check --all-targets` exits 101. TWO gate jobs run exactly that
-# command, so a fresh clone cannot get a green `./run_tests.sh` until this has
-# run. The payload directory is git-ignored (.gitignore:156) and the fetch
-# script already existed; nothing called it, so every new machine hit the same
-# wall and had to be told the script's name. Measured on two VMs 2026-09-02.
-#
-# ⚠ Downloads from upstream font releases, so it is skipped when the files are
-# already present rather than re-fetched on every setup.
+# Fetch the font files selected by the shared library.
 fetch_bundled_fonts() {
-    local bundled="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/fonts/bundled"
+    source "$repo_root/scripts/lib/asset_roots.sh"
+    local bundled="$AMBITION_ASSETS_ROOT/fonts/bundled"
     if [ -f "$bundled/InterDisplay-Regular.otf" ] \
         && [ -f "$bundled/InterDisplay-SemiBold.otf" ] \
         && [ -f "$bundled/JetBrainsMono-Regular.ttf" ]; then
@@ -132,10 +119,10 @@ fetch_bundled_fonts() {
     local py
     py="$(ambition_select_tool_python "$repo_root" "" 0)"
     ambition_python_exists "$py" || py="python3"
-    log "fetching the bundled UI fonts (compile-time dependency of ambition_render)"
+    log "fetching the library UI fonts"
     if ! "$py" "$repo_root/scripts/grab_font_assets.py"; then
         warn "could not fetch the bundled UI fonts"
-        log "   \`cargo check --all-targets\` will fail until they are present:"
+        log "   typography corpus tests require these generated files:"
         log "     python3 scripts/grab_font_assets.py"
     fi
 }

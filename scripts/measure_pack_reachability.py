@@ -44,7 +44,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-PACKS = REPO / "crates/ambition_platformer2d_actor_monolith/assets/sprite_packs"
+PACKS = REPO / "game/ambition_content_library/generated/runtime/sprite_packs"
 TIERS = ["full", "half", "quarter", "potato"]
 
 # A `prop_sheets` row: `"kind": ( fields ),` where a field value can hold one

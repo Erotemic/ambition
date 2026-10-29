@@ -117,8 +117,9 @@ fn hall_world() -> ae::World {
     )
 }
 
-fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
+fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road: Road, arm: Arm) -> (App, Entity, Entity) {
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.init_schedule(Sim);
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
@@ -163,10 +164,10 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
             PlayerEntity,
         ))
         .id();
-    let catalog = crate::bosses::shipped_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
     // Built as the game builds it: a placement id of its own, and the god's
     // behaviour through its phase script.
-    let mut boss = BossClusterScratch::new(
+    let mut boss = BossClusterScratch::new(&sprite_content,
         &catalog,
         "fsm_placement",
         "Flying Spaghetti Monster",
@@ -215,8 +216,8 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
 
 type Trace = Vec<Vec<String>>;
 
-fn run(road: Road, arm: Arm) -> Trace {
-    let (mut app, god, player) = world(road, arm);
+fn run(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road: Road, arm: Arm) -> Trace {
+    let (mut app, god, player) = world(&sprite_content, road, arm);
     let mut trace = Vec::new();
     for tick in 0..TICKS {
         // The target walks; the pattern scripts the moves.
@@ -325,21 +326,23 @@ fn assert_same(module: &Trace, native: &Trace, what: &str) {
 
 #[test]
 fn the_fsm_module_conducts_the_god_as_its_native_conductor_did() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     for arm in [Arm::Alone, Arm::Driven, Arm::Enraged] {
-        let native = run(Road::NativeSystem, arm);
+        let native = run(&sprite_content, Road::NativeSystem, arm);
         // The premise: the reference performed every move.
         for what in ["fsm_lash", "fsm_pulse", "fsm_grasp", "fsm_sting", "shock", "summon", "meatball", "\"dive\""] {
             assert!(count(&native, what) > 0, "{arm:?}: the reference never showed {what}");
         }
-        let module = run(Road::Module, arm);
+        let module = run(&sprite_content, Road::Module, arm);
         assert_same(&module, &native, &format!("{arm:?}: the linked module"));
     }
 }
 
 #[test]
 fn the_fsm_wasm_build_conducts_the_god_as_its_native_conductor_did() {
-    let native = run(Road::NativeSystem, Arm::Alone);
-    let wasm = run(Road::Wasm, Arm::Alone);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let native = run(&sprite_content, Road::NativeSystem, Arm::Alone);
+    let wasm = run(&sprite_content, Road::Wasm, Arm::Alone);
     // The guest's `sqrt`, `sin` and `cos` may differ in the last bit: floats
     // are compared at three places, as the boss specials' WASM arms do.
     let quantize = crate::bosses::specials::module_parity_tests::quantize;

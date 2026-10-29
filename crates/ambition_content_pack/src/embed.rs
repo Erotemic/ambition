@@ -45,6 +45,7 @@ pub fn embed_pack(root: &str) {
         .unwrap_or_else(|error| panic!("{} is not readable: {error}", manifest_path.display()));
     let manifest: crate::ContentPackManifest = ron::from_str(&text)
         .unwrap_or_else(|error| panic!("{} does not parse: {error}", manifest_path.display()));
+    embed_libraries(root, &manifest, manifest_path.parent().expect("pack root"));
     let include = |path: &str| format!("include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), {:?}))", format!("/{root}/{path}"));
     let mut code = format!("({}, &[\n", include("pack.ron"));
     for source in &manifest.sources {
@@ -63,4 +64,31 @@ pub fn declared_paths(manifest_ron: &str) -> Vec<String> {
     ron::from_str::<crate::ContentPackManifest>(manifest_ron)
         .map(|manifest| manifest.sources.into_iter().map(|source| source.path).collect())
         .unwrap_or_default()
+}
+
+fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root: &Path) {
+    use ambition_asset_manager::content_library::{ContentLibrary, LibraryFileData};
+    let mut code = String::from("&[\n");
+    for path in &manifest.libraries {
+        let path = pack_root.join(path).canonicalize().expect("library manifest path");
+        let library = ContentLibrary::read(&path).unwrap_or_else(|error| panic!("{error}"));
+        println!("cargo:rerun-if-changed={}", path.display());
+        if let Some(store) = library.publication_root() { println!("cargo:rerun-if-changed={}", store.join("published.json").display()); }
+        let catalog = serde_json::to_string(&library.catalog).expect("library catalog");
+        code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibrary {{ manifest: include_str!({:?}), catalog: {:?}, files: &[\n", path.to_str().unwrap(), catalog));
+        if let Some(catalog) = &library.manifest.catalog { println!("cargo:rerun-if-changed={}", library.root.join(catalog).display()); }
+        for (logical, file) in library.files().unwrap_or_else(|error| panic!("{error}")) {
+            let LibraryFileData::Native(physical) = file.data else { unreachable!() };
+            let metadata = logical.ends_with(".ron") || logical.ends_with(".json");
+            let bytes = if metadata || library.manifest.embedded.contains(&logical) {
+                format!("Some(include_bytes!({:?}) as &[u8])", physical.to_str().unwrap())
+            } else { "None".to_owned() };
+            code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, bytes: {bytes} }},\n"));
+        }
+        code.push_str("] },\n");
+    }
+    code.push_str("]\n");
+    let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join(format!("content_pack/{root}/libraries.rs"));
+    std::fs::create_dir_all(out.parent().unwrap()).expect("embedded library output directory");
+    std::fs::write(out, code).expect("embedded library output");
 }

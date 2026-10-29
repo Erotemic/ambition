@@ -67,7 +67,7 @@ def check_sprites(asset_root: Path, sources, plans_only: bool) -> list[str]:
     for asset, owners in sorted(required.items()):
         if asset not in planned:
             failures.append(f"sprites: no regen target publishes {asset} (used by {', '.join(sorted(owners))})")
-        elif not plans_only and not resolve_art(asset_root, asset).is_file():
+        elif not plans_only and not ((resolved := resolve_art(music_registry.selected_manifest(ROOT), asset)) and resolved.is_file()):
             failures.append(f"sprites: missing {asset}; run scripts/regen/sprites.sh")
     print(f"sprites: {len(required)} required sheet files, {len(planned)} planned outputs")
     return failures

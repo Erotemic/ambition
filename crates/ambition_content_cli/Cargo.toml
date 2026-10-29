@@ -12,6 +12,7 @@ description = "The content-pack validator's diagnostic front door. Composes the 
 # it would do so silently: the tool would still work, just slowly, and nobody
 # would notice until someone timed it.
 [dependencies]
+ambition_asset_manager = { path = "../ambition_asset_manager" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_content_pack = { path = "../ambition_content_pack" }
 # The schema registry owns composition. Inspection reads lowered owner types.

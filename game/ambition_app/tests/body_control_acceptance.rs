@@ -30,7 +30,7 @@ fn two_participants_route_a_room_granted_attack_through_the_same_gate() {
             .unwrap()
     };
     let second =
-        crate::a_home_body_is_built_for_a_seat::build_a_home_body(&mut sim, PlayerSlot(1), ());
+        crate::a_home_body_is_built_for_a_seat::build_a_home_body(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), &mut sim, PlayerSlot(1), ());
     sim.world_mut()
         .get_resource_or_insert_with(DeclaredRules::<DrivenTechniques>::default)
         .restate(

@@ -26,6 +26,7 @@ pub fn app_on(road: Road, module: fn() -> ModuleDescriptor) -> App {
 /// [`app_on`] for several modules, as a join of two specials runs.
 pub fn app_with(road: Road, modules: &[fn() -> ModuleDescriptor]) -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::SpriteContent::default());
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

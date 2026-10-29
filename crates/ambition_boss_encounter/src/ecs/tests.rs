@@ -93,11 +93,12 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
 
 #[test]
 fn boss_spawn_hurtboxes_resolves_without_panicking() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The headless renderer helper builds a transient boss and baked registry
     // and returns its rest-pose hurtboxes. Check that it returns a non-empty
     // volume (real metrics or the combat-size fallback) and never panics.
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
-    let hbs = boss_spawn_hurtboxes(
+    let hbs = boss_spawn_hurtboxes(&sprite_content,
         crate::test_boss_catalog(),
         "boss_gnu_ton",
         "GNU-ton",
@@ -118,15 +119,16 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 /// complaint was a scholar drawn at a sixth of his size.
 #[test]
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use crate::pattern::profile::BossBehaviorProfile;
 
-    let registry = ambition_sprite_sheet::baked_sheet_registry();
+    let registry = ambition_sprite_sheet::baked_sheet_registry(&sprite_content);
     let pos = ae::Vec2::new(500.0, 400.0);
     let mut behavior = BossBehaviorProfile::gnu_ton_rider();
     // Aim the lookup at the fused exhibit sheet, which carries the head.
     behavior.sprite_target = Some("gnu_ton_boss".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
-    let mut boss = crate::BossClusterScratch::new(
+    let mut boss = crate::BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),
         "boss_giant_gnu",
         "Giant GNU",
@@ -166,7 +168,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     // The rider, on his own 192x192 sheet, authors one static body; drawn at
     // 0.875 world units per pixel (a 96-unit basis x 1.75 over 192 px), it IS
     // his collision.
-    let mut rider = crate::BossClusterScratch::new(
+    let mut rider = crate::BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),
         "boss_gnu_ton_rider",
         "GNU-ton",
@@ -200,9 +202,10 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
 
 #[test]
 fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use crate::pattern::profile::BossBehaviorProfile;
 
-    let registry = ambition_sprite_sheet::baked_sheet_registry();
+    let registry = ambition_sprite_sheet::baked_sheet_registry(&sprite_content);
     let behavior = BossBehaviorProfile::mockingbird();
     // The behavior must map to the sheet target the RON declares (its
     // authored `sprite_target`), or the registry lookup misses.
@@ -213,7 +216,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     );
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
     let pos = ae::Vec2::new(500.0, 400.0);
-    let mut boss = crate::BossClusterScratch::new(
+    let mut boss = crate::BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),
         "boss_mockingbird",
         "Mockingbird",
@@ -308,7 +311,8 @@ fn front_wall_clearance_reports_side_wall_in_direction_of_player() {
 /// whichever way it faces: its off-centre envelope stays on the side its art is.
 #[test]
 fn an_unmirrored_boss_is_shaped_the_way_it_is_drawn() {
-    let mut boss = crate::BossClusterScratch::new(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let mut boss = crate::BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),
         "boss_backdrop",
         "Backdrop",

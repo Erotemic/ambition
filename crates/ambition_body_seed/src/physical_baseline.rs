@@ -156,7 +156,7 @@ pub struct PhysicalBaseline {
 
 impl PhysicalBaseline {
     /// Read one prepared character's physical identity.
-    pub fn of(prepared: &PreparedCharacterDefinition) -> Self {
+    pub fn of(sprite_content: &ambition_sprite_sheet::SpriteContent, prepared: &PreparedCharacterDefinition) -> Self {
         Self {
             max_health: prepared.vitals.max_health.map(|max| max.max(1)),
             mass: prepared.vitals.mass,
@@ -169,7 +169,7 @@ impl PhysicalBaseline {
             },
             sprite_standing_size: match (prepared.body.as_ref(), prepared.sheet.as_deref()) {
                 (Some(BodySource::SpriteAuthored { world_per_pixel }), Some(sheet)) => {
-                    ambition_sprite_sheet::character::sheets::posed_body_geometry(
+                    ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
                         sheet,
                         ambition_sprite_sheet::character::CharacterAnim::Idle,
                         *world_per_pixel,

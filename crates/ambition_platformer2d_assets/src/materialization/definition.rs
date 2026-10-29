@@ -20,15 +20,15 @@ pub(crate) use ambition_characters::prepared::{
 /// Preparation remains a pure function of its inputs. This function lives above
 /// `ambition_characters` because the concrete vocabularies come from
 /// `ambition_sprite_sheet`, which already depends on `ambition_characters`.
-pub fn with_engine_vocabularies(mut bindings: CharacterBindings) -> CharacterBindings {
+pub fn with_engine_vocabularies(sprite_content: &ambition_sprite_sheet::SpriteContent, mut bindings: CharacterBindings) -> CharacterBindings {
     if !bindings.has_sheet_vocabulary() {
         bindings = bindings.with_available_sheets(
-            ambition_sprite_sheet::character::sheets::available_sheet_keys(),
+            ambition_sprite_sheet::character::sheets::available_sheet_keys(&sprite_content),
         );
     }
     if !bindings.has_portrait_vocabulary() {
         bindings =
-            bindings.with_available_portraits(ambition_sprite_sheet::available_portrait_targets());
+            bindings.with_available_portraits(ambition_sprite_sheet::available_portrait_targets(&sprite_content));
     }
     bindings
 }
@@ -52,6 +52,8 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         definition: CharacterDefinition,
         bindings: CharacterBindings,
     ) -> Result<&mut Self, CharacterRegistrationError> {
+    self.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = self.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
         // The engine supplies its OWN vocabulary. A sheet target resolves against the baked
         // manifest index, which the engine always knows, so every registration gets its sheet
         // reference checked with a did-you-mean whether or not the provider thought to pass a
@@ -67,7 +69,7 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         // is the engine's own art vocabulary — which is the one fact
         // `ambition_characters` must not know, because `ambition_sprite_sheet`
         // depends on it.
-        let bindings = with_engine_vocabularies(bindings);
+        let bindings = with_engine_vocabularies(&sprite_content, bindings);
         ambition_characters::prepared::stage_authored_character(self, definition, &bindings)?;
         Ok(self)
     }

@@ -17,9 +17,9 @@ use super::*;
 /// Deliberately does not NAME a character: this file is partly about the engine
 /// not knowing any character's id, so its fixture should not either. The first
 /// baked target is whatever the sheet table happens to hold.
-fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
+fn any_baked_sheet(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_sprite_sheet::character::CharacterSpriteAsset {
     use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
-    let registry = ambition_sprite_sheet::baked_sheet_registry();
+    let registry = ambition_sprite_sheet::baked_sheet_registry(&sprite_content);
     // Not every baked target is a CHARACTER sheet — effect sheets
     // (`robot_slash`) are in the same table and load no character spec. Take the
     // first that does, sorted so the fixture is stable across runs.
@@ -27,7 +27,7 @@ fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
     targets.sort_unstable();
     let spec = targets
         .iter()
-        .find_map(|target| try_load_spec_for_target(target, &SheetTuning::default()))
+        .find_map(|target| try_load_spec_for_target(&sprite_content, target, &SheetTuning::default()))
         .expect("at least one baked target loads a character sheet spec");
     ambition_sprite_sheet::character::CharacterSpriteAsset {
         texture: Handle::default(),
@@ -85,8 +85,10 @@ fn no_character_id_is_privileged_by_the_sheet_table() {
 
 #[test]
 fn publishing_a_sheet_makes_its_declaration_ready() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut sprites = declared_sprites(&["mary_o"]);
-    sprites.publish("mary_o", any_baked_sheet());
+    sprites.publish(&sprite_content, "mary_o", any_baked_sheet(&sprite_content));
 
     // The id now resolves to the realization, and does not read as
     // still-awaiting-a-decode. (The DECLARATION outlives the publish — it is
@@ -152,6 +154,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
 #[test]
 fn the_engine_plugin_installs_the_pipeline_without_any_application() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(CharacterMaterializationPlugin);
 
     assert!(
@@ -172,6 +175,7 @@ fn the_engine_plugin_installs_the_pipeline_without_any_application() {
 fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
     // A versus match is several worn bodies and only player one would ever have had a sheet.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(CharacterMaterializationPlugin);
     app.world_mut()
         .spawn(ambition_characters::actor::WornCharacter("mary_o".into()));
@@ -192,6 +196,7 @@ fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
 #[test]
 fn a_later_identity_swap_demands_the_new_sheet() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(CharacterMaterializationPlugin);
     let body = app
         .world_mut()
@@ -259,6 +264,7 @@ fn every_entry_route_materializes_the_same_character() {
     let mut outcomes = Vec::new();
     for (label, tokens) in routes {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(CharacterMaterializationPlugin);
         {
             let mut demand = app.world_mut().resource_mut::<CharacterLoadDemand>();
@@ -322,6 +328,7 @@ fn character_materialization_capability_audit_names_the_missing_service() {
     // A hand-assembled composition: someone wired demand without the engine
     // plugin group. Exactly the shape that shipped three times.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<CharacterLoadDemand>();
     app.world_mut()
         .resource_mut::<CharacterLoadDemand>()
@@ -353,6 +360,7 @@ fn character_materialization_capability_audit_names_the_missing_service() {
     // The audit is also honest in the other direction: with the engine plugin
     // installed, the same staging produces NO service gap.
     let mut proper = App::new();
+    proper.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     proper.add_plugins(CharacterMaterializationPlugin);
     proper
         .world_mut()
@@ -373,6 +381,7 @@ fn character_materialization_capability_audit_names_the_missing_service() {
 #[test]
 fn a_missing_character_catalog_is_named_rather_than_read_as_no_art() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(CharacterMaterializationPlugin);
     app.world_mut()
         .resource_mut::<CharacterLoadDemand>()
@@ -392,6 +401,7 @@ fn a_missing_character_catalog_is_named_rather_than_read_as_no_art() {
 #[test]
 fn an_app_that_stages_no_characters_reports_no_gaps() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     assert!(audit_character_capabilities(app.world()).is_empty());
     app.add_systems(Update, report_character_capability_gaps);
     finalize_and_update(&mut app);
@@ -415,6 +425,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
     use crate::materialization::definition::CharacterDefinitionAppExt;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(CharacterMaterializationPlugin);
     // A catalog with NO characters in it: the only declaration is the registration.
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
@@ -478,6 +489,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
 #[test]
 fn the_decode_path_declares_a_registered_character_itself() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "mary_o",
@@ -528,15 +540,16 @@ mod live_quality_apply {
     /// which gitignored PNGs happen to be on this machine. The one thing that
     /// must be present is the BAKED sheet-record table (`build.rs`), and
     /// [`a_character_with_a_scaled_variant`] returns `None` when it is not.
-    fn quality_pipeline_app(profile: VisualQualityProfile) -> App {
-        quality_pipeline_app_for(profile, crate::character_roster::catalog())
+    fn quality_pipeline_app(sprite_content: &ambition_sprite_sheet::SpriteContent, profile: VisualQualityProfile) -> App {
+        quality_pipeline_app_for(&sprite_content, profile, crate::character_roster::catalog())
     }
 
-    fn quality_pipeline_app_for(
+    fn quality_pipeline_app_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
         profile: VisualQualityProfile,
         characters: ambition_characters::actor::character_catalog::CharacterCatalog,
     ) -> App {
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         // The IO pool: `asset_server.load` spawns onto it, and without the
         // plugin the materializer panics inside the pool rather than failing.
         app.add_plugins(bevy::app::TaskPoolPlugin::default());
@@ -550,6 +563,7 @@ mod live_quality_apply {
             ..Default::default()
         };
         let catalog = crate::platformer_assets::build_platformer2d_asset_catalog(
+        &ambition_sprite_sheet::test_support::shared_libraries(),
             &config,
             &characters,
             &ambition_boss_encounter::BossCatalog::default(),
@@ -568,7 +582,7 @@ mod live_quality_apply {
             let world = app.world_mut();
             let asset_server = world.resource::<AssetServer>().clone();
             let mut layouts = world.resource_mut::<Assets<bevy::image::TextureAtlasLayout>>();
-            assets.characters = crate::character_sprites::load_character_sprites_in(
+            assets.characters = crate::character_sprites::load_character_sprites_in(&sprite_content,
                 &Default::default(),
                 &characters,
                 &catalog,
@@ -601,7 +615,7 @@ mod live_quality_apply {
 
     /// A catalog id whose sheet has a baked HALF-tier variant, so the two tiers
     /// this transition moves between are both actually reachable.
-    fn a_character_with_a_scaled_variant() -> Option<String> {
+    fn a_character_with_a_scaled_variant(sprite_content: &ambition_sprite_sheet::SpriteContent) -> Option<String> {
         use ambition_sprite_sheet::character::sheets::{
             try_load_spec_for_target_scaled, SheetTuning,
         };
@@ -612,7 +626,7 @@ mod live_quality_apply {
             let Some(target) = catalog.get(cid).and_then(|e| e.manifest_target()) else {
                 continue;
             };
-            if try_load_spec_for_target_scaled(
+            if try_load_spec_for_target_scaled(&sprite_content,
                 target,
                 &SheetTuning::default(),
                 ambition_sprite_sheet::character::TextureResolutionScale::Half,
@@ -628,7 +642,7 @@ mod live_quality_apply {
     /// The asset PATH the resident realization of `token` points at — the one
     /// observable that says which pixels a body is actually drawn from.
     /// Every catalog character with a baked half-tier variant, in id order.
-    fn characters_with_a_scaled_variant() -> Vec<String> {
+    fn characters_with_a_scaled_variant(sprite_content: &ambition_sprite_sheet::SpriteContent) -> Vec<String> {
         use ambition_sprite_sheet::character::sheets::{
             try_load_spec_for_target_scaled, SheetTuning,
         };
@@ -641,7 +655,7 @@ mod live_quality_apply {
                     .get(cid)
                     .and_then(|e| e.manifest_target())
                     .is_some_and(|target| {
-                        try_load_spec_for_target_scaled(
+                        try_load_spec_for_target_scaled(&sprite_content,
                             target,
                             &SheetTuning::default(),
                             ambition_sprite_sheet::character::TextureResolutionScale::Half,
@@ -711,10 +725,12 @@ mod live_quality_apply {
     /// ```
     #[test]
     fn apply_converges_an_already_resident_character_to_the_new_tier() {
-        let Some(cid) = a_character_with_a_scaled_variant() else {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let Some(cid) = a_character_with_a_scaled_variant(&sprite_content) else {
             panic!("no baked half-tier sheet variant: this fixture cannot prove anything");
         };
-        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Medium);
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
@@ -768,14 +784,16 @@ mod live_quality_apply {
     #[test]
     fn a_forced_quality_over_a_different_persisted_setting_materializes_every_character_at_the_forced_tier(
     ) {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_persistence::settings::{ResolvedVisualQuality, VisualQualityBudget};
-        let cast = characters_with_a_scaled_variant();
+        let cast = characters_with_a_scaled_variant(&sprite_content);
         assert!(
             cast.len() >= 2,
             "the fixture needs two scaled characters, found {cast:?}"
         );
         // Persisted: High (Full sheets). Forced: Potato.
-        let mut app = quality_pipeline_app(VisualQualityProfile::High);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::High);
         let forced = VisualQualityProfile::Potato;
         app.insert_resource(ResolvedVisualQuality {
             profile: forced,
@@ -843,11 +861,13 @@ mod live_quality_apply {
     /// vacuously (it did, on the poison run that wrote this paragraph).
     #[test]
     fn a_worn_character_keeps_its_sheet_resident_through_the_transition() {
-        let cast = characters_with_a_scaled_variant();
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let cast = characters_with_a_scaled_variant(&sprite_content);
         let Some(pair) = cast.get(..2) else {
             panic!("fewer than two baked half-tier variants: this fixture cannot prove anything");
         };
-        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Medium);
         for cid in pair {
             app.world_mut()
                 .resource_mut::<CharacterLoadDemand>()
@@ -900,10 +920,12 @@ mod live_quality_apply {
     /// growing: the half realization replaces the full one under every token.
     #[test]
     fn apply_converges_downward_too() {
-        let Some(cid) = a_character_with_a_scaled_variant() else {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let Some(cid) = a_character_with_a_scaled_variant(&sprite_content) else {
             panic!("no baked half-tier sheet variant: this fixture cannot prove anything");
         };
-        let mut app = quality_pipeline_app(VisualQualityProfile::High);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::High);
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
@@ -929,10 +951,12 @@ mod live_quality_apply {
     /// pixels — a visible hitch, on a setting that changed nothing about sheets.
     #[test]
     fn a_profile_change_that_keeps_the_tier_retires_nothing() {
-        let Some(cid) = a_character_with_a_scaled_variant() else {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let Some(cid) = a_character_with_a_scaled_variant(&sprite_content) else {
             panic!("no baked half-tier sheet variant: this fixture cannot prove anything");
         };
-        let mut app = quality_pipeline_app(VisualQualityProfile::Low);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Low);
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(cid.clone());
@@ -971,11 +995,13 @@ mod live_quality_apply {
     /// that placed five of them (measured 2026-09-02).
     #[test]
     fn apply_re_decodes_only_the_characters_still_in_use() {
-        let mut variants = characters_with_scaled_variants(2);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut variants = characters_with_scaled_variants(&sprite_content, 2);
         let (Some(unused), Some(worn_by_a_body)) = (variants.pop(), variants.pop()) else {
             panic!("need two baked half-tier sheet variants");
         };
-        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Medium);
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request_all([worn_by_a_body.as_str(), unused.as_str()]);
@@ -1022,12 +1048,14 @@ mod live_quality_apply {
     /// resident means some body on screen is drawn from pixels nobody asked for.
     #[test]
     fn after_apply_exactly_one_tier_is_resident_survivors_and_newcomers_alike() {
-        let mut variants = characters_with_scaled_variants(2);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut variants = characters_with_scaled_variants(&sprite_content, 2);
         let (Some(newcomer), Some(survivor)) = (variants.pop(), variants.pop()) else {
             panic!("need two baked half-tier sheet variants to tell a survivor from a newcomer");
         };
 
-        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Medium);
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request(survivor.clone());
@@ -1090,15 +1118,16 @@ mod live_quality_apply {
     /// so it cannot pass by the two answers being wrong together.
     #[test]
     fn resident_tiers_names_the_tier_of_the_pixels_not_the_request() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         // Any character that is NOT the one whose manifest the fixture breaks.
-        let Some(scaled) = characters_with_scaled_variants(3)
+        let Some(scaled) = characters_with_scaled_variants(&sprite_content, 3)
             .into_iter()
             .find(|cid| cid != UNBAKED_VARIANT_CID)
         else {
             panic!("need a baked half-tier variant to stand for the honest half of the cast");
         };
 
-        let mut app = quality_pipeline_app_for(
+        let mut app = quality_pipeline_app_for(&sprite_content,
             VisualQualityProfile::Medium,
             roster_with_one_unbaked_variant(UNBAKED_VARIANT_CID),
         );
@@ -1179,6 +1208,7 @@ mod live_quality_apply {
     /// authored full-res PNG for some characters.
     #[test]
     fn a_character_with_no_baked_variant_settles_at_the_requested_tier() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         // A character whose catalog row names a manifest target nothing baked,
         // so the scaled-variant lookup CANNOT resolve and the materializer is
         // forced down its fallback arm — while `goblin` still resolves a base
@@ -1206,7 +1236,7 @@ mod live_quality_apply {
                 )"#,
             ),
         );
-        let mut app = quality_pipeline_app_for(VisualQualityProfile::Low, catalog);
+        let mut app = quality_pipeline_app_for(&sprite_content, VisualQualityProfile::Low, catalog);
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
             .request("goblin");
@@ -1242,11 +1272,14 @@ mod live_quality_apply {
     /// time anybody touched the quality slider.
     #[test]
     fn a_host_published_realization_survives_the_transition() {
-        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Medium);
         app.world_mut()
             .resource_mut::<GameAssets>()
             .characters
-            .publish("a_bespoke_extra", any_baked_sheet());
+            .publish(&sprite_content, "a_bespoke_extra", any_baked_sheet(&sprite_content));
         finalize_and_update(&mut app);
 
         apply(&mut app, VisualQualityProfile::Potato);
@@ -1262,7 +1295,7 @@ mod live_quality_apply {
     }
 
     /// Up to `n` catalog ids whose sheets have baked half-tier variants.
-    fn characters_with_scaled_variants(n: usize) -> Vec<String> {
+    fn characters_with_scaled_variants(sprite_content: &ambition_sprite_sheet::SpriteContent, n: usize) -> Vec<String> {
         use ambition_sprite_sheet::character::sheets::{
             try_load_spec_for_target_scaled, SheetTuning,
         };
@@ -1277,7 +1310,7 @@ mod live_quality_apply {
             let Some(target) = catalog.get(cid).and_then(|e| e.manifest_target()) else {
                 continue;
             };
-            if try_load_spec_for_target_scaled(
+            if try_load_spec_for_target_scaled(&sprite_content,
                 target,
                 &SheetTuning::default(),
                 ambition_sprite_sheet::character::TextureResolutionScale::Half,
@@ -1302,10 +1335,12 @@ mod live_quality_apply {
     /// preparation this grows and says so.
     #[test]
     fn re_demanding_a_resident_character_repeats_no_preparation() {
-        let Some(cid) = a_character_with_a_scaled_variant() else {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let Some(cid) = a_character_with_a_scaled_variant(&sprite_content) else {
             panic!("no baked sheet variant: this fixture cannot prove anything");
         };
-        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        let mut app = quality_pipeline_app(&sprite_content, VisualQualityProfile::Medium);
 
         app.world_mut()
             .resource_mut::<CharacterLoadDemand>()
@@ -1364,6 +1399,7 @@ fn a_roster_demands_its_cast_before_any_body_is_spawned() {
     use ambition_match::staging::{MatchParticipant, MatchParticipantRoster};
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<CharacterLoadDemand>();
     app.add_systems(bevy::app::Update, demand_rostered_character_sheets);
 
@@ -1406,6 +1442,7 @@ fn without_a_roster_nothing_is_demanded() {
     use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<CharacterLoadDemand>();
     app.add_systems(bevy::app::Update, demand_rostered_character_sheets);
     app.update();
@@ -1426,6 +1463,7 @@ fn without_a_roster_nothing_is_demanded() {
 /// whatever load outcome the caller wants that fighter to have.
 fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     let mut roster = ambition_match::staging::MatchParticipantRoster::default();
     roster
         .participants

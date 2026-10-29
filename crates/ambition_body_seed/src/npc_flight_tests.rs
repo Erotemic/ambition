@@ -61,13 +61,13 @@ fn cast_saying_with(
 }
 
 /// The seed for a placement naming `npc_test_flyer`, or naming nothing.
-fn seed_for(
+fn seed_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     character_id: Option<&str>,
 ) -> ActorClusterSeed {
     let interactable = npc_at(character_id);
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let seed = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &CharacterCatalog::empty(),
         prepared,
@@ -92,7 +92,8 @@ fn seed_for(
 /// character would have left a body claiming a maximum of nine and holding one.
 #[test]
 fn a_named_character_supplies_the_npc_body_it_authored() {
-    let seed = seed_for(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let seed = seed_for(&sprite_content,
         Some(&cast_saying_with(None, 225.0, Some(9))),
         Some("npc_test_flyer"),
     );
@@ -143,6 +144,7 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
 /// they were — the poison for the test above.
 #[test]
 fn an_incomplete_character_uses_peaceful_npc_defaults() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // No locomotion at all  not body-complete  the blueprint refuses, which is
     // the state ~150 NPC placements are in.
     let bare = {
@@ -159,7 +161,7 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
         registry
     };
     use ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH;
-    let bare_seed = seed_for(Some(&bare), Some("npc_test_flyer"));
+    let bare_seed = seed_for(&sprite_content, Some(&bare), Some("npc_test_flyer"));
     assert_eq!(bare_seed.health.max(), DEFAULT_UNAUTHORED_BODY_HEALTH);
     let tuning = bare_seed.config.tuning;
     assert_eq!(
@@ -167,7 +169,7 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
         ambition_platformer2d_core::MAX_RUN_SPEED
     );
 
-    let none_seed = seed_for(None, None);
+    let none_seed = seed_for(&sprite_content, None, None);
     assert_eq!(none_seed.health.max(), DEFAULT_UNAUTHORED_BODY_HEALTH);
     let none = none_seed.config.tuning;
     assert_eq!(
@@ -176,13 +178,13 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
     );
 }
 
-fn is_aerial(
+fn is_aerial(sprite_content: &ambition_sprite_sheet::SpriteContent,
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     character_id: Option<&str>,
 ) -> bool {
     let interactable = npc_at(character_id);
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let seed = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &CharacterCatalog::empty(),
         prepared,
@@ -203,12 +205,13 @@ fn is_aerial(
 /// both, so the only thing separating these two runs is what the character said.
 #[test]
 fn the_character_decides_whether_an_npc_body_flies() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     assert!(
-        is_aerial(Some(&cast_saying(Some(true))), Some("npc_test_flyer")),
+        is_aerial(&sprite_content, Some(&cast_saying(Some(true))), Some("npc_test_flyer")),
         "a character whose locomotion authors free flight must spawn aerial"
     );
     assert!(
-        !is_aerial(Some(&cast_saying(Some(false))), Some("npc_test_flyer")),
+        !is_aerial(&sprite_content, Some(&cast_saying(Some(false))), Some("npc_test_flyer")),
         "and one that authors NO must not — `Option<bool>` exists so a character \
          can refuse flight out loud, which is what `body_kind` cannot say"
     );
@@ -218,6 +221,7 @@ fn the_character_decides_whether_an_npc_body_flies() {
 /// own resolved answer, and a road with no cast has nothing to ask.
 #[test]
 fn preparation_resolves_silence_to_grounded() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // So "a silent prepared character" is not a state that exists, and a test named for it
     // would be describing a branch it never took.
     let cast = cast_saying(None);
@@ -232,15 +236,15 @@ fn preparation_resolves_silence_to_grounded() {
     );
 
     assert!(
-        !is_aerial(Some(&cast), Some("npc_test_flyer")),
+        !is_aerial(&sprite_content, Some(&cast), Some("npc_test_flyer")),
         "and it lands grounded, from its own resolved answer"
     );
     assert!(
-        !is_aerial(None, Some("npc_test_flyer")),
+        !is_aerial(&sprite_content, None, Some("npc_test_flyer")),
         "and a composition with no cast at all has no flyer"
     );
     assert!(
-        !is_aerial(None, None),
+        !is_aerial(&sprite_content, None, None),
         "as is a placement that names no character"
     );
 }
@@ -252,6 +256,8 @@ fn preparation_resolves_silence_to_grounded() {
 /// 32x48 and the pose pass stood her at 21.3x32 a tick later.
 #[test]
 fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     const SHEET: &str = "robot";
     const WORLD_PER_PIXEL: f32 = 0.5;
     let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
@@ -273,7 +279,7 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
         registry.get("npc_test_flyer").unwrap().body_blueprint().is_err(),
         "the premise: no blueprint, so this is the peaceful road's own sizing"
     );
-    let from_the_sheet = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+    let from_the_sheet = ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
         SHEET,
         ambition_sprite_sheet::character::CharacterAnim::Idle,
         WORLD_PER_PIXEL,
@@ -286,7 +292,7 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
     );
 
     let interactable = npc_at(Some("npc_test_flyer"));
-    let seed = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &CharacterCatalog::empty(),
         Some(&registry),
@@ -304,7 +310,7 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
     assert_eq!(seed.posed, Some(from_the_sheet));
 
     // The control: the same placement naming no character keeps its own box.
-    assert_eq!(seed_for(None, None).kin.size, ae::Vec2::new(32.0, 48.0));
+    assert_eq!(seed_for(&sprite_content, None, None).kin.size, ae::Vec2::new(32.0, 48.0));
 }
 
 /// A PREPARED CHARACTER WITHOUT A BLUEPRINT KEEPS THE ABILITIES IT AUTHORED.
@@ -316,6 +322,8 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
 /// faithfully enforced that wrong set.
 #[test]
 fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let run_jump = ae::AbilityGrant::RunJump.to_set();
     let definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "npc_test_walker",
@@ -334,7 +342,7 @@ fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
         "the premise: no locomotion, so no blueprint, so the peaceful road builds it"
     );
 
-    let seed = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &CharacterCatalog::empty(),
         Some(&registry),
@@ -351,7 +359,7 @@ fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
 
     // The control: nobody authored the anonymous placement, so it stays NONE.
     assert_eq!(
-        seed_for(None, None).body.0.abilities.abilities,
+        seed_for(&sprite_content, None, None).body.0.abilities.abilities,
         ae::AbilitySet::NONE
     );
 }
@@ -364,12 +372,13 @@ fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
 /// as grounded: one character, two answers, chosen by which road built it.
 #[test]
 fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     const ROWS: &str = r#"(
         brain_presets: { "idle": StandStill },
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "drifter": (
-                display_name: "Drifter", 
+                display_name: "Drifter",
                 manifest: "drifter_spritesheet.ron", tier: MainHall,
                 body_kind: Floating, composition: None,
                 default_brain: "idle", default_action_set: "peaceful",
@@ -389,7 +398,7 @@ fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
 
     let interactable = npc_at(Some("drifter"));
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let seed = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &catalog,
         Some(&cast),

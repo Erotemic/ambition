@@ -698,7 +698,7 @@ pub fn publish_smash_hud(
     >,
     // Ask the portrait manifests for a still. Both are optional: without
     // them the panel draws an uncropped portrait.
-    portraits: Option<bevy::prelude::Res<ambition_platformer2d::character::PortraitSheetRegistry>>,
+    content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     // The running session's frozen cast, or the published one with no session.
     declared: ambition_platformer2d::characters::prepared::SessionCast,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
@@ -709,7 +709,7 @@ pub fn publish_smash_hud(
             let face = worn.zip(catalog.as_deref()).and_then(|(worn, catalog)| {
                 hud_face(
                     catalog,
-                    portraits.as_deref(),
+                    Some(ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&content).portraits()),
                     declared.get(),
                     worn.id(),
                 )
@@ -1382,9 +1382,9 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // Guarded: Ambition's dialogue box installs the same plugin, and Bevy
         // panics on a duplicate. The registry is the same either way.
         if !app
-            .is_plugin_added::<ambition_platformer2d::sprite_sheet::PortraitSheetRegistryPlugin>()
+            .is_plugin_added::<ambition_platformer2d::sprite_sheet::SpriteContentPlugin>()
         {
-            app.add_plugins(ambition_platformer2d::sprite_sheet::PortraitSheetRegistryPlugin);
+            app.add_plugins(ambition_platformer2d::sprite_sheet::SpriteContentPlugin);
         }
         // The screen declares its own input port. The windowed host fills
         // `SeatMenuFrames`; `init_resource` does not replace an existing one.
@@ -2333,5 +2333,3 @@ fn stamp_smash_module_entities(
         }
     }
 }
-
-

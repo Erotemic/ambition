@@ -107,6 +107,7 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     let entity = app.world_mut().spawn_empty().id();
@@ -158,6 +159,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     // Pin the installed default so the protagonist branch is deterministic.
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -236,6 +238,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -312,6 +315,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -374,6 +378,7 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -440,6 +445,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -524,6 +530,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -625,6 +632,7 @@ fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.add_systems(
@@ -746,6 +754,7 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
     .expect("player moveset");
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     // The buffer decays on the body's own clock, so the chain needs one.
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
@@ -824,6 +833,7 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
         .clone();
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, sustain_bubble_shield);
 
     // Body A: the bubble_shield special is PLAYING → guard forced up.
@@ -1403,6 +1413,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
     };
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.insert_resource(prepared(
@@ -1481,6 +1492,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     let mut heavy = ambition_characters::actor::definition::CharacterDefinition::new(
@@ -1704,6 +1716,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     }
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
@@ -1827,6 +1840,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     }
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
@@ -1906,6 +1920,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     }
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
@@ -2024,6 +2039,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     ));
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
@@ -2195,6 +2211,7 @@ fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
 
     for (label, axes, grounded, expect_guard) in cases {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(Update, sustain_bubble_shield);
         let mut control = ActorControl::default();
         control.0.special_pressed = true;
@@ -2228,6 +2245,7 @@ fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
     // ⛔ AND THE COMPATIBILITY BODY IS UNCHANGED. Without a moveset there is no
     // other special a direction could mean, so every press is the bubble.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, sustain_bubble_shield);
     let mut control = ActorControl::default();
     control.0.special_pressed = true;
@@ -2428,6 +2446,7 @@ fn a_charger_swings_with_the_builders_cue_on_a_seat_and_at_spawn() {
 /// roads now consume `PreparedKit::baseline` and the character's execution.
 #[test]
 fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::prepared_fixtures::{moveset_with, slash};
     let definition =
         ambition_characters::actor::definition::CharacterDefinition::new("lobber", "Lobber", "demo")
@@ -2444,13 +2463,14 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
     );
 
     let mut app = bevy::app::App::new();
+    app.insert_resource(sprite_content.clone());
     let body = app
         .world_mut()
         .spawn(ambition_characters::brain::action_set::IdentityKit::default())
         .id();
     let granted = prepared.clone();
     app.add_systems(bevy::app::Update, move |mut commands: Commands| {
-        ambition_platformer2d_actor_spawn::grant_prepared_character_body(
+        ambition_platformer2d_actor_spawn::grant_prepared_character_body(&sprite_content,
             &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(
                 &mut commands,
                 body,

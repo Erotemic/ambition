@@ -19,8 +19,9 @@ use bevy::prelude::*;
 
 /// The body an NPC of `character` is built with: (collision box, quad).
 fn built(app: &App, character: &str) -> (Vec2, Vec2) {
+    let sprite_content = app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let world = app.world();
-    let body = ambition_platformer2d::sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(
+    let body = ambition_platformer2d::sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(&sprite_content,
         world.resource::<ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>(),
         world
             .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()

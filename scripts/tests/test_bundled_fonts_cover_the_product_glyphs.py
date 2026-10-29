@@ -17,7 +17,7 @@ import pytest
 
 BUNDLED = (
     Path(__file__).resolve().parents[2]
-    / "crates/ambition_platformer2d_actor_monolith/assets/fonts/bundled"
+    / "game/ambition_content_library/generated/runtime/fonts/bundled"
 )
 
 #  Every one of these has been drawn as an empty box in this game at some point.

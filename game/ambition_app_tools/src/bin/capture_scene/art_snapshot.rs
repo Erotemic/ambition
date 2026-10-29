@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use serde_json::json;
 
 pub fn snapshot(world: &World) -> serde_json::Value {
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     use engine::characters::actor::{BodyHealth, WornCharacter};
     use engine::sprite_sheet::character::CharacterAnimator;
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
@@ -52,6 +53,6 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     json!({"schema": "ambition.art_runtime.v1", "tick": world.get_resource::<engine::time::SimTick>().map(|tick| tick.get()),
         "build": {"package": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION"), "revision": option_env!("AMBITION_BUILD_COMMIT")},
         "content_fingerprint": content,
-        "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current().id(),
+        "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
         "bodies": bodies, "visuals": visuals})
 }

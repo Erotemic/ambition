@@ -531,8 +531,9 @@ mod tests {
     /// all of them must look the same way.
     #[test]
     fn a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         for left_drawn in ["patent_clerk", "carl_stargan"] {
-            let sheet = record_for_sheet_key(left_drawn)
+            let sheet = record_for_sheet_key(&sprite_content, left_drawn)
                 .unwrap_or_else(|| panic!("{left_drawn}'s sheet is baked into the sheet table"));
             // Premise: this sheet is left-drawn. Without this check the comparison
             // passes for a sheet that never uses the term.
@@ -542,7 +543,7 @@ mod tests {
                  (`features.facing: \"west\"`); regenerate the sheet if this is missing"
             );
             for right_drawn in ["goblin_cave_dagger", "noether"] {
-                let other = record_for_sheet_key(right_drawn)
+                let other = record_for_sheet_key(&sprite_content, right_drawn)
                     .unwrap_or_else(|| panic!("{right_drawn} is baked into the sheet table"));
                 assert!(
                     !other.authored_faces_left,
@@ -562,9 +563,10 @@ mod tests {
     /// Every baked sheet points where its body faces, however it was drawn.
     #[test]
     fn every_baked_sheet_is_drawn_pointing_where_its_body_faces() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut checked = 0usize;
-        for key in available_sheet_keys() {
-            let Some(record) = record_for_sheet_key(key) else {
+        for key in available_sheet_keys(&sprite_content) {
+            let Some(record) = record_for_sheet_key(&sprite_content, key) else {
                 continue;
             };
             checked += 1;

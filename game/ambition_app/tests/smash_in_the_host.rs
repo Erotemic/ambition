@@ -3651,7 +3651,7 @@ fn a_second_match_in_the_same_session_still_fights() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) * 2 {
         app.update();
     }
     settle(&mut app);
@@ -3746,7 +3746,7 @@ fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
     ));
     app.world_mut()
         .spawn(bevy::input::gamepad::Gamepad::default());
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) * 2 {
         app.update();
     }
     settle(&mut app);
@@ -7961,7 +7961,7 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
 #[test]
 fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
     use ambition_platformer2d::character::{
-        portrait_for_declared_character, CharacterCatalog, PortraitSheetRegistry,
+        portrait_for_declared_character, CharacterCatalog,
     };
     use ambition_platformer2d::presentation::HudReadouts;
 
@@ -7976,7 +7976,7 @@ fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
     // wider than one frame before reading the HUD at all.
     let (frame_width, page_frames) = {
         let world = app.world();
-        let registry = world.resource::<PortraitSheetRegistry>();
+        let registry = ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>()).portraits();
         let catalog = world.resource::<CharacterCatalog>();
         let reference =
             portrait_for_declared_character(Some(registry), catalog, None, MULTI_FRAME_FIGHTER)

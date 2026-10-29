@@ -30,16 +30,14 @@ use ambition_platformer2d_world::rooms::RoomMetadata;
 /// `source` names the caller road (`"character-sheet"`, `"parallax"`,
 /// `"fx-sheet"`, `"boss-sheet"`) for the [`image_stages`] ledger. The ledger
 /// stamps the demand time here, so a late image can report its delay and stage.
-pub fn load_sheet_image(
+pub fn load_sheet_image(content: &crate::SpriteContent,
     asset_server: &AssetServer,
     source: &'static str,
     path: impl Into<bevy::asset::AssetPath<'static>>,
 ) -> Handle<Image> {
     let path = path.into();
-    let path = if matches!(path.source(), bevy::asset::io::AssetSourceId::Default) {
-        crate::baked_sheet_rons::current().image_path(&path.path().to_string_lossy())
-            .map(|address| bevy::asset::AssetPath::from(address.to_owned())).unwrap_or(path)
-    } else { path };
+    let path = crate::baked_sheet_rons::current(content).image_path(&path.to_string())
+        .map(|address| bevy::asset::AssetPath::from(address.to_owned())).unwrap_or(path);
     let label = path.to_string();
     let handle = if images_render_world_only() {
         asset_server
@@ -553,7 +551,7 @@ impl ParallaxLayerSet {
     /// handles are left alone, and missing optional assets continue to fall back
     /// to the room renderer's clear color / grid visuals.
     pub fn ensure_theme_loaded(
-        &mut self,
+        &mut self, content: &crate::SpriteContent,
         catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
         asset_server: &AssetServer,
         theme: ParallaxTheme,
@@ -581,7 +579,7 @@ impl ParallaxLayerSet {
             };
             self.handles.insert(
                 (theme, layer),
-                load_sheet_image(asset_server, "parallax", path),
+                load_sheet_image(&content, asset_server, "parallax", path),
             );
             added += 1;
         }
@@ -675,30 +673,14 @@ pub struct GameAssets {
 
 /// Decoded FX spritesheets, keyed by manifest target.
 ///
-/// A `'static` key because the engine's effect sheets are declared in
-/// [`crate::fx::fx_sheets`], not discovered from content — the set is a
-/// property of the build, not of the loaded world.
+/// Keys are interned metadata identities. The selected content supplies
+/// the effect vocabulary.
 #[derive(Default, Clone)]
 pub struct FxSheetAssets {
     sheets: HashMap<&'static str, CharacterSpriteAsset>,
-    /// Where the sheets live (`{sprite_folder}/{target}_spritesheet.png`),
-    /// remembered at boot so a character-owned sheet can be demanded later
-    /// without the asset config in hand.
-    sprite_folder: String,
 }
 
 impl FxSheetAssets {
-    pub fn with_sprite_folder(sprite_folder: impl Into<String>) -> Self {
-        Self {
-            sheets: HashMap::default(),
-            sprite_folder: sprite_folder.into(),
-        }
-    }
-
-    pub fn sprite_folder(&self) -> &str {
-        &self.sprite_folder
-    }
-
     pub fn insert(&mut self, target: &'static str, asset: CharacterSpriteAsset) {
         self.sheets.insert(target, asset);
     }
@@ -746,7 +728,7 @@ impl GameAssets {
 // because it joins the content-installed character roster. The render-facing
 // data/resource types and static image loaders live here.
 
-pub fn load_entity_sprites(
+pub fn load_entity_sprites(content: &crate::SpriteContent,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     quality: Option<&VisualQualityBudget>,
@@ -773,7 +755,7 @@ pub fn load_entity_sprites(
         // Use the `"entity-sprite"` road, not `"fx-sheet"`. Door zones, tiles,
         // and terminals are not effects, and residency by road must count
         // each population separately.
-        handles.insert(key, load_sheet_image(asset_server, "entity-sprite", path));
+        handles.insert(key, load_sheet_image(&content, asset_server, "entity-sprite", path));
     }
     // This catches only one failure: `try_path_for_load` returns `None` when
     // the catalog refuses an id (no manifest entry, or a quality profile that
@@ -793,14 +775,14 @@ pub fn load_entity_sprites(
     EntitySpriteSet { handles }
 }
 
-pub fn load_parallax_layers_for_theme(
+pub fn load_parallax_layers_for_theme(content: &crate::SpriteContent,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     theme: ParallaxTheme,
     quality: Option<&VisualQualityBudget>,
 ) -> ParallaxLayerSet {
     let mut set = ParallaxLayerSet::default();
-    let added = set.ensure_theme_loaded(catalog, asset_server, theme, quality);
+    let added = set.ensure_theme_loaded(content, catalog, asset_server, theme, quality);
     if added > 0 {
         eprintln!(
             "[game_assets] loaded {added}/{} generated background/parallax layers for '{}' under assets/backgrounds/parallax_layers/ (other themes lazy-load on room transition)",
@@ -815,7 +797,7 @@ pub fn load_parallax_layers_for_theme(
 /// active. Visual room transitions call this before spawning parallax sprites so
 /// startup only pays for the first room's zone art, while later rooms still get
 /// their authored background the first time the player visits them.
-pub fn ensure_parallax_layers_for_room(
+pub fn ensure_parallax_layers_for_room(content: &crate::SpriteContent,
     assets: &mut GameAssets,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
@@ -825,19 +807,19 @@ pub fn ensure_parallax_layers_for_room(
     let theme = ParallaxTheme::from_room_metadata(metadata);
     let mut added = assets
         .parallax_layers
-        .ensure_theme_loaded(catalog, asset_server, theme, quality);
+        .ensure_theme_loaded(content, catalog, asset_server, theme, quality);
     if let Some(corrupted) = theme.corrupted() {
         added += assets
             .parallax_layers
-            .ensure_theme_loaded(catalog, asset_server, corrupted, quality);
+            .ensure_theme_loaded(content, catalog, asset_server, corrupted, quality);
     }
     // The skin of the room's blocks comes with its sky, and is kept as long.
     // A room that names no theme has no skin: see `named_by_room_metadata`.
     if let Some(named) = ParallaxTheme::named_by_room_metadata(metadata) {
-        assets.room_dressing.ensure_theme_loaded(catalog, asset_server, named);
+        assets.room_dressing.ensure_theme_loaded(content, catalog, asset_server, named);
         // A theme with two states lays both skins on its blocks.
         if let Some(corrupted) = named.corrupted() {
-            assets.room_dressing.ensure_theme_loaded(catalog, asset_server, corrupted);
+            assets.room_dressing.ensure_theme_loaded(content, catalog, asset_server, corrupted);
         }
     }
     if added > 0 {
@@ -866,7 +848,16 @@ mod parallax_residency_tests {
 
     fn packaged_catalog() -> Platformer2dAssetCatalog {
         Platformer2dAssetCatalog::new(
-            ambition_asset_manager::AmbitionAssetCatalog::new(sandbox_image_manifest("sprites")),
+            ambition_asset_manager::AmbitionAssetCatalog::new({
+                let mut manifest = ambition_asset_manager::AssetManifest::default();
+                for theme in ParallaxTheme::ALL {
+                    for layer in ParallaxLayerAsset::ALL {
+                        let id = parallax_layer_asset_id(*theme, *layer);
+                        manifest.insert(ambition_asset_manager::AssetEntry::new(id.clone(), ambition_asset_manager::AssetKind::Image, format!("fixture/{}.png", id.as_str())));
+                    }
+                }
+                manifest
+            }),
             AssetProfile::AndroidBundle,
         )
     }
@@ -895,7 +886,7 @@ mod parallax_residency_tests {
             .into_iter()
             .enumerate()
         {
-            set.ensure_theme_loaded(&catalog, &asset_server, theme, None);
+            set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, theme, None);
             assert_eq!(
                 set.len(),
                 per_theme * (visited + 1),
@@ -911,7 +902,7 @@ mod parallax_residency_tests {
 
         // Re-visiting is idempotent: the count must not move.
         let before_revisit = set.len();
-        set.ensure_theme_loaded(&catalog, &asset_server, ParallaxTheme::Hub, None);
+        set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, ParallaxTheme::Hub, None);
         assert_eq!(set.len(), before_revisit, "re-visiting a theme reloads nothing");
 
         let dropped = set.retain_themes(|theme| theme == ParallaxTheme::Cave);
@@ -936,7 +927,7 @@ mod parallax_residency_tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
 
         let mut set = ParallaxLayerSet::default();
-        set.ensure_theme_loaded(&catalog, &asset_server, ParallaxTheme::Boss, None);
+        set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, ParallaxTheme::Boss, None);
         let before = set.len();
         assert!(before > 0, "non-vacuity: the boss theme loaded something");
 

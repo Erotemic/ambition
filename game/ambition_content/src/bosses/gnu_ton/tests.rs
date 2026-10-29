@@ -63,14 +63,14 @@ fn floor_gate_count(app: &App) -> usize {
 /// The arena's encounter boss: the `gnu_ton_rider` scholar aboard the
 /// `giant_gnu` mount (ADR 0020 / G4). GNU-ton IS this boss — the fused
 /// single profile was torn down in the E6 teardown.
-fn spawn_gnu_ton_runtime() -> BossClusterScratch {
+fn spawn_gnu_ton_runtime(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> BossClusterScratch {
     let behavior =
-        BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(), "gnu_ton_rider");
+        BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(&sprite_content), "gnu_ton_rider");
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let catalog = crate::bosses::shipped_boss_catalog();
-    let mut scratch = BossClusterScratch::new(
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
+    let mut scratch = BossClusterScratch::new(&sprite_content,
         &catalog,
         "boss_gnu_ton_rider",
         "GNU-ton",
@@ -86,16 +86,16 @@ fn spawn_gnu_ton_runtime() -> BossClusterScratch {
 /// ACTOR, so no live boss targets it; but the boss sprite-metrics machinery
 /// still has to handle such a sheet (the fused GNU-ton was exactly this
 /// shape), and the head-hurtbox alignment guard below is what pins it.
-fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
+fn spawn_giant_bodied_boss_runtime(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> BossClusterScratch {
     let mut behavior =
-        BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(), "gnu_ton_rider");
+        BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(&sprite_content), "gnu_ton_rider");
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
     behavior.combat_size = Some(combat_size);
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let catalog = crate::bosses::shipped_boss_catalog();
-    let mut scratch = BossClusterScratch::new(
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
+    let mut scratch = BossClusterScratch::new(&sprite_content,
         &catalog,
         "boss_giant_gnu",
         "Giant GNU",
@@ -103,7 +103,7 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     scratch.config.behavior = behavior;
-    scratch.resolve_sheet_body(&catalog);
+    scratch.resolve_sheet_body(&sprite_content, &catalog);
     scratch
 }
 
@@ -111,15 +111,17 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
 /// (frame-center → `boss.pos`) while the body envelope carries `combat_offset`.
 #[test]
 fn giant_head_hurtbox_overlaps_the_body_envelope() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d_core::AabbExt;
 
-    let boss = spawn_giant_bodied_boss_runtime();
+    let boss = spawn_giant_bodied_boss_runtime(&sprite_content);
     assert!(
         boss.status.sprite_metrics.is_some(),
         "the giant's sprite metrics should resolve from the baked sheet registry"
     );
     let attack = ambition_characters::brain::BossAttackState::default();
-    let catalog = crate::bosses::shipped_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
     let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
         &catalog,
         boss.as_ref(),
@@ -140,8 +142,8 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
     }
 }
 
-fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
-    make_app_authoring(world, &[&gnu_ton_placement()])
+fn make_app(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, world: ambition_platformer2d_core::RoomGeometry) -> App {
+    make_app_authoring(world, &[&gnu_ton_placement(&sprite_content)])
 }
 
 /// The session room set of these tests: the arena, whose spec authors a
@@ -206,8 +208,10 @@ fn make_app_authoring(world: ambition_platformer2d_core::RoomGeometry, placement
 
 /// The boss dies, and the boss domain records its placement `Cleared`.
 fn kill(app: &mut App, boss: Entity) {
+    app.init_resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(boss).unwrap().health.current = 0;
-    record_defeat(app, &gnu_ton_placement());
+    record_defeat(app, &gnu_ton_placement(&sprite_content));
 }
 
 /// The save's record of a placement, as the boss domain writes it on the
@@ -223,8 +227,8 @@ fn record_defeat(app: &mut App, placement: &str) {
     record(app, placement, ambition_persistence::save_data::PersistedEncounterState::Cleared);
 }
 
-fn gnu_ton_placement() -> String {
-    spawn_gnu_ton_runtime().config.id.clone()
+fn gnu_ton_placement(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> String {
+    spawn_gnu_ton_runtime(&sprite_content).config.id.clone()
 }
 
 fn ladder_aabb() -> ae::Aabb {
@@ -237,12 +241,14 @@ fn climbable_regions_len(app: &App) -> usize {
 
 #[test]
 fn ladder_is_hidden_on_entry_when_boss_is_alive() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    let mut app = make_app(&sprite_content, make_game_world(ARENA_ROOM_NAME, vec![ladder]));
     // Spawn an ECS boss in alive state, just like the real
     // populate-bosses pass would.
     app.world_mut()
-        .spawn(spawn_gnu_ton_runtime().into_components());
+        .spawn(spawn_gnu_ton_runtime(&sprite_content).into_components());
     app.update();
     assert_eq!(
         climbable_regions_len(&app),
@@ -333,11 +339,13 @@ fn arena_spawns_the_adr0020_linked_pair() {
 
 #[test]
 fn ladder_appears_when_boss_dies() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    let mut app = make_app(&sprite_content, make_game_world(ARENA_ROOM_NAME, vec![ladder]));
     let boss_entity = app
         .world_mut()
-        .spawn(spawn_gnu_ton_runtime().into_components())
+        .spawn(spawn_gnu_ton_runtime(&sprite_content).into_components())
         .id();
 
     // First tick: boss alive → ladder hidden.
@@ -359,16 +367,18 @@ fn ladder_appears_when_boss_dies() {
 
 #[test]
 fn floor_gate_block_stays_while_boss_is_alive() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // While the boss is alive the ladder_floor_gate block must
     // remain in world.blocks — that's what physically blocks the
     // player from climbing back up to the exit door mid-fight.
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world_with_floor_gate(
+    let mut app = make_app(&sprite_content, make_game_world_with_floor_gate(
         ARENA_ROOM_NAME,
         vec![ladder],
     ));
     app.world_mut()
-        .spawn(spawn_gnu_ton_runtime().into_components());
+        .spawn(spawn_gnu_ton_runtime(&sprite_content).into_components());
     for _ in 0..5 {
         app.update();
     }
@@ -382,17 +392,19 @@ fn floor_gate_block_stays_while_boss_is_alive() {
 
 #[test]
 fn floor_gate_block_is_removed_on_boss_defeat() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // The frame the boss dies, the named ladder_floor_gate block
     // should be removed from world.blocks so the player can climb
     // up the ladder and walk back to the exit door.
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world_with_floor_gate(
+    let mut app = make_app(&sprite_content, make_game_world_with_floor_gate(
         ARENA_ROOM_NAME,
         vec![ladder],
     ));
     let boss_entity = app
         .world_mut()
-        .spawn(spawn_gnu_ton_runtime().into_components())
+        .spawn(spawn_gnu_ton_runtime(&sprite_content).into_components())
         .id();
     app.update();
     assert_eq!(floor_gate_count(&app), 1);
@@ -407,10 +419,11 @@ fn floor_gate_block_is_removed_on_boss_defeat() {
 
 #[test]
 fn ladder_is_not_added_when_no_boss_present() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // Empty boss query ≠ defeat. The gate must NOT reveal the
     // ladder just because the boss runtime hasn't spawned yet.
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    let mut app = make_app(&sprite_content, make_game_world(ARENA_ROOM_NAME, vec![ladder]));
     for _ in 0..5 {
         app.update();
     }
@@ -423,8 +436,9 @@ fn ladder_is_not_added_when_no_boss_present() {
 
 #[test]
 fn non_arena_rooms_pass_climbables_through_untouched() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(OTHER_ROOM, vec![ladder]));
+    let mut app = make_app(&sprite_content, make_game_world(OTHER_ROOM, vec![ladder]));
     for _ in 0..5 {
         app.update();
     }
@@ -437,12 +451,15 @@ fn non_arena_rooms_pass_climbables_through_untouched() {
 
 #[test]
 fn leaving_arena_resets_state_for_next_visit() {
+
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // Visit 1: enter arena, boss dies, ladder revealed.
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder.clone()]));
+    let mut app = make_app(&sprite_content, make_game_world(ARENA_ROOM_NAME, vec![ladder.clone()]));
     let boss_entity = app
         .world_mut()
-        .spawn(spawn_gnu_ton_runtime().into_components())
+        .spawn(spawn_gnu_ton_runtime(&sprite_content).into_components())
         .id();
     app.update();
     kill(&mut app, boss_entity);
@@ -489,8 +506,8 @@ fn leaving_arena_resets_state_for_next_visit() {
     assert_eq!(climbable_regions_len(&app), 1, "re-entry after a won fight: the ladder is open");
 
     // A replay retracts the defeat and builds him again: the fight is on.
-    record(&mut app, &gnu_ton_placement(), ambition_persistence::save_data::PersistedEncounterState::Untouched);
-    app.world_mut().spawn(spawn_gnu_ton_runtime().into_components());
+    record(&mut app, &gnu_ton_placement(&sprite_content), ambition_persistence::save_data::PersistedEncounterState::Untouched);
+    app.world_mut().spawn(spawn_gnu_ton_runtime(&sprite_content).into_components());
     app.update();
     assert_eq!(
         climbable_regions_len(&app),
@@ -504,6 +521,7 @@ fn leaving_arena_resets_state_for_next_visit() {
 /// lived, and a corpse that went closed it again.
 #[test]
 fn two_gnu_tons_in_one_arena_open_it_only_when_both_are_beaten_and_it_stays_open() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
     let mut app = make_app_authoring(
         make_game_world_with_floor_gate(ARENA_ROOM_NAME, vec![ladder]),
@@ -512,7 +530,7 @@ fn two_gnu_tons_in_one_arena_open_it_only_when_both_are_beaten_and_it_stays_open
     let bosses: Vec<(Entity, String)> = ["boss_gnu_ton_a", "boss_gnu_ton_b"]
         .into_iter()
         .map(|id| {
-            let mut scratch = spawn_gnu_ton_runtime();
+            let mut scratch = spawn_gnu_ton_runtime(&sprite_content);
             scratch.config.id = id.to_string();
             (app.world_mut().spawn(scratch.into_components()).id(), id.to_string())
         })
@@ -552,15 +570,17 @@ fn two_gnu_tons_in_one_arena_open_it_only_when_both_are_beaten_and_it_stays_open
 /// arena", and a gate that compared that name never ran in the game.
 #[test]
 fn the_arena_is_known_by_its_room_id_not_by_its_display_name() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    let mut app = make_app(&sprite_content, make_game_world(ARENA_ROOM_NAME, vec![ladder]));
     ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")
     .0
     .name = "Ambition: gnu ton arena".to_string();
-    app.world_mut().spawn(spawn_gnu_ton_runtime().into_components());
+    app.world_mut().spawn(spawn_gnu_ton_runtime(&sprite_content).into_components());
     app.update();
     assert_eq!(climbable_regions_len(&app), 0, "the fight is on in the arena: the ladder is hidden");
 }
@@ -569,9 +589,11 @@ fn the_arena_is_known_by_its_room_id_not_by_its_display_name() {
 /// zeroed): the boss domain records the defeat when the death settles.
 #[test]
 fn a_dead_body_with_no_record_does_not_open_the_arena() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-    let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
-    let boss = app.world_mut().spawn(spawn_gnu_ton_runtime().into_components()).id();
+    let mut app = make_app(&sprite_content, make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+    let boss = app.world_mut().spawn(spawn_gnu_ton_runtime(&sprite_content).into_components()).id();
     app.world_mut().get_mut::<ambition_characters::actor::BodyHealth>(boss).unwrap().health.current = 0;
     for _ in 0..3 {
         app.update();
@@ -586,6 +608,7 @@ fn a_dead_body_with_no_record_does_not_open_the_arena() {
 /// live, and neither room's ladder was hidden.
 #[test]
 fn each_live_arena_gates_its_ladder_by_its_own_boss() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (first, second) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
     let mut app = App::new();
@@ -603,7 +626,7 @@ fn each_live_arena_gates_its_ladder_by_its_own_boss() {
             FeatureEcsWorldOverlay::default(),
         ));
         // Two placements: the record of one is not the outcome of the other.
-        let mut scratch = spawn_gnu_ton_runtime();
+        let mut scratch = spawn_gnu_ton_runtime(&sprite_content);
         scratch.config.id = format!("boss_gnu_ton_{alive}");
         let placement = scratch.config.id.clone();
         let boss = app
@@ -671,6 +694,7 @@ mod pinned_rows {
     /// catalog), not a copy here.
     #[test]
     fn every_row_a_pin_names_is_on_the_sheet_that_draws_it() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::boss::boss_ron_target;
         use ambition_sprite_sheet::character::sheets::{available_sheet_keys, record_for_sheet_key};
         use std::collections::BTreeSet;
@@ -706,7 +730,7 @@ mod pinned_rows {
         let sheet_of_character = |id: &str| {
             boss_ron_target(&catalog.get(id).expect(id).spritesheet()).expect(id).to_string()
         };
-        let rider = crate::bosses::shipped_boss_catalog()
+        let rider = crate::bosses::shipped_boss_catalog(&sprite_content)
             .sprite_filenames()
             .find(|(sheet, _)| *sheet == crate::bosses::gnu_ton::conductor::GNU_TON_ID)
             .map(|(_, file)| file.to_owned())
@@ -717,13 +741,13 @@ mod pinned_rows {
             (sheet_of_character("npc_giant_gnu_hands"), &fist),
         ];
         for (key, named) in bodies {
-            let tiers: Vec<&str> = available_sheet_keys()
+            let tiers: Vec<&str> = available_sheet_keys(&sprite_content)
                 .into_iter()
                 .filter(|k| *k == key || k.strip_prefix(key.as_str()).is_some_and(|rest| rest.starts_with('.')))
                 .collect();
             assert!(tiers.len() >= 2, "`{key}` should ship with its quality tiers: {tiers:?}");
             for tier in tiers {
-                let record = record_for_sheet_key(tier).expect("a listed key has a record");
+                let record = record_for_sheet_key(&sprite_content, tier).expect("a listed key has a record");
                 for row in named.iter() {
                     assert!(
                         record.first_bound_row([*row]).is_some(),
@@ -746,13 +770,14 @@ mod pinned_rows {
 /// with its ink).
 #[test]
 fn the_conductors_look_lines_are_on_the_published_cuts_at_rest() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_content_modules::gnu_ton::choreography as ch;
     use ambition_sprite_sheet::character::sheets::record_for_sheet_key;
     let world_per_pixel = ch::blows::DESIGN * 2.0;
     // Each cut of the row `rest`'s first frame: its name, its middle from the
     // middle of the body (world units), its length, and its way.
     let cuts = |key: &str| {
-        let record = record_for_sheet_key(key).unwrap_or_else(|| panic!("the sheet `{key}` is published"));
+        let record = record_for_sheet_key(&sprite_content, key).unwrap_or_else(|| panic!("the sheet `{key}` is published"));
         let body = record.body_metrics.as_ref().and_then(|m| m.body_pixel_bbox).expect("an authored body");
         let (cx, cy) = body.center();
         let row = record.rows.iter().find(|row| row.animation == "rest").expect("a row `rest`");

@@ -240,7 +240,7 @@ pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 /// multi-game host's merged manifest binds every provider's items. It runs
 /// when the manifest is added or changed (a content reload restates it). No
 /// manifest gives no `HeldItemArt`, and every item draws the quad fallback.
-pub fn build_held_item_art(
+pub fn build_held_item_art(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     assets: Res<AssetServer>,
     manifest: Res<ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest>,
@@ -249,7 +249,7 @@ pub fn build_held_item_art(
         manifest.item_ids(),
         manifest.effective().into_iter().map(|entry| {
             (
-                ambition_sprite_sheet::game_assets::load_sheet_image(
+                ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
                     &assets,
                     "held-item",
                     entry.asset_path.clone(),
@@ -396,7 +396,7 @@ pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 /// declare pickup art without a render dependency, and a multi-game host's
 /// merged manifest binds every provider's pickups. No manifest gives an empty
 /// map (every item draws the quad fallback).
-pub fn build_world_item_art(
+pub fn build_world_item_art(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     assets: Res<AssetServer>,
     manifest: Option<
@@ -408,7 +408,7 @@ pub fn build_world_item_art(
             manifest.sprite_ids(),
             manifest.effective().into_iter().map(|entry| {
                 (
-                    ambition_sprite_sheet::game_assets::load_sheet_image(
+                    ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
                         &assets,
                         "held-item",
                         entry.asset_path.clone(),
@@ -847,6 +847,7 @@ mod tests {
     fn a_changed_held_art_manifest_is_resolved_again() {
         use ambition_platformer2d_shared_tangle::held_item_art::{HeldItemArtAppExt, HeldItemArtEntry, HeldItemArtManifest};
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins)
             .add_plugins(AssetPlugin::default())
             .init_asset::<Image>()
@@ -871,6 +872,7 @@ mod tests {
     fn a_changed_world_art_manifest_is_resolved_again() {
         use ambition_platformer2d_shared_tangle::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry, WorldItemArtManifest};
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins)
             .add_plugins(AssetPlugin::default())
             .init_asset::<Image>()
@@ -892,6 +894,7 @@ mod tests {
     #[test]
     fn missing_image_asset_reaches_the_failed_art_resource() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins)
             .add_plugins(AssetPlugin::default())
             .init_asset::<Image>()
@@ -1012,6 +1015,7 @@ mod tests {
             room,
         };
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         let mut active = ActiveSessionScope::default();
         active.begin();
         app.insert_resource(active);
@@ -1053,6 +1057,7 @@ mod tests {
             Vec::new(),
         ));
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         let mut active = ActiveSessionScope::default();
         active.begin();
         app.insert_resource(active);
@@ -1106,6 +1111,7 @@ mod tests {
             Vec::new(),
         ));
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         let mut active = ActiveSessionScope::default();
         active.begin();
         app.insert_resource(active);
@@ -1158,6 +1164,7 @@ mod tests {
             Vec::new(),
         ));
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         let mut active = ActiveSessionScope::default();
         active.begin();
         app.insert_resource(active);

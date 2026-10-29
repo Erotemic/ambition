@@ -22,12 +22,7 @@ mod builders;
 mod embedded;
 pub mod ids;
 
-use builders::{
-    extend_with_boss_entries, extend_with_character_entries, extend_with_data_entries,
-    extend_with_font_entries, extend_with_music_entries, extend_with_sfx_bank_entry,
-    extend_with_sprite_pack_entries, extend_with_world_entries,
-};
-pub use embedded::embedded_core;
+use builders::{extend_with_boss_entries, extend_with_character_entries, extend_with_music_entries, extend_with_world_entries};
 pub use embedded::{AmbitionAssetSourcePlugin, EmbeddedWorldAsset};
 
 /// Runtime asset-profile/config values needed by the sandbox catalog builder.
@@ -85,19 +80,21 @@ pub fn logical_asset_path(folder: &str, filename: &str) -> String {
     }
 }
 
-/// The scaled-variant sibling of [`logical_asset_path`], or `None` when the
-/// author owns the path.
-///
-/// `sprites_0_5x/…` twins are generated into the engine's tree by this repo's
-/// tooling. A source-qualified asset has no variants and renders at full
-/// resolution.
+/// Select a quality sibling in the same asset source.
 pub fn scaled_logical_asset_path(
     folder: &str,
     subdir_suffix: &str,
     filename: &str,
 ) -> Option<String> {
-    (!is_source_qualified(filename))
-        .then(|| format!("{folder}_{subdir_suffix}/{filename}"))
+    if let Some((source, path)) = filename.split_once("://") {
+        let marker = format!("/{folder}/");
+        if let Some((root, tail)) = path.rsplit_once(&marker) {
+            return Some(format!("{source}://{root}/{folder}_{subdir_suffix}/{tail}"));
+        }
+        return path.strip_prefix(&format!("{folder}/"))
+            .map(|tail| format!("{source}://{folder}_{subdir_suffix}/{tail}"));
+    }
+    Some(format!("{folder}_{subdir_suffix}/{filename}"))
 }
 
 /// Filename row for a boss spritesheet.
@@ -153,9 +150,24 @@ pub struct Platformer2dAssetCatalog {
     /// absolute path of the machine that built the program, and a file found
     /// there is a file the player does not have.
     exe_bundle: Option<&'static crate::exe_bundle::ExeBundle>,
+    library_files: std::sync::Arc<std::collections::BTreeMap<String, crate::content_library::LibraryFile>>,
 }
 
 impl Platformer2dAssetCatalog {
+    pub fn with_libraries(mut self, libraries: &crate::content_library::ContentLibraries) -> Result<Self, String> {
+        self.library_files = libraries.snapshot()?.files;
+        Ok(self)
+    }
+
+    pub fn with_snapshot(mut self, snapshot: &crate::content_library::LibrarySnapshot) -> Self {
+        self.library_files = snapshot.files.clone();
+        self
+    }
+
+    pub fn library_bytes(&self, path: &str) -> Option<&'static [u8]> {
+        match self.library_files.get(path)?.data { crate::content_library::LibraryFileData::Embedded(bytes) => bytes, _ => None }
+    }
+
     /// Construct from a fully-built [`AmbitionAssetCatalog`] + the
     /// active profile. Prefer [`build_platformer2d_asset_catalog`] from
     /// production code; this is the seam for unit tests that author
@@ -165,6 +177,7 @@ impl Platformer2dAssetCatalog {
             catalog,
             profile,
             exe_bundle: crate::exe_bundle::ExeBundle::of_running_exe(),
+            library_files: Default::default(),
         }
     }
 
@@ -232,6 +245,21 @@ impl Platformer2dAssetCatalog {
         }
     }
 
+    /// Apply the active profile to an image path supplied by selected metadata.
+    pub fn try_image_path_for_load(&self, path: &str) -> Option<String> {
+        let id = AssetId::new(path);
+        let mut entry = crate::AssetEntry::new(id.clone(), crate::AssetKind::Image, path);
+        if self.library_bytes(path).is_some() {
+            entry = entry.with_location(AssetSourceProfile::EmbeddedBinary,
+                crate::AssetLocation::BevyPath(path.to_owned()));
+        }
+        let mut manifest = AssetManifest::new();
+        manifest.insert(entry);
+        let resolved = crate::resolve(&manifest, &id, self.profile).ok()?;
+        let path = resolved.bevy_asset_path()?;
+        self.should_attempt_resolved_load(&resolved, &path).then_some(path)
+    }
+
     /// Resolve a scaled visual variant first, then silently fall back to the
     /// canonical full-resolution asset id. This is the runtime quality-profile
     /// seam for optional images and spritesheets.
@@ -277,6 +305,23 @@ impl Platformer2dAssetCatalog {
     /// - NoAssets / Headless: never attempt (catalog already returned
     ///   None for `path_for`; this is exhaustive-match insurance).
     pub fn should_attempt_resolved_load(&self, resolved: &ResolvedAsset, path: &str) -> bool {
+        if path.starts_with("content://") && !resolved.missing_policy.is_required() {
+            let Some(file) = self.library_files.get(path) else { return false; };
+            return match self.profile {
+                AssetProfile::NoAssets | AssetProfile::Headless => false,
+                AssetProfile::DesktopDevLoose | AssetProfile::DesktopInstalled
+                | AssetProfile::SteamDeckInstalled => match self.exe_bundle {
+                    Some(bundle) => bundle.contains(&crate::content_library::package_path(path)),
+                    None => file.native_path().is_some_and(|path| path.is_file())
+                        || self.library_bytes(path).is_some(),
+                },
+                AssetProfile::AndroidBundle => self.library_bytes(path).is_some()
+                    || android_bundle_holds(&crate::content_library::package_path(path)),
+                AssetProfile::WebStatic | AssetProfile::BundledStatic
+                | AssetProfile::WebHttp | AssetProfile::IpfsGatewayPlaceholder => self.library_bytes(path).is_some(),
+                AssetProfile::WebServedAssets | AssetProfile::IosBundle => true,
+            };
+        }
         match self.profile {
             AssetProfile::DesktopDevLoose
             | AssetProfile::DesktopInstalled
@@ -342,23 +387,7 @@ impl Platformer2dAssetCatalog {
         )
     }
 
-    /// Locate the absolute on-disk path for a Bevy-relative asset path
-    /// under the current profile, when one is available. Returns
-    /// `None` for non-desktop profiles or when the file simply isn't
-    /// there. Walks the same candidate roots Bevy's file `AssetReader`
-    /// consults at runtime, in this order:
-    ///
-    /// 1. `$BEVY_ASSET_ROOT/assets/<rel>`
-    /// 2. `$BEVY_ASSET_ROOT/<rel>`
-    /// 3. `$CWD/assets/<rel>`
-    /// 4. `$CWD/<rel>`
-    /// 5. `$CARGO_MANIFEST_DIR/../ambition_platformer2d_actor_monolith/assets/<rel>`
-    ///    (current dev fallback while runtime assets still live there)
-    ///
-    /// This is the only host-filesystem probe in the sandbox. The
-    /// LDtk hot-reload watcher and the SFX bank byte loader both call
-    /// through here — there is no duplicate candidate walk anywhere
-    /// else in `crates/ambition_platformer2d_actor_monolith/src/`.
+    /// Locate selected library files or files under the desktop asset roots.
     pub fn resolve_local_file_path(&self, rel: &str) -> Option<std::path::PathBuf> {
         if !matches!(
             self.profile,
@@ -374,6 +403,7 @@ impl Platformer2dAssetCatalog {
         if self.exe_bundle.is_some() {
             return None;
         }
+        if let Some(file) = self.library_files.get(rel) { return file.native_path().map(std::path::Path::to_path_buf); }
         desktop_candidate_roots(rel)
             .into_iter()
             .find(|p| p.exists())
@@ -400,36 +430,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
         candidates.push(cwd.join("assets").join(rel));
         candidates.push(cwd.join(rel));
     }
-    candidates.push(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../ambition_platformer2d_actor_monolith/assets")
-            .join(rel),
-    );
     candidates
-}
-
-/// The AssetServer file-source root a windowed app must set as
-/// `AssetPlugin.file_path` on a loose desktop dev checkout: the absolute
-/// `crates/ambition_platformer2d_actor_monolith/assets` directory, where the
-/// generated sprite sheets, music, dialogue, and menu icons live.
-///
-/// Bevy's default root, `"assets"`, has no `sprites/` tree in this workspace,
-/// so without this every character renders as a bare box. The hosted app and
-/// every standalone demo share this value so they cannot diverge.
-///
-/// Resolution mirrors the candidate walker: an explicit `BEVY_ASSET_ROOT` wins
-/// (return the relative `"assets"`); else the dev-checkout absolute path when
-/// it exists; else the exe-relative `"assets"` default for shipped builds.
-pub fn actors_desktop_asset_root() -> String {
-    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
-        return "assets".to_string();
-    }
-    let dev_assets =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_platformer2d_actor_monolith/assets");
-    match dev_assets.canonicalize() {
-        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
-        _ => "assets".to_string(),
-    }
 }
 
 /// Whether the APK holds `path`: Android's `AssetManager` is asked, the one
@@ -451,33 +452,6 @@ fn android_bundle_holds(path: &str) -> bool {
 #[cfg(not(target_os = "android"))]
 fn android_bundle_holds(_path: &str) -> bool {
     true
-}
-
-#[cfg(test)]
-mod asset_root_tests {
-    use super::actors_desktop_asset_root;
-
-    /// The resolved root must hold the generated sprite sheets. Check the
-    /// `sprites/` tree, not a specific file, so sprite renames do not break
-    /// this test.
-    #[test]
-    fn resolved_root_contains_the_generated_sprite_tree() {
-        // An override or a shipped build falls back to the relative `"assets"`;
-        // the disk check applies only to the dev checkout.
-        if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
-            return;
-        }
-        let root = actors_desktop_asset_root();
-        if root == "assets" {
-            return;
-        }
-        let sprites = std::path::Path::new(&root).join("sprites");
-        assert!(
-            sprites.is_dir(),
-            "resolved actors asset root {root} must contain a sprites/ tree so \
-             AssetServer::load(\"sprites/…png\") resolves"
-        );
-    }
 }
 
 /// Build the full sandbox catalog: every visible-sandbox asset id +
@@ -509,10 +483,6 @@ pub fn build_sandbox_catalog_with(
         &inputs.worlds,
         crate::exe_bundle::ExeBundle::of_running_exe().is_some(),
     );
-    extend_with_data_entries(&mut manifest);
-    extend_with_sfx_bank_entry(&mut manifest);
-    extend_with_font_entries(&mut manifest);
-    extend_with_sprite_pack_entries(&mut manifest);
     extend_with_character_entries(
         &mut manifest,
         &config.sprite_folder,
@@ -553,18 +523,42 @@ mod authored_path_tests {
         );
     }
 
-    /// A consumer's asset gets no invented scale siblings: `sprites_0_5x/…` is
-    /// this repo's generated layout.
+    /// Quality siblings keep the declared source and library.
     #[test]
-    fn a_source_qualified_path_has_no_scaled_siblings() {
+    fn quality_siblings_keep_the_source_and_library() {
         assert_eq!(
-            scaled_logical_asset_path("sprites", "0_5x", "game://sprites/mine.png"),
-            None
+            scaled_logical_asset_path("sprites", "0_5x", "game://sprites/mine.png").as_deref(),
+            Some("game://sprites_0_5x/mine.png")
         );
+        assert_eq!(scaled_logical_asset_path("sprites", "0_5x", "content://second/sprites/body.png").as_deref(),
+            Some("content://second/sprites_0_5x/body.png"));
+        assert_eq!(scaled_logical_asset_path("sprites", "0_5x", "content://second/icons/body.png"), None);
         assert_eq!(
             scaled_logical_asset_path("sprites", "0_5x", "engine_art.png").as_deref(),
             Some("sprites_0_5x/engine_art.png")
         );
+    }
+
+    #[test]
+    fn optional_library_images_use_the_selected_inventory_and_profile() {
+        use crate::content_library::{ContentLibraries, ContentLibrary, EmbeddedLibrary, EmbeddedLibraryFile};
+        static LIBRARY: EmbeddedLibrary = EmbeddedLibrary {
+            manifest: r#"{"schema":"ambition.content_library.v1","id":"own","version":"1","asset_roots":{"generated":"runtime"}}"#,
+            catalog: r#"{"entries":{}}"#,
+            files: &[
+                EmbeddedLibraryFile { path: "sprites/body.png", bytes: Some(b"embedded") },
+                EmbeddedLibraryFile { path: "sprites/served.png", bytes: None },
+            ],
+        };
+        let mut libraries = ContentLibraries::default();
+        libraries.insert(ContentLibrary::from_embedded(&LIBRARY).unwrap()).unwrap();
+        for profile in [AssetProfile::DesktopDevLoose, AssetProfile::WebStatic, AssetProfile::WebServedAssets, AssetProfile::Headless] {
+            let catalog = Platformer2dAssetCatalog::new(AmbitionAssetCatalog::new(Default::default()), profile)
+                .with_libraries(&libraries).unwrap();
+            assert_eq!(catalog.try_image_path_for_load("content://own/sprites/body.png").is_some(), profile != AssetProfile::Headless);
+            assert!(catalog.try_image_path_for_load("content://other/sprites/body.png").is_none());
+            assert_eq!(catalog.try_image_path_for_load("content://own/sprites/served.png").is_some(), profile == AssetProfile::WebServedAssets);
+        }
     }
 
     /// Every family that joins a folder to an authored filename is exercised
@@ -624,14 +618,10 @@ mod authored_path_tests {
                  reads `{}`, and the asset it names does not exist",
                 entry.logical_path
             );
-            // No invented sibling under this repo's generated layout. Vacuous
-            // for audio (no scale variants); it matters for the image families.
-            assert!(
-                manifest
-                    .get(&scaled_asset_id(&id, Some("0_5x")).expect("a variant id"))
-                    .is_none(),
-                "a scaled sibling was invented inside somebody else's asset source"
-            );
+            let variant = manifest.get(&scaled_asset_id(&id, Some("0_5x")).unwrap());
+            if family == "music" { assert!(variant.is_none()); }
+            else { assert_eq!(variant.unwrap().logical_path, "game://sprites_0_5x/consumer_owned.png"); }
+
         }
     }
 }
@@ -648,7 +638,7 @@ mod packaged_program_tests {
     use crate::{AssetEntry, AssetKind};
 
     /// A tracked file of the engine tree: on the disk of each checkout.
-    const ON_THE_DISK: &str = "ambition/platformer_defaults.ron";
+    const ON_THE_DISK: &str = "Cargo.toml";
     /// A path no checkout has.
     const IN_THE_BUNDLE: &str = "sprites/only_the_packaged_program_has_this.png";
 

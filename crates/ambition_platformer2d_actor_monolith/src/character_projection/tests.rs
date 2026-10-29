@@ -17,6 +17,7 @@ use ambition_sfx::PresentationSourceId;
 /// One gameplay session owning the speakers, with `ambition_platformer2d` as the primary.
 fn session_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins((CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
     app.add_systems(Update, ambition_combat::hand::reconcile_effective_repertoire);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
@@ -794,6 +795,8 @@ fn a_malformed_body_rig_is_reported_and_not_granted() {
 /// `register_character` exists to delete.
 #[test]
 fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = session_app();
     let mut shaped = CharacterDefinition::new("serpent", "Serpent", "demo").with_sheet("robot");
     shaped.body = Some(
@@ -834,7 +837,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     );
     // The standing identity box arrives WITH the posed body, from the sheet's
     // `Idle` pose; the pose pass projects poses and does not restore it.
-    let standing = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+    let standing = ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
         "robot",
         ambition_sprite_sheet::character::CharacterAnim::Idle,
         2.5,
@@ -899,7 +902,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     // sheet and no posed body, so its art is drawn from the box: the quad is
     // the frame fitted to the box that came back, not the serpent's quad.
     let serpent_quad = standing.render;
-    let fitted = drawn_fit("robot", own_box);
+    let fitted = drawn_fit(&sprite_content, "robot", own_box);
     assert_ne!(fitted, serpent_quad, "premise: the two quads differ");
     assert_eq!(
         world
@@ -914,9 +917,9 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
 /// The quad the renderer draws the art of `sheet` at for a body that stands in
 /// `standing`: its own rule (`sprite_render_size`), from a spec this test
 /// loads. Not the function the grant calls.
-fn drawn_fit(sheet: &str, standing: ambition_platformer2d_core::Vec2) -> ambition_platformer2d_core::Vec2 {
+fn drawn_fit(sprite_content: &ambition_sprite_sheet::SpriteContent, sheet: &str, standing: ambition_platformer2d_core::Vec2) -> ambition_platformer2d_core::Vec2 {
     use ambition_sprite_sheet::character::sheets::{sprite_render_size, try_load_spec_for_target, SheetTuning};
-    let spec = try_load_spec_for_target(sheet, &SheetTuning::default())
+    let spec = try_load_spec_for_target(&sprite_content, sheet, &SheetTuning::default())
         .unwrap_or_else(|| panic!("the baked `{sheet}` sheet is published"));
     sprite_render_size(&spec, standing)
 }
@@ -931,6 +934,7 @@ fn drawn_fit(sheet: &str, standing: ambition_platformer2d_core::Vec2) -> ambitio
 /// `a_player_that_changes_form_takes_the_size_of_that_form`).
 #[test]
 fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let quad = |app: &App, body: Entity| {
         app.world()
             .get::<ambition_combat::components::ActorRenderSize>(body)
@@ -947,7 +951,7 @@ fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
     app.register_character(CharacterDefinition::new("dog", "Dog", "demo").with_sheet("companion_dog"));
     app.register_character(CharacterDefinition::new("bare", "Bare", "demo"));
     let standing = ambition_platformer2d_core::Vec2::new(30.0, 48.0);
-    let (guide, dog) = (drawn_fit("kernel_guide", standing), drawn_fit("companion_dog", standing));
+    let (guide, dog) = (drawn_fit(&sprite_content, "kernel_guide", standing), drawn_fit(&sprite_content, "companion_dog", standing));
     assert!((guide - dog).length() > 1.0, "premise: the two characters are drawn at two quads: {guide:?}, {dog:?}");
     let body = app
         .world_mut()
@@ -991,6 +995,7 @@ fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
 /// the same character), and the quad still goes with that character.
 #[test]
 fn a_quad_the_spawn_stated_stands_until_the_body_wears_another_character() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = session_app();
     app.register_character(CharacterDefinition::new("guide", "Guide", "demo").with_sheet("kernel_guide"));
     app.register_character(CharacterDefinition::new("dog", "Dog", "demo").with_sheet("companion_dog"));
@@ -1021,7 +1026,7 @@ fn a_quad_the_spawn_stated_stands_until_the_body_wears_another_character() {
     settle(&mut app);
     assert_eq!(
         quad(&app),
-        Some(drawn_fit("companion_dog", standing)),
+        Some(drawn_fit(&sprite_content, "companion_dog", standing)),
         "the body wears the dog and keeps the quad its spawn stated for the guide",
     );
 }

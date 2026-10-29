@@ -266,6 +266,7 @@ mod tests {
     /// His art is his own, and it all ships.
     #[test]
     fn the_kit_looks_like_carl_and_the_art_all_ships() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let mut effects = std::collections::BTreeSet::new();
         // Collect problems across every move, then assert once, so one run reports
@@ -273,7 +274,7 @@ mod tests {
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
-                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+                |name| ambition_platformer2d::sprite_sheet::fx::is_authored_effect(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), name),
             ));
             for ev in &m.events {
                 if let MoveEventKind::Vfx { effect, .. } = &ev.kind {
@@ -286,7 +287,7 @@ mod tests {
         assert!(problems.is_empty(), "{problems:?}");
         assert!(effects.len() >= 10, "a thin palette: {effects:?}");
         for effect in &effects {
-            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(effect)
+            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(&sprite_content, effect)
                 .unwrap_or_else(|| panic!("`{effect}` ships"));
             assert!(
                 authored.sheet.contains("carl_stargan"),
@@ -299,8 +300,9 @@ mod tests {
     /// Every clip he names is a row his sheet carries.
     #[test]
     fn every_clip_names_a_row_his_sheet_carries() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let set = crate::authored_movesets::shipped("npc_carl_stargan");
-        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(
+        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content,
             "carl_stargan",
         )
         .expect("his sheet is baked into the registry");

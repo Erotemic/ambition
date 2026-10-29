@@ -135,7 +135,7 @@ fn probe_d71_shipped_app_host() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_millis(16),
     ));
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) * 2 {
         app.update();
     }
     app.world_mut().write_message(ShellCommand::GoTo(

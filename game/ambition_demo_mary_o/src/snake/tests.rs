@@ -317,10 +317,11 @@ fn a_stomp_shoves_a_peeking_or_emerging_snake_back_into_its_shell() {
 /// answer to the same scale.
 #[test]
 fn both_snake_forms_follow_one_scale() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
     let at = |wpp: f32, anim: CharacterAnim| {
-        ambition_platformer2d::character_sprites::posed_body_geometry(
+        ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
             super::SNAKE_SHEET_TARGET,
             anim,
             wpp,
@@ -328,7 +329,7 @@ fn both_snake_forms_follow_one_scale() {
         .map(|g| g.collision)
     };
 
-    let base = crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET);
+    let base = crate::pack::PACK.posed_body_world_per_pixel(&sprite_content, super::SNAKE_SHEET_TARGET);
     let (Some(walk), Some(boxed)) = (
         at(base, CharacterAnim::Idle),
         at(base, CharacterAnim::ShellIdle),
@@ -381,7 +382,8 @@ fn both_snake_forms_follow_one_scale() {
 /// demo actually runs.
 #[test]
 fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
-    let geometry = ambition_platformer2d::character_sprites::posed_body_geometry(
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let geometry = ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
         super::SNAKE_SHEET_TARGET,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
         1.0,
@@ -392,7 +394,7 @@ fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
          instead of the 0.365 the art derives, with nothing at runtime saying so",
         super::SNAKE_SHEET_TARGET
     );
-    let scale = crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET);
+    let scale = crate::pack::PACK.posed_body_world_per_pixel(&sprite_content, super::SNAKE_SHEET_TARGET);
     assert!(
         (scale - 1.0).abs() > 1e-6,
         "the scale IS the fallback value; see this test's doc"
@@ -427,6 +429,7 @@ fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
 /// error here; it is one silhouette wearing another's collision.
 #[test]
 fn every_pose_the_snake_plays_resolves() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
     for anim in [
@@ -436,10 +439,10 @@ fn every_pose_the_snake_plays_resolves() {
         CharacterAnim::Retreat,
         CharacterAnim::ShellIdle,
     ] {
-        let resolved = ambition_platformer2d::character_sprites::posed_body_geometry(
+        let resolved = ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
             super::SNAKE_SHEET_TARGET,
             anim,
-            crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET),
+            crate::pack::PACK.posed_body_world_per_pixel(&sprite_content, super::SNAKE_SHEET_TARGET),
         );
         assert!(
             resolved.is_some(),

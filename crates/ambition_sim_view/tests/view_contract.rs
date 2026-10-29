@@ -35,13 +35,14 @@ fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
 
 #[test]
 fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let boss_catalog = ambition_boss_catalog();
     // The view-index `actors` query keys on those, so without a `Without<BossConfig>` exclusion a
     // boss matches the actor family — which is inserted BEFORE the boss family (first-wins
     // priority) — and renders as the generic enemy fallback sprite (a big goblin), invisible,
     // instead of its boss sheet.
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
-    let boss = ambition_boss_encounter::BossClusterScratch::new(
+    let boss = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
         &boss_catalog,
         "gnu_ton_rider",
         "GNU-ton",

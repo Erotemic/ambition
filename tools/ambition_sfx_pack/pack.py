@@ -52,7 +52,7 @@ from typing import Iterable
 
 # ⛔⛔ THE BANK IS PUBLISHED INTO A TREE THAT MAY BE SYMLINK-MIRRORED.
 # `scripts/regen/sfx.sh` aims this script at
-# `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank`, which is
+# `game/ambition_content_library/generated/runtime/audio/sfx.bank`, which is
 # inside `mirror_assets_for_worktree.py`'s MIRRORED_TREES. In a worktree that
 # path is a SYMLINK at the main checkout's copy, and `open(dst, "wb")` follows
 # it -- so a regen here rewrote the bank every other session builds and gates

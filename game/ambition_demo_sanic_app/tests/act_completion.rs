@@ -27,13 +27,13 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
 /// Act 1's course, as the level file lays it out.
-fn course() -> ae::World {
-    ambition_demo_sanic::sanic_speedway().world
+fn course(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ae::World {
+    ambition_demo_sanic::sanic_speedway(&sprite_content).world
 }
 
 /// Act 1's goal line, from its course.
-fn goal_x() -> f32 {
-    ambition_demo_sanic::goal_x_of(&course())
+fn goal_x(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> f32 {
+    ambition_demo_sanic::goal_x_of(&course(&sprite_content))
 }
 
 fn player_x(app: &mut App) -> f32 {
@@ -81,6 +81,7 @@ fn phase(app: &mut App) -> Option<SanicActPhase> {
 
 #[test]
 fn holding_right_reaches_the_goal_and_clears_the_act() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
@@ -123,9 +124,9 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
 
     let start = player_x(&mut app);
     assert!(
-        start < goal_x(),
+        start < goal_x(&sprite_content),
         "the act starts before its goal ({start} vs {})",
-        goal_x()
+        goal_x(&sprite_content)
     );
 
     // Hold right, and JUMP on the approach to the authored pit.
@@ -164,8 +165,8 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
              the goal, the goal is somewhere the body cannot go — which is how \
              this shipped: the runnable extent tops out near {} and the goal sat \
              past it, so the act was uncompletable.",
-            goal_x(),
-            course().size.x - 270.0
+            goal_x(&sprite_content),
+            course(&sprite_content).size.x - 270.0
         )
     });
 
@@ -199,6 +200,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
 /// card was still counting down.
 #[test]
 fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
@@ -245,11 +247,11 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
         furthest_back = furthest_back.min(player_x(&mut app));
     }
     assert!(
-        furthest_back > goal_x() - 400.0,
+        furthest_back > goal_x(&sprite_content) - 400.0,
         "he ended up at x={furthest_back:.0} during his own {}s results card, \
          from a goal at {} — he ran off the end of the course, died, and \
          is replaying the act while the card still shows his time",
         ambition_demo_sanic::rules::sanic_rules().act.clear_dwell,
-        goal_x(),
+        goal_x(&sprite_content),
     );
 }

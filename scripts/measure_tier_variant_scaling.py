@@ -59,7 +59,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-ASSETS = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
+ASSETS = REPO / "game/ambition_content_library/generated/runtime"
 
 # Tier dir -> the fraction of Full's LINEAR size it claims. `potato` has no
 # declared ratio (the generator floors every frame at 8px), so it is reported

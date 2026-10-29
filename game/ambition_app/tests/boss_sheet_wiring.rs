@@ -18,13 +18,14 @@ use std::collections::BTreeSet;
 
 /// Load the provider-owned world manifest and assemble the same immutable
 /// App-local boss contribution production uses.
-fn content_boss_catalog() -> ambition_platformer2d::boss_encounter::BossCatalog {
-    ambition_content::bosses::shipped_boss_catalog()
+fn content_boss_catalog(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ambition_platformer2d::boss_encounter::BossCatalog {
+    ambition_content::bosses::shipped_boss_catalog(&sprite_content)
 }
 
 #[test]
 fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
-    let boss_catalog = content_boss_catalog();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let boss_catalog = content_boss_catalog(&sprite_content);
     let character_catalog =
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
@@ -34,6 +35,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     let world_manifest = ambition_content::worlds::world_manifest();
     let catalog =
         ambition_platformer2d::assets::platformer_assets::desktop_dev_default_catalog(
+        &ambition_platformer2d::sprite_sheet::test_support::shared_libraries(),
             &character_catalog,
             &boss_catalog,
             &ambition_content::audio_registries::shipped_music_registry(),
@@ -62,7 +64,8 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
 /// its `sprite_target`, which is a different key the simulation uses for hurtbox metrics.
 #[test]
 fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
-    let boss_catalog = content_boss_catalog();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let boss_catalog = content_boss_catalog(&sprite_content);
 
     let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
 
@@ -101,7 +104,8 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
 /// the overflow boss is the one boss left on the fallback.
 #[test]
 fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
-    let boss_catalog = content_boss_catalog();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let boss_catalog = content_boss_catalog(&sprite_content);
     let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
     assert!(
         !sheet_keys.contains("overflow_boss"),
@@ -132,7 +136,8 @@ fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
 /// to do so by accident.
 #[test]
 fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
-    let boss_catalog = content_boss_catalog();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let boss_catalog = content_boss_catalog(&sprite_content);
 
     let world_manifest = ambition_content::worlds::world_manifest();
     let project =
@@ -303,12 +308,13 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
 /// room that authors a `BossSpawn` is prepared; `load_game_assets` decodes none.
 #[test]
 fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::game_assets::{
         ensure_boss_sheets_loaded, load_game_assets,
     };
     use bevy::prelude::*;
 
-    let boss_catalog = content_boss_catalog();
+    let boss_catalog = content_boss_catalog(&sprite_content);
     let character_catalog =
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
@@ -318,6 +324,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
     let world_manifest = ambition_content::worlds::world_manifest();
     let catalog =
         ambition_platformer2d::assets::platformer_assets::desktop_dev_default_catalog(
+        &ambition_platformer2d::sprite_sheet::test_support::shared_libraries(),
             &character_catalog,
             &boss_catalog,
             &ambition_content::audio_registries::shipped_music_registry(),
@@ -343,7 +350,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
 
     // BOOT: no dedicated sheet.
     let config = ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig::default();
-    let mut assets = load_game_assets(
+    let mut assets = load_game_assets(&sprite_content,
         &config,
         &character_catalog,
         &Default::default(),
@@ -399,7 +406,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         "premise: room `{}` names some but not all dedicated sheets ({first_keys:?})",
         first.id
     );
-    let decoded = ensure_boss_sheets_loaded(
+    let decoded = ensure_boss_sheets_loaded(&sprite_content,
         &mut assets,
         &boss_catalog,
         Some(&first_keys),
@@ -416,7 +423,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
     assert_eq!(decoded, first_keys.len());
     // The same room again decodes nothing new.
     assert_eq!(
-        ensure_boss_sheets_loaded(
+        ensure_boss_sheets_loaded(&sprite_content,
             &mut assets,
             &boss_catalog,
             Some(&first_keys),
@@ -429,7 +436,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         "the seam is idempotent"
     );
     // A fixture with no room in hand may still ask for everything.
-    ensure_boss_sheets_loaded(
+    ensure_boss_sheets_loaded(&sprite_content,
         &mut assets,
         &boss_catalog,
         None,

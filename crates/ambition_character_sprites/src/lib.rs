@@ -15,8 +15,7 @@ pub use anim::{
 };
 pub use attack_hitbox::{
     actor_attack_hitbox_local, actor_attack_hitbox_world, authored_attack_volume_resolver,
-    manifest_attack_hitbox_local, manifest_attack_hitbox_world, player_attack_hitbox_local,
-    player_attack_hitbox_world, refused_file_roots, resolves_by_file_root,
+    manifest_attack_hitbox_local, manifest_attack_hitbox_world, refused_file_roots, resolves_by_file_root,
 };
 pub use posed_body::{
     PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, posed_body_inset_hurtboxes,
@@ -46,6 +45,8 @@ pub struct SpritePosedBodyPlugin;
 
 impl Plugin for SpritePosedBodyPlugin {
     fn build(&self, app: &mut App) {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
@@ -60,8 +61,8 @@ impl Plugin for SpritePosedBodyPlugin {
         );
         // Pay the file-root index at Startup instead of on the first punch. See
         // `attack_hitbox::warm_file_root_registry` for the 189ms frame this cost.
-        app.add_systems(bevy::app::Startup, |_: bevy::ecs::system::Commands| {
-            crate::attack_hitbox::warm_file_root_registry();
+        app.add_systems(bevy::app::Startup, |sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>| {
+            crate::attack_hitbox::warm_file_root_registry(&sprite_content);
         });
     }
 }

@@ -31,6 +31,7 @@ fn registry() -> SchemaRegistry {
 fn draft(files: &[(&str, &str)]) -> ContentPackDraft {
     ContentPackDraft::from_sources(
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("test_smash".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("test".into()),

@@ -53,6 +53,7 @@ fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World))
 /// unable to hide a candidate does.
 fn commit_bracketed(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     seed(app.world_mut());
     app.add_systems(Update, move |mut commands: Commands| {
@@ -101,9 +102,10 @@ fn commit_bracketed(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut Wo
 /// too — both are stamped by the executor rather than by each recipe.
 #[test]
 fn committed_entities_carry_their_identity_and_provenance() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
     let mut app = commit(plan);
 
     let mut found: Vec<(String, String)> = app
@@ -131,9 +133,10 @@ fn committed_entities_carry_their_identity_and_provenance() {
 
 #[test]
 fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
     let mut app = commit(plan);
 
     let grudges: Vec<bool> = app
@@ -158,11 +161,12 @@ fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
 /// being unplannable in general.
 #[test]
 fn the_same_room_plans_once_its_held_item_resolves() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let mut room = empty_room("hall");
     room.ground_items
         .push(ground_item("pickup_a", REAL_HELD_ITEM));
-    let plan = prepare(&room, &Default::default(), &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &Default::default(), &recipes).expect("the room plans");
     let mut app = commit(plan);
 
     let items = app
@@ -190,6 +194,7 @@ fn the_same_room_plans_once_its_held_item_resolves() {
 /// which is the one and only path an authored boss reaches the world by.
 #[test]
 fn a_boss_the_construction_executor_built_can_summon() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = empty_room("hall");
     room.boss_spawns
         .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -200,7 +205,7 @@ fn a_boss_the_construction_executor_built_can_summon() {
                 script_id: "clockwork_warden".into(),
             },
         ));
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -244,6 +249,7 @@ fn a_boss_the_construction_executor_built_can_summon() {
 /// that is planned but forgotten here shows up as a missing identity, not as a green suite.
 #[test]
 fn every_parameter_variant_constructs_its_root() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let summoner = SimId::placement("boss_1");
 
@@ -303,7 +309,7 @@ fn every_parameter_variant_constructs_its_root() {
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     let services = ActorConstructionServices {
-        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
+        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(&sprite_content,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -342,6 +348,7 @@ fn every_parameter_variant_constructs_its_root() {
 /// fails here.
 #[test]
 fn a_summoned_minion_takes_its_characters_name() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let summoner = SimId::placement("boss_1");
     let request = summoned_minion_request(
@@ -371,7 +378,7 @@ fn a_summoned_minion_takes_its_characters_name() {
 
     let mut world = World::new();
     let services = ActorConstructionServices {
-        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
+        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(&sprite_content,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -433,8 +440,9 @@ fn a_summoned_minion_takes_its_characters_name() {
 /// by an arm here certifying a road production no longer uses.
 #[test]
 fn a_room_that_fails_verification_is_not_published() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &engine_construction_registry())
+    let plan = prepare(&sprite_content, &room, &staging, &engine_construction_registry())
         .expect("the room plans: the defect is in the world, not in the plan");
     let mut app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -473,8 +481,9 @@ fn a_room_that_fails_verification_is_not_published() {
 /// Without this the test above would also pass if rooms never published at all.
 #[test]
 fn the_same_room_publishes_once_its_relation_lands() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &engine_construction_registry()).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &engine_construction_registry()).expect("the room plans");
     let mut app = commit(plan);
 
     let verification = app
@@ -503,11 +512,11 @@ fn the_same_room_publishes_once_its_relation_lands() {
 
 /// Commit a bare construction plan into a fresh world and hand back everything
 /// verification needs.
-fn commit_bare(plan: &ActorConstructionPlan) -> (World, ConstructionReceipt, TransactionBaseline) {
+fn commit_bare(sprite_content: &ambition_sprite_sheet::SpriteContent, plan: &ActorConstructionPlan) -> (World, ConstructionReceipt, TransactionBaseline) {
     let mut world = World::new();
     let baseline =
         TransactionBaseline::capture(&mut world).expect("an empty world has no duplicates");
-    let services = test_services();
+    let services = test_services(&sprite_content);
     let receipt = {
         let mut commands = world.commands();
         let scope = plan.scope().clone();
@@ -528,13 +537,14 @@ fn commit_bare(plan: &ActorConstructionPlan) -> (World, ConstructionReceipt, Tra
 /// host's `LimbRig` going back.
 #[test]
 fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
         "giant",
         hand(LimbSlot::HAND_LEFT),
     );
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
     let host = receipt.entity(&SimId::placement("giant")).expect("built");
 
@@ -561,13 +571,14 @@ fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
 /// check passes. This is the half-write the reverse verification exists for.
 #[test]
 fn a_limb_missing_from_its_hosts_rig_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
         "giant",
         hand(LimbSlot::HAND_RIGHT),
     );
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let host = receipt.entity(&SimId::placement("giant")).expect("built");
 
     // Exactly the half-write: strip the reverse side, leave the forward one.
@@ -589,13 +600,14 @@ fn a_limb_missing_from_its_hosts_rig_is_detected() {
 /// router would drive this limb from the wrong intent stream.
 #[test]
 fn a_limb_whose_slot_was_rewritten_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
         "giant",
         hand(LimbSlot::HAND_LEFT),
     );
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
     let host = receipt.entity(&SimId::placement("giant")).expect("built");
 
@@ -619,6 +631,7 @@ fn a_limb_whose_slot_was_rewritten_is_detected() {
 /// rather than in whatever order anything happened to spawn.
 #[test]
 fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let giant = SimId::placement("giant");
     let mut host = bare_request("giant");
     host.relations.clear();
@@ -642,7 +655,7 @@ fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
         &engine_construction_registry(),
     )
     .expect("the plan is valid");
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
 
     let host_entity = receipt.entity(&SimId::placement("giant")).expect("built");
     let left_entity = receipt.entity(&SimId::placement("giant/0")).expect("built");
@@ -660,8 +673,9 @@ fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
 /// `MountSlot` on the mount going back.
 #[test]
 fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
 
@@ -698,8 +712,9 @@ fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
 /// stops obeying while every rider-side assertion still passes.
 #[test]
 fn a_mount_that_does_not_point_back_at_its_rider_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
     equip_mount_pair(&mut world, rider, mount);
@@ -723,8 +738,9 @@ fn a_mount_that_does_not_point_back_at_its_rider_is_detected() {
 /// A mount whose slot points at somebody ELSE — two riders claiming one saddle.
 #[test]
 fn a_mount_holding_a_different_rider_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
     equip_mount_pair(&mut world, rider, mount);
@@ -750,13 +766,14 @@ fn a_mount_holding_a_different_rider_is_detected() {
 /// both sides.
 #[test]
 fn a_limb_filed_under_the_wrong_slot_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
         "giant",
         hand(LimbSlot::HAND_LEFT),
     );
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let host = receipt.entity(&SimId::placement("giant")).expect("built");
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
 
@@ -785,13 +802,14 @@ fn a_limb_filed_under_the_wrong_slot_is_detected() {
 /// place forever, which no structural check would ever notice.
 #[test]
 fn a_limb_with_a_corrupted_home_offset_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(
         &["giant", "hand"],
         "hand",
         "giant",
         hand(LimbSlot::HAND_LEFT),
     );
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
 
     world.get_mut::<Limb>(limb).unwrap().home_offset = ae::Vec2::new(999.0, 999.0);
@@ -819,8 +837,9 @@ fn a_limb_with_a_corrupted_home_offset_is_detected() {
 /// assertion passes.
 #[test]
 fn a_mount_link_missing_the_mounted_marker_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
     equip_mount_pair(&mut world, rider, mount);
@@ -849,8 +868,9 @@ fn a_mount_link_missing_the_mounted_marker_is_detected() {
 /// counterpart, for a pair that somehow reached the world incompatible.
 #[test]
 fn a_mount_link_with_an_incompatible_class_is_detected() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let plan = related_actor_plan(&["rider", "mount"], "rider", "mount", ActorRelation::Mount);
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let rider = receipt.entity(&SimId::placement("rider")).expect("built");
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
     equip_mount_pair(&mut world, rider, mount);
@@ -884,6 +904,7 @@ fn a_mount_link_with_an_incompatible_class_is_detected() {
 /// sees no violation — no legacy warning, because the hands are owned rows now.
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let requests =
         ambition_platformer2d_construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()),
     );
@@ -896,7 +917,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
     .expect("the giant plan is valid");
 
     let host = SimId::placement("boss_mount");
-    let (mut world, receipt, baseline) = commit_bare(&plan);
+    let (mut world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     let host_entity = receipt.entity(&host).expect("host built");
     let hand_l = receipt
         .entity(&SimId::spawned(&host, 0))
@@ -922,6 +943,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 /// verifier publishes, and the world holds a fully wired two-hand rig.
 #[test]
 fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let room = empty_room("hall");
     let mut staging = crate::construction::RoomContentStagingRegistry::default();
     staging
@@ -929,7 +951,7 @@ fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
             vec![staged_giant("gnu")]
         })
         .expect("stager registers");
-    let plan = prepare(&room, &staging, &engine_construction_registry()).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &engine_construction_registry()).expect("the room plans");
     let mut app = commit(plan);
 
     let verification = app
@@ -961,7 +983,7 @@ fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
     assert_eq!(rig.get(LimbSlot::HAND_RIGHT), Some(hand_r));
 }
 
-fn committed_giant() -> (
+fn committed_giant(sprite_content: &ambition_sprite_sheet::SpriteContent) -> (
     ActorConstructionPlan,
     World,
     ConstructionReceipt,
@@ -977,7 +999,7 @@ fn committed_giant() -> (
         &engine_construction_registry(),
     )
     .expect("the giant plan is valid");
-    let (world, receipt, baseline) = commit_bare(&plan);
+    let (world, receipt, baseline) = commit_bare(&sprite_content, &plan);
     (plan, world, receipt, baseline)
 }
 
@@ -985,7 +1007,8 @@ fn committed_giant() -> (
 /// tests below are meaningful only if this baseline holds.
 #[test]
 fn a_clean_giant_rig_has_no_composition_faults() {
-    let (plan, world, receipt, _) = committed_giant();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (plan, world, receipt, _) = committed_giant(&sprite_content);
     assert_eq!(rig_faults(&plan, &receipt, &world), 0);
 }
 
@@ -993,7 +1016,8 @@ fn a_clean_giant_rig_has_no_composition_faults() {
 /// verifies, so only the composition pass can see the surplus.
 #[test]
 fn an_extra_unplanned_rig_entry_is_fatal() {
-    let (plan, mut world, receipt, baseline) = committed_giant();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (plan, mut world, receipt, baseline) = committed_giant(&sprite_content);
     let host = SimId::placement("boss_mount");
     let host_entity = receipt.entity(&host).expect("host");
     let interloper = world.spawn_empty().id();
@@ -1020,7 +1044,8 @@ fn an_extra_unplanned_rig_entry_is_fatal() {
 /// committed hand, so only the duplicate scan sees one body wearing two names.
 #[test]
 fn a_duplicated_limb_entity_across_slots_is_fatal() {
-    let (plan, mut world, receipt, _) = committed_giant();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (plan, mut world, receipt, _) = committed_giant(&sprite_content);
     let host = SimId::placement("boss_mount");
     let host_entity = receipt.entity(&host).expect("host");
     let hand_l = receipt.entity(&SimId::spawned(&host, 0)).expect("left");
@@ -1036,7 +1061,8 @@ fn a_duplicated_limb_entity_across_slots_is_fatal() {
 /// forward checks pass; the hole is only visible slot-by-slot.
 #[test]
 fn a_missing_planned_slot_is_fatal() {
-    let (plan, mut world, receipt, _) = committed_giant();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (plan, mut world, receipt, _) = committed_giant(&sprite_content);
     let host = SimId::placement("boss_mount");
     let host_entity = receipt.entity(&host).expect("host");
     world
@@ -1052,7 +1078,8 @@ fn a_missing_planned_slot_is_fatal() {
 /// one.
 #[test]
 fn a_swapped_rig_with_correct_forward_limbs_is_fatal() {
-    let (plan, mut world, receipt, _) = committed_giant();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (plan, mut world, receipt, _) = committed_giant(&sprite_content);
     let host = SimId::placement("boss_mount");
     let host_entity = receipt.entity(&host).expect("host");
     let hand_l = receipt.entity(&SimId::spawned(&host, 0)).expect("left");
@@ -1070,7 +1097,8 @@ fn a_swapped_rig_with_correct_forward_limbs_is_fatal() {
 /// index AND generation — so a stale generation compares unequal.
 #[test]
 fn a_stale_limb_host_pointer_is_fatal() {
-    let (plan, mut world, receipt, _) = committed_giant();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (plan, mut world, receipt, _) = committed_giant(&sprite_content);
     let host = SimId::placement("boss_mount");
     let hand_l = receipt.entity(&SimId::spawned(&host, 0)).expect("left");
     let stale = world.spawn_empty().id();
@@ -1091,11 +1119,12 @@ fn a_stale_limb_host_pointer_is_fatal() {
 /// pointers rewired onto the new generation.
 #[test]
 fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let host = SimId::placement("boss_mount");
     let hand_l = SimId::spawned(&host, 0);
     let hand_r = SimId::spawned(&host, 1);
     for seed in [&host, &hand_l, &hand_r] {
-        let plan = prepare(
+        let plan = prepare(&sprite_content,
             &giant_room(),
             &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
@@ -1153,7 +1182,8 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
 /// are live at the boundary — no frame-later resolution.
 #[test]
 fn a_committed_mount_pair_is_welded_both_ways_and_published() {
-    let plan = prepare(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare(&sprite_content,
         &mounted_pair_room(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1203,6 +1233,7 @@ fn a_committed_mount_pair_is_welded_both_ways_and_published() {
 /// one row per identity, no duplicate.
 #[test]
 fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = giant_room();
     room.boss_spawns
         .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -1215,7 +1246,7 @@ fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
         ));
     room.mount_links
         .push(("the_rider".to_string(), "boss_mount".to_string()));
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1280,6 +1311,7 @@ fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
 /// already run.
 #[test]
 fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = empty_room("field");
     room.enemy_spawns
         .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -1298,7 +1330,7 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
             ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
             ambition_entity_catalog::placements::BossBrain::Dormant,
         ));
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1331,6 +1363,7 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
 /// family-specific respawn fallbacks are deleted.
 #[test]
 fn a_boss_respawns_through_the_planner() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = empty_room("lair");
     room.boss_spawns
         .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -1339,7 +1372,7 @@ fn a_boss_respawns_through_the_planner() {
             ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
             ambition_entity_catalog::placements::BossBrain::Dormant,
         ));
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1381,7 +1414,8 @@ fn a_boss_respawns_through_the_planner() {
 /// plan row — the placement family leaves the invisible list.
 #[test]
 fn a_committed_placement_room_publishes_with_a_stamped_pickup() {
-    let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare_with_placements(&sprite_content, &placement_room()).expect("the gallery plans");
     let mut app = commit(plan);
     let verification = app
         .world()
@@ -1411,7 +1445,8 @@ fn a_committed_placement_room_publishes_with_a_stamped_pickup() {
 /// itself: this comment was the only thing in the workspace that still named it.
 #[test]
 fn a_placement_respawns_through_the_planner() {
-    let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare_with_placements(&sprite_content, &placement_room()).expect("the gallery plans");
     let mut app = commit(plan.clone());
     let world = app.world_mut();
     let find = |world: &mut World, wanted: &SimId| {
@@ -1445,6 +1480,7 @@ fn a_placement_respawns_through_the_planner() {
 /// than asking the actor domain about a zone it no longer owns.
 #[test]
 fn shrines_and_gravity_zones_are_stamped_plan_rows() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = empty_room("garden");
     room.shrines
         .push(ambition_platformer2d_world::rooms::ShrineSpec {
@@ -1463,7 +1499,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
             oscillate_amplitude: 0.0,
             oscillate_freq: 0.0,
         });
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1535,7 +1571,8 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
 /// already been mutated — but the room never announces itself.
 #[test]
 fn a_stale_plans_room_is_refused_publication() {
-    let plan = prepare(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare(&sprite_content,
         &giant_room(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1565,7 +1602,8 @@ fn a_stale_plans_room_is_refused_publication() {
 /// not blanket-refuse.
 #[test]
 fn a_plan_matching_the_live_binding_publishes() {
-    let plan = prepare(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare(&sprite_content,
         &giant_room(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1607,9 +1645,10 @@ fn a_plan_matching_the_live_binding_publishes() {
 /// nowhere below.
 #[test]
 fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
     let mut app = commit(plan);
 
     let rows: Vec<(String, Option<String>)> = app
@@ -1660,9 +1699,10 @@ fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests
 /// ⇒ The room transaction opens with `&mut World` and asks there.
 #[test]
 fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     let mut app = commit_bracketed(plan, |_| {});
     let verification = app
@@ -1725,9 +1765,10 @@ fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
 /// requires the count to be non-zero.
 #[test]
 fn a_world_that_cannot_hide_a_candidate_constructs_no_candidate_at_all() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     *CANDIDATE_INSERTIONS.lock().expect("insertions") = 0;
     let mut refused = commit_bracketed(plan.clone(), count_candidate_insertions);
@@ -1791,9 +1832,10 @@ fn a_world_that_cannot_hide_a_candidate_constructs_no_candidate_at_all() {
 /// `InactiveCandidate` means.
 #[test]
 fn the_same_candidate_room_publishes_once_the_filter_is_installed() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     let app = commit_bracketed(plan, |world| {
         ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
@@ -1829,9 +1871,10 @@ fn the_same_candidate_room_publishes_once_the_filter_is_installed() {
 /// harnesses."* Two other sites already branch on it.
 #[test]
 fn a_shell_composition_missing_its_content_binding_refuses_the_room() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     let app = commit_over(plan, |world| {
         world.init_resource::<
@@ -1855,9 +1898,10 @@ fn a_shell_composition_missing_its_content_binding_refuses_the_room() {
 /// composition claims to route gameplay through a shell session.
 #[test]
 fn a_direct_entry_fixture_with_no_content_binding_still_publishes() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     let app = commit(plan);
     let verification = app

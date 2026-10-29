@@ -28,6 +28,7 @@ fn twin(module: ModuleDescriptor, key: &'static str) -> ModuleDescriptor {
 /// `item` at x = 200, with `mana` (of 100).
 fn world(modules: Vec<ModuleDescriptor>, item: &str, mana: f32) -> (App, Entity) {
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.init_schedule(Sim);
     app.add_message::<ambition_projectiles::ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()

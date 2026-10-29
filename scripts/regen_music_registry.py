@@ -18,46 +18,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ASSET_ROOTS_SH = REPO_ROOT / "scripts" / "lib" / "asset_roots.sh"
+from lib.content_libraries import selected_manifest, generated_root
 
-
-def _declared_asset_crate() -> str:
-    """Read the consuming crate name from the shell declaration.
-
-    Parse the declaration directly so shell and Python tooling share one source
-    of truth. Missing or malformed declarations raise instead of guessing.
-    """
-    text = ASSET_ROOTS_SH.read_text()
-    match = re.search(
-        r'^AMBITION_ASSET_CRATE="\$\{AMBITION_ASSET_CRATE:-([A-Za-z0-9_]+)\}"',
-        text,
-        re.MULTILINE,
-    )
-    if not match:
-        raise SystemExit(
-            f"cannot read AMBITION_ASSET_CRATE from {ASSET_ROOTS_SH}. That file "
-            "is where this repo declares which crate's assets/ ships to the "
-            "game; this script will not guess it."
-        )
-    return match.group(1)
-
-
-# `scripts/regen/music.sh` sources the declaration and exports this, which is the normal
-# path. The fallback keeps a bare `python3 scripts/regen_music_registry.py`
-# working for somebody poking at it by hand — and it now READS the declaration
-# rather than restating it.
-GENERATED_DIR = Path(
-    os.environ.get("AMBITION_MUSIC_PUBLISH_ROOT")
-    or (
-        REPO_ROOT
-        / "crates"
-        / _declared_asset_crate()
-        / "assets"
-        / "audio"
-        / "music"
-        / "generated"
-    )
-)
+GENERATED_DIR = Path(os.environ.get("AMBITION_MUSIC_PUBLISH_ROOT") or generated_root(REPO_ROOT) / "audio/music/generated")
 ACTIVE_SCORES_DIR = (
     REPO_ROOT / "tools" / "ambition_music_renderer" / "scores" / "active"
 )
@@ -316,7 +279,7 @@ def main() -> int:
         help=(
             "the published-cue directory to project from. `scripts/regen/music.sh` "
             "passes the same value it hands the renderer, so the two cannot "
-            "drift apart; see scripts/lib/asset_roots.sh."
+            "drift apart; see the selected content library."
         ),
     )
     args = parser.parse_args()

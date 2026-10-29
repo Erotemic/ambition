@@ -21,13 +21,14 @@ use bevy::{
 
 use ambition_persistence::settings::{ScreenShaderSettings, UserSettings};
 
-const SHADER_ASSET_PATH: &str = "shaders/screen_effects.wgsl";
+const SHADER_ASSET_PATH: &str = "embedded://ambition_render/shaders/screen_effects.wgsl";
 
 /// Presentation plugin for camera-local screen filters.
 pub struct ScreenEffectsPlugin;
 
 impl Plugin for ScreenEffectsPlugin {
     fn build(&self, app: &mut App) {
+        bevy::asset::embedded_asset!(app, "shaders/screen_effects.wgsl");
         app.add_plugins(FullscreenMaterialPlugin::<ScreenEffectSettings>::default())
             .add_systems(Update, sync_screen_effect_settings_from_video_settings);
     }

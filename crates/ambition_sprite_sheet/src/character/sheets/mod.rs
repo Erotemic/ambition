@@ -298,16 +298,9 @@ impl SheetTuning {
     }
 }
 
-/// Sheets that providers author at plugin build.
-///
-/// The baked index is an immutable cache with no install seam, so this is a
-/// separate resource. A provider fills it from its own RON, as it registers a
-/// catalog fragment. It is a resource, not a global, so two Apps in one
-/// process (every test run) do not share it.
-///
-/// Authored records take precedence over baked ones with the same target. Two
-/// authored records for one target are refused; see
-/// [`AuthoredSheets::insert_ron`].
+/// Sheet declarations supplied directly by a game provider.
+/// These declarations have explicit priority over library records. Conflicting
+/// provider declarations are refused.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct AuthoredSheets {
     by_target: std::collections::BTreeMap<String, AuthoredRecord>,
@@ -325,40 +318,9 @@ struct AuthoredRecord {
 }
 
 impl AuthoredSheets {
-    /// Canonical generation material for every authored sheet this App holds.
-    ///
-    /// Authored sheets are mechanical: a record carries body metrics for the
-    /// collision body and attack geometry, so `register_character_sheet_ron`
-    /// changes the simulation. This dump feeds `PreparedContentIdentity`, which
-    /// the rollback timeline contract compares.
-    ///
-    /// It uses the declaration text, not the parsed record. That text is what
-    /// the provider said, it is already kept for collision reports, and it
-    /// needs no separate serialization contract.
-    ///
-    /// `origin` is not included. Moving a declaration to another file changes
-    /// nothing a body simulates, so it must not change mechanical identity.
-    ///
-    /// Known defect: reformatting a sheet RON changes the identity. This fails
-    /// safe (a false difference refuses a snapshot; a false match would restore
-    /// into the wrong world). The fix is to hash the parsed mechanical fields;
-    /// see `Q122`.
-    ///
-    /// Ordered by target (the map key), so the dump does not depend on
-    /// registration order.
+    /// The same mechanical projection used for library sheet records.
     pub fn deterministic_dump(&self) -> String {
-        let mut out = String::new();
-        for (target, record) in &self.by_target {
-            out.push_str(target);
-            out.push('\t');
-            // The declaration contains newlines, so length-prefix it. A line
-            // in it that looks like a row header then cannot forge a row.
-            out.push_str(&record.declaration.len().to_string());
-            out.push('\t');
-            out.push_str(&record.declaration);
-            out.push('\n');
-        }
-        out
+        crate::sheet_mechanics::sheet_mechanics_digest(self.by_target.values().map(|held| &held.record))
     }
 
     /// Parse one sheet RON and atomically index every record it declares.
@@ -437,7 +399,7 @@ impl AuthoredSheets {
 /// A spec for `target` from the authored registry first, then the baked cache.
 /// Engine characters take the same path as before, so this is safe in front
 /// of every lookup.
-pub fn try_load_spec_for_target_authored(
+pub fn try_load_spec_for_target_authored(content: &crate::SpriteContent,
     authored: &AuthoredSheets,
     target: &str,
     tuning: &SheetTuning,
@@ -453,7 +415,7 @@ pub fn try_load_spec_for_target_authored(
              index (placeholder rectangle if there is none)",
         );
     }
-    try_load_spec_for_target(target, tuning)
+    try_load_spec_for_target(&content, target, tuning)
 }
 
 /// Build the baked record index now, so a gameplay frame does not.
@@ -461,8 +423,8 @@ pub fn try_load_spec_for_target_authored(
 /// Its first callers run per frame: `sync_sprite_posed_bodies` (sim schedule)
 /// and `rendering/actors/animation.rs`. Warming moves the parse cost to
 /// `Startup`.
-pub fn warm_record_index() {
-    let _ = record_index();
+pub fn warm_record_index(content: &crate::SpriteContent) {
+    let _ = record_index(&content);
 }
 
 /// Index of every baked [`SheetRecord`], keyed by
@@ -472,8 +434,8 @@ pub fn warm_record_index() {
 /// parsed from are always of one generation. It is not a content registry,
 /// so it has no `install_*` seam (see
 /// `docs/architecture/engine-architecture.md`).
-fn record_index() -> &'static HashMap<String, SheetRecord> {
-    &crate::baked_sheet_rons::current().registry().sheets
+fn record_index(content: &crate::SpriteContent) -> &HashMap<String, SheetRecord> {
+    &crate::baked_sheet_rons::current(&content).registry().sheets
 }
 
 /// The digest of the mechanical projection of every baked sheet record, in
@@ -485,13 +447,13 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
 /// session is `Q157`, and its default in force is to leave it out. Ruling (a)
 /// is one section beside `characters.baked-landmarks` in the provider's
 /// `prepare_platformer_content`.
-pub fn baked_sheet_mechanics_digest() -> &'static str {
-    crate::baked_sheet_rons::current().mechanics_digest()
+pub fn baked_sheet_mechanics_digest(content: &crate::SpriteContent) -> &str {
+    crate::baked_sheet_rons::current(&content).mechanics_digest()
 }
 
 /// The digest of the mechanical projection of `index`, in key order.
 pub(crate) fn mechanics_digest_of(index: &HashMap<String, SheetRecord>) -> String {
-    let mut keys: Vec<&String> = index.keys().collect();
+    let mut keys: Vec<&String> = index.keys().filter(|key| crate::quality_variant_marker(key).is_none()).collect();
     keys.sort_unstable();
     crate::sheet_mechanics::sheet_mechanics_digest(keys.into_iter().map(|key| &index[key]))
 }
@@ -500,8 +462,8 @@ pub(crate) fn mechanics_digest_of(index: &HashMap<String, SheetRecord>) -> Strin
 /// character's `sheet` reference resolves against. These are keys, never rig
 /// targets (many sheets share one rig). The list is baked, so a provider does
 /// not need to supply it to catch a typo.
-pub fn available_sheet_keys() -> Vec<&'static str> {
-    let mut out: Vec<&'static str> = record_index().keys().map(String::as_str).collect();
+pub fn available_sheet_keys(content: &crate::SpriteContent) -> Vec<&str> {
+    let mut out: Vec<&str> = crate::shared_baked_sheet_registry(content).keys().collect();
     out.sort_unstable();
     out
 }
@@ -511,8 +473,8 @@ pub fn available_sheet_keys() -> Vec<&'static str> {
 /// catalog's sheet reference can read the record's generator-emitted
 /// `body_metrics` / frame dims without going through the Bevy
 /// [`SheetRegistry`] resource (works headless / pre-asset-load).
-pub fn record_for_sheet_key(key: &str) -> Option<&'static SheetRecord> {
-    record_index().get(key)
+pub fn record_for_sheet_key<'a>(content: &'a crate::SpriteContent, key: &str) -> Option<&'a SheetRecord> {
+    crate::shared_baked_sheet_registry(content).get(key)
 }
 
 /// This body's geometry comes from its spritesheet, per pose.
@@ -549,8 +511,8 @@ impl SpritePosedBody {
 /// Load a sheet spec for an explicit manifest record key with the given tuning.
 /// Returns `None` when the manifest target is absent so catalog-driven sprite
 /// loading can fall back to colored rectangles.
-pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec> {
-    let record = record_index().get(target)?;
+pub fn try_load_spec_for_target(content: &crate::SpriteContent, target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec> {
+    let record = crate::shared_baked_sheet_registry(content).get(target)?;
     let spec = spec_from_record(record, tuning);
     if spec.maps(CharacterAnim::Idle) {
         Some(spec)
@@ -569,11 +531,11 @@ pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<Ch
 /// idle row. The character path indexes through [`CharacterAnim`] and would
 /// panic on such a sheet. An effects sheet has no poses, and its consumer
 /// resolves rows through [`CharacterSheetSpec::clip_slot`]. See [`crate::fx`].
-pub fn try_load_row_addressed_spec(
+pub fn try_load_row_addressed_spec(content: &crate::SpriteContent,
     target: &str,
     tuning: &SheetTuning,
 ) -> Option<CharacterSheetSpec> {
-    record_index()
+    crate::shared_baked_sheet_registry(content)
         .get(target)
         .map(|r| spec_from_record(r, tuning))
 }
@@ -589,13 +551,13 @@ pub fn try_load_row_addressed_spec(
 /// resolution-independent and is reused verbatim. Gameplay collision is
 /// unaffected — it reads the base record via
 /// `sprite_body_collision_for_character_id`.
-pub fn try_load_spec_for_target_scaled(
+pub fn try_load_spec_for_target_scaled(content: &crate::SpriteContent,
     target: &str,
     tuning: &SheetTuning,
     scale: super::TextureResolutionScale,
 ) -> Option<CharacterSheetSpec> {
     let suffix = scale.asset_id_suffix()?;
-    let record = record_index().get(&format!("{target}.{suffix}"))?;
+    let record = crate::shared_baked_sheet_registry(content).get(&format!("{target}.{suffix}"))?;
     let spec = spec_from_record(record, tuning);
     spec.maps(CharacterAnim::Idle).then_some(spec)
 }
@@ -611,39 +573,49 @@ pub fn try_load_spec_for_target_scaled(
 /// feet anchor / collision scale (lift them from the base per-target spec),
 /// and gameplay geometry keeps reading BASE data — packs are visual storage
 /// truth only.
-pub fn try_load_pack_spec_for_target(
+pub fn try_load_pack_spec_for_target(content: &crate::SpriteContent,
     target: &str,
     tuning: &SheetTuning,
     scale: super::TextureResolutionScale,
 ) -> Option<(CharacterSheetSpec, &'static str)> {
-    let (tier, catalog) = crate::sprite_packs::catalog_for_scale(scale)?;
-    pack_spec_in(catalog, target, tuning).map(|spec| (spec, tier))
+    let (tier, catalog) = crate::sprite_packs::catalog_for_scale(&content, target, scale)?;
+    pack_spec_in(&content, catalog, target, tuning).map(|spec| (spec, tier))
 }
 
 /// The spec of `target` as `catalog` packs it, with what the pack cannot
 /// know taken from the target's base manifest.
-pub(crate) fn pack_spec_in(
+pub(crate) fn pack_spec_in(content: &crate::SpriteContent,
     catalog: &crate::SpritePackCatalog,
     target: &str,
     tuning: &SheetTuning,
 ) -> Option<CharacterSheetSpec> {
-    let mut record = catalog.to_sheet_record(target)?;
+    let key = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
+    let name = key.rsplit('/').next().unwrap_or(key);
+    let mut record = catalog.to_sheet_record(name)?;
+    if let Some((library, _)) = key.strip_prefix("content://").and_then(|rest| rest.split_once('/')) {
+        let tier = crate::baked_sheet_rons::current(content).pack_catalogs().iter()
+            .find(|(_, value)| std::ptr::eq(*value, catalog)).map(|(key, _)| key.rsplit('/').next().unwrap_or(key));
+        if let Some(tier) = tier {
+            record.image = format!("content://{library}/sprite_packs/{tier}/{}", record.image);
+            record.images = record.images.iter().map(|image| format!("content://{library}/sprite_packs/{tier}/{image}")).collect();
+        }
+    }
     // A pack is storage for the same drawing, so inherit the drawing's facing
     // from the base manifest, as the caller inherits `tuning`. The synthesized
     // record cannot know it. Without this, a left-drawn sheet (Patent Clerk)
     // faces backward on the ultrapack path.
-    record.authored_faces_left = record_for_sheet_key(target)
+    record.authored_faces_left = record_for_sheet_key(&content, target)
         .map(|base| base.authored_faces_left)
         .unwrap_or(false);
     // The same for a column that tiles: fractions of the frame, so they hold
     // for the pack's copy of the drawing.
-    record.column_tile = record_for_sheet_key(target).and_then(|base| base.column_tile);
+    record.column_tile = record_for_sheet_key(&content, target).and_then(|base| base.column_tile);
     let spec = spec_from_record(&record, tuning);
     spec.maps(CharacterAnim::Idle).then_some(spec)
 }
 
-pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
-    let index = record_index();
+pub fn try_load_spec_for_character_id(content: &crate::SpriteContent, character_id: &str) -> Option<CharacterSheetSpec> {
+    let index = crate::shared_baked_sheet_registry(content);
     let record = index.get(character_id).or_else(|| {
         character_id
             .strip_prefix("npc_")
@@ -767,12 +739,12 @@ pub struct PosedBodyGeometry {
 /// `None` when the target has no record or no usable body metrics. The caller
 /// then leaves the body as authored; a fallback to "the whole frame is the
 /// body" would inflate every collision box on such a sheet.
-pub fn posed_body_geometry(
+pub fn posed_body_geometry(content: &crate::SpriteContent,
     target: &str,
     anim: CharacterAnim,
     world_per_pixel: f32,
 ) -> Option<PosedBodyGeometry> {
-    let record = record_for_sheet_key(target)?;
+    let record = record_for_sheet_key(&content, target)?;
     let metrics = record.body_metrics.as_ref()?;
     let bbox = metrics.pose_body_bbox(anim)?;
     let frame_w = record.frame_width.max(1) as f32;
@@ -793,15 +765,15 @@ pub fn posed_body_geometry(
 ///
 /// Uses the `Idle` pose, the standing body that `sync_sprite_posed_bodies`
 /// restores `base_size` to.
-pub fn authored_body_pixel_size(target: &str) -> Option<Vec2> {
-    let record = record_for_sheet_key(target)?;
+pub fn authored_body_pixel_size(content: &crate::SpriteContent, target: &str) -> Option<Vec2> {
+    let record = record_for_sheet_key(&content, target)?;
     let metrics = record.body_metrics.as_ref()?;
     if !metrics.authored_body {
         return None;
     }
     // Use the same function as the per-tick sync, at scale 1.0 (pixels), so
     // the two cannot disagree.
-    posed_body_geometry(target, CharacterAnim::Idle, 1.0)
+    posed_body_geometry(&content, target, CharacterAnim::Idle, 1.0)
         .map(|geometry| geometry.collision)
         .filter(|size| size.x > 0.0 && size.y > 0.0)
 }

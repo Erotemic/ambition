@@ -312,12 +312,16 @@ def main(argv: list[str] | None = None) -> int:
         query.add_argument("--out", type=Path)
         query.add_argument("--renderer-python")
     for command_parser in (b, s, *[sub.choices[name] for name in ("status", "list", "inspect", "coverage")]):
+        command_parser.add_argument("--library", type=Path, help="selected content library manifest")
         command_parser.add_argument("--profile", default="ambition", help="ambition, or a content pack directory")
         command_parser.add_argument("--content-binary", type=Path, help="prebuilt check binary for this provider")
         command_parser.add_argument("--deep", action="store_true", help="rehash accepted inputs and outputs")
         command_parser.add_argument("--runtime-snapshot", type=Path)
     args = parser.parse_args(argv)
     repo = repo_root()
+    if getattr(args, "library", None):
+        import os
+        os.environ["AMBITION_CONTENT_LIBRARY"] = str((repo / args.library).resolve())
     out = (args.out or repo / ".agent" / "art_inspector").resolve()
     if args.command == "serve" and not out.is_relative_to(repo):
         parser.error("serve --out must be inside the repository")

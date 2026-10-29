@@ -27,6 +27,7 @@ fn cues_at_one_instant(
     which: fn(&MoveEventKind) -> bool,
 ) -> Vec<SfxId> {
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.add_message::<MoveEventMessage>();
     app.add_message::<OwnedSfxMessage>();
     app.add_message::<ambition_vfx::VfxInRoom>();
@@ -80,8 +81,8 @@ fn cues_at_one_instant(
 /// [`SfxId`] is a one-way hash, so the report reverses it against the names this
 /// build could possibly have played: every authored effect's paired cue, plus
 /// every cue any table names by hand.
-fn name_of(id: SfxId) -> String {
-    for effect in ambition_platformer2d::sprite_sheet::fx::authored_effects().values() {
+fn name_of(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, id: SfxId) -> String {
+    for effect in ambition_platformer2d::sprite_sheet::fx::authored_effects(&sprite_content).values() {
         if SfxId::new(&effect.cue) == id {
             return effect.cue.clone();
         }
@@ -123,6 +124,7 @@ fn name_of(id: SfxId) -> String {
 /// so each is heard twice — two spatialised bursts, two spatialised sounds.
 #[test]
 fn a_paired_burst_is_heard_exactly_once() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     fn is_burst(k: &MoveEventKind) -> bool {
         matches!(k, MoveEventKind::Vfx { .. })
     }
@@ -153,7 +155,7 @@ fn a_paired_burst_is_heard_exactly_once() {
                          the sound. If the sound is genuinely not the row's \
                          default, say so ON the burst with `vfx_cued`.",
                         m.id,
-                        name_of(*id),
+                        name_of(&sprite_content, *id),
                     );
                 }
             }
@@ -187,6 +189,7 @@ fn a_paired_burst_is_heard_exactly_once() {
 /// (`vfx_cued`) instead of on a second event.
 #[test]
 fn a_sustained_burst_keeps_its_looping_cue() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     fn is_burst(k: &MoveEventKind) -> bool {
         matches!(k, MoveEventKind::Vfx { .. })
     }
@@ -210,7 +213,7 @@ fn a_sustained_burst_keeps_its_looping_cue() {
                      channel never heard it",
                     m.id,
                 );
-                let derived = ambition_platformer2d::sprite_sheet::fx::authored_effect(effect)
+                let derived = ambition_platformer2d::sprite_sheet::fx::authored_effect(&sprite_content, effect)
                     .map(|e| SfxId::new(&e.cue))
                     .expect("an override sits on an effect the art ships");
                 assert!(

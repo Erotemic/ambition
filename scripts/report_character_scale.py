@@ -12,7 +12,7 @@ import statistics
 import sys
 from pathlib import Path
 
-SHEETS = Path("crates/ambition_platformer2d_actor_monolith/assets/sprites")
+SHEETS = Path("game/ambition_content_library/generated/runtime/sprites")
 
 REFERENCE = ("alice", "bob")
 

@@ -29,7 +29,7 @@
       <p>${(unit.assets || []).map(a => `<a href="#asset/${enc(a)}">Published preview: ${esc(C.assets[a].name)}</a>`).join(' · ')}</p>
       <h2>Identities and relations</h2>${table(['Identity','Game label','Art manifest','Relations','Tags'], unit.identities.map(cid => { const a = I.identities[cid]; return [`<a href="#character/${enc(cid)}">${esc(cid)}</a>`,esc(a.display),esc(a.catalog.manifest),json(a.relations),esc((a.catalog.tags || []).join(' '))]; }))}
       <h2>Metadata</h2>${table(['Fact','Value','Evidence','Owner'], Object.entries(unit.facts).map(([name,f]) => [esc(name),esc(value(f)),esc(f.state + ' / ' + f.evidence),esc(f.source)]))}
-      <h2>Required products</h2>${table(['Member','Required'], unit.status.required.map(p => [repoLink('crates/ambition_platformer2d_actor_monolith/assets/' + unit.root + '/' + p), 'yes']))}
+      <h2>Required products</h2>${table(['Member','Required'], unit.status.required.map(p => [repoLink(unit.required_paths?.[p] || p), 'yes']))}
       <details><summary>Optional outputs</summary>${json(unit.optional)}</details><h2>Generation and tiers</h2>${json(unit.status)}<h3>Runtime metadata defects</h3>${json(unit.runtime_defects || [])}<h2>Dependents</h2>${json(unit.dependents)}
       <h2>Animation coverage</h2>${coverage(unit)}<h2>Preview YAML / runtime RON</h2>${json(unit.preview_comparison || 'Preview metadata was not scanned in this report')}
       <h2>Lineage</h2>${unit.lineages.map(name => `<h3>${esc(name)}</h3>${json(I.lineages[name])}`).join('') || '<p>unknown</p>'}

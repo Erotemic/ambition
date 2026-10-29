@@ -5,7 +5,6 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 
 pub const SCHEMA: &str = "ambition.art_publication.v1";
-pub const ADDRESS_PREFIX: &str = "__art/";
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Member {
@@ -28,11 +27,6 @@ pub struct Selection {
 
 fn safe(path: &str) -> bool {
     !path.is_empty() && !path.contains('\\') && Path::new(path).components().all(|part| matches!(part, Component::Normal(_)))
-}
-
-pub fn store_for_assets(assets: &Path) -> PathBuf {
-    std::env::var_os("AMBITION_ART_STORE").map(PathBuf::from)
-        .unwrap_or_else(|| assets.parent().unwrap_or(assets).join("art_publication"))
 }
 
 pub fn managed(path: &Path) -> bool {
@@ -63,10 +57,6 @@ impl Selection {
         self.files.get(logical).map(|member| self.root.join(&member.path))
     }
 
-    pub fn address(&self, logical: &str) -> Option<String> {
-        self.files.get(logical).map(|member| format!("{ADDRESS_PREFIX}{}", member.path))
-    }
-
     pub fn logical_path(&self, path: &Path) -> Option<&str> {
         self.files.iter().find(|(_, member)| self.root.join(&member.path) == path).map(|(name, _)| name.as_str())
     }
@@ -75,4 +65,3 @@ impl Selection {
         self.files.iter().map(|(name, member)| (name.as_str(), self.root.join(&member.path)))
     }
 }
-

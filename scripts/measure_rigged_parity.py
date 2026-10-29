@@ -56,7 +56,7 @@ from ambition_sprite2d_renderer.authoring.part_flipbook import (  # noqa: E402
     tween_draws,
 )
 
-SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
 
 PARITY_BOUND = 0.01
 #: D6's bound. It was 10 while the impostor blended in linear light (a turned

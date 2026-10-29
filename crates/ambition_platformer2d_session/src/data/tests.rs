@@ -4,7 +4,7 @@ use ambition_audio::spec::MusicTrack;
 
 #[test]
 fn embedded_sandbox_data_parses() {
-    let _spec = Platformer2dGameplayDefaults::load();
+    let _spec = Platformer2dGameplayDefaults::parse(include_str!("../../../../game/ambition_content/assets/ambition/platformer_defaults.ron")).unwrap();
 }
 
 #[test]
@@ -190,6 +190,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
         );
     let boss_catalog = ambition_boss_encounter::BossCatalog::default();
     let catalog = ambition_platformer2d_assets::platformer_assets::build_platformer2d_asset_catalog(
+        &ambition_asset_manager::content_library::ContentLibraries::default(),
         &config,
         &character_catalog,
         &boss_catalog,
@@ -212,4 +213,3 @@ fn every_live_music_track_resolves_under_web_served_assets() {
          music_registry.ron — the procedural fallback is retired."
     );
 }
-

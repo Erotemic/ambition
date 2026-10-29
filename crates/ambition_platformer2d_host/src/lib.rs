@@ -405,9 +405,9 @@ impl Plugin for HostProjectileVisualsPlugin {
         // holds it was ALSO app-local — moving the systems out without this
         // made them fail `Res<SheetRegistry>` validation in eight tests, which
         // is the class one layer down: not a system nobody installed, a
-        // RESOURCE nobody installed. `SheetRegistryPlugin` is idempotent for
+        // RESOURCE nobody installed. `SpriteContentPlugin` is idempotent for
         // exactly this reason.
-        app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
+        app.add_plugins(ambition_sprite_sheet::SpriteContentPlugin);
         app.add_systems(
             Update,
             (

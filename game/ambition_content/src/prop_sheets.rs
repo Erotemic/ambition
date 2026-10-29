@@ -57,6 +57,7 @@ mod tests {
     /// loader cannot draw is refused at admission with its kind named.
     #[test]
     fn the_prop_sheets_are_the_packs_rows() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
         register(&mut app);
         let sheets = app.world().resource::<PropSheets>();
@@ -65,7 +66,7 @@ mod tests {
             let source = source_of(sheets, kind).unwrap_or_else(|| panic!("`{kind}` is not registered"));
             assert_eq!((source.target.as_str(), source.tuning, source.packed), (row.target(kind), row.tuning(), row.packed), "`{kind}` is registered as the file states it");
             // A row names a published record with an idle row, and its page.
-            let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&source.target, &source.tuning)
+            let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&sprite_content, &source.target, &source.tuning)
                 .unwrap_or_else(|| panic!("`{kind}` names the sheet `{}`, which is not published", source.target));
             assert!(!spec.page_images.is_empty(), "`{kind}`'s sheet names no page");
         }

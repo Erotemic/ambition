@@ -25,6 +25,7 @@ fn flipped(size: ae::Vec2) -> BVec2 {
 /// The spawn subscriber and the particle clock, as the host wires them.
 fn app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<Time>();
     app.add_message::<VfxInRoom>();
     app.add_systems(Update, (vfx_spawn_messages, update_particles).chain());
@@ -97,6 +98,7 @@ fn an_unroomed_effect_is_drawn_in_the_sole_live_room() {
 #[test]
 fn the_blink_ring_is_drawn_in_its_body_s_own_live_room() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<Time>();
     insert_live_room_component(app.world_mut(), room(BIG));
     let second = LiveRoomInstance::ACTIVATION.next();
@@ -142,6 +144,7 @@ fn the_blink_ring_is_drawn_in_its_body_s_own_live_room() {
 #[test]
 fn each_blinking_body_gets_its_own_ring() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<Time>();
     insert_live_room_component(app.world_mut(), room(BIG));
     let second = LiveRoomInstance::ACTIVATION.next();
@@ -198,6 +201,7 @@ fn each_blinking_body_gets_its_own_ring() {
 #[test]
 fn each_firework_burst_is_asked_for_in_the_room_of_its_sequence() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<Time>();
     app.insert_resource(ambition_time::ClockState { time_scale: 1.0 });
     app.add_message::<FxRequest>();

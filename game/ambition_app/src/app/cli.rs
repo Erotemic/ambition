@@ -8,32 +8,8 @@ use bevy::window::WindowResolution;
 use ambition_platformer2d::engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-/// Resolve the on-disk asset root for the desktop app.
-///
-/// Bevy's `FileAssetReader` anchors relative asset paths at
-/// `BEVY_ASSET_ROOT` / the RUNNING binary's `CARGO_MANIFEST_DIR` — which
-/// has been `game/ambition_app/` since the Stage 20 / A3 bisection,
-/// while the asset tree stays with the machinery lib at
-/// `crates/ambition_platformer2d_actor_monolith/assets` (the lib's `include_str!` paths and
-/// the regen scripts anchor there). Under `cargo run` that default broke
-/// every AssetServer load (sprites, music OGGs, `.yarn` dialogue, menu
-/// icons) while direct-filesystem readers (SFX bank, LDtk) kept working.
-///
-/// Resolution order:
-/// 1. `BEVY_ASSET_ROOT` set → return Bevy's default relative `"assets"`
-///    so the explicit override keeps full control.
-/// 2. The dev-checkout sandbox tree exists (cargo runs) → its absolute
-///    path (an absolute `file_path` replaces Bevy's base when joined).
-/// 3. Otherwise (shipped builds) → Bevy's default exe-relative `"assets"`.
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn desktop_asset_root() -> String {
-    // The single source of truth for the actors-assets file root now lives in
-    // `ambition_asset_manager` so the hosted app and every standalone demo app
-    // resolve it identically (a demo that rendered nothing standalone was exactly
-    // that divergence). It anchors on the machinery lib's own `CARGO_MANIFEST_DIR`,
-    // so it no longer matters which `game/` crate the running binary lives in.
-    ambition_platformer2d::asset_manager::actors_desktop_asset_root()
-}
+pub(super) fn desktop_asset_root() -> String { "assets".to_owned() }
 
 /// The `game://` asset source root: the content crate's `assets/` tree in
 /// a dev checkout (worlds live there post-R3.2), the exe-relative
@@ -51,18 +27,11 @@ pub(super) fn game_asset_root() -> String {
     }
 }
 
-/// The game's OWN asset source (`game://`): the content crate's assets dir in a
-/// dev checkout, layered over the shared engine tree.
-///
-/// It is `ambition_asset_manager::consumer_source` now, so a third party's game can own its art the
-/// same way Ambition's content crate owns its worlds, and there is ONE copy of the packaged-build
-/// rule about not shadowing the platform reader.
+/// The game source serves the game's own asset tree. Shared libraries use
+/// their declared content source.
 #[cfg(not(target_arch = "wasm32"))]
 fn game_asset_source_builder() -> bevy::asset::io::AssetSourceBuilder {
-    ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(
-        game_asset_root(),
-        desktop_asset_root(),
-    )
+    bevy::asset::io::AssetSourceBuilder::platform_default(&game_asset_root(), None)
 }
 
 /// True when no display server is reachable for `bevy_winit` to attach to.
@@ -169,34 +138,6 @@ mod headless_arg_tests {
         );
     }
 
-    /// In a dev checkout the desktop asset root must resolve to the
-    /// machinery lib's asset tree (the bisection moved the binary's
-    /// crate away from it) and actually contain the sandbox data —
-    /// a wrong root reproduces the "game runs but nothing renders /
-    /// no music / no dialogue" failure.
-    #[test]
-    fn desktop_asset_root_resolves_to_the_sandbox_tree_in_dev() {
-        let root = std::path::PathBuf::from(super::desktop_asset_root());
-        assert!(
-            root.is_absolute(),
-            "dev checkout should resolve an absolute sandbox assets path, got {root:?}"
-        );
-        assert!(
-            root.ends_with("crates/ambition_platformer2d_actor_monolith/assets")
-                || root.ends_with("assets")
-        );
-        assert!(
-            root.join("ambition/platformer_defaults.ron").exists(),
-            "asset root {root:?} must contain ambition/platformer_defaults.ron"
-        );
-        // (Dialogue no longer lives under the asset root — the yarn set is
-        // CONTENT, embedded in-memory by ambition_content::dialogue::yarn.)
-        assert!(
-            root.join("sprites").is_dir(),
-            "asset root {root:?} must contain the sprites/ tree"
-        );
-    }
-
     #[test]
     fn invalid_value_returns_none() {
         assert_eq!(
@@ -269,6 +210,7 @@ pub fn run_visible() {
     // (which call `build_visible_app` directly) deliberately skip it.
     if shell_hosted {
         super::shell_host::compose_ambition_startup_sequence(&mut app);
+
     }
     app.run();
 }
@@ -339,8 +281,8 @@ pub const SHARED_HOST_HEADLESS_TICK_HZ: f64 = 60.0;
 /// run-in has already grown from one card to two, and a hardcoded budget silently
 /// becomes "asserts the host is still on the first card" the moment it does.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn shared_host_startup_ticks() -> u32 {
-    let seconds = super::shell_host::ambition_startup_duration().as_secs_f64();
+pub fn shared_host_startup_ticks(world: &mut World) -> u32 {
+    let seconds = super::shell_host::ambition_startup_duration(world).as_secs_f64();
     (seconds * SHARED_HOST_HEADLESS_TICK_HZ).ceil() as u32 + SHARED_HOST_HEADLESS_TICK_HZ as u32
 }
 
@@ -417,6 +359,7 @@ pub fn run_shared_host_headless_in_room(
         app.add_plugins(ambition_log_plugin());
     });
     super::shell_host::compose_ambition_startup_sequence(&mut app);
+    let startup_ticks = shared_host_startup_ticks(app.world_mut());
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / SHARED_HOST_HEADLESS_TICK_HZ,
     )));
@@ -428,7 +371,7 @@ pub fn run_shared_host_headless_in_room(
         // LOUD at every step: a benchmark that quietly idled on the launcher
         // would publish the launcher's cost under the room's name.
         assert!(
-            shell_step_until_title_zero_state(&mut app, launcher, shared_host_startup_ticks() as usize),
+            shell_step_until_title_zero_state(&mut app, launcher, startup_ticks as usize),
             "the startup run-in did not reach the launcher within its own budget"
         );
         assert!(
@@ -680,6 +623,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     super::shell_host::compose_ambition_startup_sequence(&mut app);
+    let startup_ticks = shared_host_startup_ticks(app.world_mut());
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
@@ -691,7 +635,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     // so budget it from the composed sequence rather than a constant that goes
     // stale the next time a card is added or retimed.
     let mut completed =
-        shell_step_until_title_zero_state(&mut app, launcher, shared_host_startup_ticks() as usize);
+        shell_step_until_title_zero_state(&mut app, launcher, startup_ticks as usize);
     if completed {
         routes.push(launcher.to_owned());
         title_zero_state_stops += 1;
@@ -990,13 +934,11 @@ pub fn build_visible_app_with(
     // of a packaged build, so the default source and `game://` are the same
     // reader, and no root on the disk is read. `file_path` below is then not
     // used: the default source is registered here first.
+    ambition_platformer2d::content::libraries::register_sources(&mut app, &asset_root);
     if let Some(bundle) = ambition_platformer2d::asset_manager::exe_bundle::ExeBundle::of_running_exe() {
         use ambition_platformer2d::asset_manager::exe_bundle::exe_bundle_asset_source;
-        app.register_asset_source(bevy::asset::io::AssetSourceId::Default, exe_bundle_asset_source(bundle));
         app.register_asset_source("game", exe_bundle_asset_source(bundle));
     } else {
-        app.register_asset_source(bevy::asset::io::AssetSourceId::Default,
-            ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(asset_root.clone(), asset_root.clone()));
         app.register_asset_source("game", game_asset_source_builder());
     }
     let plugins = ambition_platformer2d::app::default_plugins()
@@ -1228,6 +1170,7 @@ fn cli_direct_entry() -> bool {
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
     let mut app = App::new();
+    ambition_platformer2d::content::libraries::register_sources(&mut app, "assets");
     // THE `game://` SOURCE WAS NEVER REGISTERED HERE. The world manifest
     // addresses every `.ldtk` file as `game://worlds/<file>` (and the vanity card
     // its own art the same way), so on the browser those loads resolved through
@@ -1298,19 +1241,7 @@ pub fn run_web() {
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.
     let asset_config = GameAssetConfig::default();
-    // One-line boot banner so anyone opening browser devtools can see
-    // which asset profile + feature bundle this wasm artifact was
-    // built with. Particularly useful when diagnosing
-    // "why is everything a colored rectangle?" — the answer is almost
-    // always "the build does not have `static_core_assets`."
-    bevy::log::info!(
-        target: "ambition_platformer2d::platformer_assets",
-        "web start: AssetProfile = {} | static_map = {} | static_core_assets = {} | static_sfx_bank = {}",
-        asset_config.asset_profile.label(),
-        cfg!(feature = "static_map"),
-        cfg!(feature = "static_core_assets"),
-        cfg!(feature = "static_sfx_bank"),
-    );
+    bevy::log::info!("web start: asset profile {}", asset_config.asset_profile.label());
     super::visible_composition::compose_ambition_visible_game(
         &mut app,
         super::visible_composition::VisibleGameSpec::browser(asset_config),

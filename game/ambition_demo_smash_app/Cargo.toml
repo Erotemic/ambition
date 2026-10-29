@@ -94,3 +94,7 @@ clap = { workspace = true }
 [[test]]
 name = "smash_it"
 path = "tests/smash_it.rs"
+
+[dev-dependencies]
+
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support"] }

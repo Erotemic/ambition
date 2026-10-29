@@ -46,7 +46,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SHEETS = REPO / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+SHEETS = REPO / "game/ambition_content_library/generated/runtime/sprites"
 CATALOG = REPO / "game/ambition_content/assets/data/character_catalog.ron"
 KNOCKDOWN_ROWS = ("knockdown", "getup", "tech", "getup_attack")
 DEFAULT_HEIGHT = 48.0

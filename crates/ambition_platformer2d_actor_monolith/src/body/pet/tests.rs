@@ -42,6 +42,7 @@ fn catalog() -> CharacterCatalog {
 
 fn app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(catalog());
     app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.add_message::<PetRequested>();
@@ -426,6 +427,7 @@ fn a_second_pet_during_the_first_changes_nothing() {
 #[test]
 fn the_gesture_hold_lets_go_when_the_pet_ends_and_only_its_own_bit() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, project_pet_holds);
     let body = app
         .world_mut()

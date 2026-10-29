@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
 """Compose and verify Ambition's distributable asset tree.
 
-Desktop development exposes two asset roots with a content-first fallback. A
-shipped build exposes one flat ``assets/`` tree. This tool is the single seam
-that collapses those roots and proves that the package contains the same bytes
-that desktop could resolve.
-
-The generated contract records every regular file from the two source roots,
-plus paths declared by runtime-facing catalogs/manifests. Android verifies the
-contract against the finished APK ZIP. Steam Deck deployment verifies the same
-contract with ``sha256sum`` after rsync. The served-web page consumes the same
-composed tree over HTTP.
+The package contains the game's own files and its selected libraries.
+Library files use `__libraries/<id>/...`. Native readers and platform readers
+resolve the same declared identities. Contracts verify the packaged bytes.
 
 Declared paths
 --------------
@@ -64,7 +57,6 @@ from collections import defaultdict
 from typing import Iterable, Iterator, Sequence
 
 
-ACTOR_ASSET_ROOT = Path("crates/ambition_platformer2d_actor_monolith/assets")
 CONTENT_ASSET_ROOT = Path("game/ambition_content/assets")
 CONTRACT_VERSION = 1
 
@@ -175,13 +167,14 @@ class PackInputs:
     sources: set[str]
     # Asset path to the content identities that require it.
     assets: dict[str, set[str]]
+    libraries: list[Path] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
 class AssetContract:
     profile: str
     entries: dict[str, ContractEntry]
-    source_roots: tuple[str, str]
+    source_roots: tuple[str, ...]
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -212,13 +205,13 @@ class AssetContract:
                 origins=set(raw.get("origins", [])) if isinstance(raw.get("origins"), list) else set(),
             )
             entries[entry.path] = entry
-        roots = data.get("source_roots", [str(ACTOR_ASSET_ROOT), str(CONTENT_ASSET_ROOT)])
-        if not isinstance(roots, list) or len(roots) != 2:
+        roots = data.get("source_roots", [str(CONTENT_ASSET_ROOT)])
+        if not isinstance(roots, list):
             raise AssetContractError("asset contract source_roots is malformed")
         return cls(
             profile=str(data.get("profile", "unknown")),
             entries=entries,
-            source_roots=(str(roots[0]), str(roots[1])),
+            source_roots=tuple(map(str, roots)),
         )
 
 
@@ -249,6 +242,8 @@ def normalize_package_path(raw: str, *, relative_to: str | None = None) -> str |
     value = raw.strip().replace("\\", "/")
     if not value or value.startswith(("http://", "https://", "ipfs://", "embedded://")):
         return None
+    if value.startswith("content://"):
+        value = "__libraries/" + value[len("content://"):]
     if value.startswith("game://"):
         value = value[len("game://") :]
     if value.startswith("assets/"):
@@ -256,7 +251,7 @@ def normalize_package_path(raw: str, *, relative_to: str | None = None) -> str |
     # Some generated manifests record a source root prefix because they were
     # written from a repo-relative path. Those are the very roots being
     # composed, so strip them rather than hunting for the prefix in the package.
-    for root in (ACTOR_ASSET_ROOT, CONTENT_ASSET_ROOT):
+    for root in (CONTENT_ASSET_ROOT,):
         prefix = root.as_posix() + "/"
         if value.startswith(prefix):
             value = value[len(prefix) :]
@@ -352,44 +347,42 @@ def assert_no_case_collisions(paths: Iterable[str], *, label: str) -> None:
         raise AssetContractError("\n".join(lines))
 
 
-def collect_source_files(repo: Path, profile: str) -> dict[str, SourceFile]:
+def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = None) -> dict[str, SourceFile]:
     excludes = profile_excludes(profile)
-    roots = (("actors", repo / ACTOR_ASSET_ROOT), ("content", repo / CONTENT_ASSET_ROOT))
+    root = pack_root or repo / CONTENT_ASSET_ROOT
     by_path: dict[str, SourceFile] = {}
-    for root_name, root in roots:
-        root_paths: list[str] = []
-        from lib.art_publication import files as art_files, store as art_store, MANAGED_ROOTS
-        managed = set(MANAGED_ROOTS) | set(art_store(repo / ACTOR_ASSET_ROOT).selected().get("roots", []))
-        ordinary = [(rel, path) for rel, path in iter_regular_files(root, excludes=excludes)
-                    if rel.split("/", 1)[0] not in managed]
-        published = list(art_files(root).items()) if root_name == "actors" else []
-        for rel, path in ordinary + published:
-            normalized = normalize_package_path(rel)
-            if normalized != rel:
-                raise AssetContractError(f"non-canonical source asset path: {path}")
-            root_paths.append(rel)
-            digest = sha256_path(path)
-            item = SourceFile(
-                path=rel,
-                source=path,
-                root_name=root_name,
-                sha256=digest,
-                size=path.stat().st_size,
-            )
-            previous = by_path.get(rel)
-            if previous is not None and previous.sha256 != item.sha256:
-                raise AssetContractError(
-                    "implicit two-root asset override is forbidden; the same package path "
-                    "has different bytes:\n"
-                    f"  {rel}\n"
-                    f"  lower-priority: {previous.source}\n"
-                    f"  higher-priority: {item.source}\n"
-                    "Move the asset to one authoritative root or make the duplicate bytes identical."
-                )
-            by_path[rel] = item
-        assert_no_case_collisions(root_paths, label=str(root))
-    assert_no_case_collisions(by_path, label="composed source asset view")
+
+    def add(logical: str, path: Path, owner: str) -> None:
+        if matches_any(logical, excludes):
+            return
+        if logical in by_path:
+            raise AssetContractError(f"Two owners of {logical!r}: {by_path[logical].source} and {path}")
+        by_path[logical] = SourceFile(logical, path, owner, sha256_path(path), path.stat().st_size)
+
+    for logical, path in iter_regular_files(root, excludes=excludes):
+        add(logical, path, source_relative_path(repo, root))
+    inputs = read_pack_inputs(repo, by_path)
+    from lib.content_libraries import read_libraries
+    try:
+        for library in read_libraries(inputs.libraries if inputs else []).values():
+            for logical, path in library.files().items():
+                if not matches_any(logical, excludes):
+                    add(f"__libraries/{library.id}/{logical}", path, source_relative_path(repo, library.path.parent))
+    except (ValueError, OSError) as error:
+        raise AssetContractError(str(error)) from error
+    assert_no_case_collisions(by_path, label="selected content")
     return by_path
+
+
+def resolve_declarations(declarations: dict[str, set[str]], files: dict[str, SourceFile]) -> dict[str, set[str]]:
+    resolved: dict[str, set[str]] = defaultdict(set)
+    for path, origins in declarations.items():
+        aliases = [logical for logical in files if logical.startswith("__libraries/") and logical.split("/", 2)[2] == path]
+        owners = ([path] if path in files else []) + aliases
+        if not path.startswith("__libraries/") and len(owners) > 1:
+            raise AssetContractError(f"Ambiguous asset {path!r}; use a content:// reference: {owners}")
+        resolved[owners[0] if len(owners) == 1 else path].update(origins)
+    return resolved
 
 
 def source_relative_path(repo: Path, source: Path) -> str:
@@ -416,7 +409,14 @@ def add_declaration(
     if resolve_plain_relative_to is not None and not re.search(r"[\\/]", value):
         value = f"./{value}"
         relative_to = resolve_plain_relative_to
+    library_scope = None
+    if relative_to and relative_to.startswith("__libraries/") and not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", raw):
+        library_scope = "/".join(PurePosixPath(relative_to).parts[:2])
+        if "/" in value and not value.startswith(("./", "../")):
+            value = f"{library_scope}/{value}"
     normalized = normalize_package_path(value, relative_to=relative_to)
+    if normalized is not None and library_scope and not normalized.startswith(library_scope + "/"):
+        raise AssetContractError(f"asset reference leaves its library: {raw!r} from {relative_to!r}")
     if normalized is None:
         return
     declarations[normalized].add(origin)
@@ -457,6 +457,9 @@ def read_pack_inputs(repo: Path, source_files: dict[str, SourceFile]) -> PackInp
     for line in result.stdout.splitlines():
         kind, _, rest = line.partition("\t")
         raw, *required_by = rest.split("\t")
+        if kind == "library":
+            inputs.libraries.append(manifest.source.parent / raw)
+            continue
         path = normalize_package_path(raw) if raw else None
         if kind == "source" and path:
             inputs.sources.add(path)
@@ -572,12 +575,12 @@ def report_absent_pack_assets(absent: Sequence[ContractEntry]) -> None:
 
 
 def build_contract(
-    repo: Path, profile: str, *, strict_pack_assets: bool = False
+    repo: Path, profile: str, *, strict_pack_assets: bool = False, pack_root: Path | None = None
 ) -> tuple[AssetContract, dict[str, SourceFile]]:
     repo = repo.resolve()
-    source_files = collect_source_files(repo, profile)
+    source_files = collect_source_files(repo, profile, pack_root=pack_root)
     pack = read_pack_inputs(repo, source_files)
-    declarations = scan_manifest_declarations(repo, source_files, pack)
+    declarations = resolve_declarations(scan_manifest_declarations(repo, source_files, pack), source_files)
     entries: dict[str, ContractEntry] = {}
 
     for rel, item in source_files.items():
@@ -619,7 +622,7 @@ def build_contract(
     contract = AssetContract(
         profile=profile,
         entries=entries,
-        source_roots=(str(ACTOR_ASSET_ROOT), str(CONTENT_ASSET_ROOT)),
+        source_roots=tuple(sorted({item.root_name for item in source_files.values()})),
     )
     return contract, source_files
 
@@ -827,7 +830,7 @@ def artifact_links(paths: Sequence[Path]) -> None:
 def command_compose(args: argparse.Namespace) -> None:
     repo = args.repo.resolve()
     contract, source_files = build_contract(
-        repo, args.profile, strict_pack_assets=args.strict_pack_assets
+        repo, args.profile, strict_pack_assets=args.strict_pack_assets, pack_root=args.pack_root
     )
     materialize_composed_tree(source_files, args.output, mode=args.materialize)
     audit_tree(
@@ -866,6 +869,7 @@ def make_parser() -> argparse.ArgumentParser:
 
     compose = subparsers.add_parser("compose", help="compose the two roots and emit a byte contract")
     compose.add_argument("--repo", type=Path, required=True)
+    compose.add_argument("--pack-root", type=Path, help="The game pack that selects the libraries")
     compose.add_argument("--profile", choices=sorted(PROFILE_EXCLUDES), required=True)
     compose.add_argument("--output", type=Path, required=True)
     compose.add_argument("--contract", type=Path, required=True)

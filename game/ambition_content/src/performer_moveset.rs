@@ -666,7 +666,7 @@ mod tests {
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
-                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+                |name| ambition_platformer2d::sprite_sheet::fx::is_authored_effect(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), name),
             ));
         }
         // Before the palette checks below: a renamed effect fails those too, with a

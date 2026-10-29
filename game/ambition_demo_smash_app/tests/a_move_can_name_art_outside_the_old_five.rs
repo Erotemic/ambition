@@ -16,16 +16,17 @@ use ambition_platformer2d::sprite_sheet::fx::{authored_effect, is_authored_effec
 
 #[test]
 fn a_move_names_art_outside_the_old_five_and_the_whole_chain_resolves() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // 1. The vocabulary a roster validator asks. The old five said no.
-    assert!(is_authored_effect("sonic_boom"));
-    assert!(!is_authored_effect("kaboom"), "a typo still names nothing");
+    assert!(is_authored_effect(&sprite_content, "sonic_boom"));
+    assert!(!is_authored_effect(&sprite_content, "kaboom"), "a typo still names nothing");
 
     // 2. The art, and 3. the sound, both addressed by the same name.
-    let effect = authored_effect("sonic_boom").expect("generic_exotic_fx ships it");
-    assert_eq!(effect.sheet, "generic_exotic_fx");
+    let effect = authored_effect(&sprite_content, "sonic_boom").expect("generic_exotic_fx ships it");
+    assert_eq!(effect.sheet, "content://ambition_shared/sprites/generic_exotic_fx");
     assert_eq!(effect.cue, "vfx.generic_exotic.sonic_boom");
     assert_eq!(
-        ambition_platformer2d::render::fx::effect_cue(ambition_platformer2d::vfx::FxId::new(
+        ambition_platformer2d::render::fx::effect_cue(&sprite_content, ambition_platformer2d::vfx::FxId::new(
             "sonic_boom"
         )),
         Some(ambition_platformer2d::sfx::SfxId::new(
@@ -45,7 +46,7 @@ fn a_move_names_art_outside_the_old_five_and_the_whole_chain_resolves() {
         "George's special claims the Feel::Special look, which is `sonic_boom`"
     );
     for m in &set.moves {
-        let problems = m.presentation_problems(is_authored_effect);
+        let problems = m.presentation_problems(|name| is_authored_effect(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), name));
         assert!(problems.is_empty(), "{problems:?}");
     }
 }

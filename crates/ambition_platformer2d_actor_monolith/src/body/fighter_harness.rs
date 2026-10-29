@@ -51,8 +51,9 @@ impl FighterHarness {
     /// requests) → `spawn_projectiles_from_brain_actions` (the body's
     /// fire-rate enforcement) → `materialize_projectiles_for_this_tick` (materialize shots),
     /// with `tick_body_cooldowns` decaying the body's weapon cooldown each frame.
-    pub fn ranged_body_at(pos: ae::Vec2) -> Self {
+    pub fn ranged_body_at(sprite_content: &ambition_sprite_sheet::SpriteContent, pos: ae::Vec2) -> Self {
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.add_message::<ambition_combat::RangedFireRefused>();
@@ -73,7 +74,7 @@ impl FighterHarness {
         );
 
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        let seed = ActorClusterSeed::new(
+        let seed = ActorClusterSeed::new(&sprite_content,
             "harness_ranged",
             "Harness Ranged Body",
             aabb,
@@ -139,7 +140,8 @@ mod tests {
     /// "spamming" is harmless; the body is the floor.
     #[test]
     fn spam_controller_fires_at_the_body_rate_not_the_tick_rate() {
-        let mut h = FighterHarness::ranged_body_at(ae::Vec2::new(300.0, 300.0));
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut h = FighterHarness::ranged_body_at(&sprite_content, ae::Vec2::new(300.0, 300.0));
         let window_ticks = (2.0 / HARNESS_DT) as u32; // 120 ticks ≈ 2.0 s
         let shots = h.run(window_ticks, &spam_fire);
         assert_eq!(
@@ -159,12 +161,13 @@ mod tests {
     /// output.
     #[test]
     fn output_rate_is_bounded_by_the_body_not_the_attempt_rate() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let window_ticks = (3.4 / HARNESS_DT) as u32; // ≈ 3.4 s, ~4 refire windows
 
-        let mut fast = FighterHarness::ranged_body_at(ae::Vec2::new(300.0, 300.0));
+        let mut fast = FighterHarness::ranged_body_at(&sprite_content, ae::Vec2::new(300.0, 300.0));
         let fast_shots = fast.run(window_ticks, &spam_fire);
 
-        let mut slow = FighterHarness::ranged_body_at(ae::Vec2::new(300.0, 300.0));
+        let mut slow = FighterHarness::ranged_body_at(&sprite_content, ae::Vec2::new(300.0, 300.0));
         // Attempt every other tick — half the spam rate, still far above the body.
         let slow_shots = slow.run(window_ticks, &|tick| {
             if tick % 2 == 0 {
@@ -194,7 +197,8 @@ mod tests {
     /// controller; it does not act on its own).
     #[test]
     fn idle_controller_never_fires() {
-        let mut h = FighterHarness::ranged_body_at(ae::Vec2::new(300.0, 300.0));
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut h = FighterHarness::ranged_body_at(&sprite_content, ae::Vec2::new(300.0, 300.0));
         let shots = h.run(120, &|_| ActorControlFrame::neutral());
         assert_eq!(shots, 0, "no attempts → no shots");
     }

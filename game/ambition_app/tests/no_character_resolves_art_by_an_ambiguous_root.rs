@@ -17,7 +17,8 @@ use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalo
 
 #[test]
 fn no_composed_character_resolves_its_sheet_by_a_refused_file_root() {
-    let refused = ambition_platformer2d::character_sprites::refused_file_roots();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let refused = ambition_platformer2d::character_sprites::refused_file_roots(&sprite_content);
     // LOUD: with nothing refused this test passes over an empty set forever,
     // including on the day the refusal is accidentally deleted. The baked table
     // is known to contain a packed prop atlas, so zero means the mechanism
@@ -49,7 +50,7 @@ fn no_composed_character_resolves_its_sheet_by_a_refused_file_root() {
         .filter(|(_, entry)| {
             entry
                 .manifest_target()
-                .is_some_and(ambition_platformer2d::character_sprites::resolves_by_file_root)
+                .is_some_and(|target| ambition_platformer2d::character_sprites::resolves_by_file_root(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), target))
         })
         .count();
     assert!(

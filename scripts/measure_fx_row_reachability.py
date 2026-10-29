@@ -32,7 +32,7 @@ targets = sorted(
     for module in targets_root.rglob("*.py")
     if re.search(r"^FX = \{", module.read_text(errors="ignore"), re.M)
 )
-sheets = repo / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+sheets = repo / "game/ambition_content_library/generated/runtime/sprites"
 
 tracked = subprocess.run(["git","ls-files"], capture_output=True, text=True,
                          cwd=repo).stdout.split()

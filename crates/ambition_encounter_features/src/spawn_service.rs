@@ -74,7 +74,7 @@ pub fn serve_encounter_spawn_commands(
         let pos = spec.map_or(pos, |spec| {
             wave_mob_start(spec, &msg.encounter, id, pos, size, flies)
         });
-        spawn_encounter_mob(
+        spawn_encounter_mob(&generation.sprite_content,
             &mut commands,
             &catalog,
             authored_sheets,

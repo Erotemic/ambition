@@ -32,8 +32,8 @@ pub fn surface_end(key: &str) -> Option<(&str, bool)> {
 /// The standing surfaces sheet `key` publishes, in world units about the
 /// centre of its authored body box at `world_per_pixel`, or `None` when the
 /// sheet publishes none (or has no authored body box to place them from).
-pub fn published_surfaces(key: &str, world_per_pixel: f32) -> Option<SurfaceTable> {
-    surfaces_of(crate::character::sheets::record_for_sheet_key(key)?, world_per_pixel)
+pub fn published_surfaces(content: &crate::SpriteContent, key: &str, world_per_pixel: f32) -> Option<SurfaceTable> {
+    surfaces_of(crate::character::sheets::record_for_sheet_key(&content, key)?, world_per_pixel)
 }
 
 /// [`published_surfaces`] of one record.

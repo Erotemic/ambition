@@ -114,7 +114,7 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // the window/exit/close matrix and the per-mode plugin disables were a
     // duplicate of `install_windowed_foundation`, and so was this crate's own
     // `desktop_asset_root()`: both resolve to
-    // `crates/ambition_platformer2d_actor_monolith/assets` by canonicalizing the
+    // `game/ambition_content_library/generated/runtime` by canonicalizing the
     // same directory from a different manifest, with the same `BEVY_ASSET_ROOT`
     // early-out and the same `"assets"` fallback. `init_engine_states` is called
     // by the foundation and is no longer called again below.
@@ -265,7 +265,7 @@ mod tests {
             return;
         }
         let root = std::path::PathBuf::from(
-            ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
+            "assets".to_owned(),
         );
         assert!(
             root.join("shaders/hit_flash.wgsl").is_file(),
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn published_local_sanic_forms_bind_through_game_assets() {
         let root = std::path::PathBuf::from(
-            ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
+            "assets".to_owned(),
         );
         let forms = [
             (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),

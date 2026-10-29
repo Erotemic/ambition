@@ -32,7 +32,7 @@ use ambition_sprite_sheet::PortraitSheetRegistry;
 ///
 /// A character that names no sheet falls back to the manifest named by its id,
 /// which is how most catalog characters without a `manifest` field resolve.
-pub fn sheet_for_prepared_character(
+pub fn sheet_for_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // Sheets a PROVIDER authored, consulted before the engine's baked cache.
     authored: &sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
@@ -40,10 +40,10 @@ pub fn sheet_for_prepared_character(
     let id = prepared.id.as_str();
     match prepared.sheet.as_deref() {
         Some(target) => {
-            sheets::try_load_spec_for_target_authored(authored, target, &prepared_sheet_tuning(prepared))
-                .or_else(|| sheets::try_load_spec_for_character_id(id))
+            sheets::try_load_spec_for_target_authored(&sprite_content, authored, target, &prepared_sheet_tuning(prepared))
+                .or_else(|| sheets::try_load_spec_for_character_id(&sprite_content, id))
         }
-        None => sheets::try_load_spec_for_character_id(id),
+        None => sheets::try_load_spec_for_character_id(&sprite_content, id),
     }
 }
 
@@ -151,12 +151,12 @@ pub fn portrait_for_declared_character(
 ///
 /// The join itself is [`catalog_join::sheet_for_character_id_from_data`]; this adapts the
 /// Bevy resource to the plain catalog data it takes.
-pub fn sheet_for_character_id_in(
+pub fn sheet_for_character_id_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     character_id: &str,
 ) -> Option<CharacterSheetSpec> {
-    catalog_join::sheet_for_character_id_from_data(authored, character_catalog.data(), character_id)
+    catalog_join::sheet_for_character_id_from_data(&sprite_content, authored, character_catalog.data(), character_id)
 }
 
 /// Derive sprite-body collision from the caller's App-local catalog.
@@ -164,7 +164,7 @@ pub fn sheet_for_character_id_in(
 /// The derivation itself is
 /// [`catalog_join::sprite_body_collision_for_character_id_from_data`]; this adapts the
 /// Bevy resource to the plain catalog data it takes.
-pub fn sprite_body_collision_for_character_id_in(
+pub fn sprite_body_collision_for_character_id_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // U1 stage B: a body's collision box is DERIVED from its sheet, so a
     // consumer-authored sheet has to reach this or a third party's character
     // renders from its own art and collides with the engine's default box.
@@ -173,7 +173,7 @@ pub fn sprite_body_collision_for_character_id_in(
     character_id: &str,
     ldtk_collision: ae::Vec2,
 ) -> Option<SpriteBodyCollision> {
-    catalog_join::sprite_body_collision_for_character_id_from_data(
+    catalog_join::sprite_body_collision_for_character_id_from_data(&sprite_content,
         authored,
         character_catalog.data(),
         character_id,
@@ -251,7 +251,7 @@ impl SpriteMaterialization {
     }
 }
 
-pub fn materialize_declared_character_sprite(
+pub fn materialize_declared_character_sprite(sprite_content: &ambition_sprite_sheet::SpriteContent,
     sprites: &mut CharacterSpriteAssets,
     authored: &sheets::AuthoredSheets,
     // The prepared cast: the one answer to which sheet a character wears and how
@@ -277,7 +277,7 @@ pub fn materialize_declared_character_sprite(
         ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
             // A realization of an older sheet generation is made again in
             // place too: its frame rects can be the old ones.
-            if sprites.is_current_realization(token, character_sprite_tier(quality)) {
+            if sprites.is_current_realization(&sprite_content, token, character_sprite_tier(quality)) {
                 return SpriteMaterialization::Ready;
             }
             match sprites.declared_id(token) {
@@ -295,7 +295,7 @@ pub fn materialize_declared_character_sprite(
     let Some(prepared) = registry.get(&cid) else {
         return SpriteMaterialization::NoSheet;
     };
-    let Some(sheet_spec) = sheet_for_prepared_character(authored, prepared) else {
+    let Some(sheet_spec) = sheet_for_prepared_character(&sprite_content, authored, prepared) else {
         return SpriteMaterialization::NoSheet;
     };
     let asset_id = ids::character_sprite(&cid);
@@ -304,7 +304,7 @@ pub fn materialize_declared_character_sprite(
     let tuning = prepared_sheet_tuning(prepared);
     let variant = prepared.sheet.as_deref().map(|target| (target, &tuning));
     let parts_admitted = sprites.parts_admitted();
-    let Some(asset) = build_optional_via_catalog(
+    let Some(asset) = build_optional_via_catalog(&sprite_content,
         asset_catalog,
         asset_server,
         layouts,
@@ -317,7 +317,7 @@ pub fn materialize_declared_character_sprite(
     ) else {
         return SpriteMaterialization::NoImage;
     };
-    sprites.publish(&cid, asset);
+    sprites.publish(&sprite_content, &cid, asset);
     SpriteMaterialization::Ready
 }
 
@@ -326,7 +326,7 @@ pub fn materialize_declared_character_sprite(
 /// `asset_server`/`layouts`/`quality` are no longer needed to declare, but stay
 /// in the signature: this is still where a caller proves it HAS an asset pipeline,
 /// and dropping them would silently make the art-free path look identical.
-pub fn load_character_sprites_in(
+pub fn load_character_sprites_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     _asset_catalog: &Platformer2dAssetCatalog,
@@ -340,7 +340,7 @@ pub fn load_character_sprites_in(
     let mut skipped_no_spec: Vec<&str> = Vec::new();
     for (cid, _) in character_catalog.iter() {
         total += 1;
-        if sheet_for_character_id_in(authored, character_catalog, cid).is_none() {
+        if sheet_for_character_id_in(&sprite_content, authored, character_catalog, cid).is_none() {
             // Neither a hardcoded const nor a manifest in `assets/sprites/`
             // exists for this id — nothing to declare. The character draws the
             // marked placeholder until its sprite is published.
@@ -381,7 +381,7 @@ pub fn load_character_sprites_in(
 /// the third element is the RESOLVED tier and it is not derivable from the budget: only
 /// this function knows whether the upgrade happened, and both ways of failing it — no baked
 /// record, no image under the profile — land on the authored full-resolution PNG.
-fn resolve_variant_pair(
+fn resolve_variant_pair(sprite_content: &ambition_sprite_sheet::SpriteContent,
     catalog: &Platformer2dAssetCatalog,
     base_id: &AssetId,
     base_spec: &CharacterSheetSpec,
@@ -395,7 +395,7 @@ fn resolve_variant_pair(
                 ambition_asset_manager::platformer_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
             {
                 if catalog.try_path_for_load(&variant_id).is_some() {
-                    if let Some(spec) = sheets::try_load_spec_for_target_scaled(
+                    if let Some(spec) = sheets::try_load_spec_for_target_scaled(&sprite_content,
                         target,
                         tuning,
                         sprite_texture_scale(scale),
@@ -436,7 +436,7 @@ pub fn character_sprite_tier(quality: Option<&VisualQualityBudget>) -> TextureRe
         .unwrap_or(TextureResolutionScale::Full)
 }
 
-fn build_optional_via_catalog(
+fn build_optional_via_catalog(sprite_content: &ambition_sprite_sheet::SpriteContent,
     catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -450,7 +450,7 @@ fn build_optional_via_catalog(
     parts_admitted: bool,
 ) -> Option<CharacterSpriteAsset> {
     // Pick base-or-variant atomically so the spec rects match the loaded PNG.
-    let (spec, id, resolved) = resolve_variant_pair(catalog, base_id, base_spec, variant, quality);
+    let (spec, id, resolved) = resolve_variant_pair(&sprite_content, catalog, base_id, base_spec, variant, quality);
     let (spec, id) = (&spec, &id);
     let requested = character_sprite_tier(quality);
     let Some(path) = catalog.try_path_for_load(id) else {
@@ -464,13 +464,13 @@ fn build_optional_via_catalog(
     };
     if parts_admitted {
         let directory = path.rsplit_once('/').map_or("", |(directory, _)| directory);
-        if let Some(rigged) = super::rigged::rigged_pages_in(spec, resolved, directory, asset_server) {
+        if let Some(rigged) = super::rigged::rigged_pages_in(&sprite_content, spec, resolved, directory, asset_server) {
             if rigged.flipbook.baked_clip_names().next().is_none() {
                 return Some(parts_only_realization(layouts, spec, requested, resolved, rigged));
             }
         }
     }
-    Some(load_sprite_pages(
+    Some(load_sprite_pages(&sprite_content,
         asset_server,
         layouts,
         "character-sheet",
@@ -524,7 +524,7 @@ fn parts_only_realization(
 /// path of page 0; sibling pages resolve their filename from the spec's
 /// `page_images` list against page 0's directory. Shared by the per-target
 /// sheet path and the shared-pack path — the page algebra is identical.
-fn load_sprite_pages(
+fn load_sprite_pages(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     // The image-stage road the pages are demanded on: `"character-sheet"`
@@ -575,7 +575,7 @@ fn load_sprite_pages(
                     .get(page as usize)
                     .cloned()
                     .unwrap_or_else(|| format!("page_{page}.png"));
-                if parent.is_empty() {
+                if parent.is_empty() || file.contains("://") {
                     file
                 } else {
                     format!("{parent}/{file}")
@@ -587,7 +587,7 @@ fn load_sprite_pages(
                 // population that actually dominates a room's megapixels.
                 // Readiness reads the asset server's load state, not
                 // `Assets<Image>` (see `inspect_room_asset_manifest`).
-                texture: ambition_sprite_sheet::game_assets::load_sheet_image(
+                texture: ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
                     asset_server,
                     road,
                     page_path,
@@ -624,14 +624,14 @@ fn load_sprite_pages(
 /// Returns `None` when the catalog reports the asset disabled / not
 /// loadable under the active profile — callers fall back to colored
 /// rectangles.
-pub fn build_npc_sprite_asset(
+pub fn build_npc_sprite_asset(sprite_content: &ambition_sprite_sheet::SpriteContent,
     catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None, false)
+    build_optional_via_catalog(&sprite_content, catalog, asset_server, layouts, id, spec, None, None, None, false)
 }
 
 /// Build a single Prop sprite asset. Same shape as
@@ -651,7 +651,7 @@ pub fn build_npc_sprite_asset(
 /// when no pack was generated (fresh checkout), the target isn't packed,
 /// or the pack pages are gated by the asset profile — the caller falls
 /// back to [`build_prop_sprite_asset`].
-pub fn build_prop_sprite_asset_packed(
+pub fn build_prop_sprite_asset_packed(sprite_content: &ambition_sprite_sheet::SpriteContent,
     catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -665,19 +665,15 @@ pub fn build_prop_sprite_asset_packed(
         .unwrap_or(ambition_persistence::settings::TextureResolutionScale::Full);
     let tuning = base_spec.tuning();
     let (spec, tier) =
-        sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;
+        sheets::try_load_pack_spec_for_target(&sprite_content, target, &tuning, sprite_texture_scale(scale))?;
     // `tier` is the pack the loader LANDED on — `full` when the requested tier was never
     // generated — and it is the physical truth about every page path below.
     let resolved = persistence_texture_scale(
         ambition_sprite_sheet::sprite_packs::scale_for_pack_tier(tier)
             .expect("catalog_for_scale only ever answers with a tier dir name"),
     );
-    // Profile-gate page 0 through the sandbox catalog like every other
-    // sprite; sibling pages resolve from the spec's page_images against
-    // page 0's directory (the pack pages all share the tier dir).
-    let id = ambition_asset_manager::platformer_assets::ids::sprite_pack_page0(tier);
-    let path = catalog.try_path_for_load(&id)?;
-    Some(load_sprite_pages(
+    let path = catalog.try_image_path_for_load(spec.page_images.first()?)?;
+    Some(load_sprite_pages(&sprite_content,
         asset_server,
         layouts,
         "character-sheet",
@@ -688,14 +684,14 @@ pub fn build_prop_sprite_asset_packed(
     ))
 }
 
-pub fn build_prop_sprite_asset(
+pub fn build_prop_sprite_asset(sprite_content: &ambition_sprite_sheet::SpriteContent,
     catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None, false)
+    build_optional_via_catalog(&sprite_content, catalog, asset_server, layouts, id, spec, None, None, None, false)
 }
 
 /// Decode the effect sheets the ENGINE itself draws at boot — the
@@ -715,10 +711,9 @@ pub fn build_prop_sprite_asset(
 /// short-lived overlay and no quality profile has asked to shrink one yet.
 /// Sheets whose manifest was not baked are skipped and reported — the caller
 /// keeps the particle fallback for anything they would have drawn.
-pub fn load_fx_sheets(
+pub fn load_fx_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
     // ⛔ THE BUDGET, SINCE 2026-09-02. Without it this function built its set
     // `with_sprite_folder("sprites")` and every fx sheet decoded at authored
     // resolution on every tier — `fx-sheet` measured 7.7 MP at Potato, High and
@@ -735,16 +730,15 @@ pub fn load_fx_sheets(
     // `character_sprite_tier` the pages use, and the folder the repo's own
     // `asset_subdir` names for it (`sprites` -> `sprites_potato`).
     let tier = character_sprite_tier(quality);
-    let folder = tier.asset_subdir(sprite_folder);
-    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::with_sprite_folder(&folder);
+    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::default();
     let mut missing: Vec<&'static str> = Vec::new();
     // ⭐ THE CORE ONLY. The character-owned sheets (nine of thirteen) are
     // demanded when a character whose moveset names them is realized — see
     // `ensure_fx_sheet_loaded` and `demand_character_fx_sheets` — and ride the
     // same reveal barrier as the character's pages. Before 2026-09-02 all
     // thirteen (9.4 MP) were decoded at boot and resident in every room.
-    for target in ambition_sprite_sheet::fx::core_fx_targets() {
-        if !ensure_fx_sheet_loaded(&mut set, target, asset_server, layouts, tier) {
+    for target in ambition_sprite_sheet::fx::core_fx_targets(&sprite_content) {
+        if !ensure_fx_sheet_loaded(&sprite_content, &mut set, target, asset_server, layouts, tier) {
             missing.push(target);
         }
     }
@@ -754,7 +748,7 @@ pub fn load_fx_sheets(
             "{}/{} core FX sheets decoded; no baked manifest for {:?}, so effects on \
              those sheets fall back to a particle burst",
             set.len(),
-            ambition_sprite_sheet::fx::core_fx_targets().count(),
+            ambition_sprite_sheet::fx::core_fx_targets(&sprite_content).count(),
             missing,
         );
     }
@@ -763,39 +757,35 @@ pub fn load_fx_sheets(
 
 /// Decode one FX sheet into `set` if it is not there yet. `false` when the
 /// build did not bake its manifest (the caller keeps the particle fallback).
-pub fn ensure_fx_sheet_loaded(
+pub fn ensure_fx_sheet_loaded(sprite_content: &ambition_sprite_sheet::SpriteContent,
     set: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
     target: &'static str,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    // ⭐ The set already carries the tier in its FOLDER, so `page0_path` below is
-    // tiered whichever road called this. This argument exists so the stamp says
-    // the same thing the path does — a realization that reports `Full` while
-    // reading `sprites_potato/` is a residency census that lies.
     tier: TextureResolutionScale,
 ) -> bool {
     if set.contains(target) {
         return true;
     }
-    let Some(spec) = ambition_sprite_sheet::fx::fx_sheet_spec(target) else {
+    let Some((spec, resolved)) = ambition_sprite_sheet::fx::fx_sheet_spec(&sprite_content, target, sprite_texture_scale(tier)) else {
         return false;
     };
-    let page0_path = format!("{}/{target}_spritesheet.png", set.sprite_folder());
+    let Some(page0_path) = spec.page_images.first() else { return false; };
     set.insert(
         target,
-        load_sprite_pages(
+        load_sprite_pages(&sprite_content,
             asset_server,
             layouts,
             "fx-sheet",
             &page0_path,
             &spec,
             tier,
-            // ⛔ `resolved` EQUALS `requested` here, and that is a claim about the
-            // assets rather than an assumption: every one of the 12 fx sheets is
-            // published into every variant folder by the sprite pipeline, checked
-            // 2026-09-02. A target that ever ships without a variant would need
-            // the fallback `resolve_variant_pair` does for character pages.
-            tier,
+            match resolved {
+                SpriteTextureResolutionScale::Full => TextureResolutionScale::Full,
+                SpriteTextureResolutionScale::Half => TextureResolutionScale::Half,
+                SpriteTextureResolutionScale::Quarter => TextureResolutionScale::Quarter,
+                SpriteTextureResolutionScale::Potato => TextureResolutionScale::Potato,
+            },
         ),
     );
     true
@@ -809,7 +799,7 @@ pub fn ensure_fx_sheet_loaded(
 /// is — beside its pages, behind whatever cover realized it. A character with
 /// no registered moveset and no owned sheet, or one naming only core rows,
 /// owes nothing here. Returns the targets newly demanded, for the ledger line.
-pub fn demand_character_fx_sheets(
+pub fn demand_character_fx_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     set: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
     registry: &ambition_characters::prepared::PreparedCharacterRegistry,
     character_id: &str,
@@ -823,13 +813,13 @@ pub fn demand_character_fx_sheets(
 ) -> Vec<&'static str> {
     let moveset = registry.get(character_id).and_then(|prepared| prepared.kit.projectable_moveset());
     let effects = moveset.into_iter().flat_map(|moveset| moveset.moves.iter().flat_map(|spec| spec.vfx_effects()));
-    let mut owed = ambition_sprite_sheet::fx::owned_fx_sheets_named_by(effects);
+    let mut owed = ambition_sprite_sheet::fx::owned_fx_sheets_named_by(&sprite_content, effects);
     // And the sheets that name this character their owner.
-    owed.extend(ambition_sprite_sheet::fx::owned_fx_sheets_of(character_id));
+    owed.extend(ambition_sprite_sheet::fx::owned_fx_sheets_of(&sprite_content, character_id));
     let mut demanded = Vec::new();
     for target in owed {
         if !set.contains(target)
-            && ensure_fx_sheet_loaded(
+            && ensure_fx_sheet_loaded(&sprite_content,
                 set,
                 target,
                 asset_server,
@@ -851,21 +841,21 @@ pub fn demand_character_fx_sheets(
 /// the same logical path the catalog would hand back at base resolution. Returns
 /// `None` when no manifest was embedded for `target` (the caller keeps the static
 /// fallback). Base resolution only — a demo prop needs no quality-tier gating.
-pub fn load_prop_sheet_for_target(
+pub fn load_prop_sheet_for_target(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
     target: &str,
     tuning: &sheets::SheetTuning,
 ) -> Option<CharacterSpriteAsset> {
-    let spec = sheets::try_load_spec_for_target(target, tuning)?;
+    let spec = sheets::try_load_spec_for_target(&sprite_content, target, tuning)?;
     // The record's own page: a record can share a page image with others (the
     // creator lab's props are one sheet).
-    let page0_path = format!("{sprite_folder}/{}", spec.page_images.first()?);
+    let page0_path = ambition_asset_manager::platformer_assets::logical_asset_path(sprite_folder, spec.page_images.first()?);
     // Base resolution only, and the stamp says so on BOTH halves: this path
     // never consults a quality budget, so nothing was asked for beyond `Full`
     // and nothing but the authored PNG was loaded.
-    Some(load_sprite_pages(
+    Some(load_sprite_pages(&sprite_content,
         asset_server,
         layouts,
         "character-sheet",
@@ -888,18 +878,19 @@ mod sprite_body_collision_tests {
     /// regenerated on a clean checkout).
     #[test]
     fn derived_collision_is_the_visible_body_and_preserves_the_render() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let ldtk = ae::Vec2::new(40.0, 60.0);
         let catalog = crate::character_roster::catalog();
         let Some((cid, derived)) = catalog.iter().find_map(|(cid, _)| {
-            sprite_body_collision_for_character_id_in(&Default::default(), &catalog, cid, ldtk)
+            sprite_body_collision_for_character_id_in(&sprite_content, &Default::default(), &catalog, cid, ldtk)
                 .map(|derived| (cid, derived))
         }) else {
             return; // no baked sheet with metrics available
         };
         let entry = catalog.get(cid).unwrap();
         let target = entry.manifest_target().unwrap();
-        let spec = sheet_for_character_id_in(&Default::default(), &catalog, cid).unwrap();
-        let record = sheets::record_for_sheet_key(target).unwrap();
+        let spec = sheet_for_character_id_in(&sprite_content, &Default::default(), &catalog, cid).unwrap();
+        let record = sheets::record_for_sheet_key(&sprite_content, target).unwrap();
         let metrics = record.body_metrics.as_ref().unwrap();
         let (body_w, body_h) = metrics
             .body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)

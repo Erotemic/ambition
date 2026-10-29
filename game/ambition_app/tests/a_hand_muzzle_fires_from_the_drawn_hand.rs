@@ -39,11 +39,12 @@ pub(crate) fn drawn_hand_this_tick(
     world_per_pixel: f32,
     track: &str,
 ) -> (String, usize, Vec2) {
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     use ambition_platformer2d::combat::body_rig::select_pose_frame;
     use ambition_platformer2d::combat::hurtbox_resolution::BodyPoseClock;
     use ambition_platformer2d::combat::moveset::MovePlayback;
-    let flipbook = RiggedSpriteAsset::baked(sheet).unwrap_or_else(|| panic!("{}", unpublished(sheet)));
-    let table = ambition_platformer2d::sprite_sheet::baked_landmarks::body_landmarks(sheet)
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, sheet).unwrap_or_else(|| panic!("{}", unpublished(sheet)));
+    let table = ambition_platformer2d::sprite_sheet::baked_landmarks::body_landmarks(&sprite_content, sheet)
         .unwrap_or_else(|| panic!("{}", unpublished(sheet)));
     let playback = world.get::<MovePlayback>(entity);
     let clock = world.get::<BodyPoseClock>(entity);
@@ -81,6 +82,7 @@ fn shot_of(sim: &ambition_app::Platformer2dSimHarness, owner: Entity) -> Option<
 /// born past the hand its art draws on that tick.
 #[test]
 fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // A room with a flat floor: the two bodies stand level, and the shot has
     // a clear line. Not `combat_calibration_lab`: there the raider stands 4 px
     // past the end of a solid (144..272 by 688..704, under the rebound pad),
@@ -113,7 +115,7 @@ fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
             .map(|(entity, _)| entity)
             .expect("the raider was built")
     };
-    let frame_height = RiggedSpriteAsset::baked(SHEET)
+    let frame_height = RiggedSpriteAsset::baked(&sprite_content, SHEET)
         .unwrap_or_else(|| panic!("{}", unpublished(SHEET)))
         .frame_size
         .y as f32;

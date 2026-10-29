@@ -77,70 +77,9 @@ pub fn install_audio_library(
     }
 }
 
-/// Load a statically packed SFX bank.
-///
-/// Android APK assets are not normal host filesystem paths, while the current
-/// SFX bank loader is synchronous and path/byte based. Until that loader grows
-/// an APK-asset backend, `build_for_android.sh` can enable `static_sfx_bank`
-/// and pass `AMBITION_STATIC_SFX_BANK_PATH` so the packed bank is available to
-/// the same runtime bank provider used on desktop.
-#[cfg(all(
-    feature = "audio",
-    feature = "static_sfx_bank",
-    ambition_static_sfx_bank_path
-))]
-fn try_load_static_sfx_bank() -> Option<BankProvider> {
-    let bytes = include_bytes!(env!("AMBITION_STATIC_SFX_BANK_PATH"));
-    match BankProvider::from_bytes(bytes.to_vec()) {
-        Ok(provider) => {
-            info!(
-                "loaded statically packed sfx bank: {} entries",
-                provider.entry_count()
-            );
-            Some(provider)
-        }
-        Err(error) => {
-            warn!("statically packed sfx bank failed to parse: {error}");
-            None
-        }
-    }
-}
-
-#[cfg(all(
-    feature = "audio",
-    feature = "static_sfx_bank",
-    not(ambition_static_sfx_bank_path)
-))]
-fn try_load_static_sfx_bank() -> Option<BankProvider> {
-    warn!(
-        "static_sfx_bank feature enabled without AMBITION_STATIC_SFX_BANK_PATH; \
-         falling back to catalog-resolved SFX bank"
-    );
-    None
-}
-
-/// Resolve the SFX bank through the
-/// [`ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog`] and synchronously
-/// load its bytes into a [`BankProvider`]. Fall-through order:
-///
-/// 1. the statically packed bank (`static_sfx_bank` feature),
-/// 2. the catalog's resolved `LocalPath` candidate (preferred —
-///    explicit `AMBITION_SFX_BANK_PATH` dev override or platform
-///    bundle path),
-/// 3. the catalog's `LooseFilesystem` synthesized default located via
-///    [`Platformer2dAssetCatalog::resolve_local_file_path`],
-/// 4. `None` + a single info log → the [`AudioLibrary`] uses a short
-///    silent stub for any missing cue (procedural fallback retired).
-///
-/// All host-filesystem probing for the SFX bank happens through the
-/// catalog. This function owns no candidate-roots walk.
+/// Load the bank from the selected asset catalog.
 #[cfg(feature = "audio")]
 fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<BankProvider> {
-    #[cfg(feature = "static_sfx_bank")]
-    if let Some(provider) = try_load_static_sfx_bank() {
-        return Some(provider);
-    }
-
     let id = ids::sfx_bank();
     let resolved = match catalog.resolve(&id) {
         Ok(r) => r,
@@ -150,8 +89,7 @@ fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<B
         }
     };
 
-    // 1. Explicit LocalPath candidate (the AMBITION_SFX_BANK_PATH env
-    //    override, when set). Use directly without re-probing roots.
+    // Use an explicit local candidate without a second root lookup.
     if let Some(local) = resolved.location.as_local_path() {
         return load_bank_from_path(local);
     }
@@ -163,8 +101,11 @@ fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<B
     //    A packaged game holds the bank inside its own file, and that comes
     //    first: the game then reads no bank from the disk.
     if let Some(rel_path) = resolved.bevy_asset_path() {
+        if let Some(bytes) = catalog.library_bytes(&rel_path) {
+            return BankProvider::from_bytes(bytes.to_vec()).map_err(|error| warn!("The selected SFX bank failed to parse: {error}")).ok();
+        }
         if let Some(bundle) = catalog.exe_bundle() {
-            match bundle.read(&rel_path) {
+            match bundle.read(&ambition_platformer2d::asset_manager::content_library::package_path(&rel_path)) {
                 Ok(Some(bytes)) => match BankProvider::from_bytes(bytes) {
                     Ok(provider) => {
                         info!("loaded sfx bank from the program's own file: {} entries", provider.entry_count());

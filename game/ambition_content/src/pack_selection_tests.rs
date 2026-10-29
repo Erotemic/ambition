@@ -415,7 +415,7 @@ fn installed_in(app: &bevy::prelude::App, mover: &str, pack_cutscene_ids: &[Stri
 
 /// The same facts, read from the pack alone. The App must end up holding what
 /// ITS pack says.
-fn expected_from(pack: &PreparedContentPack, mover: &str) -> Installed {
+fn expected_from(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, pack: &PreparedContentPack, mover: &str) -> Installed {
     let library = crate::dialogue::cutscene_defaults::cutscene_library_of(pack);
     Installed {
         move_duration_s: ambition_characters::moveset_content_schema::lowered_movesets(pack)
@@ -436,7 +436,7 @@ fn expected_from(pack: &PreparedContentPack, mover: &str) -> Installed {
             .expect("the goblin encounter")[1]
             .mobs[1]
             .delay,
-        warden_combat_size: crate::bosses::boss_catalog_of(pack)
+        warden_combat_size: crate::bosses::boss_catalog_of(&sprite_content, pack)
             .behavior(WARDEN)
             .expect("the warden")
             .combat_size
@@ -515,6 +515,7 @@ const EVERY_FAMILY: [&str; 10] = [
 /// comparison against the pack it selected would fail naming each one.
 #[test]
 fn two_real_compositions_install_their_own_pack_in_every_family() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let shipped = std::sync::Arc::new(compile_pack().expect("compiles"));
     let edited = pack_that_disagrees_everywhere();
     let mover = a_character_in_both(&shipped);
@@ -526,8 +527,8 @@ fn two_real_compositions_install_their_own_pack_in_every_family() {
     let in_first = installed_in(&first, &mover, &ids);
     let in_second = installed_in(&second, &mover, &ids);
 
-    assert_eq!(in_first, expected_from(&shipped, &mover), "the first App does not hold the pack it selected");
-    assert_eq!(in_second, expected_from(&edited, &mover), "the second App does not hold the pack it selected");
+    assert_eq!(in_first, expected_from(&sprite_content, &shipped, &mover), "the first App does not hold the pack it selected");
+    assert_eq!(in_second, expected_from(&sprite_content, &edited, &mover), "the second App does not hold the pack it selected");
 
     // The premise that makes the two lines above mean something.
     assert_eq!(
@@ -541,6 +542,7 @@ fn two_real_compositions_install_their_own_pack_in_every_family() {
 /// Order does not decide it, in either direction, over every family.
 #[test]
 fn composing_the_edited_app_first_changes_neither_apps_content() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let shipped = std::sync::Arc::new(compile_pack().expect("compiles"));
     let edited = pack_that_disagrees_everywhere();
     let mover = a_character_in_both(&shipped);
@@ -549,14 +551,15 @@ fn composing_the_edited_app_first_changes_neither_apps_content() {
     let first = composed_with_the_plugin(Some(std::sync::Arc::clone(&edited)));
     let second = composed_with_the_plugin(Some(std::sync::Arc::clone(&shipped)));
 
-    assert_eq!(installed_in(&first, &mover, &ids), expected_from(&edited, &mover));
-    assert_eq!(installed_in(&second, &mover, &ids), expected_from(&shipped, &mover));
+    assert_eq!(installed_in(&first, &mover, &ids), expected_from(&sprite_content, &edited, &mover));
+    assert_eq!(installed_in(&second, &mover, &ids), expected_from(&sprite_content, &shipped, &mover));
 }
 
 /// A composition built while another App holds a different pack still gets the
 /// shipped content when it chooses nothing.
 #[test]
 fn an_app_with_no_selection_gets_the_shipped_content_beside_an_edited_one() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let shipped = compile_pack().expect("compiles");
     let mover = a_character_in_both(&shipped);
     let ids = cutscene_ids(&shipped);
@@ -564,7 +567,7 @@ fn an_app_with_no_selection_gets_the_shipped_content_beside_an_edited_one() {
     let _edited_app = composed_with_the_plugin(Some(pack_that_disagrees_everywhere()));
     let plain = composed_with_the_plugin(None);
 
-    assert_eq!(installed_in(&plain, &mover, &ids), expected_from(&shipped, &mover));
+    assert_eq!(installed_in(&plain, &mover, &ids), expected_from(&sprite_content, &shipped, &mover));
     assert_eq!(
         selected(plain.world()).map(|pack| pack.fingerprint),
         Some(shipped.fingerprint),
@@ -582,6 +585,7 @@ fn an_app_with_no_selection_gets_the_shipped_content_beside_an_edited_one() {
 /// first tick would then fill the quests from N+1.
 #[test]
 fn a_different_pack_selected_after_composition_is_refused_and_changes_nothing() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d_runtime::SelectedContentIdentity;
 
     let shipped = compile_pack().expect("compiles");
@@ -605,7 +609,7 @@ fn a_different_pack_selected_after_composition_is_refused_and_changes_nothing() 
     populate_quests(&mut app);
     assert_eq!(
         installed_in(&app, &mover, &ids),
-        expected_from(&shipped, &mover),
+        expected_from(&sprite_content, &shipped, &mover),
         "a refused selection still reached an installed family"
     );
 }

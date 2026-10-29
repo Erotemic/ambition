@@ -53,14 +53,14 @@ pub fn sprite_target_for_boss<'a>(
 /// the LDtk spawn AABB. The `combat_offset` (`bound.center() - boss.pos`)
 /// accounts for a body bbox that is not centered in the sprite frame (for
 /// GNU-ton, about 41 px above `boss.pos`).
-pub fn boss_spawn_hurtboxes(
+pub fn boss_spawn_hurtboxes(sprite_content: &ambition_sprite_sheet::SpriteContent,
     boss_catalog: &crate::BossCatalog,
     id: &str,
     name: &str,
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
 ) -> Vec<ae::CombatVolume> {
-    let boss = crate::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
+    let boss = crate::BossClusterScratch::new(&sprite_content, boss_catalog, id, name, aabb, brain);
     let attack_state = ambition_characters::brain::BossAttackState::default();
     crate::attack_geometry::damageable_volumes(
         &crate::attack_geometry::BossVolumeContext::from_ref(

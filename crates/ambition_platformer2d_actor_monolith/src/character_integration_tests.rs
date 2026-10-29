@@ -371,6 +371,8 @@ fn spawn_fighter(
     facing: f32,
     faction: ambition_characters::actor::ActorFaction,
 ) -> Entity {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     finalize(app);
     let prepared = app
         .world()
@@ -411,7 +413,7 @@ fn spawn_fighter(
         );
     }
     let aabb = ambition_platformer2d_core::Aabb::new(at, body / 2.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         character_id.to_string(),
         prepared.display_name.clone(),
         aabb,

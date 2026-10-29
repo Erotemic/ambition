@@ -244,7 +244,7 @@ pub fn sync_charge_projectile_capability(
 /// kit, projectile capability, and movement identity, all read from the
 /// prepared cast. In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
 /// it accumulated while riding a surface.
-pub fn apply_worn_character_gameplay(
+pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
     // The running session's frozen cast (`SessionCast`), not the published
     // one: a reload publishes the App cast before the session that runs it is
     // activated, and a body re-derived from it in that window plays a cast its
@@ -395,7 +395,7 @@ pub fn apply_worn_character_gameplay(
             let incoming = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
-                .map(ambition_body_seed::PhysicalBaseline::of);
+                .map(|prepared| ambition_body_seed::PhysicalBaseline::of(&sprite_content, prepared));
             // What a persona has taken from this body, extended with whatever
             // the INCOMING one is about to take. Recorded before the write, and
             // only for fields no persona has claimed yet.

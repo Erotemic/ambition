@@ -429,9 +429,11 @@ mod character_sprite_passes {
     fn a_published_sheet(
         app: &mut App,
     ) -> Option<ambition_sprite_sheet::character::CharacterSpriteAsset> {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
         use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
 
-        let spec = try_load_spec_for_target("robot", &SheetTuning::new(1.0, 1))?;
+        let spec = try_load_spec_for_target(&sprite_content, "robot", &SheetTuning::new(1.0, 1))?;
         let texture = app
             .world_mut()
             .resource_mut::<Assets<Image>>()
@@ -463,6 +465,7 @@ mod character_sprite_passes {
 
     #[test]
     fn the_actor_sprite_upgrade_survives_its_target_being_retired() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut app = asset_app();
         let Some(sheet) = a_published_sheet(&mut app) else {
             // The baked record table is populated by `build.rs` from
@@ -475,7 +478,7 @@ mod character_sprite_passes {
             return;
         };
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
-        assets.characters.publish(ACTOR_NAME, sheet);
+        assets.characters.publish(&sprite_content, ACTOR_NAME, sheet);
         app.insert_resource(assets);
 
         let identity = || ambition_sim_view::ActorRenderView {
@@ -532,6 +535,7 @@ mod character_sprite_passes {
     /// switch in the same frame despawns the session scope.
     #[test]
     fn the_player_sprite_quality_rebind_survives_its_target_being_retired() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut app = asset_app();
         let Some(sheet) = a_published_sheet(&mut app) else {
             eprintln!(
@@ -543,7 +547,7 @@ mod character_sprite_passes {
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
         // Published under the id the `PlayerSpriteCharacter` marker below
         // names; another name would make the pass skip.
-        assets.characters.publish("player_robot_v3", sheet);
+        assets.characters.publish(&sprite_content, "player_robot_v3", sheet);
         app.insert_resource(assets);
 
         // Marked as bound to the published sheet: the refresh rebinds the

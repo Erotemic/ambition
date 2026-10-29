@@ -87,6 +87,9 @@ pub struct PreparedContentPack {
     pub id: PackId,
     pub version: PackVersion,
     pub namespace: ModuleNamespace,
+    pub libraries: Vec<String>,
+    /// Source location for relative library imports. It is not content identity.
+    pub root: std::path::PathBuf,
     /// Every source that contributed, in manifest order.
     pub sources: Vec<PreparedSource>,
     /// Declarations collapsed because they named the same file.
@@ -199,6 +202,7 @@ impl PreparedContentPack {
     /// holds no second copy of the rule.
     pub fn package_inputs(&self) -> String {
         let mut out = String::new();
+        for library in &self.libraries { let _ = writeln!(out, "library\t{library}"); }
         for source in &self.sources {
             let _ = writeln!(out, "source\t{}", source.declared_path);
         }

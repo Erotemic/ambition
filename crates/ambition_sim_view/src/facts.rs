@@ -1386,6 +1386,7 @@ mod tests {
             ActorDisposition, CenteredAabb, EncounterMob, FeatureId,
         };
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<DynamicFeatureViews>();
         app.add_systems(Update, rebuild_dynamic_feature_views);
 
@@ -1439,6 +1440,7 @@ mod tests {
         use ambition_characters::actor::Health;
         use ambition_characters::control::{DrivingParticipant, PlayerSlot};
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain(),
         );
         let body = |world: &mut World, slot: u8, damage: i32, balance: i32| {
@@ -1499,6 +1501,7 @@ mod tests {
         use ambition_characters::actor::Health;
         use ambition_characters::control::{DrivingParticipant, PlayerSlot};
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain(),
         );
         use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
@@ -1563,6 +1566,7 @@ mod tests {
     fn hud_facts_track_the_controlled_body() {
         use ambition_characters::actor::Health;
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<PlayerHudFacts>();
         app.add_systems(Update, rebuild_player_hud_facts);
 
@@ -1610,6 +1614,7 @@ mod tests {
         #[derive(Resource, Default)]
         struct Runs(u32);
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<ShrinesView>();
         app.init_resource::<Runs>();
         app.add_systems(
@@ -1629,6 +1634,7 @@ mod tests {
     #[test]
     fn a_row_view_is_cleared_after_its_last_source_goes() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<ShrinesView>();
         app.add_systems(
             Update,
@@ -1652,6 +1658,7 @@ mod tests {
     #[test]
     fn shrine_pulse_ticks_down_sim_side() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(ambition_time::WorldTime::new(0.1, 0.1));
         app.insert_resource(
             ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse { remaining: 0.25 },
@@ -1748,6 +1755,7 @@ mod held_item_view_tests {
     #[test]
     fn two_driven_holders_publish_two_facts_in_sim_id_order() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<HeldItemView>()
             .add_systems(Update, rebuild_held_item_view);
         // Spawned in the REVERSE of the expected order, so a pass-through of
@@ -1780,6 +1788,7 @@ mod held_item_view_tests {
     #[test]
     fn a_holder_nobody_drives_still_publishes() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<HeldItemView>()
             .add_systems(Update, rebuild_held_item_view);
         undriven_holder(&mut app, "cpu_admiral", "admiral_gun_sword", None);
@@ -1804,6 +1813,7 @@ mod held_item_view_tests {
     #[test]
     fn a_living_hostile_holder_belongs_to_the_other_road() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<HeldItemView>()
             .add_systems(Update, rebuild_held_item_view);
         undriven_holder(
@@ -1826,6 +1836,7 @@ mod held_item_view_tests {
     #[test]
     fn a_dead_hostile_holder_falls_back_to_the_in_hand_road() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<HeldItemView>()
             .add_systems(Update, rebuild_held_item_view);
         undriven_holder(
@@ -1867,6 +1878,7 @@ mod blink_preview_room_tests {
     /// live room `room`. #0 has a wall at x 150..170 and #1 has none.
     fn reticle(room: usize) -> BlinkReticle {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<ambition_platformer2d_shared_tangle::schedule::GameMode>();
         app.init_resource::<BlinkPreviewFact>();
@@ -1937,6 +1949,7 @@ mod mark_beacon_room_tests {
         let first = LiveRoomInstance::ACTIVATION.next();
         let second = first.next();
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<MarkBeaconsView>();
         app.add_systems(Update, rebuild_mark_beacons_view);
         let pos = ae::Vec2::new(10.0, 20.0);
@@ -1971,6 +1984,7 @@ mod wielded_aim_tests {
     #[test]
     fn hostile_gun_follows_committed_aim_not_current_target_position() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<HostileWieldedItemsView>()
             .add_systems(Update, rebuild_hostile_wielded_items_view);
         let target = app.world_mut().spawn(BodyKinematics {
@@ -2058,6 +2072,7 @@ mod worn_gear_tests {
     #[test]
     fn a_worn_row_that_names_a_gear_is_a_fact_in_sim_id_order() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<WornGearView>().add_systems(Update, rebuild_worn_gear_view);
         app.register_worn_gear([WornGearEntry {
             id: "space_helmet".into(),

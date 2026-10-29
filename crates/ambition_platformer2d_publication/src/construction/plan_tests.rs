@@ -26,9 +26,10 @@ use ambition_platformer2d_shared_tangle::construction::RelationRequest;
 /// origin category it actually has.
 #[test]
 fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     assert_eq!(
         plan.construction().deterministic_dump(),
@@ -56,12 +57,14 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 /// are the identities alive afterwards — which only the world can say.
 #[test]
 fn the_committed_roster_is_exactly_the_planned_roster() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
     let planned = plan.construction().planned_ids();
 
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let committed = std::sync::Arc::new(std::sync::Mutex::new(None));
     let sink = committed.clone();
@@ -113,12 +116,13 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
 /// specific failure is one that used to be a bare `return` inside the spawner.
 #[test]
 fn an_authored_ground_item_naming_an_unknown_held_item_fails_the_plan() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let mut room = empty_room("hall");
     room.ground_items
         .push(ground_item("pickup_a", "no_such_item"));
 
-    let error = prepare(&room, &Default::default(), &recipes)
+    let error = prepare(&sprite_content, &room, &Default::default(), &recipes)
         .expect_err("an unresolvable held item must not plan");
     let RoomFeatureConstructionError::ActorConstruction(ActorConstructionError::UnknownHeldItem(
         unresolved,
@@ -176,6 +180,7 @@ fn every_reinstatable_record_can_be_relocated() {
 
 #[test]
 fn a_grudge_against_nobody_fails_the_plan() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let mut staging = crate::construction::RoomContentStagingRegistry::default();
     staging
@@ -184,7 +189,7 @@ fn a_grudge_against_nobody_fails_the_plan() {
         })
         .expect("stager registers");
 
-    let error = prepare(&empty_room("hall"), &staging, &recipes)
+    let error = prepare(&sprite_content, &empty_room("hall"), &staging, &recipes)
         .expect_err("an unresolvable grudge target must not plan");
     assert_eq!(
         error,
@@ -200,14 +205,16 @@ fn a_grudge_against_nobody_fails_the_plan() {
 /// itself. This asserts the property directly rather than trusting the type.
 #[test]
 fn a_rejected_plan_spawns_nothing() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let mut room = empty_room("hall");
     room.ground_items.push(ground_item("ok", REAL_HELD_ITEM));
     room.ground_items.push(ground_item("bad", "no_such_item"));
 
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-    let result = prepare(&room, &Default::default(), &recipes);
+    let result = prepare(&sprite_content, &room, &Default::default(), &recipes);
     assert!(result.is_err(), "the room must not plan");
     app.update();
 
@@ -231,13 +238,15 @@ fn a_rejected_plan_spawns_nothing() {
 /// provenance the plan declared, not a bare re-spawn.
 #[test]
 fn rebuilding_one_planned_entity_reproduces_its_identity_and_provenance() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let mut room = empty_room("hall");
     room.ground_items
         .push(ground_item("pickup_a", REAL_HELD_ITEM));
-    let plan = prepare(&room, &Default::default(), &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &Default::default(), &recipes).expect("the room plans");
 
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.add_systems(Update, move |mut commands: Commands| {
         let rebuilt = plan.respawn_authoritative_entity(
             &mut commands,
@@ -272,8 +281,9 @@ fn rebuilding_one_planned_entity_reproduces_its_identity_and_provenance() {
 /// doing nothing that looks like success.
 #[test]
 fn rebuilding_an_unplanned_id_reports_failure() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
-    let plan = prepare(&empty_room("hall"), &Default::default(), &recipes).expect("plans");
+    let plan = prepare(&sprite_content, &empty_room("hall"), &Default::default(), &recipes).expect("plans");
     let mut world = World::new();
     let mut commands_queue = world.commands();
     assert!(!plan.respawn_authoritative_entity(
@@ -418,6 +428,7 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
 /// not reach the world.
 #[test]
 fn stager_registration_order_does_not_change_the_room_plan() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let room = empty_room("hall");
 
@@ -444,7 +455,7 @@ fn stager_registration_order_does_not_change_the_room_plan() {
                 )]
             })
             .unwrap();
-        prepare(&room, &staging, &recipes)
+        prepare(&sprite_content, &room, &staging, &recipes)
             .expect("plans")
             .construction()
             .deterministic_dump()
@@ -566,11 +577,13 @@ fn a_summon_from_an_unidentified_emitter_is_refused() {
 /// grudge intact.
 #[test]
 fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
     let sink = outcome.clone();
@@ -607,11 +620,13 @@ fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
 /// on its own, which is what the same-room restore path depends on.
 #[test]
 fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+    let plan = prepare(&sprite_content, &room, &staging, &recipes).expect("the room plans");
 
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
     let sink = outcome.clone();
@@ -1120,6 +1135,7 @@ fn a_compatible_rider_and_mount_pass_preflight() {
 /// not say so, the hands are the giant's own.
 #[test]
 fn a_seated_conductor_is_planned_as_the_owner_of_the_hands() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let planned = |character: &str, seated: bool| {
         let mut room = giant_room();
         room.enemy_spawns[0].payload.character_id = character.into();
@@ -1134,7 +1150,7 @@ fn a_seated_conductor_is_planned_as_the_owner_of_the_hands() {
             ));
             room.mount_links.push(("the_rider".to_string(), "boss_mount".to_string()));
         }
-        let plan = prepare(
+        let plan = prepare(&sprite_content,
             &room,
             &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
@@ -1384,6 +1400,7 @@ fn a_staged_non_giant_stays_a_single_staged_actor_row() {
 /// passed `Vec::new()`, silently un-pathing every giant.
 #[test]
 fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = giant_room();
     room.kinematic_paths
         .push(ambition_platformer2d_world::rooms::KinematicPathSpec::new(
@@ -1392,7 +1409,7 @@ fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
             ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 24.0),
         ));
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1419,11 +1436,12 @@ fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
 /// minion stays unpopulated.
 #[test]
 fn a_runtime_minion_giant_is_refused_before_it_spawns() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut world = World::new();
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let root = {
         let mut commands = world.commands();
-        ambition_platformer2d_actor_spawn::spawn_runtime_minion(
+        ambition_platformer2d_actor_spawn::spawn_runtime_minion(&sprite_content,
             &mut commands,
             &catalog,
             &Default::default(),
@@ -1452,11 +1470,12 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
 /// The encounter-wave origin refuses a giant the same way.
 #[test]
 fn an_encounter_wave_giant_is_refused_before_it_spawns() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut world = World::new();
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     {
         let mut commands = world.commands();
-        ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+        ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
             &mut commands,
             &catalog,
             &Default::default(),
@@ -1512,7 +1531,8 @@ fn the_limb_and_mount_relations_reach_the_registry_dump() {
 /// `ambition.mount` before anything exists.
 #[test]
 fn an_authored_mount_link_becomes_planned_rows_with_a_mount_relation() {
-    let plan = prepare(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare(&sprite_content,
         &mounted_pair_room(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1541,10 +1561,11 @@ fn an_authored_mount_link_becomes_planned_rows_with_a_mount_relation() {
 /// retried such a pair silently forever.
 #[test]
 fn a_mount_link_naming_nobody_fails_the_room_while_it_is_whole() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = mounted_pair_room();
     room.mount_links
         .push(("sky_rider_typo".to_string(), "sky_shark".to_string()));
-    let error = prepare(
+    let error = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1594,8 +1615,9 @@ fn cut_rope_room(props: &[&str]) -> ambition_platformer2d_world::rooms::RoomSpec
 /// come.
 #[test]
 fn a_boss_script_naming_a_prop_the_room_lacks_fails_the_room_while_it_is_whole() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let prepare_arena = |props: &[&str]| {
-        prepare(
+        prepare(&sprite_content,
             &cut_rope_room(props),
             &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
@@ -1623,6 +1645,7 @@ fn a_boss_script_naming_a_prop_the_room_lacks_fails_the_room_while_it_is_whole()
 /// no script, so its room plans whatever props it authors.
 #[test]
 fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let prepare_staged = |no_encounter: bool| {
         let mut staging = crate::construction::RoomContentStagingRegistry::default();
         staging
@@ -1647,7 +1670,7 @@ fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
             },
             )
             .expect("stager registers");
-        prepare(&empty_room("hall"), &staging, &engine_construction_registry(),
+        prepare(&sprite_content, &empty_room("hall"), &staging, &engine_construction_registry(),
         )
     };
     let error = prepare_staged(false).expect_err("a staged behemoth needs its anvil");
@@ -1670,6 +1693,7 @@ fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
 /// preflight sees the planned relations, not a frame-later race.
 #[test]
 fn two_riders_claiming_one_authored_mount_are_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = mounted_pair_room();
     room.enemy_spawns
         .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -1683,7 +1707,7 @@ fn two_riders_claiming_one_authored_mount_are_refused() {
         ));
     room.mount_links
         .push(("second_rider".to_string(), "sky_shark".to_string()));
-    let error = prepare(
+    let error = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1704,7 +1728,8 @@ fn two_riders_claiming_one_authored_mount_are_refused() {
 /// rebuilds both, so neither can strand the other on a dead entity handle.
 #[test]
 fn the_mount_pair_reconstruction_closure_is_both_actors() {
-    let plan = prepare(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare(&sprite_content,
         &mounted_pair_room(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1731,6 +1756,7 @@ fn the_mount_pair_reconstruction_closure_is_both_actors() {
 /// loops are deleted, so this is the only way a room's actors exist.
 #[test]
 fn every_authored_enemy_and_boss_is_a_plan_row() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = giant_room();
     room.enemy_spawns
         .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -1749,7 +1775,7 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
             ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
             ambition_entity_catalog::placements::BossBrain::Dormant,
         ));
-    let plan = prepare(
+    let plan = prepare(&sprite_content,
         &room,
         &crate::construction::RoomContentStagingRegistry::default(),
         &engine_construction_registry(),
@@ -1823,6 +1849,7 @@ fn person_room(character: Option<&str>) -> ambition_platformer2d_world::rooms::R
 /// composition that published no cast (a warning, not a refusal).
 #[test]
 fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_planned() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let catalog = crate::construction::fixtures::catalog();
     let nobody = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let prepare = |room: &ambition_platformer2d_world::rooms::RoomSpec,
@@ -1830,7 +1857,7 @@ fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_plan
                    cast: Option<&'static ambition_characters::prepared::PreparedCharacterRegistry>| {
         let registry = engine_construction_registry();
         let sheets = Default::default();
-        let context = ActorConstructionContext::new(
+        let context = ActorConstructionContext::new(&sprite_content,
             &registry,
             catalog,
             &sheets,
@@ -1898,7 +1925,8 @@ fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_plan
 /// no-entity behavior instead of becoming a fatal missing row.
 #[test]
 fn a_spawning_placement_is_a_plan_row_and_an_inert_one_is_skipped() {
-    let plan = prepare_with_placements(&placement_room()).expect("the gallery plans");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let plan = prepare_with_placements(&sprite_content, &placement_room()).expect("the gallery plans");
     let ring = plan
         .construction()
         .get(&SimId::placement("ring_1"))
@@ -1928,6 +1956,7 @@ fn a_spawning_placement_is_a_plan_row_and_an_inert_one_is_skipped() {
 /// construction, but construction's own rule stays the authority.
 #[test]
 fn prepare_hands_the_plan_what_the_room_could_not_bind() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut room = empty_room("hall");
     room.kinematic_paths
         .push(ambition_platformer2d_world::rooms::KinematicPathSpec::new(
@@ -1958,7 +1987,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
         })
         .expect("stager registers");
 
-    let plan = prepare(&room, &staging, &engine_construction_registry())
+    let plan = prepare(&sprite_content, &room, &staging, &engine_construction_registry())
         .expect("an unbound reference is a content defect, not a reason to refuse the room");
 
     // ONE channel now (AC6). Construction now REFUSES an identifier that names no
@@ -1983,7 +2012,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     // not just noisy.
     let (clean_room, clean_staging) = duelling_room();
     let clean =
-        prepare(&clean_room, &clean_staging, &engine_construction_registry()).expect("prepares");
+        prepare(&sprite_content, &clean_room, &clean_staging, &engine_construction_registry()).expect("prepares");
     assert!(
         clean.binding_report().is_empty(),
         "a room whose references all resolve says nothing:\n{}",
@@ -2010,6 +2039,8 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
 /// the three assertions above and refuse every shipping room.
 #[test]
 fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let room_naming = |character: &str| {
         let mut room = empty_room("hall");
         let enemy: ambition_platformer2d_world::rooms::Authored<
@@ -2027,7 +2058,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         room
     };
     let prepare_room = |room: &ambition_platformer2d_world::rooms::RoomSpec| {
-        prepare(
+        prepare(&sprite_content,
             room,
             &crate::construction::RoomContentStagingRegistry::default(),
             &engine_construction_registry(),
@@ -2067,7 +2098,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         &Default::default(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(
+        ActorConstructionContext::new(&sprite_content,
             &engine_construction_registry(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),

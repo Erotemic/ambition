@@ -11,7 +11,9 @@ fn shipping_shared_host_reaches_the_launcher_without_a_window() {
     // Budget derived from the composed run-in, not hardcoded: the sequence has
     // already grown from one card to two, and a stale constant turns this into
     // "asserts the host is still showing card one" instead of failing.
-    let ticks = shared_host_startup_ticks();
+    let mut world = bevy::prelude::World::new();
+    ambition_content::pack::select(&mut world);
+    let ticks = shared_host_startup_ticks(&mut world);
     let report = run_shared_host_headless(ticks);
     assert_eq!(report.outer_fixed_steps, ticks);
     assert_eq!(report.active_route.as_deref(), Some("ambition_launcher"));

@@ -35,7 +35,7 @@ fn step(app: &mut bevy::prelude::App) {
 fn gameplay_after_startup(frame: std::time::Duration) -> bevy::prelude::App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(frame));
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
     app

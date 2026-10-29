@@ -215,11 +215,12 @@ fn the_tiles_of_every_pipe_reach_under_each_other() {
 #[test]
 #[ignore]
 fn print_what_the_file_authors() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let room = ldtk_room();
     println!("world size {:?}", room.world.size);
     println!(
         "tall_body_size = {:?}  (the generator mirrors this by hand)",
-        crate::powerups::tall_body_size()
+        crate::powerups::tall_body_size(&sprite_content)
     );
 
     let mut named: Vec<String> = room

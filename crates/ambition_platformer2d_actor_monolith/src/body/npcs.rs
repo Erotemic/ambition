@@ -97,7 +97,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "voice": (
-                display_name: "Voice", 
+                display_name: "Voice",
                 manifest: "voice_spritesheet.ron", tier: MainHall,
                 body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -114,7 +114,7 @@ mod tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "voice": (
-                display_name: "Voice", 
+                display_name: "Voice",
                 manifest: "voice_spritesheet.ron", tier: MainHall,
                 body_kind: Standard, composition: None,
                 default_brain: "idle", default_action_set: "peaceful", tags: [],
@@ -313,8 +313,8 @@ mod default_profile_tests {
 
     /// A minimal body for the two parameters `resolve_npc_brain` needs only when
     /// a character's default is its own `BrainProfile`.
-    fn test_body() -> ambition_combat::actor_tuning::ActorConfig {
-        ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    fn test_body(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_combat::actor_tuning::ActorConfig {
+        ambition_body_seed::ActorClusterSeed::new_peaceful_npc(&sprite_content,
             "probe",
             "Probe",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 12.0)),
@@ -333,6 +333,7 @@ mod default_profile_tests {
     /// character on every body in the game, and the test said otherwise.
     #[test]
     fn an_npc_takes_its_characters_own_policy_over_the_catalog_rows() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let catalog = assembled_catalog();
         let (brain, binding) = ambition_platformer2d_actor_spawn::npc_policy::resolve_npc_brain(
             &catalog,
@@ -341,7 +342,7 @@ mod default_profile_tests {
             )),
             &npc(None),
             0.0,
-            &test_body(),
+            &test_body(&sprite_content),
             &test_identity(),
             ambition_platformer2d_core::AbilitySet::NONE,
             &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -369,6 +370,7 @@ mod default_profile_tests {
     /// leaves the catalog row in charge.
     #[test]
     fn a_character_authoring_nothing_leaves_the_catalog_row_in_charge() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let catalog = assembled_catalog();
         for registry in [
             registry_naming(None),
@@ -379,7 +381,7 @@ mod default_profile_tests {
                 &registry,
                 &npc(None),
                 0.0,
-                &test_body(),
+                &test_body(&sprite_content),
                 &test_identity(),
                 ambition_platformer2d_core::AbilitySet::NONE,
                 &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -393,6 +395,7 @@ mod default_profile_tests {
     /// normally does, which is the entire reason the override exists.
     #[test]
     fn a_placement_override_outranks_the_characters_own_policy() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let catalog = assembled_catalog();
         let (brain, _) = ambition_platformer2d_actor_spawn::npc_policy::resolve_npc_brain(
             &catalog,
@@ -401,7 +404,7 @@ mod default_profile_tests {
             )),
             &npc(Some("stand_still")),
             0.0,
-            &test_body(),
+            &test_body(&sprite_content),
             &test_identity(),
             ambition_platformer2d_core::AbilitySet::NONE,
             &ambition_characters::brain::AuthoredBrainOverride::default(),
@@ -426,6 +429,7 @@ mod default_profile_tests {
     /// the override differs.
     #[test]
     fn the_developer_override_steers_the_cast_and_its_absence_does_not() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let catalog = assembled_catalog();
         let registry = registry_naming(Some(
             ambition_characters::brain::CharacterBrainTemplate::Wanderer,
@@ -436,7 +440,7 @@ mod default_profile_tests {
                 &registry,
                 &npc(None),
                 0.0,
-                &test_body(),
+                &test_body(&sprite_content),
                 &test_identity(),
                 ambition_platformer2d_core::AbilitySet::NONE,
                 forced,

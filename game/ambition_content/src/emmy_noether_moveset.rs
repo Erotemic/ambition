@@ -268,6 +268,7 @@ mod tests {
     /// baked manifests, so this asks what the renderer will ask.
     #[test]
     fn the_kit_looks_like_emmy_and_the_art_all_ships() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let mut effects = std::collections::BTreeSet::new();
         // Collect problems across every move, then assert once, so one run reports
@@ -275,7 +276,7 @@ mod tests {
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
-                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+                |name| ambition_platformer2d::sprite_sheet::fx::is_authored_effect(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), name),
             ));
             for ev in &m.events {
                 if let MoveEventKind::Vfx { effect, .. } = &ev.kind {
@@ -293,7 +294,7 @@ mod tests {
              {effects:?}"
         );
         for effect in &effects {
-            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(effect)
+            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(&sprite_content, effect)
                 .unwrap_or_else(|| panic!("`{effect}` ships"));
             assert!(
                 authored.sheet.contains("noether"),
@@ -310,9 +311,10 @@ mod tests {
     /// checked against the sheet here.
     #[test]
     fn every_clip_names_a_row_her_sheet_carries() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let record =
-            ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key("noether")
+            ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, "noether")
                 .expect("Emmy's sheet is baked into the registry");
         let rows: std::collections::BTreeSet<&str> =
             record.rows.iter().map(|r| r.animation.as_str()).collect();

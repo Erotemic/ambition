@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 pub mod art;
+mod library_assets;
 
 use ambition_content_pack::{
     compile_dir, AdvisoryAssets, AssetSource, AssetsUnchecked, CapabilityId, CompileFailure,
@@ -44,7 +45,7 @@ pub fn default_registry() -> SchemaRegistry {
 /// What the CLI was asked to do.
 #[derive(Debug)]
 pub struct Invocation {
-    pub pack_root: PathBuf,
+    pub pack_root: Option<PathBuf>,
     pub asset_roots: Vec<PathBuf>,
     /// Capabilities installed beyond the ones the linked schemas bring. Lets a
     /// caller validate a pack against a LARGER composition than this binary
@@ -179,7 +180,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
 
     if list_schemas {
         return Ok(Invocation {
-            pack_root: pack_root.unwrap_or_default(),
+            pack_root,
             asset_roots,
             extra_capabilities,
             without_capabilities,
@@ -194,8 +195,9 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         });
     }
 
+    if pack_root.is_none() && !(inspect_art && !sheet_roots.is_empty()) { return Err(ArgError::MissingPackRoot); }
     Ok(Invocation {
-        pack_root: pack_root.ok_or(ArgError::MissingPackRoot)?,
+        pack_root,
         asset_roots,
         extra_capabilities,
         without_capabilities,
@@ -235,13 +237,14 @@ impl Invocation {
     /// command line and the ones the binary links go through one path.
     pub fn run(&self) -> Result<PreparedContentPack, CompileFailure> {
         let registry = self.registry()?;
-        let assets: Box<dyn AssetSource> = if self.skip_asset_check {
+        let pack_root = self.pack_root.as_ref().expect("pack validation needs a pack root");
+        let mut assets: Box<dyn AssetSource> = if self.skip_asset_check {
             Box::new(AssetsUnchecked)
         } else {
             // No `--asset-root` means the pack's own directory, which is the right default: a
             // pack's assets live in the pack.
             let roots = if self.asset_roots.is_empty() {
-                vec![self.pack_root.clone()]
+                vec![pack_root.clone()]
             } else {
                 self.asset_roots.clone()
             };
@@ -251,7 +254,23 @@ impl Invocation {
                 Box::new(DirectoryAssets::new(roots))
             }
         };
-        compile_dir(&self.pack_root, &registry, assets.as_ref())
+        if !self.skip_asset_check {
+            let draft = ambition_content_pack::ContentPackDraft::read_from_dir(pack_root)?;
+            let mut libraries = ambition_asset_manager::content_library::ContentLibraries::default();
+            let selected = (|| -> Result<(), String> {
+                for path in &draft.manifest.libraries {
+                    libraries.insert(ambition_asset_manager::content_library::ContentLibrary::read(pack_root.join(path))?)?;
+                }
+                Ok(())
+            })();
+            let failure = |error: String| CompileFailure::new(CompileStage::Parse, vec![
+                ambition_content_pack::Diagnostic::error(ambition_content_pack::DiagnosticCode::MalformedSource,
+                    CompileStage::Parse, error),
+            ]);
+            selected.map_err(failure)?;
+            assets = Box::new(library_assets::LibraryAssetSource::new(assets, &libraries, self.advisory_assets).map_err(failure)?);
+        }
+        compile_dir(pack_root, &registry, assets.as_ref())
     }
 }
 
@@ -296,10 +315,14 @@ pub fn main_with(game_schemas: fn() -> Vec<SchemaRegistration>) -> std::process:
         return std::process::ExitCode::SUCCESS;
     }
 
+    if invocation.inspect_art && invocation.pack_root.is_none() {
+        println!("{}", art::describe(None, &invocation.sheet_roots));
+        return std::process::ExitCode::SUCCESS;
+    }
     match invocation.run() {
         Ok(pack) => {
             if invocation.inspect_art {
-                println!("{}", art::describe(&pack, &invocation.sheet_roots));
+                println!("{}", art::describe(Some(&pack), &invocation.sheet_roots));
             } else if invocation.fingerprint_only {
                 println!("{}", pack.fingerprint);
             } else if invocation.package_inputs_only {
@@ -345,7 +368,7 @@ mod tests {
             "combat",
         ]))
         .expect("parses");
-        assert_eq!(invocation.pack_root, PathBuf::from("packs/cast"));
+        assert_eq!(invocation.pack_root, Some(PathBuf::from("packs/cast")));
         assert_eq!(invocation.asset_roots.len(), 2);
         assert_eq!(
             invocation.extra_capabilities,

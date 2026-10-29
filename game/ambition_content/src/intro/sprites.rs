@@ -31,9 +31,10 @@ mod tests {
     /// the published sheet.
     #[test]
     fn the_look_of_the_cart_is_in_the_frame_of_its_published_sheet() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let rows = ambition_sprite_sheet::prop_sheets::lowered_prop_sheets(crate::pack::shipped()).expect("the pack states its prop sheets");
         let row = &rows[INTRO_CART_KIND];
-        let spec = ambition_sprite_sheet::character::try_load_spec_for_target(row.target(INTRO_CART_KIND), &row.tuning())
+        let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&sprite_content, row.target(INTRO_CART_KIND), &row.tuning())
             .expect("the cart's baked sheet");
         let frame = spec.frame_pixels();
         let looks = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(crate::pack::shipped())

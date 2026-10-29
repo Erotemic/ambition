@@ -647,7 +647,8 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
 /// no art, so the skip cannot hide a failure.
 #[test]
 fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
-    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons());
+    let content = &crate::test_support::shared_sprites();
+    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons(&content));
 
     // (file root, the sheet that used to take the key)
     let pairs = [
@@ -663,13 +664,13 @@ fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
         };
         assert_eq!(
             mine.image,
-            format!("{root}_spritesheet.png"),
+            format!("content://ambition_shared/sprites/{root}_spritesheet.png"),
             "`{root}` answered with someone else's page — the rig target is \
              acting as a durable identity again",
         );
         assert_eq!(
             theirs.image,
-            format!("{usurper}_spritesheet.png"),
+            format!("content://ambition_shared/sprites/{usurper}_spritesheet.png"),
             "`{usurper}` must keep its own page too; both are real characters \
              and neither is a stale manifest",
         );
@@ -693,7 +694,8 @@ fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
 /// `shadowed_targets`). `ambition_app` owns that assertion.
 #[test]
 fn the_real_baked_table_still_resolves_the_players_variant() {
-    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons());
+    let content = &crate::test_support::shared_sprites();
+    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons(&content));
     // The player's variant is the reason this index exists.
     assert!(
         reg.get("player_robot_v3").is_some(),
@@ -717,7 +719,8 @@ fn the_real_baked_table_still_resolves_the_players_variant() {
 /// that happens, give the key a `product::member` spelling.
 #[test]
 fn no_shipped_sheet_key_is_claimed_twice() {
-    let registry = crate::baked_sheet_registry();
+    let content = &crate::test_support::shared_sprites();
+    let registry = crate::baked_sheet_registry(&content);
     assert!(
         registry.len() > 500,
         "the baked table came up nearly empty ({}), so this measured nothing",

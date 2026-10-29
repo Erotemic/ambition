@@ -184,7 +184,7 @@ DENY_EXACT = {
     "android", "android_dev", "android_platform",
     "web", "web_platform", "web_served", "web_served_assets", "web_audio",
     "visible_web", "visible_web_base", "visible_web_served",
-    "static_map", "static_core_assets", "static_sfx_bank",
+    "static_map",
     "dev_hot_reload",
     # `headless` swaps in a windowless render path; the default `visible` graph
     # already runs headlessly in tests, and enabling both double-registers

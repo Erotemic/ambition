@@ -41,6 +41,7 @@ fn draft(name: &str, items: &str) -> ContentPackDraft {
     ContentPackDraft::read_manifest(
         root,
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("test_items".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("test".into()),

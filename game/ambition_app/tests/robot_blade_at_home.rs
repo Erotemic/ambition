@@ -215,6 +215,7 @@ fn a_landing_in_a_move_charges_a_small_share_of_its_lag() {
 /// and that row's jets are of the lower body: the swing's row has none.
 #[test]
 fn a_swing_in_flight_keeps_the_jets() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::sim_view::BodyPoseView;
     use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAsset;
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
@@ -235,7 +236,7 @@ fn a_swing_in_flight_keeps_the_jets() {
     assert_eq!(clip.legs, Some(CharacterAnim::Fly), "the swing in flight asks for no flight under it");
 
     // The picture: the swing's row with the flight row under it draws jets.
-    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot's part flipbook is published");
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "player_robot_v3").expect("the robot's part flipbook is published");
     let jets = |draws: &[ambition_platformer2d::sprite_sheet::character::rigged::PartDraw]| {
         draws.iter().filter(|draw| draw.track.is_some_and(|track| flipbook.tracks[usize::from(track)].contains("jet"))).count()
     };

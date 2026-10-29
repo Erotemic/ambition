@@ -19,11 +19,12 @@ const QUAD_OVERHANG_LIMIT: f32 = 2.47;
 
 #[test]
 fn the_snakes_picture_and_its_body_describe_the_same_animal() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // At `world_per_pixel = 1.0` the geometry comes back in SHEET PIXELS, which
     // is what makes the scale solvable instead of guessable.
-    let walking = posed_body_geometry(SNAKE_SHEET_TARGET, CharacterAnim::Idle, 1.0)
+    let walking = posed_body_geometry(&sprite_content, SNAKE_SHEET_TARGET, CharacterAnim::Idle, 1.0)
         .expect("the snake's sheet publishes body metrics");
-    let scale = ambition_demo_mary_o::pack::PACK.posed_body_world_per_pixel(SNAKE_SHEET_TARGET);
+    let scale = ambition_demo_mary_o::pack::PACK.posed_body_world_per_pixel(&sprite_content, SNAKE_SHEET_TARGET);
     let world = walking.collision * scale;
     let quad = walking.render * scale;
 
@@ -70,7 +71,8 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
 /// that its box and its picture describe the same animal is not.
 #[test]
 fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
-    let sheet = posed_body_geometry(
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let sheet = posed_body_geometry(&sprite_content,
         ambition_demo_mary_o::ai_slop::AI_SLOP_SHEET_TARGET,
         CharacterAnim::Idle,
         1.0,
@@ -89,7 +91,7 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
 
     // Exercise the production sizing function rather than recomputing its
     // arithmetic in the test, and compare it with the width the row authors.
-    let half = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
+    let half = ambition_demo_mary_o::ai_slop::ai_slop_half_size(&sprite_content);
     let (width, height) = (half.x * 2.0, half.y * 2.0);
     let authored = match ambition_demo_mary_o::mary_o_character_catalog()
         .get(ambition_demo_mary_o::ai_slop::AI_SLOP_SHEET_TARGET)
@@ -125,12 +127,13 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
 /// a booted app.
 #[test]
 fn a_live_ai_slop_wears_the_size_its_character_authors() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     for _ in 0..400 {
         app.update();
     }
 
-    let authored = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
+    let authored = ambition_demo_mary_o::ai_slop::ai_slop_half_size(&sprite_content);
     let mut q = app.world_mut().query::<(
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::combat::components::CenteredAabb,

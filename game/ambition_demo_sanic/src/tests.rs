@@ -62,8 +62,8 @@ fn enter_room(app: &mut App, room: ambition_platformer2d::world::rooms::RoomSpec
 }
 
 /// The speedway's first distance marker, read from the file that authors it.
-fn first_speedway_marker() -> f32 {
-    distance_markers(&sanic_speedway())[0]
+fn first_speedway_marker(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> f32 {
+    distance_markers(&sanic_speedway(&sprite_content))[0]
 }
 
 #[test]
@@ -124,7 +124,8 @@ fn super_form_edge_does_not_leak_across_sessions() {
 /// spawn sits inside the room bounds.
 #[test]
 fn sanic_speedway_composes_through_the_umbrella() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     assert_eq!(room.id, SPEEDWAY_ROOM_ID);
 
     // The LDtk-authored course made it into the world: the painted ground and
@@ -548,7 +549,8 @@ impl MomentumRig {
 
 #[test]
 fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let chain = room
         .world
         .chains
@@ -602,7 +604,8 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
 
 #[test]
 fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let chain = room
         .world
         .chains
@@ -651,16 +654,18 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
 
 #[test]
 fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.world_mut().spawn((
         ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
-            pos: ae::Vec2::new(first_speedway_marker() + 1.0, 0.0),
+            pos: ae::Vec2::new(first_speedway_marker(&sprite_content) + 1.0, 0.0),
             ..Default::default()
         },
     ));
-    enter_room(&mut app, sanic_speedway());
+    enter_room(&mut app, sanic_speedway(&sprite_content));
     app.world_mut().spawn(SanicActState::default());
     app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
 
@@ -686,7 +691,8 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 /// shows exactly those.
 #[test]
 fn the_speedway_authors_its_distance_markers_once() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let markers = distance_markers(&room);
     assert_eq!(markers, vec![808.0, 1608.0, 2600.0, 3608.0, 5000.0]);
     let texts: Vec<&str> = room
@@ -703,6 +709,7 @@ fn the_speedway_authors_its_distance_markers_once() {
 /// edit to the label is the next start's sign, with no build.
 #[test]
 fn the_speedway_start_sign_is_the_world_files_label() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD)).unwrap();
     let field = ambition_platformer2d::ldtk_map::field_string;
     let authored: Vec<String> = project
@@ -716,7 +723,7 @@ fn the_speedway_start_sign_is_the_world_files_label() {
         .filter_map(|entity| field(entity, "text"))
         .collect();
     assert_eq!(authored.len(), 1, "the file authors one start sign: {authored:?}");
-    let room = sanic_speedway();
+    let room = sanic_speedway(&sprite_content);
     let signs: Vec<(&str, &str)> = room
         .debug_labels
         .iter()
@@ -730,16 +737,18 @@ fn the_speedway_start_sign_is_the_world_files_label() {
 /// cue read a table with no room in it, so the speedway's ruler rang in Act 2.
 #[test]
 fn an_act_without_markers_sounds_no_milestone() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.world_mut().spawn((
         ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
-            pos: ae::Vec2::new(first_speedway_marker() + 1.0, 0.0),
+            pos: ae::Vec2::new(first_speedway_marker(&sprite_content) + 1.0, 0.0),
             ..Default::default()
         },
     ));
-    let highway = sanic_highway();
+    let highway = sanic_highway(&sprite_content);
     assert!(distance_markers(&highway).is_empty(), "the premise: Act 2 authors no markers");
     enter_room(&mut app, highway);
     app.world_mut().spawn(SanicActState::default());
@@ -920,6 +929,8 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
 /// answers differ.
 #[test]
 fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     let mut context = ambition_platformer2d::sfx::SfxEmissionContext::default();
@@ -933,11 +944,11 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
     app.world_mut().spawn((
         ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
-            pos: ae::Vec2::new(first_speedway_marker() + 1.0, 0.0),
+            pos: ae::Vec2::new(first_speedway_marker(&sprite_content) + 1.0, 0.0),
             ..Default::default()
         },
     ));
-    enter_room(&mut app, sanic_speedway());
+    enter_room(&mut app, sanic_speedway(&sprite_content));
     app.world_mut().spawn(SanicActState::default());
     app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
     app.update();
@@ -1036,9 +1047,10 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
 /// `ambition_platformer2d_runtime/tests/mode_scope.rs`.
 #[test]
 fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
     use ambition_platformer2d::runtime::in_mode;
-    let room = sanic_speedway();
+    let room = sanic_speedway(&sprite_content);
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
 
     let mut app = App::new();
@@ -1069,7 +1081,8 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
 
 #[test]
 fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let chain = room
         .world
         .chains
@@ -1144,7 +1157,8 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
 
 #[test]
 fn floor_route_steering_enters_the_ramp_without_jumping() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let floor_index = floor_chain_at(&room.world, WEST_FLOOR_X);
     let floor = &room.world.chains[floor_index];
     // The ramp-fork junction vertex is located by position: the hills give the
@@ -1204,7 +1218,8 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
 
 #[test]
 fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let chain = room
         .world
         .chains
@@ -1367,9 +1382,10 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
 
 #[test]
 fn the_speedway_authors_a_field_of_collectible_rings() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::entity_catalog::PickupKind;
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
-    let room = sanic_speedway();
+    let room = sanic_speedway(&sprite_content);
     let rings = room
         .placements
         .iter()
@@ -1414,8 +1430,9 @@ fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
 
 #[test]
 fn the_speedway_tags_every_ring_with_the_animated_sprite() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
-    let room = sanic_speedway();
+    let room = sanic_speedway(&sprite_content);
     let rings: Vec<_> = room
         .placements
         .iter()
@@ -1440,17 +1457,18 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
 
 #[test]
 fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
-    let room = sanic_highway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_highway(&sprite_content);
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
     assert_eq!(
         room.metadata.music_track.as_deref(),
         Some(HIGHWAY_MUSIC_TRACK)
     );
     assert!(
-        room.world.size.x > 2.0 * sanic_speedway().world.size.x,
+        room.world.size.x > 2.0 * sanic_speedway(&sprite_content).world.size.x,
         "Act 2 is the bigger course: {} wide against the speedway's {}",
         room.world.size.x,
-        sanic_speedway().world.size.x
+        sanic_speedway(&sprite_content).world.size.x
     );
     // Each loop attaches to the PAINTED floor under it: loops A and D to the
     // ground (`terrain:`), loop B to the sky bridge (`track:`).
@@ -1495,7 +1513,8 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
 /// and it is drawn as ground (painted earth), not as a line over the sky.
 #[test]
 fn the_highway_rolls_climbs_and_drops() {
-    let room = sanic_highway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_highway(&sprite_content);
     let ground: Vec<&ae::SurfaceChain> = room
         .world
         .chains
@@ -1523,22 +1542,23 @@ fn the_highway_rolls_climbs_and_drops() {
 
 #[test]
 fn the_three_acts_form_one_course() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     assert_eq!(
-        sanic_speedway().metadata.next_room.as_deref(),
+        sanic_speedway(&sprite_content).metadata.next_room.as_deref(),
         Some(HIGHWAY_ROOM_ID),
         "the speedway's goal leads to Act 2"
     );
     assert_eq!(
-        sanic_highway().metadata.next_room.as_deref(),
+        sanic_highway(&sprite_content).metadata.next_room.as_deref(),
         Some(DARKNESS_ROOM_ID),
         "the highway's goal leads to Act 3"
     );
     assert_eq!(
-        sanic_darkness().metadata.next_room.as_deref(),
+        sanic_darkness(&sprite_content).metadata.next_room.as_deref(),
         Some(SPEEDWAY_ROOM_ID),
         "Act 3's goal leads back to Act 1"
     );
-    let rooms = provider::sanic_session_world().room_set;
+    let rooms = provider::sanic_session_world(&sprite_content).room_set;
     for id in [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID] {
         assert!(
             rooms.rooms.iter().any(|room| room.id == id),
@@ -1552,12 +1572,13 @@ fn the_three_acts_form_one_course() {
 /// converts to, and that is the act's own look.
 #[test]
 fn each_act_says_its_mode_and_look_in_its_world_file() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let acts = [
-        (sanic_speedway(), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge",
+        (sanic_speedway(&sprite_content), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge",
         ),
-        (sanic_highway(), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove",
+        (sanic_highway(&sprite_content), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove",
         ),
-        (sanic_darkness(), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse",
+        (sanic_darkness(&sprite_content), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse",
         ),
     ];
     for (room, world, id, biome, theme) in acts {
@@ -1582,15 +1603,16 @@ fn each_act_says_its_mode_and_look_in_its_world_file() {
 
 #[test]
 fn the_dark_act_has_three_portal_pairs_and_room_to_run() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 
-    let room = sanic_darkness();
+    let room = sanic_darkness(&sprite_content);
     assert_eq!(
         room.metadata.music_track.as_deref(),
         Some(DARKNESS_MUSIC_TRACK)
     );
-    assert!(room.world.size.x >= 2.0 * sanic_highway().world.size.x);
-    assert!(room.world.size.y > sanic_highway().world.size.y);
+    assert!(room.world.size.x >= 2.0 * sanic_highway(&sprite_content).world.size.x);
+    assert!(room.world.size.y > sanic_highway(&sprite_content).world.size.y);
     let portals: Vec<_> = room
         .placements
         .iter()
@@ -1638,7 +1660,8 @@ fn the_highway_score_is_a_track_the_sanic_catalog_carries() {
 
 #[test]
 fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
-    let room = sanic_highway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_highway(&sprite_content);
     let sizes: Vec<_> = room
         .placements
         .iter()
@@ -1659,7 +1682,8 @@ fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
 
 #[test]
 fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
-    let room = sanic_speedway();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let room = sanic_speedway(&sprite_content);
     let sizes: Vec<_> = room
         .placements
         .iter()
@@ -2499,7 +2523,8 @@ fn the_utility_button_reads_transform_and_never_fly() {
 /// crossed the same 14° joint forever, frozen at full speed at x = 26374.
 #[test]
 fn every_painted_joint_can_be_ridden_past() {
-    for room in [crate::sanic_darkness(), crate::sanic_highway()] {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    for room in [crate::sanic_darkness(&sprite_content), crate::sanic_highway(&sprite_content)] {
         for chain in room.world.chains.iter().filter(|c| c.name.starts_with("terrain:")) {
             for v in 1..chain.segment_count() {
                 let arc = chain.arc_at_vertex(v);

@@ -72,7 +72,7 @@ Common false zeros:
 - `grep -E "a\|b"` searches for a literal pipe. Under `-E`, alternation is `|`.
 - Searching the wrong tree. Authored levels are in `game/ambition_map_assets/`.
   Generated character sprites are under
-  `crates/ambition_platformer2d_actor_monolith/assets/sprites*`.
+  `game/ambition_content_library/generated/runtime/sprites*`.
 - A quoted search (`"room_id"`) when the data spells it differently.
 - A search for `check_x.py` when callers `import check_x`.
 - `ls` colour codes leaking into a comparison.

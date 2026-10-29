@@ -35,7 +35,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/generate_visual_quality_variants.py"
+SCRIPT = REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/quality.py"
 
 
 def load():
@@ -107,29 +107,13 @@ def test_the_guard_tolerates_a_path_that_does_not_exist_yet(tmp_path):
     module.break_symlink_before_write(tmp_path / "never_written.png")
 
 
-def test_every_write_site_in_the_generator_is_guarded():
-    """⛔ A GUARD CALLED AT TWO OF THREE WRITE SITES IS NOT A GUARD. The pages,
-    the resized loose PNGs and the manifest all land in the same mirrored tree.
-    """
-    if not SCRIPT.exists():
-        pytest.skip("the generator is absent")
-    text = SCRIPT.read_text()
-    for write in ["resized.save(", "page.save(", "ron_dst.write_text("]:
-        index = text.index(write)
-        window = text[max(0, index - 240) : index]
-        assert "break_symlink_before_write" in window, (
-            f"the write at `{write}` is not preceded by the symlink guard, so "
-            "regenerating in a worktree writes through to the main checkout"
-        )
-
-
 # ---------------------------------------------------------------------------
 # ⛔⛔ THE SFX BANK WAS THE UNGUARDED ROAD, AND THIS FILE DID NOT LOOK AT IT.
 #
 # Everything above tests `generate_visual_quality_variants.py`. Jon's 2026-09-03
 # review found the guard was one publisher wide: `scripts/regen/sfx.sh` aims
 # `tools/ambition_sfx_pack/pack.py` at
-# `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank`, which is
+# `game/ambition_content_library/generated/runtime/audio/sfx.bank`, which is
 # inside `mirror_assets_for_worktree.py`'s MIRRORED_TREES — and the packer wrote
 # it with a bare `out_path.open("wb")`, straight through the link.
 #

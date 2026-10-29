@@ -165,7 +165,7 @@ visible_web_served = ["visible_web_base", "web_served"]
 web = ["visible_web", "web_platform"]
 
 # Browser persona — served assets. Use with `./build_for_web.sh --served`
-# (which symlinks/copies `crates/ambition_platformer2d_actor_monolith/assets/` into
+# (which symlinks/copies `game/ambition_content_library/generated/runtime/` into
 # `game/ambition_app/web/assets/` so the served pages can reach
 # them under `/assets/...`). Visuals; audio is the facade's `web_audio`.
 web_served_assets = ["visible_web_served", "web_platform"]
@@ -198,9 +198,8 @@ dev_hot_reload = ["bevy/file_watcher"]
 
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables
-# this automatically when crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank exists
+# this automatically when game/ambition_content_library/generated/runtime/audio/sfx.bank exists
 # and passes AMBITION_STATIC_SFX_BANK_PATH for include_bytes!.
-static_sfx_bank = []
 
 # Android phone-test packaging. This is platform composition, not a stripped
 # release persona: keep the playable sandbox, touch controls, audio, LDtk,
@@ -367,6 +366,7 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }
 ambition_audio = { path = "../ambition_audio" }
 ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 # The two-game session fixture the per-room rule readers' tests share.

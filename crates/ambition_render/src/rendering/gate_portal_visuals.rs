@@ -352,11 +352,11 @@ mod tests {
     const RING: &str = "gate_ring";
     const RING_SHEET: &str = "interdimensional_gate_ring";
 
-    fn ring_asset() -> CharacterSpriteAsset {
+    fn ring_asset(sprite_content: &ambition_sprite_sheet::SpriteContent) -> CharacterSpriteAsset {
         CharacterSpriteAsset {
             texture: Default::default(),
             layout: Default::default(),
-            spec: try_load_spec_for_target(RING_SHEET, &SheetTuning::default())
+            spec: try_load_spec_for_target(&sprite_content, RING_SHEET, &SheetTuning::default())
                 .expect("the shipped ring sheet is baked"),
             pages: Vec::new(),
             requested_tier: Default::default(),
@@ -366,8 +366,8 @@ mod tests {
     }
 
     /// The ring, and the flat atlas index of each `charge` frame.
-    fn app_with_a_ring() -> (App, Entity, Vec<usize>) {
-        let asset = ring_asset();
+    fn app_with_a_ring(sprite_content: &ambition_sprite_sheet::SpriteContent) -> (App, Entity, Vec<usize>) {
+        let asset = ring_asset(&sprite_content);
         let slot = asset.spec.clip_slot(["charge"]).expect("the ring has a charge row");
         let charge: Vec<usize> = (0..30).map(|f| asset.spec.flat_index_at(slot, f)).collect();
         let mut app = App::new();
@@ -425,7 +425,8 @@ mod tests {
     /// and the sprite (the ring in its base) never rotates.
     #[test]
     fn the_ring_charges_once_per_opening_and_never_turns() {
-        let (mut app, ring, charge) = app_with_a_ring();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let (mut app, ring, charge) = app_with_a_ring(&sprite_content);
         for (progress, frame) in [(0.0, 0), (0.25, 7), (0.5, 15), (0.95, 28)] {
             step(
                 &mut app,
@@ -448,8 +449,10 @@ mod tests {
     /// it draws, not the point it was spawned on.
     #[test]
     fn an_open_membrane_is_drawn_at_its_own_frames_size() {
-        let mut asset = ring_asset();
-        asset.spec = try_load_spec_for_target("interdimensional_gate_portal", &SheetTuning::default())
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut asset = ring_asset(&sprite_content);
+        asset.spec = try_load_spec_for_target(&sprite_content, "interdimensional_gate_portal", &SheetTuning::default())
             .expect("the shipped portal sheet is baked");
         let collision = Vec2::splat(96.0);
         let (sprite, anchor, animator) = crate::rendering::world::prop_sprite_bundle(

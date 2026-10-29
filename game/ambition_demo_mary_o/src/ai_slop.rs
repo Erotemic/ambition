@@ -40,9 +40,9 @@ pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
 /// The same resolution construction performs (`posed_body_geometry` at the
 /// scale its row names), so a level or a test that asks how big a slop is
 /// compares against the body the cast builds, not a second derivation.
-pub fn ai_slop_half_size() -> ae::Vec2 {
-    let scale = crate::pack::PACK.posed_body_world_per_pixel(AI_SLOP_SHEET_TARGET);
-    ambition_platformer2d::character_sprites::posed_body_geometry(
+pub fn ai_slop_half_size(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ae::Vec2 {
+    let scale = crate::pack::PACK.posed_body_world_per_pixel(&sprite_content, AI_SLOP_SHEET_TARGET);
+    ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
         AI_SLOP_SHEET_TARGET,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
         scale,

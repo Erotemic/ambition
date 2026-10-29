@@ -125,7 +125,9 @@ impl Plugin for PlatformerAssetsPlugin {
                 tracks: Vec::new(),
             });
 
+        let libraries = app.world().get_resource::<ambition_asset_manager::content_library::ContentLibraries>().cloned().unwrap_or_default();
         let catalog = ambition_platformer2d_assets::platformer_assets::build_platformer2d_asset_catalog(
+            &libraries,
             &config,
             &character_catalog,
             &boss_catalog,
@@ -193,7 +195,7 @@ impl Plugin for PlatformerAssetsPlugin {
 /// visuals are spawned in that set and read `GameAssets` as they go, so binding
 /// afterwards produces one frame of placeholder art that never refreshes.
 #[allow(clippy::too_many_arguments)]
-fn bind_game_assets(
+fn bind_game_assets(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     config: Res<GameAssetConfig>,
     character_catalog: Res<CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -206,7 +208,7 @@ fn bind_game_assets(
     prop_sheets: Res<sheets::PropSheets>,
     mut game_assets: ResMut<GameAssets>,
 ) {
-    *game_assets = sheets::load_game_assets(
+    *game_assets = sheets::load_game_assets(&sprite_content,
         &config,
         &character_catalog,
         &authored_sheets,

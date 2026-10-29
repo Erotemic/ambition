@@ -156,7 +156,8 @@ pub fn compile_pack_with(
             (path, edited)
         })
         .collect();
-    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(&manifest_ron(), sources)?;
+    let mut draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(&manifest_ron(), sources)?;
+    if EMBEDDED_PACK.is_none() { draft.root = source_root(); }
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),
@@ -167,6 +168,7 @@ pub fn compile_pack_with(
 /// Compile `manifest` with the text `text_of` gives for each source it
 /// declares.
 fn compile_manifest(
+    root: &std::path::Path,
     manifest: &str,
     mut text_of: impl FnMut(&str) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
@@ -177,7 +179,8 @@ fn compile_manifest(
             (path, text)
         })
         .collect();
-    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(manifest, sources)?;
+    let mut draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(manifest, sources)?;
+    draft.root = root.to_path_buf();
     ambition_content_pack::compile(&draft, &pack_schemas(), &ambition_content_pack::AssetsUnchecked)
 }
 
@@ -250,7 +253,7 @@ pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, 
         .map_err(|err| format!("{} does not supply this pack: {}: {err}", root.display(), manifest_path.display()))?;
     let mut missing: Vec<String> = Vec::new();
     let mut unreadable: Vec<String> = Vec::new();
-    let compiled = compile_manifest(&manifest, |declared| {
+    let compiled = compile_manifest(root, &manifest, |declared| {
         let path = root.join(declared);
         match std::fs::read_to_string(&path) {
             Ok(text) => text,
@@ -286,8 +289,15 @@ pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, 
 /// root and still be usable: start from what the binary has, edit one file,
 /// point the host at it.
 pub fn export_sources_to(root: &std::path::Path) -> std::io::Result<usize> {
+    let mut manifest: ambition_content_pack::ContentPackManifest = ron::from_str(&manifest_ron())
+        .map_err(std::io::Error::other)?;
+    for library in &mut manifest.libraries {
+        *library = source_root().join(&*library).canonicalize()?.to_string_lossy().into_owned();
+    }
+    let manifest = ron::ser::to_string_pretty(&manifest, ron::ser::PrettyConfig::default().depth_limit(2))
+        .map_err(std::io::Error::other)?;
     std::fs::create_dir_all(root)?;
-    std::fs::write(root.join("pack.ron"), manifest_ron())?;
+    std::fs::write(root.join("pack.ron"), manifest)?;
     let mut written = 0;
     for (declared, text) in embedded_sources() {
         let path = root.join(&declared);
@@ -433,6 +443,12 @@ pub(crate) fn install_selection(
     world: &mut bevy::ecs::world::World,
     pack: std::sync::Arc<PreparedContentPack>,
 ) {
+    #[cfg(feature = "static_content")]
+    let embedded = pack.root.as_os_str().is_empty().then_some(include!(concat!(env!("OUT_DIR"), "/content_pack/assets/libraries.rs")) as &'static [ambition_platformer2d::asset_manager::content_library::EmbeddedLibrary]);
+    #[cfg(not(feature = "static_content"))]
+    let embedded = None;
+    ambition_platformer2d::content::libraries::install(world, &pack.root, &pack.libraries, embedded)
+        .unwrap_or_else(|error| panic!("Content libraries: {error}"));
     world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
         identity_line(&pack),
     ));

@@ -69,6 +69,7 @@ pub struct SessionContents<'a, 'w, 's> {
 
 /// What the staged-actor constructor reads, from the generation being built.
 pub(crate) struct StagedActorAuthorities<'a> {
+    pub(crate) sprite_content: &'a ambition_sprite_sheet::SpriteContent,
     pub(crate) character_catalog:
         &'a ambition_characters::actor::character_catalog::CharacterCatalog,
     pub(crate) sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -106,7 +107,7 @@ impl<'w, 's> SessionContents<'_, 'w, 's> {
             );
             return None;
         };
-        let entity = ambition_platformer2d_actor_spawn::spawn_staged_actor(
+        let entity = ambition_platformer2d_actor_spawn::spawn_staged_actor(self.actors.sprite_content,
             self.commands,
             self.actors.character_catalog,
             self.actors.sheets,

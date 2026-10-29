@@ -23,6 +23,7 @@ fn draft(name: &str, files: &[(&str, &str)]) -> ContentPackDraft {
     ContentPackDraft::read_manifest(
         root,
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("test_cutscenes".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("test".into()),

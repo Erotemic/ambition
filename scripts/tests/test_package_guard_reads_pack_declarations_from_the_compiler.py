@@ -34,11 +34,11 @@ ABSENT = "audio/music/generated/unrendered/full.ogg"
 def repo(tmp_path, monkeypatch):
     """A two-root tree whose pack lists one cue file, and a compiler that
     answers for it."""
-    actors = tmp_path / guard.ACTOR_ASSET_ROOT
+    actors = tmp_path / guard.CONTENT_ASSET_ROOT
     content = tmp_path / guard.CONTENT_ASSET_ROOT
     (actors / PRESENT).parent.mkdir(parents=True)
     (actors / PRESENT).write_bytes(b"ogg")
-    (content / "audio").mkdir(parents=True)
+    (content / "audio").mkdir(parents=True, exist_ok=True)
     (content / "pack.ron").write_text('(sources: [(path: "audio/cues.ron", schema: "music_cue_catalog")])\n')
     # The field the pattern match misread: relative to `asset_root`.
     (content / "audio" / "cues.ron").write_text(

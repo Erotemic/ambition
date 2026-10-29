@@ -62,7 +62,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
+const SHADER_ASSET_PATH: &str = "embedded://ambition_render/rendering/hit_flash.wgsl";
 
 /// Hold the flash at full intensity for the first 80% of the timer, then fade
 /// to zero. A sudden cut reads as a missing frame.
@@ -141,6 +141,8 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
         ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
     >();
     // Android draws no flash, so its material's per-type systems are not paid.
+    #[cfg(not(target_os = "android"))]
+    bevy::asset::embedded_asset!(app, "hit_flash.wgsl");
     #[cfg(not(target_os = "android"))]
     app.add_plugins(bevy::sprite_render::Material2dPlugin::<HitFlashMaterial>::default());
 }

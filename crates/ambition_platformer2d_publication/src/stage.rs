@@ -734,7 +734,7 @@ mod tests {
         })
     }
 
-    fn prepare(spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
+    fn prepare(sprite_content: &ambition_sprite_sheet::SpriteContent, spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
@@ -745,7 +745,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
             )
                 .with_prepared(fixture_cast()),
         )
@@ -753,8 +753,9 @@ mod tests {
 
     #[test]
     fn equivalent_room_construction_has_stable_identity() {
-        let a = prepare(empty_spec("same")).expect("first plan");
-        let b = prepare(empty_spec("same")).expect("second plan");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let a = prepare(&sprite_content, empty_spec("same")).expect("first plan");
+        let b = prepare(&sprite_content, empty_spec("same")).expect("second plan");
         assert_eq!(a.id(), b.id());
         assert_eq!(
             a.predicted_authoritative_ids(),
@@ -764,6 +765,7 @@ mod tests {
 
     #[test]
     fn portal_gun_is_a_capability_owned_construction_lane() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut spec = empty_spec("portal-lane");
         spec.portal_gun_spawns
             .push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
@@ -773,7 +775,7 @@ mod tests {
                 half_extent: ae::Vec2::new(8.0, 6.0),
                 pair: 0,
             });
-        let plan = prepare(spec).expect("portal-gun room plan");
+        let plan = prepare(&sprite_content, spec).expect("portal-gun room plan");
         let gun = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("gun");
 
         assert!(
@@ -837,7 +839,7 @@ mod tests {
     /// rows declaring `mount_class: Some("giant")`. A character states its mount
     /// now (AC6), so the cast is the input that decides whether a placement
     /// lowers to a limbed host.
-    fn prepare_with(
+    fn prepare_with(sprite_content: &ambition_sprite_sheet::SpriteContent,
         spec: RoomSpec,
         cast: &ambition_characters::prepared::PreparedCharacterRegistry,
         epoch: ae::ContentEpoch,
@@ -852,7 +854,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(epoch),
+            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(epoch),
             ).with_prepared(cast),
         )
     }
@@ -921,13 +923,14 @@ mod tests {
     /// (spec JSON + authored id set) collided them.
     #[test]
     fn the_plan_id_tracks_the_derived_relation_payloads() {
-        let small = prepare_with(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let small = prepare_with(&sprite_content,
             giant_spec_sized("arena", 60.0),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("small-giant plan");
-        let large = prepare_with(
+        let large = prepare_with(&sprite_content,
             giant_spec_sized("arena", 70.0),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
@@ -945,14 +948,15 @@ mod tests {
     /// its host/hand rows AND their relations.
     #[test]
     fn the_plan_id_tracks_the_giant_expansion() {
-        let giant = prepare_with(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let giant = prepare_with(&sprite_content,
             giant_spec("arena"),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("giant plan");
         // Same spec, but the cast has no idea "giant_gnu" is a giant.
-        let plain = prepare_with(giant_spec("arena"), &giant_cast(None), ae::ContentEpoch(4))
+        let plain = prepare_with(&sprite_content, giant_spec("arena"), &giant_cast(None), ae::ContentEpoch(4))
             .expect("plain plan");
         assert_ne!(giant.id(), plain.id());
     }
@@ -961,13 +965,14 @@ mod tests {
     /// re-prepared content is a different transaction target.
     #[test]
     fn the_plan_id_tracks_the_content_epoch() {
-        let four = prepare_with(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let four = prepare_with(&sprite_content,
             giant_spec("arena"),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("epoch-4 plan");
-        let five = prepare_with(
+        let five = prepare_with(&sprite_content,
             giant_spec("arena"),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(5),
@@ -980,7 +985,8 @@ mod tests {
     /// giant host row that now carries the paths).
     #[test]
     fn the_plan_id_tracks_frozen_path_content() {
-        let bare = prepare_with(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let bare = prepare_with(&sprite_content,
             giant_spec("arena"),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
@@ -995,7 +1001,7 @@ mod tests {
                 ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
                 ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 24.0),
             ));
-        let pathed = prepare_with(with_path, &giant_cast(Some("giant")), ae::ContentEpoch(4))
+        let pathed = prepare_with(&sprite_content, with_path, &giant_cast(Some("giant")), ae::ContentEpoch(4))
             .expect("pathed plan");
         assert_ne!(bare.id(), pathed.id());
     }
@@ -1006,7 +1012,8 @@ mod tests {
     /// unexpected or legacy findings.
     #[test]
     fn a_giant_rooms_rosters_agree_from_plan_to_receipt_to_verifier() {
-        let plan = prepare_with(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let plan = prepare_with(&sprite_content,
             giant_spec("arena"),
             &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
@@ -1077,6 +1084,7 @@ mod tests {
 
     #[test]
     fn duplicate_authoritative_roots_fail_before_commit() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut spec = empty_spec("duplicate");
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0));
         spec.enemy_spawns
@@ -1099,7 +1107,7 @@ mod tests {
                     "combatant",
                 ),
             ));
-        let error = prepare(spec).expect_err("duplicate roots must fail preparation");
+        let error = prepare(&sprite_content, spec).expect_err("duplicate roots must fail preparation");
         assert!(matches!(
             error,
             RoomConstructionError::InvalidFeatures {
@@ -1116,6 +1124,7 @@ mod tests {
     /// receipt, and the authoritative bodies are already present.
     #[test]
     fn room_loaded_observes_a_fully_committed_room() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut spec = empty_spec("published");
         spec.moving_platforms
             .push(MovingPlatformState::from_authored(
@@ -1157,7 +1166,7 @@ mod tests {
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
             )
                 .with_prepared(fixture_cast()),
         )
@@ -1301,8 +1310,8 @@ mod tests {
         spec
     }
 
-    fn candidate_plan() -> RoomConstructionPlan {
-        candidate_plan_for(SessionSpawnScope::UNSCOPED)
+    fn candidate_plan(sprite_content: &ambition_sprite_sheet::SpriteContent) -> RoomConstructionPlan {
+        candidate_plan_for(&sprite_content, SessionSpawnScope::UNSCOPED)
     }
 
     /// The same plan, prepared under an explicit session.
@@ -1311,7 +1320,7 @@ mod tests {
     /// publishing into — see `session_root_for_scope`. An `UNSCOPED` plan can
     /// only ask *"which root is live"*, which is the wrong question the moment
     /// the root it belongs to is a hidden candidate.
-    fn candidate_plan_for(session: SessionSpawnScope) -> RoomConstructionPlan {
+    fn candidate_plan_for(sprite_content: &ambition_sprite_sheet::SpriteContent, session: SessionSpawnScope) -> RoomConstructionPlan {
         let mut staging = features::RoomContentStagingRegistry::default();
         staging
             .register("candidate", "test_provider", "occ", "occ.v1", |_room| {
@@ -1341,7 +1350,7 @@ mod tests {
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
             session,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
             )
                 .with_prepared(fixture_cast()),
         )
@@ -1486,6 +1495,7 @@ mod tests {
     /// publications would certify nothing about it.
     #[test]
     fn a_later_publication_does_not_invalidate_an_earlier_owners_receipt() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use super::transaction::{publication_succeeded, retire_publication};
 
         let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
@@ -1495,14 +1505,14 @@ mod tests {
             5.0,
         ));
 
-        let first = stage_and_keep_the_receipt(&mut app, candidate_plan(), outgoing);
+        let first = stage_and_keep_the_receipt(&mut app, candidate_plan(&sprite_content), outgoing);
         assert!(
             publication_succeeded(app.world(), first),
             "the fixture's premise: the first candidate publishes. Without that              this arm would be asking whether a refusal survives a later              publication, which is a different question"
         );
 
         // B begins — and finishes — while A's owner still holds A's handle.
-        let second = stage_and_keep_the_receipt(&mut app, candidate_plan(), Vec::new());
+        let second = stage_and_keep_the_receipt(&mut app, candidate_plan(&sprite_content), Vec::new());
         assert!(
             publication_succeeded(app.world(), first),
             "⛔ A LATER PUBLICATION ATE AN EARLIER OWNER'S RECEIPT. Every caller              whose writes are gated on `publication_succeeded` would skip them              because an unrelated room began publishing"
@@ -1594,9 +1604,10 @@ mod tests {
     /// session's body survived" would also be true of an id nothing plans.
     #[test]
     fn a_rooms_publication_retires_its_own_sessions_predecessor_and_not_another_sessions() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScopedEntity};
 
-        fn stage_beside(owner: SessionScopeId) -> (bool, bool) {
+        fn stage_beside(sprite_content: &ambition_sprite_sheet::SpriteContent, owner: SessionScopeId) -> (bool, bool) {
             let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
                 ae::Vec2::new(10.0, 20.0),
                 ae::Vec2::new(30.0, 8.0),
@@ -1614,7 +1625,7 @@ mod tests {
                 .id();
             stage_the_candidate(
                 &mut app,
-                candidate_plan_for(SessionSpawnScope::scoped(SessionScopeId(0))),
+                candidate_plan_for(&sprite_content, SessionSpawnScope::scoped(SessionScopeId(0))),
                 outgoing,
             );
             let published = app
@@ -1625,7 +1636,7 @@ mod tests {
         }
 
         // ⭐ THE CONTROL: this session's own predecessor IS superseded and retired.
-        let (published, survived) = stage_beside(SessionScopeId(0));
+        let (published, survived) = stage_beside(&sprite_content, SessionScopeId(0));
         assert!(
             published,
             "the control's room did not publish, so it says nothing about retirement"
@@ -1637,7 +1648,7 @@ mod tests {
         );
 
         // And the identical identity owned by ANOTHER session is left alone.
-        let (published, survived) = stage_beside(SessionScopeId(99));
+        let (published, survived) = stage_beside(&sprite_content, SessionScopeId(99));
         assert!(published, "the room refused over another session's identity");
         assert!(
             survived,
@@ -1666,6 +1677,7 @@ mod tests {
     /// `UnownedIdentity { sim_id: SimId("session:...") }`.
     #[test]
     fn a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(30.0, 8.0),
@@ -1695,7 +1707,7 @@ mod tests {
         // pose it. The fixture's root is `SessionRoot(SessionScopeId(0))`.
         stage_the_candidate(
             &mut app,
-            candidate_plan_for(SessionSpawnScope::scoped(
+            candidate_plan_for(&sprite_content, SessionSpawnScope::scoped(
                 ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
             )),
             outgoing,
@@ -1754,6 +1766,7 @@ mod tests {
     /// with its binding publishes.
     #[test]
     fn a_direct_root_with_no_content_binding_refuses_the_room() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -1776,7 +1789,7 @@ mod tests {
                     .remove::<super::transaction::ActiveContentBinding>();
             }
             let before = live_world(&mut app);
-            stage_the_candidate(&mut app, candidate_plan(), outgoing);
+            stage_the_candidate(&mut app, candidate_plan(&sprite_content), outgoing);
             let published = app
                 .world()
                 .resource::<crate::LastConstructionVerification>()
@@ -1799,6 +1812,7 @@ mod tests {
     /// wired into the construction path to produce it.
     #[test]
     fn a_refused_candidate_room_leaves_the_playable_world_untouched() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -1829,7 +1843,7 @@ mod tests {
             ),
         );
 
-        stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());
+        stage_the_candidate(&mut app, candidate_plan(&sprite_content), outgoing.clone());
 
         let verification = app
             .world()
@@ -1871,7 +1885,7 @@ mod tests {
         // under this room's transaction, so `retire_candidate` takes it with
         // everything else the candidate made.
         assert_eq!(
-            staged_worlds_alive(&mut app, &candidate_plan()),
+            staged_worlds_alive(&mut app, &candidate_plan(&sprite_content)),
             0,
             "a refused candidate left its staged world standing; a leak like that \
              is invisible to every assertion about the LIVE world"
@@ -1897,6 +1911,7 @@ mod tests {
     /// that far.
     #[test]
     fn a_room_that_would_seat_the_session_out_of_range_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -1907,7 +1922,7 @@ mod tests {
         let before = live_world(&mut app);
 
         // A plan whose target index is past the end of the live set of two.
-        let mut plan = candidate_plan();
+        let mut plan = candidate_plan(&sprite_content);
         plan.target_index = 7;
         stage_the_candidate(&mut app, plan, outgoing);
 
@@ -1944,6 +1959,7 @@ mod tests {
     /// believing it is in another.
     #[test]
     fn a_session_root_with_no_room_set_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component;
 
         let mut app = bevy::prelude::App::new();
@@ -1977,7 +1993,7 @@ mod tests {
             "the fixture's root carries a room set, so there is nothing to refuse"
         );
 
-        stage_the_candidate(&mut app, candidate_plan(), Vec::new());
+        stage_the_candidate(&mut app, candidate_plan(&sprite_content), Vec::new());
 
         let verification = app
             .world()
@@ -2014,6 +2030,7 @@ mod tests {
     /// activation commits through `spawn_contents` and stages no world at all.
     #[test]
     fn a_room_that_stages_a_world_with_no_session_root_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut app = bevy::prelude::App::new();
         ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
             app.world_mut(),
@@ -2027,7 +2044,7 @@ mod tests {
             "the fixture has a session root, so this arm is about something else"
         );
 
-        stage_the_candidate(&mut app, candidate_plan(), Vec::new());
+        stage_the_candidate(&mut app, candidate_plan(&sprite_content), Vec::new());
 
         let verification = app
             .world()
@@ -2098,6 +2115,7 @@ mod tests {
     /// re-seated as the minted instance (OW1 cut 3).
     #[test]
     fn a_staged_room_belongs_to_the_live_room_its_publication_mints() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -2110,7 +2128,7 @@ mod tests {
         >(app.world())
         .expect("the fixture has a live room root");
         assert_eq!(replaced, LiveRoomInstance::ACTIVATION);
-        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(replaced));
+        stage_the_candidate_as(&mut app, candidate_plan(&sprite_content), outgoing, Some(replaced));
 
         let live = *ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
             LiveRoomInstance,
@@ -2134,6 +2152,7 @@ mod tests {
     /// the two rooms could not be told apart.
     #[test]
     fn a_publication_writes_only_the_live_room_it_replaces() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_shared_tangle::lifecycle::{
             RoomInstanceRoot, SessionRoot, activation_room_root, session_world_component,
         };
@@ -2164,7 +2183,7 @@ mod tests {
 
         stage_the_candidate_as(
             &mut app,
-            candidate_plan(),
+            candidate_plan(&sprite_content),
             outgoing,
             Some(LiveRoomInstance::ACTIVATION),
         );
@@ -2279,6 +2298,7 @@ mod tests {
     /// #1 read `candidate` too.
     #[test]
     fn a_publication_seats_only_the_live_room_it_replaces_in_its_room() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
         let (mut app, outgoing) = two_live_rooms();
@@ -2287,7 +2307,7 @@ mod tests {
             vec![(first, "n".to_string()), (second, "n".to_string())],
             "control: the fixture's two live rooms do not both instantiate `n`"
         );
-        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
+        stage_the_candidate_as(&mut app, candidate_plan(&sprite_content), outgoing, Some(first));
         assert_eq!(
             live_room_definitions(&mut app),
             vec![(second, "n".to_string()), (third, "candidate".to_string())],
@@ -2317,13 +2337,14 @@ mod tests {
     /// (`StaleMint`) before anything is torn down.
     #[test]
     fn a_publication_mints_the_sessions_next_live_room() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
 
         let (mut app, outgoing) = two_live_rooms();
         stage_the_candidate_with(
             &mut app,
-            candidate_plan(),
+            candidate_plan(&sprite_content),
             outgoing,
             super::transaction::LiveRoomSuccession::replacing(first, second),
         );
@@ -2342,7 +2363,7 @@ mod tests {
         );
 
         let (mut app, outgoing) = two_live_rooms();
-        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
+        stage_the_candidate_as(&mut app, candidate_plan(&sprite_content), outgoing, Some(first));
         assert_eq!(
             live_rooms(&mut app),
             vec![(second, "elsewhere".to_string()), (third, "candidate".to_string())],
@@ -2370,10 +2391,11 @@ mod tests {
     /// body was superseded by a candidate in another room.
     #[test]
     fn a_publication_leaves_the_other_live_rooms_occupants_standing() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
         let first = LiveRoomInstance::ACTIVATION;
         let second = first.next();
-        let authored = candidate_plan()
+        let authored = candidate_plan(&sprite_content)
             .features
             .planned_sim_ids()
             .into_iter()
@@ -2392,7 +2414,7 @@ mod tests {
             let body = world
                 .spawn((authored.clone(), RoomScopedEntity, InRoomInstance(room)))
                 .id();
-            stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
+            stage_the_candidate_as(&mut app, candidate_plan(&sprite_content), outgoing, Some(first));
             let verification = app
                 .world()
                 .resource::<crate::LastConstructionVerification>()
@@ -2423,11 +2445,12 @@ mod tests {
     /// before this cut, a crossing always retired the room it left.
     #[test]
     fn a_publication_that_opens_a_live_room_leaves_the_room_it_leaves_whole() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use super::transaction::LiveRoomSuccession;
         use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
         let first = LiveRoomInstance::ACTIVATION;
         let second = first.next();
-        let authored = candidate_plan()
+        let authored = candidate_plan(&sprite_content)
             .features
             .planned_sim_ids()
             .into_iter()
@@ -2450,7 +2473,7 @@ mod tests {
             // A room that stays live retires nothing, so the crossing that
             // opens a room stages no outgoing roster.
             let outgoing = if succession.keeps_left() { Vec::new() } else { outgoing };
-            stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
+            stage_the_candidate_with(&mut app, candidate_plan(&sprite_content), outgoing, succession);
             let published = app
                 .world()
                 .resource::<crate::LastConstructionVerification>()
@@ -2500,6 +2523,7 @@ mod tests {
     /// there is refused.
     #[test]
     fn a_crossing_into_a_room_another_player_holds_joins_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use super::transaction::LiveRoomSuccession;
         use ambition_platformer2d_shared_tangle::lifecycle::{
             InRoomInstance, SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
@@ -2553,7 +2577,7 @@ mod tests {
                 ),
             ));
             let outgoing = if succession.keeps_left() { Vec::new() } else { outgoing };
-            stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
+            stage_the_candidate_with(&mut app, candidate_plan(&sprite_content), outgoing, succession);
             let verification = app
                 .world()
                 .resource::<crate::LastConstructionVerification>()
@@ -2675,6 +2699,7 @@ mod tests {
     /// refused as a second live room of it.
     #[test]
     fn a_reload_that_brings_a_room_set_keeps_the_other_live_rooms_rooms() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use super::transaction::{LiveRoomSuccession, StagedWorldViolation};
         use ambition_platformer2d_shared_tangle::lifecycle::{
             InRoomInstance, SessionRoot, activation_room_root, session_world_component, session_world_component_mut,
@@ -2692,7 +2717,7 @@ mod tests {
                 &features::RoomContentStagingRegistry::default(),
                 &ambition_boss_encounter::BossCatalog::default(),
                 SessionSpawnScope::UNSCOPED,
-                features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+                features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
                 )
                     .with_prepared(fixture_cast()),
             )
@@ -2787,6 +2812,7 @@ mod tests {
     /// room the session is not in.
     #[test]
     fn a_room_staged_for_a_stale_live_room_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -2802,7 +2828,7 @@ mod tests {
         );
         let before = live_world(&mut app);
         let stale = LiveRoomInstance::ACTIVATION;
-        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(stale));
+        stage_the_candidate_as(&mut app, candidate_plan(&sprite_content), outgoing, Some(stale));
 
         let verification = app
             .world()
@@ -2831,6 +2857,7 @@ mod tests {
     /// against another.
     #[test]
     fn a_room_whose_geometry_is_not_its_own_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -2841,7 +2868,7 @@ mod tests {
         let before = live_world(&mut app);
 
         // Index 0 is `n`; the plan still carries the candidate room's geometry.
-        let mut plan = candidate_plan();
+        let mut plan = candidate_plan(&sprite_content);
         plan.target_index = 0;
         stage_the_candidate(&mut app, plan, outgoing);
 
@@ -2873,6 +2900,7 @@ mod tests {
     /// N's bodies are swept, and all four pieces of world state move together.
     #[test]
     fn an_admitted_candidate_room_replaces_the_playable_world_completely() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let platform = MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -2880,7 +2908,7 @@ mod tests {
             10.0,
         );
         let (mut app, outgoing) = last_good_world(platform);
-        stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());
+        stage_the_candidate(&mut app, candidate_plan(&sprite_content), outgoing.clone());
 
         let verification = app
             .world()
@@ -2918,7 +2946,7 @@ mod tests {
         // entity still holding a replacement that has already been applied is a
         // second copy of the world waiting for somebody to apply again.
         assert_eq!(
-            staged_worlds_alive(&mut app, &candidate_plan()),
+            staged_worlds_alive(&mut app, &candidate_plan(&sprite_content)),
             0,
             "publication left the staged world standing after adopting it"
         );
@@ -2926,6 +2954,7 @@ mod tests {
 
     #[test]
     fn commit_receipt_matches_the_prepared_root_roster() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut spec = empty_spec("receipt");
         spec.enemy_spawns
             .push(ambition_platformer2d_world::rooms::Authored::new(
@@ -2937,7 +2966,7 @@ mod tests {
                     "combatant",
                 ),
             ));
-        let plan = prepare(spec).expect("plan");
+        let plan = prepare(&sprite_content, spec).expect("plan");
         let expected = plan.predicted_authoritative_ids().clone();
         let expected_id = plan.id().clone();
 
@@ -2991,7 +3020,8 @@ mod tests {
 
     #[test]
     fn plan_rejects_a_same_id_room_spec_changed_after_preparation() {
-        let plan = prepare(empty_spec("mutable")).expect("plan");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let plan = prepare(&sprite_content, empty_spec("mutable")).expect("plan");
         let mut changed = empty_spec("mutable");
         changed.world.spawn.x += 1.0;
         assert!(plan.matches_room_spec(plan.spec()));
@@ -3001,7 +3031,7 @@ mod tests {
     /// Prepare room `index` of a WORLD, against what that world remembers about
     /// its occurrences. The pair is one argument on purpose — see
     /// [`features::OccurrenceContinuity`].
-    fn prepare_in_world(
+    fn prepare_in_world(sprite_content: &ambition_sprite_sheet::SpriteContent,
         world: &[RoomSpec],
         index: usize,
         remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
@@ -3010,7 +3040,7 @@ mod tests {
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let mut construction =
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
+            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
         )
                 .with_prepared(fixture_cast());
         construction.continuity = Some(features::OccurrenceContinuity {
@@ -3060,6 +3090,7 @@ mod tests {
     /// put down elsewhere belongs to the room it is lying in.
     #[test]
     fn a_room_reinstates_an_occurrence_whose_record_lives_next_door() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut home = empty_spec("blink_run");
         home.ground_items
             .push(ambition_platformer2d_world::rooms::GroundItemSpec {
@@ -3077,13 +3108,13 @@ mod tests {
         // The baseline that makes the two claims below changes rather than
         // coincidences.
         let untouched = Default::default();
-        let plan = prepare_in_world(&world, 0, &untouched).expect("home plan");
+        let plan = prepare_in_world(&sprite_content, &world, 0, &untouched).expect("home plan");
         assert_eq!(
             planned_position(&plan, &axe),
             Some(ae::Vec2::new(10.0, 20.0)),
             "an untouched record is authored at its own coordinates"
         );
-        assert!(prepare_in_world(&world, 1, &untouched)
+        assert!(prepare_in_world(&sprite_content, &world, 1, &untouched)
             .expect("neighbour plan")
             .predicted_authoritative_ids()
             .is_empty());
@@ -3108,7 +3139,7 @@ mod tests {
 
         // HALF ONE: the room it is lying in builds it, at the position it was
         // left, from a record that room does not own.
-        let away = prepare_in_world(&world, 1, &remembered).expect("destination plan");
+        let away = prepare_in_world(&sprite_content, &world, 1, &remembered).expect("destination plan");
         assert_eq!(
             planned_position(&away, &axe),
             Some(left_at),
@@ -3134,7 +3165,7 @@ mod tests {
         );
 
         // HALF TWO: the room that authors the record does not build it.
-        let home_again = prepare_in_world(&world, 0, &remembered).expect("home plan");
+        let home_again = prepare_in_world(&sprite_content, &world, 0, &remembered).expect("home plan");
         assert_eq!(
             planned_position(&home_again, &axe),
             None,

@@ -748,7 +748,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "recreate stale repository-layout assumptions'. Fifteen commands and "
             "five test modules then recreated them anyway, in three different "
             "spellings, and when the worlds moved out of "
-            "`crates/ambition_platformer2d_actor_monolith/assets` every one of them broke: 11 of 149 "
+            "`game/ambition_content_library/generated/runtime` every one of them broke: 11 of 149 "
             "tests red on a clean tree, and a bare `ldtk edit measure` dying with "
             "FileNotFoundError because its `--ldtk` default pointed at a "
             "directory that had not existed for weeks (2026-07-28). A second "

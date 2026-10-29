@@ -69,6 +69,7 @@ fn narrow_torso() -> HurtboxDoc {
 /// let the production damage system resolve overlap against what was published.
 fn fight_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     // ⭐ ONE CALL, NOT A LIST. See `register_strike_outcome_messages`: these
     // apps hand-listed exactly the writers `apply_hitbox_damage` had, and a
     // fourth one added later panicked all of them inside `Main::run_main`.
@@ -401,6 +402,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     };
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     crate::schedule::configure_platformer2d_simulation_phases(&mut app);
     // The session gate (`simulation_authorized`) requires EXACTLY ONE `SessionRoot`, and every
     // gameplay set is nested inside it.

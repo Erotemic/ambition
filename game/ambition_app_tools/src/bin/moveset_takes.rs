@@ -167,7 +167,7 @@ fn presentation_census(world: &mut World) -> String {
 ///
 /// `None` when the character names no sheet, the sheet is not in this build,
 /// or the sheet has no row for the pose. The viewer then draws only the box.
-fn drawn_row_of(
+fn drawn_row_of(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     sheet_keys: &std::collections::HashMap<String, String>,
     worn: Option<&str>,
     playing: Option<&ambition_entity_catalog::MoveSpec>,
@@ -177,7 +177,7 @@ fn drawn_row_of(
         try_load_spec_for_target, SheetTuning,
     };
     let key = sheet_keys.get(worn?)?.clone();
-    let spec = try_load_spec_for_target(&key, &SheetTuning::default())?;
+    let spec = try_load_spec_for_target(&sprite_content, &key, &SheetTuning::default())?;
     // The move's own clip chain, as the renderer resolves it.
     // `first_bound_row` stops at the first row the sheet has, so a missing
     // `smash_forward` row falls back as it does in game.
@@ -210,6 +210,7 @@ fn drawn_row_of(
 /// Combat geometry comes from `CombatGeometryView` through
 /// `combat_observation`. This function does not resolve volumes itself.
 fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let mut frame = Frame::default();
     // Resolved every sample. The fighters are fixed, but what they own is
     // discovered each tick, because the move itself spawns the summon.
@@ -293,7 +294,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
                     // The row, not the pose name. A clip draws from a row the
                     // pose does not name, so the pose gives the wrong picture
                     // while a move plays.
-                    drawn_row_of(
+                    drawn_row_of(&sprite_content,
                         &sheet_keys,
                         worn.map(|w| w.id()),
                         play.map(|p| &*p.spec),

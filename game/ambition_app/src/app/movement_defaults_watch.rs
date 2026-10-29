@@ -17,8 +17,9 @@
 //! abilities. A change to them is reported, and a restart takes it.
 
 use ambition_platformer2d::assets::gameplay_defaults::{
-    Platformer2dGameplayDefaults, PLATFORMER_DEFAULTS_FILE,
+    Platformer2dGameplayDefaults,
 };
+use ambition_content::gameplay_defaults::PLATFORMER_DEFAULTS_FILE;
 use ambition_platformer2d::combat::feel::EditableFeelTuning;
 use ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning;
 use bevy::prelude::*;

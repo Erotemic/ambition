@@ -196,7 +196,7 @@ def test_the_ultrapack_path_still_caps_its_pages():
 
 import re as _re  # noqa: E402
 
-ACTORS_ROOT = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
+ACTORS_ROOT = REPO / "game/ambition_content_library/generated/runtime"
 
 # tier -> characters known to have no variant there. Shrinking this is the
 # improvement; a name appearing that is not listed means a character silently

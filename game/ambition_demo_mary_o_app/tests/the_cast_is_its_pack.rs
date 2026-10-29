@@ -13,11 +13,11 @@ use ambition_platformer2d::characters::brain::{BrainProfile, CharacterBrainTempl
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
 /// The idle body, in world units, at the scale the body was built with.
-fn idle_body(sheet: &str, body: Option<&BodySource>) -> bevy::prelude::Vec2 {
+fn idle_body(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sheet: &str, body: Option<&BodySource>) -> bevy::prelude::Vec2 {
     let Some(BodySource::SpriteAuthored { world_per_pixel }) = body else {
         panic!("`{sheet}` must be a body its sheet authors per pose, got {body:?}");
     };
-    ambition_platformer2d::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
         sheet,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
         *world_per_pixel,
@@ -28,6 +28,7 @@ fn idle_body(sheet: &str, body: Option<&BodySource>) -> bevy::prelude::Vec2 {
 
 #[test]
 fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -46,7 +47,7 @@ fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it()
     assert_eq!(small.sheet.as_deref(), Some("mary_o_v2"));
     assert_eq!(tall.sheet.as_deref(), Some("mary_o_v2_tall"));
     assert_eq!(fire.sheet.as_deref(), Some("mary_o_v2_fire"));
-    let her = idle_body("mary_o_v2", small.body.as_ref());
+    let her = idle_body(&sprite_content, "mary_o_v2", small.body.as_ref());
     assert!((her.y - 32.0).abs() < 1e-3, "small Mary-O stands one tile: {her:?}");
     for form in [tall, fire] {
         assert_eq!(
@@ -110,9 +111,9 @@ fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it()
         );
     }
     // The snake is two times as wide as she is; the slop is 35 wide.
-    let snake = idle_body("solid_snake", get("solid_snake").body.as_ref());
+    let snake = idle_body(&sprite_content, "solid_snake", get("solid_snake").body.as_ref());
     assert!((snake.x - 2.0 * her.x).abs() < 1e-3, "snake {snake:?}, Mary-O {her:?}");
-    let slop = idle_body("ai_slop", get("ai_slop").body.as_ref());
+    let slop = idle_body(&sprite_content, "ai_slop", get("ai_slop").body.as_ref());
     assert!((slop.x - 35.0).abs() < 1e-3, "slop {slop:?}");
 
     // The plane swarms: free flight at full effort, which a body that cannot

@@ -148,6 +148,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     // A fresh app with the recorded save: the body starts at the room's authored
     // spawn and must be moved to the checkpoint instead.
     let mut next = App::new();
+    next.insert_resource(ambition_sprite_sheet::SpriteContent::default());
     next.insert_resource(ambition_persistence::save::AmbitionGameSave(
         app.world()
             .resource::<ambition_persistence::save::AmbitionGameSave>()

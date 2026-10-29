@@ -14,7 +14,7 @@ crate-type = ["rlib"]
 # dev-only by construction: `#[cfg(test)]` does not cross a crate boundary,
 # and the monolith's boss-adjacent tests (damage routing, mount dissolution,
 # construction, spawn) build the same shapes. Enabled only from a
-# `[dev-dependencies]` edge so the fixtures never reach a shipping build.
+# A dev-dependency enables these fixtures for tests.
 test-support = []
 content_pack = ["dep:ambition_content_pack"]
 
@@ -70,3 +70,6 @@ ambition_mount = { path = "../ambition_mount" }
 # A clean downward edge: `_world` sees only asset_manager / _core /
 # entity_catalog / shared_tangle, so there is no cycle.
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+
+[dev-dependencies]
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }

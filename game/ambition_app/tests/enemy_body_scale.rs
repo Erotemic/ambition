@@ -28,8 +28,8 @@ const REFERENCE: &str = "player_robot_v3";
 
 const SUBJECTS: &[&str] = &["player_robot_v3", "solid_snake", "ai_slop", "mary_o_v2"];
 
-fn measured(target: &str) -> Option<(f32, f32, f32, f32)> {
-    let g = posed_body_geometry(target, CharacterAnim::Idle, 1.0)?;
+fn measured(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, target: &str) -> Option<(f32, f32, f32, f32)> {
+    let g = posed_body_geometry(&sprite_content, target, CharacterAnim::Idle, 1.0)?;
     Some((g.collision.x, g.collision.y, g.render.x, g.render.y))
 }
 
@@ -38,7 +38,8 @@ fn measured(target: &str) -> Option<(f32, f32, f32, f32)> {
 #[test]
 #[ignore]
 fn print_enemy_bodies_against_the_player() {
-    let Some((ref_w, ref_h, _, _)) = measured(REFERENCE) else {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let Some((ref_w, ref_h, _, _)) = measured(&sprite_content, REFERENCE) else {
         println!("[skip] no baked sheet for {REFERENCE} — run ./scripts/regen/sprites.sh");
         return;
     };
@@ -47,7 +48,7 @@ fn print_enemy_bodies_against_the_player() {
         "target", "collision", "render", "x_vs_p", "y_vs_p"
     );
     for target in SUBJECTS {
-        match measured(target) {
+        match measured(&sprite_content, target) {
             Some((cw, ch, rw, rh)) => println!(
                 "{target:>18} {:>6.0}x{:<6.0} {:>6.0}x{:<6.0} {:>7.2}x {:>7.2}x",
                 cw,
@@ -65,10 +66,11 @@ fn print_enemy_bodies_against_the_player() {
 /// The instrument cannot rot silently.
 #[test]
 fn the_enemy_body_report_is_actually_measuring_something() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // SKIP, not fail, when the baked art is absent: sheets are generated and
     // gitignored, so a clean checkout has none, and a source test that goes red
     // because a working tree was not rendered teaches people to ignore it.
-    let Some((ref_w, ref_h, _, _)) = measured(REFERENCE) else {
+    let Some((ref_w, ref_h, _, _)) = measured(&sprite_content, REFERENCE) else {
         eprintln!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
         return;
     };
@@ -77,7 +79,7 @@ fn the_enemy_body_report_is_actually_measuring_something() {
         "the reference body measured {ref_w}x{ref_h}, which is not a measurement"
     );
     for target in SUBJECTS {
-        let Some((cw, ch, rw, rh)) = measured(target) else {
+        let Some((cw, ch, rw, rh)) = measured(&sprite_content, target) else {
             panic!(
                 "`{target}` has no baked sheet while `{REFERENCE}` does, so the \
                  report above would print one row and look complete"
@@ -131,14 +133,14 @@ struct Publishers {
     stretch: f32,
 }
 
-fn publishers(catalog: &CharacterCatalog, id: &str) -> Option<Publishers> {
-    let derived = sprite_body_collision_for_character_id_in(
+fn publishers(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, catalog: &CharacterCatalog, id: &str) -> Option<Publishers> {
+    let derived = sprite_body_collision_for_character_id_in(&sprite_content,
         &Default::default(),
         catalog,
         id,
         LDTK_PLACEMENT,
     )?;
-    let spec = sheet_for_character_id_in(&Default::default(), catalog, id)?;
+    let spec = sheet_for_character_id_in(&sprite_content, &Default::default(), catalog, id)?;
     let frame = spec.frame_pixels();
     let body_px = spec.body_pixel_extent(CharacterAnim::Idle)?;
     let body = Vec2::new(derived.collision.x, derived.collision.y);
@@ -167,6 +169,7 @@ fn publishers(catalog: &CharacterCatalog, id: &str) -> Option<Publishers> {
 #[test]
 #[ignore]
 fn print_the_two_render_size_publishers() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let catalog = app.world().resource::<CharacterCatalog>();
     let mut ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
@@ -174,7 +177,7 @@ fn print_the_two_render_size_publishers() {
 
     let mut rows: Vec<(String, Publishers)> = Vec::new();
     for id in ids {
-        if let Some(measured) = publishers(catalog, id) {
+        if let Some(measured) = publishers(&sprite_content, catalog, id) {
             rows.push((id.clone(), measured));
         }
     }
@@ -247,6 +250,7 @@ fn print_the_two_render_size_publishers() {
 /// success condition.
 #[test]
 fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let catalog = app.world().resource::<CharacterCatalog>();
     let mut measured = 0usize;
@@ -254,7 +258,7 @@ fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
     let mut ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
     ids.sort();
     for id in ids {
-        let Some(m) = publishers(catalog, id) else {
+        let Some(m) = publishers(&sprite_content, catalog, id) else {
             continue;
         };
         measured += 1;
@@ -315,6 +319,7 @@ fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
 #[test]
 #[ignore]
 fn print_the_height_each_legacy_row_already_has() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     const BOXES: &[(&str, f32, f32)] = &[
         ("npc_bear_mauler", 48.0, 80.0),
         ("npc_boss", 48.0, 80.0),
@@ -343,7 +348,7 @@ fn print_the_height_each_legacy_row_already_has() {
         "character", "spawn box", "derived w x h"
     );
     for (id, w, h) in BOXES {
-        match sprite_body_collision_for_character_id_in(
+        match sprite_body_collision_for_character_id_in(&sprite_content,
             &Default::default(),
             catalog,
             id,

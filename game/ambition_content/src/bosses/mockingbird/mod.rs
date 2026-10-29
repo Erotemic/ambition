@@ -22,7 +22,7 @@ pub const SHARK_SHEET: &str = "burning_flying_shark";
 
 /// The state it is built with: the side it faces (its module chooses it from
 /// then on) and its drawn row. See [`ambition_boss_encounter::BossBirthKit`].
-pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
+pub fn birth(_content: &ambition_platformer2d::sprite_sheet::SpriteContent, scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
     scope.insert((
         ambition_boss_encounter::conduct::ConductedFacing::of_facing(body.facing),
         ambition_platformer2d::sprite_sheet::character::PinnedRow::default(),

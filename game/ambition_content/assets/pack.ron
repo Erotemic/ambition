@@ -24,6 +24,7 @@
     // Every identity this pack mints is `ambition:<schema>/<name>`. A third
     // party's cast can define its own `goblin` without colliding.
     namespace: "ambition",
+    libraries: ["../../ambition_content_library/library.json"],
     // Capabilities the content cannot work without, beyond the ones its
     // schemas' owners bring. Empty is honest today: the only migrated family is
     // the character catalog, whose owner (`characters`) is implied by the

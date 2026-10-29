@@ -1252,6 +1252,7 @@ mod pose_view_tests {
         };
         use bevy::prelude::{App, Update};
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<ShieldRingsView>();
         app.init_resource::<GuardBreaksView>();
         app.init_resource::<LaunchedBodiesView>();
@@ -1331,6 +1332,7 @@ mod pose_view_tests {
     fn a_posed_body_publishes_its_own_gravity_not_the_primary_bodys() {
         use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
         let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         // The primary body's mirror: straight down.
         app.insert_resource(ambition_platformer2d_shared_tangle::gravity::GravityField::default());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
@@ -1359,6 +1361,7 @@ mod pose_view_tests {
         use ambition_combat::moveset::MovePlayback;
 
         let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
         let kin = ambition_platformer2d_core::BodyKinematics {
@@ -1433,6 +1436,7 @@ mod pose_view_tests {
         use ambition_sprite_sheet::character::SpritePosedBody;
 
         let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
         let kin = ambition_platformer2d_core::BodyKinematics {
@@ -1494,6 +1498,7 @@ mod pose_view_tests {
         use ambition_platformer2d_core::{BodyMotionFacts, Vec2};
 
         let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<LaunchedBodiesView>();
         app.add_systems(bevy::prelude::Update, rebuild_launched_bodies_view);
 
@@ -1569,6 +1574,7 @@ mod pose_view_tests {
         use ambition_sprite_sheet::character::ActorAnimOverride;
 
         let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
         let kin = ambition_platformer2d_core::BodyKinematics {
@@ -1619,6 +1625,7 @@ mod posed_body_gate_tests {
     #[test]
     fn a_posed_body_gets_a_view_and_an_unmarked_body_does_not() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(Update, rebuild_body_pose_views);
         let kin = ambition_platformer2d_core::BodyKinematics {
             pos: ambition_platformer2d_core::Vec2::new(10.0, 20.0),

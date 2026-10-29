@@ -233,9 +233,10 @@ fn her_spark_is_born_at_her_throwing_hand() {
 /// fighter's state draws (`grab_hold`). Those are their owners' to guard.
 #[test]
 fn her_fire_sheet_has_the_row_a_firing_body_shows() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
-    let sheets = ambition_platformer2d::sprite_sheet::shared_baked_sheet_registry();
+    let sheets = ambition_platformer2d::sprite_sheet::shared_baked_sheet_registry(&sprite_content);
     let fire = sheets.get("mary_o_v2_fire").expect("her fire sheet is published");
     let rows: Vec<&str> = fire.rows.iter().map(|row| row.animation.as_str()).collect();
     assert!(

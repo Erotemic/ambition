@@ -185,8 +185,9 @@ fn wasm_modules() -> (
         .expect("the module file loads")
 }
 
-fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
+fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road: Road, technique: &Technique) -> (App, Vec<Entity>) {
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.init_schedule(Sim);
     app.add_message::<ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
@@ -224,7 +225,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
         LiveRoomInstance::ACTIVATION,
         ae::RoomGeometry(ae::World::new("arena", ae::Vec2::new(1792.0, 900.0), ae::Vec2::ZERO, Vec::new())),
     ));
-    let catalog = crate::bosses::shipped_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
     let player = app
         .world_mut()
         .spawn((
@@ -252,7 +253,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
     .into_iter()
     .enumerate()
     {
-        let mut boss = BossClusterScratch::new(
+        let mut boss = BossClusterScratch::new(&sprite_content,
             &catalog,
             format!("boss_{i}"),
             "Mockingbird",
@@ -294,8 +295,8 @@ fn move_player(app: &mut App, tick: usize) {
     }
 }
 
-fn run(road: Road, technique: &Technique, ticks: &[Tick], kill_boss_0_at: Option<usize>) -> Trace {
-    let (mut app, bosses) = world(road, technique);
+fn run(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road: Road, technique: &Technique, ticks: &[Tick], kill_boss_0_at: Option<usize>) -> Trace {
+    let (mut app, bosses) = world(&sprite_content, road, technique);
     let mut trace = Vec::new();
     for (index, tick) in ticks.iter().enumerate() {
         move_player(&mut app, index);
@@ -461,19 +462,20 @@ fn fired(trace: &Trace) -> usize {
 
 /// Hold the linked module to the native system on `ticks`; the number of
 /// requests the native system made.
-fn assert_module_matches_native(technique: &Technique, ticks: &[Tick], kill: Option<usize>) -> usize {
-    let native = run(Road::NativeSystem, technique, ticks, kill);
-    let module = run(Road::Module, technique, ticks, kill);
+fn assert_module_matches_native(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, technique: &Technique, ticks: &[Tick], kill: Option<usize>) -> usize {
+    let native = run(&sprite_content, Road::NativeSystem, technique, ticks, kill);
+    let module = run(&sprite_content, Road::Module, technique, ticks, kill);
     assert_eq!(module, native, "{}: the linked module", technique.key);
     fired(&native)
 }
 
 #[test]
 fn each_module_emits_what_its_native_system_emitted() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     for technique in ALL {
-        let fired = assert_module_matches_native(technique, STRIKES, None)
-            + assert_module_matches_native(technique, LOCKED, None)
-            + assert_module_matches_native(technique, LONG_STRIKES, None);
+        let fired = assert_module_matches_native(&sprite_content, technique, STRIKES, None)
+            + assert_module_matches_native(&sprite_content, technique, LOCKED, None)
+            + assert_module_matches_native(&sprite_content, technique, LONG_STRIKES, None);
         // The premise: the reference fired. (A volley without a telegraph
         // has no samples, so one arm alone can be empty.)
         assert!(fired > 0, "{}: the reference fired", technique.key);
@@ -482,6 +484,7 @@ fn each_module_emits_what_its_native_system_emitted() {
 
 #[test]
 fn a_boss_that_dies_mid_strike_matches_its_native_system() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let ticks: &[Tick] = &[
         telegraph(&[0]),
         press(&[(0, None)]),
@@ -493,17 +496,18 @@ fn a_boss_that_dies_mid_strike_matches_its_native_system() {
     for technique in ALL {
         // Dies on the third strike tick: late enough for apple rain's first
         // apple (0.4 s of strike).
-        let fired = assert_module_matches_native(technique, ticks, Some(3));
+        let fired = assert_module_matches_native(&sprite_content, technique, ticks, Some(3));
         assert!(fired > 0, "{}: the reference fired", technique.key);
     }
 }
 
 #[test]
 fn the_locked_target_is_the_one_taken_during_the_telegraph() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     // The premise of the LOCKED arms: the lock changes what fires. With the
     // player moving every tick, a beam fired at the live target lands
     // elsewhere than one fired at the lock.
-    let locked = run(Road::Module, &EYE_BEAM, LOCKED, None);
+    let locked = run(&sprite_content, Road::Module, &EYE_BEAM, LOCKED, None);
     let unlocked: Vec<Tick> = LOCKED
         .iter()
         .map(|t| Tick {
@@ -512,15 +516,16 @@ fn the_locked_target_is_the_one_taken_during_the_telegraph() {
         })
         .collect();
     let leaked: &'static [Tick] = Box::leak(unlocked.into_boxed_slice());
-    assert_ne!(run(Road::Module, &EYE_BEAM, leaked, None), locked);
+    assert_ne!(run(&sprite_content, Road::Module, &EYE_BEAM, leaked, None), locked);
 }
 
 #[test]
 fn each_wasm_build_emits_what_its_native_system_emitted() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     for technique in ALL {
         for ticks in [STRIKES, LOCKED, LONG_STRIKES] {
-            let native = run(Road::NativeSystem, technique, ticks, None);
-            let wasm = run(Road::Wasm, technique, ticks, None);
+            let native = run(&sprite_content, Road::NativeSystem, technique, ticks, None);
+            let wasm = run(&sprite_content, Road::Wasm, technique, ticks, None);
             assert_eq!(quantize(&wasm), quantize(&native), "{}", technique.key);
         }
     }

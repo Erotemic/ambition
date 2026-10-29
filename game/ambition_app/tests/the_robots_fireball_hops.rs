@@ -233,6 +233,7 @@ fn charge_and_birth() -> (Vec2, Vec2, BodyKinematics) {
 #[test]
 #[ignore = "a probe; run with --ignored"]
 fn probe_the_hand_the_charge_and_the_birth_in_sheet_pixels() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use crate::a_pet_hand_meets_the_contact_point::drawn_at;
     let (charge, born, body) = charge_and_birth();
     let mut sim = lab();
@@ -252,7 +253,7 @@ fn probe_the_hand_the_charge_and_the_birth_in_sheet_pixels() {
     let rows = ["aim", "shoot"].map(|row| {
         let frames = (0..16)
             .map_while(|i| {
-                std::panic::catch_unwind(|| drawn_at(&sheet.target, &[row], "near_hand", |n| if i < n { i } else { usize::MAX }))
+                std::panic::catch_unwind(|| drawn_at(&sprite_content, &sheet.target, &[row], "near_hand", |n| if i < n { i } else { usize::MAX }))
                     .ok()
             })
             .map(|p| format!("[{:.2},{:.2}]", p.x, p.y))

@@ -114,7 +114,7 @@ visible_web_base = [
     # this is the plain-Bevy-UI shell that replaces it.
     "basic_shell_presentation",
 ]
-visible_web = ["visible_web_base", "static_core_assets"]
+visible_web = ["visible_web_base"]
 visible_web_served = ["visible_web_base", "web_served", "web_audio"]
 web = ["visible_web", "web_platform"]
 web_served_assets = ["visible_web_served", "web_platform"]
@@ -146,13 +146,10 @@ static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
 # feature, so the hosted demos read no file either.
 static_content = [
     "ambition_content/static_content",
-    "ambition_platformer2d/static_content",
     "ambition_demo_sanic/static_content",
     "ambition_demo_mary_o/static_content",
     "ambition_demo_smash/static_content",
 ]
-static_core_assets = ["ambition_platformer2d/static_core_assets"]
-static_sfx_bank = ["ambition_platformer2d/static_sfx_bank"]
 android = [
     "visible",
     "android_platform",

@@ -15,7 +15,7 @@ python3 tools/ambition_sfx_pack/pack.py --dump
 Defaults:
 
 - input:  `tools/ambition_sfx_renderer/output/`
-- output: `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank`
+- output: `game/ambition_content_library/generated/runtime/audio/sfx.bank`
 - `--dump` also writes `sfx.bank.txt` alongside for diff-friendly inspection.
 
 ## Format

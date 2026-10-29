@@ -15,7 +15,7 @@ from pathlib import Path
 from district_kit import prop
 
 #: The published sheets, whose body boxes say where each prop's art is in its frame.
-SPRITES = Path(__file__).resolve().parents[3] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+SPRITES = Path(__file__).resolve().parents[3] / "game/ambition_content_library/generated/runtime/sprites"
 
 
 def body_box(kind: str) -> tuple[int, int, int, int]:

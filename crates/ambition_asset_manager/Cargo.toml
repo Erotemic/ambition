@@ -25,7 +25,6 @@ bevy = ["dep:bevy", "dep:futures-lite"]
 # Optional embedded bundles consumed by the sandbox catalog/source plugin.
 # The consuming game crate forwards these from its platform persona features.
 static_map = ["bevy"]
-static_core_assets = ["bevy"]
 
 # The asset manager stays backend-generic. Audio/SFX consumers resolve the
 # logical `audio.sfx_bank` id here, then construct their provider in the audio
@@ -54,7 +53,3 @@ futures-lite = { version = "2", optional = true }
 # behind `#[cfg(feature = "bevy")]` covers the Bevy adapter.
 serde_json = "1"
 tempfile = "3"
-
-[build-dependencies]
-serde = { workspace = true }
-serde_json = "1"

@@ -140,7 +140,7 @@ fn gameplay_app() -> App {
     // art rather than waiting for textures no rasterizer will ever ask for.
     app.world_mut()
         .remove_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionAssetContributor>();
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) * 2 {
         step(&mut app);
     }
     app.world_mut().write_message(ShellCommand::GoTo(

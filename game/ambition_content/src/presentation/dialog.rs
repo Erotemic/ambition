@@ -26,7 +26,7 @@ use ambition_render::dialog_ui::{
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::DialogView;
 use ambition_sprite_sheet::{
-    PortraitClipRecord, PortraitFrameRect, PortraitSheetRegistry, PortraitSheetRegistryPlugin,
+    PortraitClipRecord, PortraitFrameRect, PortraitSheetRegistry,
 };
 use ambition_ui_nav::DialogChoiceSlot;
 use bevy::prelude::*;
@@ -106,7 +106,7 @@ impl Plugin for AmbitionDialogUiPlugin {
         if !app.world().contains_resource::<crate::tuning::AmbitionTuning>() {
             crate::tuning::register(app);
         }
-        app.add_plugins(PortraitSheetRegistryPlugin)
+        app.add_plugins(ambition_platformer2d::sprite_sheet::SpriteContentPlugin)
             .init_resource::<AmbitionDialogPortraitCatalog>()
             .init_resource::<AmbitionDialogLayoutCache>()
             .init_resource::<AmbitionDialogPortraitPlayback>()
@@ -395,7 +395,7 @@ impl DialogChoiceWindow {
     }
 }
 
-fn sync_ambition_dialog_ui(
+fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
     dialogue: Res<DialogView>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
@@ -404,7 +404,6 @@ fn sync_ambition_dialog_ui(
     ui_fonts: Option<Res<UiFonts>>,
     character_catalog: Res<CharacterCatalog>,
     portrait_catalog: Res<AmbitionDialogPortraitCatalog>,
-    portrait_registry: Res<PortraitSheetRegistry>,
     // What providers REGISTERED, so a character that named a portrait TARGET in
     // Rust speaks with the face it asked for. `Option` because a composition
     // that registers nothing has no registry to read, not because the authority
@@ -427,6 +426,7 @@ fn sync_ambition_dialog_ui(
     tuning: Res<crate::tuning::AmbitionTuning>,
     pack: Res<crate::pack::SelectedContentPack>,
 ) {
+    let portrait_registry = ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&sprite_content).portraits();
     let viewport = windows
         .single()
         .ok()
@@ -442,7 +442,7 @@ fn sync_ambition_dialog_ui(
         || ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed())
         || character_catalog.is_changed()
         || portrait_catalog.is_changed()
-        || portrait_registry.is_changed()
+        || sprite_content.is_changed()
         || quality.as_ref().is_some_and(|quality| quality.is_changed())
         || tuning.is_changed()
         || pack.is_changed();
@@ -526,7 +526,7 @@ fn sync_ambition_dialog_ui(
     let portrait_image = portrait_image_path
         .zip(asset_server.as_deref())
         .map(|(path, server)| {
-            ambition_sprite_sheet::game_assets::load_sheet_image(server, "portrait", path)
+            ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content, server, "portrait", path)
         });
 
     let selected_marker = ui_fonts

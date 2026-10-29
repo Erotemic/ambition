@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,12 +30,21 @@ class Root:
     origin: str = "generated"
 
 
+def library_path(repo: Path) -> Path:
+    return repo / os.environ.get("AMBITION_CONTENT_LIBRARY", "game/ambition_content_library/library.json")
+
+
+def library(repo: Path) -> dict:
+    return json.loads(library_path(repo).read_text())
+
+
 def asset_root(repo: Path) -> Path:
-    return repo / "crates" / "ambition_platformer2d_actor_monolith" / "assets"
+    return library_path(repo).parent / library(repo)["asset_roots"]["generated"]
 
 
-def provenance_root(repo: Path) -> Path:
-    return repo / "crates" / "ambition_platformer2d_actor_monolith" / "asset_provenance"
+def provenance_root(repo: Path) -> Path | None:
+    path = library(repo).get("provenance")
+    return library_path(repo).parent / path if path else None
 
 
 TIERS = {"_0_5x": "half", "_0_25x": "quarter", "_potato": "potato"}
@@ -48,7 +58,7 @@ def roots(repo: Path) -> list[Root]:
     out = [Root("sprites", a / "sprites", origin="unmanaged")]
     out += [Root("sprites"+suffix, a / ("sprites"+suffix), tier, "sprites", "unmanaged") for suffix, tier in TIERS.items()]
     out.append(Root("sprite_packs", a / "sprite_packs", origin="unmanaged"))
-    published = art_files(a)
+    published = art_files(library_path(repo))
     managed = {"sprites", "sprite_packs"} | {"sprites" + suffix for suffix in TIERS}
     for name in sorted({logical.split("/", 1)[0] for logical in published} - managed):
         for base in (a, repo / "game/ambition_content/assets"):

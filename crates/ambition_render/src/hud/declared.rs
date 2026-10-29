@@ -650,7 +650,7 @@ impl RetainedHudImages {
     }
 
     /// The handle for `path`, loading it once and keeping it thereafter.
-    fn handle(&mut self, asset_server: &AssetServer, path: String) -> Handle<Image> {
+    fn handle(&mut self, sprite_content: &ambition_sprite_sheet::SpriteContent, asset_server: &AssetServer, path: String) -> Handle<Image> {
         if self.by_path.contains_key(&path) {
             self.served += 1;
         } else {
@@ -661,7 +661,7 @@ impl RetainedHudImages {
             .or_insert_with_key(|path| {
                 // Stamped like every other portrait load, so the ledger records its
                 // demand (a bare `load` shows as `demand=unknown`).
-                ambition_sprite_sheet::game_assets::load_sheet_image(
+                ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
                     asset_server,
                     "portrait",
                     path.clone(),
@@ -676,7 +676,7 @@ impl RetainedHudImages {
 ///
 /// Runs after the placer, like the gauges: a panel follows the position that
 /// frame settled on.
-pub fn update_declared_hud_panels(
+pub fn update_declared_hud_panels(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     readouts: Res<HudReadouts>,
     active: Res<ActiveHudDeclaration>,
     presentation: Res<ResolvedGameplayPresentation>,
@@ -760,7 +760,7 @@ pub fn update_declared_hud_panels(
             Some(path) => {
                 set_shown(&mut visibility);
                 // Through the retained cache, so a second visit does not re-decode.
-                let handle = retained_hud_images.handle(&asset_server, path);
+                let handle = retained_hud_images.handle(&sprite_content, &asset_server, path);
                 if image.image != handle {
                     image.image = handle;
                 }
@@ -796,7 +796,7 @@ pub fn update_declared_hud_panels(
         set_shown(&mut visibility);
         // Same cache as the portraits, for the same reason: the HUD holds the
         // only handle.
-        let handle = retained_hud_images.handle(&asset_server, path);
+        let handle = retained_hud_images.handle(&sprite_content, &asset_server, path);
         if image.image != handle {
             image.image = handle;
         }
@@ -1236,11 +1236,12 @@ mod retained_hud_image_tests {
     /// its own strong handle, so the image survives the HUD entity despawning.
     #[test]
     fn the_cache_keeps_a_handle_after_the_caller_drops_theirs() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let app = asset_app();
         let server = app.world().resource::<AssetServer>().clone();
         let mut retained = RetainedHudImages::default();
 
-        let handle = retained.handle(&server, "sprites/noether_portraits.png".to_string());
+        let handle = retained.handle(&sprite_content, &server, "sprites/noether_portraits.png".to_string());
         let id = handle.id();
         drop(handle);
 
@@ -1258,12 +1259,13 @@ mod retained_hud_image_tests {
     /// Control: two different portraits must not share one entry.
     #[test]
     fn different_portraits_keep_separate_entries() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let app = asset_app();
         let server = app.world().resource::<AssetServer>().clone();
         let mut retained = RetainedHudImages::default();
 
-        retained.handle(&server, "sprites/noether_portraits.png".to_string());
-        retained.handle(&server, "sprites/officer_portraits.png".to_string());
+        retained.handle(&sprite_content, &server, "sprites/noether_portraits.png".to_string());
+        retained.handle(&sprite_content, &server, "sprites/officer_portraits.png".to_string());
         assert_eq!(retained.by_path.len(), 2, "two portraits shared one entry");
     }
 }

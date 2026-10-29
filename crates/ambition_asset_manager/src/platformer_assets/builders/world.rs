@@ -7,7 +7,6 @@ use crate::{
     PreloadGroup,
 };
 
-use super::super::ids;
 use super::super::WorldCatalogRow;
 
 /// LDtk world entries, one per installed world row. A `required` row (the
@@ -59,19 +58,4 @@ pub(in super::super) fn extend_with_world_entries(
         }
         manifest.insert(entry);
     }
-}
-
-/// Sandbox tuning RON entry. Required — the game refuses to run without it. The
-/// catalog entry exists so code that asks for the Bevy path under a non-static
-/// profile gets a real answer.
-pub(in super::super) fn extend_with_data_entries(manifest: &mut AssetManifest) {
-    manifest.insert(
-        AssetEntry::new(
-            ids::sandbox_data(),
-            AssetKind::RonData,
-            "ambition/platformer_defaults.ron",
-        )
-        .with_missing_policy(MissingAssetPolicy::Error)
-        .with_preload_group(PreloadGroup::Bootstrap),
-    );
 }

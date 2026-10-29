@@ -164,6 +164,7 @@ dependencies = [
  "ambition_projectiles",
  "ambition_resource_spec",
  "ambition_sfx",
+ "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
  "bevy",
@@ -455,6 +456,7 @@ dependencies = [
 name = "ambition_content_cli"
 version = "0.1.0"
 dependencies = [
+ "ambition_asset_manager",
  "ambition_characters",
  "ambition_content_pack",
  "ambition_engine_schemas",
@@ -479,8 +481,10 @@ dependencies = [
 name = "ambition_content_pack"
 version = "0.1.0"
 dependencies = [
+ "ambition_asset_manager",
  "ron 0.11.0",
  "serde",
+ "serde_json",
  "serde_path_to_error",
  "thiserror 2.0.20",
 ]
@@ -1686,6 +1690,7 @@ dependencies = [
  "ambition_ui_nav",
  "ambition_vfx",
  "bevy",
+ "fontique",
  "image",
  "wgpu",
 ]
@@ -1810,6 +1815,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
+ "ambition_vfx",
  "bevy",
  "bincode",
  "blake3",

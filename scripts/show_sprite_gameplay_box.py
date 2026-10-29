@@ -42,7 +42,7 @@ import sys
 
 REPO = Path(__file__).resolve().parent.parent
 SHEET_DIRS = [
-    REPO / "crates/ambition_platformer2d_actor_monolith/assets/sprites",
+    REPO / "game/ambition_content_library/generated/runtime/sprites",
 ]
 
 # `PLAYER_PLACEHOLDER_VISUAL_SCALE` in

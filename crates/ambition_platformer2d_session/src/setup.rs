@@ -75,7 +75,7 @@ pub struct LiveInitialBodySetup<'w, 's> {
 
 impl LiveInitialBodySetup<'_, '_> {
     pub fn spawn(
-        &self,
+        &self, sprite_content: &ambition_sprite_sheet::SpriteContent,
         commands: &mut Commands,
         scope: SessionSpawnScope,
         world: &RoomGeometry,
@@ -88,7 +88,7 @@ impl LiveInitialBodySetup<'_, '_> {
             .body_inputs
             .single()
             .expect("a session that requests a home body must supply its resources and abilities");
-        simulation_world(
+        simulation_world(&sprite_content,
             commands,
             scope,
             SimulationSetup {
@@ -110,7 +110,7 @@ pub struct SimulationWorld {
     pub player: Option<Entity>,
 }
 
-pub fn simulation_world(
+pub fn simulation_world(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     params: SimulationSetup<'_>,
@@ -135,7 +135,7 @@ pub fn simulation_world(
         return SimulationWorld { player: None };
     };
 
-    let player = spawn_home_body(
+    let player = spawn_home_body(&sprite_content,
         commands,
         session_scope,
         HomeBody {
@@ -202,9 +202,9 @@ impl HomeBody<'_> {
         self.prepared_characters?.get(self.character.effective_id(self.default_character_id))
     }
 
-    pub(crate) fn placement_shape(&self) -> ae::BodySpawnShape {
+    pub(crate) fn placement_shape(&self, sprite_content: &ambition_sprite_sheet::SpriteContent) -> ae::BodySpawnShape {
         let definition = self.definition();
-        let size = definition.map(ambition_body_seed::PhysicalBaseline::of)
+        let size = definition.map(|prepared| ambition_body_seed::PhysicalBaseline::of(&sprite_content, prepared))
             .and_then(|physical| physical.standing_size())
             .unwrap_or_else(ae::default_player_body_size);
         let model = definition.map_or(
@@ -227,13 +227,13 @@ impl HomeBody<'_> {
 /// The body is session-scoped and not room-scoped, so a room replay does not
 /// sweep it. The room instance it is in comes from `session_scope`.
 ///
-pub fn spawn_home_body(
+pub fn spawn_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     body: HomeBody<'_>,
     markers: impl Bundle,
 ) -> Entity {
-    let physical = body.definition().map(ambition_body_seed::PhysicalBaseline::of);
+    let physical = body.definition().map(|prepared| ambition_body_seed::PhysicalBaseline::of(&sprite_content, prepared));
     let HomeBody {
         seat,
         at,
@@ -425,7 +425,7 @@ pub fn spawn_home_body(
     // does not hold gets the default movement identity.
     match prepared_characters.and_then(|registry| registry.get(worn_id).map(|p| (registry, p))) {
         Some((registry, prepared)) => {
-            ambition_platformer2d_actor_spawn::grant_prepared_character_body(
+            ambition_platformer2d_actor_spawn::grant_prepared_character_body(&sprite_content,
                 &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(
                     commands, player,
                 ),

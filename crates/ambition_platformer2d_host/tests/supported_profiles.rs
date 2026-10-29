@@ -260,6 +260,7 @@ fn a_profile_refuses_content_that_needs_a_capability_it_omits() {
     let needing = |capability: &str| {
         ContentPackDraft::from_sources(
             ContentPackManifest {
+            libraries: Vec::new(),
                 id: PackId("needs_one".into()),
                 version: PackVersion("1.0.0".into()),
                 namespace: ModuleNamespace("profile_test".into()),

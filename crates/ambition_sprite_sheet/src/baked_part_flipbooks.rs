@@ -19,13 +19,13 @@
 use crate::character::rigged::{RiggedSpriteAsset, RiggedSpriteError};
 
 /// One embedded table, as `build.rs` could read it.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BakedPartFlipbook {
     /// Read at build time and embedded as bincode.
     Encoded(&'static [u8]),
     /// The published RON text: a table `build.rs` could not read (the game
     /// then refuses it with the error the RON gives).
-    Ron(&'static str),
+    Ron(std::sync::Arc<str>),
     /// The published RON file, by its path: a development build's table. It
     /// is read when it is decoded.
     File(&'static str),
@@ -33,7 +33,7 @@ pub enum BakedPartFlipbook {
 
 impl BakedPartFlipbook {
     /// The flipbook, checked.
-    pub fn decode(self) -> Result<RiggedSpriteAsset, RiggedSpriteError> {
+    pub fn decode(&self) -> Result<RiggedSpriteAsset, RiggedSpriteError> {
         match self {
             Self::Encoded(bytes) => RiggedSpriteAsset::from_published_bytes(bytes),
             Self::Ron(text) => RiggedSpriteAsset::from_published_ron(text),
@@ -43,7 +43,6 @@ impl BakedPartFlipbook {
 }
 
 /// The flipbook of the published file `path`, through the development cache.
-#[cfg(any(not(embedded_sprites), test))]
 fn decode_published_file(path: &str) -> Result<RiggedSpriteAsset, RiggedSpriteError> {
     let file = std::path::Path::new(path);
     let cached = crate::published_cache::derived(
@@ -69,18 +68,13 @@ fn decode_published_file(path: &str) -> Result<RiggedSpriteAsset, RiggedSpriteEr
 }
 
 /// An embedded build has no file to read: `build.rs` writes no such row.
-#[cfg(not(any(not(embedded_sprites), test)))]
-fn decode_published_file(path: &str) -> Result<RiggedSpriteAsset, RiggedSpriteError> {
-    Err(RiggedSpriteError::Parse(format!("{path}: an embedded build reads no published file")))
-}
+
 
 /// The source of the structures a table's bincode is written with: a part of
 /// the cache key, so that a build with another structure reads no old bytes.
-#[cfg(any(not(embedded_sprites), test))]
 pub(crate) const PUBLISHED_SCHEMA_SOURCE: &str = include_str!("character/rigged/published.rs");
 
-#[cfg(embedded_sprites)]
-include!(concat!(env!("OUT_DIR"), "/baked_part_flipbooks.rs"));
+
 
 /// One published flipbook: `(key, table, file)`.
 pub type PartFlipbookRow = (&'static str, BakedPartFlipbook, &'static str);
@@ -88,37 +82,16 @@ pub type PartFlipbookRow = (&'static str, BakedPartFlipbook, &'static str);
 /// Every published flipbook as `(key, table, file)`, sorted by key. `file` is
 /// the published file on the host that built (or runs) the game. A part of
 /// the current sheet generation ([`crate::baked_sheet_rons::current`]).
-pub fn part_flipbooks() -> &'static [PartFlipbookRow] {
-    crate::baked_sheet_rons::current().part_tables().rows()
+pub fn part_flipbooks(content: &crate::SpriteContent) -> &[PartFlipbookRow] {
+    crate::baked_sheet_rons::current(&content).part_tables().rows()
 }
 
 /// The suffix of a part flipbook file after its key.
 pub const PART_FLIPBOOK_SUFFIX: &str = "_parts.ron";
 
-/// Each part flipbook file of the tree under `owner` and of its quality
-/// tiers, keyed as the table keys it, sorted by key.
-pub fn part_flipbook_files_under(owner: &std::path::Path) -> crate::sprite_tree::KeyedFiles {
-    crate::sprite_tree::companions(owner, PART_FLIPBOOK_SUFFIX, true)
-}
-
-/// The rows of the flipbook `files`, one for each key. The files are named
-/// and not read: a table is read when a sheet realizes it
-/// (`BakedPartFlipbook::File`).
-#[cfg(not(embedded_sprites))]
-pub(crate) fn rows_of(files: Vec<(String, std::path::PathBuf)>) -> Vec<PartFlipbookRow> {
-    use crate::published_tree::kept;
-    files
-        .into_iter()
-        .map(|(key, path)| {
-            let file = kept(path.display().to_string());
-            (kept(key), BakedPartFlipbook::File(file), file)
-        })
-        .collect()
-}
-
 /// The modification time of a development build's flipbook file; `None` for
 /// an embedded table, which cannot change.
-fn modified(table: BakedPartFlipbook) -> Option<std::time::SystemTime> {
+fn modified(table: &BakedPartFlipbook) -> Option<std::time::SystemTime> {
     match table {
         BakedPartFlipbook::File(path) => std::fs::metadata(path).and_then(|metadata| metadata.modified()).ok(),
         BakedPartFlipbook::Encoded(_) | BakedPartFlipbook::Ron(_) => None,
@@ -127,7 +100,7 @@ fn modified(table: BakedPartFlipbook) -> Option<std::time::SystemTime> {
 
 /// A landmark projection: `(target, bincode)` sorted by target, and its
 /// digest.
-pub(crate) type Landmarks = (Vec<(&'static str, &'static [u8])>, String);
+pub(crate) type Landmarks = (Vec<(&'static str, Vec<u8>)>, String);
 
 /// The part flipbooks of one sheet generation, and what is derived from
 /// them: each decoded full-resolution table and the landmark tables.
@@ -148,7 +121,7 @@ pub struct PartTables {
 impl PartTables {
     /// Tables decoded when first asked for.
     pub(crate) fn new(rows: Vec<PartFlipbookRow>) -> Self {
-        let tiers_seen = rows.iter().filter(|(key, ..)| key.contains('.')).map(|(key, table, _)| (*key, modified(*table))).collect();
+        let tiers_seen = rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_some()).map(|(key, table, _)| (*key, modified(table))).collect();
         Self { rows, parsed: Default::default(), landmarks: Default::default(), tiers_seen, decoded_landmarks: Default::default() }
     }
 
@@ -170,10 +143,11 @@ impl PartTables {
         let mut parsed = std::collections::HashMap::new();
         let mut failed = Vec::new();
         let mut all_kept = true;
-        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| !key.contains('.')) {
-            let seen = modified(*table);
+        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_none()) {
+            let seen = modified(table);
             match old.get(*key) {
-                Some((asset, was)) if seen.is_some() && *was == seen => {
+                Some((asset, was)) if seen.is_some() && *was == seen
+                    && previous.rows.iter().any(|(old_key, old_table, _)| old_key == key && old_table == table) => {
                     parsed.insert((*key).to_owned(), (asset.clone(), seen));
                 }
                 _ => {
@@ -188,9 +162,10 @@ impl PartTables {
             }
         }
         drop(old);
-        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| key.contains('.')) {
+        for (key, table, file) in tables.rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_some()) {
             let seen = tables.tiers_seen.get(key).copied().flatten();
-            if seen.is_some() && previous.tiers_seen.get(key) == Some(&seen) {
+            if seen.is_some() && previous.tiers_seen.get(key) == Some(&seen)
+                && previous.rows.iter().any(|(old_key, old_table, _)| old_key == key && old_table == table) {
                 continue;
             }
             if let Err(error) = table.decode() {
@@ -216,7 +191,7 @@ impl PartTables {
     /// not yet.
     pub(crate) fn decoded(&self, target: &str) -> Option<Result<RiggedSpriteAsset, RiggedSpriteError>> {
         let index = self.rows.binary_search_by(|(name, _, _)| (*name).cmp(target)).ok()?;
-        let table = self.rows[index].1;
+        let table = &self.rows[index].1;
         if let Some((asset, _)) = self.parsed.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(target) {
             return Some(Ok(asset.clone()));
         }
@@ -252,25 +227,27 @@ impl PartTables {
 }
 
 /// The published part flipbook under `key` (`<target>` or `<target>.<tier>`).
-pub fn baked_part_flipbook(key: &str) -> Option<BakedPartFlipbook> {
-    let tables = part_flipbooks();
-    tables.binary_search_by(|(name, _, _)| (*name).cmp(key)).ok().map(|index| tables[index].1)
+pub fn baked_part_flipbook(content: &crate::SpriteContent, key: &str) -> Option<BakedPartFlipbook> {
+    let key = crate::shared_baked_sheet_registry(content).canonical_key(key).unwrap_or(key);
+    let tables = part_flipbooks(&content);
+    tables.binary_search_by(|(name, _, _)| (*name).cmp(key)).ok().map(|index| tables[index].1.clone())
 }
 
 /// The RON text a table was built from, read from its file on the BUILDING
 /// host: for tests that publish a variant of a shipped table. `None` when the
 /// key is unpublished or the file is gone.
 #[doc(hidden)]
-pub fn published_ron_on_build_host(key: &str) -> Option<String> {
-    let tables = part_flipbooks();
+pub fn published_ron_on_build_host(content: &crate::SpriteContent, key: &str) -> Option<String> {
+    let key = crate::shared_baked_sheet_registry(content).canonical_key(key).unwrap_or(key);
+    let tables = part_flipbooks(&content);
     let index = tables.binary_search_by(|(name, _, _)| (*name).cmp(key)).ok()?;
     std::fs::read_to_string(tables[index].2).ok()
 }
 
 /// Every target that publishes a full-resolution part flipbook.
-pub fn baked_part_flipbook_targets() -> impl Iterator<Item = &'static str> {
-    part_flipbooks()
+pub fn baked_part_flipbook_targets(content: &crate::SpriteContent) -> impl Iterator<Item = &'static str> + '_ {
+    part_flipbooks(&content)
         .iter()
         .map(|(name, _, _)| *name)
-        .filter(|name| !name.contains('.'))
+        .filter(|name| crate::quality_variant_marker(name).is_none())
 }

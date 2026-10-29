@@ -987,34 +987,9 @@ impl PlatformerApp {
             });
         }
 
-        // ── Rule 1 ── before any AssetPlugin, in every face.
-        //
-        //  desktop only. `consumer_source` LAYERS a game's asset tree over the
-        // engine's by reading both from disk, and `#[cfg(not(wasm32))]` says so
-        // at its definition — on the web there is no engine root to layer under,
-        // because the served bundle already IS the merged tree. The refusal
-        // below is not a smaller version of the desktop behaviour; it is the
-        // statement that a declaration nobody can honour must not pass silently.
-        #[cfg(not(target_arch = "wasm32"))]
         for source in sources {
             use bevy::asset::AssetApp as _;
-            app.register_asset_source(
-                source.name,
-                crate::asset_manager::consumer_source::layered_asset_source(
-                    source.root,
-                    crate::asset_manager::actors_desktop_asset_root(),
-                ),
-            );
-        }
-        #[cfg(target_arch = "wasm32")]
-        if let Some(source) = sources.first() {
-            return Err(CompositionError {
-                stage: CompositionStage::Declaration,
-                problems: vec![format!(
-                    "asset source `{}://` layers a game tree over the engine's from                      DISK, which the web build has no way to do — the served bundle                      is already one merged tree. Ship the game's assets inside it                      rather than declaring a source.",
-                    source.name
-                )],
-            });
+            app.register_asset_source(source.name, bevy::asset::io::AssetSourceBuilder::platform_default(&source.root, None));
         }
 
         // ── Rules 2, 3, 4 ── the Bevy foundation.
@@ -1741,18 +1716,12 @@ pub fn default_plugins() -> bevy::app::PluginGroupBuilder {
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        use bevy::asset::AssetApp as _;
-        let root = crate::asset_manager::actors_desktop_asset_root();
-        app.register_asset_source(bevy::asset::io::AssetSourceId::Default,
-            crate::asset_manager::consumer_source::layered_asset_source(root.clone(), root));
-    }
+    #[cfg(feature = "content_pack")]
+    crate::content::libraries::register_sources(app, "assets");
     let window = matches!(display, Display::Window);
     let plugins = default_plugins()
         .set(bevy::asset::AssetPlugin {
-            // Rule 2: the engine knows where its own content is.
-            file_path: crate::asset_manager::actors_desktop_asset_root(),
+            file_path: "assets".to_owned(),
             ..Default::default()
         })
         .set(WindowPlugin {

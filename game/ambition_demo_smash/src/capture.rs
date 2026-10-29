@@ -37,6 +37,7 @@ use ambition_platformer2d::engine_core as ae;
     /// Every system is the production one; only the app is a fixture.
     fn chain_app() -> App {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::vfx::FxRequest>();
@@ -427,6 +428,7 @@ use ambition_platformer2d::engine_core as ae;
     #[test]
     fn an_authored_carry_key_becomes_a_carry_request() {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.add_message::<ActorActionMessage>();
         app.add_message::<CaptureAttemptRequested>();
         app.add_message::<CapturePummelRequested>();

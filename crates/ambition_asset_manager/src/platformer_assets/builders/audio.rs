@@ -1,32 +1,12 @@
 //! Audio builders: packed SFX bank + per-track music entries.
 
 use crate::{
-    AssetEntry, AssetKind, AssetLocation, AssetManifest, AssetSourceProfile, MissingAssetPolicy,
+    AssetEntry, AssetKind, AssetManifest, MissingAssetPolicy,
     PreloadGroup,
 };
 
 use super::super::ids;
 use super::super::MusicCatalogRow;
-
-/// Packed SFX bank entry. `WarnAndPlaceholder` matches the current
-/// runtime contract: a missing bank degrades to procedural / silent
-/// SFX instead of refusing to start.
-///
-/// `AMBITION_SFX_BANK_PATH` is honored as an explicit
-/// `LooseFilesystem` `LocationCandidate` so dev workflows can point
-/// the sandbox at a freshly-packed bank without re-publishing assets.
-pub(in super::super) fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest) {
-    let mut entry = AssetEntry::new(ids::sfx_bank(), AssetKind::AudioBank, "audio/sfx.bank")
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::SandboxCore);
-    if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {
-        entry = entry.with_location(
-            AssetSourceProfile::LooseFilesystem,
-            AssetLocation::LocalPath(std::path::PathBuf::from(env_path)),
-        );
-    }
-    manifest.insert(entry);
-}
 
 /// Music track entries, one per game-provided music row. Each resolves to a
 /// pre-rendered OGG path (the explicit `asset_path` override, else the game's

@@ -35,7 +35,7 @@ pub(crate) struct PresentationCatalogs<'w> {
 /// (`shell_host::ambition_activate_session_visuals`). The launcher/title route
 /// therefore renders over an empty stage with zero gameplay entities.
 #[cfg(feature = "audio")]
-pub(crate) fn setup_host_presentation_system(
+pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // Absent in a hub without Ambition (`hub_games`).
     prepared_world: Option<Res<ambition_content::provider::AmbitionPreparedWorld>>,
@@ -46,6 +46,7 @@ pub(crate) fn setup_host_presentation_system(
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    libraries: Res<ambition_platformer2d::asset_manager::content_library::ContentLibraries>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
     world_manifest: Option<Res<ambition_platformer2d::world::world_manifest::WorldManifest>>,
@@ -71,7 +72,7 @@ pub(crate) fn setup_host_presentation_system(
     // catalog is already complete and no rebuild happens.
     let rebuilt_catalog = hosted.is_some().then(|| {
         ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
-            &asset_config,
+            &libraries,            &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
             &music_registry,
@@ -82,7 +83,7 @@ pub(crate) fn setup_host_presentation_system(
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
 
-    let game_assets = actor_game_assets::load_game_assets(
+    let game_assets = actor_game_assets::load_game_assets(&sprite_content,
         &asset_config,
         &catalogs.characters,
         &catalogs.sheets,
@@ -128,6 +129,7 @@ pub(crate) fn setup_host_presentation_system(
     audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    libraries: Res<ambition_platformer2d::asset_manager::content_library::ContentLibraries>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
     world_manifest: Option<Res<ambition_platformer2d::world::world_manifest::WorldManifest>>,
@@ -141,7 +143,7 @@ pub(crate) fn setup_host_presentation_system(
         .unwrap_or_else(|error| panic!("host asset composition failed: {error}"));
     let rebuilt_catalog = hosted.is_some().then(|| {
         ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
-            &asset_config,
+            &libraries,            &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
             &music_registry,
@@ -191,8 +193,9 @@ pub(crate) fn setup_host_presentation_system(
 ///
 /// and it took two other things with it that nobody ever put back: the per-`Prop.kind` sheets
 /// and the realizations a host published itself without declaring them.
-pub(crate) fn reload_visual_quality_assets_on_scale_change(
+pub(crate) fn reload_visual_quality_assets_on_scale_change(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     quality: Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>,
+
     asset_config: Res<GameAssetConfig>,
     catalogs: PresentationCatalogs,
     asset_server: Res<AssetServer>,
@@ -216,7 +219,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     let Some(game_assets) = game_assets.as_deref_mut() else {
         return;
     };
-    let rebuilt = actor_game_assets::load_game_assets(
+    let rebuilt = actor_game_assets::load_game_assets(&sprite_content,
         &asset_config,
         &catalogs.characters,
         &catalogs.sheets,

@@ -37,7 +37,7 @@ def test_coverage_keeps_source_profile_and_runtime_fallback_separate(tmp_path):
     unit={'id':'target:body','kind':'actor','root':'sprites','generator':{'id':'body'},'required':['body_spritesheet.ron'],'optional':[],
           'source':{'available':['idle','death'],'selected':['idle']},'status':{'state':'current','tiers':{}},'repair':'publish'}
     prepared={'state':'available','characters':[{'id':'body','provider':'game','sheet_target':'body','catalog':{'manifest':'sprites/body_spritesheet.ron'},'required_actions':['death']}],
-              'sheets':{str(tmp_path/'crates/ambition_platformer2d_actor_monolith/assets/sprites/body_spritesheet.ron'):[{'key':'body','product':'body','target':'toon','rows':[{'name':'idle','valid':True}],
+              'sheets':{str(tmp_path/'game/ambition_content_library/generated/runtime/sprites/body_spritesheet.ron'):[{'key':'body','product':'body','target':'toon','rows':[{'name':'idle','valid':True}],
                   'pages':[{'exists':True}],'actions':{'death':{'state':'fallback','row':'idle','steps':['Death','Hit','Idle']}}}]}}
     report=assemble(tmp_path,{'units':{'target:body':unit},'complete':True},prepared,lineages={})
     coverage=report['identities']['game:body']['coverage'][0]

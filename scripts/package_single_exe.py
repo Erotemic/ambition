@@ -316,10 +316,7 @@ def verify_stands_alone(out: Path) -> None:
     itself."""
     if shutil.which("strace") is None:
         fail(2, "strace is not on PATH; it is how the file proves it stands alone")
-    asset_roots = (
-        str(REPO / package_asset_guard.ACTOR_ASSET_ROOT),
-        str(REPO / package_asset_guard.CONTENT_ASSET_ROOT),
-    )
+    asset_roots = (str(REPO) + "/",)
     env = {key: value for key, value in os.environ.items() if key not in ("BEVY_ASSET_ROOT", "CARGO_MANIFEST_DIR")}
     exe = str(out.resolve())
     with tempfile.TemporaryDirectory() as scratch:

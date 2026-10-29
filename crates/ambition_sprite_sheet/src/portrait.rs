@@ -4,7 +4,7 @@
 //! they have named clips, a required default clip, and no collision or actor
 //! geometry. The tool that produced the raster is outside this schema.
 
-use bevy::prelude::{App, Plugin, Rect, ResMut, Resource, Startup};
+use bevy::prelude::Rect;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use tracing::{info, warn};
@@ -133,23 +133,27 @@ impl PortraitSheetManifest {
 
 /// Runtime index of baked portrait manifests, keyed by the same asset-relative
 /// manifest path stored in character-catalog rows.
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PortraitSheetRegistry {
     manifests: HashMap<String, PortraitSheetManifest>,
     /// `target` → the manifest path it is indexed under. A second map, not a
     /// second copy: the manifest is owned once.
     by_target: BTreeMap<String, String>,
+    path_aliases: HashMap<String, String>,
+    target_aliases: HashMap<String, String>,
 }
 
 impl PortraitSheetRegistry {
-    pub fn from_baked_table(table: &[(&str, &str)]) -> Self {
+    pub fn from_baked_table<T: AsRef<str>>(table: &[(&str, T)]) -> Self {
         let mut registry = Self::default();
         let mut loaded = 0usize;
         for (asset_path, text) in table {
-            match parse_portrait_manifest(text) {
+            match parse_portrait_manifest(text.as_ref()) {
                 Ok(manifest) => {
                     let path = normalize_manifest_path(asset_path);
-                    let target = manifest.target.trim().to_string();
+                    let target = if path.contains("://") {
+                        crate::library::image_in(&path, manifest.target.trim())
+                    } else { manifest.target.trim().to_string() };
                     // A quality tier's manifest is the same target's cheaper
                     // product, found by its path (`tier_portrait`), not a
                     // second claim on the target.
@@ -173,16 +177,18 @@ impl PortraitSheetRegistry {
                 }
             }
         }
+        registry.path_aliases = crate::library_aliases(registry.manifests.keys().map(String::as_str));
+        registry.target_aliases = crate::library_aliases(registry.by_target.keys().map(String::as_str));
         info!("PortraitSheetRegistry: loaded {loaded} baked portrait manifests");
         registry
     }
 
     /// [`Self::from_baked_table`], or each manifest that does not parse,
     /// with its error.
-    pub(crate) fn checked(table: &[(&str, &str)]) -> Result<Self, Vec<(String, String)>> {
+    pub(crate) fn checked<T: AsRef<str>>(table: &[(&str, T)]) -> Result<Self, Vec<(String, String)>> {
         let failed: Vec<(String, String)> = table
             .iter()
-            .filter_map(|(path, text)| parse_portrait_manifest(text).err().map(|error| ((*path).to_owned(), error)))
+            .filter_map(|(path, text)| parse_portrait_manifest(text.as_ref()).err().map(|error| ((*path).to_owned(), error)))
             .collect();
         if failed.is_empty() {
             Ok(Self::from_baked_table(table))
@@ -192,7 +198,8 @@ impl PortraitSheetRegistry {
     }
 
     pub fn get(&self, manifest_path: &str) -> Option<&PortraitSheetManifest> {
-        self.manifests.get(&normalize_manifest_path(manifest_path))
+        let path = normalize_manifest_path(manifest_path);
+        self.manifests.get(self.path_aliases.get(&path).unwrap_or(&path))
     }
 
     /// A portrait target's manifest, and its path.
@@ -202,14 +209,15 @@ impl PortraitSheetRegistry {
     /// (`"sprites/alice_portraits.png"`). Without the path, the caller gets a
     /// filename that resolves to nothing (see `declared_art_resolves.rs`).
     pub fn manifest_for_target(&self, target: &str) -> Option<(&str, &PortraitSheetManifest)> {
-        let path = self.by_target.get(target.trim())?;
+        let target = self.target_aliases.get(target.trim()).map_or(target.trim(), String::as_str);
+        let path = self.by_target.get(target)?;
         Some((path.as_str(), self.manifests.get(path)?))
     }
 
     /// Every portrait target this registry can name, in stable order.
     /// `BTreeMap`, so a "did you mean" list is the same on every machine.
     pub fn available_targets(&self) -> impl Iterator<Item = &str> {
-        self.by_target.keys().map(String::as_str)
+        self.by_target.keys().chain(self.target_aliases.keys()).map(String::as_str).collect::<std::collections::BTreeSet<_>>().into_iter()
     }
 
     /// One frame to draw, for a consumer that wants a still portrait.
@@ -280,9 +288,10 @@ impl PortraitSheetRegistry {
         let suffix = scale.asset_id_suffix()?;
         let (tier_dir, _) = crate::sprite_tree::TIERS.iter().find(|(_, marker)| *marker == suffix)?;
         let in_tier = |path: &str| {
-            normalize_manifest_path(path)
-                .strip_prefix("sprites/")
-                .map(|rest| format!("{tier_dir}/{rest}"))
+            let normalized = normalize_manifest_path(path);
+            let (prefix, logical) = normalized.split_once("://").and_then(|(_, rest)| rest.split_once('/'))
+                .map_or((String::new(), normalized.as_str()), |(library, logical)| (format!("content://{library}/"), logical));
+            logical.strip_prefix("sprites/").map(|rest| format!("{prefix}{tier_dir}/{rest}"))
         };
         let manifest = in_tier(manifest_path)?;
         self.manifests.contains_key(&manifest).then_some((manifest, in_tier(image_path)?))
@@ -319,6 +328,7 @@ fn select_clip<'a>(
 
 /// The quality-tier folder a manifest path is in, if it is in one.
 fn tier_dir_of(path: &str) -> Option<&'static str> {
+    let path = path.split_once("://").and_then(|(_, rest)| rest.split_once('/')).map_or(path, |(_, path)| path);
     crate::sprite_tree::TIERS
         .iter()
         .map(|(dir, _)| *dir)
@@ -330,8 +340,8 @@ fn normalize_manifest_path(path: &str) -> String {
 }
 
 /// The portrait registry of the current sheet generation.
-pub fn baked_portrait_registry() -> PortraitSheetRegistry {
-    crate::baked_sheet_rons::current().portraits().clone()
+pub fn baked_portrait_registry(content: &crate::SpriteContent) -> PortraitSheetRegistry {
+    crate::baked_sheet_rons::current(&content).portraits().clone()
 }
 
 /// Every baked portrait target, sorted: the vocabulary a character's
@@ -340,26 +350,9 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
 /// provider need not supply it to get a typo caught.
 ///
 /// Read from the current sheet generation, which parses its portraits once.
-pub fn available_portrait_targets() -> Vec<&'static str> {
+pub fn available_portrait_targets(content: &crate::SpriteContent) -> Vec<&str> {
     // Sorted: the targets are the keys of a `BTreeMap`.
-    crate::baked_sheet_rons::current().portraits().available_targets().collect()
-}
-
-/// Install the compile-time portrait manifest index. Presentation code consumes
-/// this resource; simulation remains independent of portrait assets.
-pub struct PortraitSheetRegistryPlugin;
-
-impl Plugin for PortraitSheetRegistryPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<PortraitSheetRegistry>()
-            .add_systems(Startup, init_portrait_registry);
-    }
-}
-
-fn init_portrait_registry(mut registry: ResMut<PortraitSheetRegistry>) {
-    if registry.is_empty() {
-        *registry = baked_portrait_registry();
-    }
+    crate::baked_sheet_rons::current(&content).portraits().available_targets().collect()
 }
 
 /// Parse and validate one portrait manifest.
@@ -575,31 +568,7 @@ mod tests {
         assert!(error.contains("animated clip 'speaking' has zero duration"));
     }
 
-    #[test]
-    fn plugin_preserves_an_explicitly_injected_registry() {
-        let custom = PortraitSheetRegistry::from_baked_table(&[(
-            "sprites/custom_portraits.ron",
-            r#"(
-                target: "custom",
-                image: "custom_portraits.png",
-                frame_width: 16,
-                frame_height: 20,
-                default_clip: "default",
-                clips: {
-                    "default": (frames: [(x: 0, y: 0, w: 16, h: 20)]),
-                },
-            )"#,
-        )]);
-        let mut app = App::new();
-        app.insert_resource(custom);
-        app.add_plugins(PortraitSheetRegistryPlugin);
-        app.update();
-        assert!(app
-            .world()
-            .resource::<PortraitSheetRegistry>()
-            .get("sprites/custom_portraits.ron")
-            .is_some());
-    }
+
 
     #[test]
     fn missing_default_clip_is_rejected() {

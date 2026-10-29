@@ -332,6 +332,7 @@ mod tests {
         ContentPackDraft::read_manifest(
             root,
             ContentPackManifest {
+            libraries: Vec::new(),
                 id: PackId("test_cast".into()),
                 version: PackVersion("1.0.0".into()),
                 namespace: ModuleNamespace("test".into()),

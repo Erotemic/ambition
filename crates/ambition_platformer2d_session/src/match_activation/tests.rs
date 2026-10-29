@@ -75,6 +75,7 @@ fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainPro
 
 fn seating_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::SpriteContent::default());
     app.init_resource::<PreparedCharacterRegistry>();
     // The ordinal mint, which `activate_the_prepared_match` takes as `ResMut`
     // rather than `Option<ResMut>`: a composition that activates matches with

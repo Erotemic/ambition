@@ -86,6 +86,7 @@ fn a_draw_record_fits_the_planned_budget() {
 /// names, the same frame counts, the same frame size.
 #[test]
 fn the_pirate_flipbooks_realize_the_rows_of_their_sheets() {
+    let content = &crate::test_support::shared_sprites();
     for target in [
         "pirate_admiral",
         "pirate_lookout",
@@ -93,9 +94,9 @@ fn the_pirate_flipbooks_realize_the_rows_of_their_sheets() {
         "pirate_quartermaster",
         "pirate_raider",
     ] {
-        let asset = RiggedSpriteAsset::baked(target)
+        let asset = RiggedSpriteAsset::baked(&content, target)
             .unwrap_or_else(|| panic!("`{target}` publishes no part flipbook: run scripts/regen/sprites.sh"));
-        let record = crate::character::sheets::record_for_sheet_key(target).expect("a baked sheet");
+        let record = crate::character::sheets::record_for_sheet_key(&content, target).expect("a baked sheet");
         let rows: Vec<(&str, usize)> = record
             .rows
             .iter()
@@ -129,12 +130,13 @@ fn the_pirate_flipbooks_realize_the_rows_of_their_sheets() {
 /// the census that they shipped together.
 #[test]
 fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
+    let content = &crate::test_support::shared_sprites();
     use ambition_persistence::settings::TextureResolutionScale;
-    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets().collect();
+    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content).collect();
     let mut failures = Vec::new();
     for target in &targets {
-        let asset = RiggedSpriteAsset::baked(target).expect("listed");
-        let Some(record) = crate::character::sheets::record_for_sheet_key(target) else {
+        let asset = RiggedSpriteAsset::baked(&content, target).expect("listed");
+        let Some(record) = crate::character::sheets::record_for_sheet_key(&content, target) else {
             failures.push(format!("`{target}`: no published sheet"));
             continue;
         };
@@ -142,7 +144,7 @@ fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
             failures.push(format!("`{target}` {error}"));
         }
         for tier in [TextureResolutionScale::Half, TextureResolutionScale::Quarter, TextureResolutionScale::Potato] {
-            if let Some(Err(error)) = asset.for_tier(tier) {
+            if let Some(Err(error)) = asset.for_tier(&content, tier) {
                 failures.push(format!("`{target}` at {tier:?}: {error}"));
             }
         }
@@ -156,11 +158,12 @@ fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
 /// means parts; `realize: baked` (parts costlier than the sheet) is read back.
 #[test]
 fn a_flipbook_states_the_road_it_is_drawn_by() {
-    let parts = crate::baked_part_flipbooks::baked_part_flipbook_targets()
-        .filter_map(|target| RiggedSpriteAsset::baked(target))
+    let content = &crate::test_support::shared_sprites();
+    let parts = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content)
+        .filter_map(|target| RiggedSpriteAsset::baked(&content, target))
         .partition::<Vec<_>, _>(|asset| asset.realize == Realize::Parts);
     assert!(!parts.0.is_empty() && !parts.1.is_empty(), "both roads are published: {} parts, {} baked", parts.0.len(), parts.1.len());
-    let text = crate::baked_part_flipbooks::published_ron_on_build_host("director").expect("published");
+    let text = crate::baked_part_flipbooks::published_ron_on_build_host(&content, "director").expect("published");
     let baked = text.replacen("    placement:", "    realize: baked,\n    placement:", 1);
     assert_eq!(RiggedSpriteAsset::from_published_ron(&baked).unwrap().realize, Realize::Baked);
     assert_eq!(RiggedSpriteAsset::from_published_ron(&text).unwrap().realize, Realize::Parts);
@@ -169,11 +172,12 @@ fn a_flipbook_states_the_road_it_is_drawn_by() {
 /// A tier draws the same parts at the same size from its own smaller rects.
 #[test]
 fn a_tier_keeps_every_part_size_and_samples_its_own_rects() {
+    let content = &crate::test_support::shared_sprites();
     use ambition_persistence::settings::TextureResolutionScale;
-    let full = RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook");
+    let full = RiggedSpriteAsset::baked(&content, "pirate_raider").expect("a published flipbook");
     for tier in [TextureResolutionScale::Half, TextureResolutionScale::Quarter, TextureResolutionScale::Potato] {
         let tiered = full
-            .for_tier(tier)
+            .for_tier(&content, tier)
             .unwrap_or_else(|| panic!("no {tier:?} table: run generate_visual_quality_variants.py"))
             .expect("the tier table is this flipbook's");
         assert!(tiered.texel_scale < 1.0, "{tier:?}");
@@ -189,7 +193,7 @@ fn a_tier_keeps_every_part_size_and_samples_its_own_rects() {
             );
         }
     }
-    assert_eq!(full.for_tier(TextureResolutionScale::Full).unwrap().unwrap(), full);
+    assert_eq!(full.for_tier(&content, TextureResolutionScale::Full).unwrap().unwrap(), full);
 }
 
 /// Mary-O is drawn entirely from parts
@@ -198,12 +202,13 @@ fn a_tier_keeps_every_part_size_and_samples_its_own_rects() {
 /// with the sheet's frame count, at every tier.
 #[test]
 fn mary_os_flipbooks_draw_every_row_from_parts() {
+    let content = &crate::test_support::shared_sprites();
     use ambition_persistence::settings::TextureResolutionScale;
     for target in ["mary_o_v2", "mary_o_v2_tall", "mary_o_v2_fire"] {
-        let asset = RiggedSpriteAsset::baked(target).unwrap_or_else(|| {
+        let asset = RiggedSpriteAsset::baked(&content, target).unwrap_or_else(|| {
             panic!("`{target}` publishes no part flipbook: run scripts/regen/sprites.sh --target {target}")
         });
-        let record = crate::character::sheets::record_for_sheet_key(target).expect("a baked sheet");
+        let record = crate::character::sheets::record_for_sheet_key(&content, target).expect("a baked sheet");
         assert!(!record.rows.is_empty(), "`{target}` sheet has no rows");
         asset
             .check_rows(record.rows.iter().map(|row| row.animation.as_str()))
@@ -238,7 +243,7 @@ fn mary_os_flipbooks_draw_every_row_from_parts() {
             TextureResolutionScale::Potato,
         ] {
             let tiered = asset
-                .for_tier(tier)
+                .for_tier(&content, tier)
                 .unwrap_or_else(|| panic!("`{target}` has no {tier:?} table"))
                 .unwrap_or_else(|error| panic!("`{target}` {tier:?} {error}"));
             for row in &record.rows {
@@ -399,16 +404,13 @@ fn a_draw_tint_is_read_and_tweened() {
 /// build a table embedded as text is one the build could not read, and fails.
 #[test]
 fn every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is() {
+    let content = &crate::test_support::shared_sprites();
     use crate::baked_part_flipbooks::{part_flipbooks, published_ron_on_build_host, BakedPartFlipbook};
     let mut failures = Vec::new();
-    for (key, table, _) in part_flipbooks() {
-        let text = published_ron_on_build_host(key).expect("the published file");
+    for (key, table, _) in part_flipbooks(&content) {
+        let text = published_ron_on_build_host(&content, key).expect("the published file");
         let bytes: Vec<u8> = match table {
             BakedPartFlipbook::Encoded(bytes) => bytes.to_vec(),
-            BakedPartFlipbook::Ron(_) if cfg!(embedded_sprites) => {
-                failures.push(format!("`{key}`: embedded as text, the build could not read it"));
-                continue;
-            }
             BakedPartFlipbook::Ron(_) | BakedPartFlipbook::File(_) => {
                 let published = crate::sprite_tree::read_part_flipbook(&text).unwrap_or_else(|error| panic!("`{key}` {error}"));
                 bincode::serialize(&published).unwrap_or_else(|error| panic!("`{key}` {error}"))
@@ -420,15 +422,15 @@ fn every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is() {
         }
     }
     // ⛔ Premise: the census has a population.
-    assert!(part_flipbooks().len() >= 100, "only {} tables", part_flipbooks().len());
+    assert!(part_flipbooks(&content).len() >= 100, "only {} tables", part_flipbooks(&content).len());
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 /// `target`'s published flipbook, its body rig, and the rig's bindings.
-fn posed(target: &str) -> (RiggedSpriteAsset, ambition_characters::actor::PreparedBodyRig, PosedParts) {
-    let flipbook = RiggedSpriteAsset::baked(target).expect("a published flipbook");
+fn posed(content: &crate::SpriteContent, target: &str) -> (RiggedSpriteAsset, ambition_characters::actor::PreparedBodyRig, PosedParts) {
+    let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(
-        crate::baked_body_rigs::baked_body_rig(target).expect("a published body rig"),
+        crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig"),
     )
     .expect("the rig parses")
     .prepare()
@@ -488,8 +490,9 @@ fn joint_binding_measures_pixel_error_after_joint_scale() {
 /// character that publishes both; the pirates do not agree yet).
 #[test]
 fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
+    let content = &crate::test_support::shared_sprites();
     for target in ["mary_o_v2", "mary_o_v2_fire", "mary_o_v2_tall"] {
-        let (flipbook, rig, posed) = posed(target);
+        let (flipbook, rig, posed) = posed(&content, target);
         assert!(posed.frames_measured() > 0, "{target}: no clip shares its frames with the rig, so this measures nothing");
         let (mut joints, mut placed) = (Vec::new(), Vec::new());
         let mut compared = 0;
@@ -543,7 +546,8 @@ fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
 /// draw it.
 #[test]
 fn a_pose_no_clip_authored_moves_the_parts_that_ride_the_turned_joint() {
-    let (flipbook, rig, posed) = posed("mary_o_v2");
+    let content = &crate::test_support::shared_sprites();
+    let (flipbook, rig, posed) = posed(&content, "mary_o_v2");
     let mut joints = Vec::new();
     assert!(rig.solve("idle", 0, &mut joints));
     let idle = flipbook.frame("idle", 0).unwrap();
@@ -637,10 +641,11 @@ fn the_overhang_of_a_tweened_clip_covers_its_in_betweens() {
 /// published flipbook reaches past the overhang the flipbook states.
 #[test]
 fn no_in_between_of_a_published_flipbook_reaches_past_its_overhang() {
+    let content = &crate::test_support::shared_sprites();
     let mut out = Vec::new();
     let mut tweened = 0;
-    for key in crate::baked_part_flipbooks::baked_part_flipbook_targets() {
-        let asset = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
+    for key in crate::baked_part_flipbooks::baked_part_flipbook_targets(&content) {
+        let asset = RiggedSpriteAsset::baked(&content, key).expect("a published flipbook parses");
         let rows: Vec<String> = asset.clip_names().map(str::to_owned).collect();
         for row in rows {
             let clip = asset.clip(&row).unwrap();
@@ -679,8 +684,9 @@ fn a_blink_row_and_its_mirror_have_the_teleport_warp() {
 /// own blink; the lists printed below say which sheets those are.
 #[test]
 fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
+    let content = &crate::test_support::shared_sprites();
     let whole = |target: &str, row: &str| {
-        RiggedSpriteAsset::baked(target)
+        RiggedSpriteAsset::baked(&content, target)
             .unwrap_or_else(|| panic!("`{target}` has a published flipbook"))
             .row_draws_the_body_whole(row)
     };
@@ -700,8 +706,8 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
     // Each other sheet with a blink row, and what it says. Printed so the
     // set is read from the sheets and not from a list.
     let (mut own_blink, mut engine_blink) = (Vec::new(), Vec::new());
-    for target in crate::baked_part_flipbooks::baked_part_flipbook_targets() {
-        let Some(flipbook) = RiggedSpriteAsset::baked(target) else { continue };
+    for target in crate::baked_part_flipbooks::baked_part_flipbook_targets(&content) {
+        let Some(flipbook) = RiggedSpriteAsset::baked(&content, target) else { continue };
         if flipbook.clip("blink_out").is_none() {
             continue;
         }
@@ -735,13 +741,13 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
     // some published row, or it says "whole" of each row and decides nothing.
     // It was the sheets with a blink of their own, and since 2026-10-09 each
     // published blink row is a plain pose, so that set can be empty.
-    let not_whole: usize = crate::baked_part_flipbooks::baked_part_flipbook_targets()
-        .filter_map(RiggedSpriteAsset::baked)
+    let not_whole: usize = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content)
+        .filter_map(|target| RiggedSpriteAsset::baked(&content, target))
         .map(|flipbook| flipbook.clips.keys().filter(|row| !flipbook.row_draws_the_body_whole(row)).count())
         .sum();
     assert!(not_whole > 0, "control: each row of each published sheet draws the body whole");
     eprintln!("rows that do not draw the body whole, over all sheets: {not_whole}");
-    assert!(engine_blink.contains(&"player_robot_v3"));
+    assert!(engine_blink.contains(&crate::shared_baked_sheet_registry(content).canonical_key("player_robot_v3").unwrap()));
     eprintln!("the engine's blink: {engine_blink:?}");
     eprintln!("their own blink: {own_blink:?}");
 }
@@ -755,6 +761,7 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
 #[test]
 #[ignore = "a measurement of the published tables; run by name"]
 fn measure_the_memory_the_warm_up_keeps() {
+    let content = &crate::test_support::shared_sprites();
     fn resident_kib() -> u64 {
         std::fs::read_to_string("/proc/self/status")
             .ok()
@@ -766,7 +773,7 @@ fn measure_the_memory_the_warm_up_keeps() {
             })
             .unwrap_or(0)
     }
-    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets().collect();
+    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content).collect();
     let before = resident_kib();
     let started = std::time::Instant::now();
     // The slowest table is the stall a first use pays without the warm-up.
@@ -774,7 +781,7 @@ fn measure_the_memory_the_warm_up_keeps() {
     let mut decoded = 0;
     for target in &targets {
         let one = std::time::Instant::now();
-        if RiggedSpriteAsset::baked_checked(target).is_some_and(|asset| asset.is_ok()) {
+        if RiggedSpriteAsset::baked_checked(&content, target).is_some_and(|asset| asset.is_ok()) {
             decoded += 1;
         }
         slowest = slowest.max((one.elapsed(), target));

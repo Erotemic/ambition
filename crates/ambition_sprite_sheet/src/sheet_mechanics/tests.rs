@@ -85,14 +85,3 @@ fn the_records_are_a_sequence_with_boundaries() {
     one.rows.push(moved);
     assert_ne!(both, sheet_mechanics_digest([&one, &two]));
 }
-
-/// The baked digest is the projection of this build's records in key order.
-#[test]
-fn the_baked_digest_is_this_builds_records_in_key_order() {
-    use crate::character::sheets::{available_sheet_keys, baked_sheet_mechanics_digest, record_for_sheet_key};
-    let records: Vec<&SheetRecord> = available_sheet_keys()
-        .into_iter()
-        .map(|key| record_for_sheet_key(key).expect("a listed key has a record"))
-        .collect();
-    assert_eq!(baked_sheet_mechanics_digest(), sheet_mechanics_digest(records));
-}

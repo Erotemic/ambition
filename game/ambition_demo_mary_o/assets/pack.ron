@@ -15,6 +15,7 @@
     version: "0.1.0",
     // Every identity this pack mints is `mary_o_demo:<schema>/<name>`.
     namespace: "mary_o_demo",
+    libraries: ["../../ambition_content_library/library.json"],
     requires: [],
     sources: [
         // The cast: every row is a character the demo registers.

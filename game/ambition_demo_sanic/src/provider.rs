@@ -43,9 +43,9 @@ pub fn start_at_act(act: u32) -> Result<(), String> {
     Ok(())
 }
 
-pub fn sanic_session_world() -> SanicSessionWorld {
+pub fn sanic_session_world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> SanicSessionWorld {
     let start = START_ROOM.get().copied().unwrap_or(SPEEDWAY_ROOM_ID);
-    let rooms = vec![sanic_speedway(), sanic_highway(), sanic_darkness()];
+    let rooms = vec![sanic_speedway(sprite_content), sanic_highway(sprite_content), sanic_darkness(sprite_content)];
     let geometry = ae::RoomGeometry(
         rooms
             .iter()
@@ -142,8 +142,8 @@ impl Plugin for SanicExperiencePlugin {
 }
 
 /// The provider's authored speedway source for the shared preparation lifecycle.
-fn sanic_prepared_session_world() -> PreparedPlatformerSource {
-    let source = sanic_session_world();
+fn sanic_prepared_session_world(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>) -> PreparedPlatformerSource {
+    let source = sanic_session_world(&sprite_content);
     PreparedPlatformerSource::new(
         SANIC_EXPERIENCE,
         source.room_set,

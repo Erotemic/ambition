@@ -8,7 +8,7 @@ use bevy::prelude::{App, Plugin};
 
 use crate::AssetProfile;
 
-include!(concat!(env!("OUT_DIR"), "/embedded_core.rs"));
+
 
 /// Registers embedded catalog assets and installed world JSON with Bevy.
 ///
@@ -55,17 +55,7 @@ pub struct EmbeddedWorldAsset {
     pub text: &'static str,
 }
 
-/// Insert every embedded asset's bytes into Bevy's
-/// [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under the
-/// URLs the catalog's `Embedded` candidates point at.
-///
-/// Two independent feature gates:
-/// - `static_map` — LDtk world JSON (sandbox + intro).
-/// - `static_core_assets` — UI fonts + primary character sheets + core
-///   entity sprites (see [`embedded_core`] for the URL constants).
-///
-/// Add core URL and path rows to `embedded_core.json`. The build script
-/// embeds the selected bundle member. Catalog candidates name the same URL.
+/// Register the embedded worlds supplied by the game.
 #[allow(unused_variables)]
 fn register_embedded_assets(app: &mut App, embedded_worlds: &[EmbeddedWorldAsset]) {
     // World JSON: every installed WorldManifest row that carries embedded
@@ -85,6 +75,5 @@ fn register_embedded_assets(app: &mut App, embedded_worlds: &[EmbeddedWorldAsset
             );
         }
     }
-    #[cfg(feature = "static_core_assets")]
-    register_embedded_core_assets(app);
+
 }

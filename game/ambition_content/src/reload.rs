@@ -635,10 +635,12 @@ fn stage_cast_from_catalog(
     pack: &ambition_content_pack::PreparedContentPack,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Result<(), String> {
+
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
-    for definition in crate::character_catalog::buildable_definitions(catalog, pack, rigs_admitted)
+    for definition in crate::character_catalog::buildable_definitions(&sprite_content, catalog, pack, rigs_admitted)
     {
-        let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(
+        let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(&sprite_content,
             ambition_characters::prepared::CharacterBindings::default(),
         );
         ambition_characters::prepared::stage_character_revision_in(world, definition, &bindings)
@@ -677,6 +679,7 @@ fn candidate_bosses(
     world: &bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<Option<CandidateBosses>, String> {
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let changes_bosses = crate::pack::selected(world).is_some_and(|active| {
         ambition_content_pack::changed_domains(active, pack)
             .iter()
@@ -688,7 +691,7 @@ fn candidate_bosses(
     let registry = world
         .get_resource::<ambition_boss_encounter::BossCatalogRegistry>()
         .ok_or("this App registers no boss catalog")?;
-    let fragment = crate::bosses::boss_catalog_fragment_from(pack)?;
+    let fragment = crate::bosses::boss_catalog_fragment_from(&sprite_content, pack)?;
     let (registry, catalog) = registry.with_replaced(fragment).map_err(|error| error.to_string())?;
     Ok(Some(CandidateBosses { registry, catalog }))
 }
@@ -886,13 +889,14 @@ fn candidate_content_graph(
     world: &bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<(), Vec<String>> {
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let Some(project) = world.get_resource::<ambition_platformer2d_ldtk::ActiveLdtkProject>() else {
         return Ok(());
     };
     let music = ambition_audio::content_schema::lowered_music_registry(pack)
         .cloned()
         .unwrap_or_else(|| ambition_audio::spec::MusicRegistry { default_track: String::new(), tracks: Vec::new() });
-    let report = crate::content_validation::validate_content_graph(
+    let report = crate::content_validation::validate_content_graph(&sprite_content,
         pack,
         &music,
         &project.0,

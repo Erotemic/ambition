@@ -229,16 +229,16 @@ impl RoomPowerBlocks {
 /// for all three, so a per-form scale would make her wider when she grows, and
 /// a grow would wedge her in a gap she fit.
 #[cfg(test)]
-pub(crate) fn mary_o_world_per_pixel() -> f32 {
-    crate::pack::PACK.posed_body_world_per_pixel(MARY_O_CHARACTER_ID)
+pub(crate) fn mary_o_world_per_pixel(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> f32 {
+    crate::pack::PACK.posed_body_world_per_pixel(&sprite_content, MARY_O_CHARACTER_ID)
 }
 
 /// The small form's body rectangle height in SHEET PIXELS, or `None` when no
 /// record is baked. Separated so a test can ask whether the art resolved at all
 /// — the scale above cannot report that, since its fallback is a real number.
 #[cfg(test)]
-pub(crate) fn small_form_pixel_height() -> Option<f32> {
-    ambition_platformer2d::character_sprites::posed_body_geometry(
+pub(crate) fn small_form_pixel_height(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> Option<f32> {
+    ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
         SMALL_SHEET_TARGET,
         CharacterAnim::Idle,
         1.0,
@@ -263,11 +263,11 @@ pub(crate) const FIRE_SHEET_TARGET: &str = "mary_o_v2_fire";
 /// makes, at the scale her cast is built with, so a gap measured with it and
 /// the body that walks into it cannot disagree.
 #[cfg(test)]
-pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
-    ambition_platformer2d::character_sprites::posed_body_geometry(
+pub(crate) fn form_body_size(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, target: &str) -> ae::Vec2 {
+    ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
         target,
         CharacterAnim::Idle,
-        mary_o_world_per_pixel(),
+        mary_o_world_per_pixel(&sprite_content),
     )
     .expect("her form's sheet is baked")
     .collision
@@ -276,8 +276,8 @@ pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
 /// How tall she gets — asked of the grown form's ART, not multiplied out of the
 /// small one.
 #[cfg(test)]
-pub(crate) fn tall_body_size() -> ae::Vec2 {
-    form_body_size(TALL_SHEET_TARGET)
+pub(crate) fn tall_body_size(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ae::Vec2 {
+    form_body_size(&sprite_content, TALL_SHEET_TARGET)
 }
 
 /// A weaker form on the FLOOR is refused too, not just one from a block.
@@ -834,7 +834,7 @@ fn beacon_reward() -> PowerReward {
 /// the no-pushout rule; shrinking lowers her the same way. Swapping [`WornCharacter`]
 /// re-derives her kit/sprite through the engine's `apply_worn_character_gameplay`;
 /// the tall row's kit is byte-identical, so only her look and size change.
-pub fn sync_grown_form(
+pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut players: Query<
         (
             bevy::prelude::Entity,
@@ -899,7 +899,7 @@ pub fn sync_grown_form(
         // the same beat the growth does. Same shape as the cue above: the transition picks it.
         commands.entity(body).try_insert(
             ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested(
-                transform_beat_policy(
+                transform_beat_policy(&sprite_content,
                     catalog.as_deref(),
                     authored.as_deref(),
                     target_id,
@@ -931,7 +931,7 @@ pub fn sync_grown_form(
 /// stretches its own clip by 1/0.6 in wall seconds, and the beat's wall timer
 /// has to cover that or the clip is cut short by exactly the dilation it asked
 /// for.
-fn transform_beat_policy(
+fn transform_beat_policy(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
     target_id: &str,
@@ -949,7 +949,7 @@ fn transform_beat_policy(
         1.0
     };
     ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy {
-        duration: clip_seconds(catalog, authored, target_id, anim) / clock_scale,
+        duration: clip_seconds(&sprite_content, catalog, authored, target_id, anim) / clock_scale,
         anim,
         clock_scale,
         untouchable: true,
@@ -981,7 +981,7 @@ fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
 /// Resolved through the sheet's anim set exactly as the drawing will be, so a
 /// form that never drew the clip answers with the length of whatever it falls
 /// back to — the beat then lasts as long as what the player actually sees.
-pub(crate) fn clip_seconds(
+pub(crate) fn clip_seconds(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
     character_id: &str,
@@ -990,7 +990,7 @@ pub(crate) fn clip_seconds(
     let (Some(catalog), Some(authored)) = (catalog, authored) else {
         return UNREADABLE_CLIP_SECS;
     };
-    ambition_platformer2d::sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(
+    ambition_platformer2d::sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(&sprite_content,
         authored,
         catalog.data(),
         character_id,
@@ -1166,6 +1166,7 @@ mod tests {
     /// the catalog had no vote at all and this could not move.
     #[test]
     fn a_forms_beat_is_as_long_as_the_sheet_its_catalog_row_names() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::character::{AuthoredSheets, CharacterCatalog};
         use ambition_platformer2d::characters::actor::character_catalog::parse_catalog;
 
@@ -1177,7 +1178,7 @@ mod tests {
         // ⛔ THE PREMISE. A form whose sheet cannot be read answers with
         // `UNREADABLE_CLIP_SECS`, and every assertion below would then be
         // comparing one fallback against another.
-        let authored_beat = clip_seconds(Some(&catalog), Some(&authored), character(2), anim);
+        let authored_beat = clip_seconds(&sprite_content, Some(&catalog), Some(&authored), character(2), anim);
         assert_ne!(
             authored_beat, UNREADABLE_CLIP_SECS,
             "the spark form's sheet did not resolve at all, so this test is \
@@ -1192,9 +1193,9 @@ mod tests {
             // this reroutes exactly that row and leaves the other two alone.
             &source.replace("mary_o_v2_fire_spritesheet", "mary_o_v2_spritesheet"),
         ));
-        let small_beat = clip_seconds(Some(&catalog), Some(&authored), MARY_O_CHARACTER_ID, anim);
+        let small_beat = clip_seconds(&sprite_content, Some(&catalog), Some(&authored), MARY_O_CHARACTER_ID, anim);
         let rerouted_beat =
-            clip_seconds(Some(&rerouted), Some(&authored), character(2), anim);
+            clip_seconds(&sprite_content, Some(&rerouted), Some(&authored), character(2), anim);
         assert_eq!(
             rerouted_beat, small_beat,
             "the spark form's catalog row was pointed at the small form's sheet \
@@ -1207,11 +1208,12 @@ mod tests {
     /// its clip stretched by it; a step down asks for nothing.
     #[test]
     fn a_step_up_slows_the_clock_by_the_rules_and_a_step_down_does_not() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let scale = crate::rules::mary_o_rules().step_up_clock_scale;
-        let up = transform_beat_policy(None, None, character(1), 0, 1);
+        let up = transform_beat_policy(&sprite_content, None, None, character(1), 0, 1);
         assert_eq!(up.clock_scale, scale, "a step up does not ask for the rules' `step_up_clock_scale`");
         assert!((up.duration - UNREADABLE_CLIP_SECS / scale).abs() < 1e-5, "the beat does not cover its clip at the slowed clock");
-        let down = transform_beat_policy(None, None, MARY_O_CHARACTER_ID, 1, 0);
+        let down = transform_beat_policy(&sprite_content, None, None, MARY_O_CHARACTER_ID, 1, 0);
         assert_eq!(down.clock_scale, 1.0, "a step down slows the world on a hit");
     }
 
@@ -1465,9 +1467,10 @@ mod tests {
     /// is the precondition that can, and it is asserted separately below.
     #[test]
     fn her_forms_boxes_come_from_their_sheets() {
-        let small = form_body_size(SMALL_SHEET_TARGET);
-        let tall = form_body_size(TALL_SHEET_TARGET);
-        let fire = form_body_size(FIRE_SHEET_TARGET);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let small = form_body_size(&sprite_content, SMALL_SHEET_TARGET);
+        let tall = form_body_size(&sprite_content, TALL_SHEET_TARGET);
+        let fire = form_body_size(&sprite_content, FIRE_SHEET_TARGET);
 
         assert!(
             tall.y > small.y,
@@ -1489,14 +1492,15 @@ mod tests {
     /// plausible and wrong.
     #[test]
     fn her_scale_is_derived_from_baked_art_not_from_the_fallback() {
-        let pixels = small_form_pixel_height()
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let pixels = small_form_pixel_height(&sprite_content)
             .expect("her small sheet must publish a body rectangle to scale against");
         let standing_height = crate::mary_o_character_catalog()
             .get(MARY_O_CHARACTER_ID)
             .and_then(|row| row.standing_height)
             .expect("her row states the height she stands");
         assert!(
-            (mary_o_world_per_pixel() - standing_height / pixels).abs() < 1e-6,
+            (mary_o_world_per_pixel(&sprite_content) - standing_height / pixels).abs() < 1e-6,
             "the scale is the authored height over the MEASURED pixel height, so \
              a regeneration that re-crops her keeps her exactly as tall as the \
              level expects"
@@ -1510,9 +1514,10 @@ mod tests {
     /// after a regeneration.
     #[test]
     fn her_forms_are_all_the_same_width() {
-        let small = form_body_size(SMALL_SHEET_TARGET);
-        let tall = form_body_size(TALL_SHEET_TARGET);
-        let fire = form_body_size(FIRE_SHEET_TARGET);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let small = form_body_size(&sprite_content, SMALL_SHEET_TARGET);
+        let tall = form_body_size(&sprite_content, TALL_SHEET_TARGET);
+        let fire = form_body_size(&sprite_content, FIRE_SHEET_TARGET);
 
         assert!(
             (tall.x - small.x).abs() < 1e-3,
@@ -1539,10 +1544,11 @@ mod tests {
     /// her authored form heights are ever redrawn.
     #[test]
     fn her_grown_crouch_fits_where_her_small_form_fits() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ae::BodyMode;
 
-        let small = form_body_size(SMALL_SHEET_TARGET);
-        let tall = form_body_size(TALL_SHEET_TARGET);
+        let small = form_body_size(&sprite_content, SMALL_SHEET_TARGET);
+        let tall = form_body_size(&sprite_content, TALL_SHEET_TARGET);
         let crouched = BodyMode::Crouching.shape(tall).size;
 
         // The premise: growing must actually make her taller, or a crouch that
@@ -1573,7 +1579,9 @@ mod tests {
     /// in the fixture and then agreeing with it.
     #[test]
     fn wearing_the_cap_grows_and_losing_it_shrinks() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         let body = app
             .world_mut()
             .spawn((
@@ -1583,7 +1591,7 @@ mod tests {
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(SMALL_SHEET_TARGET),
+                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
@@ -1630,7 +1638,9 @@ mod tests {
     /// as a one-frame flicker of the wrong sheet.
     #[test]
     fn a_small_mary_o_taking_a_lantern_becomes_fire_without_passing_through_tall() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         let body = app
             .world_mut()
             .spawn((
@@ -1640,7 +1650,7 @@ mod tests {
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(SMALL_SHEET_TARGET),
+                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
@@ -1697,7 +1707,9 @@ mod tests {
     /// that the downgrade lands on the grown form rather than the small one.
     #[test]
     fn spark_powered_is_tall_and_only_the_second_hit_shrinks_her() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         let body = app
             .world_mut()
             .spawn((
@@ -1707,7 +1719,7 @@ mod tests {
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(SMALL_SHEET_TARGET),
+                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
                 WornEquipment::new(vec![cinder_beacon()]),
@@ -1766,9 +1778,11 @@ mod tests {
     /// A reversion is deliberately NOT silent.
     #[test]
     fn each_form_transition_voices_its_own_cue() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
 
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         let body = app
             .world_mut()
             .spawn((
@@ -1778,7 +1792,7 @@ mod tests {
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(SMALL_SHEET_TARGET),
+                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
@@ -1869,6 +1883,7 @@ mod tests {
             .clone();
 
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         let mut scope = ActiveSessionScope::default();
         let session = scope.begin();
@@ -1943,6 +1958,7 @@ mod tests {
             .clone();
 
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         let mut scope = ActiveSessionScope::default();
         let session = scope.begin();
@@ -2040,6 +2056,7 @@ mod tests {
             vec![block],
         );
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         let mut scope = ActiveSessionScope::default();
         let session = scope.begin();
@@ -2133,6 +2150,7 @@ mod tests {
             vec![block],
         );
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         let mut scope = ActiveSessionScope::default();
         let session = scope.begin();
@@ -2256,6 +2274,7 @@ mod tests {
             vec![block],
         );
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         let mut scope = ActiveSessionScope::default();
         let session = scope.begin();
@@ -2370,6 +2389,7 @@ mod tests {
     #[test]
     fn a_head_bonk_on_a_plain_block_pops_nothing() {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         // The bonk announces the strike so the render layer can flinch the block;
         // an unregistered message fails parameter validation rather than being
@@ -2499,6 +2519,7 @@ mod loose_form_tests {
     #[test]
     fn a_loose_wand_is_consumed_rather_than_demoting_her() {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let at = ae::Vec2::new(100.0, 100.0);
         let item = app
@@ -2527,6 +2548,7 @@ mod loose_form_tests {
         // …and the control: SMALL Mary-O keeps it, so the rule is not "refuse
         // every wand".
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let item = app
             .world_mut()
@@ -2577,6 +2599,7 @@ mod discovery_tests {
         use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
         use ambition_platformer2d::world::FeatureEcsWorldOverlay;
         let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
         ];
         let mut spent = SpentPowerBlocks::default();
@@ -2797,6 +2820,7 @@ mod block_dressing_tests {
     #[test]
     fn every_look_wears_the_spent_plate_once_it_has_paid_and_a_brick_hides_until_then() {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         // The blocks are in the live room: a block is spent in its own room.
         ambition_platformer2d::session::insert_live_room_component(
@@ -2893,6 +2917,7 @@ mod block_dressing_tests {
     #[test]
     fn the_dresser_follows_each_of_its_inputs_and_nothing_else() {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
         ambition_platformer2d::session::insert_live_room_component(
             app.world_mut(),
@@ -2951,14 +2976,15 @@ mod scale_fallback_tests {
     /// used, rather than that some number is right.
     #[test]
     fn mary_o_is_scaled_by_her_art_and_not_by_the_missing_sheet_fallback() {
-        let pixels = super::small_form_pixel_height();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let pixels = super::small_form_pixel_height(&sprite_content);
         assert!(
             pixels.is_some(),
             "the `{}` sheet did not resolve, so every one of her forms is scaled \
              at 1.0 world units per pixel instead of <standing height>/pixels",
             super::SMALL_SHEET_TARGET,
         );
-        let scale = super::mary_o_world_per_pixel();
+        let scale = super::mary_o_world_per_pixel(&sprite_content);
         assert!(
             (scale - 1.0).abs() > 1e-6,
             "the scale IS the fallback; her quad and her box cannot agree"
@@ -2975,10 +3001,12 @@ mod scale_fallback_tests {
     /// it, the fallback would distort the sprite non-uniformly.
     #[test]
     fn the_default_body_guess_is_nowhere_near_her_real_box() {
-        let small = ambition_platformer2d::character_sprites::posed_body_geometry(
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let small = ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
             super::SMALL_SHEET_TARGET,
             ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
-            super::mary_o_world_per_pixel(),
+            super::mary_o_world_per_pixel(&sprite_content),
         )
         .expect("her small sheet resolves");
         let ratio_x = small.collision.x / crate::ae::DEFAULT_PLAYER_BODY_WIDTH;
@@ -3007,6 +3035,7 @@ mod scale_fallback_tests {
     /// generation replaces stance-based geometry.
     #[test]
     fn her_body_box_tracks_her_stance_and_not_her_pose() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
         let standing = [
             CharacterAnim::Idle, CharacterAnim::Walk, CharacterAnim::Run,
@@ -3020,7 +3049,7 @@ mod scale_fallback_tests {
             poses
                 .iter()
                 .filter_map(|anim| {
-                    ambition_platformer2d::character_sprites::posed_body_geometry(
+                    ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
                         target, *anim, 1.0,
                     )
                 })
@@ -3078,6 +3107,7 @@ mod scale_fallback_tests {
 
     #[test]
     fn every_pose_she_plays_resolves_in_every_form() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
         // The locomotion set a player drives her through in a single jump...
         // ⛔⛔ ...WHICH WAS THE WHOLE POPULATION, AND IT IS NOT THE WHOLE KIT.
@@ -3108,7 +3138,7 @@ mod scale_fallback_tests {
             super::FIRE_SHEET_TARGET,
         ] {
             for anim in played {
-                if ambition_platformer2d::character_sprites::posed_body_geometry(
+                if ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
                     target, anim, 1.0)
                 .is_none()
                 {
@@ -3129,13 +3159,14 @@ mod scale_fallback_tests {
     /// player takes a powerup — a state a startup check would never reach.
     #[test]
     fn every_form_sheet_resolves_not_only_the_small_one() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         for target in [
             super::SMALL_SHEET_TARGET,
             super::TALL_SHEET_TARGET,
             super::FIRE_SHEET_TARGET,
         ] {
             assert!(
-                ambition_platformer2d::character_sprites::posed_body_geometry(
+                ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
                     target,
                     ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
                     1.0,

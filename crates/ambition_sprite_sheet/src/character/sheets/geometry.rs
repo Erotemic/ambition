@@ -40,8 +40,8 @@ pub fn drawn_render_size(spec: &CharacterSheetSpec, collision: Vec2, carried: Op
 /// such a sheet depends on the catalog's `collision_scale`
 /// ([`sprite_render_size_scaled`], the fallback), which this function does not
 /// hold: a body that wears it states no quad.
-pub fn fitted_render_size(target: &str, collision: Vec2) -> Option<Vec2> {
-    let spec = spec_from_record(record_for_sheet_key(target)?, &SheetTuning::default());
+pub fn fitted_render_size(content: &crate::SpriteContent, target: &str, collision: Vec2) -> Option<Vec2> {
+    let spec = spec_from_record(record_for_sheet_key(&content, target)?, &SheetTuning::default());
     spec.body_pixel_extent(CharacterAnim::Idle)?;
     Some(sprite_render_size(&spec, collision))
 }

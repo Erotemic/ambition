@@ -24,6 +24,9 @@ pub struct ContentPackManifest {
     pub id: PackId,
     pub version: PackVersion,
     pub namespace: ModuleNamespace,
+    /// Library manifest locations. Relative paths start at the pack root.
+    #[serde(default)]
+    pub libraries: Vec<String>,
     /// Capabilities this pack's content cannot work without. The schemas' own
     /// owners are added automatically; this is for the ones a schema needs but
     /// does not own.

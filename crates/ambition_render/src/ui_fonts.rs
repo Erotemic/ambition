@@ -14,41 +14,11 @@ use ambition_asset_manager::AssetId;
 
 use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 
-/// The family name Parley resolves Ambition's product typeface under.
-///
-/// Measured from the files. Bevy 0.19 registers each loaded [`Font`] asset
-/// into Parley's collection under the family name embedded in the file, and
-/// fontique prefers name id 16 (typographic family) over name id 1 (legacy
-/// family). The two bundled files:
-///
-/// ```text
-/// InterDisplay-Regular.otf    name 1  = "Inter Display"           weight 400
-/// InterDisplay-SemiBold.otf   name 1  = "Inter Display SemiBold"   weight 600
-///                             name 16 = "Inter Display"  name 17 = "SemiBold"
-/// ```
-///
-/// Because name 16 wins, both faces are one family and the weight picks the
-/// face. If fontique preferred name 1, they would be two unrelated families
-/// and [`UiFonts::text_font`] could not select by weight.
-pub const PRODUCT_FAMILY: &str = "Inter Display";
+/// App-local family names for the UI font roles.
+pub const PRODUCT_FAMILY: &str = "ambition.ui.product";
+pub const DEBUG_MONO_FAMILY: &str = "ambition.ui.debug";
 
-/// `JetBrainsMono-Regular.ttf`, family name "JetBrains Mono", weight 400.
-///
-/// A separate family on purpose: debug monospace is a different role, not a
-/// weight of the product face.
-pub const DEBUG_MONO_FAMILY: &str = "JetBrains Mono";
-
-/// The bundled product faces, and the one place their identity is known.
-///
-/// The handles matter even though layout does not read them. Text resolves
-/// through [`PRODUCT_FAMILY`], but a family stays in Parley's collection only
-/// while its `Font` asset is alive, and Bevy rebuilds the whole collection
-/// when one is removed. Holding strong handles here keeps the families
-/// resolvable for the life of the app.
-///
-/// They also answer "did the bundled fonts load" ([`UiFonts::has_dialog_font`]).
-/// A family name cannot: an unresolvable `FontSource::Family` falls back
-/// silently.
+/// Strong handles keep each selected font face available.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {
     pub regular: Option<Handle<Font>>,
@@ -170,6 +140,11 @@ impl bevy::prelude::Plugin for UiFontsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(bevy::prelude::Startup, load_ui_fonts.in_set(UiFontsLoaded));
+        app.add_systems(PostUpdate, bind_ui_font_families
+            .after(bevy::text::load_font_assets_into_font_collection)
+            .before(bevy::text::detect_text_needs_rerender)
+            .before(bevy::text::Text2dUpdateSystems)
+            .before(bevy::ui::UiSystems::Content));
 
         // Keep system font files loaded; see `ShelterFontSources`.
         app.init_resource::<ShelteredFontSources>()
@@ -308,7 +283,7 @@ pub fn load_ui_fonts(
     if regular.is_none() {
         warn!(
             "No bundled dialogue UI font found; falling back to Bevy default font and ASCII selector. \
-             Run scripts/grab_font_assets.py and check in the generated IPFS-tracked assets."
+             Generate the selected library fonts with scripts/grab_font_assets.py."
         );
     }
 
@@ -323,6 +298,45 @@ pub fn load_ui_fonts(
         semibold,
         mono,
     });
+}
+
+/// Bind loaded faces to the semantic families before text layout.
+pub fn bind_ui_font_families(
+    selected: Option<Res<UiFonts>>,
+    fonts: Res<Assets<Font>>,
+    mut context: ResMut<bevy::text::FontCx>,
+    mut seen: Local<Vec<(bevy::asset::AssetId<Font>, u64, &'static str)>>,
+    mut text: Query<&mut TextFont>,
+) {
+    let Some(selected) = selected else { return; };
+    let mut current = Vec::new();
+    for (handle, family) in [(&selected.regular, PRODUCT_FAMILY), (&selected.semibold, PRODUCT_FAMILY), (&selected.mono, DEBUG_MONO_FAMILY)] {
+        if let Some((handle, font)) = handle.as_ref().and_then(|handle| fonts.get(handle).map(|font| (handle, font))) {
+            let entry = (handle.id(), font.data.id(), family);
+            if !current.contains(&entry) { current.push(entry); }
+        }
+    }
+    let missing = current.iter().any(|(_, _, family)| context.collection.family_id(family).is_none());
+    if *seen == current && !missing { return; }
+    for alias in [PRODUCT_FAMILY, DEBUG_MONO_FAMILY] {
+        if let Some(family) = context.collection.family_by_name(alias) {
+            for face in family.fonts() {
+                context.collection.unregister_font(family.id(), face.width(), face.style(), face.weight());
+            }
+        }
+    }
+    for (handle, _, family) in &current {
+        let font = fonts.get(*handle).expect("a selected face is loaded");
+        context.collection.register_fonts(font.data.clone(), Some(fontique::FontInfoOverride {
+            family_name: Some(family), ..Default::default()
+        }));
+    }
+    *seen = current;
+    for mut font in &mut text {
+        if matches!(&font.font, FontSource::Family(family) if family == PRODUCT_FAMILY || family == DEBUG_MONO_FAMILY) {
+            font.set_changed();
+        }
+    }
 }
 
 fn load_first_available_font(

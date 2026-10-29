@@ -50,7 +50,7 @@ pub struct WearRequested {
 ///
 /// The body is untouchable while it plays the `transform` row of its new
 /// look ([`arrival_beat`]).
-pub fn apply_wear_requests(
+pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     mut requests: MessageReader<WearRequested>,
     ids: LiveBodies,
@@ -90,7 +90,7 @@ pub fn apply_wear_requests(
         *worn = WornCharacter(request.character.clone());
         let mut body = commands.entity(entity);
         body.try_insert(RecharacterizeBody);
-        if let Some(beat) = arrival_beat(authored.as_deref(), &catalog, request.character.as_str()) {
+        if let Some(beat) = arrival_beat(&sprite_content, authored.as_deref(), &catalog, request.character.as_str()) {
             body.try_insert(TransformBeatRequested(beat));
         }
     }
@@ -102,12 +102,12 @@ pub fn apply_wear_requests(
 /// `None` when the sheet has no row of its own for [`CharacterAnim::Transform`]
 /// (a fallback row is not a change to play), or when no sheet is known for the
 /// character.
-fn arrival_beat(
+fn arrival_beat(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: Option<&AuthoredSheets>,
     catalog: &CharacterCatalog,
     character: &str,
 ) -> Option<TransformBeatPolicy> {
-    let spec = catalog_join::sheet_for_character_id_from_data(authored?, catalog.data(), character)?;
+    let spec = catalog_join::sheet_for_character_id_from_data(&sprite_content, authored?, catalog.data(), character)?;
     spec.row_for_anim(CharacterAnim::Transform)?;
     Some(TransformBeatPolicy {
         duration: spec.clip_seconds(CharacterAnim::Transform),
@@ -154,6 +154,7 @@ mod tests {
 
     fn app() -> App {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(catalog());
         app.add_message::<WearRequested>();
         app.add_systems(Update, apply_wear_requests);

@@ -388,8 +388,18 @@ mod two_live_rooms_tests {
             route: ShellRouteId::new("ambition_gameplay"),
             request: None,
         });
-        for _ in 0..240 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while app.world_mut().query_filtered::<Entity, With<ambition_platformer2d::render::rendering::HudText>>().iter(app.world()).next().is_none() {
+            if std::time::Instant::now() >= deadline {
+                use ambition_platformer2d::{load::LoadCoordinator, load_presentation::LoadForegroundState};
+                let foreground = app.world().get_resource::<LoadForegroundState>()
+                    .and_then(|state| state.active.as_ref());
+                let snapshot = foreground.and_then(|active| app.world().get_resource::<LoadCoordinator>()
+                    .and_then(|coordinator| coordinator.snapshot(&active.barrier.load_id, &active.barrier.barrier_id)));
+                panic!("the session did not publish its HUD: {snapshot:#?}");
+            }
             app.update();
+            std::thread::yield_now();
         }
         app.world_mut().resource_mut::<DeveloperRuntimeState>().debug = true;
         {

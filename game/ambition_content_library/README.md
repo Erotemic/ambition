@@ -1,0 +1,41 @@
+# Shared content library
+
+The Ambition games select this library through their content pack's `libraries`
+list. A game can select zero or more libraries. The engine does not require
+this library. A library can supply art, animation, geometry, audio, and supported
+script artifacts. The library is part of this repository, not a submodule.
+
+`library.json` declares a stable ID, roots by role, a semantic asset catalog,
+publication and provenance roots, producer policy, and static byte selection.
+Import paths are relative to the content pack root. The current packs import
+`../../ambition_content_library/library.json`.
+
+`authored/` contains tracked data and recipes. `generated/` contains local
+runtime and review products, including every quality tier and the immutable
+publication store. Generated assets are ignored by Git. Do not commit them.
+Renderer source files remain in their authoring tool repositories.
+
+From the repository root:
+
+```bash
+scripts/setup/generated_content.sh
+./scripts/regen/sprites.sh --plan --json
+./scripts/regen/sprites.sh --check --json
+./scripts/regen/sprites.sh --audit --json
+./scripts/regen/sprites.sh --target hand_saint
+```
+
+Sprite commands accept `--library <manifest>`. `AMBITION_CONTENT_LIBRARY`
+selects the manifest for other generation tools. A plan reads source definitions
+without generated products. Exact packed page membership can require rendering;
+use `--resolve-layout` to compute it without publication.
+
+Use `content://ambition_shared/<logical-path>` for a qualified runtime reference.
+A short path must have one owner. Two libraries can have the same logical path
+when their references retain the library ID. Duplicate semantic role IDs are
+refused. Game sources do not silently override library files.
+
+Native builds read the selected files without a Rust rebuild. Static builds
+embed selected metadata and bytes from the same manifest. Accepted reloads
+advance files and metadata together. A session retains its admitted mechanical
+generation. See [sprite publication](../../docs/tools/sprite-publication.md).

@@ -54,8 +54,9 @@ fn dormant_brain_falls_back_to_name() {
 /// carry a generic placeholder behavior.
 #[test]
 fn boss_runtime_uses_phase_script_for_behavior_lookup() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0));
-    let boss = crate::BossClusterScratch::new(
+    let boss = crate::BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),
         "boss_under_test",
         "System Boss",

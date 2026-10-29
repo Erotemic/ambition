@@ -23,7 +23,7 @@ use ambition_body_seed::ActorClusterBundle;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
 
-fn hostile(
+fn hostile(sprite_content: &ambition_sprite_sheet::SpriteContent,
     id: &str,
     archetype_brain: &str,
     pos: ae::Vec2,
@@ -33,7 +33,7 @@ fn hostile(
     ActorClusterBundle,
 ) {
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         id,
         id,
         aabb,
@@ -85,6 +85,7 @@ fn build_app() -> App {
 /// and zeroes the rider's velocity each tick.
 #[test]
 fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     app.add_systems(Update, sync_riders_to_mounts);
 
@@ -93,7 +94,7 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
     let mount = app
         .world_mut()
         .spawn((
-            hostile("mount", "burning_flying_shark", mount_pos, mount_size),
+            hostile(&sprite_content, "mount", "burning_flying_shark", mount_pos, mount_size),
             CenteredAabb::from_center_size(mount_pos, mount_size),
             // Seated on its top, as a creature ridden on its back is.
             Mountable::at(ae::Vec2::new(0.0, -mount_size.y * 0.5)),
@@ -109,7 +110,7 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
     let rider = app
         .world_mut()
         .spawn((
-            hostile("rider", "pirate_raider", rider_start, rider_size),
+            hostile(&sprite_content, "rider", "pirate_raider", rider_start, rider_size),
             CenteredAabb::from_center_size(rider_start, rider_size),
             RidingOn { mount },
         ))
@@ -154,6 +155,8 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
 /// brain (Skirmisher with explicit cfg) so the cache check has
 /// something concrete to compare against.
 fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, Entity) {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     use ambition_characters::brain::{
         ActionSet, Brain, RangedActionSpec, SkirmisherCfg, SkirmisherState, StateMachineCfg,
     };
@@ -175,7 +178,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     };
     let mount_pos = ae::Vec2::new(0.0, 0.0);
     let mount_size = ae::Vec2::new(126.0, 52.0);
-    let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
+    let mut mount_actor = hostile(&sprite_content, "mount", "burning_flying_shark", mount_pos, mount_size);
     // .1 = ActorClusterBundle; BodyHealth (the liveness authority) is at .1.2.
     if !mount_alive {
         mount_actor.1 .2.health.current = 0;
@@ -191,7 +194,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
 
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
-    let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
+    let mut rider_actor = hostile(&sprite_content, "rider", "pirate_raider", rider_pos, rider_size);
     // BodyHealth (liveness) at .1.2; ActorSurfaceState at .1.5.
     if !rider_alive {
         rider_actor.1 .2.health.current = 0;
@@ -474,9 +477,11 @@ fn mountable_defaults_are_total_control_and_clean_dismount() {
 /// Spawn a dead mount carrying `death_impact` + a live mounted rider,
 /// mirroring `spawn_pair` but letting the caller set the mount's impact.
 fn spawn_dead_mount_with_impact(app: &mut App, death_impact: MountDeathImpact) -> (Entity, Entity) {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let mount_pos = ae::Vec2::new(0.0, 0.0);
     let mount_size = ae::Vec2::new(126.0, 52.0);
-    let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
+    let mut mount_actor = hostile(&sprite_content, "mount", "burning_flying_shark", mount_pos, mount_size);
     mount_actor.1 .2.health.current = 0; // mount dead → dissolution fires
     let mut mountable = Mountable::at(ae::Vec2::new(0.0, -40.0));
     mountable.death_impact = death_impact;
@@ -487,7 +492,7 @@ fn spawn_dead_mount_with_impact(app: &mut App, death_impact: MountDeathImpact) -
 
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
-    let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
+    let mut rider_actor = hostile(&sprite_content, "rider", "pirate_raider", rider_pos, rider_size);
     // Force a known 5-HP pool so splash arithmetic is deterministic
     // regardless of what the seed default resolves to in a minimal test.
     rider_actor.1 .2 = ambition_characters::actor::BodyHealth::new(
@@ -721,6 +726,7 @@ fn a_mount_travels_no_faster_than_its_rider_has_clearance() {
 /// identically to the enemy Skirmisher rider.
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::control::ActorControl;
     use ambition_characters::control::PlayerSlot;
@@ -738,7 +744,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     let mount = app
         .world_mut()
         .spawn((
-            hostile("mount", "burning_flying_shark", mount_pos, mount_size),
+            hostile(&sprite_content, "mount", "burning_flying_shark", mount_pos, mount_size),
             CenteredAabb::from_center_size(mount_pos, mount_size),
             Mountable::at(ae::Vec2::new(0.0, -mount_size.y * 0.5)),
             MountSlot { rider: None },
@@ -758,7 +764,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     // The full actor-cluster body, but spawned with a PLAYER identity: a
     // `Peaceful` disposition + a `DrivingParticipant` instead of the enemy default.
     let (_enemy_disposition, rider_bundle) =
-        hostile("rider", "pirate_raider", rider_start, rider_size);
+        hostile(&sprite_content, "rider", "pirate_raider", rider_start, rider_size);
     let rider = app
         .world_mut()
         .spawn((
@@ -926,6 +932,8 @@ fn limb_routed_rider() -> ambition_boss_encounter::BossProfile {
 /// bridge is engine vocabulary and is pinned on its own terms.
 #[test]
 fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_boss_encounter::{
         BossEncounterPhase, BossProfile, PhaseTrigger, PhaseTriggerCondition,
     };
@@ -939,9 +947,9 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // (2) The `npc_giant_gnu` catalog id resolves a character sprite — the mount
     // renders through the character-sprite path. Gated on the baked sheet being
     // present (sprites are gitignored/regenerated; a fresh clone has none).
-    if ambition_sprite_sheet::character::sheets::record_for_sheet_key("giant_gnu").is_some() {
+    if ambition_sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, "giant_gnu").is_some() {
         assert!(
-            ambition_platformer2d_assets::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d_assets::character_sprites::sheet_for_character_id_in(&sprite_content,
                 &Default::default(),
                 &crate::character_roster::catalog(),
                 "npc_giant_gnu",
@@ -986,7 +994,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // frame. Rideable "giant" class + the standard MountSlot back-reference.
     let mount_pos = ae::Vec2::new(0.0, 0.0);
     let mount_size = ae::Vec2::new(220.0, 220.0);
-    let mut mount_actor = hostile("fixture_giant", "fixture_giant", mount_pos, mount_size);
+    let mut mount_actor = hostile(&sprite_content, "fixture_giant", "fixture_giant", mount_pos, mount_size);
     mount_actor.1 .2.health.current = 0; // dead → dissolution fires
     let mut mountable = Mountable::at(ae::Vec2::new(0.0, -140.0));
     mountable.class = MountClass("giant".into());
@@ -1002,7 +1010,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // load-bearing.
     let rider_pos = ae::Vec2::new(0.0, -140.0);
     let rider_size = ae::Vec2::new(54.0, 96.0);
-    let rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
+    let rider_actor = hostile(&sprite_content, "gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
     let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(
         profile.encounter.max_hp,
         BossEncounterPhase::Phase1,
@@ -1250,6 +1258,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use crate::body::route_boss_strikes_to_limbs;
     use ambition_boss_encounter::{BossEncounterPhase, PhaseTrigger};
     use ambition_characters::actor::control::ActorControlFrame;
@@ -1375,7 +1384,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         BossEncounterPhase::Phase1,
         PhaseTrigger::intrinsic_from_spec(&profile.encounter),
     );
-    let rider_actor = hostile(
+    let rider_actor = hostile(&sprite_content,
         "gnu_ton_rider",
         "gnu_ton_rider",
         rider_pos,

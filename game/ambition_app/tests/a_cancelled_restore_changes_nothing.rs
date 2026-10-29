@@ -115,7 +115,7 @@ type Verification = ambition_platformer2d::publication::LastConstructionVerifica
 /// the body moved away from the checkpoint. Then a restore is asked for.
 /// Returns the facts before the request, the facts after its outcome, the
 /// outcome, and what the last room verification concluded.
-fn a_restore_after_a_boss(
+fn a_restore_after_a_boss(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     road: Road,
 ) -> (Facts, Facts, Option<CheckpointRestoreOutcome>, Verification, Platformer2dSimHarness) {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
@@ -175,7 +175,7 @@ fn a_restore_after_a_boss(
         );
     }
     if road == Road::TwoPrimaryBodies {
-        crate::a_home_body_is_built_for_a_seat::build_a_home_body(
+        crate::a_home_body_is_built_for_a_seat::build_a_home_body(&sprite_content,
             &mut sim,
             ambition_platformer2d::characters::control::PlayerSlot(1),
             (
@@ -230,7 +230,8 @@ fn ask_for_a_restore(sim: &mut Platformer2dSimHarness, road: Road) -> Option<Che
 /// still recorded since the checkpoint.
 #[test]
 fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
-    let (before, after, outcome, ..) = a_restore_after_a_boss(Road::PreparationFails);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let (before, after, outcome, ..) = a_restore_after_a_boss(&sprite_content, Road::PreparationFails);
     assert!(
         outcome.as_ref().is_some_and(|outcome| outcome.cancellation().is_some()),
         "the restore's outcome: {outcome:?}"
@@ -253,9 +254,9 @@ fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
 /// or its motion model, cluster or combat state while its session lives: the
 /// one despawn is the retirement of the session, which takes the operation
 /// back. An arm for it would remove the body by hand.
-fn a_refused_publication_changes_nothing(refusal: Refusal) -> Verification {
+fn a_refused_publication_changes_nothing(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, refusal: Refusal) -> Verification {
     use ambition_platformer2d::session::checkpoint::RestoreCancellation;
-    let (before, after, outcome, verification, _) = a_restore_after_a_boss(Road::PublicationRefused(refusal));
+    let (before, after, outcome, verification, _) = a_restore_after_a_boss(&sprite_content, Road::PublicationRefused(refusal));
     // ⛔ THE PREMISE: this is the road of a refused publication. A room that
     // was not prepared ends as `PreparationFailed`, and that is the arm above.
     assert!(
@@ -277,7 +278,8 @@ fn a_refused_publication_changes_nothing(refusal: Refusal) -> Verification {
 /// The refusal before the room is built.
 #[test]
 fn a_checkpoint_restore_whose_publication_is_refused_leaves_the_live_world_as_it_was() {
-    let verification = a_refused_publication_changes_nothing(Refusal::BeforeTheRoomIsBuilt);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let verification = a_refused_publication_changes_nothing(&sprite_content, Refusal::BeforeTheRoomIsBuilt);
     // ⛔ THE PREMISE OF THE NAME: an early refusal records no violation, because
     // it ends before the verification that finds them.
     assert!(
@@ -295,7 +297,8 @@ fn a_checkpoint_restore_whose_publication_is_refused_leaves_the_live_world_as_it
 /// to that line.
 #[test]
 fn a_checkpoint_restore_whose_room_fails_its_verdict_leaves_the_live_world_as_it_was() {
-    let verification = a_refused_publication_changes_nothing(Refusal::AtTheVerdict);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let verification = a_refused_publication_changes_nothing(&sprite_content, Refusal::AtTheVerdict);
     // ⛔ THE PREMISE OF THE NAME: the room was built and the verdict found it
     // prepared against a generation that is not the live one.
     assert!(
@@ -322,10 +325,11 @@ fn a_checkpoint_restore_whose_room_fails_its_verdict_leaves_the_live_world_as_it
 /// any more, the next request is a new operation, and it commits.
 #[test]
 fn a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_commits() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::session::checkpoint::{OutstandingCheckpointRequest, RestoreCancellation};
     use ambition_platformer2d::platformer::body::PrimaryBody;
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-    let (before, after, outcome, _, mut sim) = a_restore_after_a_boss(Road::TwoPrimaryBodies);
+    let (before, after, outcome, _, mut sim) = a_restore_after_a_boss(&sprite_content, Road::TwoPrimaryBodies);
     let primaries: Vec<String> = {
         let world = sim.world_mut();
         let mut ids: Vec<String> = world
@@ -378,7 +382,8 @@ fn a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_comm
 /// each fact moves: so the facts above are facts a restore changes.
 #[test]
 fn a_committed_checkpoint_restore_changes_each_of_those_facts() {
-    let (before, after, outcome, verification, _) = a_restore_after_a_boss(Road::Commits);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let (before, after, outcome, verification, _) = a_restore_after_a_boss(&sprite_content, Road::Commits);
     assert!(verification.published, "control: the room of a committed restore was published");
     assert!(outcome.as_ref().is_some_and(CheckpointRestoreOutcome::committed), "the restore's outcome: {outcome:?}");
     assert!(
@@ -474,4 +479,3 @@ fn a_restored_room_builds_the_boss_the_restore_takes_back_alive() {
         "(bosses alive, bosses dead, cleared) after the restore: the room and the save must agree"
     );
 }
-

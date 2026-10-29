@@ -379,7 +379,7 @@ pub const BOSS_BOUNTY: i32 = 50;
 pub const ENEMY_HEALTH_DROP: i32 = 1;
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
-pub fn apply_feature_hit_events(
+pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut hit_events: MessageReader<HitEvent>,
     // Every victim's PUBLISHED silhouette, looked up by entity.
     //
@@ -810,7 +810,7 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let hurt = combat_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
-            if apply_actor_hit(
+            if apply_actor_hit(&sprite_content,
                 &event,
                 catalog,
                 prepared,

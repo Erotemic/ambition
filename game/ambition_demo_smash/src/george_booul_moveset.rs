@@ -384,7 +384,7 @@ mod tests {
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
-                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+                |name| ambition_platformer2d::sprite_sheet::fx::is_authored_effect(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), name),
             ));
             for ev in &m.events {
                 match &ev.kind {
@@ -414,7 +414,7 @@ mod tests {
              gitignored. Rebuild them, then re-run:\n\
              \x20   ./scripts/regen/sprites.sh          # or one target: --target george_booul_vfx\n\
              \x20   scripts/setup/generated_content.sh  # everything, fonts included\n\
-             \x20   find crates/ambition_platformer2d_actor_monolith/assets/sprites \\\n\
+             \x20   find game/ambition_content_library/generated/runtime/sprites \\\n\
              \x20        -name '*_spritesheet.ron' | wc -l   # 0 means the bake is empty\n\
              ⇒ IF ONLY ONE OR TWO ARE LISTED, a sheet row really was renamed or \
              removed and this moveset still names the old row.",

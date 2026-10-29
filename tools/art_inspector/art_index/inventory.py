@@ -61,10 +61,15 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
             sheets[record["product"]].append(published)
             manifests[Path(path).name].append(published)
     publication = product_report.get("publication", {})
-    publication_store = Path(product_report.get("store", repo / "crates/ambition_platformer2d_actor_monolith/art_publication"))
+    publication_store = Path(product_report.get("store", repo / "game/ambition_content_library/generated/art_publication"))
     physical = {logical: (publication_store / row["path"]).resolve() for logical, row in publication.get("files", {}).items()}
     claims = defaultdict(list)
     for uid, unit in units.items():
+        unit["required_paths"] = {
+            rel: str(physical.get(unit["root"] + "/" + rel,
+                asset_root(repo) / unit["root"] / rel).relative_to(repo))
+            for rel in unit.get("required", [])
+        }
         unit["identities"] = []
         unit["game_use"] = "no-known-use" if prepared.get("state") == "available" else "unavailable"
         unit["registration"] = "registered"

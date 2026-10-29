@@ -125,6 +125,7 @@ pub fn drawn_world_per_pixel(
 /// ([`BodyLandmarks::in_world`]).
 #[derive(SystemParam)]
 pub struct BodyLandmarks<'w, 's> {
+    sprite_content: Res<'w, ambition_sprite_sheet::SpriteContent>,
     characters: Option<Res<'w, PreparedCharacterRegistry>>,
     bodies: Query<
         'w,
@@ -150,7 +151,7 @@ impl BodyLandmarks<'_, '_> {
             return Some(point);
         }
         let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
-        let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(sheet)?;
+        let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
         let clocks = PoseClocks {
             active_move: playback.map(|playback| (&playback.spec.clip, playback.phase())),
@@ -195,7 +196,7 @@ impl BodyLandmarks<'_, '_> {
     ) -> Option<(bevy::math::Rect, String)> {
         let (worn, posed, render_size, _, playback, clock) = self.bodies.get(body).ok()?;
         let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
-        let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(sheet)?;
+        let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
         let (clip, frame) = select_pose_frame(
             &*table,

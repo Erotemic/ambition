@@ -1,15 +1,5 @@
-//! The measurement the semantic typography layer stands on.
-//!
-//! [`ambition_render::ui_fonts::UiFonts::text_font`] answers "product UI,
-//! semibold" with a family plus a weight, not a handle to a file. That works
-//! only if the two bundled Inter faces register as one family in Parley's
-//! collection, told apart by weight. That depends on which OpenType name
-//! record fontique reads. These tests check the real font files through
-//! Bevy's own registration system.
-//!
-//! The bytes use `include_bytes!`, not a filesystem probe, so a missing
-//! bundled font is a compile error, not a silent skip. Same contract as
-//! `ambition_asset_manager::platformer_assets::embedded`.
+//! Selected font files supply semantic UI families and weights.
+//! Corpus tests read generated fonts at run time.
 
 use bevy::asset::Assets;
 use bevy::prelude::*;
@@ -22,15 +12,10 @@ use ambition_render::ui_fonts::{
     UiFontWeight, UiFonts, DEBUG_MONO_FAMILY, PRODUCT_FAMILY,
 };
 
-const INTER_REGULAR: &[u8] = include_bytes!(
-    "../../ambition_platformer2d_actor_monolith/assets/fonts/bundled/InterDisplay-Regular.otf"
-);
-const INTER_SEMIBOLD: &[u8] = include_bytes!(
-    "../../ambition_platformer2d_actor_monolith/assets/fonts/bundled/InterDisplay-SemiBold.otf"
-);
-const JETBRAINS_MONO: &[u8] = include_bytes!(
-    "../../ambition_platformer2d_actor_monolith/assets/fonts/bundled/JetBrainsMono-Regular.ttf"
-);
+fn font_bytes(name: &str) -> Vec<u8> {
+    std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content_library/generated/runtime/fonts/bundled").join(name))
+        .expect("Generate the shared library fonts before the typography corpus test")
+}
 
 /// A world with the three bundled faces, registered like the app does: as
 /// `Font` assets, added to the collection by Bevy's own system. Nothing here
@@ -41,18 +26,18 @@ fn app_with_bundled_fonts() -> App {
         .add_plugins(AssetPlugin::default())
         .init_asset::<Font>()
         .init_resource::<FontCx>()
-        .add_systems(Update, load_font_assets_into_font_collection);
+        .add_systems(Update, (load_font_assets_into_font_collection, ambition_render::ui_fonts::bind_ui_font_families).chain());
 
     // Hold the handles. If they drop, the assets are released before the
     // next frame, the collection is rebuilt without them, and every assertion
     // below sees an empty family list. `UiFonts` holds its handles for the
     // same reason.
     let mut held = Vec::new();
-    for bytes in [INTER_REGULAR, INTER_SEMIBOLD, JETBRAINS_MONO] {
-        let font = Font::from_bytes(bytes.to_vec());
+    for name in ["InterDisplay-Regular.otf", "InterDisplay-SemiBold.otf", "JetBrainsMono-Regular.ttf"] {
+        let font = Font::from_bytes(font_bytes(name));
         held.push(app.world_mut().resource_mut::<Assets<Font>>().add(font));
     }
-    app.insert_resource(HeldFonts(held));
+    app.insert_resource(UiFonts { regular: Some(held[0].clone()), semibold: Some(held[1].clone()), mono: Some(held[2].clone()) });
     app.update();
     assert_eq!(
         app.world().resource::<Assets<Font>>().len(),
@@ -62,17 +47,8 @@ fn app_with_bundled_fonts() -> App {
     app
 }
 
-/// Keeps the loaded faces alive for the duration of a test.
-#[derive(Resource)]
-struct HeldFonts(#[allow(dead_code)] Vec<Handle<Font>>);
 
-/// Two files, one family, two weights.
-///
-/// `InterDisplay-Regular.otf` has family name (id 1) "Inter Display".
-/// `InterDisplay-SemiBold.otf` has family name (id 1) "Inter Display
-/// SemiBold", but typographic family name (id 16) "Inter Display", and
-/// fontique reads id 16 first. If that preference changes, these become two
-/// unrelated families and `FontSource::Family` cannot express "semibold".
+/// Selected regular and semibold faces share the product role family.
 #[test]
 fn the_two_bundled_inter_faces_are_one_family_with_two_weights() {
     let mut app = app_with_bundled_fonts();

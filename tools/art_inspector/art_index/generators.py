@@ -102,12 +102,12 @@ def load_evidence(repo: Path, targets: dict[str, Any], units=None) -> Evidence:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
     from lib.art_publication import store, MANAGED_ROOTS
-    from .paths import asset_root
-    publication = store(asset_root(repo))
-    selected = publication.selected()
+    from .paths import library_path
+    publication = store(library_path(repo))
+    selected = publication.selected() if publication else {"roots": [], "bundles": {}}
     managed = set(MANAGED_ROOTS) | set(selected.get("roots", []))
     root = provenance_root(repo)
-    for path in sorted(root.rglob("*.json")) if root.is_dir() else []:
+    for path in sorted(root.rglob("*.json")) if root is not None and root.is_dir() else []:
         try:
             record = json.loads(path.read_text())
         except (OSError, ValueError):

@@ -765,7 +765,7 @@ pub fn lower_boss_guards(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<
 
 /// Lower `ambition.boss.scale`: build each boss at the scale its conductor
 /// states ([`crate::BossMut::rescale`]). A scope that is not a boss is refused.
-pub fn lower_boss_scales(
+pub fn lower_boss_scales(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut outbox: ResMut<ExtensionOutbox>,
     // `Option`: a composition that runs conductors may hold no boss catalog;
     // then a boss is scaled by its box alone.
@@ -776,7 +776,7 @@ pub fn lower_boss_scales(
     let boss_catalog = boss_catalog.as_deref().unwrap_or(&empty);
     for submitted in outbox.drain::<ambition_boss_special_port::BossScalePort>(&BOSS_CONDUCT) {
         match bosses.get_mut(submitted.scope) {
-            Ok(mut boss) => boss.as_boss_mut().rescale(submitted.value.scale, boss_catalog),
+            Ok(mut boss) => boss.as_boss_mut().rescale(&sprite_content, submitted.value.scale, boss_catalog),
             Err(_) => warn!(
                 "extension entry {} asked to scale {:?}, which is not a boss; refused",
                 submitted.entry, submitted.scope

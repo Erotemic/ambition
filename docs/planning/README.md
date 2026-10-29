@@ -231,6 +231,8 @@ links to.
 - [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md) —
   presentation ownership and body-owned drawables.
 - [`engine/sprite-renderer.md`](engine/sprite-renderer.md)
+- [`engine/external-art-library-migration.md`](engine/external-art-library-migration.md)
+  — shared content libraries and explicit game selection.
 - [`engine/character-texel-density.md`](engine/character-texel-density.md) —
   sheet pixels per world unit; the cast rollout is on hold.
 - [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md)

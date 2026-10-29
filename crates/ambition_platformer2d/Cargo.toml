@@ -9,7 +9,7 @@ description = "Facade crate for composing Ambition-derived platformer games from
 [features]
 # Test fixtures of the capabilities, for a game's own tests. A game reaches
 # them through this umbrella, so its dependency list stays the umbrella.
-test-support = ["ambition_items/test-support"]
+test-support = ["ambition_items/test-support", "ambition_sprite_sheet/test-support"]
 # Optional LDtk integration; movement-only games leave it disabled.
 ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_provider/ldtk"]
 # The causal inspector, off by default: a game that never opens one must not
@@ -134,9 +134,6 @@ dev_tools = [
 ]
 dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
 static_map = ["ambition_asset_manager/static_map", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/static_map"]
-static_core_assets = ["ambition_asset_manager/static_core_assets", "ambition_sprite_sheet/static_core_assets"]
-static_content = ["ambition_platformer2d_assets/static_content", "ambition_sprite_sheet/static_content"]
-static_sfx_bank = ["ambition_platformer2d_actor_monolith/static_sfx_bank"]
 ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime", "ambition_platformer2d_assets/ldtk_runtime"]
 # Load procedural modules from `.wasm` files at startup, so a module edit
 # rebuilds the module and not the engine. Off by default: see the runtime's
@@ -310,4 +307,5 @@ bevy = { version = "0.19.1", default-features = false, features = [
 notify = "8.2"
 
 [dev-dependencies]
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }
 serde_json = "1"

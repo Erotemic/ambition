@@ -11,16 +11,16 @@ use crate::rendering::actors::draw_held_frame;
 
 const RENDER: Vec2 = Vec2::new(103.0, 114.0);
 
-fn raider(rigged: bool) -> CharacterSpriteAsset {
-    raider_with(rigged.then(|| RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook")))
+fn raider(sprite_content: &ambition_sprite_sheet::SpriteContent, rigged: bool) -> CharacterSpriteAsset {
+    raider_with(&sprite_content, rigged.then(|| RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("a published flipbook")))
 }
 
-fn raider_with(flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
-    sheet_with("pirate_raider", flipbook)
+fn raider_with(sprite_content: &ambition_sprite_sheet::SpriteContent, flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
+    sheet_with(&sprite_content, "pirate_raider", flipbook)
 }
 
-fn sheet_with(character: &str, flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
-    let spec = try_load_spec_for_character_id(character).expect("a baked sheet");
+fn sheet_with(sprite_content: &ambition_sprite_sheet::SpriteContent, character: &str, flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
+    let spec = try_load_spec_for_character_id(&sprite_content, character).expect("a baked sheet");
     let page = ambition_sprite_sheet::character::CharacterSpritePage {
         texture: Handle::default(),
         layout: Handle::default(),
@@ -41,8 +41,8 @@ fn sheet_with(character: &str, flipbook: Option<RiggedSpriteAsset>) -> Character
 
 /// An app with the two systems, the raider's sheet in the table, and one root
 /// drawn from it with its anchor on the sheet's feet.
-fn app(admit: bool) -> (App, Entity) {
-    app_with(admit, raider(true))
+fn app(sprite_content: &ambition_sprite_sheet::SpriteContent, admit: bool) -> (App, Entity) {
+    app_with(&sprite_content, admit, raider(&sprite_content, true))
 }
 
 /// A page whose image is present: ready to draw.
@@ -112,16 +112,17 @@ fn declare(composite: Res<Composite>, roots: Query<Entity, With<CharacterAnimato
     }
 }
 
-fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
+fn app_with(sprite_content: &ambition_sprite_sheet::SpriteContent, admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    app_anchored(admit, sheet, Anchor(feet))
+    app_anchored(&sprite_content, admit, sheet, Anchor(feet))
 }
 
 /// [`app_with`], with the root built at `anchor`: the feet for an NPC,
 /// `Anchor::CENTER` for a player with a sheet-authored quad
 /// (`character_render_basis`).
-fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
+fn app_anchored(sprite_content: &ambition_sprite_sheet::SpriteContent, admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.init_resource::<Assets<Image>>();
     app.init_resource::<Assets<TextureAtlasLayout>>();
     let sheet = with_pages(sheet, || ready_page(&mut app));
@@ -134,7 +135,7 @@ fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (Ap
         .add_systems(Update, (animate, declare, bind_rigged_presentations, drive_rigged_presentations).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider");
-    assets.characters.publish("raider", sheet.clone());
+    assets.characters.publish(&sprite_content, "raider", sheet.clone());
     app.insert_resource(assets);
     let asset = sheet;
     let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, anchor);
@@ -191,9 +192,10 @@ fn slots(app: &App, owner: Entity) -> Vec<(Vec2, bool)> {
 }
 
 fn frame_draws(app: &App, root: Entity, target: &str) -> Vec<Vec2> {
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let animator = app.world().get::<CharacterAnimator>(root).unwrap();
     let row = animator.spec.row_name(animator.drawn_row().unwrap()).unwrap().to_owned();
-    let flipbook = RiggedSpriteAsset::baked(target).unwrap();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, target).unwrap();
     flipbook
         .frame(&row, animator.frame)
         .unwrap()
@@ -238,10 +240,12 @@ fn draws_baked(app: &App, root: Entity) -> bool {
 
 #[test]
 fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
-    let (mut app, root) = app(true);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     settle(&mut app);
     let owner = owner(&app, root);
-    let max_draws = RiggedSpriteAsset::baked("pirate_raider").unwrap().max_draws();
+    let max_draws = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").unwrap().max_draws();
     let drawn = slots(&app, owner);
     assert_eq!(drawn.len(), max_draws);
     let expected = frame_draws(&app, root, "pirate_raider");
@@ -254,7 +258,7 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
 
     // The root's quad is its cell, with the feet on the root's feet.
     let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
-    let flipbook = RiggedSpriteAsset::baked("pirate_raider").unwrap();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").unwrap();
     let per_pixel = RENDER / flipbook.frame_size.as_vec2();
     let feet = presentation.impostor.expect("an impostor cell").feet;
     assert_eq!(feet, flipbook.feet_pixel + Vec2::splat(impostor_margin(&flipbook)));
@@ -295,12 +299,15 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
 /// publication can change both.
 #[test]
 fn a_new_flipbook_binds_its_own_posed_parts() {
-    let (mut app, root) = app(true);
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     settle(&mut app);
     let posed = |app: &App| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().posed.clone();
     let first = posed(&app).expect("the premise: the raider publishes a body rig, so its parts are posed");
-    let sheet = with_pages(raider(true), || ready_page(&mut app));
-    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    let sheet = with_pages(raider(&sprite_content, true), || ready_page(&mut app));
+    app.world_mut().resource_mut::<GameAssets>().characters.publish(&sprite_content, "raider", sheet);
     settle(&mut app);
     let second = posed(&app).expect("the new flipbook's parts are posed");
     assert!(!Arc::ptr_eq(&first, &second), "the new flipbook was bound with the posed parts of the old one");
@@ -308,7 +315,8 @@ fn a_new_flipbook_binds_its_own_posed_parts() {
 
 #[test]
 fn with_the_trial_off_no_root_gets_parts() {
-    let (mut app, root) = app(false);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, false);
     app.update();
     assert!(no_presentations(&mut app));
     let mut parts = app.world_mut().query::<&RiggedPartSlot>();
@@ -318,13 +326,16 @@ fn with_the_trial_off_no_root_gets_parts() {
 
 #[test]
 fn a_root_whose_sheet_loses_its_flipbook_draws_itself_again() {
-    let (mut app, root) = app(true);
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     app.update();
     let owner = owner(&app, root);
     app.world_mut()
         .resource_mut::<GameAssets>()
         .characters
-        .publish("raider", raider(false));
+        .publish(&sprite_content, "raider", raider(&sprite_content, false));
     app.update();
     assert!(app.world().get_entity(owner).is_err(), "the owner outlived the flipbook");
     let mut parts = app.world_mut().query::<&RiggedPartSlot>();
@@ -343,7 +354,8 @@ fn a_root_whose_sheet_loses_its_flipbook_draws_itself_again() {
 /// second pane adds no presentation entity.
 #[test]
 fn the_parts_draw_only_into_their_impostor() {
-    let (mut app, root) = app(true);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     settle(&mut app);
     let owner = owner(&app, root);
     let private = RenderLayers::layer(RIGGED_IMPOSTOR_LAYER);
@@ -371,9 +383,11 @@ fn the_parts_draw_only_into_their_impostor() {
 /// room), and a freed cell is reused.
 #[test]
 fn each_body_has_its_own_cell() {
-    let (mut app, first) = app(true);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, first) = app(&sprite_content, true);
     let second = {
-        let asset = raider(true);
+        let asset = raider(&sprite_content, true);
         let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
         let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
         app.world_mut()
@@ -400,7 +414,7 @@ fn each_body_has_its_own_cell() {
     app.world_mut().entity_mut(first).despawn();
     app.update();
     let third = {
-        let asset = raider(true);
+        let asset = raider(&sprite_content, true);
         let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
         let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
         app.world_mut()
@@ -418,14 +432,16 @@ fn each_body_has_its_own_cell() {
 /// [`NO_BAKED_IMAGE`], which is what a body with no cell falls back to.
 #[test]
 fn a_class_with_every_cell_taken_opens_a_page() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
-    let mut sheet = raider(true);
+    let mut sheet = raider(&sprite_content, true);
     sheet.texture = NO_BAKED_IMAGE;
     for page in &mut sheet.pages {
         page.texture = NO_BAKED_IMAGE;
     }
     assert!(sheet.parts_only(), "the sheet is not drawn from parts alone, so this tests nothing");
-    let (mut app, first) = app_with(true, sheet.clone());
+    let (mut app, first) = app_with(&sprite_content, true, sheet.clone());
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
     let spawn = |app: &mut App| {
         let (sprite, anchor, animator) = build_character_presentation_with_render_size(&sheet, RENDER, Anchor(feet));
@@ -488,8 +504,8 @@ fn a_class_with_every_cell_taken_opens_a_page() {
 /// The raider's published flipbook with `row` left to the baked sheet: its
 /// clip is taken out of `clips` and named in `baked_clips`, as a hybrid
 /// publish states it.
-fn hybrid_raider(row: &str) -> RiggedSpriteAsset {
-    let text = ambition_sprite_sheet::baked_part_flipbooks::published_ron_on_build_host("pirate_raider").unwrap();
+fn hybrid_raider(sprite_content: &ambition_sprite_sheet::SpriteContent, row: &str) -> RiggedSpriteAsset {
+    let text = ambition_sprite_sheet::baked_part_flipbooks::published_ron_on_build_host(&sprite_content, "pirate_raider").unwrap();
     let key = format!("\"{row}\": (");
     let start = text.find(&key).expect("the raider has the clip");
     // The clip ends at the parenthesis that closes the one after its key.
@@ -514,7 +530,7 @@ fn hybrid_raider(row: &str) -> RiggedSpriteAsset {
     let close = text.rfind(')').unwrap();
     let text = format!("{}    baked_clips: [\"{row}\"],\n{}", &text[..close], &text[close..]);
     let hybrid = RiggedSpriteAsset::from_published_ron(&text).expect("the hybrid parses");
-    let spec = try_load_spec_for_character_id("pirate_raider").unwrap();
+    let spec = try_load_spec_for_character_id(&sprite_content, "pirate_raider").unwrap();
     hybrid.check_rows(spec.row_names()).expect("the hybrid states every row");
     hybrid
 }
@@ -524,13 +540,15 @@ fn hybrid_raider(row: &str) -> RiggedSpriteAsset {
 /// root does not move.
 #[test]
 fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::rigged::ClipRealization;
     use ambition_sprite_sheet::character::CharacterAnim;
 
-    let hybrid = hybrid_raider("slash");
+    let hybrid = hybrid_raider(&sprite_content, "slash");
     assert_eq!(hybrid.realization("slash"), Some(ClipRealization::Baked));
     assert_eq!(hybrid.realization("idle"), Some(ClipRealization::Parts));
-    let (mut app, root) = app_with(true, raider_with(Some(hybrid)));
+    let (mut app, root) = app_with(&sprite_content, true, raider_with(&sprite_content, Some(hybrid)));
     settle(&mut app);
     let owner = owner(&app, root);
     let slot_ids = app.world().get::<RiggedPresentation>(owner).unwrap().slots.clone();
@@ -567,14 +585,16 @@ fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
 /// something else dirtied the page).
 #[test]
 fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::CharacterAnim;
 
     // The app's own root fills the first page (one cell), so A and B share
     // the second.
-    let (mut app, _filler) = app_with(true, raider_with(Some(hybrid_raider("slash"))));
+    let (mut app, _filler) = app_with(&sprite_content, true, raider_with(&sprite_content, Some(hybrid_raider(&sprite_content, "slash"))));
     settle(&mut app);
     let a = {
-        let asset = raider_with(Some(hybrid_raider("slash")));
+        let asset = raider_with(&sprite_content, Some(hybrid_raider(&sprite_content, "slash")));
         let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
         let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
         app.world_mut()
@@ -582,7 +602,7 @@ fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
             .id()
     };
     let b = {
-        let asset = raider_with(Some(hybrid_raider("slash")));
+        let asset = raider_with(&sprite_content, Some(hybrid_raider(&sprite_content, "slash")));
         let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
         let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
         app.world_mut()
@@ -621,13 +641,16 @@ fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
 /// cell's new page rendering from the next).
 #[test]
 fn a_body_stays_baked_until_every_part_page_is_ready() {
-    let (mut app, root) = app_with(true, raider(false));
-    let pending: Vec<Handle<Image>> = (0..RiggedSpriteAsset::baked("pirate_raider").unwrap().pages.len())
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app_with(&sprite_content, true, raider(&sprite_content, false));
+    let pending: Vec<Handle<Image>> = (0..RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").unwrap().pages.len())
         .map(|_| pending_page(&mut app))
         .collect();
     let mut pages = pending.clone().into_iter();
-    let sheet = with_pages(raider(true), || pages.next().unwrap());
-    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    let sheet = with_pages(raider(&sprite_content, true), || pages.next().unwrap());
+    app.world_mut().resource_mut::<GameAssets>().characters.publish(&sprite_content, "raider", sheet);
     for _ in 0..5 {
         app.update();
         assert!(no_presentations(&mut app), "bound to pages still loading");
@@ -651,22 +674,24 @@ fn a_body_stays_baked_until_every_part_page_is_ready() {
 /// page of the new tier is ready, and then changes in one frame.
 #[test]
 fn a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready() {
-    let (mut app, root) = app(true);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     app.update();
     let full_owner = owner(&app, root);
 
-    let quarter = RiggedSpriteAsset::baked("pirate_raider")
+    let quarter = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider")
         .unwrap()
-        .for_tier(TextureResolutionScale::Quarter)
+        .for_tier(&sprite_content, TextureResolutionScale::Quarter)
         .expect("the raider publishes a quarter tier")
         .expect("the quarter tier is the raider's");
-    let mut sheet = raider_with(Some(quarter));
+    let mut sheet = raider_with(&sprite_content, Some(quarter));
     sheet.requested_tier = TextureResolutionScale::Quarter;
     sheet.resolved_tier = TextureResolutionScale::Quarter;
     let pending: Vec<Handle<Image>> = sheet.rigged.as_ref().unwrap().pages.iter().map(|_| pending_page(&mut app)).collect();
     let mut pages = pending.clone().into_iter();
     let sheet = with_pages(sheet, || pages.next().unwrap());
-    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    app.world_mut().resource_mut::<GameAssets>().characters.publish(&sprite_content, "raider", sheet);
     app.world_mut().get_mut::<BoundSpriteQuality>(root).unwrap().scale = TextureResolutionScale::Quarter;
     for _ in 0..5 {
         app.update();
@@ -698,18 +723,21 @@ fn a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready() {
 /// keeps the old parts meanwhile.
 #[test]
 fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
-    let (mut app, root) = app(true);
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     app.update();
     let raider_owner = owner(&app, root);
 
-    let flipbook = RiggedSpriteAsset::baked("pirate_lookout").expect("the lookout publishes a flipbook");
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_lookout").expect("the lookout publishes a flipbook");
     let mut pending = Vec::new();
-    let lookout = with_pages(sheet_with("pirate_lookout", Some(flipbook)), || {
+    let lookout = with_pages(sheet_with(&sprite_content, "pirate_lookout", Some(flipbook)), || {
         let page = pending_page(&mut app);
         pending.push(page.clone());
         page
     });
-    app.world_mut().resource_mut::<GameAssets>().characters.publish("lookout", lookout.clone());
+    app.world_mut().resource_mut::<GameAssets>().characters.publish(&sprite_content, "lookout", lookout.clone());
     let feet = Vec2::new(lookout.spec.feet_anchor_x, lookout.spec.feet_anchor_y);
     let (sprite, anchor, animator) = build_character_presentation_with_render_size(&lookout, RENDER, Anchor(feet));
     app.world_mut().entity_mut(root).insert((sprite, anchor, animator));
@@ -731,7 +759,7 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
     }
     app.update();
     let lookout_owner = owner(&app, root);
-    assert_eq!(app.world().get::<RiggedPresentation>(lookout_owner).unwrap().target, "pirate_lookout");
+    assert_eq!(app.world().get::<RiggedPresentation>(lookout_owner).unwrap().target, "content://ambition_shared/sprites/pirate_lookout");
     assert!(slots(&app, lookout_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
     // The raider's page was retired with its last body; the lookout's is new,
     // so it is composited from the next frame.
@@ -746,7 +774,8 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
 /// authored-offset quad).
 #[test]
 fn a_squashed_root_squashes_its_impostor_about_the_same_line() {
-    let (mut app, root) = app(true);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     settle(&mut app);
     let (h0, a0) = {
         let animator = app.world().get::<CharacterAnimator>(root).unwrap();
@@ -789,9 +818,12 @@ fn a_squashed_root_squashes_its_impostor_about_the_same_line() {
 /// in this frame and in the next (`RiggedSpriteAsset::tween_into`).
 #[test]
 fn a_tweened_clip_draws_between_its_frames() {
-    let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2_tall").expect("a published flipbook");
     assert_eq!(flipbook.clip("walk").unwrap().tween, ClipTween::Linear);
-    let (mut app, root) = app_with(true, sheet_with("mary_o_v2_tall", Some(flipbook.clone())));
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())));
     app.update();
     let owner = owner(&app, root);
     let duration = {
@@ -801,7 +833,7 @@ fn a_tweened_clip_draws_between_its_frames() {
         animator.elapsed = 0.0;
         let row = animator.spec.row_name(animator.drawn_row().unwrap()).unwrap().to_owned();
         assert_eq!(row, "walk");
-        ambition_sprite_sheet::character::sheets::record_for_sheet_key("mary_o_v2_tall")
+        ambition_sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, "mary_o_v2_tall")
             .unwrap()
             .rows
             .iter()
@@ -838,9 +870,11 @@ fn a_tweened_clip_draws_between_its_frames() {
 /// roots, so none could see it.
 #[test]
 fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
-    let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2_tall").expect("a published flipbook");
     let frame = flipbook.frame_size.as_vec2();
-    let spec = try_load_spec_for_character_id("mary_o_v2_tall").unwrap();
+    let spec = try_load_spec_for_character_id(&sprite_content, "mary_o_v2_tall").unwrap();
     // Where a quad of `size` at `anchor` draws the point at `uv` of itself
     // (0..1, +y down), mirrored about the origin when `flip`.
     let local = |size: Vec2, anchor: Vec2, uv: Vec2, flip: bool| {
@@ -861,7 +895,7 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
         for flip in [false, true] {
-            let (mut app, root) = app_anchored(true, sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
+            let (mut app, root) = app_anchored(&sprite_content, true, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
             app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
             settle(&mut app);
             let owner = owner(&app, root);
@@ -897,9 +931,12 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
 /// pinned to a mirror row, it matched.
 #[test]
 fn a_mirror_row_drawn_facing_left_lands_where_the_baked_frame_would() {
-    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "player_robot_v3").expect("the robot publishes a flipbook");
     let frame = flipbook.frame_size.as_vec2();
-    let (mut app, root) = app_with(true, sheet_with("player_robot_v3", Some(flipbook.clone())));
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "player_robot_v3", Some(flipbook.clone())));
     app.update();
     {
         // As the game faces a body (`apply_character_frame`).
@@ -933,9 +970,9 @@ fn a_mirror_row_drawn_facing_left_lands_where_the_baked_frame_would() {
 
 /// The player robot's flipbook, published (`player_robot_v3.py`): every row
 /// from parts, placed between pixels.
-fn robot() -> (RiggedSpriteAsset, App, Entity) {
-    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
-    let (mut app, root) = app_with(true, sheet_with("player_robot_v3", Some(flipbook.clone())));
+fn robot(sprite_content: &ambition_sprite_sheet::SpriteContent) -> (RiggedSpriteAsset, App, Entity) {
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "player_robot_v3").expect("the robot publishes a flipbook");
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "player_robot_v3", Some(flipbook.clone())));
     app.update();
     (flipbook, app, root)
 }
@@ -956,7 +993,8 @@ fn pin_clip(app: &mut App, root: Entity, row: &str, frame: usize) {
 /// cell stays opaque, and the cell is opaque again once the clip ends.
 #[test]
 fn a_frame_that_fades_as_one_picture_fades_its_cell() {
-    let (flipbook, mut app, root) = robot();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (flipbook, mut app, root) = robot(&sprite_content);
     let owner = owner(&app, root);
     let last = flipbook.clip("death").expect("a death clip").frame_count() - 1;
     let fade = flipbook.frame_opacity("death", last);
@@ -979,8 +1017,8 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
 
 /// The robot's published flipbook with one part of its body (track 0) half
 /// clear in each frame of `row`: a sheet with a fade of its own there.
-fn robot_that_fades_its_body_in(row: &str) -> RiggedSpriteAsset {
-    let text = ambition_sprite_sheet::baked_part_flipbooks::published_ron_on_build_host("player_robot_v3").unwrap();
+fn robot_that_fades_its_body_in(sprite_content: &ambition_sprite_sheet::SpriteContent, row: &str) -> RiggedSpriteAsset {
+    let text = ambition_sprite_sheet::baked_part_flipbooks::published_ron_on_build_host(&sprite_content, "player_robot_v3").unwrap();
     let key = format!("\"{row}\": (");
     let start = text.find(&key).expect("the robot has the clip");
     // The clip ends at the parenthesis that closes the one after its key.
@@ -1016,7 +1054,9 @@ fn robot_that_fades_its_body_in(row: &str) -> RiggedSpriteAsset {
 /// one body part of that row made half clear.
 #[test]
 fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
-    let (flipbook, mut app, root) = robot();
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (flipbook, mut app, root) = robot(&sprite_content);
     assert!(
         flipbook.row_draws_the_body_whole("blink_out"),
         "premise: the robot's blink row is a plain pose. The sheets are untracked: if this machine's is from \
@@ -1042,9 +1082,9 @@ fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     assert_eq!(atlas(&app).cells.warp[cell], Vec4::ZERO, "the warp stays after the row ends");
 
     // The control.
-    let own = robot_that_fades_its_body_in("blink_out");
+    let own = robot_that_fades_its_body_in(&sprite_content, "blink_out");
     assert!(!own.row_draws_the_body_whole("blink_out"), "control: the variant draws its body whole");
-    let (mut app, root) = app_with(true, sheet_with("player_robot_v3", Some(own)));
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "player_robot_v3", Some(own)));
     app.update();
     pin_clip(&mut app, root, "blink_out", 2);
     app.update();
@@ -1081,14 +1121,17 @@ fn warp_of(app: &App, root: Entity) -> Vec4 {
 /// no warp.
 #[test]
 fn a_body_with_no_blink_row_that_asks_for_a_blink_is_warped_on_the_row_it_draws() {
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::rigged::BLINK_WARP_S;
     use ambition_sprite_sheet::character::CharacterAnim;
-    let flipbook = RiggedSpriteAsset::baked("pirate_raider").expect("the raider publishes a flipbook");
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("the raider publishes a flipbook");
     assert!(
         flipbook.clip("blink_out").is_none() && flipbook.clip("blink_in").is_none(),
         "premise: the raider has no blink row; choose another sheet"
     );
-    let (mut app, root) = app_with(true, sheet_with("pirate_raider", Some(flipbook)));
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "pirate_raider", Some(flipbook)));
     settle(&mut app);
     let idle = drawn_row(&app, root);
     assert_eq!(warp_of(&app, root), Vec4::ZERO, "control: a body that asks for its idle has a warp");
@@ -1119,8 +1162,9 @@ fn a_body_with_no_blink_row_that_asks_for_a_blink_is_warped_on_the_row_it_draws(
 /// nothing. The renderer runs its clock and takes it off at its end.
 #[test]
 fn a_blink_performed_on_a_body_warps_it_on_the_row_it_draws_and_ends() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::rigged::PerformedBodyWarp;
-    let (_flipbook, mut app, root) = robot();
+    let (_flipbook, mut app, root) = robot(&sprite_content);
     app.init_resource::<Time>();
     app.add_systems(Update, advance_performed_body_warps.before(drive_rigged_presentations));
     pin_clip(&mut app, root, "walk", 1);
@@ -1148,8 +1192,9 @@ fn a_blink_performed_on_a_body_warps_it_on_the_row_it_draws_and_ends() {
 /// draws every coloured variant. A body without one is drawn as painted.
 #[test]
 fn a_color_shift_reaches_its_bodys_cell() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::CharacterColorShift;
-    let (_flipbook, mut app, root) = robot();
+    let (_flipbook, mut app, root) = robot(&sprite_content);
     let owner = owner(&app, root);
     let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell").cell as usize;
     assert_eq!(atlas(&app).cells.shift[cell], CharacterColorShift::NONE.as_uniform(), "premise: unshifted");
@@ -1177,7 +1222,8 @@ fn a_color_shift_reaches_its_bodys_cell() {
 /// each slot carries the draw's scale in its transform.
 #[test]
 fn a_mirrored_draw_mirrors_its_slot() {
-    let (flipbook, mut app, root) = robot();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (flipbook, mut app, root) = robot(&sprite_content);
     let owner = owner(&app, root);
     {
         let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
@@ -1198,7 +1244,8 @@ fn a_mirrored_draw_mirrors_its_slot() {
 /// slot at the draw's opacity.
 #[test]
 fn a_faded_draw_tints_its_slot() {
-    let (flipbook, mut app, root) = robot();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (flipbook, mut app, root) = robot(&sprite_content);
     let owner = owner(&app, root);
     let frames = flipbook.clip("smash_forward").expect("a smash clip").frame_count();
     let (frame, index, opacity) = (0..frames)
@@ -1224,10 +1271,11 @@ fn a_faded_draw_tints_its_slot() {
 /// old single 256 px cell.
 #[test]
 fn every_published_flipbook_fits_an_impostor_cell() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut checked = Vec::new();
     // Full-resolution tables only: a tier's table has the same frame.
-    for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
-        let flipbook = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
+    for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets(&sprite_content) {
+        let flipbook = RiggedSpriteAsset::baked(&sprite_content, key).expect("a published flipbook parses");
         assert!(
             impostor_cell_class(flipbook.frame_size.as_vec2(), impostor_margin(&flipbook)).is_some(),
             "`{key}`'s {} px frame, with its art's {} px margin, fits no impostor cell ({IMPOSTOR_CELL_CLASSES:?})",
@@ -1237,7 +1285,7 @@ fn every_published_flipbook_fits_an_impostor_cell() {
         checked.push(key);
     }
     // Mary-O's three forms, the five pirates and the robot, at least.
-    assert!(checked.contains(&"player_robot_v3") && checked.len() >= 9, "{checked:?}");
+    assert!(checked.contains(&"content://ambition_shared/sprites/player_robot_v3") && checked.len() >= 9, "{checked:?}");
 }
 
 /// A body takes the smallest cell its frame fits: Noether's 496 x 528 frame a
@@ -1245,11 +1293,14 @@ fn every_published_flipbook_fits_an_impostor_cell() {
 /// atlas is never built for her.
 #[test]
 fn a_large_frame_takes_a_cell_of_its_size() {
-    let flipbook = RiggedSpriteAsset::baked("noether").expect("noether publishes a flipbook");
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "noether").expect("noether publishes a flipbook");
     assert_eq!(impostor_cell_class(flipbook.frame_size.as_vec2(), impostor_margin(&flipbook)), Some(1));
     assert_eq!(impostor_cell_class(Vec2::new(256.0, 256.0), IMPOSTOR_MARGIN), Some(0));
     assert_eq!(impostor_cell_class(Vec2::new(2000.0, 10.0), IMPOSTOR_MARGIN), None);
-    let (mut app, root) = app_with(true, sheet_with("noether", Some(flipbook.clone())));
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "noether", Some(flipbook.clone())));
     app.update();
     app.update();
     let owner = owner(&app, root);
@@ -1269,8 +1320,8 @@ fn a_large_frame_takes_a_cell_of_its_size() {
 
 /// The test app with nothing reading its body as one image: the parts draw
 /// directly.
-fn app_direct(sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
-    let (mut app, root) = app_anchored(true, sheet, anchor);
+fn app_direct(sprite_content: &ambition_sprite_sheet::SpriteContent, sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
+    let (mut app, root) = app_anchored(&sprite_content, true, sheet, anchor);
     app.insert_resource(Composite(false));
     (app, root)
 }
@@ -1282,10 +1333,12 @@ fn app_direct(sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
 /// parts under it. Poison: declare nothing for a passage.
 #[test]
 fn a_body_its_passage_fades_is_composited() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     for (alpha, composited) in [(0.5, true), (1.0, false)] {
-        let sheet = raider(true);
+        let sheet = raider(&sprite_content, true);
         let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-        let (mut app, root) = app_direct(sheet, Anchor(feet));
+        let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
         app.add_systems(
             Update,
             crate::rendering::passage_visuals::declare_passage_fade_demand.before(bind_rigged_presentations),
@@ -1309,10 +1362,12 @@ fn a_body_its_passage_fades_is_composited() {
 /// root's own layers, under an owner that follows the root's visibility.
 #[test]
 fn a_body_nothing_reads_draws_its_parts_in_the_world() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
-    let sheet = raider(true);
+    let sheet = raider(&sprite_content, true);
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
     app.update();
     let owner = owner(&app, root);
     let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
@@ -1356,9 +1411,12 @@ fn a_body_nothing_reads_draws_its_parts_in_the_world() {
 /// take the turn was drawn level in a room with sideways gravity (2026-10-05).
 #[test]
 fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
-    let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2_tall").expect("a published flipbook");
     let frame = flipbook.frame_size.as_vec2();
-    let spec = try_load_spec_for_character_id("mary_o_v2_tall").unwrap();
+    let spec = try_load_spec_for_character_id(&sprite_content, "mary_o_v2_tall").unwrap();
     let collision = Vec2::new(21.0, 32.0);
     let npc = crate::rendering::actors::character_render_basis(&spec, collision, None, None).1;
     let player =
@@ -1367,7 +1425,7 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
     for built_at in [npc, player] {
         for flip in [false, true] {
             for turn in [0.0, std::f32::consts::FRAC_PI_2, 0.6] {
-                let (mut app, root) = app_direct(sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
+                let (mut app, root) = app_direct(&sprite_content, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
                 app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
                 let root_place =
                     Transform::from_translation(Vec3::new(40.0, -12.0, 3.0)).with_rotation(Quat::from_rotation_z(turn));
@@ -1404,9 +1462,11 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
 /// and gives its cell back.
 #[test]
 fn a_body_read_as_one_image_is_composited_while_it_is_read() {
-    let sheet = raider(true);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&sprite_content, true);
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
     app.update();
     let owner = owner(&app, root);
     assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none());
@@ -1463,10 +1523,13 @@ fn a_body_read_as_one_image_is_composited_while_it_is_read() {
 /// once its frames stop fading.
 #[test]
 fn a_fading_frame_is_composited_with_nothing_reading_it() {
-    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
-    let sheet = sheet_with("player_robot_v3", Some(flipbook.clone()));
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "player_robot_v3").expect("the robot publishes a flipbook");
+    let sheet = sheet_with(&sprite_content, "player_robot_v3", Some(flipbook.clone()));
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
     app.update();
     let owner = owner(&app, root);
     assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none(), "premise: idle is drawn directly");
@@ -1486,9 +1549,11 @@ fn a_fading_frame_is_composited_with_nothing_reading_it() {
 /// part drawn directly, as it multiplied the composited body.
 #[test]
 fn a_direct_body_tints_its_parts_with_its_root_colour() {
-    let sheet = raider(true);
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let sheet = raider(&sprite_content, true);
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
     app.update();
     let owner = owner(&app, root);
     let slot = app.world().get::<RiggedPresentation>(owner).unwrap().slots[0];
@@ -1509,13 +1574,16 @@ fn a_direct_body_tints_its_parts_with_its_root_colour() {
 /// same slots on the same road; without one, where the flipbook does.
 #[test]
 fn a_part_pose_on_the_root_places_its_parts() {
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::rigged::{PartPose, PosedParts};
     use bevy::math::Affine2;
 
-    let flipbook = RiggedSpriteAsset::baked("mary_o_v2").expect("a published flipbook");
-    let sheet = sheet_with("mary_o_v2", Some(flipbook.clone()));
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2").expect("a published flipbook");
+    let sheet = sheet_with(&sprite_content, "mary_o_v2", Some(flipbook.clone()));
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
     pin_clip(&mut app, root, "idle", 0);
     app.update();
     let owner = owner(&app, root);
@@ -1523,7 +1591,7 @@ fn a_part_pose_on_the_root_places_its_parts() {
     let as_drawn = slots(&app, owner);
 
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(
-        ambition_sprite_sheet::baked_body_rigs::baked_body_rig("mary_o_v2").unwrap(),
+        ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, "mary_o_v2").unwrap(),
     )
     .unwrap()
     .prepare()
@@ -1563,9 +1631,10 @@ fn a_part_pose_on_the_root_places_its_parts() {
 /// covers the farthest any of its draws reaches, with the fringe to spare.
 #[test]
 fn a_cell_holds_every_draw_of_its_body() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut widest = ("", 0.0_f32);
-    for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
-        let flipbook = RiggedSpriteAsset::baked(key).unwrap();
+    for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets(&sprite_content) {
+        let flipbook = RiggedSpriteAsset::baked(&sprite_content, key).unwrap();
         assert!(impostor_margin(&flipbook) >= flipbook.art_overhang + 2.0, "`{key}`'s cell clips its art");
         if flipbook.art_overhang > widest.1 {
             widest = (key, flipbook.art_overhang);
@@ -1594,19 +1663,22 @@ fn a_cell_holds_every_draw_of_its_body() {
 /// control is the same body with the pose her clip already has: composited.
 #[test]
 fn a_part_pose_that_reaches_past_its_cell_is_drawn_directly() {
+
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::rigged::PartPose;
     use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
     use bevy::math::Affine2;
 
-    let flipbook = RiggedSpriteAsset::baked("mary_o_v2").expect("a published flipbook");
-    let (mut app, root) = app_with(true, sheet_with("mary_o_v2", Some(flipbook.clone())));
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "mary_o_v2").expect("a published flipbook");
+    let (mut app, root) = app_with(&sprite_content, true, sheet_with(&sprite_content, "mary_o_v2", Some(flipbook.clone())));
     pin_clip(&mut app, root, "idle", 0);
     settle(&mut app);
     let owner = owner(&app, root);
     assert!(draws_impostor(&app, root, owner), "premise: read as one image, she is composited");
 
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(
-        ambition_sprite_sheet::baked_body_rigs::baked_body_rig("mary_o_v2").unwrap(),
+        ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, "mary_o_v2").unwrap(),
     )
     .unwrap()
     .prepare()
@@ -1662,8 +1734,9 @@ fn a_part_pose_that_reaches_past_its_cell_is_drawn_directly() {
 /// the others keep their answers.
 #[test]
 fn the_driver_answers_each_reader_with_its_own_tracks() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use bevy::ecs::system::RunSystemOnce;
-    let (mut app, root) = app(true);
+    let (mut app, root) = app(&sprite_content, true);
     settle(&mut app);
     let tracks: Vec<String> = {
         let owner = owner(&app, root);
@@ -1703,7 +1776,8 @@ fn the_driver_answers_each_reader_with_its_own_tracks() {
 /// all (a host with no camera) every body is posed.
 #[test]
 fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
-    let (flipbook, mut app, root) = robot();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (flipbook, mut app, root) = robot(&sprite_content);
     app.insert_resource(Composite(false));
     let owner = owner(&app, root);
     let clip = flipbook.clip("run").expect("a run clip");
@@ -1788,8 +1862,9 @@ fn a_body_no_view_shows_is_not_posed_until_a_view_shows_it() {
 /// leaves the sprite and its anchor unmarked; a new facing is a sprite write.
 #[test]
 fn a_frame_drawn_again_unchanged_writes_nothing() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use crate::rendering::actors::animation::{draw_animator_frame, FrameWrites, StanceSquash};
-    let sheet = raider(false);
+    let sheet = raider(&sprite_content, false);
     let mut animator = CharacterAnimator::new(&sheet);
     let mut sprite = Sprite::from_atlas_image(Handle::default(), TextureAtlas { layout: Handle::default(), index: 0 });
     sprite.custom_size = Some(RENDER);
@@ -1807,7 +1882,8 @@ fn a_frame_drawn_again_unchanged_writes_nothing() {
 /// not lost behind the giant, and an epaulette on its shoulder stays over it.
 #[test]
 fn a_limb_drawn_apart_and_the_body_under_and_over_it_draw_each_part_once_in_order() {
-    let mut flipbook = RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let mut flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("a published flipbook");
     flipbook.tracks = ["body", "limb:hand_left:upper", "limb:hand_left:fist", "epaulette", "head"]
         .map(str::to_owned)
         .to_vec();
@@ -1835,7 +1911,8 @@ fn a_limb_drawn_apart_and_the_body_under_and_over_it_draw_each_part_once_in_orde
 /// tall after a few frames, so the arm was drawn nowhere).
 #[test]
 fn a_limb_twin_keeps_its_roots_size_frame_after_frame() {
-    let (mut app, root) = app(true);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
     app.add_systems(Update, follow_limb_twins.after(animate).before(bind_rigged_presentations));
     let twin = LimbTwin::spawn(&mut app.world_mut().commands(), root, "hand_left");
     app.world_mut().flush();

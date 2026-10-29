@@ -23,10 +23,28 @@ use ambition_sprite_sheet::boss::BossSheetSpec;
 /// It receives the boss's scope and its body as built. It is code, not
 /// content, so it is not part of the catalog's canonical dump; the code that
 /// reads the state it inserts is not in the dump either.
-pub type BossBirthKit = fn(
+pub type BossBirthFn = fn(
+    &ambition_sprite_sheet::SpriteContent,
     &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
     &ambition_platformer2d_core::BodyKinematics,
 );
+
+#[derive(Clone, Debug)]
+pub struct BossBirthKit {
+    content: ambition_sprite_sheet::SpriteContent,
+    build: BossBirthFn,
+}
+
+impl PartialEq for BossBirthKit {
+    fn eq(&self, other: &Self) -> bool {
+        self.content == other.content && std::ptr::fn_addr_eq(self.build, other.build)
+    }
+}
+
+impl BossBirthKit {
+    pub fn apply(&self, scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+        body: &ambition_platformer2d_core::BodyKinematics) { (self.build)(&self.content, scope, body); }
+}
 
 /// One App's complete authored boss authority.
 #[derive(Resource, Clone, Debug, Default, serde::Serialize)]
@@ -91,7 +109,7 @@ impl BossCatalog {
     /// The kit that finishes boss `id` at construction, if its provider gave
     /// one. See [`BossBirthKit`].
     pub fn birth_kit(&self, id: &str) -> Option<BossBirthKit> {
-        self.birth_kits.get(id).copied()
+        self.birth_kits.get(id).cloned()
     }
 
     pub fn encounter_specs(&self) -> impl Iterator<Item = &BossEncounterSpec> {
@@ -393,8 +411,8 @@ impl BossCatalogFragment {
 
     /// Give boss `id` a [`BossBirthKit`]. Registration refuses a kit for a
     /// boss this fragment does not define.
-    pub fn with_birth_kit(mut self, id: impl Into<String>, kit: BossBirthKit) -> Self {
-        self.birth_kits.insert(id.into(), kit);
+    pub fn with_birth_kit(mut self, id: impl Into<String>, content: &ambition_sprite_sheet::SpriteContent, build: BossBirthFn) -> Self {
+        self.birth_kits.insert(id.into(), BossBirthKit { content: content.clone(), build });
         self
     }
 
@@ -601,7 +619,7 @@ impl BossCatalogRegistry {
         for (provider_id, fragment) in &self.fragments {
             // A kit names one of its own fragment's bosses (`validate`), and
             // two providers cannot define one boss, so kits cannot collide.
-            birth_kits.extend(fragment.birth_kits.iter().map(|(id, kit)| (id.clone(), *kit)));
+            birth_kits.extend(fragment.birth_kits.iter().map(|(id, kit)| (id.clone(), kit.clone())));
             for (id, behavior) in &fragment.behaviors {
                 if let Some(first_provider) = behavior_owners.get(id) {
                     return Err(BossCatalogAssemblyError::DuplicateBoss {
@@ -1028,19 +1046,22 @@ mod tests {
     #[test]
     fn a_birth_kit_is_assembled_under_its_boss_and_refused_for_a_stranger() {
         fn kit(
+            _: &ambition_sprite_sheet::SpriteContent,
             _: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
             _: &ambition_platformer2d_core::BodyKinematics,
         ) {
         }
         let mut registry = BossCatalogRegistry::default();
         registry
-            .register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", kit))
+            .register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", &ambition_sprite_sheet::SpriteContent::default(), kit))
             .expect("a kit for the fragment's own boss registers");
+        registry.register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", &ambition_sprite_sheet::SpriteContent::default(), kit))
+            .expect("the same callback and metadata selection are idempotent");
         let catalog = registry.assemble().expect("assembles");
         assert!(catalog.birth_kit("alpha").is_some(), "the kit reached the catalog");
         assert!(catalog.birth_kit("beta").is_none());
         let refused = BossCatalogRegistry::default()
-            .register(renamed_single_boss_fragment("b", "beta").with_birth_kit("gamma", kit))
+            .register(renamed_single_boss_fragment("b", "beta").with_birth_kit("gamma", &ambition_sprite_sheet::SpriteContent::default(), kit))
             .expect_err("a kit for an undefined boss would never run");
         assert_eq!(
             refused,

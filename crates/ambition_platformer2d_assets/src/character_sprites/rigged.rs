@@ -50,7 +50,7 @@ pub fn mirror_rigged_admission(
 ///
 /// `unpublished` remembers the `(target, tier)` pairs that publish no
 /// flipbook, so a sheet without one is looked up once, not every frame.
-pub fn attach_rigged_sprite_pages(
+pub fn attach_rigged_sprite_pages(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     admission: Option<Res<RiggedSpriteAdmission>>,
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
     asset_server: Option<Res<AssetServer>>,
@@ -71,7 +71,7 @@ pub fn attach_rigged_sprite_pages(
         if unpublished.contains(&key) {
             return None;
         }
-        let pages = rigged_pages_for(asset, &asset_server);
+        let pages = rigged_pages_for(&sprite_content, asset, &asset_server);
         if pages.is_none() {
             unpublished.insert(key);
         }
@@ -94,10 +94,10 @@ pub fn attach_rigged_sprite_pages(
 /// flipbook does not state each row of the sheet as a part clip or a baked
 /// clip: the sheet and the flipbook are published together, so that is a
 /// stale or broken publish.
-pub fn rigged_pages_for(asset: &CharacterSpriteAsset, asset_server: &AssetServer) -> Option<RiggedSpritePages> {
+pub fn rigged_pages_for(sprite_content: &ambition_sprite_sheet::SpriteContent, asset: &CharacterSpriteAsset, asset_server: &AssetServer) -> Option<RiggedSpritePages> {
     let sheet_page = asset_server.get_path(asset.texture.id())?.to_string();
     let directory = sheet_page.rsplit_once('/').map_or("", |(directory, _)| directory);
-    rigged_pages_in(&asset.spec, asset.resolved_tier, directory, asset_server)
+    rigged_pages_in(&sprite_content, &asset.spec, asset.resolved_tier, directory, asset_server)
 }
 
 /// The flipbook pages of `spec`'s sheet at `tier`, loaded from `directory`
@@ -105,7 +105,7 @@ pub fn rigged_pages_for(asset: &CharacterSpriteAsset, asset_server: &AssetServer
 /// flipbook, or its tier table is of another publish than its full table (a
 /// publish in progress). Panics as [`rigged_pages_for`] does for a table that
 /// is refused for another reason.
-pub fn rigged_pages_in(
+pub fn rigged_pages_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
     tier: TextureResolutionScale,
     directory: &str,
@@ -116,7 +116,7 @@ pub fn rigged_pages_in(
     // gave one sheet another's flipbook and the hall panicked (2026-10-03).
     // A flipbook is published per sheet, under the sheet's name.
     let target = spec.base_sheet_key();
-    let full = RiggedSpriteAsset::baked(target)?;
+    let full = RiggedSpriteAsset::baked(&sprite_content, target)?;
     // A measured verdict at publish: this character's parts cost more than
     // its sheet, so it is drawn baked (the flipbook stays published).
     if full.realize == ambition_sprite_sheet::character::rigged::Realize::Baked {
@@ -129,7 +129,7 @@ pub fn rigged_pages_in(
             spec.row_names().collect::<Vec<_>>()
         )
     });
-    let flipbook = match full.for_tier(tier)? {
+    let flipbook = match full.for_tier(&sprite_content, tier)? {
         Ok(flipbook) => flipbook,
         // A publish writes the full table first and the tier tables after it
         // (about 45 s later for one character). A game that realizes the sheet
@@ -149,12 +149,12 @@ pub fn rigged_pages_in(
         .pages
         .iter()
         .map(|page| {
-            let path = if directory.is_empty() {
+            let path = if directory.is_empty() || page.contains("://") {
                 page.clone()
             } else {
                 format!("{directory}/{page}")
             };
-            ambition_sprite_sheet::game_assets::load_sheet_image(asset_server, RIGGED_SPRITE_ROAD, path)
+            ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content, asset_server, RIGGED_SPRITE_ROAD, path)
         })
         .collect();
     Some(RiggedSpritePages {

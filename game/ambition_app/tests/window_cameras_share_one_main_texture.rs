@@ -12,7 +12,7 @@ use ambition_platformer2d::render::rendering::window_camera_stack::{incompatible
 
 fn gameplay_after_startup() -> bevy::prelude::App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
     app

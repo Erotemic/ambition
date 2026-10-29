@@ -5,42 +5,31 @@ use std::path::{Path, PathBuf};
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
-/// The two asset roots the desktop host mounts: the engine's own tree and the
-/// `game://` source a provider addresses its content through.
-///
-/// Both, because a declared path may legitimately live in either — and a check
-/// that knew only one would report a provider's real art as missing, which is
-/// the noise that gets a guard waived.
-fn asset_roots() -> Vec<PathBuf> {
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-    [
-        manifest.join("../../crates/ambition_platformer2d_actor_monolith/assets"),
-        manifest.join("../ambition_content/assets"),
-    ]
-    .into_iter()
-    .filter_map(|path| path.canonicalize().ok())
-    .filter(|path| path.is_dir())
-    .collect()
+struct DeclaredSources {
+    files: std::collections::BTreeMap<String, ambition_platformer2d::asset_manager::content_library::LibraryFile>,
+    game: PathBuf,
 }
 
-/// Whether `declared` names a real file under any mounted root.
-fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
-    let relative = declared.rsplit("://").next().unwrap_or(declared);
-    use ambition_platformer2d::asset_manager::art_publication::{Selection, store_for_assets};
-    static SELECTED: std::sync::OnceLock<Selection> = std::sync::OnceLock::new();
-    let selected = SELECTED.get_or_init(|| Selection::read(&store_for_assets(&roots[0]))
-        .expect("Generate the runtime art before checking its declarations"));
-    if selected.manages(Path::new(relative)) {
-        return selected.path(relative).is_some_and(|path| path.is_file());
-    }
-    roots.iter().any(|root| root.join(relative).is_file())
+fn asset_roots() -> DeclaredSources {
+    use ambition_platformer2d::asset_manager::content_library::{ContentLibraries, ContentLibrary};
+    let mut libraries = ContentLibraries::default();
+    libraries.insert(ContentLibrary::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_content_library/library.json")).unwrap()).unwrap();
+    DeclaredSources { files: libraries.files().unwrap(), game: Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_content/assets") }
+}
+
+fn resolves(declared: &str, sources: &DeclaredSources) -> bool {
+    if let Some(path) = declared.strip_prefix("game://") { return sources.game.join(path).is_file(); }
+    let library = sources.files.get(declared).is_some_and(|file| file.native_path().is_some_and(|path| path.is_file()));
+    if declared.contains("://") { return library; }
+    let game = sources.game.join(declared).is_file();
+    library != game
 }
 
 /// Non-vacuity control: a path that does not exist must fail resolution.
 #[test]
 fn the_resolver_can_actually_report_a_missing_file() {
     let roots = asset_roots();
-    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(!roots.files.is_empty(), "no asset root resolved");
     assert!(
         !resolves("sprites/a_file_nobody_ever_drew.png", &roots),
         "the resolver answers YES for a path that does not exist, so every          emptiness assertion in this file is green by construction"
@@ -63,7 +52,7 @@ fn every_declared_world_item_art_path_names_a_file_that_exists() {
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
     assert!(
-        !roots.is_empty(),
+        !roots.files.is_empty(),
         "no asset root resolved, so this test cannot see any file and would \
          pass or fail for the wrong reason"
     );
@@ -114,7 +103,7 @@ fn every_declared_projectile_image_names_a_file_that_exists() {
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
-    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(!roots.files.is_empty(), "no asset root resolved");
 
     let catalog = app
         .world()
@@ -169,7 +158,7 @@ fn every_declared_music_track_path_names_a_file_that_exists() {
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
-    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(!roots.files.is_empty(), "no asset root resolved");
 
     let Some(registry) = app.world().get_resource::<MusicRegistry>() else {
         panic!("the composed host has no music registry to check");
@@ -239,7 +228,7 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
-    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(!roots.files.is_empty(), "no asset root resolved");
 
     let catalog = app
         .world()
@@ -293,7 +282,7 @@ fn every_catalog_character_names_a_spritesheet_that_exists() {
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
-    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(!roots.files.is_empty(), "no asset root resolved");
 
     let catalog = app
         .world()
@@ -339,7 +328,7 @@ fn every_catalog_character_names_a_manifest_that_exists() {
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
-    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(!roots.files.is_empty(), "no asset root resolved");
 
     let catalog = app
         .world()

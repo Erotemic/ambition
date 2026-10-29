@@ -75,6 +75,9 @@ fn preparation_failed() -> ! {
 /// An App with no asset catalog (a provider declaration test) has no world to
 /// load and gets none.
 pub(crate) fn prepare_ambition_world(app: &mut App) {
+    let selected_pack = crate::pack::select(app.world_mut());
+    app.init_resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let Some(catalog) = app
         .world()
         .get_resource::<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>()
@@ -110,8 +113,7 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
             }
         };
     // The App's own pack: validation judges the content this App installed.
-    let selected_pack = crate::pack::select(app.world_mut());
-    let content_report = crate::content_validation::validate_content_graph(
+    let content_report = crate::content_validation::validate_content_graph(&sprite_content,
         &selected_pack,
         &music_registry,
         &ldtk_project,

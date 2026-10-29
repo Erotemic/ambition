@@ -25,7 +25,7 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 /// gameplay is all it takes — the assertion is about what it produced, not when.
 fn gameplay_after_startup() -> bevy::prelude::App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
     app
@@ -658,7 +658,7 @@ fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) 
         app.insert_resource(ambition_app::app::StartRoomOverride(start_room.to_owned()));
         app.insert_resource(ambition_app::app::StartRoomMustResolve);
     });
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() + 30 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) + 30 {
         app.update();
     }
     let start = put_bob_beside_alice(&mut app);

@@ -610,13 +610,18 @@ impl RiggedSpriteAsset {
     /// its cache (`baked_part_flipbooks`). A game that draws calls
     /// [`Self::warm_baked_in_background`], so that the decode is not on the
     /// frame that realizes the sheet.
-    pub fn baked(target: &str) -> Option<Self> {
-        Some(Self::baked_checked(target)?.unwrap_or_else(|error| panic!("the published part flipbook `{target}` {error}")))
+    pub fn baked(content: &crate::SpriteContent, target: &str) -> Option<Self> {
+        Some(Self::baked_checked(&content, target)?.unwrap_or_else(|error| panic!("the published part flipbook `{target}` {error}")))
     }
 
     /// [`Self::baked`], with a refused table returned and not a panic.
-    fn baked_checked(target: &str) -> Option<Result<Self, RiggedSpriteError>> {
-        crate::baked_sheet_rons::current().part_tables().decoded(target)
+    fn baked_checked(content: &crate::SpriteContent, target: &str) -> Option<Result<Self, RiggedSpriteError>> {
+        let target = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
+        crate::baked_sheet_rons::current(content).part_tables().decoded(target).map(|result| result.map(|mut asset| {
+            asset.target = target.to_owned();
+            asset.pages = asset.pages.iter().map(|page| crate::library::image_in(target, page)).collect();
+            asset
+        }))
     }
 
     /// Decode every published full-resolution flipbook on background threads,
@@ -631,17 +636,17 @@ impl RiggedSpriteAsset {
     ///
     /// A table that is refused is left for the sheet that realizes it: that
     /// is where the error is reported.
-    pub fn warm_baked_in_background() {
-        static STARTED: std::sync::Once = std::sync::Once::new();
-        STARTED.call_once(|| {
-            let targets: Vec<&'static str> = crate::baked_part_flipbooks::baked_part_flipbook_targets().collect();
+    pub fn warm_baked_in_background(content: &crate::SpriteContent) {
+        crate::baked_sheet_rons::current(content).warm_parts(|| {
+            let targets: Vec<&'static str> = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content).collect();
             let chunk = targets.len().div_ceil(WARM_THREADS).max(1);
             for (index, part) in targets.chunks(chunk).enumerate() {
                 let part = part.to_vec();
+                let content = content.clone();
                 // A thread that cannot start costs the warm-up only.
                 let _ = std::thread::Builder::new().name(format!("part table warm {index}")).spawn(move || {
                     for target in part {
-                        let _ = Self::baked_checked(target);
+                        let _ = Self::baked_checked(&content, target);
                     }
                 });
             }
@@ -655,11 +660,11 @@ impl RiggedSpriteAsset {
     ///
     /// Each part keeps its full-resolution size and pivot, so a body draws the
     /// same size at every tier: the tier table's own sizes are rounded.
-    pub fn for_tier(&self, tier: ambition_persistence::settings::TextureResolutionScale) -> Option<Result<Self, RiggedSpriteError>> {
+    pub fn for_tier(&self, content: &crate::SpriteContent, tier: ambition_persistence::settings::TextureResolutionScale) -> Option<Result<Self, RiggedSpriteError>> {
         let Some(suffix) = tier.asset_id_suffix() else {
             return Some(Ok(self.clone()));
         };
-        let table = crate::baked_part_flipbooks::baked_part_flipbook(&format!("{}.{suffix}", self.target))?;
+        let table = crate::baked_part_flipbooks::baked_part_flipbook(&content, &format!("{}.{suffix}", self.target))?;
         Some(table.decode().and_then(|tiered| {
             if tiered.parts.len() != self.parts.len() {
                 return Err(RiggedSpriteError::TierMismatch {
@@ -680,7 +685,12 @@ impl RiggedSpriteAsset {
                 .collect();
             Ok(Self {
                 texel_scale: tiered.texel_scale,
-                pages: tiered.pages,
+                pages: tiered.pages.iter().map(|page| {
+                    let path = crate::library::image_in(&self.target, page);
+                    if let Some((before, after)) = path.split_once("/sprites/") {
+                        format!("{before}/sprites_{suffix}/{after}")
+                    } else { path }
+                }).collect(),
                 parts,
                 ..self.clone()
             })

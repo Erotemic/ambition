@@ -13,7 +13,7 @@ use ambition_platformer2d_actor_spawn::character_body::{
 /// values override older catalog-derived facts where authored. Change detection
 /// makes the projection replay safely after rollback recreation and character
 /// replacement. Live vitals are intentionally not projected here.
-pub fn project_prepared_character_definitions(
+pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // The session's cast (`SessionCast`), not the App's: a cast a reload
     // publishes reaches the bodies when its generation is activated.
@@ -117,7 +117,7 @@ pub fn project_prepared_character_definitions(
         // That writer keeps its own record now, `avatar::PersonaBaseline`, stamped
         // after IT applies the baseline. One writer, one record. This one covers
         // the authored silhouette, the movement feel and the motion model below.
-        grant_prepared_character_body(
+        grant_prepared_character_body(&sprite_content,
             &mut EntityScope::new(&mut commands, entity),
             prepared,
             registry.generation(),

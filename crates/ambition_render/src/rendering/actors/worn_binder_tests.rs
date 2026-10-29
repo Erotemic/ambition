@@ -16,8 +16,8 @@ use bevy::prelude::*;
 
 /// A deterministic sheet fixture: a real baked spec for `sheet_root`, with
 /// placeholder texture/atlas handles (the binder only clones handles).
-fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
-    let spec = try_load_spec_for_character_id(sheet_root)
+fn fixture(sprite_content: &ambition_sprite_sheet::SpriteContent, sheet_root: &str) -> CharacterSpriteAsset {
+    let spec = try_load_spec_for_character_id(&sprite_content, sheet_root)
         .unwrap_or_else(|| panic!("baked sheet spec exists for '{sheet_root}'"));
     CharacterSpriteAsset {
         texture: Handle::default(),
@@ -33,10 +33,10 @@ fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
 /// Two character profiles through the same binder with no per-character code:
 /// "robot" and "goblin" each bind their own sheet and are marked with their
 /// own id.
-fn two_character_assets() -> GameAssets {
+fn two_character_assets(sprite_content: &ambition_sprite_sheet::SpriteContent) -> GameAssets {
     let mut assets = GameAssets::default();
-    assets.characters.publish("robot", fixture("robot"));
-    assets.characters.publish("goblin", fixture("goblin"));
+    assets.characters.publish(&sprite_content, "robot", fixture(&sprite_content, "robot"));
+    assets.characters.publish(&sprite_content, "goblin", fixture(&sprite_content, "goblin"));
     assets
 }
 
@@ -71,9 +71,10 @@ fn spawn_worn_before_its_pose(app: &mut App, id: &str) -> Entity {
 
 #[test]
 fn binds_on_first_appearance_for_two_profiles() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.insert_resource(two_character_assets());
+    app.insert_resource(two_character_assets(&sprite_content));
     app.add_systems(Update, bind_worn_character_presentation);
 
     let robot = spawn_worn(&mut app, "robot");
@@ -106,12 +107,14 @@ fn binds_on_first_appearance_for_two_profiles() {
 
 #[test]
 fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     // Only "robot" has a sheet; the second identity has none, which tests the
     // sheet-to-fallback rebind (the stale-component path).
     let mut assets = GameAssets::default();
-    assets.characters.publish("robot", fixture("robot"));
+    assets.characters.publish(&sprite_content, "robot", fixture(&sprite_content, "robot"));
     app.insert_resource(assets);
     app.add_systems(Update, bind_worn_character_presentation);
 
@@ -177,13 +180,14 @@ fn no_game_assets_still_draws_a_marked_fallback() {
 
 #[test]
 fn already_bound_identity_is_not_rebound() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Non-vacuity: a body already bound to its identity (same id and a real
     // sheet) is skipped, so the binder does not rebuild the sprite every
     // frame. Advance the animator's frame cursor and check that an unchanged
     // update keeps it (a rebind would install a new frame-0 animator).
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.insert_resource(two_character_assets());
+    app.insert_resource(two_character_assets(&sprite_content));
     app.add_systems(Update, bind_worn_character_presentation);
     let e = spawn_worn(&mut app, "robot");
     app.update();
@@ -201,6 +205,7 @@ fn already_bound_identity_is_not_rebound() {
 
 #[test]
 fn a_fallback_upgrades_when_its_sheet_appears_later() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The binder must not stay on a fallback: if `GameAssets` (or the id's
     // sheet) arrives after the first bind, the next run upgrades the marked
     // fallback to the real sheet.
@@ -219,7 +224,7 @@ fn a_fallback_upgrades_when_its_sheet_appears_later() {
     );
 
     // The sheet loads now.
-    app.insert_resource(two_character_assets());
+    app.insert_resource(two_character_assets(&sprite_content));
     app.update();
     assert!(
         app.world().get::<CharacterAnimator>(e).is_some(),
@@ -237,8 +242,9 @@ fn a_fallback_upgrades_when_its_sheet_appears_later() {
 /// growing must never scale art.
 #[test]
 fn the_sprite_baseline_records_the_bodys_own_standing_size() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
-    app.insert_resource(two_character_assets());
+    app.insert_resource(two_character_assets(&sprite_content));
     app.add_systems(Update, super::bind_worn_character_presentation);
 
     let tall = ambition_platformer2d_core::Vec2::new(30.0, 72.0);
@@ -300,8 +306,9 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
 /// settled pose.
 #[test]
 fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
-    app.insert_resource(two_character_assets());
+    app.insert_resource(two_character_assets(&sprite_content));
     app.add_systems(Update, super::bind_worn_character_presentation);
 
     // Her real numbers, from `powerups::form_body_size`.
@@ -372,16 +379,18 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
 /// (a giant frame at launch, before `BodyPoseView` exists).
 #[test]
 fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
-    let asset = fixture("player_robot_v3");
+    let asset = fixture(&sprite_content, "player_robot_v3");
     assert!(
         asset.spec.is_trimmed(),
         "the regression fixture must exercise a packed/trimmed sheet"
     );
     let mut assets = GameAssets::default();
-    assets.characters.publish("player_robot_v3", asset);
+    assets.characters.publish(&sprite_content, "player_robot_v3", asset);
     app.insert_resource(assets);
     app.add_systems(Update, bind_worn_character_presentation);
 
@@ -438,12 +447,14 @@ fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
 /// the pose lands, the first final basis is the authored one.
 #[test]
 fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     let mut assets = GameAssets::default();
     assets
         .characters
-        .publish("player_robot_v3", fixture("player_robot_v3"));
+        .publish(&sprite_content, "player_robot_v3", fixture(&sprite_content, "player_robot_v3"));
     app.insert_resource(assets);
     app.add_systems(Update, bind_worn_character_presentation);
 
@@ -494,7 +505,7 @@ fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
     // Non-vacuity: a collision-derived bind of this body would not give the
     // authored quad, so the two answers differ.
     let (collision_derived, _) = super::character_render_basis(
-        &fixture("player_robot_v3").spec,
+        &fixture(&sprite_content, "player_robot_v3").spec,
         authored,
         None,
         None,

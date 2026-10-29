@@ -13,7 +13,7 @@ much of the live part is inside it, and a window that would match the picture.
 
     python scripts/measure_move_art_sync.py \
         game/ambition_content/assets/data/movesets/gnu_ton.ron \
-        crates/ambition_platformer2d_actor_monolith/assets/sprites/gnu_ton_scholar_fighter_spritesheet.yaml
+        game/ambition_content_library/generated/runtime/sprites/gnu_ton_scholar_fighter_spritesheet.yaml
 
 A measure of the PUBLISHED sheet: publish the sheet before you trust it. It
 reads reach from the trimmed rect of a frame, so an effect drawn far from the

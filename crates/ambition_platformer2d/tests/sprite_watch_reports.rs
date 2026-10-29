@@ -11,6 +11,7 @@
 use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch};
 use bevy::prelude::*;
 use std::time::{Duration, Instant};
+mod common;
 
 const PROBE: &str = "sprite_watch_reports_probe";
 
@@ -51,8 +52,10 @@ fn the_watch_looks_when_a_file_changes_and_not_while_none_does() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
-    app.init_resource::<ambition_sprite_sheet::SheetRegistry>();
-    app.add_plugins(SpriteSheetReloadPlugin { owner: Some(owner.clone()), manual: false });
+    common::library(&owner, false);
+    common::install(&mut app, &owner);
+    app.add_plugins(SpriteSheetReloadPlugin { manual: false });
+    app.update();
     let looks = |app: &App| app.world().resource::<SpriteSheetWatch>().looks();
     update_until(&mut app, Duration::from_secs(5), |app| looks(app) >= 1);
     assert_eq!(looks(&app), 1, "the premise: the thread takes its baseline");

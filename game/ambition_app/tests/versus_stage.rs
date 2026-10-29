@@ -41,7 +41,7 @@ fn versus_app() -> App {
 /// because the run-in has already grown from one card to two and a stale number
 /// would silently turn this into "assert the host is still showing card one".
 fn settle_to_launcher(app: &mut App) {
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) * 2 {
         app.update();
         if app
             .world()

@@ -34,8 +34,9 @@ mod tests {
     /// there draws a fallback row, and nothing says so.
     #[test]
     fn every_clip_names_a_row_his_sheet_carries() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let table = crate::authored_movesets::shipped(FIGHTER);
-        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key("ramen_nujan")
+        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, "ramen_nujan")
             .expect("his sheet is baked into the registry");
         let rows: std::collections::BTreeSet<&str> = record.rows.iter().map(|r| r.animation.as_str()).collect();
         for spec in &table.moves {

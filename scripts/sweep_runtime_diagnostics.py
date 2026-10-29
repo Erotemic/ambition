@@ -26,7 +26,7 @@ from pathlib import Path
 
 # The directory of the runtime sprite roots, relative to the repo root, and
 # the roots in it. Mirrors asset_publish::RUNTIME_SPRITE_ROOTS.
-ASSET_ROOT = "crates/ambition_platformer2d_actor_monolith/assets"
+ASSET_ROOT = "game/ambition_content_library/generated/runtime"
 RUNTIME_SPRITE_ROOTS = ("sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato")
 
 # Filename suffixes that mark a visual diagnostic. Mirrors DIAGNOSTIC_SUFFIXES

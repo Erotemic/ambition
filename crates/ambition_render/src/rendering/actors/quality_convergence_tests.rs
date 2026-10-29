@@ -29,6 +29,7 @@ const PLAYER_ID: &str = "player_robot_v3";
 
 fn asset_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<Image>();
     app.init_asset::<bevy::image::TextureAtlasLayout>();
@@ -48,9 +49,11 @@ fn quality(profile: VisualQualityProfile) -> ResolvedVisualQuality {
 /// a sheet whose texture is not present, so a fixture with the image already
 /// present would test only the same-frame case.
 fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> CharacterSpriteAsset {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
 
-    let spec = try_load_spec_for_target("robot", &SheetTuning::new(1.0, 1))
+    let spec = try_load_spec_for_target(&sprite_content, "robot", &SheetTuning::new(1.0, 1))
         .expect("the baked `robot` sheet record is present");
     let texture = app
         .world_mut()
@@ -124,6 +127,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
 /// had nothing to do and the Hall kept the man with no armor on the screen.
 #[test]
 fn an_actor_that_wears_another_character_of_its_size_is_bound_to_that_art() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     const OTHER_CHARACTER: &str = "probe_character_armored";
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::High));
@@ -135,8 +139,8 @@ fn an_actor_that_wears_another_character_of_its_size_is_bound_to_that_art() {
     the_image_lands(&mut app, &other);
     let other_image = other.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_CHARACTER, own);
-    assets.characters.publish(OTHER_CHARACTER, other);
+    assets.characters.publish(&sprite_content, ACTOR_CHARACTER, own);
+    assets.characters.publish(&sprite_content, OTHER_CHARACTER, other);
     app.insert_resource(assets);
 
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -199,6 +203,7 @@ fn an_actor_that_wears_another_character_of_its_size_is_bound_to_that_art() {
 /// removed from `Assets<Image>`.
 #[test]
 fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
 
@@ -206,7 +211,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     the_image_lands(&mut app, &half);
     let half_image = half.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_CHARACTER, half);
+    assets.characters.publish(&sprite_content, ACTOR_CHARACTER, half);
     app.insert_resource(assets);
 
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -246,7 +251,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     app.world_mut()
         .resource_mut::<GameAssets>()
         .characters
-        .publish(ACTOR_CHARACTER, full.clone());
+        .publish(&sprite_content, ACTOR_CHARACTER, full.clone());
     app.update();
 
     // `GameAssets` changed a frame ago; the decode finishes now. A binder
@@ -287,6 +292,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
 /// The controlled body takes the same path, through its own binder.
 #[test]
 fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
 
@@ -294,7 +300,7 @@ fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
     the_image_lands(&mut app, &half);
     let half_image = half.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(PLAYER_ID, half);
+    assets.characters.publish(&sprite_content, PLAYER_ID, half);
     app.insert_resource(assets);
     app.add_systems(Update, super::refresh_player_sprites_for_resident_quality);
 
@@ -321,7 +327,7 @@ fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
     app.world_mut()
         .resource_mut::<GameAssets>()
         .characters
-        .publish(PLAYER_ID, full.clone());
+        .publish(&sprite_content, PLAYER_ID, full.clone());
     app.update();
 
     the_image_lands(&mut app, &full);
@@ -375,13 +381,14 @@ fn atlas_layout(app: &App, body: Entity) -> Option<AssetId<bevy::image::TextureA
 /// realization, not only its tier.
 #[test]
 fn a_body_binds_again_to_a_new_realization_at_the_same_tier() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
     let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &half);
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_CHARACTER, half.clone());
-    assets.characters.publish(PLAYER_ID, half.clone());
+    assets.characters.publish(&sprite_content, ACTOR_CHARACTER, half.clone());
+    assets.characters.publish(&sprite_content, PLAYER_ID, half.clone());
     app.insert_resource(assets);
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(ACTOR_ID.to_string(), a_feature_view())]));
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
@@ -408,8 +415,8 @@ fn a_body_binds_again_to_a_new_realization_at_the_same_tier() {
 
     let moved = the_same_pages_with_new_rects(&mut app, &half);
     let mut assets = app.world_mut().resource_mut::<GameAssets>();
-    assets.characters.publish(ACTOR_CHARACTER, moved.clone());
-    assets.characters.publish(PLAYER_ID, moved.clone());
+    assets.characters.publish(&sprite_content, ACTOR_CHARACTER, moved.clone());
+    assets.characters.publish(&sprite_content, PLAYER_ID, moved.clone());
     app.update();
     let new = Some(moved.layout.id());
     assert_eq!(
@@ -426,13 +433,14 @@ fn a_body_binds_again_to_a_new_realization_at_the_same_tier() {
 /// the animation cursor for no reason.
 #[test]
 fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Low));
 
     let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &half);
     let mut assets = GameAssets::default();
-    assets.characters.publish(PLAYER_ID, half);
+    assets.characters.publish(&sprite_content, PLAYER_ID, half);
     app.insert_resource(assets);
     app.add_systems(Update, super::refresh_player_sprites_for_resident_quality);
 
@@ -476,6 +484,7 @@ fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
 /// label from its art, and the spawn draws the placeholder.
 #[test]
 fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Low));
     let mut assets = GameAssets::default();
@@ -483,7 +492,7 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     the_image_lands(&mut app, &art);
     let art_image = art.texture.id();
     // Registered under the catalog id only. Nothing answers to the label.
-    assets.characters.publish("catalog_identity", art);
+    assets.characters.publish(&sprite_content, "catalog_identity", art);
     app.insert_resource(assets);
 
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -527,13 +536,14 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
 /// rendered rooms that fallback was never taken (2026-10-03).
 #[test]
 fn an_actor_without_a_character_id_does_not_bind_by_its_display_name() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Low));
     let mut assets = GameAssets::default();
     let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
     the_image_lands(&mut app, &art);
     let art_image = art.texture.id();
-    assets.characters.publish(ACTOR_NAME, art);
+    assets.characters.publish(&sprite_content, ACTOR_NAME, art);
     app.insert_resource(assets);
 
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -641,6 +651,7 @@ fn texture_readiness_asks_the_owner_of_the_handle() {
     // A separate app with the IO pool: `asset_server.load` panics without it.
     // The shared `asset_app()` fixture has no pool.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(bevy::app::TaskPoolPlugin::default());
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<Image>();
@@ -704,6 +715,7 @@ fn texture_readiness_asks_the_owner_of_the_handle() {
 /// was demanded and decoded.
 #[test]
 fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::CharacterSheetState;
 
     let mut app = asset_app();
@@ -714,7 +726,7 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
     // pass if everything reports a retirement.
     assets.characters.declare(PLAYER_ID);
 
-    assets.characters.publish(ACTOR_ID, full);
+    assets.characters.publish(&sprite_content, ACTOR_ID, full);
     assert!(
         assets.characters.sheet_state(ACTOR_ID).is_ready(),
         "premise: the realization is resident before anything retires it"
@@ -771,13 +783,14 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
 /// retired to any reader that does not check residency first.
 #[test]
 fn a_re_realized_character_no_longer_reports_a_retirement() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
     let quarter = a_pending_realization(&mut app, TextureResolutionScale::Quarter);
     let mut assets = GameAssets::default();
     assets.characters.declare(ACTOR_ID);
 
-    assets.characters.publish(ACTOR_ID, full);
+    assets.characters.publish(&sprite_content, ACTOR_ID, full);
     assets
         .characters
         .retire_realizations([ACTOR_ID.to_string()]);
@@ -787,7 +800,7 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
         "premise: it is retired before it is re-published"
     );
 
-    assets.characters.publish(ACTOR_ID, quarter);
+    assets.characters.publish(&sprite_content, ACTOR_ID, quarter);
     assert!(assets.characters.sheet_state(ACTOR_ID).is_ready());
     assert_eq!(
         assets.characters.retired_tier(ACTOR_ID),
@@ -814,13 +827,14 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
 /// re-runs.
 #[test]
 fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
-    fn bind_then_correct(collision_changes: bool) -> (Option<Vec2>, Option<Vec2>) {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    fn bind_then_correct(sprite_content: &ambition_sprite_sheet::SpriteContent, collision_changes: bool) -> (Option<Vec2>, Option<Vec2>) {
         let mut app = asset_app();
         app.insert_resource(quality(VisualQualityProfile::High));
         let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
         the_image_lands(&mut app, &art);
         let mut assets = GameAssets::default();
-        assets.characters.publish(ACTOR_CHARACTER, art);
+        assets.characters.publish(&sprite_content, ACTOR_CHARACTER, art);
         app.insert_resource(assets);
 
         // The snake's numbers: collision already final, render still the
@@ -889,8 +903,8 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
         (bound_at, after)
     }
 
-    let (bound_at, after) = bind_then_correct(false);
-    let (control_bound, control_after) = bind_then_correct(true);
+    let (bound_at, after) = bind_then_correct(&sprite_content, false);
+    let (control_bound, control_after) = bind_then_correct(&sprite_content, true);
     println!(
         "[latch] collision UNCHANGED: bound={bound_at:?} after_correction={after:?}\n\
          [latch] collision CHANGED  : bound={control_bound:?} after_correction={control_after:?}"
@@ -928,12 +942,13 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
 /// sheet.
 #[test]
 fn the_refresh_binds_nothing_onto_a_body_no_binder_stamped() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
     let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &half);
     let mut assets = GameAssets::default();
-    assets.characters.publish(PLAYER_ID, half);
+    assets.characters.publish(&sprite_content, PLAYER_ID, half);
     app.insert_resource(assets);
     app.add_systems(Update, super::refresh_player_sprites_for_resident_quality);
 
@@ -968,12 +983,13 @@ fn the_refresh_binds_nothing_onto_a_body_no_binder_stamped() {
 /// must not finalize from it; it binds once the pose settles.
 #[test]
 fn the_refresh_waits_for_a_settled_pose() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
     let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &half);
     let mut assets = GameAssets::default();
-    assets.characters.publish(PLAYER_ID, half);
+    assets.characters.publish(&sprite_content, PLAYER_ID, half);
     app.insert_resource(assets);
     app.add_systems(Update, super::refresh_player_sprites_for_resident_quality);
 
@@ -1012,6 +1028,7 @@ fn the_refresh_waits_for_a_settled_pose() {
 /// would stay. The actor keeps the placeholder, then binds its own art.
 #[test]
 fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     const OWN_ART: &str = "probe_actor_art";
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
@@ -1020,7 +1037,7 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
     the_image_lands(&mut app, &by_name);
     let name_image = by_name.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_NAME, by_name);
+    assets.characters.publish(&sprite_content, ACTOR_NAME, by_name);
     assets.characters.declare(OWN_ART);
     app.insert_resource(assets);
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -1059,7 +1076,7 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
     app.world_mut()
         .resource_mut::<GameAssets>()
         .characters
-        .publish(OWN_ART, own);
+        .publish(&sprite_content, OWN_ART, own);
     app.update();
     assert_eq!(
         app.world().get::<Sprite>(body).map(|s| s.image.id()),
@@ -1075,13 +1092,14 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
 /// binder waits for `PoseGeometry::Settled`.
 #[test]
 fn an_actor_is_not_bound_its_art_from_a_body_whose_geometry_is_pending() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
     let own = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &own);
     let own_image = own.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_CHARACTER, own);
+    assets.characters.publish(&sprite_content, ACTOR_CHARACTER, own);
     app.insert_resource(assets);
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
         ACTOR_ID.to_string(),

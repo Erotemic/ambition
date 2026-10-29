@@ -25,6 +25,7 @@ pub mod id;
 pub mod kind;
 pub mod location;
 pub mod manifest;
+pub mod content_library;
 pub mod policy;
 pub mod preload;
 pub mod profile;
@@ -33,9 +34,8 @@ pub mod resolver;
 #[cfg(feature = "bevy")]
 pub mod bevy_integration;
 
-/// A game's own asset tree, layered over the engine's (recorded SDK leak #3).
-#[cfg(all(feature = "bevy", not(target_arch = "wasm32")))]
-pub mod consumer_source;
+#[cfg(feature = "bevy")]
+pub mod library_source;
 
 pub mod exe_bundle;
 
@@ -66,6 +66,3 @@ pub mod image_stages;
 pub use bevy_integration::{
     path_for_active, AmbitionAssetCatalog, AmbitionAssetManagerPlugin, AmbitionAssetProfile,
 };
-
-#[cfg(feature = "bevy")]
-pub use platformer_assets::actors_desktop_asset_root;

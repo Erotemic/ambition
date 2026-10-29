@@ -1,4 +1,12 @@
 {
+  "dinosaur.ldtk": [
+    "primeval_canopy",
+    "primeval_ridge",
+    "primeval_rookery",
+    "primeval_run",
+    "primeval_trailhead",
+    "primeval_tyrant_hall"
+  ],
   "evil.ldtk": [
     "castle_godwin_barracks",
     "castle_godwin_gatehouse",
@@ -43,16 +51,28 @@
     "math_town_street"
   ],
   "ninja_village.ldtk": [
+    "ninja_dojo",
     "ninja_village_dojo",
     "ninja_village_forest",
     "ninja_village_gate_shrine",
     "ninja_village_street"
   ],
+  "noodle.ldtk": [
+    "noodly_belfry",
+    "noodly_cistern",
+    "noodly_narthex",
+    "noodly_nave",
+    "noodly_reliquary",
+    "noodly_sanctum",
+    "noodly_scullery"
+  ],
   "pirate_port.ldtk": [
+    "pirate_cove",
     "pirate_port_docks",
     "pirate_port_gate_plaza",
     "pirate_port_tavern",
-    "pirate_port_waterfront"
+    "pirate_port_waterfront",
+    "pirate_sky_lookout"
   ],
   "sandbox.ldtk": [
     "basement_boss",
@@ -109,29 +129,13 @@
     "mockingbird_sky",
     "mode_collapse_arena",
     "morph_lab",
-    "ninja_dojo",
-    "noodly_belfry",
-    "noodly_cistern",
-    "noodly_narthex",
-    "noodly_nave",
-    "noodly_reliquary",
-    "noodly_sanctum",
-    "noodly_scullery",
     "overfit_annex_boss",
     "overfit_annex_climb",
     "overfit_annex_entry",
     "overfit_annex_vault",
     "overflow_arena",
-    "pirate_cove",
-    "pirate_sky_lookout",
     "portal_bridge",
     "portal_lab",
-    "primeval_canopy",
-    "primeval_ridge",
-    "primeval_rookery",
-    "primeval_run",
-    "primeval_trailhead",
-    "primeval_tyrant_hall",
     "proof_summit",
     "proving_grounds",
     "pulse_voyager_outpost",

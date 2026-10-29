@@ -58,7 +58,7 @@ ARRIVAL = "pirate_port_gate_arrival"
 #: Until GATE's ring and return terminal stand, the arrival zone is a
 #: one-way door home for testing: GATE makes it the ring's arrival pad.
 
-#: The sandbox's pirate cove, and its new door to the docks.
+#: The pirate cove (in this dimension's world file since 2026-10-29), and its door to the docks.
 COVE = "pirate_cove"
 COVE_DOOR = "pirate_cove_port_door"
 
@@ -284,7 +284,7 @@ def main(argv):
         return code
     if code := make_rooms(WORLD_LDTK, made):
         return code
-    if code := add_entities(COVE_DOOR_YAML, SANDBOX_LDTK, HERE / "cove_door.yaml", unless=f'"{COVE_DOOR}"'):
+    if code := add_entities(COVE_DOOR_YAML, WORLD_LDTK, HERE / "cove_door.yaml", unless=f'"{COVE_DOOR}"'):
         return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")

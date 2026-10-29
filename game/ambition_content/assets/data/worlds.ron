@@ -14,6 +14,12 @@
         (id: "world.intro_ldtk", file: "intro.ldtk"),
         (id: "world.cut_rope_ldtk", file: "you_have_to_cut_the_rope.ldtk"),
         (id: "world.hall_ldtk", file: "hall_of_characters.ldtk"),
+        // The dinosaur dimension: the primeval trail, from the trailhead's
+        // ring (gate address GENESIS) east to the tyrant's hall.
+        (id: "world.dinosaur_ldtk", file: "dinosaur.ldtk"),
+        // The noodle dimension: the Noodly Temple, from its narthex's ring
+        // (gate address ALDENTE) to the sanctum.
+        (id: "world.noodle_ldtk", file: "noodle.ldtk"),
         // The Math dimension: a gate in `gate_stack_lower` is the way in.
         (id: "world.math_ldtk", file: "math.ldtk"),
         // The Science dimension: an orbital station and, at the far end of

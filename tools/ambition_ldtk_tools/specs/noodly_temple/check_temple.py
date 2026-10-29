@@ -43,7 +43,7 @@ TOOLS = HERE.parents[1]
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
 CELL = 16
 #: The body, in cells: 32 by 48.
@@ -100,7 +100,8 @@ def gate_open(gated_by, facts, wheels_on):
 
 
 def main():
-    world = json.loads(Path(default_sandbox_ldtk()).read_text())
+    # The noodle dimension's world file.
+    world = json.loads(Path(default_worlds_dir() / "noodle.ldtk").read_text())
     rooms = {level["identifier"]: Room(level) for level in world["levels"] if level["identifier"] in ROOMS}
     missing = [r for r in ROOMS if r not in rooms]
     if missing:

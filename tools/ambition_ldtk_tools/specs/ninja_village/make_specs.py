@@ -19,7 +19,7 @@ The design is in `README.md` here. In short:
 - `ninja_village_dojo`: the village dojo and its rank exam (an encounter).
 - `ninja_village_forest`: the cedar forest. Its branches step down from the
   west to the floor; at its east end, the door to the Shadow Dojo (the
-  sandbox's `ninja_dojo`, the clan of the Shadow Oni).
+  `ninja_dojo`, the clan of the Shadow Oni).
 
 THE LOOP: the low road (shrine floor, street, forest floor) and the high
 road (the forest's branches, the roofs of the street, the torii terrace and
@@ -58,7 +58,7 @@ ARRIVAL = "ninja_village_gate_arrival"
 #: Until GATE's ring and return terminal stand, the arrival zone is a
 #: one-way door home for testing: GATE makes it the ring's arrival pad.
 
-#: The sandbox's Shadow Dojo, and its new door to the forest.
+#: The Shadow Dojo (in this dimension's world file since 2026-10-29), and its door to the forest.
 CLAN = "ninja_dojo"
 CLAN_DOOR = "ninja_dojo_village_door"
 
@@ -263,7 +263,7 @@ def main(argv):
         return code
     if code := make_rooms(WORLD_LDTK, made):
         return code
-    if code := add_entities(CLAN_DOOR_YAML, SANDBOX_LDTK, HERE / "clan_door.yaml", unless=f'"{CLAN_DOOR}"'):
+    if code := add_entities(CLAN_DOOR_YAML, WORLD_LDTK, HERE / "clan_door.yaml", unless=f'"{CLAN_DOOR}"'):
         return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")

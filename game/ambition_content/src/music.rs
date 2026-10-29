@@ -122,9 +122,10 @@ mod tests {
     }
 
     /// The rooms of the primeval trail, in the order of the level: the levels
-    /// of the world whose name starts `primeval_`, by where they are.
+    /// of the dinosaur dimension's world whose name starts `primeval_`, by
+    /// where they are.
     fn rooms_of_the_trail() -> Vec<String> {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/worlds/sandbox.ldtk");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/worlds/dinosaur.ldtk");
         let world: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("the world file")).expect("the world is JSON");
         let mut rooms: Vec<(i64, String)> = world["levels"]
             .as_array()

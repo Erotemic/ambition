@@ -18,7 +18,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
-    let mut player = crate::avatar::home_body_scratch(
+    let mut player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(100.0, 100.0),
         ae::AbilitySet::sandbox_all(),
     );

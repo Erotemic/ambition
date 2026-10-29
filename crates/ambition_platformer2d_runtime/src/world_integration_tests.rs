@@ -33,7 +33,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     // `PlayerEntity` (and reads interact_buffer_timer);
     // `PlayerSimulationBundle` covers all of that.
     let mut scratch =
-        ambition_platformer2d_actor_monolith::avatar::home_body_scratch(player_pos, ae::AbilitySet::sandbox_all());
+        ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;
     let bundle = crate::test_body::home_body(
         scratch,

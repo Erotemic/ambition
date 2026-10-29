@@ -289,7 +289,7 @@ pub fn spawn_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
             .and_then(|registry| registry.get(worn_id))
             .and_then(|prepared| prepared.abilities),
     );
-    let mut initial_scratch = ambition_platformer2d_actor_monolith::avatar::home_body_scratch(at, base_abilities);
+    let mut initial_scratch = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(at, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,

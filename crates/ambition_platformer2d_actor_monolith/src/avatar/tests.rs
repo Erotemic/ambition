@@ -28,7 +28,7 @@ fn wallet_add_clamps_and_spend_respects_balance() {
 #[test]
 fn player_action_set_melee_disabled_when_attack_ability_off() {
     use ambition_characters::brain::ActionSet;
-    let mut player = crate::avatar::home_body_scratch(
+    let mut player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(0.0, 0.0),
         ae::AbilitySet::sandbox_all(),
     );
@@ -51,7 +51,7 @@ fn player_action_set_melee_disabled_when_attack_ability_off() {
 #[test]
 fn player_action_set_special_disabled_when_shield_ability_off() {
     use ambition_characters::brain::ActionSet;
-    let mut player = crate::avatar::home_body_scratch(
+    let mut player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(0.0, 0.0),
         ae::AbilitySet::sandbox_all(),
     );
@@ -76,7 +76,7 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
     use ambition_characters::brain::{
         action_set::RangedStyle, ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
     };
-    let player = crate::avatar::home_body_scratch(
+    let player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(0.0, 0.0),
         ae::AbilitySet::sandbox_all(),
     );
@@ -122,7 +122,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
     app.add_message::<ActorActionMessage>();
-    let mut player = crate::avatar::home_body_scratch(
+    let mut player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(40.0, 60.0),
         ae::AbilitySet::sandbox_all(),
     );
@@ -212,7 +212,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
     app.add_message::<ActorActionMessage>();
-    let mut player = crate::avatar::home_body_scratch(
+    let mut player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(40.0, 60.0),
         ae::AbilitySet::sandbox_all(),
     );

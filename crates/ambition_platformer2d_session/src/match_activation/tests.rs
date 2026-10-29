@@ -325,7 +325,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
         .world_mut()
         .spawn((
             fixture_home_body(
-                ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     Vec2::new(7.0, 0.0),
                     ambition_platformer2d_core::AbilitySet::default(),
                 ),
@@ -1841,7 +1841,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         .world_mut()
         .spawn((
             fixture_home_body(
-                ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     Vec2::new(0.0, 0.0),
                     ambition_platformer2d_core::AbilitySet::default(),
                 ),
@@ -2813,7 +2813,7 @@ mod activation_transaction {
         app.world_mut()
             .spawn((
                 fixture_home_body(
-                    ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+                    ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                         Vec2::new(0.0, 0.0),
                         ambition_platformer2d_core::AbilitySet::default(),
                     ),

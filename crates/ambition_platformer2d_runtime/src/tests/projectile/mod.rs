@@ -44,7 +44,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     // component the projectile system + visuals path queries
     // (`BodyKinematics`, `PlayerEntity`, `PrimaryPlayer`, `LocalPlayer`, the
     // cluster components, …) with no manual spawn-tuple list.
-    let mut scratch = ambition_platformer2d_actor_monolith::avatar::home_body_scratch(pos, ae::AbilitySet::sandbox_all());
+    let mut scratch = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::sandbox_all());
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;
     let bundle = crate::test_body::home_body(

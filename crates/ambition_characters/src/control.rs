@@ -629,3 +629,6 @@ pub use acting::ActingParticipant;
 pub struct PrimarySlotInputCommit;
 
 pub mod brain_binding;
+
+#[cfg(test)]
+mod gesture_tests;

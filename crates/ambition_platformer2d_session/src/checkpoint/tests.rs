@@ -168,7 +168,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     let resumed = next
         .world_mut()
         .spawn((checkpoint_body(
-            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+            ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                 ambition_platformer2d_core::Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -226,7 +226,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     let body = app
         .world_mut()
         .spawn((checkpoint_body(
-            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+            ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                 ambition_platformer2d_core::Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -636,7 +636,7 @@ fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
             // The full body, as the same-room branch moves it.
             app.world_mut()
                 .spawn(checkpoint_body(
-                    ambition_platformer2d_actor_monolith::avatar::home_body_scratch(Vec2::new(32.0, 400.0), ae::AbilitySet::sandbox_all()),
+                    ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(Vec2::new(32.0, 400.0), ae::AbilitySet::sandbox_all()),
                     ambition_characters::actor::Health::new(20),
                 ));
         }
@@ -750,7 +750,7 @@ fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
     let body = app
         .world_mut()
         .spawn((checkpoint_body(
-            ambition_platformer2d_actor_monolith::avatar::home_body_scratch(
+            ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                 Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),

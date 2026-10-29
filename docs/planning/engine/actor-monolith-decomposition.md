@@ -863,6 +863,14 @@ Guards at that cut: three kernel, six app, 58 Smash and 35 policy tests; default
 Six diagnostics ignored. At merge `271bf1821`, three kernel guards pass; app checks remain.
 Keep global composition at runtime. Full feature union and Android were not run.
 
+### K35 — Core body construction
+
+`0c3965ba1`: home-body setup used a forwarding constructor. Session setup and fixtures
+now call the core constructor; safety and gesture tests live with their owners.
+Guards: nine owner, 14 kernel and 35 policy tests pass; the app target compiles.
+App startup checks need the local music publication. State and schedules stay the same.
+Keep body construction at its core owner.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

@@ -258,3 +258,14 @@ scores and policy. It does not require generated files. All four media families
 pass plan coverage. Four producer behavior tests and all 53 absence contracts
 pass. The native and static assembled apps compile; all 35 workspace policy
 tests pass. Music and SFX publication still need the final setup run.
+
+The full music preflight found two setup handoff defects. The registry emits
+JSON cue IDs; the renderer needs a comma-separated argument. This conversion
+is fixed in `2bf81d643`. Bulk preflight now reuses instrument resolution within
+one scan and logs each cue. A later scan starts fresh.
+
+The same preflight rejected the installed `japan.shamisen` SoundFont because
+it used the SFZ-only resolver. It now uses the renderer's shared instrument
+resolution plan for each declared backend. All 21 dependency and preflight
+tests pass, and every sampled reference of `nine_rooftops` resolves. The setup
+run must now complete music rendering, SFX, and final freshness admission.

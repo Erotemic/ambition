@@ -1,8 +1,28 @@
-//! Backend-neutral stable simulation identity maintenance.
+//! Stable simulation identity maintenance and construction diagnostics.
 //!
 //! These systems run in every simulation host.
 
-/// Give every body the sim can identify a [`SimId`], once.
+mod damageable;
+pub(crate) use damageable::install_body_identity_census;
+
+/// Counts for damageable bodies checked after their identity-minting tick.
+/// The `observed` count prevents an empty population from appearing clean.
+#[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct BodyIdentityCensus {
+    /// Damageable bodies STILL carrying no `SimId` a tick after they became
+    /// damageable — i.e. after the designated late-mint road has had both of its
+    /// turns. **Not "unidentified at insertion", which counts the player.**
+    pub unidentified: u64,
+    /// Damageable-body observations that were actually JUDGED (a body that became
+    /// damageable this tick is skipped, so it is not in here either). **Read this
+    /// first**: it is the denominator, and zero means the observer saw nothing
+    /// rather than that the tree is clean.
+    pub observed: u64,
+    /// The first observed body without identity, for headless diagnostics.
+    pub first_unidentified: Option<String>,
+}
+
+/// Give every body the sim can identify a [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId), once.
 ///
 /// Two facts exist today, and this system reads exactly those two: an authored
 /// placement's `FeatureId` (the LDtk iid a save file already keys on) and the
@@ -267,7 +287,7 @@ pub struct UnmintedBodyCensus {
     /// and cannot say WHICH sends the reader to re-derive the population by
     /// hand, and the sweeper's own `continue` names nobody at all.
     ///
-    /// ⭐ EACH ENTRY CARRIES THE BODY'S [`SpawnOrigin`], which is A2's acceptance:
+    /// ⭐ EACH ENTRY CARRIES THE BODY'S [`SpawnOrigin`](ambition_platformer2d_shared_tangle::construction::SpawnOrigin), which is A2's acceptance:
     /// *"the witness names the construction ROAD and the body rather than
     /// reporting a population count"*. An entity id and a `Name` say which body;
     /// only the origin says which construction road let it through, and that is
@@ -290,16 +310,9 @@ pub struct UnmintedBodyCensus {
 /// that names sixteen roads has already said everything a seventeenth would.
 pub const SKIPPED_BODY_CAP: usize = 16;
 
-/// Observe every body the sweeper has already had its turns on.
-///
-/// ⚠ **THE MOMENT IS THE WHOLE DESIGN, and `body_identity.rs` paid for this
-/// lesson already.** `ensure_sim_id` runs at the head of the frame AND at the
-/// tail, and a spawn site may mint within the same tick that built the body. A
-/// body judged on the tick it appeared is being asked a question the engine has
-/// not finished answering, and the primary player is guaranteed to be counted.
-/// ⇒ `Added<BodyKinematics>` EXCLUDES this tick's arrivals; the rest are bodies
-/// both sweeper passes and every in-tick spawner have already declined to name.
-/// That is ordering-independent and needs no edge against `ensure_sim_id`.
+/// Observe bodies after their identity-minting tick. Exclude this tick's
+/// arrivals so both identity passes and in-tick construction can mint their
+/// IDs before this check runs.
 pub fn observe_unminted_bodies(
     mut census: bevy::prelude::ResMut<UnmintedBodyCensus>,
     bodies: bevy::ecs::system::Query<
@@ -380,7 +393,7 @@ mod unminted_body_census_tests {
 
     /// ⛔⛤ **A2's ACCEPTANCE: THE WITNESS NAMES THE CONSTRUCTION ROAD.**
     ///
-    /// An entity id and a `Name` say WHICH BODY. Only [`SpawnOrigin`] says which
+    /// An entity id and a `Name` say WHICH BODY. Only [`SpawnOrigin`](ambition_platformer2d_shared_tangle::construction::SpawnOrigin) says which
     /// road let it through, and the road is the thing a repair edits — the
     /// sweeper's own comment says the fix belongs at the spawn site, and a
     /// witness that cannot name the site sends the reader to find it by hand.

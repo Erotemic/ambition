@@ -1,7 +1,7 @@
 //! Backend-neutral rollback schema composition.
 //!
 //! Gameplay domains own their concrete declarations through
-//! [`RollbackRegistrar`].  This module composes those declarations into stable
+//! [`RollbackRegistrar`](ambition_platformer2d_core::snapshot::RollbackRegistrar).  This module composes those declarations into stable
 //! schema metadata for every simulation host. A concrete rollback backend may
 //! call the same composition function with its own registrar to install storage,
 //! checksums, mapping, and load behavior without making the generic runtime

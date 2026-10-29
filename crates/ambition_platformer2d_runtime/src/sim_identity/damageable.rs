@@ -12,22 +12,7 @@ use ambition_characters::actor::ActorFaction;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 
-/// Counts for damageable bodies checked after their identity-minting tick.
-/// The `observed` count prevents an empty population from appearing clean.
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub struct BodyIdentityCensus {
-    /// Damageable bodies STILL carrying no `SimId` a tick after they became
-    /// damageable — i.e. after the designated late-mint road has had both of its
-    /// turns. **Not "unidentified at insertion", which counts the player.**
-    pub unidentified: u64,
-    /// Damageable-body observations that were actually JUDGED (a body that became
-    /// damageable this tick is skipped, so it is not in here either). **Read this
-    /// first**: it is the denominator, and zero means the observer saw nothing
-    /// rather than that the tree is clean.
-    pub observed: u64,
-    /// The first observed body without identity, for headless diagnostics.
-    pub first_unidentified: Option<String>,
-}
+use super::BodyIdentityCensus;
 
 /// Observe every damageable body that has had a tick to be identified.
 ///
@@ -38,7 +23,7 @@ pub struct BodyIdentityCensus {
 /// `Or<(Added<A>, Added<B>)>` with `With<>` on both identifies the bodies that
 /// became damageable THIS tick, and those are the ones the designated late-mint
 /// road has not had its turn on yet.
-pub fn observe_damageable_body_identity(
+fn observe_damageable_body_identity(
     mut census: ResMut<BodyIdentityCensus>,
     bodies: Query<(Entity, Option<&SimId>, Option<&Name>), (With<CenteredAabb>, With<ActorFaction>)>,
     became_damageable_this_tick: Query<
@@ -86,7 +71,7 @@ pub fn observe_damageable_body_identity(
 ///
 /// ⚠ The SCHEDULE stays the caller's: `app.sim_schedule()` differs by host, the
 /// same reason `install_dismounted_rider_rebuild` takes one.
-pub fn install_body_identity_census(
+pub(crate) fn install_body_identity_census(
     app: &mut bevy::prelude::App,
     schedule: impl bevy::ecs::schedule::ScheduleLabel,
 ) {

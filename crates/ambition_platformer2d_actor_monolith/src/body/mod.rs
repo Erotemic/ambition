@@ -28,7 +28,6 @@ pub use movement_fx::{
     handle_player_events,
 };
 
-pub use body_identity::{BodyIdentityCensus, install_body_identity_census};
 pub use dismounted_rider::install_dismounted_rider_rebuild;
 pub use npcs::speak_conversation_cut_barks;
 
@@ -52,7 +51,6 @@ pub(crate) use movement::SeedActorIntegrationTestExt;
 pub(crate) mod actors;
 mod aggression;
 mod anim_helpers;
-mod body_identity;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.

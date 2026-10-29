@@ -199,7 +199,7 @@ fn sources_for_channel(
 /// launcher needs somebody to drive it before any roster exists.
 ///
 /// ⛔ EXTRA SEATS ARE NOT "THE PAD SEATS". Each seat hears whatever the roster's
-/// `LocalChannelPlan` says claimed it — see [`sources_for_channel`]. The older
+/// `LocalChannelPlan` says claimed it — see `sources_for_channel`. The older
 /// rule ("a second player on the same keyboard as the first is not a second
 /// player") is still true, and the plan is what enforces it: the keyboard
 /// appears in the plan at most once.

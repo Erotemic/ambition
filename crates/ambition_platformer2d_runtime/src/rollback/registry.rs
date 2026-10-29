@@ -199,7 +199,7 @@ pub enum RollbackRegistrationError {
         existing: RollbackRegistrationDescriptor,
         incoming: RollbackRegistrationDescriptor,
     },
-    /// Two DIFFERENT Rust types reduce to the same [`wire_type_identity`].
+    /// Two DIFFERENT Rust types reduce to the same `wire_type_identity`.
     ///
     /// This is what keeps v20's narrower identity sound. The fingerprint hashes
     /// the type's final segment so that relocating a type is not a wire-format
@@ -323,7 +323,7 @@ impl RollbackRegistry {
             ambition_registry_core::Classification::New => {}
         }
         // What keeps v20's narrower identity sound. The fingerprint hashes
-        // [`wire_type_identity`] so that relocating a type is not a wire-format
+        // `wire_type_identity` so that relocating a type is not a wire-format
         // change; two crates each registering a `Cooldown` would then hash equal,
         // and a peer that had the two the other way round would be declared
         // compatible with this one. The duplicate-NAME refusal above does not
@@ -384,7 +384,7 @@ impl RollbackRegistry {
     /// lives.
     ///
     /// Both moves require the schema fingerprint to stay unchanged — which was impossible while
-    /// the fingerprint hashed who registered a row. `owner` left in v5; [`wire_type_identity`]
+    /// the fingerprint hashed who registered a row. `owner` left in v5; `wire_type_identity`
     /// is the second half of that decision, in v20.
     pub fn schema_dump(&self) -> String {
         let rows: Vec<String> = self

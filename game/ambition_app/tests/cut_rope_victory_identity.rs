@@ -2,7 +2,7 @@
 //! can name?
 //!
 //! ⭐⭐ THIS IS ROAD FOUR. `every_damageable_body_is_identified` drives the
-//! placement, enemy and boss roads and says so; `body_identity.rs`'s header
+//! placement, enemy and boss roads and says so; `sim_identity/damageable.rs`'s header
 //! records "zero unidentified across 120 frame-samples" measured over exactly
 //! those three. `boss_lifecycle`'s header names what is left: *"what remains
 //! genuinely unpinned here is the victory NPC and the in-place replay"*. ⇒ The
@@ -113,7 +113,7 @@ fn the_cut_rope_victory_npc_is_a_damageable_body_with_a_stable_identity() {
 
     let census = sim
         .world()
-        .resource::<ambition_platformer2d::actors::body::BodyIdentityCensus>()
+        .resource::<ambition_platformer2d::runtime::sim_identity::BodyIdentityCensus>()
         .clone();
     eprintln!(
         "[road4] observed={} unidentified_at_insertion={} first={:?} still_unidentified_now={:?}",

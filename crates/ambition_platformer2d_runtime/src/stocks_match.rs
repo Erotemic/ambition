@@ -351,7 +351,7 @@ fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Side
 
 /// THE PACE A MATCH RUNS AT — full speed while it is undecided, STOPPED once it is over.
 ///
-/// matches the time in the game should freeze with 'WINNER: <name>' to show the
+/// matches the time in the game should freeze with `WINNER: <name>` to show the
 /// match is over, and not let players continue to play after the match ends."*
 ///
 /// one statement, both halves. A system that only spoke when the match was

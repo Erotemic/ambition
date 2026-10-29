@@ -911,7 +911,7 @@ impl Plugin for CombatSchedulePlugin {
         // installed: zero unidentified across 120 frame-samples, so `SimId`
         // arrives WITH the body and this is expected to stay at zero — but a
         // future road that mints late should produce a finding, not a crash.
-        ambition_platformer2d_actor_monolith::body::install_body_identity_census(app, sim);
+        crate::sim_identity::install_body_identity_census(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

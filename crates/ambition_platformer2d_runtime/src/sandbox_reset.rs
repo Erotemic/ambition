@@ -137,7 +137,7 @@ pub struct RoomReplayConsequences;
 /// ```
 ///
 /// ⛔⛔ NOTHING AUTHORITATIVE MAY CHANGE BEFORE THE SLOT IS TAKEN.
-/// [`PendingLifecycleCommit::record`] is earliest-sticky: another lifecycle
+/// [`PendingLifecycleCommit::record`](ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit::record) is earliest-sticky: another lifecycle
 /// operation can already own it, and then this replay does not happen at all.
 /// The previous shape reset the avatar, wrote the reset message (which reset
 /// gravity, cleared pending hits, advanced a boss arena's heavy-object cycle and

@@ -3,7 +3,7 @@
 use bevy::prelude::{Commands, Res};
 
 /// Rebuild each live room's [`RoomCombatTuning`] from that room's declared
-/// rules and the baseline, and [`ResolvedCombatTuning`] from the rules that
+/// rules and the baseline, and [`ResolvedCombatTuning`](ambition_combat::rules::ResolvedCombatTuning) from the rules that
 /// govern no room.
 ///
 /// Per live room, not from THE live room (OW1): with two rooms live, the

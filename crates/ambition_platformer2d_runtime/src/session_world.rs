@@ -10,7 +10,7 @@
 //! in `ambition_platformer2d_ldtk` and reads it through a `SessionWorldRef`, the monolith's
 //! `SimulationSetup::ldtk_index` was dead (`let _ = ldtk_index;`), and exactly ONE site in the
 //! workspace ever built a non-default index.  the index is state a FORMAT INSTALLS — see
-//! [`PreparedPlatformerSource::with_installed_ldtk_index`] — not a field every game owes.
+//! `PreparedPlatformerSource::with_installed_ldtk_index` — not a field every game owes.
 
 use bevy::prelude::*;
 
@@ -185,7 +185,7 @@ impl PreparedPlatformerSource {
     ///
     /// the installed index CARRIES OVER unchanged. A format that reloaded its
     /// own world states the replacement with
-    /// [`Self::with_installed_ldtk_index`]; a format that did not, and a game
+    /// `Self::with_installed_ldtk_index`; a format that did not, and a game
     /// that installed nothing, both get the honest answer without saying
     /// anything.
     pub fn with_world(

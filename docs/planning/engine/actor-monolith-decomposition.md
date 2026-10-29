@@ -860,16 +860,16 @@ outside body execution. Full feature union and Android were not run.
 `ddaf2311f`: runtime now schedules repertoire reconciliation; the kernel wrapper is gone.
 The cut keeps the system count, phase, gates, state and dependencies.
 Guards at that cut: three kernel, six app, 58 Smash and 35 policy tests; default app passes.
-Six diagnostics ignored. At merge `271bf1821`, three kernel guards pass; app checks remain.
+Six diagnostics ignored. After merge `271bf1821`, repertoire and shared-host app guards pass.
 Keep global composition at runtime. Full feature union and Android were not run.
 
 ### K35 — Core body construction
 
 `0c3965ba1`: home-body setup used a forwarding constructor. Session setup and fixtures
 now call the core constructor; safety and gesture tests live with their owners.
-Guards: nine owner, 14 kernel and 35 policy tests pass; the app target compiles.
-App startup checks need the local music publication. State and schedules stay the same.
-Keep body construction at its core owner.
+Guards: nine owner, 14 kernel, 145 runtime/session, 45 app and 35 policy tests pass.
+The default app compiles without warnings. State and schedules stay the same.
+Keep body construction at its core owner. Full feature union and Android were not run.
 
 ### Migration acceptance for each packet
 

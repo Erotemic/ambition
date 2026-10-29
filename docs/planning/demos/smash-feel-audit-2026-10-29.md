@@ -192,7 +192,7 @@ per-tick PNGs; re-render with the command in each row to look again.
 | P3 | **The victim does not sell the hit.** Flash is a flat full-white body for the hitlag (2–6 f, so a blink); no per-frame jitter of the victim during hitlag; `hit` row is 5 frames, `launch` 7; a trail only at hard launch. The two bodies overlap through the connect. | RENDER + CODE-READ | victim shakes ±2 px every frame of hitlag, the launch pose is a distinct silhouette, smoke/dust at the launch | a white blink and a small slide |
 | P4 | **Attacker posing holds one picture.** 6–7 art frames per attack; the dash attack shows the same lunge for ticks 3–8; the nair's silhouette barely differs from idle; no anticipation snap, no smear/overshoot frame at contact, no settle. The blade is a 2 px line while its hit volume is 40 × 28 px. The smash charge is the held pose plus an orange tint (`CHARGE_TINT`), no shake, no sparks. | RENDER | anticipation (the body stretches away), 1–2 smear frames through the swing, an overshoot pose at contact, a settle; charge shakes the body and sparkles | one pose per phase |
 | P5 | **The slash VFX reads as a halo.** A translucent grey disc sits behind the body rather than an arc that travels with the blade (Jon's standing note: a slash travels and follows through). | RENDER | the arc is the swing | a disc |
-| P6 | **No movement FX at all.** `VfxMessage::Dust` has no sender; no landing puff, dash dust, turnaround dust, jump dust; no squash/stretch on land or jump (none in `pose_view`). | CODE-READ | dust on every dash start, turnaround, landing, jump, roll; landing squash | nothing |
+| P6 | **Movement FX are procedural dots, and two beats have none.** CORRECTED 2026-10-29 (the first reading grepped `-v fx.rs`, which also hid `movement_fx.rs`): `emit_movement_fx` does send `Dust` on jump, landing, the traversal dash, rolls and ledge jumps, and a hard landing splats. What is missing: the initial dash start and the turnaround (not `MovementOp`s), and the dust itself is six procedural dots (`spawn_dust`) while the FX sheet's authored `landing_puff` / `skid_puff` rows go unused; no squash/stretch on land or jump. | CODE-READ | authored dust on every dash start, turnaround, landing, jump, roll; landing squash | dots on some beats |
 | P7 | **Camera.** At the match zoom a fighter is ~50 px tall, so posing and sparks are read at thumbnail size. | RENDER | a tight two-fighter camera that zooms in on a close exchange | wide |
 
 How this interacts with the simulation findings: P1–P3 are mostly invisible
@@ -341,10 +341,13 @@ Jon's standing note on slash VFX applies.
 
 ### P6. Movement dust and squash (engine E1 + art, S/M)
 
-Send `VfxMessage::Dust` from the movement facts that already exist: initial
-dash start, turnaround, landing (puff size by fall speed), jump takeoff, roll
-start. Squash on landing and stretch on takeoff as a presented-pose scale over
-3–4 frames. ⛔ No drop shadows.
+The simulation already sends `Dust` on jump, landing, the traversal dash,
+rolls and ledge jumps (`emit_movement_fx`). Draw it with the authored
+`landing_puff` row instead of six procedural dots; add the skid
+(`skid_puff`) on the initial dash start and the turnaround from the
+published motion facts' rising edge (neither is a `MovementOp`). Squash on
+landing and stretch on takeoff as a presented-pose scale over 3–4 frames.
+⛔ No drop shadows.
 
 ### P7. A fighter camera (engine, M, after P1–P4)
 

@@ -365,7 +365,23 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
                 seconds,
             } => spawn_beam(&mut commands, spawn_scope, world, pos, toward, length, width, color, seconds),
             VfxMessage::Dust { pos, facing } => {
-                spawn_dust(&mut commands, spawn_scope, world, pos, facing)
+                // The authored puff where the sheet has one; the procedural
+                // dots where it does not (a composition without the FX sheet).
+                if resolve_drawable(&sprite_content, assets.as_deref(), LANDING_PUFF_FX).is_some() {
+                    spawn_effect(
+                        &sprite_content,
+                        &mut commands,
+                        spawn_scope,
+                        world,
+                        assets.as_deref(),
+                        pos,
+                        LANDING_PUFF_FX,
+                        LANDING_PUFF_FX_SCALE,
+                        ambition_vfx::FxPose { mirror: facing < 0.0, angle: 0.0 },
+                    );
+                } else {
+                    spawn_dust(&mut commands, spawn_scope, world, pos, facing)
+                }
             }
             VfxMessage::Impact { pos, blow } => {
                 spawn_hit_marker(&sprite_content, &mut commands, spawn_scope, world, assets.as_deref(), pos, blow)
@@ -575,6 +591,14 @@ fn hit_marker_pose(blow: ambition_vfx::ImpactBlow) -> ambition_vfx::FxPose {
     }
 }
 
+/// The authored touchdown puff (`generic_action_fx`), drawn at the feet for
+/// every `Dust` request: a landing, a jump, a roll.
+pub(crate) const LANDING_PUFF_FX: FxId = FxId::from_static("landing_puff");
+/// The authored skid (`generic_action_fx`), for a dash start and a turnaround.
+pub(crate) const SKID_PUFF_FX: FxId = FxId::from_static("skid_puff");
+/// A puff is low and wide; at 0.45 it is about a body width across.
+pub(crate) const LANDING_PUFF_FX_SCALE: f32 = 0.45;
+pub(crate) const SKID_PUFF_FX_SCALE: f32 = 0.4;
 const HIT_HARD_FX: FxId = FxId::from_static("hit_hard");
 const HIT_METAL_FX: FxId = FxId::from_static("hit_metal");
 const HIT_SCALE_FLOOR: f32 = 0.6;

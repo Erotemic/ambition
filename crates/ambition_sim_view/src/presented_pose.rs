@@ -101,6 +101,27 @@ pub struct PresentedPose {
     /// planted (a crouch, a stand) moves its centre without travelling; see
     /// [`resize_shift`].
     size: Vec2,
+    /// THE HITLAG SHAKE: a struck body is drawn a step off its true place on
+    /// alternate ticks of its freeze, the genre's tell that a hit landed.
+    /// Presentation only: the simulation pose never moves, so nothing
+    /// anchored to the body by its true position (a hit volume, a grab) is
+    /// disturbed. Zero for every body that is not frozen by a hit it took.
+    jitter: Vec2,
+}
+
+/// How far a struck body is drawn off its place at a reference-strength hit
+/// (px). Ultimate shakes about 2 units.
+const HITLAG_JITTER_PX: f32 = 2.0;
+
+/// The shake of a struck body this tick: `strength` is the hit's strength in
+/// `0..=1` as the hitlag law reads it back, `side` the body's frame's side
+/// axis. Alternates each tick so the body reads as vibrating, not displaced.
+pub fn hitlag_jitter(frozen: bool, strength: f32, tick: u64, side: Vec2) -> Vec2 {
+    if !frozen {
+        return Vec2::ZERO;
+    }
+    let sign = if tick % 2 == 0 { 1.0 } else { -1.0 };
+    side * (sign * HITLAG_JITTER_PX * (0.5 + strength.clamp(0.0, 1.0)))
 }
 
 impl PresentedPose {
@@ -112,13 +133,14 @@ impl PresentedPose {
             presented: pos,
             tick,
             size: Vec2::ZERO,
+            jitter: Vec2::ZERO,
         }
     }
 
     /// The position to draw this body and everything anchored to it at.
     #[inline]
     pub fn presented(self) -> Vec2 {
-        self.presented
+        self.presented + self.jitter
     }
 
     /// The newest tick position, unsmoothed.
@@ -250,16 +272,22 @@ pub fn advance_presented_body_poses(
     phase: Res<PresentationPhase>,
     // Optional: an app that registers this system alone has no warps.
     mut warps: Option<ResMut<DeclaredPoseWarps>>,
+    // The hitlag law's reference, for the shake's strength (see `pose_view`).
+    feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    rules: ambition_combat::rules::CombatTuningOf,
     mut bodies: Query<(
         Entity,
         &ambition_platformer2d_core::BodyKinematics,
         Option<&mut PresentedPose>,
         // The body's own down, the one its feet-planted resizes hold to.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        // Is this body frozen by a hit it took? Then it shakes.
+        Option<&ambition_characters::actor::BodyCombat>,
     )>,
 ) {
     let phase = phase.get();
-    for (entity, pose, presented, frame) in &mut bodies {
+    let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    for (entity, pose, presented, frame, combat) in &mut bodies {
         let Some(mut presented) = presented else {
             // First sight: no history, so it presents exactly where it spawned
             // rather than extrapolating away from a default.
@@ -290,6 +318,18 @@ pub fn advance_presented_body_poses(
                 presented.push(pose.pos, tick.0, continuous, resized);
             }
             presented.size = pose.size;
+            // The shake belongs to the VICTIM: the body a hit flashed and froze.
+            // The attacker shares the freeze and holds still.
+            let frozen = combat.is_some_and(|c| c.hitstop_timer > 0.0 && c.hit_flash > 0.0);
+            let reference = rules
+                .of(entity)
+                .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference));
+            let strength = ambition_platformer2d_core::hit_response::hit_strength_fraction(
+                combat.map_or(0.0, |c| c.hitstop_timer),
+                reference,
+            );
+            let side = frame.map_or(Vec2::X, |frame| frame.down().perp());
+            presented.jitter = hitlag_jitter(frozen, strength, tick.0, side);
         }
         // Resample EVERY frame — that is the entire point.
         presented.resample(phase);

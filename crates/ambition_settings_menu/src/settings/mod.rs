@@ -116,6 +116,7 @@ pub enum SettingsOptionId {
     TriggerRelease,
     DpadMenuNav,
     InvertAimY,
+    TapJump,
     BurstInputMode,
     RightStickMode,
     TouchControls,
@@ -163,7 +164,7 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 62] = [
+    pub const ALL: [Self; 63] = [
         Self::AcceptLocalJoins,
         Self::AimFrameMode,
         Self::Assist,
@@ -182,6 +183,7 @@ impl SettingsOptionId {
         Self::Flashes,
         Self::FramePacing,
         Self::InvertAimY,
+        Self::TapJump,
         Self::KeyboardPreset,
         Self::LeftStickDeadzone,
         Self::MasterVolume,

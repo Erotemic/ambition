@@ -243,3 +243,43 @@ pub fn move_timing_over(
         Err(problems)
     }
 }
+
+/// Move id -> the factor its base knockback is scaled by in one scale. A
+/// platform fighter's tilt or aerial must launch hard enough at 0% that the
+/// stun outlasts the swing (the follow-up); a move authored for a health game
+/// often does not. `1.0` is the move's own.
+pub type MoveKnockback = std::collections::BTreeMap<String, f32>;
+
+/// Each scale's move knockback.
+pub type ScaledMoveKnockback = std::collections::BTreeMap<DamageScale, MoveKnockback>;
+
+/// Scale the base knockback of each named move's striking volumes. The growth
+/// (`knockback_growth`) is untouched: this moves the floor of the launch, not
+/// how it grows with percent, so KO percents move little and the low-percent
+/// stun moves much.
+pub fn move_knockback_over(
+    knockback: &MoveKnockback,
+    mut moveset: ambition_entity_catalog::MovesetContract,
+) -> Result<ambition_entity_catalog::MovesetContract, Vec<String>> {
+    let mut problems = Vec::new();
+    for (move_id, scale) in knockback {
+        let Some(spec) = moveset.moves.iter_mut().find(|spec| &spec.id == move_id) else {
+            problems.push(format!("`move_knockback` names move `{move_id}`, which the moveset does not have"));
+            continue;
+        };
+        if !(scale.is_finite() && *scale > 0.0) {
+            problems.push(format!("`move_knockback.{move_id}` is {scale}; it is a positive factor"));
+            continue;
+        }
+        for volume in spec.windows.iter_mut().flat_map(|window| window.volumes.iter_mut()) {
+            if volume.damage > 0 {
+                volume.knockback *= scale;
+            }
+        }
+    }
+    if problems.is_empty() {
+        Ok(moveset)
+    } else {
+        Err(problems)
+    }
+}

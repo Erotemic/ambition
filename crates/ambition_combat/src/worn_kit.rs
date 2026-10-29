@@ -12,7 +12,7 @@
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{overlay_authored_moves, PreparedCharacterDefinition};
-use ambition_characters::move_damage::{move_damage_over, move_timing_over, verb_moves_over, DamageScale};
+use ambition_characters::move_damage::{move_damage_over, move_knockback_over, move_timing_over, verb_moves_over, DamageScale};
 use ambition_entity_catalog::MovesetContract;
 
 use crate::moveset::build_actor_moveset;
@@ -141,6 +141,17 @@ impl WornKit {
                 Ok(moveset) => moveset,
                 Err(problems) => {
                     bevy::log::error!("character '{}' keeps its moveset's clocks on this stage: {problems:?}", prepared.id.as_str());
+                    derived
+                }
+            },
+            None => derived,
+        };
+        let knockback = terms.move_damage.and_then(|scale| prepared.scaled_move_knockback.get(&scale)).filter(|kb| !kb.is_empty());
+        let derived = match knockback {
+            Some(knockback) => match move_knockback_over(knockback, derived.clone()) {
+                Ok(moveset) => moveset,
+                Err(problems) => {
+                    bevy::log::error!("character '{}' keeps its moveset's knockback on this stage: {problems:?}", prepared.id.as_str());
                     derived
                 }
             },

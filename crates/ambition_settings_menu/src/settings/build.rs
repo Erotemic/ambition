@@ -314,6 +314,12 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 c.invert_aim_y,
                 "Invert the vertical aim axis.",
             ),
+            toggle(
+                SettingsOptionId::TapJump,
+                "Tap Jump",
+                c.tap_jump,
+                "Flick the stick up to jump; a quick flick is a short hop.",
+            ),
             {
                 let (i, n) = enum_index(&BurstInputMode::ALL, c.burst_input_mode);
                 cycle(

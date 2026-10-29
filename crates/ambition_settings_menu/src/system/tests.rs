@@ -262,6 +262,7 @@ fn system_screens_surface_every_player_facing_setting() {
         SettingsOptionId::TriggerRelease,
         SettingsOptionId::DpadMenuNav,
         SettingsOptionId::InvertAimY,
+        SettingsOptionId::TapJump,
         SettingsOptionId::BurstInputMode,
         SettingsOptionId::TouchControls,
         SettingsOptionId::MenuTapMode,

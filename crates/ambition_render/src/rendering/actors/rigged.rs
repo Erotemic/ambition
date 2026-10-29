@@ -1493,6 +1493,8 @@ fn frame_draws<'a>(
     if let Some((layer_row, index, mirrored)) = animator.layer.as_ref() {
         flipbook.layer_over(layer_row, *index, *mirrored, drawn);
     }
+    // Its wounds, as much as it is hurt (eyes that go bloodshot).
+    flipbook.wounded_by(animator.wounds, drawn);
     Some(match (pose, posed) {
         (Some(pose), Some(posed)) => {
             posed.place(drawn, &pose.joints, posed_draws);

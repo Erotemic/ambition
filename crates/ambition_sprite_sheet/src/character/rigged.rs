@@ -164,6 +164,16 @@ pub struct RiggedSpriteAsset {
     baked_clips: BTreeSet<String>,
     draws: Vec<PartDraw>,
     max_draws: usize,
+    /// The tracks that show how hurt the body is ([`is_wound_track`]).
+    wound_tracks: Vec<u16>,
+}
+
+/// Is a track of this name a WOUND: a picture drawn over the body that shows
+/// as much as the body is hurt (eyes that go bloodshot)? By the words of its
+/// name (`eyes_wounded`), as [`is_head_track`]. See
+/// [`RiggedSpriteAsset::wounded_by`].
+pub fn is_wound_track(name: &str) -> bool {
+    name.split(['_', ':', '~']).any(|word| word == "wounded")
 }
 
 /// Is a track of this name a part of the hips, by which two rows of one body
@@ -558,6 +568,7 @@ impl RiggedSpriteAsset {
             placement: published.placement,
             realize: published.realize,
             parts,
+            wound_tracks: (0..published.tracks.len()).filter(|i| is_wound_track(&published.tracks[*i])).map(|i| i as u16).collect(),
             tracks: published.tracks,
             clips,
             baked_clips,
@@ -881,6 +892,22 @@ impl RiggedSpriteAsset {
         out.splice(0..0, back);
         out.extend(layer.iter().filter(|draw| !behind(draw)).map(placed));
         true
+    }
+
+    /// Show the wounds of the draws in `out` as much as the body is hurt:
+    /// `wounds` is the share of its health it has lost (0 whole, 1 spent),
+    /// and each draw on a wound track ([`is_wound_track`]) is drawn at that
+    /// opacity, whatever opacity it was published at (a wound is published
+    /// at none, so the baked frame is the body unhurt). Every other draw is as
+    /// it was.
+    pub fn wounded_by(&self, wounds: f32, out: &mut [PartDraw]) {
+        if self.wound_tracks.is_empty() {
+            return;
+        }
+        let wounds = wounds.clamp(0.0, 1.0);
+        for draw in out.iter_mut().filter(|draw| draw.track.is_some_and(|track| self.wound_tracks.contains(&track))) {
+            draw.color = PartDraw::pack_color(draw.tint(), wounds);
+        }
     }
 
     /// Turn the head of the draws in `out` as `look_row` turns its head,

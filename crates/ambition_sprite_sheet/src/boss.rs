@@ -605,6 +605,9 @@ pub struct BossDrawnCell {
     /// The record `(row, frame)` of the layer drawn over this cell, for a boss
     /// drawn from parts whose content pins one (`PinnedRow::layer`).
     pub layer: Option<(usize, usize)>,
+    /// The share of its health it has lost, in 255ths (0 whole): its wound
+    /// tracks show this much (`RiggedSpriteAsset::wounded_by`).
+    pub wounds: u8,
 }
 
 /// Render-side boss texture addresser. It does not own the animation cursor:

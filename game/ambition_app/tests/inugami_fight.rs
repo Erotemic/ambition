@@ -179,10 +179,13 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
 
     // You stand in the final hall with it: Kagero comes to your aid, her
     // spell breaks its ward (she does not cut it), and she is gone up her
-    // line. Then it fights, and your blows land.
+    // line. Then it fights, and your blows land. Her talismans stay pasted on
+    // it from when its ward breaks: they say it can be hurt.
     let before = health(&mut sim, INUGAMI_ID);
     step_until(&mut sim, 60 * 4, "Kagero to come", |sim| kagero(sim).is_some());
+    assert!(!sealed(&mut sim), "her talismans were on it before she threw them");
     step_until(&mut sim, 60 * 4, "her spell to break its ward", |sim| head(sim).view.is_some_and(|v| !v.warded) && !guarded(sim));
+    assert!(sealed(&mut sim), "its ward broke and her talismans are not on it");
     step_until(&mut sim, 60 * 4, "Kagero to leave", |sim| kagero(sim).is_none());
     assert_eq!(health(&mut sim, INUGAMI_ID), before, "she cut it: the fight is yours");
     step_until(&mut sim, 60 * 10, "it to fight in the hall", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
@@ -190,6 +193,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
         sim.step(AgentAction::default());
     }
     assert!(kagero(&mut sim).is_none(), "she came back");
+    assert!(sealed(&mut sim), "her talismans came off it while it could still be hurt");
 
     // The killing blow: the world hangs while it falls, then comes back.
     kill(&mut sim, INUGAMI_ID);
@@ -208,6 +212,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     let h = head(&mut sim);
     assert!(!h.alive, "{h:?}");
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 > FINAL_HALL_FLOOR - 30.0, "his head did not drop to the hall's floor: {h:?}");
+    assert!(!sealed(&mut sim), "her talismans stayed on his head after the spirit left it");
 }
 
 /// Its name, as its plate shows it (Jon, 2026-10-24).
@@ -323,6 +328,14 @@ fn a_stopped_runner_takes_ghost_fire_and_lightning_with_a_forward_launch() {
         if connected == [true, true] { return; }
     }
     panic!("the stopped runner was not hurt by both attacks: fire={}, lightning={}", connected[0], connected[1]);
+}
+
+/// It wears Kagero's talismans (`inugami::SEALED`, a worn gear).
+fn sealed(sim: &mut Platformer2dSimHarness) -> bool {
+    let entity = boss_entity(sim, INUGAMI_ID);
+    sim.world_mut()
+        .get::<ambition_platformer2d::characters::equipment::WornEquipment>(entity)
+        .is_some_and(|worn| worn.wears(ambition_content::bosses::inugami::SEALED))
 }
 
 /// Kagero's body, while she is in the world.

@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use crate::bosses::hall::Hall;
 
-pub use ambition_content_modules::inugami::{Move, INUGAMI_ID};
+pub use ambition_content_modules::inugami::{Move, INUGAMI_ID, SEALED};
 
 /// The state it is built with: the side it faces (its module chooses it from
 /// then on) and its drawn row.

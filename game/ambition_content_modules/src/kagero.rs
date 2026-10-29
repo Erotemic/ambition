@@ -17,9 +17,11 @@
 //!
 //! 1. She comes out of her smoke (`blink_in`), and speaks.
 //! 2. She casts (`cast`): her hands make the seal, and she throws her paper
-//!    talismans (ofuda) at the head. They fly to it and stick, and at
-//!    [`DISPEL_AT_S`] its ward of blue fire breaks. The head's conductor keeps
-//!    that time itself: it is held from her birth and breaks its ward then.
+//!    talismans (ofuda) at the head (the effect [`VOLLEY_FX`]). They fly to
+//!    it and strike ([`SEAL_FX`]), and at [`DISPEL_AT_S`] its ward of blue
+//!    fire breaks. The head's conductor keeps that time itself: it is held
+//!    from her birth, breaks its ward then, and wears her talismans
+//!    (`crate::inugami::SEALED`) from then on.
 //! 3. Her line drops from the sky, she catches it and is reeled up and away
 //!    (`hang`; the line is `ambition.feedback.body_line`), and she speaks.
 //! 4. She is dismissed when she is high, or when her time is out.
@@ -31,8 +33,8 @@
 
 use ambition_boss_special_port::{DrawnRow, DrawnRowPort};
 use ambition_combat_port::{
-    BodyLine, BodyLinePort, BodySound, BodySoundPort, Burst, BurstPort, Dismiss, DismissPort, FoesPort, HoldCourse,
-    HoldCoursePort, Place, SpeechBubble, SpeechBubblePort, StatusTickPort,
+    BodyLine, BodyLinePort, BodySound, BodySoundPort, Burst, BurstPort, Dismiss, DismissPort, Effect, EffectPort, FoesPort,
+    HoldCourse, HoldCoursePort, Place, SpeechBubble, SpeechBubblePort, StatusTickPort,
 };
 use ambition_extension_sdk::{
     phases::TECHNIQUE_EXECUTION, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
@@ -68,8 +70,16 @@ const DRIFT: f32 = 12.0;
 const CATCH_S: f32 = 0.18;
 /// The longest she is reeled before she is dismissed.
 const REEL_S: f32 = 1.6;
-/// How many talismans she throws.
-const OFUDA: u32 = 5;
+/// Her talismans in flight (`ninja_kagero_vfx`): five, along the effect's
+/// +X, crossing `VOLLEY_SPAN` of its square. It is played midway to the head,
+/// turned to it and scaled to the distance, and lasts `FLY_S`.
+pub const VOLLEY_FX: &str = "ofuda_volley";
+const VOLLEY_SPAN: f32 = 0.84;
+/// The world size of an effect's square at scale 1 (`ambition_render::fx`).
+const FX_WORLD: f32 = 56.0;
+/// Her talismans strike the head: her seal opens on it, this big.
+pub const SEAL_FX: &str = "ofuda_seal";
+const SEAL_SCALE: f32 = 3.6;
 
 /// Where her line hangs from: up and away from the head.
 const LINE_UP: f32 = 1400.0;
@@ -178,6 +188,7 @@ pub fn module() -> ModuleDescriptor {
                 BurstPort::KEY,
                 SpeechBubblePort::KEY,
                 DismissPort::KEY,
+                EffectPort::KEY,
             ],
             after: Vec::new(),
             limits: Limits { max_requests: 16 },
@@ -193,8 +204,8 @@ pub struct VisitTick {
     pub course: [f32; 2],
     /// Her row and how far into it she is (s).
     pub row: (&'static str, f32),
-    /// Her talismans in flight to the head: where they are now.
-    pub ofuda: Option<[f32; 2]>,
+    /// She throws her talismans at the head: from where, to where.
+    pub throw: Option<([f32; 2], [f32; 2])>,
     /// They have reached it: the ward breaks.
     pub ofuda_hit: bool,
     /// Her line's anchor, while she holds it.
@@ -238,10 +249,7 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
                 v.thrown = true;
                 out.sounds.push(SFX_THROW);
                 out.says = Some(LINE_CAST);
-            }
-            let flown = (v.beat_t - THROW_AT_S) / FLY_S;
-            if let (Some(h), true) = (head, (0.0..1.0).contains(&flown)) {
-                out.ofuda = Some(at.lerp(h, flown).into());
+                out.throw = head.map(|h| (at.into(), h.into()));
             }
             out.ofuda_hit = v.beat_t >= THROW_AT_S + FLY_S && v.beat_t - dt < THROW_AT_S + FLY_S;
             if v.beat_t >= CAST_S {
@@ -273,6 +281,18 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
     out
 }
 
+/// Her talismans in flight from `from` to `to`: the volley played midway,
+/// turned to the head (clockwise, +Y down) and as big as the distance.
+pub fn volley(from: Vec2, to: Vec2) -> Effect {
+    let way = to - from;
+    Effect {
+        at: Place::World(from.midpoint(to).into()),
+        fx: VOLLEY_FX.into(),
+        scale: way.length() / (FX_WORLD * VOLLEY_SPAN),
+        angle: way.y.atan2(way.x),
+    }
+}
+
 fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let at = Vec2::from(inv.trigger::<StatusTickPort>()?.position);
     let head = inv
@@ -290,12 +310,12 @@ fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     inv.submit::<HoldCoursePort>(HoldCourse { velocity: Some(tick.course) })?;
     inv.submit::<DrawnRowPort>(DrawnRow::body(tick.row.0, tick.row.1, false))?;
-    if let Some(ofuda) = tick.ofuda {
-        // Her talismans in flight: paper in a line to the head.
-        inv.submit::<BurstPort>(Burst { at: ofuda, count: OFUDA, speed: 60.0, color: PAPER, kind: "streak".into() })?;
+    if let Some((from, to)) = tick.throw {
+        inv.submit::<EffectPort>(volley(Vec2::from(from), Vec2::from(to)))?;
     }
     if let (true, Some(h)) = (tick.ofuda_hit, head) {
-        inv.submit::<BurstPort>(Burst { at: h.into(), count: 30, speed: 280.0, color: PAPER, kind: "streak".into() })?;
+        inv.submit::<EffectPort>(Effect { at: Place::World(h.into()), fx: SEAL_FX.into(), scale: SEAL_SCALE, angle: 0.0 })?;
+        inv.submit::<BurstPort>(Burst { at: h.into(), count: 14, speed: 240.0, color: PAPER, kind: "streak".into() })?;
     }
     inv.submit::<BodyLinePort>(BodyLine { anchor: tick.line })?;
     for cue in tick.sounds {
@@ -324,6 +344,7 @@ mod tests {
         let mut at = Vec2::new(700.0, 520.0);
         let mut v = Visit::default();
         let mut hits = Vec::new();
+        let mut throws = Vec::new();
         let mut said = Vec::new();
         let mut gone_after = None;
         for k in 0..600 {
@@ -332,6 +353,7 @@ mod tests {
                 hits.push(v.age);
             }
             said.extend(tick.says);
+            throws.extend(tick.throw);
             if tick.dismissed {
                 gone_after = Some(k as f32 * DT);
                 break;
@@ -341,8 +363,24 @@ mod tests {
         assert_eq!(hits.len(), 1, "her talismans reach it once: {hits:?}");
         assert!((hits[0] - DISPEL_AT_S).abs() < 2.0 * DT, "they reach it at {}, not {DISPEL_AT_S}", hits[0]);
         assert_eq!(said, vec![LINE_ARRIVE, LINE_CAST, LINE_LEAVE]);
+        assert_eq!(throws.len(), 1, "she throws once: {throws:?}");
+        assert_eq!(throws[0].1, <[f32; 2]>::from(head), "she threw at the head");
         let gone = gone_after.expect("she never left");
         assert!(gone < 4.0, "her visit took {gone} s");
         assert!(at.y < head.y - 400.0, "she did not go up her line: {at:?}");
+    }
+
+    /// Her volley spans the way to the head, midway, turned to it: its
+    /// talismans leave her hand and strike the head, whichever side it is on.
+    #[test]
+    fn her_volley_runs_from_her_hand_to_the_head() {
+        for (from, to) in [(Vec2::new(100.0, 500.0), Vec2::new(400.0, 460.0)), (Vec2::new(900.0, 500.0), Vec2::new(650.0, 520.0))] {
+            let fx = volley(from, to);
+            let Place::World(mid) = fx.at else { panic!("{:?}", fx.at) };
+            let half = FX_WORLD * fx.scale * VOLLEY_SPAN / 2.0;
+            let dir = Vec2::from_angle(fx.angle);
+            assert!((Vec2::from(mid) - dir * half).distance(from) < 1e-3, "it starts off her hand: {fx:?}");
+            assert!((Vec2::from(mid) + dir * half).distance(to) < 1e-3, "it ends off the head: {fx:?}");
+        }
     }
 }

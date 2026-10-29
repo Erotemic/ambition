@@ -47,9 +47,7 @@ regenerate_assets() {
         verify_tool_environments
     fi
 
-    "$repo_root/scripts/setup/target_bindmount.sh" --status
-    "$repo_root/scripts/setup/target_bindmount.sh" --check || "$repo_root/scripts/setup/target_bindmount.sh"
-    cargo build --manifest-path "$repo_root/Cargo.toml" -p ambition_content_cli --bin ambition_content
+    # Art needs no Cargo build, so it does not wait on the target bind.
     log "regenerating all runtime assets"
     "$repo_root/scripts/regen/assets.sh"
     verify_generated_content_is_current

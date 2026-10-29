@@ -36,10 +36,9 @@ This can render art. It leaves the selected publication unchanged.
 
 ## Build and publish
 
-Build the runtime metadata validator once. Rebuild it after schema changes:
+Art never needs cargo:
 
 ```bash
-cargo build -p ambition_content_cli --bin ambition_content
 ./scripts/regen/sprites.sh --target hand_saint
 ./scripts/regen/sprites.sh
 python3 scripts/check_quality_variants_are_fresh.py --require-evidence
@@ -47,9 +46,25 @@ python3 scripts/check_quality_variants_are_fresh.py --require-evidence
 
 Each build reads a private source snapshot and writes into a clean directory.
 The publisher checks required members, image data, sheet rows, portraits, part
-tables, body rigs, and referenced pages. Source or toolchain changes during the
-request refuse publication. A failed request keeps the previous selection.
-Accepted bundles from that request can be reused by a later build if their recipes and files are current.
+tables, body rigs, and referenced pages. When a built game validator is already
+there (`target/debug/ambition_content`, or `$AMBITION_ART_CONTENT_BIN`), it also
+parses each sheet with the game's own parser. Without one, that check is not run
+and the game's loader reports metadata it cannot read.
+
+Publication does not refuse concurrent work:
+
+- A source or toolchain change during a request does not discard the request.
+  Each bundle records the inputs it was built from, so it reads as stale and the
+  next build replaces it.
+- The targets that build are published. A target that fails keeps its previous
+  bundle, and the request reports the failure.
+- When another agent published after this request planned, the request's
+  changes are merged onto the newer selection, unit by unit (the last writer of
+  a unit wins).
+- A derived bundle (an atlas) whose parent changed stays selected and is listed
+  under `stale` in `published.json`.
+
+Accepted bundles can be reused by a later build if their recipes and files are current.
 
 A focused request includes the target's named static props and quality products.
 Shared atlas dependencies are rebuilt when their accepted parent bundles change.
@@ -97,5 +112,4 @@ For an existing checkout, `--adopt-existing PATH` can import old runtime files.
 Imported bundles have unknown source evidence. Only a real build establishes a
 current recipe. The import does not claim that current source produced old pixels.
 
-Do not run generation with a Cargo build. Check the target bind before building:
-`scripts/setup/target_bindmount.sh --status`.
+Generation and Cargo builds can run at the same time.

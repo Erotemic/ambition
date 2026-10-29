@@ -219,7 +219,7 @@ Narrower commands:
 python3 scripts/grab_font_assets.py
 ```
 
-Do not regenerate assets concurrently with a Cargo build.
+Asset generation needs no Cargo build and can run beside one.
 
 Details:
 

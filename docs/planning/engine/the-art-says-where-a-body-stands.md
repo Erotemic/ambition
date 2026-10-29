@@ -66,11 +66,11 @@ When the drawing changes, those files do not.
 
 ### 3. A mount's back is carried at the wrong rate
 
-- `mount_backs_are_ground` gives each block `velocity: mount.vel`. A body's
-  `vel` is per second. A block's `velocity` is per frame, and is added to
-  the place of what stands on it. A mount that moves would carry a body 60
-  times too far. The giant stands still, so nothing shows. (Read from the
-  two definitions by two readers; not run.)
+`70b516476` fixed the units: ground now moves by `SweepSample::curr - prev`.
+Both blocks and surface chains use that displacement. The guard
+`a_ridden_mount_s_ledges_are_ground_in_its_own_live_room_only` gives the mount
+a velocity different from its measured step and checks the step in the overlay.
+Keep carry based on measured displacement, including when a collision stops a mount.
 
 ### 4. The room has a copy of the giant's size
 

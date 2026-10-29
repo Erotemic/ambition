@@ -64,9 +64,12 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 
 const SHADER_ASSET_PATH: &str = "embedded://ambition_render/rendering/hit_flash.wgsl";
 
-/// Hold the flash at full intensity for the first 80% of the timer, then fade
-/// to zero. A sudden cut reads as a missing frame.
-const FLASH_HOLD_FRACTION: f32 = 0.80;
+/// Hold the flash at full intensity for the first 35% of the reference, then
+/// fade to zero. Under a freeze of 8-19 frames (the genre's hitlag law) an
+/// 80% hold read as a flat white silhouette for the whole beat; now the body
+/// pops white at contact and settles while it is still frozen. A sudden cut
+/// reads as a missing frame, so it still fades.
+const FLASH_HOLD_FRACTION: f32 = 0.35;
 
 const REFERENCE_FLASH_SECONDS: f32 = 0.24;
 

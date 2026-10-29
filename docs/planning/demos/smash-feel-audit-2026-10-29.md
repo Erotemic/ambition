@@ -199,6 +199,24 @@ How this interacts with the simulation findings: P1–P3 are mostly invisible
 today *because* hitlag is 2–6 frames (finding 2). R2 makes a connect last 8–19
 frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 
+## Status (2026-10-29, evening)
+
+| Step | State | Commit |
+|---|---|---|
+| R1 hitstun lockout, R2 hitlag law, hitstun scale | ✔ shipped as `CombatRules` (`hitstun_locks_actions`, `hitlag: Affine`, `hitstun_time`), Smash declares them | 0f8c99ecb |
+| R4 walk/dash threshold, crouch, coyote 0, parry on release | ✔ `dash_deflection` 0.8 (schema 387) | 71381014c |
+| P1 spark carries the blow | ✔ tiered rows, scaled, turned to the launch | 6420ab194 |
+| P3 victim shake, flash lasts the freeze | ✔ shake; flash ≥ hitlag | 1005e9ad7, this commit |
+| P6 authored puffs, dash/turn skid | ✔ (squash/stretch open) | 1005e9ad7 |
+| P2 tiered hit and swing sounds | ✔ 12 cues (reel in `untracked/sfx-candidates/smash-feel/`), tier pick in `resolve_strike_sfx` | 865e5e460 |
+| R3 frame data | ✔ per fighter, in the facet (`move_timing`), 16 fighters; sanic has no facet; George is Rust-authored | 223dc85e7 |
+| R6 buffer 10 f | ✔ `action_buffer_s` | this commit |
+| P4 posing keys, P5 slash arcs | in progress (art agent, robot v3 first) | — |
+| P7 fighter camera | open: `resolve_follow_camera_snapshot` floors the scale at 1.0 (never closer than the base view); a Smash framing rule needs a fit-the-subjects target under that floor | — |
+| R5 play with Jon; R6 tap jump, short-hop button, angled air-dodge lag; P6 squash | open | — |
+
+Nothing above has been played by a human yet. Every number is a first cut.
+
 ## Roadmap
 
 Two tracks. The simulation track (R) changes what a hit is; the presentation

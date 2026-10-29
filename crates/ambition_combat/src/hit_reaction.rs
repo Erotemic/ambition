@@ -195,6 +195,10 @@ pub fn apply_body_hit_reaction(
         combat.hitstop_timer = combat
             .hitstop_timer
             .max(ae::hit_response::hitlag_duration(damage, &response));
+        // The flash lasts at least the freeze: a smash's white pop holds for
+        // its whole 16-frame beat and a jab's for its tick, instead of one
+        // flat length over both.
+        combat.hit_flash = combat.hit_flash.max(combat.hitstop_timer);
     }
 
     // ═══ THE FACTS OF A LAUNCH ═════════════════════════════════════════════

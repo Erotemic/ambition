@@ -7,7 +7,7 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 The Ninja Village is a mountain village of the ninja dimension, its own world
-file (`ninja_village.ldtk`). Gate address SILENT arrives at its gate shrine.
+file (`pvn.ldtk`, the PvN dimension of pirates and ninjas). Gate address SILENT arrives at its gate shrine.
 The design is in `README.md` here. In short:
 
 - `ninja_village_gate_shrine`: the shrine where the ring stands (Agent GATE
@@ -44,7 +44,9 @@ from district_kit import (  # noqa: E402
 
 import props  # noqa: E402  (this directory's scenery)
 
-WORLD_LDTK = WORLDS / "ninja_village.ldtk"
+#: The PvN dimension's world file (Jon, 2026-10-29: the pirate and ninja
+#: dimensions are one): the port and the village are both in it.
+WORLD_LDTK = WORLDS / "pvn.ldtk"
 UID_OFFSET = 700000
 GENERATOR = "specs/ninja_village/make_specs.py"
 
@@ -71,11 +73,14 @@ VILLAGE_MUSIC = "morning_on_the_eaves"
 FOREST_MUSIC = "the_last_lantern"
 DOJO_MUSIC = "nine_rooftops"
 
+#: The village is 10000 px under the port in the PvN world file (`pvn.ldtk`):
+#: the two were laid out each in its own file, from the same corner.
+VILLAGE_Y = 10000
 ROOMS_AT = {
-    SHRINE: ((0, 0), (1600, 832)),
-    STREET: ((1856, 0), (2816, 896)),
-    FOREST: ((4928, 0), (2816, 960)),
-    DOJO: ((1856, 1152), (1600, 576)),
+    SHRINE: ((0, VILLAGE_Y), (1600, 832)),
+    STREET: ((1856, VILLAGE_Y), (2816, 896)),
+    FOREST: ((4928, VILLAGE_Y), (2816, 960)),
+    DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
 }
 
 

@@ -50,13 +50,6 @@
     "math_surveyors_office",
     "math_town_street"
   ],
-  "ninja_village.ldtk": [
-    "ninja_dojo",
-    "ninja_village_dojo",
-    "ninja_village_forest",
-    "ninja_village_gate_shrine",
-    "ninja_village_street"
-  ],
   "noodle.ldtk": [
     "noodly_belfry",
     "noodly_cistern",
@@ -66,7 +59,14 @@
     "noodly_sanctum",
     "noodly_scullery"
   ],
-  "pirate_port.ldtk": [
+  "pvn.ldtk": [
+    "mockingbird_arena",
+    "mockingbird_sky",
+    "ninja_dojo",
+    "ninja_village_dojo",
+    "ninja_village_forest",
+    "ninja_village_gate_shrine",
+    "ninja_village_street",
     "pirate_cove",
     "pirate_port_docks",
     "pirate_port_gate_plaza",
@@ -125,8 +125,6 @@
     "live_floor",
     "military_gate_annex",
     "military_tower",
-    "mockingbird_arena",
-    "mockingbird_sky",
     "mode_collapse_arena",
     "morph_lab",
     "overfit_annex_boss",

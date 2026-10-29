@@ -7,7 +7,7 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 The Pirate Port is a seafaring town of the pirate dimension, its own world
-file (`pirate_port.ldtk`). Gate address SAILING arrives in its gate plaza.
+file (`pvn.ldtk`, the PvN dimension of pirates and ninjas). Gate address SAILING arrives in its gate plaza.
 The design is in `README.md` here. In short:
 
 - `pirate_port_gate_plaza`: the gate plaza. Travellers arrive at the ring
@@ -44,7 +44,9 @@ from district_kit import (  # noqa: E402
 
 import props  # noqa: E402  (this directory's scenery)
 
-WORLD_LDTK = WORLDS / "pirate_port.ldtk"
+#: The PvN dimension's world file (Jon, 2026-10-29: the pirate and ninja
+#: dimensions are one): the port and the village are both in it.
+WORLD_LDTK = WORLDS / "pvn.ldtk"
 UID_OFFSET = 600000
 GENERATOR = "specs/pirate_port/make_specs.py"
 

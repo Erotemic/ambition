@@ -290,3 +290,226 @@ fn a_dead_mount_rebuilds_its_riders_brain_through_the_real_schedule() {
          still fights",
     );
 }
+
+mod constrained_motion {
+    use super::*;
+    use ambition_platformer2d::mount::{CanPilot, MountClass, Mountable, RideLease};
+    use ambition_platformer2d::platformer::schedule::WorldPrepSet;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::sim::SimScheduleExt;
+    use bevy::prelude::{IntoScheduleConfigs, Query, ResMut, Resource};
+
+    #[derive(Resource)]
+    struct MotionSamples {
+        ids: [SimId; 4],
+        before: Option<[BodyKinematics; 4]>,
+        integrated: Option<[BodyKinematics; 4]>,
+    }
+
+    fn sample<const AFTER: bool>(
+        mut samples: ResMut<MotionSamples>,
+        bodies: Query<(&SimId, &BodyKinematics)>,
+    ) {
+        let captured = samples.ids.each_ref().map(|wanted| {
+            *bodies
+                .iter()
+                .find(|(id, _)| *id == wanted)
+                .expect("sampled body exists")
+                .1
+        });
+        if AFTER {
+            samples.integrated = Some(captured);
+        } else {
+            samples.before = Some(captured);
+        }
+    }
+
+    fn assert_one_step(sim: &Platformer2dSimHarness, bodies: &[Entity; 4], indices: &[usize]) {
+        let samples = sim.world().resource::<MotionSamples>();
+        let before = samples.before.expect("before integration was sampled");
+        let after = samples.integrated.expect("after integration was sampled");
+        let dt = sim
+            .world()
+            .resource::<ambition_platformer2d::time::WorldTime>()
+            .sim_dt();
+        assert!(dt > 0.0);
+        for &index in indices {
+            let dx = after[index].pos.x - before[index].pos.x;
+            assert!(dx.abs() > 0.01, "{} did not travel", samples.ids[index]);
+            assert!(
+                (dx - after[index].vel.x * dt).abs() < 0.001,
+                "{} advanced by more than one step: dx={dx}, velocity={}, dt={dt}",
+                samples.ids[index],
+                after[index].vel.x
+            );
+            if sim
+                .world()
+                .get::<ae::PoseOwnedExternally>(bodies[index])
+                .is_none()
+            {
+                assert_eq!(
+                    sim.world()
+                        .get::<BodyKinematics>(bodies[index])
+                        .unwrap()
+                        .pos,
+                    after[index].pos,
+                    "a later phase moved a free body again"
+                );
+            }
+        }
+    }
+
+    fn exercise(rollback: bool) {
+        let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_fixed_tick(true)
+            .with_required_start_room("switch_lab");
+        if rollback {
+            options = options
+                .with_sync_test_rollback_settings(4, 10)
+                .with_rollback_players(2);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("simulation builds");
+        let home = home_entity(sim.world_mut());
+        let second =
+            crate::a_home_body_is_built_for_a_seat::build_a_home_body(&mut sim, PlayerSlot(1), ());
+        let start = pos_of(sim.world_mut(), home);
+        for (index, id) in ["constrained_mount", "constrained_rider"]
+            .into_iter()
+            .enumerate()
+        {
+            sim.spawn_enemy_character_at(
+                id,
+                id,
+                (start.x + 100.0 + index as f32 * 300.0, start.y - 100.0),
+                (14.0, 23.0),
+                CharacterBrain::Passive,
+                "perfect_cellular_automaton",
+            );
+        }
+        let actor_mount = entity_by_feature_id(sim.world_mut(), "constrained_mount");
+        let actor_rider = entity_by_feature_id(sim.world_mut(), "constrained_rider");
+        let bodies = [actor_mount, home, second, actor_rider];
+        for body in [actor_mount, actor_rider] {
+            sim.world_mut()
+                .entity_mut(body)
+                .insert(Brain::stand_still());
+        }
+        for (index, (mount, rider)) in [(actor_mount, home), (second, actor_rider)]
+            .into_iter()
+            .enumerate()
+        {
+            let seat = ae::Vec2::new(
+                0.0,
+                -sim.world().get::<BodyKinematics>(mount).unwrap().size.y * 0.5,
+            );
+            sim.world_mut()
+                .entity_mut(mount)
+                .insert(Mountable::at(seat));
+            sim.world_mut().entity_mut(rider).insert(CanPilot {
+                classes: vec![MountClass::default()],
+            });
+            assert!(ambition_platformer2d::mount::board(
+                sim.world_mut(),
+                rider,
+                mount
+            ));
+            sim.world_mut().entity_mut(rider).insert(RideLease {
+                remaining: 8.0 / 60.0,
+            });
+            for (body, offset) in [(mount, ae::Vec2::ZERO), (rider, ae::Vec2::new(10.0, -70.0))] {
+                let mut kin = sim.world_mut().get_mut::<BodyKinematics>(body).unwrap();
+                kin.pos = start + ae::Vec2::new(100.0 + 300.0 * index as f32, -100.0) + offset;
+                kin.vel = ae::Vec2::new(120.0, 0.0);
+                sim.world_mut()
+                    .get_mut::<ae::BodyGroundState>(body)
+                    .unwrap()
+                    .invalidate();
+            }
+        }
+        // A home body has no actor respawn baseline. The ride must still end.
+        assert!(sim
+            .world()
+            .get::<ambition_platformer2d::platformer::body::SpawnBaseline>(home)
+            .is_none());
+        let ids = bodies.map(|body| sim.world().get::<SimId>(body).unwrap().clone());
+        sim.world_mut().insert_resource(MotionSamples {
+            ids,
+            before: None,
+            integrated: None,
+        });
+        let schedule = sim.app_mut().sim_schedule();
+        sim.app_mut().add_systems(
+            schedule,
+            (
+                sample::<false>
+                    .after(WorldPrepSet::BeforeIntegrate)
+                    .before(WorldPrepSet::Integrate),
+                sample::<true>
+                    .after(WorldPrepSet::Integrate)
+                    .before(WorldPrepSet::AfterIntegrate),
+            ),
+        );
+        sim.rebase_rollback_history()
+            .expect("the pair setup enters the baseline");
+        sim.drive_seat(1, ae::ControlFrame::default());
+        sim.step(AgentAction::default());
+        // The kernel proposes one step; the saddle then owns the final pose.
+        assert_one_step(&sim, &bodies, &[0, 1, 2, 3]);
+        for (mount, rider) in [(actor_mount, home), (second, actor_rider)] {
+            let mount_kin = sim.world().get::<BodyKinematics>(mount).unwrap();
+            let rider_kin = sim.world().get::<BodyKinematics>(rider).unwrap();
+            let seat = sim.world().get::<Mountable>(mount).unwrap().seat;
+            let expected = mount_kin.pos
+                + ambition_platformer2d::mount::saddle_world_offset(
+                    seat - ae::Vec2::new(0.0, rider_kin.size.y * 0.5),
+                    mount_kin.facing,
+                    ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
+                );
+            assert!(
+                rider_kin.pos.distance(expected) < 0.001,
+                "the rider did not follow its mount"
+            );
+        }
+        let loads = sim
+            .rollback_execution_stats()
+            .map_or(0, |stats| stats.lifetime_load_runs);
+        for _ in 0..24 {
+            sim.step(AgentAction::default());
+            sim.rollback_health()
+                .expect("the rollback session stays healthy");
+        }
+        for rider in [home, actor_rider] {
+            assert!(
+                sim.world().get::<RidingOn>(rider).is_none(),
+                "the expired lease did not dismount {rider:?}"
+            );
+            assert!(
+                sim.world().get::<ae::PoseOwnedExternally>(rider).is_none(),
+                "dismount kept the ride's pose hold"
+            );
+        }
+        if rollback {
+            assert!(sim.rollback_execution_stats().unwrap().lifetime_load_runs > loads);
+        }
+        for (index, body) in bodies.into_iter().enumerate() {
+            let mut kin = sim.world_mut().get_mut::<BodyKinematics>(body).unwrap();
+            kin.pos = start + ae::Vec2::new(100.0 * (index + 1) as f32, -100.0);
+            kin.vel = ae::Vec2::new(120.0, 0.0);
+            sim.world_mut()
+                .get_mut::<ae::BodyGroundState>(body)
+                .unwrap()
+                .invalidate();
+        }
+        sim.rebase_rollback_history()
+            .expect("free motion setup enters the baseline");
+        sim.step(AgentAction::default());
+        assert_one_step(&sim, &bodies, &[0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn home_and_actor_riders_resume_one_body_step_when_their_leases_end() {
+        exercise(false);
+        exercise(true);
+    }
+}

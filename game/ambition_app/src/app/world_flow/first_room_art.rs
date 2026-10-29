@@ -229,7 +229,7 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<a
         let realized = realized_character_count(&job.demanded_characters, assets);
         if realized != job.realized_at_build {
             job.manifest =
-                build_loaded_room_asset_manifest(&job.room, &job.staged_actor_names, assets);
+                build_loaded_room_asset_manifest(&job.room, &job.staged_actor_names, assets, context.boss_catalog.as_deref());
             job.realized_at_build = realized;
         }
         let mut readiness = inspect_room_asset_manifest(

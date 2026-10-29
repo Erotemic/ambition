@@ -35,7 +35,7 @@ def build() -> Level:
         # The warp room, the last level of the file before world 2, is at y 4096..4576.
         world=(0, 4800),
         bg_color="#68b2d6",
-        fields={"biome": "stardune", "music_track": "sparse_theme", "mode": "mary_o"},
+        fields={"biome": "stardune", "parallax_theme": "stardune", "music_track": "sparse_theme", "mode": "mary_o"},
         late_fields={"next_room": "mary_o_2_2", "title": "WORLD 2-1"},
         coin_stem="dune_coin",
     )

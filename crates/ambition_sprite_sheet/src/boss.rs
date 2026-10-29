@@ -576,12 +576,10 @@ fn build_boss_pages(content: &crate::SpriteContent,
             let page_path = if page == 0 {
                 path.to_string()
             } else {
-                let file = record.page_image(page);
-                if parent.is_empty() {
-                    file.to_string()
-                } else {
-                    format!("{parent}/{file}")
-                }
+                ambition_asset_manager::platformer_assets::logical_asset_path(
+                    parent,
+                    record.page_image(page),
+                )
             };
             BossSpritePage {
                 texture: crate::game_assets::load_sheet_image(Some(&content), asset_server, "boss-sheet", page_path),
@@ -891,6 +889,37 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
         };
     }
     BossAnim::Rest
+}
+
+#[cfg(test)]
+mod page_tests {
+    use super::*;
+    use bevy::asset::{AssetApp, AssetPlugin};
+
+    #[test]
+    fn additional_pages_keep_their_authored_asset_source() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()));
+        app.init_asset::<Image>();
+        let content = crate::SpriteContent::default();
+        let spec = fixture_sheet();
+        let mut layouts = Assets::<TextureAtlasLayout>::default();
+        for page in [
+            "content://library/sprites/body.1.png",
+            "game://sprites/body.1.png",
+            "body.1.png",
+        ] {
+            let mut record = spec.synth_record("body.png");
+            record.images = vec!["body.png".into(), page.into()];
+            let pages = build_boss_pages(
+                &content, &record, &spec, "sprites/body.png",
+                app.world().resource::<AssetServer>(), &mut layouts,
+            );
+            let expected = if page.contains("://") { page.to_string() }
+                else { format!("sprites/{page}") };
+            assert_eq!(pages[1].texture.path().unwrap().to_string(), expected);
+        }
+    }
 }
 
 #[cfg(test)]

@@ -64,7 +64,7 @@ def build() -> Level:
         # 1-4, the last level of the file, is at y 3392..3872.
         world=(0, 4096),
         bg_color="#5c94fc",
-        fields={"biome": "starlight", "mode": "mary_o"},
+        fields={"biome": "starlight", "parallax_theme": "starlight", "mode": "mary_o"},
         late_fields={"title": "WARP ZONE"},
         coin_stem="warp_coin",
     )

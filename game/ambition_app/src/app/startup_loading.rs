@@ -433,6 +433,7 @@ fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_plat
         assets.prepared_here.as_deref(),
         &assets.game_assets,
         &assets.character_load_states,
+        assets.boss_catalog.as_deref(),
         state
             .manifest
             .as_mut()
@@ -618,7 +619,7 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
             );
         }
     }
-    let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
+    let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets, inputs.boss_catalog.as_deref());
     let demanded_characters = super::world_flow::room_character_tokens(room, &staged_names);
     let realized_at_build =
         super::world_flow::realized_character_count(&demanded_characters, &inputs.game_assets);
@@ -691,6 +692,7 @@ fn inspect_startup_manifest(
     >,
     game_assets: &GameAssets,
     character_load_states: &ambition_platformer2d::assets::materialization::CharacterLoadStates,
+    boss_catalog: Option<&ambition_platformer2d::boss_encounter::BossCatalog>,
     manifest: &mut StartupAssetManifest,
 ) -> StartupReadinessSummary {
     // Sheets realize one per frame after the first build; each brings pages
@@ -700,7 +702,7 @@ fn inspect_startup_manifest(
             super::world_flow::realized_character_count(&manifest.demanded_characters, game_assets);
         if realized != manifest.realized_at_build {
             manifest.room =
-                build_loaded_room_asset_manifest(&room_spec, &manifest.staged_names, game_assets);
+                build_loaded_room_asset_manifest(&room_spec, &manifest.staged_names, game_assets, boss_catalog);
             manifest.realized_at_build = realized;
         }
     }

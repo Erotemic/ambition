@@ -36,7 +36,7 @@ def build() -> Level:
         # 2-1 is at y 4800..5568.
         world=(0, 5760),
         bg_color="#14101c",
-        fields={"biome": "starless", "music_track": "embedded_theme", "mode": "mary_o"},
+        fields={"biome": "starless", "parallax_theme": "starless", "music_track": "embedded_theme", "mode": "mary_o"},
         late_fields={"next_room": "mary_o_2_3", "title": "WORLD 2-2"},
         coin_stem="tomb_coin",
     )

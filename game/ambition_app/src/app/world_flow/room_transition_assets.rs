@@ -538,6 +538,7 @@ fn add_room_specific_sprites(
     staged_actor_names: &[String],
     assets: &GameAssets,
     draft: &mut RoomManifestDraft,
+    boss_catalog: Option<&ambition_platformer2d::boss_encounter::BossCatalog>,
 ) {
     // The static entity sheet set is small, shared by most rooms, and loaded as
     // the sandbox core. Including every present handle makes room reveal wait
@@ -622,10 +623,11 @@ fn add_room_specific_sprites(
         if let Some(asset) = assets.boss.as_ref() {
             add_boss_asset(draft, "boss:fallback", asset);
         }
-        let mut boss_keys = assets.boss_sprites.keys().collect::<Vec<_>>();
-        boss_keys.sort();
+        let boss_keys = boss_catalog
+            .map(|catalog| ambition_platformer2d::game_assets::boss_sheet_keys_for_room(room, catalog))
+            .unwrap_or_default();
         for key in boss_keys {
-            if let Some(asset) = assets.boss_sprites.get(key) {
+            if let Some(asset) = assets.boss_sprites.get(&key) {
                 add_boss_asset(draft, &format!("boss:{key}"), asset);
             }
         }
@@ -697,7 +699,7 @@ pub(crate) fn build_room_asset_manifest(sprite_content: &ambition_platformer2d::
         worn,
         retire_all_but,
     );
-    build_loaded_room_asset_manifest(room, staged_actor_names, assets)
+    build_loaded_room_asset_manifest(room, staged_actor_names, assets, boss_catalog)
 }
 
 /// Describe the handles already selected for an active room without mutating
@@ -709,9 +711,10 @@ pub(crate) fn build_loaded_room_asset_manifest(
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &GameAssets,
+    boss_catalog: Option<&ambition_platformer2d::boss_encounter::BossCatalog>,
 ) -> RoomAssetManifest {
     let mut draft = RoomManifestDraft::default();
-    add_room_specific_sprites(room, staged_actor_names, assets, &mut draft);
+    add_room_specific_sprites(room, staged_actor_names, assets, &mut draft, boss_catalog);
 
     // A theme with a corrupted state draws both (`ensure_parallax_layers_for_room`
     // loads both): a corrupted or balanced room waits for the second too.
@@ -1150,6 +1153,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     render_world: Option<Res<RenderWorldPresent>>,
     prepared_here: Option<Res<AppGpuPreparedImages>>,
     assets: Option<Res<GameAssets>>,
+    boss_catalog: Option<Res<ambition_platformer2d::boss_encounter::BossCatalog>>,
     character_load_states: Option<
         Res<ambition_platformer2d::assets::materialization::CharacterLoadStates>,
     >,
@@ -1180,7 +1184,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         let realized = realized_character_count(&contributed.demanded_characters, assets);
         if realized != contributed.realized_at_build {
             let manifest =
-                build_loaded_room_asset_manifest(&room, &contributed.staged_actor_names, assets);
+                build_loaded_room_asset_manifest(&room, &contributed.staged_actor_names, assets, boss_catalog.as_deref());
             contributed.manifest = Some(Arc::new(manifest));
             contributed.realized_at_build = realized;
         }
@@ -1800,6 +1804,38 @@ mod tests {
     use bevy::asset::AssetApp;
     use bevy::prelude::App;
 
+    #[test]
+    fn a_room_waits_only_for_its_own_cached_boss_sheets() {
+        use ambition_platformer2d::world::prelude::{AuthoredWorld, Vec2};
+        use ambition_platformer2d::sprite_sheet::boss::{BossSheetSpec, BossSpritePage};
+        let content = ambition_platformer2d::sprite_sheet::SpriteContent::default();
+        let catalog = ambition_content::bosses::shipped_boss_catalog(&content);
+        let key = catalog.authored_sheet_keys()
+            .find(|key| Some(*key) != catalog.fallback_sheet_key()).unwrap().to_string();
+        let mut room = RoomSpec::new("boss_room", AuthoredWorld::new(
+            "boss room", Vec2::new(640.0, 360.0), Vec2::new(64.0, 256.0), Vec::new(),
+        ));
+        room.boss_spawns.push(ambition_platformer2d::world::rooms::Authored::new(
+            "boss", &key,
+            ambition_platformer2d::engine_core::Aabb::new(Vec2::new(320.0, 200.0), Vec2::new(20.0, 20.0)),
+            ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript { script_id: key.clone() },
+        ));
+        let mut images = Assets::<Image>::default();
+        let mut assets = GameAssets::default();
+        for name in [&key, &"unrelated".to_string()] {
+            let spec = BossSheetSpec::unauthored();
+            assets.boss_sprites.insert(name.clone(), BossSpriteAsset {
+                record: spec.synth_record("body.png"), spec,
+                pages: vec![BossSpritePage { texture: images.add(Image::default()), layout: Handle::default() }],
+                layers: Vec::new(),
+            });
+        }
+        let manifest = build_loaded_room_asset_manifest(&room, &[], &assets, Some(&catalog));
+        let labels: Vec<_> = manifest.dependencies.iter().map(|entry| entry.label.as_str()).collect();
+        assert!(labels.contains(&format!("boss:{key}:page:0").as_str()));
+        assert!(!labels.contains(&"boss:unrelated:page:0"));
+    }
+
     /// D166: every shipped room demands its cast by character id. An enemy's
     /// placement `name` is a caption or an id (`"gallery: goblin + striker"`,
     /// `"pg_brute"`) or a display name (`"Ai Slop"`). Demanded, it named no
@@ -2017,7 +2053,7 @@ mod tests {
             Vec::new(),
         );
         let room = RoomSpec::new("d153_room", world);
-        build_loaded_room_asset_manifest(&room, &["d153_fighter".to_owned()], &assets)
+        build_loaded_room_asset_manifest(&room, &["d153_fighter".to_owned()], &assets, None)
     }
 
     /// A page the SPEC requires and the REALIZATION does not have must refuse the reveal.
@@ -2317,7 +2353,7 @@ mod tests {
             room
         };
         let labels = |room: &RoomSpec| -> Vec<String> {
-            build_loaded_room_asset_manifest(room, &[], &assets)
+            build_loaded_room_asset_manifest(room, &[], &assets, None)
                 .dependencies
                 .into_iter()
                 .map(|dependency| dependency.label)

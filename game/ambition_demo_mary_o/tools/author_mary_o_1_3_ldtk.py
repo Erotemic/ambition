@@ -38,7 +38,7 @@ def build() -> Level:
         # 1-1 is at y 0..768 and 1-2 at y 2560..3232.
         world=(0, 1600),
         bg_color="#5c94fc",
-        fields={"biome": "starlight", "mode": "mary_o"},
+        fields={"biome": "starlight", "parallax_theme": "starlight", "mode": "mary_o"},
         late_fields={"next_room": "mary_o_1_4", "title": "WORLD 1-3"},
         coin_stem="sky_coin",
     )

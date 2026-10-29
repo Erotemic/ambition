@@ -75,7 +75,7 @@ CANONICAL_ENV = "AMBITION_ASSETS_ARE_CANONICAL"
 #: The generated tier trees. `sprites` alone is enough to answer the question —
 #: the variants are produced from it by the same run — but a box may have been
 #: interrupted, so any tree holding real files counts.
-SPRITE_TREE_GLOB = "crates/ambition_platformer2d_actor_monolith/assets/sprites*"
+SPRITE_TREE_GLOB = "game/ambition_content_library/generated/runtime/sprites*"
 
 #: ⛔⛔ THE SCAN IS EXHAUSTIVE, AND USED TO STOP AT 25 FILES.
 #:

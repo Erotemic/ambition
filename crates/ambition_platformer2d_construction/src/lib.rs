@@ -758,12 +758,13 @@ fn construct_staged_actor(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.services.context.sprite_content;
     let ActorConstructionParams::StagedActor(request) = parameters else {
         unreachable!("dispatch pairs this fn with StagedActor parameters")
     };
     let services = ctx.services;
     let fate = ctx.facts.staged_fate(request);
-    ambition_platformer2d_actor_spawn::spawn_staged_actor_into(
+    ambition_platformer2d_actor_spawn::spawn_staged_actor_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
@@ -780,11 +781,12 @@ fn construct_summoned_minion(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.services.context.sprite_content;
     let ActorConstructionParams::SummonedMinion(minion) = parameters else {
         unreachable!("dispatch pairs this fn with SummonedMinion parameters")
     };
     let services = ctx.services;
-    ambition_platformer2d_actor_spawn::spawn_runtime_minion_into(
+    ambition_platformer2d_actor_spawn::spawn_runtime_minion_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
@@ -819,6 +821,7 @@ fn construct_giant_host(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.services.context.sprite_content;
     let services = ctx.services;
     let ActorConstructionParams::GiantHost {
         authored,
@@ -837,7 +840,7 @@ fn construct_giant_host(
     // inside the generic spawn file. The shared call it wraps stays where it is;
     // what is gone is a name crossing the boundary to say something only
     // construction cares about.
-    ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+    ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
@@ -862,6 +865,7 @@ fn construct_giant_hand(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.services.context.sprite_content;
     let services = ctx.services;
     let ActorConstructionParams::GiantHand { authored, conductor } = parameters else {
         unreachable!("dispatch pairs this fn with GiantHand parameters")
@@ -873,7 +877,7 @@ fn construct_giant_hand(
     // construction paths. Non-hostile by construction — the limb fan-out is its
     // only driver, and targeting must ignore it. The `Limb` component and the
     // host's rig entry come from the `ambition.limb` relation, not from here.
-    ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+    ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
@@ -909,12 +913,13 @@ fn construct_authored_enemy(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.services.context.sprite_content;
     let services = ctx.services;
     let ActorConstructionParams::AuthoredEnemy { authored, paths } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredEnemy parameters")
     };
     let fate = ctx.facts.enemy_fate(authored);
-    ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+    ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
@@ -931,12 +936,13 @@ fn construct_authored_boss(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.services.context.sprite_content;
     let services = ctx.services;
     let ActorConstructionParams::AuthoredBoss { authored, practice, wakes_after } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
     };
     let fate = ctx.facts.boss_fate(&authored.id);
-    ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(
+    ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(&sprite_content,
         &mut ctx.root_scope(),
         &services.boss_catalog,
         authored,

@@ -4,7 +4,7 @@ use ambition_asset_manager::platformer_assets as core;
 use ambition_asset_manager::{AssetManifest, AssetProfile};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 
-use ambition_sprite_sheet::game_assets::sandbox_image_manifest;
+use ambition_asset_manager::content_library::ContentLibraries;
 use ambition_sprite_sheet::game_assets::GameAssetConfig;
 
 use core::{
@@ -32,6 +32,7 @@ pub fn asset_source_for_profile(
 /// music registry explicitly (from its App-local `AudioCatalogRegistry` or a
 /// content fixture) — this seam consults no process-global audio state.
 pub fn desktop_dev_default_catalog(
+    libraries: &ContentLibraries,
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
     music: &ambition_audio::spec::MusicRegistry,
@@ -41,7 +42,7 @@ pub fn desktop_dev_default_catalog(
         asset_profile: AssetProfile::DesktopDevLoose,
         ..Default::default()
     };
-    build_platformer2d_asset_catalog(&config, character_catalog, boss_catalog, music, worlds)
+    build_platformer2d_asset_catalog(libraries, &config, character_catalog, boss_catalog, music, worlds)
 }
 
 /// Build the shared sprite/parallax/audio/world catalog.
@@ -54,6 +55,7 @@ pub fn desktop_dev_default_catalog(
 /// manifest an explicit argument, "no worlds" is just a value, not a second
 /// function.
 pub fn build_platformer2d_asset_catalog(
+    libraries: &ContentLibraries,
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
@@ -61,6 +63,7 @@ pub fn build_platformer2d_asset_catalog(
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
     build_sandbox_catalog_with(
+        libraries,
         config,
         character_catalog,
         boss_catalog,
@@ -71,6 +74,7 @@ pub fn build_platformer2d_asset_catalog(
 }
 
 pub fn build_sandbox_catalog_with(
+    libraries: &ContentLibraries,
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
@@ -82,9 +86,12 @@ pub fn build_sandbox_catalog_with(
         sprite_folder: config.sprite_folder.clone(),
         asset_profile: config.asset_profile,
     };
-    let image_manifest = sandbox_image_manifest(&config.sprite_folder);
+    let image_manifest = libraries.asset_manifest().unwrap_or_else(|error| panic!("{error}"));
     let inputs = sandbox_catalog_inputs(character_catalog, boss_catalog, music, worlds);
-    core::build_sandbox_catalog_with(&core_config, image_manifest, &inputs, extend)
+    core::build_sandbox_catalog_with(&core_config, image_manifest, &inputs, |manifest| {
+        extend(manifest);
+        libraries.bind_catalog(manifest).unwrap_or_else(|error| panic!("{error}"));
+    }).with_libraries(libraries).unwrap_or_else(|error| panic!("{error}"))
 }
 
 pub fn sandbox_catalog_inputs(
@@ -212,7 +219,7 @@ mod character_sprite_row_tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "alpha": (
-                display_name: "Alpha", 
+                display_name: "Alpha",
                 manifest: "sprites/alpha.ron", tier: MainHall, body_kind: Standard,
                 composition: None, default_brain: "idle",
                 default_action_set: "peaceful", tags: [],
@@ -225,7 +232,7 @@ mod character_sprite_row_tests {
         action_set_presets: { "peaceful": (move_style: Walk) },
         characters: {
             "beta": (
-                display_name: "Beta", 
+                display_name: "Beta",
                 manifest: "sprites/beta.ron", tier: MainHall, body_kind: Standard,
                 composition: None, default_brain: "idle",
                 default_action_set: "peaceful", tags: [],
@@ -272,7 +279,7 @@ mod character_sprite_row_tests {
             },
             characters: {
                 "outlander": (
-                    display_name: "Outlander", 
+                    display_name: "Outlander",
                     manifest: "game://sprites/outlander.ron", tier: MainHall,
                     body_kind: Standard, composition: None, default_brain: "idle",
                     default_action_set: "peaceful", tags: [],

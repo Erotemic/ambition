@@ -40,7 +40,7 @@ fn frames(seconds: f32) -> f32 {
 /// The feet pixel is the horizontal origin, not the frame centre. A frame is
 /// a packed cell sized by the widest pose, and the art sits wherever the crop
 /// left it (`projectile_polygon` is 17% of a 377px frame left of centre).
-fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
+fn sheet_atlas_json(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, characters: &[serde_json::Value]) -> serde_json::Value {
     use ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key;
 
     let mut wanted: std::collections::BTreeSet<String> = Default::default();
@@ -60,7 +60,7 @@ fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
 
     let mut out = serde_json::Map::new();
     for key in wanted {
-        let Some(record) = record_for_sheet_key(&key) else {
+        let Some(record) = record_for_sheet_key(&sprite_content, &key) else {
             // Not fatal: a fighter may name a sheet this build did not bake
             // (the quality variants are gitignored). The viewer falls back to
             // boxes for that fighter and says so.
@@ -734,6 +734,7 @@ fn main() {
     }
 
     let world = app.world();
+    let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
     let registry = world
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
@@ -744,7 +745,7 @@ fn main() {
     let on_grid: Vec<String> = grid.ids().map(|id| id.to_string()).collect();
     // The select screen resolves still portraits through this baked registry.
     // Build it once, not once per fighter.
-    let portraits = ambition_platformer2d::sprite_sheet::baked_portrait_registry();
+    let portraits = ambition_platformer2d::sprite_sheet::baked_portrait_registry(&sprite_content);
 
     let mut characters = Vec::new();
     for (id, prepared) in registry.iter() {
@@ -770,7 +771,7 @@ fn main() {
 
     // The art: one atlas table per sheet the cast uses, so the viewer can
     // blit the same sub-rect the engine does.
-    let sheets = sheet_atlas_json(&characters);
+    let sheets = sheet_atlas_json(&sprite_content, &characters);
 
     let bundle = serde_json::json!({
         "schema": SCHEMA,

@@ -26,6 +26,7 @@ use bevy::prelude::App;
 #[test]
 fn registration_declares_without_demanding_art() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(mary_o());
 
     finalize(&mut app);
@@ -52,6 +53,7 @@ fn registration_declares_without_demanding_art() {
 fn preparation_provenance_survives_registration() {
     // Registered with NO cue resolver: moves are checked, cues are not.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(mary_o());
     finalize(&mut app);
     let unchecked = app
@@ -72,6 +74,7 @@ fn preparation_provenance_survives_registration() {
 
     // Registered WITH one: now the cue namespace is genuinely verified.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.try_register_character(
         mary_o(),
         CharacterBindings::default().with_authorized_cues(["swing", "hit_flesh"]),
@@ -96,6 +99,7 @@ fn preparation_provenance_survives_registration() {
 #[test]
 fn the_cast_cue_inventory_is_the_union_over_prepared_characters() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(mary_o());
     app.register_character(
         CharacterDefinition::new("sanic", "Sanic", "sanic_demo").with_moveset(moveset_with(
@@ -126,6 +130,7 @@ fn the_cast_cue_inventory_is_the_union_over_prepared_characters() {
 #[test]
 fn two_providers_cannot_author_the_same_stable_id() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(mary_o());
     let error = app
         .try_register_character(
@@ -168,6 +173,7 @@ fn a_portrait_target_nobody_authored_is_named_at_registration() {
     definition.portrait = Some("no_such_portrait_target".to_string());
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(definition);
     finalize(&mut app);
 
@@ -209,7 +215,8 @@ fn a_portrait_target_nobody_authored_is_named_at_registration() {
 /// being broken.
 #[test]
 fn a_portrait_target_the_engine_bakes_resolves_clean() {
-    let target = ambition_sprite_sheet::portrait::available_portrait_targets()
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let target = ambition_sprite_sheet::portrait::available_portrait_targets(&sprite_content)
         .first()
         .copied()
         .expect(
@@ -222,6 +229,7 @@ fn a_portrait_target_the_engine_bakes_resolves_clean() {
     definition.portrait = Some(target.clone());
 
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.register_character(definition);
     finalize(&mut app);
 
@@ -256,6 +264,7 @@ fn a_portrait_target_the_engine_bakes_resolves_clean() {
 #[test]
 fn two_characters_cannot_present_under_the_same_display_name() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(CharacterDefinition::new("alpha", "Hero", "provider_a"));
     let error = app
         .try_register_character(
@@ -294,6 +303,7 @@ fn two_characters_cannot_present_under_the_same_display_name() {
 #[test]
 fn re_registering_one_character_still_reports_the_duplicate_id() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character(CharacterDefinition::new("alpha", "Hero", "provider_a"));
     let error = app
         .try_register_character(
@@ -332,6 +342,7 @@ fn an_unauthored_character_wears_its_providers_declared_actor_default() {
     };
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_ron("declaring", None::<String>, EMPTY)
             .unwrap()
@@ -400,6 +411,7 @@ fn a_silent_character_is_provoked_into_its_providers_declared_policy() {
     const EMPTY: &str = "(brain_presets: {}, action_set_presets: {}, characters: {})";
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_ron("declaring", None::<String>, DECLARING)
             .unwrap()
@@ -471,6 +483,7 @@ fn a_catalog_row_with_no_definition_is_prepared_with_its_providers_declarations(
     )"#;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_ron("rows", None::<String>, ROWS)
             .unwrap()

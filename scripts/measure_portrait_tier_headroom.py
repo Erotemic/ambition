@@ -41,7 +41,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-ASSETS = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
+ASSETS = REPO / "game/ambition_content_library/generated/runtime"
 DIALOG = REPO / "game/ambition_content/src/presentation/dialog.rs"
 TIERS = ["sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato"]
 

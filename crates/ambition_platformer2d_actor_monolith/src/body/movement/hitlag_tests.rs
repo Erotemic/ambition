@@ -33,10 +33,10 @@ fn floored_world() -> ae::World {
 /// The control frame is IDENTICAL in both arms — full-throttle locomotion — so
 /// the only thing that differs between a call with hitstop and one without is
 /// the body's own combat state. That is the whole claim.
-fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
+fn walk_distance_with_hitstop(sprite_content: &ambition_sprite_sheet::SpriteContent, hitstop: f32, ticks: u32) -> f32 {
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "struck".to_string(),
         "Struck".to_string(),
         aabb,
@@ -104,9 +104,10 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
 /// what makes the frozen arm mean something.
 #[test]
 fn a_hit_between_two_actors_freezes_them_both() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // 20 ticks ≈ 0.33s.
-    let free = walk_distance_with_hitstop(0.0, 20);
-    let frozen = walk_distance_with_hitstop(0.50, 20);
+    let free = walk_distance_with_hitstop(&sprite_content, 0.0, 20);
+    let frozen = walk_distance_with_hitstop(&sprite_content, 0.50, 20);
 
     assert!(
         free > 20.0,
@@ -126,10 +127,11 @@ fn a_hit_between_two_actors_freezes_them_both() {
 /// same symptom, and `frozen.abs() < 0.001` above cannot tell them apart.
 #[test]
 fn hitlag_stops_the_body_without_stranding_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // 0.10s is 6 ticks at 60Hz — well short of the 30-tick window, so one run
     // covers both the freeze and the recovery.
-    let frozen_then_free = walk_distance_with_hitstop(0.10, 30);
-    let never_frozen = walk_distance_with_hitstop(0.0, 30);
+    let frozen_then_free = walk_distance_with_hitstop(&sprite_content, 0.10, 30);
+    let never_frozen = walk_distance_with_hitstop(&sprite_content, 0.0, 30);
 
     assert!(
         frozen_then_free > 20.0,

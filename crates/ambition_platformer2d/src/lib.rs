@@ -123,7 +123,10 @@ pub mod content {
     /// );
     /// definition.with_moveset(PACK.moveset("hero"))
     /// ```
+    pub mod libraries;
+
     pub struct EmbeddedPack {
+        libraries: Option<&'static [ambition_asset_manager::content_library::EmbeddedLibrary]>,
         texts: PackTexts,
         /// The schemas the game itself owns, which the pack compiles against
         /// with the engine's. See [`Self::with_schemas`].
@@ -248,6 +251,7 @@ pub mod content {
             Self {
                 texts: PackTexts::Embedded { manifest_ron, sources,
                 },
+                libraries: None,
                 schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
                 live: std::sync::RwLock::new(None),
@@ -263,10 +267,22 @@ pub mod content {
         ) -> Self {
             Self {
                 texts: PackTexts::Rooted { root, embedded },
+                libraries: None,
                 schemas: no_schemas,
                 compiled: std::sync::OnceLock::new(),
                 live: std::sync::RwLock::new(None),
             }
+        }
+
+        pub const fn with_libraries(mut self, libraries: Option<&'static [ambition_asset_manager::content_library::EmbeddedLibrary]>) -> Self {
+            self.libraries = libraries;
+            self
+        }
+
+        pub fn register_libraries(&self, world: &mut bevy::prelude::World) {
+            let pack = self.prepared();
+            libraries::install(world, &pack.root, &pack.libraries, self.libraries)
+                .unwrap_or_else(|error| panic!("Content libraries for `{}`: {error}", self.prepared().id.0));
         }
 
         /// The pack also compiles against `schemas`: the schemas of rules
@@ -372,7 +388,9 @@ pub mod content {
                     if !unreadable.is_empty() {
                         return Err(CompileFailure::new(CompileStage::Parse, unreadable));
                     }
-                    ContentPackDraft::from_manifest_ron(&manifest, read)?
+                    let mut draft = ContentPackDraft::from_manifest_ron(&manifest, read)?;
+                    draft.root = root.to_path_buf();
+                    draft
                 }
             })
         }
@@ -475,11 +493,11 @@ pub mod content {
         ///
         /// When the pack states no cast, or its row for `character` states no
         /// `posed_body`: a caller that asks has assumed one.
-        pub fn posed_body_world_per_pixel(&self, character: &str) -> f32 {
+        pub fn posed_body_world_per_pixel(&self, sprite_content: &ambition_sprite_sheet::SpriteContent, character: &str) -> f32 {
             let pack = self.prepared();
             let catalog = ambition_characters::actor::character_catalog::lowered_catalog(pack)
                 .unwrap_or_else(|| panic!("the embedded pack `{}` states no cast", pack.id.0));
-            ambition_character_sprites::posed_body_world_per_pixel(catalog, character)
+            ambition_character_sprites::posed_body_world_per_pixel(&sprite_content, catalog, character)
                 .unwrap_or_else(|| {
                     panic!(
                         "the embedded pack `{}` states no posed_body for `{character}`",
@@ -639,6 +657,9 @@ pub mod content {
 
         /// Register the catalog and every character in it.
         pub fn register(self, app: &mut bevy::prelude::App) {
+            self.pack.register_libraries(app.world_mut());
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
             use ambition_characters::prepared::CharacterCatalogAppExt;
             use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
@@ -656,7 +677,7 @@ pub mod content {
                 );
             }
             let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
-            let definitions = cast_definitions(pack, catalog, &self.provider, &self.carried, rigs_admitted);
+            let definitions = cast_definitions(&sprite_content, pack, catalog, &self.provider, &self.carried, rigs_admitted);
             app.register_character_catalog_fragment(self.fragment);
             for definition in definitions {
                 app.register_character(definition);
@@ -688,7 +709,7 @@ pub mod content {
     /// it (its move table, its platform-fighter weight), each folded by the
     /// capability that owns it. The one definition road for a registration
     /// and a reload.
-    fn cast_definitions(
+    fn cast_definitions(sprite_content: &ambition_sprite_sheet::SpriteContent,
         pack: &PreparedContentPack,
         catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
         provider: &str,
@@ -712,16 +733,16 @@ pub mod content {
                 }
                 // The scale is asked of the baked sheet once, here, and the
                 // body is built with it (`BodySource::SpriteAuthored`).
-                if let Some(world_per_pixel) = ambition_character_sprites::posed_body_world_per_pixel(catalog, id) {
+                if let Some(world_per_pixel) = ambition_character_sprites::posed_body_world_per_pixel(&sprite_content, catalog, id) {
                     definition = definition.with_sprite_authored_body(world_per_pixel);
                 }
                 // Built on that body, so it too is asked of the sheet here.
-                if let Some(doc) = ambition_character_sprites::posed_body_inset_hurtboxes(catalog, id) {
+                if let Some(doc) = ambition_character_sprites::posed_body_inset_hurtboxes(&sprite_content, catalog, id) {
                     definition = definition.with_hurtboxes(doc);
                 }
                 // Only where the composition admits rigs: see
                 // `BodyRigAdmission` for why the answer is read here.
-                if let Some(rig) = rigs_admitted.then(|| ambition_character_sprites::published_body_rig(catalog, id)).flatten() {
+                if let Some(rig) = rigs_admitted.then(|| ambition_character_sprites::published_body_rig(&sprite_content, catalog, id)).flatten() {
                     definition = definition.with_body_rig(rig);
                 }
                 // The move table and every other facet the pack authors for
@@ -1148,7 +1169,7 @@ pub mod character {
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
-    pub use ambition_sprite_sheet::{PortraitSheetRegistry, PortraitSheetRegistryPlugin};
+    pub use ambition_sprite_sheet::PortraitSheetRegistry;
 }
 
 /// The simulation schedule a game joins its own systems to.
@@ -1605,6 +1626,7 @@ mod content_sdk_tests {
         ContentPackDraft::read_manifest(
             root,
             ContentPackManifest {
+            libraries: Vec::new(),
                 id: PackId("my_game".into()),
                 version: PackVersion("1.0.0".into()),
                 namespace: ModuleNamespace("my_game".into()),
@@ -1945,6 +1967,12 @@ macro_rules! content_pack {
             #[cfg(not(feature = "static_content"))]
             const TEXTS: Option<(&str, &[(&str, &str)])> = None;
             TEXTS
+        }).with_libraries({
+            #[cfg(feature = "static_content")]
+            const LIBRARIES: Option<&[$crate::asset_manager::content_library::EmbeddedLibrary]> = Some(include!(concat!(env!("OUT_DIR"), "/content_pack/", $root, "/libraries.rs")));
+            #[cfg(not(feature = "static_content"))]
+            const LIBRARIES: Option<&[$crate::asset_manager::content_library::EmbeddedLibrary]> = None;
+            LIBRARIES
         })
     };
 }

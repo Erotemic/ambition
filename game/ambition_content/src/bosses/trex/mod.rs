@@ -26,12 +26,12 @@ pub use ambition_content_modules::trex as conductor_module;
 /// tail and legs, posed every tick from the row his module pins, so they are
 /// where his art is. His sheet's frame centre is his position (the boss
 /// placement law), so the rig's origin, his feet pixel, is offset from it.
-pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
+pub fn birth(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
     scope.insert((
         ambition_boss_encounter::conduct::ConductedFacing::of_facing(body.facing),
         ambition_platformer2d::sprite_sheet::character::PinnedRow::default(),
     ));
-    let (rig, feet) = body_rig();
+    let (rig, feet) = body_rig(&sprite_content);
     scope.insert((
         ambition_combat::body_rig::BodyRig(std::sync::Arc::new(rig)),
         ambition_combat::body_rig::BodyRigPose::default(),
@@ -51,16 +51,16 @@ pub const SHEET: &str = "trex_enemy";
 /// When the sheet or its rig is not published, or does not parse: a T-rex
 /// with no hurt parts would be hit through nothing, or fall back to a box the
 /// rework exists to replace, and say nothing.
-pub fn body_rig() -> (ambition_characters::actor::body_rig::PreparedBodyRig, Vec2) {
+pub fn body_rig(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> (ambition_characters::actor::body_rig::PreparedBodyRig, Vec2) {
     let px = conductor_module::PX;
-    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(SHEET)
+    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, SHEET)
         .unwrap_or_else(|| panic!("`{SHEET}_body_rig.ron` is not published: regenerate the T-rex sheet"));
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
         .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron`: {error}"))
         .scaled(px)
         .prepare()
         .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron` does not prepare: {error:?}"));
-    let record = ambition_sprite_sheet::character::sheets::record_for_sheet_key(SHEET)
+    let record = ambition_sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, SHEET)
         .unwrap_or_else(|| panic!("`{SHEET}` has no sheet record"));
     let feet = record
         .body_metrics

@@ -90,12 +90,12 @@ pub(crate) fn transform_technique() -> ambition_platformer2d::entity_catalog::ac
 /// The beat of her way into the form: the `transform` row of the form's
 /// sheet, for as long as the row takes to draw. The world keeps its time: the
 /// row is long, and she is not hurt while it plays.
-fn enter_beat(
+fn enter_beat(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
 ) -> TransformBeatPolicy {
     TransformBeatPolicy {
-        duration: crate::powerups::clip_seconds(catalog, authored, COSMIC_CHARACTER_ID, CharacterAnim::Transform),
+        duration: crate::powerups::clip_seconds(&sprite_content, catalog, authored, COSMIC_CHARACTER_ID, CharacterAnim::Transform),
         anim: CharacterAnim::Transform,
         clock_scale: 1.0,
         untouchable: true,
@@ -105,12 +105,12 @@ fn enter_beat(
 /// The beat of her way out of the form: the row of [`LEAVE_ANIM`] of the
 /// form's sheet, and `cosmic.leave_hold_seconds` (`mary_o_rules.ron`) on its last frame. She wears the form
 /// while it plays.
-fn leave_beat(
+fn leave_beat(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
 ) -> TransformBeatPolicy {
     TransformBeatPolicy {
-        duration: crate::powerups::clip_seconds(catalog, authored, COSMIC_CHARACTER_ID, LEAVE_ANIM) + crate::rules::mary_o_rules().cosmic.leave_hold_seconds,
+        duration: crate::powerups::clip_seconds(&sprite_content, catalog, authored, COSMIC_CHARACTER_ID, LEAVE_ANIM) + crate::rules::mary_o_rules().cosmic.leave_hold_seconds,
         anim: LEAVE_ANIM,
         clock_scale: 1.0,
         untouchable: true,
@@ -126,7 +126,7 @@ fn is_leaving(beat: &TransformBeat) -> bool {
 /// ladder, on a press of the technique. A press while she changes into the
 /// form ends the change: she is in the form at once. A press while she
 /// changes out of it ends that change: she is out of it on the next tick.
-pub fn toggle_cosmic_form(
+pub fn toggle_cosmic_form(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     subject: Option<Res<ControlledSubject>>,
     mut bodies: Query<(
         &ResolvedTechniqueEdges,
@@ -166,12 +166,12 @@ pub fn toggle_cosmic_form(
         // until it ends.
         commands
             .entity(body)
-            .try_insert(TransformBeatRequested(leave_beat(catalog.as_deref(), authored.as_deref())));
+            .try_insert(TransformBeatRequested(leave_beat(&sprite_content, catalog.as_deref(), authored.as_deref())));
         crate::forms::mary_o_forms().top_cue_down()
     } else if crate::powerups::is_her_form(worn.id()) {
         worn.0 = COSMIC_CHARACTER_ID.into();
         commands.entity(body).try_insert((
-            TransformBeatRequested(enter_beat(catalog.as_deref(), authored.as_deref())),
+            TransformBeatRequested(enter_beat(&sprite_content, catalog.as_deref(), authored.as_deref())),
             RecharacterizeBody,
         ));
         crate::forms::mary_o_forms().top_cue_up()

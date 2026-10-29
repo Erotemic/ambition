@@ -40,12 +40,10 @@ running test: one writes the files the other is reading.
 
 ## ⚠ FONTS ARE NOT A CATEGORY HERE
 
-`assets.sh` covers `backgrounds sprites variants music sfx` — **art and audio
-only**. The three bundled UI fonts are a compile-time `include_bytes!`
-dependency fetched by `python3 scripts/grab_font_assets.py`, so a machine that
-ran the umbrella and nothing else still fails to BUILD `ambition_render`.
-`scripts/setup/generated_content.sh` runs both and is the single command that
-leaves nothing out.
+`assets.sh` covers `backgrounds sprites variants music sfx`. Fetch the bundled
+UI fonts with `python3 scripts/grab_font_assets.py`. The library manifest owns
+font selection and static embedding. The engine has no font payload dependency.
+`scripts/setup/generated_content.sh` runs both steps.
 
 ## The umbrella, and the pieces
 

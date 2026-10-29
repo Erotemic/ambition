@@ -22,6 +22,7 @@ input = ["ambition_sim_view/input"]
 portal_render = ["dep:ambition_portal2d_presentation"]
 
 [dependencies]
+fontique = { version = "0.9", default-features = false }
 # OPTIONAL, and the ratchets are why. `image` is a PNG ENCODER and it is
 # only ever used by the offscreen `capture` module — a development tool. Landing
 # it unconditionally widened the linked closure of every consumer of this crate,
@@ -80,3 +81,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
 [[example]]
 name = "rigged_sprite_parity"
 required-features = ["capture"]
+
+[dev-dependencies]
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }

@@ -3,13 +3,8 @@
 
 use std::collections::HashMap;
 
-use ambition_asset_manager::{
-    AmbitionAssetCatalog, AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy,
-    PreloadGroup,
-};
-
+use ambition_asset_manager::AssetId;
 use super::*;
-use ambition_persistence::settings::TextureResolutionScale;
 
 /// Single-frame entity sprites keyed off the gen2d manifest.
 ///
@@ -212,141 +207,6 @@ pub fn parallax_layer_asset_id(theme: ParallaxTheme, layer: ParallaxLayerAsset) 
         theme.key(),
         layer.key(),
     ))
-}
-
-/// Build the sandbox's optional-image manifest: every [`EntitySprite`] and
-/// every `(ParallaxTheme, ParallaxLayerAsset)` pair, keyed by stable logical
-/// ids, under `sprite_folder` and `backgrounds/parallax_layers/`.
-///
-/// All entries use [`MissingAssetPolicy::SilentPlaceholder`], so the
-/// colored-rectangle fallback shows for any missing asset. Preload groups:
-///
-/// - Entity sprites → [`PreloadGroup::SandboxCore`] (used everywhere)
-/// - Parallax layers → [`PreloadGroup::Zone`] (per-room art)
-///
-/// It is `pub` so tests and tools can list the ids without Bevy. Live loading
-/// uses it through [`load_game_assets`] / [`load_entity_sprites`] /
-/// [`load_parallax_layers`].
-pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
-    let mut manifest = AssetManifest::new();
-    for &sprite in EntitySprite::ALL {
-        let id = entity_sprite_asset_id(sprite);
-        let logical_path = format!("{sprite_folder}/{}", sprite.relative_path());
-        let entry = AssetEntry::new(id, AssetKind::Image, logical_path)
-            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-            .with_preload_group(PreloadGroup::SandboxCore);
-        // Add the Embedded candidate only with `static_core_assets`. Without
-        // it, `AmbitionAssetSourcePlugin` does not insert the bytes and the
-        // candidate gives a 404 on WebStatic.
-        #[cfg(feature = "static_core_assets")]
-        let entry = if let Some(embedded_url) = entity_sprite_embedded_core_url(sprite) {
-            entry.with_location(
-                ambition_asset_manager::AssetSourceProfile::EmbeddedBinary,
-                ambition_asset_manager::AssetLocation::embedded(embedded_url.to_string()),
-            )
-        } else {
-            entry
-        };
-        manifest.insert(entry);
-        for scale in TextureResolutionScale::MANIFEST_VARIANTS {
-            insert_scaled_image_entry(
-                &mut manifest,
-                &entity_sprite_asset_id(sprite),
-                &format!(
-                    "{}/{}",
-                    scale.asset_subdir(sprite_folder),
-                    sprite.relative_path()
-                ),
-                scale,
-                PreloadGroup::SandboxCore,
-            );
-        }
-    }
-    for &theme in ParallaxTheme::ALL {
-        for &layer in ParallaxLayerAsset::ALL {
-            let id = parallax_layer_asset_id(theme, layer);
-            let logical_path = layer.relative_path(theme);
-            manifest.insert(
-                AssetEntry::new(id.clone(), AssetKind::Image, logical_path)
-                    .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-                    .with_preload_group(PreloadGroup::Zone),
-            );
-            for scale in TextureResolutionScale::MANIFEST_VARIANTS {
-                let variant_path = format!(
-                    "{}/{}_{}.png",
-                    scale.parallax_subdir(),
-                    theme.key(),
-                    layer.key()
-                );
-                insert_scaled_image_entry(
-                    &mut manifest,
-                    &id,
-                    &variant_path,
-                    scale,
-                    PreloadGroup::Zone,
-                );
-            }
-        }
-    }
-    insert_room_dressing_entries(&mut manifest);
-    manifest
-}
-
-pub(crate) fn insert_scaled_image_entry(
-    manifest: &mut AssetManifest,
-    base_id: &AssetId,
-    logical_path: &str,
-    scale: TextureResolutionScale,
-    preload_group: PreloadGroup,
-) {
-    let Some(id) = ambition_asset_manager::platformer_assets::scaled_asset_id(
-        base_id,
-        scale.asset_id_suffix(),
-    ) else {
-        return;
-    };
-    manifest.insert(
-        AssetEntry::new(id, AssetKind::Image, logical_path)
-            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-            .with_preload_group(preload_group),
-    );
-}
-
-/// The embedded-core URL for an [`EntitySprite`] in the "core visual" set that
-/// `static_core_assets` packages. It pairs with the
-/// `EmbeddedAssetRegistry::insert_asset` call in
-/// `crate::assets::platformer_assets::register_embedded_core_assets`.
-///
-/// Other sprites (parallax layers, breakables, boss variants, LDtk debug tiles)
-/// return `None` and use the colored-rectangle fallback on `WebStatic` /
-/// `BundledStatic`.
-#[cfg_attr(not(feature = "static_core_assets"), allow(dead_code))]
-pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static str> {
-    use ambition_asset_manager::platformer_assets::embedded_core;
-    match sprite {
-        EntitySprite::ChestClosed => Some(embedded_core::SPRITE_CHEST_CLOSED_URL),
-        EntitySprite::ChestOpen => Some(embedded_core::SPRITE_CHEST_OPEN_URL),
-        EntitySprite::PickupHealth => Some(embedded_core::SPRITE_PICKUP_HEALTH_URL),
-        EntitySprite::PickupCurrency => Some(embedded_core::SPRITE_PICKUP_CURRENCY_URL),
-        EntitySprite::PickupAbility => Some(embedded_core::SPRITE_PICKUP_ABILITY_URL),
-        EntitySprite::DoorZone => Some(embedded_core::SPRITE_DOOR_ZONE_URL),
-        EntitySprite::EdgeExit => Some(embedded_core::SPRITE_EDGE_EXIT_URL),
-        EntitySprite::ProjectileEnergy => Some(embedded_core::SPRITE_PROJECTILE_ENERGY_URL),
-        EntitySprite::SolidTile => Some(embedded_core::SPRITE_SOLID_TILE_URL),
-        EntitySprite::OneWayTile => Some(embedded_core::SPRITE_ONE_WAY_TILE_URL),
-        EntitySprite::HazardTile => Some(embedded_core::SPRITE_HAZARD_TILE_URL),
-        EntitySprite::BossCore => Some(embedded_core::SPRITE_BOSS_CORE_URL),
-        _ => None,
-    }
-}
-
-/// Wrap [`sandbox_image_manifest`] in a Bevy-side catalog resource.
-///
-/// Only tests in this file use this; production startup uses
-/// `build_platformer2d_asset_catalog`.
-#[cfg_attr(not(test), allow(dead_code))]
-pub fn build_sandbox_image_catalog(sprite_folder: &str) -> AmbitionAssetCatalog {
-    AmbitionAssetCatalog::new(sandbox_image_manifest(sprite_folder))
 }
 
 /// Map from `EntitySprite` to its loaded `Handle<Image>`. A missing file or

@@ -59,10 +59,13 @@ fn write_row(out: &mut Vec<u8>, row: &SheetRow) {
     put_opt(out, row.mirror_of.as_ref(), |out, mirror| put_str(out, mirror));
     // The standing surfaces of each frame are a simulation input
     // (`crate::surfaces`): their anchors, and no other anchor of a rect.
-    put_seq(out, &row.rects, |out, rect| {
-        let surfaces: Vec<(&String, &crate::NormPoint)> =
-            rect.anchors.iter().filter(|(key, _)| crate::surfaces::surface_end(key).is_some()).collect();
-        put_seq(out, &surfaces, |out, (key, at)| {
+    let surfaces: Vec<_> = row.rects.iter().enumerate().filter_map(|(frame, rect)| {
+        let anchors: Vec<_> = rect.anchors.iter().filter(|(key, _)| crate::surfaces::surface_end(key).is_some()).collect();
+        (!anchors.is_empty()).then_some((frame, anchors))
+    }).collect();
+    put_seq(out, &surfaces, |out, (frame, anchors)| {
+        put_u64(out, *frame as u64);
+        put_seq(out, anchors, |out, (key, at)| {
             put_str(out, key);
             put_f32(out, at.x);
             put_f32(out, at.y);

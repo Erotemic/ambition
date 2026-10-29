@@ -45,6 +45,7 @@ pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 pub mod frame_space;
 pub use frame_space::{art_is_mirrored, frame_at, FrameToBody, SampledBox};
 
+mod library;
 pub mod baked_body_rigs;
 pub mod surfaces;
 pub mod baked_landmarks;
@@ -52,15 +53,14 @@ pub mod baked_landmarks;
 // reaches the two schema modules as `super::published` and
 // `super::landmarks_published`, as these two imports let the crate do.
 pub(crate) mod sprite_tree;
-#[cfg(any(not(embedded_sprites), test))]
 mod published_tree;
-#[cfg(any(not(embedded_sprites), test))]
 mod published_cache;
 use character::landmarks_published;
 use character::rigged::published;
 pub mod baked_part_flipbooks;
 pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
+pub use baked_sheet_rons::SpriteContent;
 pub mod boss;
 pub mod character;
 pub mod fx;
@@ -78,7 +78,6 @@ mod snapshot_impls;
 pub use portrait::{
     available_portrait_targets, baked_portrait_registry, parse_portrait_manifest,
     PortraitClipRecord, PortraitFrameRect, PortraitSheetManifest, PortraitSheetRegistry,
-    PortraitSheetRegistryPlugin,
 };
 
 /// One sprite-sheet's metadata as serialized by the generator. Field
@@ -575,9 +574,10 @@ pub struct FrameRect {
 
 /// Resource looked up by sprite target id. Populated at startup by
 /// [`init_sheet_registry`].
-#[derive(Resource, Debug, Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SheetRegistry {
     sheets: HashMap<String, SheetRecord>,
+    aliases: HashMap<String, String>,
     /// Targets a later record took from an earlier one with a DIFFERENT frame
     /// grid — recorded rather than warned about here. See
     /// [`Self::shadowed_targets`].
@@ -645,8 +645,16 @@ impl std::fmt::Display for ShadowedTarget {
 }
 
 impl SheetRegistry {
+    pub fn canonical_key<'a>(&'a self, target: &'a str) -> Option<&'a str> {
+        if self.sheets.contains_key(target) { Some(target) } else { self.aliases.get(target).map(String::as_str) }
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.sheets.keys().chain(self.aliases.keys()).map(String::as_str)
+    }
+
     pub fn get(&self, target: &str) -> Option<&SheetRecord> {
-        self.sheets.get(target)
+        self.sheets.get(self.canonical_key(target)?)
     }
 
     /// Every target a later manifest took from an earlier one with a different
@@ -685,7 +693,7 @@ impl SheetRegistry {
     /// Returns `(metrics, frame_width, frame_height)` when the
     /// target exists *and* has body_metrics; `None` otherwise.
     pub fn body_metrics(&self, target: &str) -> Option<(&BodyMetrics, u32, u32)> {
-        let record = self.sheets.get(target)?;
+        let record = self.sheets.get(self.canonical_key(target)?)?;
         let metrics = record.body_metrics.as_ref()?;
         Some((metrics, record.frame_width, record.frame_height))
     }
@@ -695,13 +703,18 @@ impl SheetRegistry {
     ///
     /// Pure (no Bevy `App`). The host crate owns the baked table and passes it
     /// in, so this crate stays content-free.
-    pub fn from_baked_table(table: &[(&str, &str)]) -> Self {
+    pub fn from_baked_table<T: AsRef<str>>(table: &[(&str, T)]) -> Self {
+        let table: Vec<(&str, &str)> = table.iter().map(|(key, text)| (*key, text.as_ref())).collect();
+        let table = table.as_slice();
         Self::from_index(index_baked_table(table))
     }
 
     /// The registry of a parsed table, with its parse reported in the log.
-    pub(crate) fn from_index(index: BakedIndex) -> Self {
+    pub(crate) fn from_index(mut index: BakedIndex) -> Self {
+        for refused in &index.shadowed { index.sheets.remove(&refused.target); }
+        let aliases = library_aliases(index.sheets.keys().map(String::as_str));
         let registry = Self {
+            aliases,
             sheets: index.sheets,
             shadowed: index.shadowed,
             ambiguous_roots: index.ambiguous_roots,
@@ -757,7 +770,7 @@ impl BakedIndex {
     /// lookup key and the rig adapter that drew it.
     fn insert(&mut self, key: String, mut record: SheetRecord) {
         if let Some(prior) = self.sheets.get(&key) {
-            if prior.frame_width != record.frame_width || prior.frame_height != record.frame_height
+            self.failed.push((key.clone(), format!("Two records claim `{key}`: {} and {}", prior.image, record.image)));
             {
                 self.shadowed.push(ShadowedTarget {
                     target: key.clone(),
@@ -801,7 +814,7 @@ pub(crate) fn index_baked_table(table: &[(&str, &str)]) -> BakedIndex {
 /// changed.
 pub(crate) fn parse_sheet_files(
     table: &[(&str, &str)],
-    previous: Option<(&[(&'static str, &'static str)], &HashMap<String, Vec<SheetRecord>>)>,
+    previous: Option<(&[(&'static str, std::sync::Arc<str>)], &HashMap<String, Vec<SheetRecord>>)>,
 ) -> (HashMap<String, Vec<SheetRecord>>, Vec<(String, String)>, usize) {
     let mut parsed = HashMap::new();
     let mut failed = Vec::new();
@@ -809,7 +822,7 @@ pub(crate) fn parse_sheet_files(
     for (file_root, text) in table {
         let kept = previous.and_then(|(rons, files)| {
             let at = rons.binary_search_by(|(root, _)| (*root).cmp(file_root)).ok()?;
-            (rons[at].1 == *text).then(|| files.get(*file_root)).flatten()
+            (rons[at].1.as_ref() == *text).then(|| files.get(*file_root)).flatten()
         });
         match kept {
             Some(records) => {
@@ -838,9 +851,15 @@ pub(crate) fn index_parsed(
 ) -> BakedIndex {
     let mut index = BakedIndex { failed, ..BakedIndex::default() };
     for (file_root, _) in table {
-        let Some(records) = parsed.get(*file_root).cloned() else {
+        let Some(mut records) = parsed.get(*file_root).cloned() else {
             continue;
         };
+        let source = quality_variant_marker(file_root).map(|marker| file_root.replace("/sprites/", &format!("/sprites_{marker}/")));
+        let source = source.as_deref().unwrap_or(file_root);
+        for record in &mut records {
+            record.image = crate::library::image_in(source, &record.image);
+            record.images = record.images.iter().map(|image| crate::library::image_in(source, image)).collect();
+        }
         match records {
             records if records.is_empty() => {}
             records if records.len() == 1 => {
@@ -861,6 +880,10 @@ pub(crate) fn index_parsed(
                         Some(marker) => format!("{}.{marker}", record.target),
                         None => record.target.clone(),
                     };
+                    let key = if file_root.contains("://") {
+                        let product = marker.map_or(*file_root, |marker| file_root.strip_suffix(&format!(".{marker}")).unwrap());
+                        match marker { Some(marker) => format!("{product}/{}.{marker}", record.target), None => format!("{product}/{}", record.target) }
+                    } else { key };
                     index.insert(key, record);
                 }
             }
@@ -880,26 +903,26 @@ fn quality_variant_marker(file_root: &str) -> Option<&'static str> {
 ///
 /// This is headless-friendly and keeps render/tooling callers from depending on
 /// the actor crate just to inspect generated sprite metadata.
-pub fn baked_sheet_registry() -> SheetRegistry {
+pub fn baked_sheet_registry(content: &crate::SpriteContent) -> SheetRegistry {
     // A copy of the current generation's registry: the table is parsed once
     // for each generation, not again for each caller.
-    baked_sheet_rons::current().registry().clone()
+    baked_sheet_rons::current(&content).registry().clone()
 }
 
 /// The baked registry of the current sheet generation. Construction reads it,
 /// so a headless and a visible build size a body from the same sheet.
-pub fn shared_baked_sheet_registry() -> &'static SheetRegistry {
-    baked_sheet_rons::current().registry()
+pub fn shared_baked_sheet_registry(content: &crate::SpriteContent) -> &SheetRegistry {
+    baked_sheet_rons::current(&content).registry()
 }
 
 /// Bevy plugin that installs and populates the baked character sheet registry.
-pub struct SheetRegistryPlugin;
+pub struct SpriteContentPlugin;
 
-/// Present once [`SheetRegistryPlugin`] has built. See its `is_unique`.
+/// Present once [`SpriteContentPlugin`] has built. See its `is_unique`.
 #[derive(Resource)]
-struct SheetRegistryInstalled;
+struct SpriteContentInstalled;
 
-impl Plugin for SheetRegistryPlugin {
+impl Plugin for SpriteContentPlugin {
     /// Idempotent, because several plugins need this: a render system that
     /// draws from a sheet cannot run without it. `WorldLabelLayoutPlugin` does
     /// the same. A marker resource is used, not `is_plugin_added`, because a
@@ -909,11 +932,12 @@ impl Plugin for SheetRegistryPlugin {
     }
 
     fn build(&self, app: &mut App) {
-        if app.world().contains_resource::<SheetRegistryInstalled>() {
+        if app.world().contains_resource::<SpriteContentInstalled>() {
             return;
         }
-        app.insert_resource(SheetRegistryInstalled);
-        app.init_resource::<SheetRegistry>()
+        app.insert_resource(SpriteContentInstalled);
+        app.init_resource::<SpriteContent>()
+
             // Provider-authored sheets. Initialized here so a provider can
             // register in any plugin order. Never rebuilt from the baked table:
             // authored records are content, not cache.
@@ -922,23 +946,16 @@ impl Plugin for SheetRegistryPlugin {
     }
 }
 
-fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
-    *registry = baked_sheet_registry();
-    warm_baked_indexes();
+fn init_sheet_registry(content: bevy::prelude::Res<crate::SpriteContent>) {
+    warm_baked_indexes(&content);
 }
 
-/// Build every process-global index over a baked table at `Startup`, so that
-/// no frame pays for the build later.
-///
-/// Every member is a pure cache of a compile-time table, so an early build is
-/// safe. Provider state (`AuthoredSheets`) must not join this list. Add any new
-/// `OnceLock` over a baked table here.
-pub fn warm_baked_indexes() {
-    crate::character::sheets::warm_record_index();
-    let _ = crate::fx::authored_effects();
-    let _ = crate::portrait::available_portrait_targets();
-    // No zero-arg accessor; any tier lookup builds the whole catalog map.
-    let _ = crate::sprite_packs::catalog_for_tier("full");
+/// Prepare the derived indexes for one admitted sprite generation.
+pub fn warm_baked_indexes(content: &crate::SpriteContent) {
+    crate::character::sheets::warm_record_index(&content);
+    let _ = crate::fx::authored_effects(&content);
+    let _ = crate::portrait::available_portrait_targets(&content);
+    let _ = crate::baked_sheet_rons::current(content).pack_catalogs();
 }
 
 /// Register a sheet that a provider authored, keyed by the file root a catalog
@@ -974,3 +991,22 @@ mod tests;
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;
+
+/// Short references exist only when one library owns them.
+pub(crate) fn library_aliases<'a>(keys: impl Iterator<Item = &'a str>) -> HashMap<String, String> {
+    let mut aliases = HashMap::new();
+    let mut ambiguous = std::collections::HashSet::new();
+    for key in keys {
+        let Some((_, logical)) = key.strip_prefix("content://").and_then(|rest| rest.split_once('/')) else { continue };
+        for alias in [logical, logical.rsplit('/').next().unwrap_or(logical)] {
+            if let Some(previous) = aliases.insert(alias.to_owned(), key.to_owned()) {
+                if previous != key { ambiguous.insert(alias.to_owned()); }
+            }
+        }
+    }
+    aliases.retain(|alias, _| !ambiguous.contains(alias));
+    aliases
+}
+
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;

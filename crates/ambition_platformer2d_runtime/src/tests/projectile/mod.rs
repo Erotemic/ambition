@@ -91,6 +91,7 @@ fn register_test_motion_techniques(app: &mut App) {
 
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(

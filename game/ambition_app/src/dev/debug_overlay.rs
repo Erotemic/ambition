@@ -388,8 +388,11 @@ mod two_live_rooms_tests {
             route: ShellRouteId::new("ambition_gameplay"),
             request: None,
         });
-        for _ in 0..240 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while app.world_mut().query_filtered::<Entity, With<ambition_platformer2d::render::rendering::HudText>>().iter(app.world()).next().is_none() {
+            assert!(std::time::Instant::now() < deadline, "the session did not publish its HUD");
             app.update();
+            std::thread::yield_now();
         }
         app.world_mut().resource_mut::<DeveloperRuntimeState>().debug = true;
         {

@@ -28,9 +28,8 @@ except Exception:  # pragma: no cover - convenience fallback for fresh systems
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT_DIR = (
-    REPO_ROOT / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "fonts" / "bundled"
-)
+from lib.content_libraries import generated_root
+DEFAULT_OUT_DIR = generated_root(REPO_ROOT) / "fonts/bundled"
 DEFAULT_CACHE_DIR = REPO_ROOT / "target" / "font_download_cache"
 
 

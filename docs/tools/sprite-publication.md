@@ -4,6 +4,9 @@ The renderer registers authored targets. A collection selects the targets to
 publish. All targets use one bundle publisher, including static props, parts,
 portraits, quality variants, shared atlases, and the director card.
 
+The default library is `game/ambition_content_library/library.json`.
+Use `--library <manifest>` or `AMBITION_CONTENT_LIBRARY` to select another library.
+
 ## Query without rendering
 
 ```bash
@@ -15,8 +18,8 @@ portraits, quality variants, shared atlases, and the director card.
 python3 scripts/art_inspector.py status --needs-generation --json
 ```
 
-The default scope is the renderer's `runtime` collection in
-`ambition_sprite2d_renderer/data/publication.yaml`. `--scope all` includes other
+The default scope is the selected library's collection in
+`game/ambition_content_library/authored/sprites.yaml`. `--scope all` includes other
 registered targets. Registration, publication selection, and known game use are
 separate facts. A target outside the collection is not a missing runtime asset.
 
@@ -36,7 +39,7 @@ This can render art. It leaves the selected publication unchanged.
 Build the runtime metadata validator once. Rebuild it after schema changes:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build -p ambition_content_cli --bin ambition_content
 ./scripts/regen/sprites.sh --target hand_saint
 ./scripts/regen/sprites.sh
 python3 scripts/check_quality_variants_are_fresh.py --require-evidence
@@ -63,7 +66,7 @@ a profile directory when the shell launcher is used.
 ## Accepted files
 
 The default store is
-`crates/ambition_platformer2d_actor_monolith/art_publication/`.
+`game/ambition_content_library/generated/art_publication/`.
 `AMBITION_ART_STORE` selects another store. The store is generated and ignored
 by Git. Its structure is:
 

@@ -78,7 +78,7 @@ const CAMERA_SCALE: f32 = 2.0;
 /// sprites extracted and batched are the same, and almost no pixel is filled,
 /// so the difference to the full target is the rasterizer.
 const TINY: u32 = 10;
-const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith/assets");
+const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime");
 
 struct Row {
     actors: usize,

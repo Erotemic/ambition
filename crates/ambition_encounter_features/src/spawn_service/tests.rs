@@ -38,6 +38,7 @@ fn a_spawn_request_with_no_generation_builds_no_body() {
 /// generation.
 fn spawn_request_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::SpriteContent::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.insert_resource(ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]));
     app.add_message::<ambition_encounter::EncounterEventMsg>();

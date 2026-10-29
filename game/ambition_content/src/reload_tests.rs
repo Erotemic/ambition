@@ -92,6 +92,7 @@ fn total_duration(recover_s: f32) -> f32 {
 fn pack_of(text: &str) -> Result<ambition_content_pack::PreparedContentPack, String> {
     let draft = ContentPackDraft::from_sources(
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("reload_probe".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("probe".into()),
@@ -119,6 +120,7 @@ fn pack_of(text: &str) -> Result<ambition_content_pack::PreparedContentPack, Str
 fn pack_with_no_moveset_section() -> ambition_content_pack::PreparedContentPack {
     let draft = ContentPackDraft::from_sources(
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("reload_probe".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("probe".into()),
@@ -136,6 +138,7 @@ fn pack_with_no_moveset_section() -> ambition_content_pack::PreparedContentPack 
 /// character the probe pack can revise.
 fn host_with_a_live_cast() -> bevy::app::App {
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     stage_authored_character(
         &mut app,
         CharacterDefinition::new(RELOAD_ID, "Reload Duelist", "probe"),
@@ -308,6 +311,7 @@ fn a_refused_pack_never_reaches_the_cast() {
 #[test]
 fn a_host_with_no_cast_is_reported_as_such() {
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.world_mut()
         .insert_resource(ambition_combat::technique::InstalledTechniques::default());
     let outcome = reload_move_tables_from(
@@ -350,6 +354,7 @@ fn a_section_for_an_unknown_character_stages_nothing() {
 #[test]
 fn a_host_that_installed_no_technique_table_is_reported_rather_than_defaulted() {
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     stage_authored_character(
         &mut app,
         CharacterDefinition::new(RELOAD_ID, "Reload Duelist", "probe"),
@@ -591,6 +596,7 @@ fn a_root_that_does_not_supply_the_whole_pack_is_refused_by_name() {
     std::fs::remove_file(&file).expect("removes one source");
 
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     let outcome = reload_move_tables_from_dir(app.world_mut(), root);
     match &outcome {
         MoveReload::PackRefused(why) => {
@@ -665,6 +671,7 @@ fn requesting_a_reload_of_an_unedited_export_asks_the_shell_for_nothing() {
 #[test]
 fn the_published_moveset_keeps_the_kit_moves_the_table_does_not_name() {
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     crate::character_catalog::register_cast(&mut app);
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
 
@@ -725,6 +732,7 @@ const ITEMS_PATH: &str = "data/items.ron";
 /// compiles of the real pack.
 fn host_with_the_shipped_cast() -> bevy::app::App {
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     crate::character_catalog::register_cast(&mut app);
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     // An empty technique table would refuse 40+ authored effects. See
@@ -2628,6 +2636,7 @@ fn a_request_that_fails_discards_its_staged_revision() {
 #[test]
 fn a_composition_with_no_game_shell_does_not_panic() {
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     crate::reload::register(&mut app);
     assert!(
         app.world()
@@ -3874,6 +3883,7 @@ fn only_a_locally_maintained_sync_test_may_be_rebased_for_a_publication() {
     };
 
     let mut app = bevy::app::App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     assert!(
         !crate::reload::rebasable_local_timeline(app.world()),
         "a composition that installs no rollback ownership at all was called \

@@ -2257,7 +2257,9 @@ mod tests {
 
     #[test]
     fn mary_o_experience_plugin_installs_her_cast() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         app.add_plugins(provider::MaryOExperiencePlugin);
         let catalog = app
             .world()
@@ -2285,7 +2287,7 @@ mod tests {
             .expect("Solid Snake is a catalog row");
         assert_eq!(snake.display_name, pack::PACK.display_name("solid_snake"), "the installed row is the pack's");
         assert!(
-            ambition_platformer2d::assets::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d::assets::character_sprites::sheet_for_character_id_in(&sprite_content,
                 &Default::default(),
                 catalog,
                 "solid_snake"
@@ -2298,7 +2300,7 @@ mod tests {
         let ai_slop_row = catalog.get("ai_slop").expect("AI Slop is a catalog row");
         assert_eq!(ai_slop_row.display_name, pack::PACK.display_name("ai_slop"), "the installed row is the pack's");
         assert!(
-            ambition_platformer2d::assets::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d::assets::character_sprites::sheet_for_character_id_in(&sprite_content,
                 &Default::default(),
                 catalog,
                 "ai_slop"
@@ -2585,6 +2587,7 @@ mod tests {
     /// The trench between the double stairs is somewhere an enemy can PACE.
     #[test]
     fn the_trench_between_the_double_stairs_is_wide_enough_to_patrol() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let room = level_1_1();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
         let raised: Vec<f32> = (0..(room.world.size.x / T) as i32)
@@ -2598,7 +2601,7 @@ mod tests {
             .map(|p| p[1] - p[0])
             .fold(0.0f32, f32::max)
             - T;
-        let slop_width = ai_slop::ai_slop_half_size().x * 2.0;
+        let slop_width = ai_slop::ai_slop_half_size(&sprite_content).x * 2.0;
         assert!(
             trench >= slop_width * 4.0,
             "the trench is {trench} wide and a slop is {slop_width} — it needs \
@@ -2783,6 +2786,7 @@ mod tests {
         }
         fn shell(rules: MaryORulesPlugin, mode: Option<&str>, dt: f32) -> App {
             let mut app = App::new();
+            app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
             ambition_platformer2d::world::rooms::insert_room_set(
                 app.world_mut(),
@@ -3010,6 +3014,7 @@ mod tests {
     /// overlap a body standing where the player would be.
     #[test]
     fn the_pipe_leads_into_a_sealed_vault_and_back_out() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::engine_core::AabbExt;
 
         let vault = vault_bounds();
@@ -3078,7 +3083,7 @@ mod tests {
         };
         let under = vault_exit().center().x;
         assert!(
-            at_mouth(standing(powerups::tall_body_size(), under), vault_exit()),
+            at_mouth(standing(powerups::tall_body_size(&sprite_content), under), vault_exit()),
             "a GROWN body standing on the vault floor under the return pipe must \
              reach its mouth, or the press can never fire and the vault is a \
              one-way trip: mouth {:?}, floor {vault_floor}",
@@ -3089,7 +3094,7 @@ mod tests {
         assert!(
             !at_mouth(
                 standing(
-                    powerups::tall_body_size(),
+                    powerups::tall_body_size(&sprite_content),
                     under + (vault_exit().max.x - vault_exit().min.x)
                 ),
                 vault_exit()
@@ -3202,6 +3207,7 @@ mod tests {
     /// property of these tubes, not of every pipe the engine will ever host.
     #[test]
     fn a_pipe_you_enter_always_has_a_pipe_you_come_out_of() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let room = level_1_1();
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
@@ -3221,7 +3227,7 @@ mod tests {
             .aabb
             .min
             .y;
-        let tall = powerups::tall_body_size().y;
+        let tall = powerups::tall_body_size(&sprite_content).y;
 
         for tube in &tubes {
             let link = &tube.link;
@@ -3346,6 +3352,7 @@ mod tests {
     #[test]
     fn a_standalone_mary_o_refuses_a_weaker_form_pickup() {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
@@ -3396,6 +3403,7 @@ mod tests {
 
         fn shell(dt: f32) -> App {
             let mut app = App::new();
+            app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
             ambition_platformer2d::world::rooms::insert_room_set(
                 app.world_mut(),
@@ -3503,6 +3511,7 @@ mod tests {
     fn a_replay_reset_is_not_a_death_so_lives_cannot_drain() {
 
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
@@ -3569,6 +3578,7 @@ mod tests {
     fn the_flag_is_the_pole_of_the_room_she_is_in() {
         fn grabs_at(at: flag::FlagPole) -> bool {
             let mut app = App::new();
+            app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
             ambition_platformer2d::world::rooms::insert_room_set(
                 app.world_mut(),
@@ -3628,6 +3638,7 @@ mod tests {
     fn a_dropped_level_transition_does_not_hand_control_back() {
 
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
@@ -3681,6 +3692,7 @@ mod tests {
         use ambition_platformer2d::session::{Departure, DepartureState, Destination};
 
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
@@ -3774,6 +3786,7 @@ mod tests {
         use ambition_platformer2d::session::{Departure, DepartureState, Destination};
 
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
@@ -3937,6 +3950,7 @@ mod tests {
     fn each_shader_is_served_as_its_file_is_saved() {
         use bevy::prelude::{AssetApp, AssetPlugin, AssetServer, MinimalPlugins};
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_asset::<bevy::shader::Shader>();
         quasar_shader::install(&mut app);

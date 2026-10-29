@@ -18,6 +18,8 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
 
 /// A peaceful NPC nobody authored: no character, so no provoked policy.
 fn spawn_anonymous_npc(app: &mut App) -> bevy::prelude::Entity {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let interactable = ambition_interaction::Interactable::new(
         "alice",
@@ -32,7 +34,7 @@ fn spawn_anonymous_npc(app: &mut App) -> bevy::prelude::Entity {
         },
     );
     // Peaceful actor = the unified enemy cluster with peaceful tuning.
-    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(&sprite_content,
         "alice",
         "Alice",
         aabb,
@@ -379,6 +381,8 @@ fn spawn_character_npc(
     app: &mut App,
     cast: &ambition_characters::prepared::PreparedCharacterRegistry,
 ) -> bevy::prelude::Entity {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let interactable = ambition_interaction::Interactable::new(
         "parrot",
@@ -395,7 +399,7 @@ fn spawn_character_npc(
     // The provocation reads the published cast and the worn character, so the
     // fixture publishes one and wears the other.
     app.insert_resource(cast.clone());
-    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         Some(cast),

@@ -50,12 +50,12 @@ pub fn ground_at(world: &ae::World, x: f32) -> Option<f32> {
 ///
 /// A build that baked no sheet for it (sprites not generated) or a goal over
 /// no ground leaves the room as it was.
-pub fn dress_goal(room: &mut RoomSpec) {
+pub fn dress_goal(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, room: &mut RoomSpec) {
     let goal_x = crate::goal_x_of(&room.world);
     let Some(ground) = ground_at(&room.world, goal_x) else {
         return;
     };
-    let Some(record) = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(
+    let Some(record) = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content,
         GOAL_POST_SPRITE,
     ) else {
         return;
@@ -152,10 +152,11 @@ mod tests {
     /// post and no error.
     #[test]
     fn each_act_has_a_goal_post_that_stands_on_its_ground() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         for room in [
-            crate::sanic_speedway(),
-            crate::sanic_highway(),
-            crate::sanic_darkness(),
+            crate::sanic_speedway(&sprite_content),
+            crate::sanic_highway(&sprite_content),
+            crate::sanic_darkness(&sprite_content),
         ] {
             let goal_x = crate::goal_x_of(&room.world);
             let ground = ground_at(&room.world, goal_x)

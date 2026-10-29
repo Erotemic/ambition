@@ -13,12 +13,12 @@ use ambition_combat::events::FeatureCombatTuning;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
+fn gnu_ton_runtime(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_boss_encounter::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let mut scratch = ambition_boss_encounter::BossClusterScratch::new(
+    let mut scratch = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
         ambition_boss_encounter::test_boss_catalog(),
         "boss_gnu_ton",
         "GNU-ton",
@@ -166,6 +166,7 @@ fn gnu_ton_rider_phase1_is_materially_longer_than_other_bosses() {
 
 #[test]
 fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // GNU-ton's transform sits on the shoulder ridge. Hand-slam
     // hitboxes should land *below* the shoulder (positive y) and on
     // opposite sides of it (one to the left, one to the right), no
@@ -174,7 +175,7 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
     // a 384-tall frame; bumping the source PNG to 768×576 silently
     // broke the test even though the visual / hitbox correspondence
     // stayed correct. Stick to invariants instead of magic numbers.
-    let boss = gnu_ton_runtime();
+    let boss = gnu_ton_runtime(&sprite_content);
     // The fallback's combat_size-relative offsets keep the left/right/below-pos invariants this
     // test pins, so the assertions still hold without needing a sprite_metrics snapshot in the
     // runtime fixture.
@@ -214,12 +215,13 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
 
 #[test]
 fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The strike's damage path goes through enemy projectiles, not
     // a stationary boss AABB. `volumes_for_profile(DebrisRain, …)`
     // must return an empty list so the regular contact-damage
     // check in `boss_attack_damage` doesn't ALSO hit the player
     // at the boss's position while apples are in flight.
-    let boss = gnu_ton_runtime();
+    let boss = gnu_ton_runtime(&sprite_content);
     assert!(
         ambition_boss_encounter::attack_geometry::volumes_for_profile(
             &BossAttackProfile::Special("apple_rain".into()),
@@ -234,6 +236,7 @@ fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {
 
 #[test]
 fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The head is always a valid hit target — the older "only
     // damageable during head_descent strike" rule made the boss
     // permanently invulnerable in Phase1 (no descent beat) and
@@ -242,7 +245,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     // == HeadDescent`) just moves it down to player level so
     // the player doesn't have to climb. Both states must produce
     // exactly one head AABB.
-    let boss = gnu_ton_runtime();
+    let boss = gnu_ton_runtime(&sprite_content);
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
     let rest_head = ambition_combat::body_geometry::damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
@@ -520,6 +523,7 @@ fn gradient_sentinel_phase1_loop_is_substantial() {
 
 #[test]
 fn boss_motion_respects_world_collision_against_a_wall() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let combat_size = ae::Vec2::new(80.0, 80.0);
     let spawn = ae::Vec2::new(200.0, 400.0);
     let aabb = ae::Aabb::new(spawn, combat_size * 0.5);
@@ -528,7 +532,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `integrate_sim_bodies` → `ActorMut::update`, direct-velocity). This
     // exercises the flight-limb wall-collision sweep — the same guard the old
     // bespoke float had — over the REAL integration a boss now uses.
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "test_warden",
         "Clockwork Warden",
         aabb,

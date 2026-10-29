@@ -63,6 +63,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
 
 #[test]
 fn combat_body_pogo_geometry_stays_entity_side() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let center = ae::Vec2::new(120.0, 180.0);
     let size = ae::Vec2::new(32.0, 48.0);
     let aabb = ae::Aabb::new(center, size * 0.5);
@@ -78,7 +79,7 @@ fn combat_body_pogo_geometry_stays_entity_side() {
             brain_override: None,
         },
     );
-    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(&sprite_content,
         "guide",
         "Guide",
         aabb,
@@ -345,6 +346,7 @@ fn interact_does_not_reopen_already_opened_chest() {
 /// is filled, `interact_ecs_actors_and_switches` starts a dialogue session.
 #[test]
 fn interact_buffered_starts_npc_dialogue() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use bevy::state::app::StatesPlugin;
 
     let center = ae::Vec2::new(100.0, 100.0);
@@ -396,7 +398,7 @@ fn interact_buffered_starts_npc_dialogue() {
             brain_override: None,
         },
     );
-    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(&sprite_content,
         "guide",
         "Guide",
         npc_aabb,

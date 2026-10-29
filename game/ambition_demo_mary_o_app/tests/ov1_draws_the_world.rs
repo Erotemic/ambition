@@ -279,19 +279,11 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
 }
 
 #[test]
-fn the_windowed_demo_asset_root_is_the_engine_sprite_tree() {
-    let root = ambition_platformer2d::asset_manager::actors_desktop_asset_root();
-    // Shipped/override builds fall back to the relative "assets"; this dev-checkout
-    // test proves the resolved root actually holds the art Mary-O is drawn from:
-    // her part flipbook (`mary_o_part_realization`, P5b).
-    if root != "assets" {
-        let pages = std::path::Path::new(&root).join("sprites").join("mary_o_v2_parts.png");
-        assert!(
-            pages.is_file(),
-            "the windowed demo's asset root {root} must contain Mary-O's part \
-             pages so standalone renders real sprites, not bare boxes"
-        );
-    }
+fn the_windowed_demo_selects_its_libraries_part_pages() {
+    let app = drawn_demo();
+    let libraries = app.world().resource::<ambition_platformer2d::asset_manager::content_library::ContentLibraries>();
+    let page = libraries.resolve("content://ambition_shared/sprites/mary_o_v2_parts.png").expect("the demo selected its library");
+    assert!(page.native_path().unwrap().is_file(), "generate the demo's selected part pages");
 }
 
 /// P5b of `docs/planning/engine/mary-o-part-realization.md`: Mary-O is

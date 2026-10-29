@@ -17,7 +17,7 @@ PARALLAX_TIERS = ('parallax_layers_0_5x', 'parallax_layers_0_25x', 'parallax_lay
 
 
 def page_names(manifest: Path) -> set[str]:
-    from generate_visual_quality_variants import page_filenames_safe
+    from ambition_sprite2d_renderer.quality import page_filenames_safe
     return set(page_filenames_safe(manifest))
 
 
@@ -31,12 +31,18 @@ def main() -> int:
             return 2
         return subprocess.call([python, __file__, *sys.argv[1:]], env=dict(os.environ, AMBITION_QUALITY_CHECK_OWNER="1"))
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--asset-root', type=Path, default=ROOT / 'crates/ambition_platformer2d_actor_monolith/assets')
+    parser.add_argument('--library', type=Path, help='selected content library manifest')
+    parser.add_argument('--asset-root', type=Path, default=None, help='override background conversion root')
     parser.add_argument('--require-evidence', action='store_true', help='fail if a conversion has no accepted receipt')
     args = parser.parse_args()
+    from ambition_sprite2d_renderer.content_library import runtime_root
+    if args.library:
+        os.environ["AMBITION_CONTENT_LIBRARY"] = str((ROOT / args.library).resolve())
+    args.asset_root = args.asset_root or runtime_root()
     hashes, failures, unknown, checked = Digests(), [], [], 0
     from ambition_sprite2d_renderer.publication_store import Store
-    store = Store(Path(os.environ.get("AMBITION_ART_STORE", args.asset_root.parent / "art_publication")))
+    from ambition_sprite2d_renderer.publication import store_root
+    store = Store(store_root())
     from ambition_sprite2d_renderer.publication import source_files, toolchain, recipe_state
     sources, chain = source_files(), toolchain()
     selected = store.selected()

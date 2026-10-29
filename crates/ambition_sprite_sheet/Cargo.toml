@@ -11,22 +11,22 @@ crate-type = ["rlib"]
 
 [features]
 default = []
+test-support = []
 # Embed the published sprite tree (`build.rs`). Off by default, so a
 # development build reads the tree at run time and a sprite publish compiles no
 # crate. Turn it on where there is no source tree to read (a bundled desktop
 # build); `ambition_platformer2d`'s `static_content` forwards it. A wasm or
 # Android target embeds without it: it has no file system to read the tree.
-static_content = []
 # Select WebServedAssets as the wasm default in GameAssetConfig. Forwarded by
 # the app/actor composition features that serve loose assets over HTTP.
 web_served = []
 # Enable authored embedded-core image candidates in the game-asset manifest.
-static_core_assets = ["ambition_asset_manager/static_core_assets"]
 # The `prop_sheets` schema's registration and reader (`prop_sheets.rs`). The
 # row type is always here: the actor layer's loader reads it.
 content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
+ambition_vfx = { path = "../ambition_vfx" }
 # Sprite data, image assets, and logs need no rendering pipeline.
 bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
@@ -71,14 +71,3 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 
 # Logging facade (bevy logs through tracing); used for the load diagnostics.
 tracing = "0.1"
-
-[build-dependencies]
-# `build.rs` reads each `<target>_parts.ron` with the crate's own schema file
-# (`src/character/rigged/published.rs`) and writes it as bincode.
-serde = { workspace = true }
-ron = { workspace = true }
-bincode = "1.3"
-# `landmark_tables_digest`, in the schema file `build.rs` shares with the crate.
-blake3 = "1"
-
-serde_json = "1"

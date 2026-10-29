@@ -51,6 +51,7 @@ fn draft(
     ContentPackDraft::read_manifest(
         root,
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("test_audio".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("test".into()),

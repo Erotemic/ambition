@@ -103,7 +103,7 @@ pub(crate) struct SlashVisual {
 }
 
 /// Resolve (and remember) the sheet a character named.
-fn slash_source(
+fn slash_source(sprite_content: &ambition_sprite_sheet::SpriteContent,
     sheet: &str,
     asset_server: &AssetServer,
     registry: Option<&SheetRegistry>,
@@ -113,7 +113,7 @@ fn slash_source(
     if let Some(hit) = cache.0.get(sheet) {
         return hit.clone();
     }
-    let built = build_slash_source(sheet, asset_server, registry, atlas_layouts);
+    let built = build_slash_source(&sprite_content, sheet, asset_server, registry, atlas_layouts);
     if built.is_none() {
         bevy::log::warn!(
             "attack vfx sheet `{sheet}` is named by a character and not in the \
@@ -124,7 +124,7 @@ fn slash_source(
     built
 }
 
-fn build_slash_source(
+fn build_slash_source(sprite_content: &ambition_sprite_sheet::SpriteContent,
     sheet: &str,
     asset_server: &AssetServer,
     registry: Option<&SheetRegistry>,
@@ -147,7 +147,7 @@ fn build_slash_source(
     let source = SlashSource {
         // `fx-sheet`, the label the catalog's effect loads use. A bare `load`
         // would leave the image with no demand (`demand=unknown`).
-        image: ambition_sprite_sheet::game_assets::load_sheet_image(
+        image: ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
             asset_server,
             "fx-sheet",
             format!("sprites/{sheet}_spritesheet.png"),
@@ -180,7 +180,7 @@ fn optional_row(record: &ambition_sprite_sheet::SheetRecord, name: &str) -> Opti
 /// `rendering::mod`; `fx::vfx_spawn_messages` no-ops the variant. Does nothing
 /// when the sheet cannot load (headless or no-asset profiles). Sources are
 /// built lazily on the first cue.
-pub(crate) fn spawn_slash_effects(
+pub(crate) fn spawn_slash_effects(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     mut messages: MessageReader<VfxInRoom>,
     // Each slash is drawn in the live room of the body that swings it.
@@ -189,7 +189,6 @@ pub(crate) fn spawn_slash_effects(
     >,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    sheet_registry: Option<Res<SheetRegistry>>,
     active_session: Option<Res<ActiveSessionScope>>,
     // The read-model pose, not the sim's `BodyKinematics`: render never names
     // live sim state (`engine.render-never-names-live-sim-state`).
@@ -202,6 +201,7 @@ pub(crate) fn spawn_slash_effects(
     attack_vfx: Query<&ambition_sim_view::AttackVfxView>,
     mut cache: ResMut<SlashSources>,
 ) {
+    let sheet_registry = Some(ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).registry());
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -235,7 +235,7 @@ pub(crate) fn spawn_slash_effects(
         else {
             continue;
         };
-        let Some(source) = slash_source(
+        let Some(source) = slash_source(&sprite_content,
             &sheet,
             &asset_server,
             sheet_registry.as_deref(),
@@ -405,10 +405,11 @@ mod tests {
 
     #[test]
     fn robot_slash_sheet_is_baked_with_directional_rows() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         // The effect is hooked up: the sheet is in the baked registry and has
         // the side and down rows the attack maps onto. The id is the one the
         // protagonist names in the character catalog.
-        let registry = ambition_sprite_sheet::baked_sheet_registry();
+        let registry = ambition_sprite_sheet::baked_sheet_registry(&sprite_content);
         let record = registry
             .get("robot_slash")
             .expect("robot_slash sheet must be baked into the registry");

@@ -114,6 +114,7 @@ fn wasm_modules() -> (
 
 fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.init_schedule(Sim);
     app.add_message::<ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()
@@ -439,6 +440,7 @@ mod transits {
 
     fn world(road: Road, item: &TransitItem) -> (App, Vec<Entity>) {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_schedule(Sim);
         app.add_message::<ProjectileSpawnRequest>()
             .add_message::<ambition_vfx::EffectRequest>()

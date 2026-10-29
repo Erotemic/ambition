@@ -439,6 +439,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
 /// `MotionModel::commanded_top_speed` — 137 here, a number no other body in the test has.
 #[test]
 fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     const POSSESSED_TOP_SPEED: f32 = 137.0;
@@ -463,7 +464,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 
     let pos = ae::Vec2::new(64.0, 32.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "possessed",
         "possessed",
         ae::Aabb::new(pos, size * 0.5),
@@ -531,6 +532,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 /// one back across the other turns this red.
 #[test]
 fn a_scripted_sequence_silences_a_possessed_body() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::control::{ControlHold, ControlHolds};
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
@@ -555,7 +557,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
 
     let pos = ae::Vec2::new(0.0, 0.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "scripted",
         "scripted",
         ae::Aabb::new(pos, size * 0.5),
@@ -760,7 +762,7 @@ fn a_dead_body_is_not_walked() {
 
 /// A body driven by `slot` through the controlled brain producer, with the
 /// seat table and its frame modes. Returns the app and the body.
-fn driven_body_app(slot: ambition_characters::control::PlayerSlot) -> (App, Entity) {
+fn driven_body_app(sprite_content: &ambition_sprite_sheet::SpriteContent, slot: ambition_characters::control::PlayerSlot) -> (App, Entity) {
     use ambition_characters::control::DrivingParticipant;
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
@@ -769,7 +771,7 @@ fn driven_body_app(slot: ambition_characters::control::PlayerSlot) -> (App, Enti
     app.add_systems(Update, (publish_seat_controls_when_nobody_else_does, tick_controlled_brains).chain());
     let pos = ae::Vec2::new(64.0, 32.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "driven",
         "driven",
         ae::Aabb::new(pos, size * 0.5),
@@ -806,8 +808,9 @@ fn turn_gravity(app: &mut App, body: Entity, down: ae::Vec2) {
 /// hold across seats.
 #[test]
 fn a_held_stick_does_not_survive_a_change_of_seat() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
-    let (mut app, body) = driven_body_app(PlayerSlot::PRIMARY);
+    let (mut app, body) = driven_body_app(&sprite_content, PlayerSlot::PRIMARY);
     hold_stick(&mut app, PlayerSlot::PRIMARY, 1.0);
     app.update();
     let first = *app.world().get::<HeldControlFrame>(body).expect("premise: seat one's press is held");
@@ -837,8 +840,9 @@ fn a_held_stick_does_not_survive_a_change_of_seat() {
 /// refused body.
 #[test]
 fn a_refused_seat_leaves_no_hold() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::control::DrivingParticipant;
-    let (mut app, body) = driven_body_app(PlayerSlot::PRIMARY);
+    let (mut app, body) = driven_body_app(&sprite_content, PlayerSlot::PRIMARY);
     hold_stick(&mut app, PlayerSlot::PRIMARY, 1.0);
     app.update();
     assert!(app.world().get::<HeldControlFrame>(body).is_some(), "premise: the press is held");

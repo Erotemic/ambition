@@ -13,3 +13,6 @@ ron = { workspace = true }
 serde = { workspace = true }
 serde_path_to_error = { workspace = true }
 thiserror = { workspace = true }
+
+ambition_asset_manager = { path = "../ambition_asset_manager" }
+serde_json = "1"

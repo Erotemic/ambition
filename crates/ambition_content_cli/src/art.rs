@@ -6,10 +6,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// Describe this compiled pack. Missing local pixels remain inspectable.
-pub fn describe(pack: &PreparedContentPack, roots: &[PathBuf]) -> Value {
-    let catalog = ambition_characters::actor::character_catalog::content_schema::lowered_catalog(pack);
+pub fn describe(pack: Option<&PreparedContentPack>, roots: &[PathBuf]) -> Value {
+    let catalog = pack.and_then(ambition_characters::actor::character_catalog::content_schema::lowered_catalog);
     let mut requested = BTreeSet::from(["idle".to_string(), "hit".to_string(), "death".to_string(), "death_idle".to_string()]);
-    let movesets = ambition_characters::moveset_content_schema::lowered_movesets(pack);
+    let movesets = pack.and_then(ambition_characters::moveset_content_schema::lowered_movesets);
     let mut bindings = BTreeMap::<String, BTreeMap<String, Vec<String>>>::new();
     let characters: Vec<_> = catalog.into_iter().flat_map(|catalog| &catalog.characters).map(|(id, row)| {
         let mut required: Vec<String> = ambition_sprite_sheet::inspection::requirements(row).into_iter().map(String::from).collect();
@@ -24,7 +24,7 @@ pub fn describe(pack: &PreparedContentPack, roots: &[PathBuf]) -> Value {
             }
             json!({"key": key, "move": action.id, "chain": chain})
         }).collect();
-        json!({"id": id, "provider": pack.namespace.to_string(), "catalog": row,
+        json!({"id": id, "provider": pack.map(|pack| pack.namespace.to_string()), "catalog": row,
                "sheet_target": row.manifest_target(), "moves": moves,
                "required_actions": required, "capabilities_complete": row.abilities.is_some()})
     }).collect();
@@ -61,15 +61,15 @@ pub fn describe(pack: &PreparedContentPack, roots: &[PathBuf]) -> Value {
             }
         }
     }
-    let worlds = ambition_content_pack::lowered_rules::<ambition_platformer2d_world::world_manifest::AuthoredWorldManifest>(
-        pack, ambition_platformer2d_world::world_manifest::WORLD_MANIFEST_SCHEMA)
+    let worlds = pack.and_then(|pack| ambition_content_pack::lowered_rules::<ambition_platformer2d_world::world_manifest::AuthoredWorldManifest>(
+        pack, ambition_platformer2d_world::world_manifest::WORLD_MANIFEST_SCHEMA))
         .map(|manifest| manifest.worlds.iter().map(|world| json!({"id": world.id, "file": world.file, "required": world.required})).collect::<Vec<_>>());
-    json!({"semantics": semantics, "tool_version": env!("CARGO_PKG_VERSION"), "worlds": worlds, "schema": "ambition.art_content.v3", "provider": pack.namespace.to_string(), "pack": pack.id.to_string(),
-        "fingerprint": pack.fingerprint.hex(), "characters": characters, "sheets": sheets, "failures": failures,
-        "sources": pack.sources.iter().map(|source| json!({"path": source.declared_path, "schema": source.schema.to_string(),
+    json!({"semantics": semantics, "tool_version": env!("CARGO_PKG_VERSION"), "worlds": worlds, "schema": "ambition.art_content.v3", "provider": pack.map(|pack| pack.namespace.to_string()), "pack": pack.map(|pack| pack.id.to_string()),
+        "fingerprint": pack.map(|pack| pack.fingerprint.hex()), "characters": characters, "sheets": sheets, "failures": failures,
+        "sources": pack.into_iter().flat_map(|pack| pack.sources.iter()).map(|source| json!({"path": source.declared_path, "schema": source.schema.to_string(),
             "fingerprint": source.content_fingerprint})).collect::<Vec<_>>(),
-        "assets": pack.assets.values().map(|asset| json!({"path": asset.path,
+        "assets": pack.into_iter().flat_map(|pack| pack.assets.values()).map(|asset| json!({"path": asset.path,
             "required_by": asset.required_by.iter().map(ToString::to_string).collect::<Vec<_>>()})).collect::<Vec<_>>(),
-        "references": pack.resolved_references.iter().map(|reference| json!({"from": reference.declared_by.to_string(),
+        "references": pack.into_iter().flat_map(|pack| pack.resolved_references.iter()).map(|reference| json!({"from": reference.declared_by.to_string(),
             "field": reference.field, "to": reference.target.to_string()})).collect::<Vec<_>>()})
 }

@@ -31,6 +31,7 @@ const WALL_PX: f32 = 16.0;
 
 #[test]
 fn no_registered_character_can_leave_a_plain_walled_room() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     // What `App::run` does before the first update, so the barrier closes on
     // the road production takes.
@@ -67,7 +68,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
         // `None` for a character whose sheet publishes no body metrics — the
         // probe falls back to the engine default rather than inventing a size,
         // and the count below keeps that from quietly becoming everybody.
-        let body = ambition_platformer2d::assets::character_sprites::sprite_body_collision_for_character_id_in(
+        let body = ambition_platformer2d::assets::character_sprites::sprite_body_collision_for_character_id_in(&sprite_content,
             &Default::default(),
             catalog,
             id,

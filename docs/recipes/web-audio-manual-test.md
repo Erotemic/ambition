@@ -45,7 +45,7 @@ With `--served`, you should see:
 
 `--served` builds with `--features web_served_assets`, which includes
 `web_audio` (so `bevy_kira_audio` is in the wasm) and auto-symlinks
-`crates/ambition_platformer2d_actor_monolith/assets/` to `game/ambition_app/web/assets/`
+`game/ambition_content_library/generated/runtime/` to `game/ambition_app/web/assets/`
 so the served URLs resolve.
 
 ### First sanity check after page load

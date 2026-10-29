@@ -96,19 +96,21 @@ pub fn register_cast(app: &mut bevy::prelude::App) {
 /// row's sheet at its `posed_body` scale, the hurtbox inset from that body, and
 /// the pack's move table. Everything else is the row, folded at preparation.
 pub fn register_characters(app: &mut bevy::prelude::App) {
+    let pack = crate::pack::select(app.world_mut());
+    app.init_resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     use ambition_platformer2d_assets::materialization::CharacterDefinitionAppExt;
 
     // ⭐ THE APP'S PACK, READ ONCE. Selecting here rather than per character is
     // what makes "which pack did this cast come from" one fact: a selection that
     // changed mid-loop would register half a roster from each. The rows and the
     // facets both come from it.
-    let pack = crate::pack::select(app.world_mut());
     let catalog = catalog_of(&pack);
     // The articulated-rig trial switch: read once, because it decides the cast.
     // The shipped game does not admit rigs (see `BodyRigAdmission`).
     let rigs_admitted =
         ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
-    for definition in buildable_definitions(&catalog, &pack, rigs_admitted) {
+    for definition in buildable_definitions(&sprite_content, &catalog, &pack, rigs_admitted) {
         // A refusal stops the composition. A stable id authored by two
         // providers, or a display name shared by two characters, is two
         // authorities for one character; skipping the second registration would
@@ -119,7 +121,7 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
 
 /// Every character this provider builds, defined from `catalog`'s rows and
 /// `pack`'s facets: the boot registration's and a reload's one road.
-pub fn buildable_definitions(
+pub fn buildable_definitions(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     pack: &ambition_content_pack::PreparedContentPack,
     rigs_admitted: bool,
@@ -144,19 +146,19 @@ pub fn buildable_definitions(
         // The scale is asked of the baked sheet once, here, and the body is
         // built with it, as every pack's cast is.
         if let Some(world_per_pixel) =
-            ambition_platformer2d::character_sprites::posed_body_world_per_pixel(catalog.data(), id)
+            ambition_platformer2d::character_sprites::posed_body_world_per_pixel(&sprite_content, catalog.data(), id)
         {
             definition = definition.with_sprite_authored_body(world_per_pixel);
         }
         // Built on that body, so it too is asked of the sheet here.
         if let Some(doc) =
-            ambition_platformer2d::character_sprites::posed_body_inset_hurtboxes(catalog.data(), id)
+            ambition_platformer2d::character_sprites::posed_body_inset_hurtboxes(&sprite_content, catalog.data(), id)
         {
             definition = definition.with_hurtboxes(doc);
         }
         // The semantic body rig the sheet publishes, at the scale of that body.
         if let Some(rig) = rigs_admitted
-            .then(|| ambition_platformer2d::character_sprites::published_body_rig(catalog.data(), id))
+            .then(|| ambition_platformer2d::character_sprites::published_body_rig(&sprite_content, catalog.data(), id))
             .flatten()
         {
             definition = definition.with_body_rig(rig);
@@ -245,6 +247,7 @@ mod tests {
     /// buildability, beside the row's own facts.
     #[test]
     fn a_row_that_states_its_body_is_built_with_that_body() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let app = prepared_cast_app();
         let prepared = app
             .world()
@@ -297,7 +300,7 @@ mod tests {
                     stated += 1;
                 }
                 if row.posed_body.is_some() {
-                    let scale = ambition_platformer2d::character_sprites::posed_body_world_per_pixel(
+                    let scale = ambition_platformer2d::character_sprites::posed_body_world_per_pixel(&sprite_content,
                         catalog.data(),
                         id,
                     )

@@ -168,6 +168,8 @@ fn close_preparation_barrier_with_installed_techniques(world: &mut bevy::ecs::wo
 
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
         // ⭐ BEFORE the unchecked backstop, explicitly. `CharacterPreparationPlugin`
         // guards its fold with a `finalized` flag so whichever trigger fires
         // first wins and the other is a no-op — which makes the ORDER the whole
@@ -210,13 +212,13 @@ impl Plugin for CombatSchedulePlugin {
         // is the seam where the two meet. `refresh_authored_volume_resolver`
         // below keeps the captured copy current.
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-        app.insert_resource(authored_volume_resolver_for(&Default::default()));
+        app.insert_resource(authored_volume_resolver_for(&sprite_content, &Default::default()));
         app.add_systems(
             bevy::app::Update,
             refresh_authored_volume_resolver.run_if(
                 bevy::ecs::schedule::common_conditions::resource_changed::<
                     ambition_sprite_sheet::character::sheets::AuthoredSheets,
-                >,
+                >.or_eager(bevy::ecs::schedule::common_conditions::resource_changed::<ambition_sprite_sheet::SpriteContent>),
             ),
         );
         // The effect seam: techniques (the shockwave gauntlet, the boss
@@ -1352,13 +1354,14 @@ mod tests {
 /// could lend it a reference — it is a `Resource` combat reads whenever a strike
 /// resolves. Registration happens at plugin build, so the clone is paid once per
 /// change and never per hit.
-fn authored_volume_resolver_for(
+fn authored_volume_resolver_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
 ) -> ambition_combat::authored_volumes::AuthoredAttackVolumeResolver {
     let sheets = sheets.clone();
+    let sprite_content = sprite_content.clone();
     ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
         move |catalog, sprite_character_id, animation, collision, drawn_quad, clip_elapsed| {
-            ambition_character_sprites::authored_attack_volume_resolver(
+            ambition_character_sprites::authored_attack_volume_resolver(&sprite_content,
                 &sheets,
                 catalog,
                 sprite_character_id,
@@ -1377,11 +1380,11 @@ fn authored_volume_resolver_for(
 /// time, which is the ordering trap the whole `AuthoredSheets` design avoids
 /// elsewhere: a provider added later would resolve volumes from the engine's
 /// baked table while resolving everything else from its own sheet.
-fn refresh_authored_volume_resolver(
+fn refresh_authored_volume_resolver(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     mut resolver: bevy::prelude::ResMut<
         ambition_combat::authored_volumes::AuthoredAttackVolumeResolver,
     >,
 ) {
-    *resolver = authored_volume_resolver_for(&sheets);
+    *resolver = authored_volume_resolver_for(&sprite_content, &sheets);
 }

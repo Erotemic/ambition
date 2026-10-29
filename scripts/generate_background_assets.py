@@ -28,7 +28,7 @@ def main() -> int:
     return renderer_main(
         [
             "--out",
-            str(root / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "backgrounds"),
+            str(root / "game" / "ambition_content_library" / "generated" / "runtime" / "backgrounds"),
             "--profile",
             "all",
         ]

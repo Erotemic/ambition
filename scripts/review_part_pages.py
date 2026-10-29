@@ -32,7 +32,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 RENDERER = REPO / "tools" / "ambition_sprite2d_renderer"
-SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
 sys.path.insert(0, str(REPO / "scripts"))
 sys.path.insert(0, str(RENDERER))
 

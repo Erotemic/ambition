@@ -150,7 +150,7 @@ type DrawnKey = (
 /// every frame gave the same picture and two archetype moves per overlay per
 /// frame (perf_probe, hub).
 #[allow(clippy::too_many_arguments)]
-pub fn sync_wielded_item_visuals(
+pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     // Each drawable is placed by the geometry of its own live room.
@@ -188,7 +188,7 @@ pub fn sync_wielded_item_visuals(
         let texture = textures
             .entry(spec.texture_path.clone())
             .or_insert_with(|| {
-                ambition_sprite_sheet::game_assets::load_sheet_image(
+                ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
                     &asset_server,
                     "held-item",
                     spec.texture_path.clone(),

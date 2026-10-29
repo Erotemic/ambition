@@ -152,9 +152,9 @@ impl CharacterSpriteAssets {
     /// see the type docs. A character published without ever being declared
     /// (a test fixture, or a host inserting a sheet directly) still resolves
     /// by its id.
-    pub fn publish(&mut self, character_id: &str, asset: CharacterSpriteAsset) {
+    pub fn publish(&mut self, content: &crate::SpriteContent, character_id: &str, asset: CharacterSpriteAsset) {
         self.retired.remove(character_id);
-        self.realized_under.insert(character_id.to_string(), crate::baked_sheet_rons::current().id());
+        self.realized_under.insert(character_id.to_string(), crate::baked_sheet_rons::current(&content).id());
         self.sheets.insert(character_id.to_string(), asset);
     }
 
@@ -197,10 +197,10 @@ impl CharacterSpriteAssets {
     /// Compare `requested_tier`, not [`CharacterSpriteAsset::resolved_tier`]: a
     /// sheet with no baked variant answers `Half` with full-resolution pixels,
     /// and its resolved tier would stay stale forever.
-    pub fn stale_realizations(&self, active: TextureResolutionScale) -> Vec<(String, String)> {
+    pub fn stale_realizations(&self, content: &crate::SpriteContent, active: TextureResolutionScale) -> Vec<(String, String)> {
         self.sheets
             .iter()
-            .filter(|(token, _)| !self.is_current_realization(token, active))
+            .filter(|(token, _)| !self.is_current_realization(content, token, active))
             .filter_map(|(token, _)| {
                 self.declared
                     .get(token)
@@ -283,9 +283,9 @@ impl CharacterSpriteAssets {
     /// the sheet generation every reader reads now. Any other resident
     /// realization is stale ([`Self::stale_realizations`]), and a demand
     /// makes it again.
-    pub fn is_current_realization(&self, token: &str, tier: TextureResolutionScale) -> bool {
+    pub fn is_current_realization(&self, content: &crate::SpriteContent, token: &str, tier: TextureResolutionScale) -> bool {
         self.sheets.get(token).is_some_and(|asset| asset.requested_tier == tier)
-            && self.realized_under.get(token) == Some(&crate::baked_sheet_rons::current().id())
+            && self.realized_under.get(token) == Some(&crate::baked_sheet_rons::current(&content).id())
     }
 
     /// The main lookup, by character id.

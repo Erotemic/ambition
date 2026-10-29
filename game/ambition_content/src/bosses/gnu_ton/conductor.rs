@@ -12,7 +12,7 @@ pub use ambition_content_modules::gnu_ton::conductor::GNU_TON_ID;
 /// The state the scholar is built with: his drawn row. His conductor's memory
 /// is the module's record, which the module writes when it first conducts.
 /// See [`ambition_boss_encounter::BossBirthKit`].
-pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, _: &ae::BodyKinematics) {
+pub fn birth(_content: &ambition_platformer2d::sprite_sheet::SpriteContent, scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, _: &ae::BodyKinematics) {
     scope.insert(ambition_platformer2d::sprite_sheet::character::PinnedRow::default());
 }
 

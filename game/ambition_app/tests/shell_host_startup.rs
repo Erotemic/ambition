@@ -291,6 +291,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
 
+    let card_duration = ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(app.world_mut());
     let sequence = app.world().resource::<ActiveShellSequence>();
     let segments = &sequence
         .runtime
@@ -338,7 +339,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     // no second number to keep in sync.
     assert_eq!(
         segment.policy.auto_advance_after,
-        Some(ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration()),
+        Some(card_duration),
         "the segment's duration must be the baked card's own length",
     );
 }
@@ -393,9 +394,10 @@ fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
 /// `startup_naturally_auto_advances_on_the_shipping_timeline` above, against the real host.
 #[test]
 fn the_drawn_card_declares_a_length_the_run_in_can_schedule() {
+    let mut app = startup_app();
     let total =
-        ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();
-    let run_in = shell_host::ambition_startup_duration();
+        ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(app.world_mut());
+    let run_in = shell_host::ambition_startup_duration(app.world_mut());
     assert!(
         run_in > total,
         "the run-in ({run_in:?}) must budget for the card ({total:?}) plus the engine card",

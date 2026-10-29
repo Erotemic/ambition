@@ -352,7 +352,7 @@ fn monogram(label: &str) -> String {
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ScreenArt<'w> {
     pub catalog: Res<'w, CharacterCatalog>,
-    pub portraits: Option<Res<'w, PortraitSheetRegistry>>,
+    pub content: Res<'w, ambition_platformer2d::sprite_sheet::SpriteContent>,
     /// What providers registered, so a character that named a portrait target
     /// in Rust gets that face. See [`portrait_art`].
     /// The running session's frozen cast, or the published one with no session.
@@ -367,9 +367,9 @@ pub struct ScreenArt<'w> {
 impl ScreenArt<'_> {
     /// This character's face and the rectangle to take out of it.
     pub fn portrait(&self, id: &str) -> Option<(Handle<Image>, Option<Rect>)> {
-        portrait_art(
+        portrait_art(&self.content,
             &self.catalog,
-            self.portraits.as_deref(),
+            Some(ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&self.content).portraits()),
             self.declared.get(),
             self.asset_server.as_deref(),
             id,
@@ -386,7 +386,7 @@ impl ScreenArt<'_> {
 /// The registry is `Option`: the standalone app may not install
 /// `PortraitSheetRegistryPlugin`. Without it the whole image is used, which is
 /// right for single-frame sheets and wrong for the rest.
-fn portrait_art(
+fn portrait_art(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     catalog: &CharacterCatalog,
     portraits: Option<&PortraitSheetRegistry>,
     declared: Option<&PreparedCharacterRegistry>,
@@ -400,7 +400,7 @@ fn portrait_art(
         .and_then(|registry| registry.get(id))
         .and_then(|prepared| prepared.portrait.as_deref());
     let reference = portrait_for_declared_character(portraits, catalog, target, id)?;
-    let handle = ambition_platformer2d::sprite_sheet::game_assets::load_sheet_image(
+    let handle = ambition_platformer2d::sprite_sheet::game_assets::load_sheet_image(&sprite_content,
         asset_server?,
         "portrait",
         reference.image.clone(),

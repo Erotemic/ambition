@@ -13,11 +13,11 @@ use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d::engine_core as ae;
 
 /// The height the body stands at the scale it was built with, from its sheet.
-fn standing_height(sheet: &str, body: Option<&BodySource>) -> f32 {
+fn standing_height(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sheet: &str, body: Option<&BodySource>) -> f32 {
     let Some(BodySource::SpriteAuthored { world_per_pixel }) = body else {
         panic!("`{sheet}` must be a body its sheet authors per pose, got {body:?}");
     };
-    ambition_platformer2d::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(&sprite_content,
         sheet,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
         *world_per_pixel,
@@ -29,6 +29,7 @@ fn standing_height(sheet: &str, body: Option<&BodySource>) -> f32 {
 
 #[test]
 fn the_sanic_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = ambition_demo_sanic_app::build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -46,7 +47,7 @@ fn the_sanic_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() 
     assert_eq!(sanic.sheet.as_deref(), Some("sanic"));
     assert_eq!(super_sanic.sheet.as_deref(), Some("super_sanic"));
     assert!(
-        (standing_height("sanic", sanic.body.as_ref()) - 48.0).abs() < 1e-3,
+        (standing_height(&sprite_content, "sanic", sanic.body.as_ref()) - 48.0).abs() < 1e-3,
         "Sanic stands 48 units tall"
     );
     assert_eq!(
@@ -61,7 +62,7 @@ fn the_sanic_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() 
     let badnik = get(ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY);
     assert_eq!(badnik.sheet.as_deref(), Some("ai_slop"));
     assert!(
-        (standing_height("ai_slop", badnik.body.as_ref()) - 48.0 * 0.6).abs() < 1e-3,
+        (standing_height(&sprite_content, "ai_slop", badnik.body.as_ref()) - 48.0 * 0.6).abs() < 1e-3,
         "a badnik stands three fifths of Sanic"
     );
     assert_eq!(

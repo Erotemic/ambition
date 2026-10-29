@@ -12,15 +12,16 @@ const SNAKE: &str = "solid_snake";
 /// Same scale Mary-O authors, so the numbers here are the shipped ones.
 const SCALE: f32 = 0.5;
 
-fn geometry(anim: CharacterAnim) -> PosedBodyGeometry {
-    posed_body_geometry(SNAKE, anim, SCALE)
+fn geometry(sprite_content: &ambition_sprite_sheet::SpriteContent, anim: CharacterAnim) -> PosedBodyGeometry {
+    posed_body_geometry(&sprite_content, SNAKE, anim, SCALE)
         .expect("the baked solid_snake sheet publishes per-animation body metrics")
 }
 
 #[test]
 fn withdrawing_into_the_shell_shrinks_the_body() {
-    let walking = geometry(CharacterAnim::Idle);
-    let boxed = geometry(CharacterAnim::ShellIdle);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let walking = geometry(&sprite_content, CharacterAnim::Idle);
+    let boxed = geometry(&sprite_content, CharacterAnim::ShellIdle);
     // The whole point: a stomped snake is a SMALLER THING to run into, kick,
     // and stand on. If these ever coincide the sheet stopped publishing per-pose
     // metrics and every box silently collapsed onto the idle bbox.
@@ -42,6 +43,7 @@ fn withdrawing_into_the_shell_shrinks_the_body() {
 
 #[test]
 fn the_sprite_quad_is_the_same_frame_in_every_pose() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Otherwise the sprite would visibly pulse as the state machine advanced, and the renderer
     // would rebind its atlas on every pose change.
     let quads: Vec<_> = [
@@ -52,7 +54,7 @@ fn the_sprite_quad_is_the_same_frame_in_every_pose() {
         CharacterAnim::Emerge,
     ]
     .into_iter()
-    .map(|anim| geometry(anim).render)
+    .map(|anim| geometry(&sprite_content, anim).render)
     .collect();
     assert!(
         quads.windows(2).all(|w| w[0] == w[1]),
@@ -62,16 +64,18 @@ fn the_sprite_quad_is_the_same_frame_in_every_pose() {
 
 #[test]
 fn the_quad_placement_puts_the_art_on_the_box() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The offset's contract: shifting the frame by it makes the pose's authored
     // rectangle land exactly on the collision box, which is centred on the body.
     // Recompute that from the manifest independently of the helper so a sign
     // flip in either direction fails here rather than looking plausible on
     // screen.
-    let record = record_for_sheet_key(SNAKE).expect("baked snake record");
+    let record = record_for_sheet_key(&sprite_content, SNAKE).expect("baked snake record");
     let metrics = record.body_metrics.as_ref().expect("snake body metrics");
     for anim in [CharacterAnim::Idle, CharacterAnim::ShellIdle] {
         let bbox = metrics.pose_body_bbox(anim).expect("pose bbox");
-        let geometry = geometry(anim);
+        let geometry = geometry(&sprite_content, anim);
         // Frame top-left, in world units, once the quad is placed.
         let frame_origin = geometry.sprite_offset - geometry.render * 0.5;
         let bbox_origin = frame_origin + ae::Vec2::new(bbox.x as f32, bbox.y as f32) * SCALE;
@@ -86,18 +90,20 @@ fn the_quad_placement_puts_the_art_on_the_box() {
 
 #[test]
 fn a_sheet_that_publishes_nothing_yields_nothing() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The caller keeps its authored box. Inflating every collision box to the
     // whole frame would be a silent, game-wide geometry change.
-    assert!(posed_body_geometry("no_such_sheet_target", CharacterAnim::Idle, SCALE).is_none());
+    assert!(posed_body_geometry(&sprite_content, "no_such_sheet_target", CharacterAnim::Idle, SCALE).is_none());
 }
 
 #[test]
 fn an_unpublished_pose_falls_back_to_the_static_body_box() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // `Jump` is not a row the snake sheet carries. It must resolve to the sheet's
     // overall body bbox rather than vanishing — a body has geometry in every
     // pose, published or not.
-    let jump = posed_body_geometry(SNAKE, CharacterAnim::Jump, SCALE).expect("fallback geometry");
-    let record = record_for_sheet_key(SNAKE).expect("baked snake record");
+    let jump = posed_body_geometry(&sprite_content, SNAKE, CharacterAnim::Jump, SCALE).expect("fallback geometry");
+    let record = record_for_sheet_key(&sprite_content, SNAKE).expect("baked snake record");
     let bbox = record
         .body_metrics
         .as_ref()
@@ -114,17 +120,19 @@ fn an_unpublished_pose_falls_back_to_the_static_body_box() {
 /// (or is shoved out of it, which this project does not do).
 #[test]
 fn the_resize_holds_the_feet() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = bevy::prelude::App::new();
-    let walking = geometry(CharacterAnim::Idle);
-    let boxed = geometry(CharacterAnim::ShellIdle);
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+    let walking = geometry(&sprite_content, CharacterAnim::Idle);
+    let boxed = geometry(&sprite_content, CharacterAnim::ShellIdle);
     let ground_y = 100.0;
     let entity = app
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
             // Published with the posed body when it is granted.
-            ActorRenderSize(geometry(CharacterAnim::Idle).render),
-            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
+            ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
             ActorAnimOverride(CharacterAnim::ShellIdle),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(0.0, ground_y - walking.collision.y * 0.5),
@@ -168,15 +176,17 @@ fn the_resize_holds_the_feet() {
 /// Both are facts, and the box is the composition of the two.
 #[test]
 fn a_stance_survives_the_per_tick_resync() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = bevy::prelude::App::new();
-    let standing = geometry(CharacterAnim::Idle);
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+    let standing = geometry(&sprite_content, CharacterAnim::Idle);
     let entity = app
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
             // Published with the posed body when it is granted.
-            ActorRenderSize(geometry(CharacterAnim::Idle).render),
-            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
+            ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
@@ -210,14 +220,16 @@ fn a_stance_survives_the_per_tick_resync() {
 
 #[test]
 fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = bevy::prelude::App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     let entity = app
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
             // Published with the posed body when it is granted.
-            ActorRenderSize(geometry(CharacterAnim::Idle).render),
-            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
+            ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
             ae::BodyKinematics::default(),
         ))
         .id();
@@ -245,7 +257,7 @@ fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
     );
     assert_eq!(
         app.world().get::<ActorRenderSize>(entity).map(|r| r.0),
-        Some(geometry(CharacterAnim::ShellIdle).render),
+        Some(geometry(&sprite_content, CharacterAnim::ShellIdle).render),
         "the quad size is published too, so the renderer never re-derives it"
     );
 }
@@ -255,16 +267,17 @@ fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
 /// rectangle the sheet's body occupies once the quad is placed, the way
 /// `sync_visuals` places it: the quad is `render`, drawn centred at
 /// `pos + offset`.
-fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32) {
-    let standing = geometry(CharacterAnim::Idle);
+fn drawn_body_rect(sprite_content: &ambition_sprite_sheet::SpriteContent, mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32) {
+    let standing = geometry(&sprite_content, CharacterAnim::Idle);
     let mut app = bevy::prelude::App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     let entity = app
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
             // Published with the posed body when it is granted.
-            ActorRenderSize(geometry(CharacterAnim::Idle).render),
-            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
+            ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(0.0, ground - standing.collision.y * 0.5),
                 vel: ae::Vec2::ZERO,
@@ -303,7 +316,7 @@ fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32)
         .0;
     // Rebuilt from the manifest rather than from the helper, so a sign flip in
     // either fails here instead of looking plausible on screen.
-    let record = record_for_sheet_key(SNAKE).expect("baked snake record");
+    let record = record_for_sheet_key(&sprite_content, SNAKE).expect("baked snake record");
     let metrics = record.body_metrics.as_ref().expect("snake body metrics");
     let bbox = metrics
         .pose_body_bbox(CharacterAnim::Idle)
@@ -328,9 +341,10 @@ fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32)
 /// gets it there.
 #[test]
 fn a_crouching_body_draws_its_art_on_the_ground_its_collider_stands_on() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let ground = 100.0_f32;
     for mode in [ae::BodyMode::Standing, ae::BodyMode::Crouching] {
-        let (_, art_max, collider_foot) = drawn_body_rect(mode, ground);
+        let (_, art_max, collider_foot) = drawn_body_rect(&sprite_content, mode, ground);
         // The collision half: the stance composes with the pose, and the resize
         // holds the feet.
         assert!(
@@ -358,9 +372,10 @@ fn a_crouching_body_draws_its_art_on_the_ground_its_collider_stands_on() {
 /// art — so the rectangle's extents are pinned alongside its foot line.
 #[test]
 fn a_stance_moves_the_art_without_resizing_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let ground = 100.0_f32;
-    let (stand_min, stand_max, _) = drawn_body_rect(ae::BodyMode::Standing, ground);
-    let (crouch_min, crouch_max, _) = drawn_body_rect(ae::BodyMode::Crouching, ground);
+    let (stand_min, stand_max, _) = drawn_body_rect(&sprite_content, ae::BodyMode::Standing, ground);
+    let (crouch_min, crouch_max, _) = drawn_body_rect(&sprite_content, ae::BodyMode::Crouching, ground);
     assert!(
         ((stand_max - stand_min) - (crouch_max - crouch_min)).length() < 1e-3,
         "the drawn body changed size with the stance: standing {:?}, crouching {:?}",
@@ -375,10 +390,12 @@ fn a_stance_moves_the_art_without_resizing_it() {
 /// so the face that must stay planted is its TOP.
 #[test]
 fn the_resize_holds_the_face_of_the_bodys_own_gravity() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = bevy::prelude::App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(ambition_platformer2d_shared_tangle::gravity::GravityField::default());
-    let walking = geometry(CharacterAnim::Idle);
-    let boxed = geometry(CharacterAnim::ShellIdle);
+    let walking = geometry(&sprite_content, CharacterAnim::Idle);
+    let boxed = geometry(&sprite_content, CharacterAnim::ShellIdle);
     let ceiling_y = 100.0;
     let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
     frame.publish_resolved_frame(ae::MotionFrame::from_direction(ae::Vec2::new(0.0, -1.0), 0.0));

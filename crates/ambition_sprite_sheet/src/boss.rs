@@ -411,7 +411,7 @@ impl BossSpriteAsset {
 /// if the catalog disables the asset or the profile skips optional images.
 /// Callers then use the static `EntitySprite::BossCore` image, or a coloured
 /// rectangle.
-pub fn load_boss_sprite_in(
+pub fn load_boss_sprite_in(content: &crate::SpriteContent,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -419,7 +419,7 @@ pub fn load_boss_sprite_in(
     sheet: BossSheetSpec,
     quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, label, sheet, quality)
+    load_named_boss_sprite_via_catalog(&content, catalog, asset_server, layouts, label, sheet, quality)
 }
 
 /// Derive the published sheet's RON record key (its file root) from the resolved
@@ -468,7 +468,7 @@ pub fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> b
     })
 }
 
-pub fn load_named_boss_sprite_via_catalog(
+pub fn load_named_boss_sprite_via_catalog(content: &crate::SpriteContent,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -491,7 +491,7 @@ pub fn load_named_boss_sprite_via_catalog(
                 scale.asset_id_suffix(),
             )?;
             let path = catalog.try_path_for_load(&variant_id)?;
-            let record = record_for_sheet_key(boss_record_key(&path)?.as_str())?;
+            let record = record_for_sheet_key(&content, boss_record_key(&path)?.as_str())?;
             record_aligns_with_const(record, &spec).then_some(path)
         });
     let Some(path) = variant_path.or_else(|| catalog.try_path_for_load(&id)) else {
@@ -508,7 +508,7 @@ pub fn load_named_boss_sprite_via_catalog(
     let mut spec = spec;
     let record = boss_record_key(&path)
         .as_deref()
-        .and_then(record_for_sheet_key)
+        .and_then(|key| record_for_sheet_key(content, key))
         .filter(|record| record_aligns_with_const(record, &spec))
         .map(|record| {
             spec.frame_width = record.frame_width;
@@ -518,11 +518,11 @@ pub fn load_named_boss_sprite_via_catalog(
         })
         .unwrap_or_else(|| spec.synth_record(&boss_filename_of(&path)));
 
-    let pages = build_boss_pages(&record, &spec, &path, asset_server, layouts);
+    let pages = build_boss_pages(&content, &record, &spec, &path, asset_server, layouts);
     let layers = spec
         .layers
         .iter()
-        .filter_map(|name| load_boss_layer(&path, name, &spec, asset_server, layouts))
+        .filter_map(|name| load_boss_layer(&content, &path, name, &spec, asset_server, layouts))
         .collect();
     Some(BossSpriteAsset {
         pages,
@@ -535,7 +535,7 @@ pub fn load_named_boss_sprite_via_catalog(
 /// A companion layer, from beside the art's resolved path — the same folder,
 /// so the same quality tier. Needs its baked record: a layer is addressed by
 /// the art's `(row, frame)`, which only its own record can turn into a rect.
-fn load_boss_layer(
+fn load_boss_layer(content: &crate::SpriteContent,
     art_path: &str,
     name: &str,
     spec: &BossSheetSpec,
@@ -543,11 +543,11 @@ fn load_boss_layer(
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteLayer> {
     let path = art_path.strip_suffix("_spritesheet.png").map(|stem| format!("{stem}_{name}_spritesheet.png"))?;
-    let Some(record) = boss_record_key(&path).as_deref().and_then(record_for_sheet_key).cloned() else {
+    let Some(record) = boss_record_key(&path).as_deref().and_then(|key| record_for_sheet_key(content, key)).cloned() else {
         eprintln!("[boss_sprites] layer `{name}` of {art_path} has no published record ({path}); it will not draw");
         return None;
     };
-    let pages = build_boss_pages(&record, spec, &path, asset_server, layouts);
+    let pages = build_boss_pages(&content, &record, spec, &path, asset_server, layouts);
     Some(BossSpriteLayer { name: name.to_string(), pages, record })
 }
 
@@ -562,7 +562,7 @@ fn boss_filename_of(path: &str) -> String {
 /// loader: page 0 uses the catalog-resolved path; sibling pages resolve their
 /// filename (from the record's `images` list) against page 0's directory. Each
 /// page's layout comes from the shared `atlas_page` algebra.
-fn build_boss_pages(
+fn build_boss_pages(content: &crate::SpriteContent,
     record: &SheetRecord,
     spec: &BossSheetSpec,
     path: &str,
@@ -584,7 +584,7 @@ fn build_boss_pages(
                 }
             };
             BossSpritePage {
-                texture: crate::game_assets::load_sheet_image(asset_server, "boss-sheet", page_path),
+                texture: crate::game_assets::load_sheet_image(&content, asset_server, "boss-sheet", page_path),
                 layout: layouts.add(build_atlas_layout(
                     &record.atlas_page(page, spec.frame_sample_inset),
                 )),

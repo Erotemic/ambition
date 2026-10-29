@@ -64,6 +64,7 @@ fn drawn(app: &App, body: Entity) -> (Vec3, f32, Srgba) {
 #[test]
 fn a_body_drawn_as_a_feature_takes_its_passage_look() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, apply_passage_looks);
     app.insert_resource(ActorAnimIndex::from_rows([("npc".to_string(), frame(Some(LOOK)))]));
     app.insert_resource(FeatureViewIndex::from_rows([("npc".to_string(), actor_view(40.0))]));
@@ -90,6 +91,7 @@ fn a_body_drawn_as_a_feature_takes_its_passage_look() {
 #[test]
 fn a_player_body_takes_its_passage_look() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, apply_passage_looks);
     let pose = ambition_sim_view::BodyPoseView { size: ae::Vec2::new(20.0, 40.0), ..Default::default() };
     let body = app
@@ -109,6 +111,7 @@ fn a_player_body_takes_its_passage_look() {
 fn a_feature_body_its_passage_fades_is_declared_as_one_image() {
     use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<ComposedBodyDemand>();
     app.add_systems(Update, declare_passage_fade_demand);
     let opaque = PassageLookView { alpha: 1.0, ..LOOK };
@@ -277,6 +280,7 @@ fn a_themed_door_restores_the_current_theme_image() {
 
 fn door_test_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
     app.init_asset::<Image>();
     app.init_asset::<TextureAtlasLayout>();
@@ -313,14 +317,16 @@ fn put_strip_image(app: &mut App, strip: &Handle<Image>) {
 }
 
 fn add_door_art_catalog(app: &mut App) {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     use ambition_asset_manager::{platformer_assets::Platformer2dAssetCatalog, AmbitionAssetCatalog, AssetProfile};
-    use ambition_sprite_sheet::game_assets::{load_entity_sprites, sandbox_image_manifest, GameAssets};
+    use ambition_sprite_sheet::game_assets::{load_entity_sprites, GameAssets};
 
     let catalog = Platformer2dAssetCatalog::new(
-        AmbitionAssetCatalog::new(sandbox_image_manifest("sprites")),
+        AmbitionAssetCatalog::new(ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap()),
         AssetProfile::AndroidBundle,
-    );
+    ).with_libraries(&ambition_sprite_sheet::test_support::shared_libraries()).unwrap();
     let assets = app.world().resource::<AssetServer>().clone();
-    let entities = load_entity_sprites(&catalog, &assets, None);
+    let entities = load_entity_sprites(&sprite_content, &catalog, &assets, None);
     app.insert_resource(GameAssets { entities, ..Default::default() });
 }

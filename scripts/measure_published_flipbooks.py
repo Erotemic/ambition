@@ -44,7 +44,7 @@ from ambition_sprite2d_renderer.authoring.part_flipbook import (  # noqa: E402
     parity,
 )
 
-SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
 PARITY_BOUND = 0.01
 BLOB_BOUND = 6
 SNAPPED_TOLERANCE = {"threshold": 8, "radius": 0}

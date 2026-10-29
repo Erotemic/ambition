@@ -297,8 +297,8 @@ impl Loop {
 /// How long one pass of `anim` takes on a form's sheet — the same question the
 /// demo asks the art, asked here independently so the beat is checked against
 /// the ART rather than against the number the demo happened to write down.
-fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
-    try_load_spec_for_target(sheet_target, &SheetTuning::default())
+fn clip_secs(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sheet_target: &str, anim: CharacterAnim) -> f32 {
+    try_load_spec_for_target(&sprite_content, sheet_target, &SheetTuning::default())
         .unwrap_or_else(|| panic!("{sheet_target} publishes a sheet manifest"))
         .clip_seconds(anim)
 }
@@ -315,6 +315,7 @@ fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
 
 #[test]
 fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut game = Loop::new();
 
     // --- small -> grown: the growth flicker, on the sheet she becomes --------
@@ -332,7 +333,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         grow.clock_scale < 1.0,
         "a step UP asks the regime to slow the world for the moment"
     );
-    let grow_clip = clip_secs("mary_o_v2_tall", CharacterAnim::Grow);
+    let grow_clip = clip_secs(&sprite_content, "mary_o_v2_tall", CharacterAnim::Grow);
     assert!(
         grow.duration * grow.clock_scale >= grow_clip - 1e-4,
         "the beat must outlast its own dilation: {:.3}s of wall time at {:.2}x \
@@ -360,7 +361,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     assert_eq!(game.worn_character(), FIRE_ID);
     let (transform, _) = game.requested_beat();
     assert_eq!(transform.anim, CharacterAnim::Transform);
-    let transform_clip = clip_secs("mary_o_v2_fire", CharacterAnim::Transform);
+    let transform_clip = clip_secs(&sprite_content, "mary_o_v2_fire", CharacterAnim::Transform);
     assert!(
         transform.duration * transform.clock_scale >= transform_clip - 1e-4,
         "the fire transformation is cut short: {:.3}s of wall time at {:.2}x \
@@ -400,7 +401,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         "the beat is the hitstun window she had none of"
     );
     assert!(
-        shrink.duration >= clip_secs("mary_o_v2_tall", CharacterAnim::Shrink) - 1e-4,
+        shrink.duration >= clip_secs(&sprite_content, "mary_o_v2_tall", CharacterAnim::Shrink) - 1e-4,
         "and it lasts as long as the clip"
     );
 
@@ -409,7 +410,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     assert_eq!(game.worn_character(), MARY_O_CHARACTER_ID);
     let (small, _) = game.requested_beat();
     assert_eq!(small.anim, CharacterAnim::Shrink);
-    assert!(small.duration >= clip_secs("mary_o_v2", CharacterAnim::Shrink) - 1e-4);
+    assert!(small.duration >= clip_secs(&sprite_content, "mary_o_v2", CharacterAnim::Shrink) - 1e-4);
 }
 
 /// The transition clips are on the sheets, and they are their OWN rows.
@@ -421,8 +422,9 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
 /// after the beat had already finished playing it.
 #[test]
 fn each_mary_o_sheet_publishes_the_transitions_that_arrive_at_it() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let sheet = |target: &str| {
-        try_load_spec_for_target(target, &SheetTuning::default())
+        try_load_spec_for_target(&sprite_content, target, &SheetTuning::default())
             .unwrap_or_else(|| panic!("{target} publishes a sheet manifest"))
     };
 
@@ -625,6 +627,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::actors::body::apply_feature_hit_events;
 use ambition_platformer2d::actor::spawn_encounter_mob;
     use ambition_platformer2d::combat::components::ActorIdentity;
@@ -718,7 +721,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
-        spawn_encounter_mob(
+        spawn_encounter_mob(&sprite_content,
             &mut commands,
             &catalog,
             &Default::default(),
@@ -801,6 +804,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
 /// A stomp SHELLS a snake — it never kills it.
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
@@ -860,7 +864,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
-        spawn_encounter_mob(
+        spawn_encounter_mob(&sprite_content,
             &mut commands,
             &catalog,
             &Default::default(),
@@ -980,6 +984,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 /// shell and bounces you, proven in the pure state-machine tests.)
 #[test]
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::combat::components::ActorIdentity;
@@ -1047,7 +1052,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
-        spawn_encounter_mob(
+        spawn_encounter_mob(&sprite_content,
             &mut commands,
             &catalog,
             &Default::default(),
@@ -1114,6 +1119,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 /// A DEAD snake leaves the shell machine — no invisible hits.
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::BodyHealth;
@@ -1179,7 +1185,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
             .cloned()
             .unwrap_or_default();
         let mut commands = world.commands();
-        spawn_encounter_mob(
+        spawn_encounter_mob(&sprite_content,
             &mut commands,
             &catalog,
             &Default::default(),

@@ -21,6 +21,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// speed and assist, which is exactly what this test asserts alongside it.
 #[test]
 fn the_admirals_side_b_fires_the_gun_swords_discharge() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let SideB {
         visual,
         damage,
@@ -34,7 +35,7 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
         shot_half_height,
         tick_flight,
         ..
-    } = fire_the_side_b(false);
+    } = fire_the_side_b(&sprite_content, false);
 
     assert_eq!(
         visual, "lasersword",
@@ -154,7 +155,7 @@ fn lifted_off_the_line(
     -(offset - direction * direction.dot(offset)).y
 }
 
-fn fire_the_side_b(admit_rigs: bool) -> SideB {
+fn fire_the_side_b(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, admit_rigs: bool) -> SideB {
     use ambition_platformer2d::actor::MatchSeat;
     use bevy::prelude::*;
 
@@ -250,7 +251,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         let world = app.world();
         let kin = world.get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)?;
         let quad = world.get::<ambition_platformer2d::combat::components::ActorRenderSize>(admiral)?;
-        let frame_height = RiggedSpriteAsset::baked(SHEET)?.frame_size.y as f32;
+        let frame_height = RiggedSpriteAsset::baked(&sprite_content, SHEET)?.frame_size.y as f32;
         Some(
             crate::a_hand_muzzle_fires_from_the_drawn_hand::drawn_hand_this_tick(
                 world,
@@ -418,6 +419,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
 /// the muzzle, and the muzzle is `ahead` past the hand: the band is those two.
 #[test]
 fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let SideB {
         origin,
         direction,
@@ -428,7 +430,7 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
         rigged,
         tick_flight,
         ..
-    } = fire_the_side_b(true);
+    } = fire_the_side_b(&sprite_content, true);
     assert!(
         rigged,
         "the rig trial is on and the admiral wears no rig: `pirate_admiral_body_rig.ron` is a \

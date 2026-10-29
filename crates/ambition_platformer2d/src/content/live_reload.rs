@@ -280,6 +280,8 @@ impl CastReload {
     /// last publication built. Returns the rows built now, or `None` when the
     /// cast did not change.
     fn restage(&self, world: &mut World, pack: &PreparedContentPack, built: &[String]) -> Result<Option<Vec<String>>, String> {
+
+    let sprite_content = world.resource::<ambition_sprite_sheet::SpriteContent>().clone();
         use ambition_characters::actor::character_catalog::{lowered_catalog, CharacterCatalogRegistry};
         use ambition_characters::prepared::{
             publish_admitted_revision, stage_character_revision_in, take_admitted_revision_with_catalog,
@@ -310,8 +312,8 @@ impl CastReload {
             .map(|id| ambition_entity_catalog::CharacterId::new(id.as_str()))
             .collect();
         let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
-        for definition in super::cast_definitions(pack, catalog, &self.provider, &self.carried, rigs_admitted) {
-            let bindings = crate::assets::materialization::definition::with_engine_vocabularies(CharacterBindings::default());
+        for definition in super::cast_definitions(&sprite_content, pack, catalog, &self.provider, &self.carried, rigs_admitted) {
+            let bindings = crate::assets::materialization::definition::with_engine_vocabularies(&sprite_content, CharacterBindings::default());
             if let Err(problem) = stage_character_revision_in(world, definition, &bindings) {
                 // Nothing of this revision stays staged for a later one.
                 world.remove_resource::<StagedCastRevision>();
@@ -694,6 +696,7 @@ mod tests {
 
     fn app_watching(pack: &'static EmbeddedPack, live: &'static [&'static str]) -> App {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<crate::actor::ActiveSessionScope>();
         app.add_plugins(EmbeddedPackReloadPlugin { pack, live, restated: Vec::new() });
         app
@@ -799,6 +802,7 @@ mod tests {
     fn a_restated_schema_is_stated_again_from_the_published_generation() {
         let (pack, root) = pack_with_rules("restated", "(heavy_hit_damage: Some(12))");
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<crate::actor::ActiveSessionScope>();
         app.add_plugins(EmbeddedPackReloadPlugin {
             pack,
@@ -829,6 +833,7 @@ mod tests {
         let (pack, root) = pack_with_rules("room_rules_restater", "(heavy_hit_damage: Some(12))");
         let scope = RulesScope::Mode("probe_mode");
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(EmbeddedPackReloadPlugin::room_rules(pack, scope));
         let mut declared = DeclaredRules::<StrikeWeightRules>::default();
         declared.declare(scope, heavy(pack.prepared()).strike_weight.expect("the probe states a heavy line"));
@@ -862,6 +867,7 @@ mod tests {
         let (pack, root) = pack_with("ladder_restater", "data/fighter_brain_ladder.ron", "fighter_brain_ladder", &shipped);
         let scope = RulesScope::Mode("probe_mode");
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(EmbeddedPackReloadPlugin::fighter_ladder(pack, scope));
         let mut declared = DeclaredRules::<FighterBrainLadder>::default();
         declared.declare(scope, lowered_fighter_brain_ladder(pack.prepared()).cloned().expect("the probe states a ladder"));
@@ -914,6 +920,7 @@ mod tests {
             r#"{ "probe_prop": (frame_sample_inset: 2), "probe_other": () }"#,
         );
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.register_prop_sheet_rows(&rows_of(pack.prepared()));
         let (foreign, foreign_root) = pack_with("owned_rows_foreign", "data/prop_sheets.ron", "prop_sheets", r#"{ "foreign_prop": () }"#);
         app.register_prop_sheet_rows(&rows_of(foreign.prepared()));
@@ -933,6 +940,7 @@ mod tests {
         save_and_look(&mut app, &file, r#"{ "probe_prop": (frame_sample_inset: 5), "probe_new": () }"#);
         assert_eq!(kinds(&app), ["foreign_prop", "probe_new", "probe_prop"]);
         let mut authority = App::new();
+        authority.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         authority.register_prop_sheet_rows(&rows_of(&EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap()));
         assert_eq!(source_of(&app, "probe_prop"), source_of(&authority, "probe_prop"), "the row is the saved file's");
         assert_ne!(source_of(&app, "probe_prop"), source_of(&{
@@ -970,6 +978,7 @@ mod tests {
             r#"[(id: "probe_scene", beats: [Wait(seconds: 0.5)])]"#,
         );
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<CutsceneLibrary>();
         {
             let mut library = app.world_mut().resource_mut::<CutsceneLibrary>();
@@ -1017,6 +1026,7 @@ mod tests {
             r#"(default_track: "host_theme", tracks: [(id: "host_theme", display_name: "Host Theme")])"#,
         );
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<crate::actor::ActiveSessionScope>();
         app.register_audio_catalog_fragment(pack.audio("probe"));
         app.register_audio_catalog_fragment(host.audio("host"));
@@ -1055,6 +1065,7 @@ mod tests {
             r#"{ "probe_wand": (path: "sprites/props/probe_wand.png", size: (24.0, 31.0)), "probe_orb": (path: "sprites/props/probe_orb.png", size: (8.0, 8.0)) }"#,
         );
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.register_world_item_art(pack.world_item_art());
         app.register_world_item_art([WorldItemArtEntry::new("host_key", "sprites/props/key.png", bevy::math::Vec2::new(16.0, 16.0))]);
         app.add_plugins(EmbeddedPackReloadPlugin::world_item_art(pack));
@@ -1124,6 +1135,7 @@ mod tests {
         let pack: &'static EmbeddedPack = Box::leak(Box::new(EmbeddedPack::rooted(leaked_root, None)));
 
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.init_resource::<crate::actor::ActiveSessionScope>();
         app.init_resource::<crate::combat::technique::InstalledTechniques>();
         pack.cast("probe", None).register(&mut app);

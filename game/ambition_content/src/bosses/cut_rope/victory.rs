@@ -18,7 +18,7 @@ use super::*;
 /// hand, so no session owned it: it was in the world at the title after its
 /// session ended, and the next session had the same entity. Held by
 /// `shell_host_lifecycle::the_victory_npc_of_a_cleared_boss_ends_with_its_session`.
-pub fn spawn_cut_rope_victory_npc(
+pub fn spawn_cut_rope_victory_npc(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands,
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
@@ -90,7 +90,7 @@ pub fn spawn_cut_rope_victory_npc(
         let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
         let npc = &tuning.0.cut_rope_victory;
         let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - npc.height * 0.5);
-        spawn_victory_npc_entity(
+        spawn_victory_npc_entity(&sprite_content,
             &mut commands,
             session_scope.in_room(Some(room)),
             &character_catalog,
@@ -101,7 +101,7 @@ pub fn spawn_cut_rope_victory_npc(
     }
 }
 
-fn spawn_victory_npc_entity(
+fn spawn_victory_npc_entity(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -127,7 +127,7 @@ fn spawn_victory_npc_entity(
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
     let mut seed =
-        ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
+        ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
             authored_sheets,
             character_catalog,
             // The victory NPC names no character, so nothing here can be decided by

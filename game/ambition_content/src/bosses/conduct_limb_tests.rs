@@ -13,12 +13,12 @@ use bevy::prelude::*;
 const BEHAVIOUR: &str = "flying_spaghetti_monster";
 
 /// A boss in `phase`, riding a mount whose left hand is a fist of 10 health.
-fn rider(phase: BossEncounterPhase) -> (World, Entity, Entity) {
+fn rider(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, phase: BossEncounterPhase) -> (World, Entity, Entity) {
     let mut world = World::new();
     let fist = world.spawn(BodyHealth::new(Health::new(10))).id();
     let mount = world.spawn(LimbRig::from_pairs([(LimbSlot::HAND_LEFT, fist)])).id();
-    let catalog = crate::bosses::shipped_boss_catalog();
-    let mut boss = BossClusterScratch::new(
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
+    let mut boss = BossClusterScratch::new(&sprite_content,
         &catalog,
         "fsm_placement",
         "Flying Spaghetti Monster",
@@ -46,7 +46,8 @@ fn closed(world: &World, fist: Entity) -> bool {
 /// slot the rig does not have changes nothing.
 #[test]
 fn a_limb_opening_sets_the_fist_scripted_refusal() {
-    let (mut world, boss, fist) = rider(BossEncounterPhase::Phase1);
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let (mut world, boss, fist) = rider(&sprite_content, BossEncounterPhase::Phase1);
     let open = |slot: &str, open: bool| LimbOpening { slot: slot.into(), open };
     world.run_system_once_with(open_limbs, submitted(boss, open("hand_right", false))).unwrap();
     assert!(!closed(&world, fist), "another slot closed the fist");
@@ -62,11 +63,12 @@ fn a_limb_opening_sets_the_fist_scripted_refusal() {
 /// ends its encounter.
 #[test]
 fn a_limb_blow_heals_the_fist_and_hurts_the_boss_once() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let blow = |pass: bool| LimbBlow { slot: "hand_left".into(), pass };
     let fist_health = |world: &World, fist: Entity| world.get::<BodyHealth>(fist).unwrap().current();
     let boss_health = |world: &World, boss: Entity| world.get::<BodyHealth>(boss).unwrap().current();
 
-    let (mut world, boss, fist) = rider(BossEncounterPhase::Phase1);
+    let (mut world, boss, fist) = rider(&sprite_content, BossEncounterPhase::Phase1);
     let full = boss_health(&world, boss);
     world.get_mut::<BodyHealth>(fist).unwrap().damage(4);
     world.run_system_once_with(pass_limb_blows, submitted(boss, blow(true))).unwrap();
@@ -78,13 +80,13 @@ fn a_limb_blow_heals_the_fist_and_hurts_the_boss_once() {
     world.run_system_once_with(pass_limb_blows, submitted(boss, blow(false))).unwrap();
     assert_eq!((fist_health(&world, fist), boss_health(&world, boss)), (10, full - 4), "a blow not passed on only heals");
 
-    let (mut world, boss, fist) = rider(BossEncounterPhase::Intro);
+    let (mut world, boss, fist) = rider(&sprite_content, BossEncounterPhase::Intro);
     world.get_mut::<BodyHealth>(fist).unwrap().damage(4);
     world.run_system_once_with(pass_limb_blows, submitted(boss, blow(true))).unwrap();
     assert_eq!((fist_health(&world, fist), boss_health(&world, boss)), (10, full), "a boss in its intro refuses the blow");
     assert_eq!(world.get::<BodyCombat>(boss).unwrap().hit_flash, 0.0);
 
-    let (mut world, boss, fist) = rider(BossEncounterPhase::Phase1);
+    let (mut world, boss, fist) = rider(&sprite_content, BossEncounterPhase::Phase1);
     world.get_mut::<BodyHealth>(boss).unwrap().health.current = 3;
     world.get_mut::<BodyHealth>(fist).unwrap().damage(4);
     world.run_system_once_with(pass_limb_blows, submitted(boss, blow(true))).unwrap();

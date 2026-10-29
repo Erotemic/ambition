@@ -54,7 +54,7 @@ fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
 }
 
 fn settle_to_launcher(app: &mut App) {
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) * 2 {
         app.update();
         if app
             .world()

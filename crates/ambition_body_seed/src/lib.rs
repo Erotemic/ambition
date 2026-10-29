@@ -162,14 +162,14 @@ pub struct ActorClusterSeed {
 
 /// The death beat of a body that wears `sheet`: as long as the sheet's `death`
 /// row plays.
-fn death_beat_of(
+fn death_beat_of(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     sheet: Option<&str>,
 ) -> ambition_combat::components::DeathBeat {
     let record = sheet.and_then(|sheet| {
         authored
             .get(sheet)
-            .or_else(|| ambition_sprite_sheet::character::sheets::record_for_sheet_key(sheet))
+            .or_else(|| ambition_sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, sheet))
     });
     ambition_combat::components::DeathBeat::with_row(record.and_then(|record| record.row_seconds("death")))
 }
@@ -192,7 +192,7 @@ struct BuiltGeometry {
 }
 
 impl BuiltGeometry {
-    fn resolve(
+    fn resolve(sprite_content: &ambition_sprite_sheet::SpriteContent,
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         body: Option<&ambition_characters::actor::definition::BodySource>,
         sheet: Option<&str>,
@@ -206,7 +206,7 @@ impl BuiltGeometry {
                     world_per_pixel,
                 }),
                 Some(sheet),
-            ) => ambition_sprite_sheet::character::sheets::posed_body_geometry(
+            ) => ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
                 sheet,
                 ambition_sprite_sheet::character::CharacterAnim::Idle,
                 *world_per_pixel,
@@ -221,7 +221,7 @@ impl BuiltGeometry {
             };
         }
         let sized = sheet.zip(sizing).and_then(|(sheet, sizing)| {
-            ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_sheet(
+            ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_sheet(&sprite_content,
                 authored, sheet, sizing, placement,
             )
         });
@@ -342,7 +342,7 @@ impl ActorClusterSeed {
     /// the archetype path), so callers — including the content crate — need no
     /// `ArchetypeSpec`. Returns the seed plus the optional sprite render size
     /// Build a peaceful actor from the caller's App-local character catalog.
-    pub fn new_peaceful_npc_in(
+    pub fn new_peaceful_npc_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         // The prepared cast, so this road can ask the CHARACTER whether it
@@ -397,7 +397,7 @@ impl ActorClusterSeed {
         // A character that authors its body is sized from it, as on the
         // blueprint road: the same resolution the live pose pass uses.
         let prepared_character = character_id.and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)));
-        let geometry = BuiltGeometry::resolve(
+        let geometry = BuiltGeometry::resolve(&sprite_content,
             authored,
             prepared_character.and_then(|character| character.body.as_ref()),
             prepared_character.and_then(|character| character.sheet.as_deref()),
@@ -428,7 +428,7 @@ impl ActorClusterSeed {
         // `sanic` (who authors one hit point and no locomotion) with the
         // unauthored default of 4, and left the persona derive to correct it a
         // tick later. The same holds for the weight and the death traits below.
-        let physical = prepared_character.map(crate::PhysicalBaseline::of);
+        let physical = prepared_character.map(|prepared| crate::PhysicalBaseline::of(&sprite_content, prepared));
         let max_health = physical.map_or(
             ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
             |physical| {
@@ -481,7 +481,7 @@ impl ActorClusterSeed {
         // the SAME constructor the authored-enemy road and the match seat use.
         // What stays here is the part that is genuinely about the PLACEMENT.
         if let Some(body) = authored_body {
-            let mut seed = Self::new_character_in(
+            let mut seed = Self::new_character_in(&sprite_content,
                 authored,
                 catalog,
                 id,
@@ -582,7 +582,7 @@ impl ActorClusterSeed {
                 .map(ambition_combat::CombatCapabilities::from)
                 .unwrap_or_default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
-            death_beat: death_beat_of(authored, prepared_character.and_then(|character| character.sheet.as_deref())),
+            death_beat: death_beat_of(&sprite_content, authored, prepared_character.and_then(|character| character.sheet.as_deref())),
             // Resolved above when the character authors a sprite body; `None`
             // for a placement whose character states no `BodySource`.
             posed,
@@ -608,7 +608,7 @@ impl ActorClusterSeed {
     /// definition, so they are stated here, once, where a match
     /// can see them, rather than borrowed from whichever archetype a seat
     /// happened to name. Each becomes a character fact as its field lands.
-    pub fn new_character_in(
+    pub fn new_character_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         id: impl Into<String>,
@@ -661,7 +661,7 @@ impl ActorClusterSeed {
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
         // spawned.
-        let geometry = BuiltGeometry::resolve(authored, body_source, sheet, sheet_sizing.as_ref(), aabb);
+        let geometry = BuiltGeometry::resolve(&sprite_content, authored, body_source, sheet, sheet_sizing.as_ref(), aabb);
         let collision_size = geometry.collision;
         // ASKED ONCE, AT PREPARATION. This read
         // `locomotion.baseline_free_flight || catalog.body_kind(character_id) == Floating` — a
@@ -803,7 +803,7 @@ impl ActorClusterSeed {
             // than re-derived — see the field's own note.
             posed: geometry.posed,
             render_size: geometry.render,
-            death_beat: death_beat_of(authored, sheet),
+            death_beat: death_beat_of(&sprite_content, authored, sheet),
         }
     }
     pub fn into_components(self) -> ActorClusterBundle {
@@ -889,7 +889,7 @@ impl ActorClusterSeed {
     ///
     /// The numbers here are the ones the deleted `combatant` row carried, so a
     /// test that did not care which row it got sees the body it always saw.
-    pub fn new(
+    pub fn new(sprite_content: &ambition_sprite_sheet::SpriteContent,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
@@ -897,7 +897,7 @@ impl ActorClusterSeed {
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
         let name: String = name.into();
-        Self::new_character_in(
+        Self::new_character_in(&sprite_content,
             &Default::default(),
             &CharacterCatalog::empty(),
             id,
@@ -909,14 +909,14 @@ impl ActorClusterSeed {
     }
 
     /// Content-free peaceful-NPC constructor for unit tests.    /// Content-free peaceful-NPC constructor for unit tests.
-    pub fn new_peaceful_npc(
+    pub fn new_peaceful_npc(sprite_content: &ambition_sprite_sheet::SpriteContent,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
         interactable: &ambition_interaction::Interactable,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
-        Self::new_peaceful_npc_in(
+        Self::new_peaceful_npc_in(&sprite_content,
             // A content-free constructor has no providers, so no authored
             // sheets — the empty registry is the honest value, not a stand-in.
             &Default::default(),
@@ -980,6 +980,7 @@ mod tests {
     /// assertion cannot see that.
     #[test]
     fn a_characters_authored_projectile_art_reaches_its_tuning() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(
                 "(autonomous_profiles: {}, brain_presets: {}, action_set_presets: {}, characters: {})",
@@ -996,7 +997,7 @@ mod tests {
                 false,
             );
             blueprint.ranged_vfx = vfx;
-            ActorClusterSeed::new_character_in(
+            ActorClusterSeed::new_character_in(&sprite_content,
                 &authored,
                 &catalog,
                 "gunner",
@@ -1042,6 +1043,7 @@ mod tests {
     /// constructor that still asks it finds nothing and builds the placement box.
     #[test]
     fn a_body_is_sized_from_the_sheet_its_prepared_character_wears() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         const SHEET: &str = "robot";
         let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let sizing = ambition_characters::prepared::SheetSizing {
@@ -1059,7 +1061,7 @@ mod tests {
         );
         blueprint.sheet = Some(SHEET);
         blueprint.sheet_sizing = Some(sizing);
-        let seed = ActorClusterSeed::new_character_in(
+        let seed = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
             &CharacterCatalog::empty(),
             "sheet_worn",
@@ -1069,7 +1071,7 @@ mod tests {
             &[],
         );
 
-        let from_the_sheet = ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_sheet(
+        let from_the_sheet = ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_sheet(&sprite_content,
             &authored,
             SHEET,
             &sizing,
@@ -1090,6 +1092,7 @@ mod tests {
 
     #[test]
     fn a_sprite_authored_body_is_constructed_from_its_sheet() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         const SHEET: &str = "robot";
         const WORLD_PER_PIXEL: f32 = 0.5;
 
@@ -1110,7 +1113,7 @@ mod tests {
             );
             blueprint.body = body;
             blueprint.sheet = Some(SHEET);
-            ActorClusterSeed::new_character_in(
+            ActorClusterSeed::new_character_in(&sprite_content,
                 &authored,
                 &catalog,
                 "sheet_body",
@@ -1121,7 +1124,7 @@ mod tests {
             )
         };
 
-        let from_the_sheet = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+        let from_the_sheet = ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
             SHEET,
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             WORLD_PER_PIXEL,
@@ -1192,7 +1195,7 @@ mod tests {
             action_set_presets: { "peaceful": (move_style: Walk) },
             characters: {
                 "tin_man": (
-                    display_name: "Tin Man", 
+                    display_name: "Tin Man",
                     manifest: "tin_spritesheet.ron", tier: MainHall,
                     body_kind: Standard, composition: None,
                     default_brain: "idle", default_action_set: "peaceful",
@@ -1200,7 +1203,7 @@ mod tests {
                     barks: (),
                 ),
                 "ogre": (
-                    display_name: "Ogre", 
+                    display_name: "Ogre",
                     manifest: "ogre_spritesheet.ron", tier: MainHall,
                     body_kind: Standard, composition: None,
                     default_brain: "idle", default_action_set: "peaceful",
@@ -1232,6 +1235,7 @@ mod tests {
     /// constructor that substitutes defaults cannot pass by coincidence.
     #[test]
     fn a_character_first_body_paces_and_targets_by_its_profile() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         const CATALOG: &str = r#"(
             brain_presets: { "idle": StandStill },
             action_set_presets: { "peaceful": (move_style: Walk) },
@@ -1250,7 +1254,7 @@ mod tests {
             chase_effort: 0.75,
             ..Default::default()
         };
-        let seed = ActorClusterSeed::new_character_in(
+        let seed = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
             &catalog,
             "gnu",
@@ -1275,7 +1279,7 @@ mod tests {
 
         // An authored ZERO is a speed. A stationary mount that says so must
         // not be handed the stage's sprinter default.
-        let still = ActorClusterSeed::new_character_in(
+        let still = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
             &catalog,
             "gnu",
@@ -1300,7 +1304,7 @@ mod tests {
             "an ordinary body is not a practice target"
         );
 
-        let dummy = ActorClusterSeed::new_character_in(
+        let dummy = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
             &catalog,
             "dummy",
@@ -1335,6 +1339,7 @@ mod tests {
     /// on a patrol path is a dummy that walks away from whoever is practising.
     #[test]
     fn a_character_first_body_walks_the_patrol_path_its_placement_names() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let catalog = CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(
                 r#"(brain_presets: {}, action_set_presets: {}, characters: {})"#,
@@ -1350,7 +1355,7 @@ mod tests {
             ),
         )];
         let seed = |practice_target: bool| {
-            ActorClusterSeed::new_character_in(
+            ActorClusterSeed::new_character_in(&sprite_content,
                 &authored,
                 &catalog,
                 "slug",
@@ -1456,6 +1461,7 @@ mod tests {
     /// ⚠ THE EDIT THAT MAKES THIS FALSE is handing that fallthrough any default.
     #[test]
     fn an_anonymous_npc_is_built_with_no_abilities() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let aabb = ae::Aabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(8.0, 12.0));
         let interactable = ambition_interaction::Interactable::new(
             "anonymous".to_string(),
@@ -1470,7 +1476,7 @@ mod tests {
             },
         );
         let seed =
-            ActorClusterSeed::new_peaceful_npc("anonymous", "Anonymous", aabb, &interactable, &[]);
+            ActorClusterSeed::new_peaceful_npc(&sprite_content, "anonymous", "Anonymous", aabb, &interactable, &[]);
         let built = seed.body.0.abilities.abilities;
         assert_eq!(
             built,

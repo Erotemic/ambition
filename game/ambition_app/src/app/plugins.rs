@@ -265,19 +265,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(ambition_platformer2d::render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
-    app.add_plugins(ambition_platformer2d::sprite_sheet::SheetRegistryPlugin);
-    // It records every target a later manifest took from an earlier one with a different frame
-    // grid, and reports the count once; deciding which of those MATTER needs to know which targets
-    // something resolves art by, and that is a catalog fact. This is the caller that owns both, so
-    // the filter lives here. `PostStartup`, and `Startup` was a CHECK THAT COULD NOT FIRE.
-    // `init_sheet_registry` is itself a `Startup` system, and Startup systems are UNORDERED — so
-    // this ran with `Res<SheetRegistry>` absent, took the `else { return; }` on its `Option`, and
-    // said nothing on every route. Measured: instrumented to print one line per shadowed target, it
-    // printed ZERO on both `mary_o_gameplay` and `ambition_gameplay` while the registry itself was
-    // logging 39 shadowed targets in the same boot. its silence therefore meant "I did not run",
-    // and read as "nothing collides" — which is what a report that can only ever be empty always
-    // reads as.
-    app.add_systems(bevy::prelude::PostStartup, report_shadowed_character_sheets);
+    app.add_plugins(ambition_platformer2d::sprite_sheet::SpriteContentPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     // No UI-widget-framework plugin is installed here, and there is no `add_ui_plugins` to
     // call. This app's UI is plain Bevy UI plus the typography Ambition owns (`MenuFont`, and
@@ -761,46 +749,5 @@ pub struct AmbitionGamePresentationPlugin;
 impl Plugin for AmbitionGamePresentationPlugin {
     fn build(&self, app: &mut App) {
         add_presentation_plugins(app);
-    }
-}
-
-/// Warn if a character resolves a sheet filename shadowed by another grid.
-///
-/// Sheet keys are file roots, not rig target names. A filename collision
-/// matters when the character catalog points to the losing image while
-/// the registry resolves the winning grid. Compositions without a cast
-/// or sheet registry have nothing to check.
-fn report_shadowed_character_sheets(
-    registry: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SheetRegistry>>,
-    catalog: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-        >,
-    >,
-) {
-    let (Some(registry), Some(catalog)) = (registry, catalog) else {
-        return;
-    };
-    for shadowed in registry.shadowed_targets() {
-        // Is this key one a CHARACTER resolves art by?
-        let Some(entry) = catalog.get(&shadowed.target) else {
-            continue;
-        };
-        // "The record this character names is the loser" — a question only the
-        // pair (catalog entry, ShadowedTarget) can answer. A character whose
-        // sheet WON the key is fine; it is the loser that loads one image and
-        // crops it with the winner's grid.
-        let names_the_loser = std::path::Path::new(&entry.spritesheet())
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| {
-                std::path::Path::new(&shadowed.loser_image)
-                    .file_name()
-                    .and_then(|loser| loser.to_str())
-                    == Some(name)
-            });
-        if names_the_loser {
-            bevy::log::warn!("SheetRegistry: {shadowed}");
-        }
     }
 }

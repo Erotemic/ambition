@@ -401,7 +401,7 @@ pub(crate) fn realized_character_count(tokens: &[String], assets: &GameAssets) -
 /// All that is left here is naming what this room stages, which is content knowledge the host
 /// legitimately has.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn demand_room_character_sheets(
+pub(crate) fn demand_room_character_sheets(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &mut GameAssets,
@@ -459,7 +459,7 @@ pub(crate) fn demand_room_character_sheets(
         .filter(|id| wanted.contains(id))
         .collect();
     demand.request_all(retired_but_wanted.iter().map(String::as_str));
-    ambition_platformer2d::assets::materialization::materialize_character_demand(
+    ambition_platformer2d::assets::materialization::materialize_character_demand(&sprite_content,
         &mut demand,
         states,
         &mut assets.characters,
@@ -640,7 +640,7 @@ fn add_room_specific_sprites(
 /// concrete handle exists, it is activation-critical: it must load successfully
 /// before reveal, and a failed load fails the room transaction while the source
 /// room remains authoritative.
-pub(crate) fn build_room_asset_manifest(
+pub(crate) fn build_room_asset_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &mut GameAssets,
@@ -655,7 +655,7 @@ pub(crate) fn build_room_asset_manifest(
     worn: &[String],
     retire_all_but: Option<&RoomResidencyOwners>,
 ) -> RoomAssetManifest {
-    ensure_parallax_layers_for_room(
+    ensure_parallax_layers_for_room(&sprite_content,
         assets,
         catalog,
         asset_server,
@@ -672,7 +672,7 @@ pub(crate) fn build_room_asset_manifest(
                 room,
                 boss_catalog,
             );
-            ambition_platformer2d::game_assets::ensure_boss_sheets_loaded(
+            ambition_platformer2d::game_assets::ensure_boss_sheets_loaded(&sprite_content,
                 assets,
                 boss_catalog,
                 Some(&keys),
@@ -683,7 +683,7 @@ pub(crate) fn build_room_asset_manifest(
             );
         }
     }
-    demand_room_character_sheets(
+    demand_room_character_sheets(&sprite_content,
         room,
         staged_actor_names,
         assets,
@@ -962,7 +962,7 @@ pub(crate) fn a_transition_is_active(transitions: Res<RoomTransitionLoadState>) 
     transitions.active.is_some()
 }
 
-pub(crate) fn contribute_room_transition_assets_system(
+pub(crate) fn contribute_room_transition_assets_system(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     room_set: SessionWorldRef<RoomSet>,
     mut transitions: ResMut<RoomTransitionLoadState>,
     mut contributed: ResMut<ContributedRoomAssets>,
@@ -1042,7 +1042,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         &worn,
         claimed.iter().map(String::as_str),
     );
-    let manifest = build_room_asset_manifest(
+    let manifest = build_room_asset_manifest(&sprite_content,
         target_spec,
         &active.staged_actor_names,
         assets,
@@ -1517,6 +1517,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.entries.clear();
         return;
     };
+    let sprite_content = mechanics.sprite_content();
     let rooms = room_set.rooms();
     // Sorted, and each definition one time: the order divides the budget, so
     // it must not come from the order of a query.
@@ -1730,7 +1731,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // protected where the hitch happens: the per-frame upload budget
         // (`host::render_asset_budget`). Until 2026-10-04 it realized one
         // character (the start ration's worth) and left the rest for the door.
-        let manifest = build_room_asset_manifest(
+        let manifest = build_room_asset_manifest(&sprite_content,
             room,
             &staged_names,
             &mut assets,
@@ -1942,7 +1943,7 @@ mod tests {
     /// `pages_named` is how many page images the sheet declares; `frame_pages`
     /// is which pages its frame rects actually sample. The two differ for a
     /// sparse pack — the whole reason `used_pages()` exists.
-    fn a_synthetic_spec(
+    fn a_synthetic_spec(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
         pages_named: usize,
         frame_pages: &[u32],
     ) -> ambition_platformer2d::sprite_sheet::character::sheets::CharacterSheetSpec {
@@ -1980,13 +1981,13 @@ mod tests {
         authored
             .insert_ron(target, &ron)
             .expect("the synthetic sheet parses");
-        try_load_spec_for_target_authored(&authored, target, &SheetTuning::new(1.0, 1))
+        try_load_spec_for_target_authored(&sprite_content, &authored, target, &SheetTuning::new(1.0, 1))
             .expect("the synthetic sheet resolves to a spec")
     }
 
     /// A room staging one character whose realization is `pages`, built through
     /// the real manifest builder.
-    fn a_room_manifest_staging(
+    fn a_room_manifest_staging(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
         pages: Vec<ambition_platformer2d::sprite_sheet::character::CharacterSpritePage>,
         spec: ambition_platformer2d::sprite_sheet::character::sheets::CharacterSheetSpec,
     ) -> RoomAssetManifest {
@@ -2007,7 +2008,7 @@ mod tests {
         };
         let mut assets = GameAssets::default();
         assets.characters.declare("d153_fighter");
-        assets.characters.publish("d153_fighter", asset);
+        assets.characters.publish(&sprite_content, "d153_fighter", asset);
 
         let world = AuthoredWorld::new(
             "D153 Room",
@@ -2022,6 +2023,7 @@ mod tests {
     /// A page the SPEC requires and the REALIZATION does not have must refuse the reveal.
     #[test]
     fn a_required_page_the_realization_lacks_refuses_the_room() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
         app.add_plugins(bevy::app::TaskPoolPlugin::default());
         app.add_plugins(bevy::asset::AssetPlugin::default());
@@ -2033,13 +2035,13 @@ mod tests {
             .add(Image::default());
 
         // The spec draws from pages 0 and 1; the realization holds one slot.
-        let spec = a_synthetic_spec(2, &[0, 1]);
+        let spec = a_synthetic_spec(&sprite_content, 2, &[0, 1]);
         assert_eq!(
             spec.used_pages().into_iter().collect::<Vec<_>>(),
             vec![0, 1],
             "the fixture is useless unless the spec actually names two pages",
         );
-        let manifest = a_room_manifest_staging(
+        let manifest = a_room_manifest_staging(&sprite_content,
             vec![
                 ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
                     texture: realized,
@@ -2082,6 +2084,7 @@ mod tests {
     /// on (the permanent spinner) nor failed (this change's own hazard).
     #[test]
     fn an_unsampled_pack_page_is_neither_waited_on_nor_failed() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut app = App::new();
         app.add_plugins(bevy::app::TaskPoolPlugin::default());
         app.add_plugins(bevy::asset::AssetPlugin::default());
@@ -2093,7 +2096,7 @@ mod tests {
             .add(Image::default());
 
         // Three pack pages declared, every frame on page 0.
-        let spec = a_synthetic_spec(3, &[0, 0]);
+        let spec = a_synthetic_spec(&sprite_content, 3, &[0, 0]);
         assert_eq!(
             spec.page_count(),
             3,
@@ -2108,7 +2111,7 @@ mod tests {
             texture: Handle::default(),
             layout: Handle::default(),
         };
-        let manifest = a_room_manifest_staging(
+        let manifest = a_room_manifest_staging(&sprite_content,
             vec![
                 ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
                     texture: realized,
@@ -2155,6 +2158,7 @@ mod tests {
     /// id is a fresh handle nobody else awaits.
     #[test]
     fn room_readiness_waits_for_the_gpu_copy_only_while_a_render_world_owes_it() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::asset_manager::image_stages;
         let mut app = App::new();
         app.add_plugins(bevy::app::TaskPoolPlugin::default());
@@ -2165,14 +2169,14 @@ mod tests {
             .world_mut()
             .resource_mut::<Assets<Image>>()
             .add(Image::default());
-        let manifest = a_room_manifest_staging(
+        let manifest = a_room_manifest_staging(&sprite_content,
             vec![
                 ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
                     texture: page.clone(),
                     layout: Handle::default(),
                 },
             ],
-            a_synthetic_spec(1, &[0]),
+            a_synthetic_spec(&sprite_content, 1, &[0]),
         );
         let inspect = |app: &App, render_world: RenderWorldPresent| {
             inspect_room_asset_manifest(

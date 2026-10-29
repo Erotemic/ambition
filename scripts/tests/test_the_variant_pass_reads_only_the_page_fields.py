@@ -14,13 +14,13 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "scripts"))
+sys.path.insert(0, str(REPO / "tools/ambition_sprite2d_renderer"))
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 
 pytest.importorskip("PIL")
 pytest.importorskip("yaml")
 
-import generate_visual_quality_variants as g  # noqa: E402
+from ambition_sprite2d_renderer import quality as g  # noqa: E402
 
 RECORDS = """// a comment with a ( bracket and a "quote
 [

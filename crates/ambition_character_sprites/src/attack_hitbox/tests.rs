@@ -25,9 +25,11 @@ fn down() -> ae::Vec2 {
 }
 
 fn player_box(facing: f32) -> ae::Aabb {
-    player_attack_hitbox_world(
+    actor_attack_hitbox_world(
+        &ambition_sprite_sheet::test_support::shared_sprites(),
         &Default::default(),
         &catalog(),
+        "player_robot_v3",
         "attack_side",
         ae::Vec2::new(0.0, 0.0),
         collision(),
@@ -44,9 +46,11 @@ fn player_box(facing: f32) -> ae::Aabb {
 fn attack_hitbox_covaries_with_gravity_like_the_slash_vfx() {
     let body = ae::Vec2::new(100.0, 100.0);
     let center = |g: ae::Vec2| {
-        let b = player_attack_hitbox_world(
+        let b = actor_attack_hitbox_world(
+        &ambition_sprite_sheet::test_support::shared_sprites(),
             &Default::default(),
             &catalog(),
+            "player_robot_v3",
             "attack_side",
             body,
             collision(),
@@ -119,9 +123,11 @@ fn player_attack_side_mirrors_with_facing() {
 fn player_attack_side_is_an_authored_convex_blade() {
     // The robot's attack_side authors a poly (blade arc), so the player
     // slash resolves a Convex volume — not a box.
-    let vol = player_attack_hitbox_world(
+    let vol = actor_attack_hitbox_world(
+        &ambition_sprite_sheet::test_support::shared_sprites(),
         &Default::default(),
         &catalog(),
+        "player_robot_v3",
         "attack_side",
         ae::Vec2::ZERO,
         collision(),
@@ -137,11 +143,12 @@ fn player_attack_side_is_an_authored_convex_blade() {
 
 #[test]
 fn actor_attack_hitbox_resolves_an_authored_enemy_blade() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The robot enemy (character_id "robot") authors an `attack_side` hitbox
     // in its sheet, so the actor-neutral path resolves a real box instead of
     // the hardcoded fallback — the unification payoff: an enemy swings the
     // authored blade you see in `debug-hitboxes`, not magic numbers.
-    let aabb = actor_attack_hitbox_world(
+    let aabb = actor_attack_hitbox_world(&sprite_content,
         &Default::default(),
         &catalog(),
         "robot",
@@ -159,7 +166,8 @@ fn actor_attack_hitbox_resolves_an_authored_enemy_blade() {
 
 #[test]
 fn actor_attack_hitbox_is_none_for_unknown_character() {
-    assert!(actor_attack_hitbox_world(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    assert!(actor_attack_hitbox_world(&sprite_content,
         &Default::default(),
         &catalog(),
         "definitely_not_a_character",
@@ -172,25 +180,14 @@ fn actor_attack_hitbox_is_none_for_unknown_character() {
     .is_none());
 }
 
-/// The seam-facing resolver resolves the REAL authored player blade for
-/// `attack_side` (the assertion the combat-side moveset test delegates
-/// here — combat tests the seam with a fixture; the DATA lives with the
-/// sprites).
+/// An attack volume uses the actor's explicit character identity.
 #[test]
-fn seam_resolver_resolves_the_authored_player_blade() {
-    let volume = authored_attack_volume_resolver(
-        &Default::default(),
-        &catalog(),
-        None,
-        "attack_side",
-        ae::Vec2::new(30.0, 48.0),
-        None,
-        None,
-    );
-    assert!(
-        matches!(volume, Some(ae::CombatVolume::Convex { .. })),
-        "the player manifest authors a convex attack_side blade, got {volume:?}"
-    );
+fn seam_resolver_uses_the_explicit_character_and_refuses_an_absent_one() {
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    let resolve = |id| authored_attack_volume_resolver(&content, &Default::default(), &catalog(), id,
+        "attack_side", ae::Vec2::new(30.0, 48.0), None, None);
+    assert!(resolve(None).is_none());
+    assert!(matches!(resolve(Some("player_robot_v3")), Some(ae::CombatVolume::Convex { .. })));
 }
 
 /// A LEFT-DRAWN fighter's forward swings land in front of her.
@@ -205,9 +202,10 @@ fn seam_resolver_resolves_the_authored_player_blade() {
 /// the art rather than passing vacuously — the skip is loud on purpose.
 #[test]
 fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let catalog = catalog();
     if catalog.get("pointed_polygon").is_none()
-        || actor_attack_hitbox_local(
+        || actor_attack_hitbox_local(&sprite_content,
             &Default::default(),
             &catalog,
             "pointed_polygon",
@@ -225,7 +223,7 @@ fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
         return;
     }
     let reach = |animation: &str| {
-        let bounds = actor_attack_hitbox_local(
+        let bounds = actor_attack_hitbox_local(&sprite_content,
             &Default::default(),
             &catalog,
             "pointed_polygon",
@@ -262,14 +260,15 @@ fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
 /// Without a carried quad it answers by the renderer's own no-quad rule.
 #[test]
 fn an_authored_blade_is_scaled_by_the_quad_the_body_is_drawn_at() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     const CHARACTER: &str = "npc_alice";
     let catalog = catalog();
     let authored = Default::default();
-    let spec = catalog_join::sheet_for_character_id_from_data(&authored, catalog.data(), CHARACTER)
+    let spec = catalog_join::sheet_for_character_id_from_data(&sprite_content, &authored, catalog.data(), CHARACTER)
         .expect("alice's baked sheet resolves");
     let rule = sheets::sprite_render_size(&spec, collision());
     let width = |drawn: Option<ae::Vec2>| {
-        let bounds = actor_attack_hitbox_local(
+        let bounds = actor_attack_hitbox_local(&sprite_content,
             &authored,
             &catalog,
             CHARACTER,

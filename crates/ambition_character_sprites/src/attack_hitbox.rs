@@ -29,20 +29,13 @@ use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::{FrameToBody, SheetRecord, SheetRegistry, frame_at};
 
-/// The player's sprite manifest file root. Both `robot` (enemy) and
-/// `player_robot_v3` author `target: "robot"`, so the target-keyed registry
-/// can't tell them apart — we key by file root instead.
-const PLAYER_FILE_ROOT: &str = "player_robot_v3";
-/// The player's catalog character id (drives the render-size spec lookup).
-const PLAYER_CHARACTER_ID: &str = "player_robot_v3";
-
 /// Baked sheets keyed by file root (not `record.target`), so the
 /// player's `player_robot_v3` stays distinct from the enemy `robot`: the
 /// current sheet generation's registry, so an attack volume and the body it
 /// sizes are read from one generation. Not a content registry, so it has no
 /// `install_*` seam.
-fn file_root_registry() -> &'static SheetRegistry {
-    ambition_sprite_sheet::shared_baked_sheet_registry()
+fn file_root_registry(sprite_content: &ambition_sprite_sheet::SpriteContent) -> &SheetRegistry {
+    ambition_sprite_sheet::shared_baked_sheet_registry(&sprite_content)
 }
 
 /// Build the file-root index NOW, so the first attack does not.
@@ -84,8 +77,8 @@ fn file_root_registry() -> &'static SheetRegistry {
 /// of code and keeps one. Those are different changes and only the first is the
 /// direction the content-pack work has been going. The test above is what makes
 /// either one safe to attempt.
-pub fn warm_file_root_registry() {
-    let _ = file_root_registry();
+pub fn warm_file_root_registry(sprite_content: &ambition_sprite_sheet::SpriteContent) {
+    let _ = file_root_registry(&sprite_content);
 }
 
 /// File roots the index REFUSED for naming several records, exposed so a
@@ -96,8 +89,8 @@ pub fn warm_file_root_registry() {
 /// resolves its art by that root — and a character whose `manifest_target` were
 /// refused here would silently lose its authored blade and fall back to the
 /// shared hardcoded volume.
-pub fn refused_file_roots() -> &'static [ambition_sprite_sheet::AmbiguousFileRoot] {
-    file_root_registry().ambiguous_file_roots()
+pub fn refused_file_roots(sprite_content: &ambition_sprite_sheet::SpriteContent) -> &[ambition_sprite_sheet::AmbiguousFileRoot] {
+    file_root_registry(&sprite_content).ambiguous_file_roots()
 }
 
 /// Whether the file-root index resolves `root` to a sheet.
@@ -105,8 +98,8 @@ pub fn refused_file_roots() -> &'static [ambition_sprite_sheet::AmbiguousFileRoo
 /// exists so a caller can prove its own comparison is not vacuous: a check
 /// that a character's `manifest_target` is not a REFUSED root means nothing
 /// unless those two names live in the same namespace to begin with.
-pub fn resolves_by_file_root(root: &str) -> bool {
-    file_root_registry().get(root).is_some()
+pub fn resolves_by_file_root(sprite_content: &ambition_sprite_sheet::SpriteContent, root: &str) -> bool {
+    file_root_registry(&sprite_content).get(root).is_some()
 }
 
 /// The body-local volume a sheet authors for `animation`, at `frame`.
@@ -180,30 +173,12 @@ pub fn manifest_attack_hitbox_world(
     )
 }
 
-/// The quad the player row's art is drawn at, by the renderer's own rule
-/// ([`sheets::drawn_render_size`]). `None` if the player has no sheet spec. The
-/// baked manifest registry remains the only immutable process-wide cache;
-/// catalog-dependent sheet selection is never cached.
-fn player_render_size(
-    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    catalog: &CharacterCatalog,
-    collision: ae::Vec2,
-    drawn_quad: Option<ae::Vec2>,
-) -> Option<ae::Vec2> {
-    let spec = catalog_join::sheet_for_character_id_from_data(
-        authored,
-        catalog.data(),
-        PLAYER_CHARACTER_ID,
-    )?;
-    Some(sheets::drawn_render_size(&spec, collision, drawn_quad))
-}
-
 /// Resolve a controllable body's authored melee volume, BODY-LOCAL.
 ///
 /// The combat-seam resolver (`combat::authored_volumes`) is installed as an
 /// App-local Bevy resource by runtime composition. It receives the same
 /// `CharacterCatalog` as spawning and rendering without naming this module.
-/// `None` cid selects the player manifest root.
+/// A missing character identity gives no authored volume.
 ///
 /// Body-local is the whole seam: combat spawns a hitbox that mirrors and
 /// rotates itself against its owner every query, so handing it a placed volume
@@ -212,7 +187,7 @@ fn player_render_size(
 /// `drawn_quad` is the quad the body carries (`ActorRenderSize`), which scales
 /// the blade exactly as it scales the art that shows it.
 #[allow(clippy::too_many_arguments)]
-pub fn authored_attack_volume_resolver(
+pub fn authored_attack_volume_resolver(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // U1 stage C: provider-authored sheets, captured by the composition root
     // into the resolver closure. Combat calls this without naming the type.
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -224,7 +199,7 @@ pub fn authored_attack_volume_resolver(
     clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     match sprite_character_id {
-        Some(cid) => actor_attack_hitbox_local(
+        Some(cid) => actor_attack_hitbox_local(&sprite_content,
             authored,
             catalog,
             cid,
@@ -233,67 +208,13 @@ pub fn authored_attack_volume_resolver(
             drawn_quad,
             clip_elapsed,
         ),
-        None => player_attack_hitbox_local(
-            authored,
-            catalog,
-            animation,
-            collision,
-            drawn_quad,
-            clip_elapsed,
-        ),
+        None => None,
     }
 }
 
-pub fn player_attack_hitbox_local(
-    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    catalog: &CharacterCatalog,
-    animation: &str,
-    collision: ae::Vec2,
-    drawn_quad: Option<ae::Vec2>,
-    clip_elapsed: Option<f32>,
-) -> Option<ae::CombatVolume> {
-    // Authored first, baked second — the same order every other sheet lookup
-    // uses since U1, so a provider that authored its protagonist's sheet gets
-    // its own attack bboxes instead of the engine player's.
-    let record = authored
-        .get(PLAYER_FILE_ROOT)
-        .or_else(|| file_root_registry().get(PLAYER_FILE_ROOT))?;
-    let render_size = player_render_size(authored, catalog, collision, drawn_quad)?;
-    manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
-}
-
-/// [`player_attack_hitbox_local`] placed for a body that exists right now and
-/// carries no quad of its own.
+/// Resolve an actor's authored melee volume in body coordinates.
 #[allow(clippy::too_many_arguments)]
-pub fn player_attack_hitbox_world(
-    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    catalog: &CharacterCatalog,
-    animation: &str,
-    body_pos: ae::Vec2,
-    collision: ae::Vec2,
-    facing: f32,
-    gravity_dir: ae::Vec2,
-) -> Option<ae::CombatVolume> {
-    Some(
-        player_attack_hitbox_local(authored, catalog, animation, collision, None, None)?
-            .place_body_local(body_pos, facing, gravity_dir),
-    )
-}
-
-/// ANY catalog actor's authored melee volume for `animation`, BODY-LOCAL — the
-/// actor-neutral generalization of [`player_attack_hitbox_local`].
-///
-/// The actor's sheet is resolved by its catalog `character_id` through the
-/// file-root registry (so robot-family characters — the player and the robot
-/// enemy both author `target: "robot"` — stay distinct), and pixel rects scale
-/// by the actor's rendered sprite size.
-///
-/// Returns `None` when the character has no catalog row, no baked sheet, or no
-/// authored hitbox for `animation`; the caller falls back to its shared
-/// hardcoded melee volume. This is the same sprite-metadata-then-fallback shape
-/// the player uses, so an enemy with an authored blade swings the box you see
-/// in `debug-hitboxes`, not a divergent hardcoded rectangle.
-pub fn actor_attack_hitbox_local(
+pub fn actor_attack_hitbox_local(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     character_id: &str,
@@ -305,11 +226,11 @@ pub fn actor_attack_hitbox_local(
     let file_root = catalog.get(character_id)?.manifest_target()?;
     let record = authored
         .get(file_root)
-        .or_else(|| file_root_registry().get(file_root))?;
+        .or_else(|| file_root_registry(&sprite_content).get(file_root))?;
     // Scale by the quad the art is drawn at, by the renderer's own rule. The
     // catalog join is NOT asked again: it answers for the placement box, which
     // a sprite-authored or posed body is not drawn from.
-    let render_size = catalog_join::sheet_for_character_id_from_data(authored, catalog.data(), character_id)
+    let render_size = catalog_join::sheet_for_character_id_from_data(&sprite_content, authored, catalog.data(), character_id)
         .map(|spec| sheets::drawn_render_size(&spec, collision, drawn_quad))
         .unwrap_or_else(|| drawn_quad.unwrap_or(collision));
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
@@ -318,7 +239,7 @@ pub fn actor_attack_hitbox_local(
 /// [`actor_attack_hitbox_local`] placed for a body that exists right now and
 /// carries no quad of its own.
 #[allow(clippy::too_many_arguments)]
-pub fn actor_attack_hitbox_world(
+pub fn actor_attack_hitbox_world(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     character_id: &str,
@@ -329,7 +250,7 @@ pub fn actor_attack_hitbox_world(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     Some(
-        actor_attack_hitbox_local(authored, catalog, character_id, animation, collision, None, None)?
+        actor_attack_hitbox_local(&sprite_content, authored, catalog, character_id, animation, collision, None, None)?
             .place_body_local(body_pos, facing, gravity_dir),
     )
 }

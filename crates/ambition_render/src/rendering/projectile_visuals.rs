@@ -168,7 +168,7 @@ fn velocity_aligned_angle(vel: ambition_platformer2d_core::Vec2) -> f32 {
 
 /// Build the sprite (and optional anchor / frame animator) for a freshly-spawned
 /// projectile from its resolved art descriptor.
-fn build_visual(
+fn build_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
     view: &ProjectileView,
     art: &ProjectileArt,
     asset_server: &AssetServer,
@@ -210,7 +210,7 @@ fn build_visual(
             }
         }
         ProjectileArtSource::Image { path } => {
-            let mut sprite = Sprite::from_image(load_sheet_image(
+            let mut sprite = Sprite::from_image(load_sheet_image(&sprite_content,
                 asset_server,
                 "projectile-art",
                 path.clone(),
@@ -227,7 +227,7 @@ fn build_visual(
             target,
             animation,
             animate,
-        } => build_sheet_visual(
+        } => build_sheet_visual(&sprite_content,
             art.size,
             art.rotation,
             target,
@@ -244,7 +244,7 @@ fn build_visual(
 /// attach a [`ProjectileFrameAnim`] that cycles the row (animated). The image
 /// path + frame rects come from the manifest, never hardcoded.
 #[allow(clippy::too_many_arguments)]
-fn build_sheet_visual(
+fn build_sheet_visual(sprite_content: &ambition_sprite_sheet::SpriteContent,
     size: ProjectileRenderSize,
     rotation: ProjectileRotation,
     target: &str,
@@ -275,7 +275,7 @@ fn build_sheet_visual(
         Vec2::new(record.frame_width as f32, record.frame_height as f32),
     ));
     let frame_aspect = (first.width() / first.height()).max(0.0001);
-    let mut sprite = Sprite::from_image(load_sheet_image(
+    let mut sprite = Sprite::from_image(load_sheet_image(&sprite_content,
         asset_server,
         "projectile-art",
         format!("sprites/{}", record.image),
@@ -326,7 +326,7 @@ pub fn projectiles_or_their_visuals(
     !views.is_empty() || !visuals.is_empty()
 }
 
-pub fn sync_projectile_visuals(
+pub fn sync_projectile_visuals(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
@@ -335,7 +335,6 @@ pub fn sync_projectile_visuals(
     presentation_time: ambition_time::PresentationTime,
     gravity: GravityCtx,
     asset_server: Res<AssetServer>,
-    sheets: Res<SheetRegistry>,
     visual_catalog: Res<ProjectileVisualCatalog>,
     game_assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -357,6 +356,7 @@ pub fn sync_projectile_visuals(
         With<ProjectileVisual>,
     >,
 ) {
+    let sheets = ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).registry();
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -374,7 +374,7 @@ pub fn sync_projectile_visuals(
             continue;
         };
         let art = visual_catalog.resolve(&view.visual_id);
-        let built = build_visual(view, &art, &asset_server, &sheets, energy);
+        let built = build_visual(&sprite_content, view, &art, &asset_server, &sheets, energy);
         let translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
         let mut visual = commands.spawn_session_scoped(
@@ -493,7 +493,7 @@ pub fn a_charge_or_its_visual(
     !visuals.is_empty() || players.iter().any(|pose| pose.charge_tier.is_some())
 }
 
-pub fn sync_projectile_charge_visuals(
+pub fn sync_projectile_charge_visuals(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // Each row is placed by the geometry of its own live room.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
@@ -502,7 +502,6 @@ pub fn sync_projectile_charge_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     presentation_time: ambition_time::PresentationTime,
     asset_server: Res<AssetServer>,
-    sheets: Res<SheetRegistry>,
     visual_catalog: Res<ProjectileVisualCatalog>,
     // Sim-built pose read model: charge tier and body geometry, with no live
     // cluster or projectile-state reads.
@@ -516,6 +515,7 @@ pub fn sync_projectile_charge_visuals(
     >,
     mut existing: Query<(Entity, &PlayerChargeVisual, &mut Transform, &mut Sprite, Option<&mut ProjectileFrameAnim>, Option<&mut Anchor>)>,
 ) {
+    let sheets = ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).registry();
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -584,7 +584,7 @@ pub fn sync_projectile_charge_visuals(
             continue;
         };
         let mut built =
-            build_sheet_visual(art.size, art.rotation, target, animation, *animate, Vec2::splat(16.0), &asset_server, &sheets);
+            build_sheet_visual(&sprite_content, art.size, art.rotation, target, animation, *animate, Vec2::splat(16.0), &asset_server, &sheets);
         built.sprite.flip_x = flip;
         let mut visual = commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),

@@ -436,6 +436,7 @@ mod tests {
     /// is the rule the next start plays: no Rust names these numbers.
     #[test]
     fn sanics_tuning_is_its_pack_file() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d::content::EmbeddedPack;
 
         let authored = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/data/sanic_rules.ron"))
@@ -470,7 +471,7 @@ mod tests {
         let goal = "goal_from_end: 400.0,";
         assert_eq!(authored.matches(goal).count(), 1, "the probe moves the goal");
         let nearer = rules_of(&authored.replace(goal, "goal_from_end: 300.0,"));
-        let course = crate::sanic_speedway().world;
+        let course = crate::sanic_speedway(&sprite_content).world;
         assert_eq!(crate::goal_x_with(&nearer.act, &course), course.size.x - 300.0, "the goal line is not the file's");
         // The score the demo pays is the file's par and bonuses.
         assert_eq!(

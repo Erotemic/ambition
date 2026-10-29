@@ -11,7 +11,7 @@ from pathlib import Path
 
 SCHEMA = "ambition.art_review.v1"
 PRIORITIES = ("high", "normal", "low")
-ASSETS = "crates/ambition_platformer2d_actor_monolith/assets"
+ASSETS = "game/ambition_content_library/generated/runtime"
 
 
 class ConflictError(ValueError):
@@ -39,13 +39,15 @@ def subjects(catalog: dict) -> dict:
 def check_products(repo: Path, subject: dict) -> None:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
     from lib.art_publication import resolve, store
-    current = store(repo / ASSETS).selected()
+    from .paths import library_path, asset_root
+    publication = store(library_path(repo))
+    current = publication.selected() if publication else {"bundles": {}}
     if any(current["bundles"].get(unit) != key for unit, key in subject.get("bundle_ids", {}).items()):
         raise ConflictError("The published art changed. Rebuild the inspector before adding this note.")
     for product in subject["products"]:
-        path = resolve(repo / ASSETS, product["path"]) if subject.get("bundle_ids") else repo / ASSETS / product["path"]
+        path = resolve(library_path(repo), product["path"]) if subject.get("bundle_ids") else asset_root(repo) / product["path"]
         digest = None
-        if path.is_file():
+        if path is not None and path.is_file():
             with path.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
         if digest != product["sha256"]:

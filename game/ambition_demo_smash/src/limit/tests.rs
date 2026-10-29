@@ -555,6 +555,7 @@ fn a_meter_fills_by_the_rule_of_its_own_live_room() {
         room
     };
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.add_message::<ActorActionMessage>();
     app.add_message::<ResolvedBodyHit>();
     app.add_message::<BlockedBodyHit>();

@@ -15,7 +15,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_sprite_sheet::character::CharacterAnimator;
-use ambition_sprite_sheet::fx::{authored_effects, AuthoredEffect};
+use ambition_sprite_sheet::fx::AuthoredEffect;
 use ambition_vfx::FxId;
 
 // The VFX message vocabulary lives in `ambition_vfx`, so a sim system can
@@ -24,39 +24,13 @@ use ambition_vfx::FxId;
 pub use ambition_vfx::vfx::{FireworksRequest, FxRequest, ParticleKind, SlashKind, VfxMessage};
 use ambition_vfx::vfx::{VfxInRoom, VfxWriter};
 
-/// What an [`FxId`] names: the authored row, the sheet holding it, and the
-/// packed cue that ships with it.
-///
-/// This index is the engine's effect vocabulary. It is built by walking the
-/// FX sheets' baked records and hashing each row name, so the drawable effects
-/// are exactly the shipped rows.
-///
-/// The `SfxId` is precomputed: the cue name comes from the row
-/// (`vfx.<family>.<row>`), and hashing it once keeps the draw path
-/// allocation-free.
-struct EffectIndex {
-    by_id: std::collections::HashMap<FxId, (&'static AuthoredEffect, SfxId)>,
+/// Resolve an effect from this App's selected content generation.
+pub fn authored_effect_for(sprite_content: &ambition_sprite_sheet::SpriteContent, fx: FxId) -> Option<&AuthoredEffect> {
+    ambition_sprite_sheet::baked_sheet_rons::current(sprite_content).effect_by_id(fx)
 }
 
-fn effect_index() -> &'static EffectIndex {
-    static INDEX: std::sync::OnceLock<EffectIndex> = std::sync::OnceLock::new();
-    INDEX.get_or_init(|| EffectIndex {
-        by_id: authored_effects()
-            .values()
-            .map(|effect| (FxId::new(effect.name), (effect, SfxId::new(&effect.cue))))
-            .collect(),
-    })
-}
-
-/// The authored effect `fx` names, if the shipped art has a row for it.
-pub fn authored_effect_for(fx: FxId) -> Option<&'static AuthoredEffect> {
-    effect_index().by_id.get(&fx).map(|(effect, _)| *effect)
-}
-
-/// The sound `fx` makes. A property of the name, not the call site: the bank
-/// ships one `vfx.<family>.<row>` cue for every authored row.
-pub fn effect_cue(fx: FxId) -> Option<SfxId> {
-    effect_index().by_id.get(&fx).map(|(_, cue)| *cue)
+pub fn effect_cue(sprite_content: &ambition_sprite_sheet::SpriteContent, fx: FxId) -> Option<SfxId> {
+    authored_effect_for(sprite_content, fx).map(|effect| SfxId::new(&effect.cue))
 }
 
 /// Say once, per id, that an effect named nothing.
@@ -66,7 +40,7 @@ pub fn effect_cue(fx: FxId) -> Option<SfxId> {
 /// id, because a per-frame warning trains people to filter the channel. The
 /// id is a one-way hash and a miss is by definition not a shipped row, so only
 /// the hash can be printed.
-fn note_effect_miss(fx: FxId) {
+fn note_effect_miss(sprite_content: &ambition_sprite_sheet::SpriteContent, fx: FxId) {
     use std::collections::HashSet;
     use std::sync::Mutex;
     static SEEN: std::sync::OnceLock<Mutex<HashSet<u64>>> = std::sync::OnceLock::new();
@@ -80,7 +54,7 @@ fn note_effect_miss(fx: FxId) {
             target: "crate::fx",
             "{fx} is not a row on any of the {} shipped FX sheets, so it draws a generic \
              particle burst instead of art; check the authored `Vfx {{ effect }}` id",
-            ambition_sprite_sheet::fx::fx_sheets().len(),
+            ambition_sprite_sheet::fx::fx_sheets(sprite_content).len(),
         );
     }
 }
@@ -179,7 +153,7 @@ pub struct BlinkPreviewVisual {
 /// Simulation code writes one [`FxRequest`] instead of pairing a
 /// `VfxMessage::Effect` with its cue. Headless tests can ignore the render and
 /// audio backends.
-pub fn process_fx_requests(
+pub fn process_fx_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut requests: MessageReader<FxRequest>,
     mut vfx: VfxWriter,
     mut sfx: SfxWriter,
@@ -199,7 +173,7 @@ pub fn process_fx_requests(
         // The override if there is one, otherwise the cue that the effect's
         // name addresses. `unscoped` is the default: the active context's
         // primary source decides.
-        if let Some(id) = request.sfx.or_else(|| effect_cue(request.fx)) {
+        if let Some(id) = request.sfx.or_else(|| effect_cue(&sprite_content, request.fx)) {
             let play = SfxMessage::Play {
                 id,
                 pos: request.pos,
@@ -314,7 +288,7 @@ pub fn tick_firework_sequences(
 /// stamped with that room, so the room's view band draws it and the room's
 /// retirement takes it (V2f). An unroomed row is drawn in the sole live room,
 /// and not at all while two rooms are live.
-pub fn vfx_spawn_messages(
+pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     mut messages: MessageReader<VfxInRoom>,
     geometry: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
@@ -394,7 +368,7 @@ pub fn vfx_spawn_messages(
                 spawn_dust(&mut commands, spawn_scope, world, pos, facing)
             }
             VfxMessage::Impact { pos } => {
-                spawn_hit_marker(&mut commands, spawn_scope, world, assets.as_deref(), pos)
+                spawn_hit_marker(&sprite_content, &mut commands, spawn_scope, world, assets.as_deref(), pos)
             }
             VfxMessage::CoinPop { pos } => spawn_coin_pop(&mut commands, spawn_scope, world, pos),
             VfxMessage::Hearts { pos, count } => {
@@ -409,7 +383,7 @@ pub fn vfx_spawn_messages(
                 scale,
                 pose,
             } => {
-                spawn_effect(
+                spawn_effect(&sprite_content,
                     &mut commands,
                     spawn_scope,
                     world,
@@ -451,15 +425,15 @@ pub fn vfx_spawn_messages(
 /// The decision `spawn_effect` makes, factored out for tests. `None` means the
 /// particle fallback: the id names no shipped row, or the row's sheet is not
 /// decoded in these assets.
-pub fn resolve_drawable(
-    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
+pub fn resolve_drawable<'a>(sprite_content: &'a ambition_sprite_sheet::SpriteContent,
+    assets: Option<&'a ambition_sprite_sheet::game_assets::GameAssets>,
     fx: FxId,
 ) -> Option<(
-    &'static AuthoredEffect,
-    &ambition_sprite_sheet::character::CharacterSpriteAsset,
+    &'a AuthoredEffect,
+    &'a ambition_sprite_sheet::character::CharacterSpriteAsset,
     usize,
 )> {
-    let effect = authored_effect_for(fx)?;
+    let effect = authored_effect_for(&sprite_content, fx)?;
     let asset = assets?.fx.get(effect.sheet)?;
     let slot = asset.spec.clip_slot([effect.name])?;
     Some((effect, asset, slot))
@@ -477,7 +451,7 @@ pub const FX_DEFAULT_WORLD_SIZE: f32 = 56.0;
 /// Three outcomes: the id names no shipped row (a counted miss: wrong id or
 /// missing art); the row's sheet is not decoded (`--no-assets`, or FX
 /// manifests not baked); or it draws.
-fn spawn_effect(
+fn spawn_effect(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
@@ -490,10 +464,10 @@ fn spawn_effect(
     let Some(session_scope) = session_scope else {
         return;
     };
-    if authored_effect_for(fx).is_none() {
-        note_effect_miss(fx);
+    if authored_effect_for(&sprite_content, fx).is_none() {
+        note_effect_miss(&sprite_content, fx);
     }
-    let Some((effect, asset, slot)) = resolve_drawable(assets, fx) else {
+    let Some((effect, asset, slot)) = resolve_drawable(&sprite_content, assets, fx) else {
         // Fallback keeps the call site useful in headless/no-asset profiles.
         spawn_burst(
             commands,
@@ -544,7 +518,7 @@ const GENERIC_HIT_FX_SCALE: f32 = 0.6;
 ///
 /// The fallback is [`spawn_impact`], not [`spawn_effect`]'s particle burst,
 /// so a composition with no decoded sheets looks as it did before.
-fn spawn_hit_marker(
+fn spawn_hit_marker(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
@@ -554,7 +528,7 @@ fn spawn_hit_marker(
     let Some(scope) = session_scope else {
         return;
     };
-    let Some((effect, asset, slot)) = resolve_drawable(assets, GENERIC_HIT_FX) else {
+    let Some((effect, asset, slot)) = resolve_drawable(&sprite_content, assets, GENERIC_HIT_FX) else {
         spawn_impact(commands, Some(scope), world, pos);
         return;
     };
@@ -580,7 +554,7 @@ fn draw_effect_clip(
     session_scope: SessionSpawnScope,
     world: &ae::World,
     pos: ae::Vec2,
-    effect: &'static AuthoredEffect,
+    effect: &AuthoredEffect,
     asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
     slot: usize,
     scale: f32,
@@ -1542,12 +1516,13 @@ mod tests {
     /// strings: `authored_effect_for` answers only for a shipped name.
     #[test]
     fn the_generic_hit_marker_names_a_shipped_row() {
-        let effect = authored_effect_for(GENERIC_HIT_FX).expect(
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let effect = authored_effect_for(&sprite_content, GENERIC_HIT_FX).expect(
             "`hit_soft` is not a row on any shipped FX sheet, so every impact in \
              the game draws an untextured rectangle again",
         );
         assert_eq!(effect.name, "hit_soft");
-        assert_eq!(effect.sheet, "generic_action_fx");
+        assert_eq!(effect.sheet, "content://ambition_shared/sprites/generic_action_fx");
     }
 
     /// Every shipped effect row is addressable by its hashed name, and the sound
@@ -1558,12 +1533,7 @@ mod tests {
     /// cue.
     #[test]
     fn an_effect_id_resolves_to_its_row_and_its_cue() {
-        assert_eq!(
-            effect_index().by_id.len(),
-            ambition_sprite_sheet::fx::authored_effects().len(),
-            "hashing the names must not collide two rows into one id"
-        );
-
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         for (name, sheet, cue) in [
             (
                 "classic_burst",
@@ -1582,9 +1552,9 @@ mod tests {
             ),
         ] {
             let fx = FxId::new(name);
-            let effect = authored_effect_for(fx).unwrap_or_else(|| panic!("`{name}` ships"));
-            assert_eq!(effect.sheet, sheet);
-            assert_eq!(effect_cue(fx), Some(SfxId::from_static(cue)));
+            let effect = authored_effect_for(&sprite_content, fx).unwrap_or_else(|| panic!("`{name}` ships"));
+            assert_eq!(effect.sheet, format!("content://ambition_shared/sprites/{sheet}"));
+            assert_eq!(effect_cue(&sprite_content, fx), Some(SfxId::from_static(cue)));
         }
     }
 
@@ -1592,6 +1562,7 @@ mod tests {
     /// other row.
     #[test]
     fn the_five_former_enum_variants_take_the_same_path_as_every_other_row() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_vfx::fx::ids;
         for (fx, name) in [
             (ids::CLASSIC_BURST, "classic_burst"),
@@ -1600,22 +1571,23 @@ mod tests {
             (ids::SMOKE_BURST, "smoke_burst"),
             (ids::STARBURST, "starburst"),
         ] {
-            let effect = authored_effect_for(fx).expect("a row of generic_explosions");
+            let effect = authored_effect_for(&sprite_content, fx).expect("a row of generic_explosions");
             assert_eq!(effect.name, name);
-            assert_eq!(effect.sheet, "generic_explosions");
+            assert_eq!(effect.sheet, "content://ambition_shared/sprites/generic_explosions");
         }
         // A row from another sheet, resolved by the same call.
         assert_eq!(
-            authored_effect_for(ids::SONIC_BOOM).map(|e| e.sheet),
-            Some("generic_exotic_fx"),
+            authored_effect_for(&sprite_content, ids::SONIC_BOOM).map(|e| e.sheet),
+            Some("content://ambition_shared/sprites/generic_exotic_fx"),
         );
     }
 
     /// An id no sheet carries resolves to nothing, not to row 0 of something.
     #[test]
     fn an_unknown_effect_resolves_to_nothing_not_to_row_zero() {
-        assert!(authored_effect_for(FxId::new("kaboom")).is_none());
-        assert!(effect_cue(FxId::new("kaboom")).is_none());
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        assert!(authored_effect_for(&sprite_content, FxId::new("kaboom")).is_none());
+        assert!(effect_cue(&sprite_content, FxId::new("kaboom")).is_none());
     }
     /// A request's source survives the fan-out.
     ///
@@ -1629,6 +1601,7 @@ mod tests {
 
         fn run(source: PresentationSourceId) -> Vec<OwnedSfxMessage> {
             let mut app = App::new();
+            app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
             app.add_message::<ambition_vfx::VfxInRoom>();
             app.add_message::<OwnedSfxMessage>();
             app.add_message::<FxRequest>();
@@ -1689,6 +1662,7 @@ mod tests {
             use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
 
             let mut app = App::new();
+            app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
             app.init_resource::<Time>();
             app.add_message::<ambition_vfx::VfxInRoom>();
             app.add_plugins(WorldLabelLayoutPlugin);
@@ -2042,6 +2016,7 @@ mod install_tests {
         use bevy::prelude::*;
 
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         super::install_fx_pipeline(&mut app);
 
@@ -2075,6 +2050,7 @@ mod install_tests {
         use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
 
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_message::<FireworksRequest>();
         app.add_message::<FxRequest>();

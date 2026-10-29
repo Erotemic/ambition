@@ -77,7 +77,7 @@ impl Plugin for FixtureContentPlugin {
 /// The demo's world construction: the engine's `simulation_world` with the
 /// fixture room. Labeled `SimulationSetupSet` so the host's input attach
 /// (and any other "after the world exists" startup work) orders correctly.
-fn fixture_setup(
+fn fixture_setup(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // The root the fixture's world hangs off: setup publishes the session's
     // content generation ON it.
@@ -111,7 +111,7 @@ fn fixture_setup(
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             construction:
-                ambition_platformer2d_publication::construction::ActorConstructionContext::new(
+                ambition_platformer2d_publication::construction::ActorConstructionContext::new(&sprite_content,
                     &construction_recipes,
                     &character_catalog,
                     // A smoke fixture authors no sheets; empty is the honest
@@ -122,7 +122,7 @@ fn fixture_setup(
             boss_catalog: &boss_catalog,
         },
     );
-    body_setup.spawn(
+    body_setup.spawn(&sprite_content,
         &mut commands,
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
         &world,

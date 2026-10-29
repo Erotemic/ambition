@@ -12,7 +12,9 @@ use ambition_platformer2d::characters::actor::definition::BodySource;
 use ambition_platformer2d::characters::prepared::{close_preparation_barrier_admitting, PreparedCharacterRegistry};
 use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch};
 use ambition_platformer2d::content::EmbeddedPack;
-use ambition_sprite_sheet::baked_sheet_rons::{current, publish_sheet_generation, read_sheet_table_under};
+use ambition_sprite_sheet::baked_sheet_rons::current;
+mod common;
+use common::*;
 use bevy::prelude::*;
 
 const PROBE: &str = "sheet_derived_cast_probe";
@@ -77,7 +79,7 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     std::fs::write(&rig, rig_text(3.0)).unwrap();
     std::fs::write(
         root.join("pack.ron"),
-        r#"(id: "sheet_derived_cast_probe", version: "0.1.0", namespace: "probe", requires: [], sources: [
+        r#"(id: "sheet_derived_cast_probe", version: "0.1.0", namespace: "probe", requires: [], libraries: ["../tree/library.json"], sources: [
             (path: "data/cast.ron", schema: "character_catalog", version: 1),
         ])"#,
     )
@@ -100,8 +102,7 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
         ),
     )
     .unwrap();
-    // The process starts on the probe tree, as a game starts on its own.
-    read_sheet_table_under(&owner).and_then(publish_sheet_generation).unwrap_or_else(|refused| panic!("{refused}"));
+    library(&owner, false);
     let leaked_root: &'static str = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
     let pack: &'static EmbeddedPack = Box::leak(Box::new(EmbeddedPack::rooted(leaked_root, None)));
 
@@ -109,11 +110,11 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
     app.init_resource::<ambition_platformer2d::combat::technique::InstalledTechniques>();
-    app.init_resource::<ambition_sprite_sheet::SheetRegistry>();
     app.insert_resource(ambition_platformer2d::characters::actor::BodyRigAdmission::ADMIT);
-    app.add_plugins(SpriteSheetReloadPlugin { owner: Some(owner.clone()), manual: true });
+    app.add_plugins(SpriteSheetReloadPlugin { manual: true });
     pack.cast("probe", None).register(&mut app);
     close_preparation_barrier_admitting(app.world_mut(), &Default::default());
+    app.update();
     app.world().resource::<SpriteSheetWatch>().look_now();
     app.update();
     assert_eq!(world_per_pixel(&app), Some(2.0), "the premise: 64 world units over a 32 pixel body");
@@ -123,9 +124,9 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     std::fs::write(&manifest, sheet_text(16)).unwrap();
     app.world().resource::<SpriteSheetWatch>().look_now();
     app.update();
-    let published = current().id();
+    let published = current(content(&app)).id();
     assert_eq!(app.world().resource::<SpriteSheetWatch>().published, 1, "the edit was not published");
-    let authority = ambition_platformer2d::character_sprites::posed_body_world_per_pixel(
+    let authority = ambition_platformer2d::character_sprites::posed_body_world_per_pixel(content(&app),
         &ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(pack.prepared()).unwrap(),
         "newcomer",
     );
@@ -140,7 +141,7 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     app.update();
     assert_eq!(app.world().resource::<SpriteSheetWatch>().published, 2, "the rig edit was not published");
     assert_eq!(
-        ambition_sprite_sheet::baked_body_rigs::baked_body_rig(PROBE),
+        ambition_sprite_sheet::baked_body_rigs::baked_body_rig(content(&app), PROBE),
         Some(rig_text(5.0).as_str()),
         "the published generation is not the saved rig"
     );

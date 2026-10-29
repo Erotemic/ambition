@@ -91,7 +91,7 @@ fn sprite_folder_row(kind: &str, row: &ambition_sprite_sheet::prop_sheets::Autho
 
 /// The realization of the prop sheet `source`: from the shared sprite pack
 /// when it is `packed` and the pack has it, else from the record's page.
-fn load_prop_sheet(
+fn load_prop_sheet(sprite_content: &ambition_sprite_sheet::SpriteContent,
     source: &PropSheetSource,
     config: &GameAssetConfig,
     catalog: Option<&ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>,
@@ -100,11 +100,11 @@ fn load_prop_sheet(
     quality: Option<&VisualQualityBudget>,
 ) -> Option<ambition_sprite_sheet::character::CharacterSpriteAsset> {
     let packed = catalog.filter(|_| source.packed).and_then(|catalog| {
-        let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&source.target, &source.tuning)?;
-        character_sprites::build_prop_sprite_asset_packed(catalog, asset_server, layouts, &source.target, &spec, quality)
+        let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&sprite_content, &source.target, &source.tuning)?;
+        character_sprites::build_prop_sprite_asset_packed(&sprite_content, catalog, asset_server, layouts, &source.target, &spec, quality)
     });
     packed.or_else(|| {
-        character_sprites::load_prop_sheet_for_target(asset_server, layouts, &config.sprite_folder, &source.target, &source.tuning)
+        character_sprites::load_prop_sheet_for_target(&sprite_content, asset_server, layouts, &config.sprite_folder, &source.target, &source.tuning)
     })
 }
 
@@ -139,7 +139,7 @@ pub fn scenery_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpec) -
 /// with it (MEASURED 2026-10-24: 63.7 MP at boot against the 40 MP budget,
 /// 16 MP of it the Pirate Port's and the Ninja Village's scenery).
 #[allow(clippy::too_many_arguments)]
-pub fn load_the_prop_sheets_in_reach(
+pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     network: Option<Res<ambition_platformer2d_world::rooms::GateNetworkState>>,
     sheets: Res<PropSheets>,
@@ -191,7 +191,7 @@ pub fn load_the_prop_sheets_in_reach(
         .budget
         .clone();
     for (kind, source) in missing {
-        match load_prop_sheet(source, &config, Some(&catalog), &asset_server, &mut layouts, Some(&quality)) {
+        match load_prop_sheet(&sprite_content, source, &config, Some(&catalog), &asset_server, &mut layouts, Some(&quality)) {
             Some(asset) => {
                 assets.characters.props.insert(kind.to_string(), asset);
             }
@@ -271,6 +271,7 @@ pub fn reload_fx_sheets_of_targets(world: &mut World, targets: &std::collections
     if !world.contains_resource::<GameAssets>() || !world.contains_resource::<Assets<TextureAtlasLayout>>() {
         return;
     }
+    let sprite_content = world.resource::<ambition_sprite_sheet::SpriteContent>().clone();
     world.resource_scope(|world, mut layouts: Mut<Assets<TextureAtlasLayout>>| {
         let fx = &mut world.resource_mut::<GameAssets>().into_inner().fx;
         let stale: Vec<(&'static str, ambition_persistence::settings::TextureResolutionScale)> = fx
@@ -281,7 +282,7 @@ pub fn reload_fx_sheets_of_targets(world: &mut World, targets: &std::collections
             .collect();
         for (target, tier) in stale {
             fx.remove(target);
-            character_sprites::ensure_fx_sheet_loaded(fx, target, &asset_server, &mut layouts, tier);
+            character_sprites::ensure_fx_sheet_loaded(&sprite_content, fx, target, &asset_server, &mut layouts, tier);
         }
     });
 }
@@ -299,6 +300,7 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
     if !world.contains_resource::<GameAssets>() || !world.contains_resource::<Assets<TextureAtlasLayout>>() {
         return;
     }
+    let sprite_content = world.resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let sheets = world.get_resource::<PropSheets>().cloned().unwrap_or_default();
     let catalog = world.get_resource::<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>().cloned();
     // The tier the materializer reads (`converge_character_residency_to_active_quality`).
@@ -315,7 +317,7 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
         // in reach shows them (`load_the_prop_sheets_in_reach`).
         let loaded_now = |kind: &str| loaded_kinds.iter().any(|known| known == kind);
         for (kind, source) in sheets.iter().filter(|(kind, _)| kinds.iter().any(|wanted| wanted == kind) && loaded_now(kind)) {
-            let asset = load_prop_sheet(source, &config, catalog.as_ref(), &asset_server, &mut layouts, Some(&quality));
+            let asset = load_prop_sheet(&sprite_content, source, &config, catalog.as_ref(), &asset_server, &mut layouts, Some(&quality));
             loaded.push((kind.to_string(), asset));
         }
     });
@@ -342,7 +344,7 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
 
 /// Load every registered prop sheet. A row that does not load draws as the
 /// placeholder quad, as an absent sheet always has.
-fn load_prop_sheets(
+fn load_prop_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     sheets: &PropSheets,
     config: &GameAssetConfig,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
@@ -352,7 +354,7 @@ fn load_prop_sheets(
     props: &mut HashMap<String, ambition_sprite_sheet::character::CharacterSpriteAsset>,
 ) {
     for (kind, source) in sheets.iter() {
-        let asset = load_prop_sheet(source, config, Some(catalog), asset_server, layouts, quality);
+        let asset = load_prop_sheet(&sprite_content, source, config, Some(catalog), asset_server, layouts, quality);
         match asset {
             Some(asset) => {
                 props.insert(kind.to_string(), asset);
@@ -368,7 +370,7 @@ fn load_prop_sheets(
 
 /// Build a fresh `GameAssets`, honoring `config` + the shared catalog resource.
 #[allow(clippy::too_many_arguments)]
-pub fn load_game_assets(
+pub fn load_game_assets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     config: &GameAssetConfig,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     // Provider-authored sheets (U1).
@@ -386,7 +388,7 @@ pub fn load_game_assets(
         return GameAssets::default();
     }
 
-    let mut characters = character_sprites::load_character_sprites_in(
+    let mut characters = character_sprites::load_character_sprites_in(&sprite_content,
         authored_sheets,
         character_catalog,
         catalog,
@@ -394,7 +396,7 @@ pub fn load_game_assets(
         layouts,
         quality,
     );
-    load_prop_sheets(
+    load_prop_sheets(&sprite_content,
         prop_sheets,
         config,
         catalog,
@@ -403,13 +405,13 @@ pub fn load_game_assets(
         quality,
         &mut characters.props,
     );
-    let entities = load_entity_sprites(catalog, asset_server, quality);
+    let entities = load_entity_sprites(&sprite_content, catalog, asset_server, quality);
     // The engine's own effect art. Not a character, not an LDtk prop, and not
     // content's job to declare — see `ambition_sprite_sheet::fx`.
-    let fx = character_sprites::load_fx_sheets(asset_server, layouts, &config.sprite_folder, quality);
+    let fx = character_sprites::load_fx_sheets(&sprite_content, asset_server, layouts, &config.sprite_folder, quality);
     let fallback_sheet_key = boss_catalog.fallback_sheet_key();
     let boss = fallback_sheet_key.and_then(|key| {
-        sprites::load_boss_sprite_in(
+        sprites::load_boss_sprite_in(&sprite_content,
             catalog,
             asset_server,
             layouts,
@@ -429,7 +431,7 @@ pub fn load_game_assets(
     let boss_sprites: HashMap<String, sprites::BossSpriteAsset> = HashMap::new();
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
     let parallax_layers =
-        load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme, quality);
+        load_parallax_layers_for_theme(&sprite_content, catalog, asset_server, active_parallax_theme, quality);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -451,7 +453,7 @@ pub fn load_game_assets(
     };
     // The rest of the art of the start room's theme (the terrain skin, a
     // corrupted state of the sky) comes by the road each later room takes.
-    ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
+    ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(&sprite_content,
         &mut assets,
         catalog,
         asset_server,
@@ -475,7 +477,7 @@ mod tests;
 /// skipped, so a second boss room decodes only what it adds.
 ///
 /// Returns how many sheets this call decoded.
-pub fn ensure_boss_sheets_loaded(
+pub fn ensure_boss_sheets_loaded(sprite_content: &ambition_sprite_sheet::SpriteContent,
     assets: &mut GameAssets,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
     keys: Option<&std::collections::BTreeSet<String>>,
@@ -496,7 +498,7 @@ pub fn ensure_boss_sheets_loaded(
             continue;
         }
         let spec = boss_catalog.sheet_for_key(key);
-        match sprites::load_named_boss_sprite_via_catalog(
+        match sprites::load_named_boss_sprite_via_catalog(&sprite_content,
             catalog,
             asset_server,
             layouts,

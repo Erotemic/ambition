@@ -118,7 +118,7 @@ mod death_flag_tests {
 
 /// A dead hostile actor returns `false` (no-op).
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn apply_actor_hit(
+pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteContent,
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     // The prepared cast, which a split's offspring is built from.
@@ -664,7 +664,7 @@ pub(crate) fn apply_actor_hit(
                     }
                 }
                 if let Some(offspring) = caps.divides_into.as_deref() {
-                    spawn_split_offspring(
+                    spawn_split_offspring(&sprite_content,
                         &mut writers.commands,
                         catalog,
                         authored_sheets,

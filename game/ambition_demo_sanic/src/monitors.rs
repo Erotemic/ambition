@@ -83,12 +83,12 @@ const BROKEN_ROW: &str = "broken";
 /// block is a 26 px square; the box is narrower than it at that height, which
 /// only the collision knows. A sheet the build did not bake (sprites not
 /// generated) leaves the block as it was: a plain tile.
-pub fn dress_monitors(room: &mut ambition_platformer2d::world::rooms::RoomSpec) {
+pub fn dress_monitors(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, room: &mut ambition_platformer2d::world::rooms::RoomSpec) {
     for block in &mut room.world.blocks {
         let Some(kind) = box_sprite_of(&block.name) else {
             continue;
         };
-        let Some(record) = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(kind) else {
+        let Some(record) = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, kind) else {
             continue;
         };
         let Some(body) = record.body_metrics.as_ref().and_then(|metrics| metrics.body_pixel_bbox) else {
@@ -400,8 +400,9 @@ mod tests {
     /// block's floor, and the block itself drawn as nothing.
     #[test]
     fn every_monitor_wears_the_box_of_its_grant() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let mut dressed = 0;
-        for room in [crate::sanic_speedway(), crate::sanic_highway(), crate::sanic_darkness()] {
+        for room in [crate::sanic_speedway(&sprite_content), crate::sanic_highway(&sprite_content), crate::sanic_darkness(&sprite_content)] {
             for block in room.world.blocks.iter().filter(|block| block.name.starts_with(MONITOR_PREFIX)) {
                 let kind = box_sprite_of(&block.name).unwrap_or_else(|| panic!("{} grants nothing", block.name));
                 let prop = room
@@ -409,7 +410,7 @@ mod tests {
                     .iter()
                     .find(|prop| prop.name == block.name)
                     .unwrap_or_else(|| panic!("{} in {} wears no box", block.name, room.id));
-                let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(kind)
+                let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, kind)
                     .unwrap_or_else(|| panic!("the build baked no `{kind}` sheet: regen the sprites"));
                 let body = record.body_metrics.as_ref().and_then(|m| m.body_pixel_bbox).expect("the box sheet states its body");
                 let scale = prop.size.y / record.frame_height as f32;

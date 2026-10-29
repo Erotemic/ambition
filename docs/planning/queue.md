@@ -40,6 +40,15 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
+## External art library migration (2026-10-28)
+
+Jon selected the [external art library migration](engine/external-art-library-migration.md).
+The engine assumes one shared art tree and one process-wide metadata selection.
+Make libraries explicit game dependencies, move named content outside engine
+crates, and use the selected content in preparation, loading, generation, and
+packaging. Acceptance includes a game with the shared library absent and two
+Apps with different selections. Content edits must not require an engine build.
+
 ## Current multiplayer correctness interrupt (2026-10-24)
 
 The maintainer confirms that baseline local two-player play and adaptive

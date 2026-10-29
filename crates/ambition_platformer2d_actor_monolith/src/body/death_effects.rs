@@ -71,7 +71,7 @@ const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// remainder rather than this line's. What a character splits into is a CONTENT
 /// fact and belongs on the parent's definition; casting it correctly first is
 /// what makes moving it a move rather than a decision.
-pub(super) fn spawn_split_offspring(
+pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -92,7 +92,7 @@ pub(super) fn spawn_split_offspring(
         }
     };
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
-        ambition_platformer2d_actor_spawn::spawn_runtime_minion(
+        ambition_platformer2d_actor_spawn::spawn_runtime_minion(&sprite_content,
             commands,
             character_catalog,
             authored_sheets,

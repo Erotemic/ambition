@@ -81,6 +81,7 @@ pub(crate) struct PlatformerProviderRuntimePlugin;
 
 impl Plugin for PlatformerProviderRuntimePlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ambition_sprite_sheet::SpriteContent>();
         // The provider owns the session lifecycle: it constructs the live session
         // on activation and must retire its resource mirrors on teardown. This
         // plugin is composed only by shell hosts, which also install
@@ -226,6 +227,7 @@ fn update_streamable_packed_sfx(
 /// Catalog validation + prepared-session publication for one transaction.
 #[derive(SystemParam)]
 pub(crate) struct PlatformerPreparation<'w> {
+    sprite_content: Res<'w, ambition_sprite_sheet::SpriteContent>,
     authored_catalogs: Res<'w, PlatformerAuthoredCatalogRegistry>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_catalog_registry:
@@ -684,7 +686,7 @@ impl PlatformerPreparation<'_> {
                     self.content_inputs.9.as_deref(),
                 ),
                 extension_modules: self.content_inputs.10.as_deref().map(|g| g.0.clone()),
-                baked_landmarks: baked_landmarks_identity(),
+                sprite_content: Some(ambition_sprite_sheet::baked_sheet_rons::current(&self.sprite_content).mechanics_digest().to_owned()),
             })
         })
         .and_then(|mechanical| {
@@ -732,6 +734,7 @@ impl PlatformerPreparation<'_> {
                 // published registry — see `candidate_cast_for`.
                 cast: ambition_characters::prepared::ActiveSessionCast(frozen_cast),
                 mechanical: SessionMechanics {
+                    sprite_content: self.sprite_content.clone(),
                     sheets: self
                         .content_inputs
                         .4
@@ -1035,6 +1038,8 @@ pub fn prepare_platformer_content_for_app(
         .get_resource::<ambition_platformer2d_runtime::extension_composition::ExtensionGeneration>()
         .map(|g| g.0.clone());
     app.init_resource::<ContentEpochSequence>();
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
     prepare_platformer_content(
         source,
@@ -1050,7 +1055,7 @@ pub fn prepare_platformer_content_for_app(
             boss_catalog,
             developer_construction,
             extension_modules,
-            baked_landmarks: baked_landmarks_identity(),
+            sprite_content: Some(ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).mechanics_digest().to_owned()),
         },
         snapshot_schema,
         &mut epochs,
@@ -1128,6 +1133,7 @@ pub fn install_direct_session_root(
     let world = app.world();
     // The cast is folded at the barrier; see `freeze_direct_session_mechanics`.
     let mechanics = SessionMechanics {
+        sprite_content: world.resource::<ambition_sprite_sheet::SpriteContent>().clone(),
         sheets: world
             .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .cloned()
@@ -1445,8 +1451,8 @@ fn canonical<T>(
 }
 
 /// The content-identity section that holds
-/// [`MechanicalRegistries::baked_landmarks`].
-pub const BAKED_LANDMARKS_SECTION: &str = "characters.baked-landmarks";
+/// [`MechanicalRegistries::sprite_content`].
+pub const SPRITE_MECHANICS_SECTION: &str = "sprites.mechanics";
 
 #[derive(Clone, Debug, Default)]
 pub struct MechanicalRegistries {
@@ -1497,31 +1503,11 @@ pub struct MechanicalRegistries {
     /// different techniques; without this section they shared one identity.
     /// `None` means the composition has no extension host.
     pub extension_modules: Option<String>,
-    /// ⛔ **THE LANDMARK TABLES**: where each character's art publishes its
-    /// hands, head and feet, per pose —
-    /// `ambition_sprite_sheet::baked_landmarks::landmarks_digest()`. A
-    /// landmark places a pet mark today and a muzzle later, so it is a
-    /// simulation input. No world resource holds it: a build with no source
-    /// tree embeds it, and a development build reads it from the published
-    /// tree at startup. Published sprites are not in version control, so two
-    /// builds, or two starts of one development build, can differ in it under
-    /// one source revision. `None` only in a
-    /// fixture that does not go through a provider road.
-    ///
-    /// ⚠ **THE BAKED SHEET RECORDS ARE NOT COVERED, AND THEY ARE THE SAME
-    /// CLASS.** A body's collision box comes from the baked sheet index
-    /// (`record_for_sheet_key`), which no section reads; `authored_sheets`
-    /// holds only the sheets a provider registers. See queue row
-    /// `BAKED-SHEET-IDENTITY`.
-    pub baked_landmarks: Option<String>,
+    /// The admitted sprite geometry, rigs, landmarks, and portrait vocabulary.
+    /// Image packing and quality variants do not enter this identity.
+    pub sprite_content: Option<String>,
 }
 
-/// The identity of the landmark tables this build reads, for
-/// [`MechanicalRegistries::baked_landmarks`]. One function for both provider
-/// roads, so that they cannot disagree about the material.
-fn baked_landmarks_identity() -> Option<String> {
-    Some(ambition_sprite_sheet::baked_landmarks::landmarks_digest().to_string())
-}
 
 pub fn prepare_platformer_content(
     source: PreparedPlatformerSource,
@@ -1750,7 +1736,7 @@ pub fn prepare_platformer_content(
         boss_catalog,
         developer_construction,
         extension_modules,
-        baked_landmarks,
+        sprite_content,
     } = mechanical;
     // ⛔ DESTRUCTURED EXHAUSTIVELY, so a field added to `MechanicalRegistries`
     // and not bound below is a compile error rather than a silent omission —
@@ -1768,8 +1754,7 @@ pub fn prepare_platformer_content(
         ("construction.developer", developer_construction),
         // The procedural modules: see `MechanicalRegistries::extension_modules`.
         (ambition_platformer2d_runtime::extension_composition::EXTENSION_MODULES_SECTION, extension_modules),
-        // The compiled-in landmark tables: see `MechanicalRegistries::baked_landmarks`.
-        (BAKED_LANDMARKS_SECTION, baked_landmarks),
+        (SPRITE_MECHANICS_SECTION, sprite_content),
     ] {
         builder
             .add_section(section, material.map_or_else(Vec::new, String::into_bytes))
@@ -2064,7 +2049,7 @@ pub struct CandidateSessionGateEvaluator(
 /// `Hold`/`Admit`/`Refuse` at the moment of activation, inside the router's own
 /// exclusive operation. This provider is simply another answerer.
 #[allow(clippy::too_many_arguments)]
-fn prepare_candidate_platformer_session(
+fn prepare_candidate_platformer_session(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     router: Res<ambition_game_shell::ShellRouter>,
     routes: Res<ambition_game_shell::ShellRouteCatalog>,
     authored_catalogs: Res<PlatformerAuthoredCatalogRegistry>,
@@ -2135,7 +2120,7 @@ fn prepare_candidate_platformer_session(
     let scope = active_scope.reserve();
     reserved.reserve(activation_id, scope);
     let default_character = prepared.report.starting_character.clone();
-    let candidate = builder.build_candidate(
+    let candidate = builder.build_candidate(&sprite_content,
         activation_id,
         &experience_id,
         scope,
@@ -2450,7 +2435,7 @@ impl PlatformerSessionBuilder<'_, '_> {
     /// activation, which is also where the shell facts a candidate cannot know
     /// (`GameplaySessionWorldRoot`) go on.
     pub fn build_candidate(
-        &mut self,
+        &mut self, sprite_content: &ambition_sprite_sheet::SpriteContent,
         activation_id: ambition_game_shell::ShellActivationId,
         experience_id: &ambition_game_shell::ShellExperienceId,
         scope: SessionScopeId,
@@ -2685,7 +2670,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 boss_catalog: &mechanical.bosses,
             },
         );
-        let built = ambition_platformer2d_session::setup::simulation_world(
+        let built = ambition_platformer2d_session::setup::simulation_world(&sprite_content,
             &mut self.commands,
             SessionSpawnScope::candidate(scope),
             ambition_platformer2d_session::setup::SimulationSetup {
@@ -2733,6 +2718,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 root: world,
                 home_body: built.player,
                 actors: crate::session_contents::StagedActorAuthorities {
+                    sprite_content: &mechanical.sprite_content,
                     character_catalog: candidate_catalog
                         .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog),
                     sheets: &mechanical.sheets,
@@ -3934,7 +3920,7 @@ mod tests {
                 None,
                 Some(&staging),
                 MechanicalRegistries {
-                    baked_landmarks: Some(landmarks.to_string()),
+                    sprite_content: Some(landmarks.to_string()),
                     ..Default::default()
                 },
                 snapshot_schema,
@@ -4818,10 +4804,12 @@ mod mechanical_registries_reach_the_identity {
 
     /// The provider road puts the digest of the landmark tables THIS build
     /// embeds in its own section, so the identity is about the material a
-    /// session uses. See `MechanicalRegistries::baked_landmarks`.
+    /// session uses. See `MechanicalRegistries::sprite_content`.
     #[test]
     fn the_provider_road_carries_this_builds_landmark_digest() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut app = bevy::app::App::new();
+        app.insert_resource(sprite_content.clone());
         let prepared = prepare_platformer_content_for_app(
             &mut app,
             source(),
@@ -4831,18 +4819,36 @@ mod mechanical_registries_reach_the_identity {
         let section = prepared
             .sections()
             .iter()
-            .find(|section| section.name == BAKED_LANDMARKS_SECTION)
+            .find(|section| section.name == SPRITE_MECHANICS_SECTION)
             .expect("the provider road adds the landmark section");
         assert_eq!(
             section.canonical_bytes(),
-            ambition_sprite_sheet::baked_landmarks::landmarks_digest().as_bytes(),
+            ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).mechanics_digest().as_bytes(),
         );
     }
 
     #[test]
+    fn provider_identity_uses_sprite_geometry_and_ignores_packing_and_quality() {
+        use ambition_sprite_sheet::{SpriteContent, baked_sheet_rons::SheetTexts};
+        let table = |scale: f32, image: &str| -> std::sync::Arc<str> {
+            format!(r#"[(target: "body", image: "{image}", label_width: 0, frame_width: 32,
+                frame_height: 32, tuning: Some((collision_scale: {scale}, frame_sample_inset: 0)), rows: [])]"#).into()
+        };
+        let identity = |scale, image, tier| {
+            let mut texts = SheetTexts { sheets: vec![("body", table(scale, image))], ..Default::default() };
+            if tier { texts.sheets.push(("body.0_5x", table(0.5, "tier.png"))); }
+            let mut app = bevy::app::App::new();
+            app.insert_resource(SpriteContent::from_texts(texts).unwrap());
+            prepare_platformer_content_for_app(&mut app, source(), &AuthoredCatalogFragments::new("alpha", "fixture"))
+                .unwrap().fingerprint()
+        };
+        assert_eq!(identity(1.0, "first.png", false), identity(1.0, "repacked.png", true));
+        assert_ne!(identity(1.0, "first.png", false), identity(2.0, "first.png", false));
+    }
+
+    #[test]
     fn an_authored_sheets_declaration_reaches_the_identity() {
-        // The declaration TEXT is the canonical material, so two sheets that
-        // differ anywhere in what the provider said must differ here.
+        // Body geometry enters identity; formatting and image packing do not.
         fn sheets(
             ron: &str,
         ) -> ambition_sprite_sheet::character::sheets::AuthoredSheets {
@@ -4874,6 +4880,11 @@ mod mechanical_registries_reach_the_identity {
         let wide = identity_of(|app| {
             app.insert_resource(sheets(&one_record(48)));
         });
+        let repacked = identity_of(|app| {
+            let text = format!("// A source comment.\n{}", one_record(24).replace("alpha.png", "repacked.png").replace("label_width: 0", "label_width: 8"));
+            app.insert_resource(sheets(&text));
+        });
+        assert_eq!(narrow, repacked);
         assert_ne!(
             narrow, wide,
             "authored sheet records carry the BODY METRICS the collision body is \

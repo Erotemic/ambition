@@ -144,7 +144,7 @@ fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
         app.insert_resource(ambition_app::app::StartRoomOverride("hall_of_characters".to_owned()));
         app.insert_resource(ambition_app::app::StartRoomMustResolve);
     });
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() + 30 {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) + 30 {
         app.update();
     }
 

@@ -420,6 +420,7 @@ mod tests {
     /// renderer asks.
     #[test]
     fn the_kit_looks_like_oiler_and_the_art_all_ships() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let set = crate::authored_movesets::shipped("npc_oiler");
         let mut effects = std::collections::BTreeSet::new();
         // Collect problems across every move, then assert once, so one run reports
@@ -427,7 +428,7 @@ mod tests {
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
-                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+                |name| ambition_platformer2d::sprite_sheet::fx::is_authored_effect(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), name),
             ));
             for ev in &m.events {
                 if let MoveEventKind::Vfx { effect, .. } = &ev.kind {
@@ -445,10 +446,10 @@ mod tests {
         );
         // Every effect comes from his own sheet.
         for effect in &effects {
-            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(effect)
+            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(&sprite_content, effect)
                 .unwrap_or_else(|| panic!("`{effect}` ships"));
             assert_eq!(
-                authored.sheet, "oiler_vfx",
+                authored.sheet, "content://ambition_shared/sprites/oiler_vfx",
                 "`{effect}` is drawn from `{}` — Oiler has his own sheet",
                 authored.sheet
             );
@@ -517,8 +518,9 @@ mod tests {
     /// republished without them.
     #[test]
     fn every_move_names_a_row_the_published_sheet_carries() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let record =
-            ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key("oiler")
+            ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, "oiler")
                 .expect("Oiler's sheet is baked into the binary");
         let rows: std::collections::BTreeSet<&str> = record
             .rows

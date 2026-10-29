@@ -24,10 +24,10 @@ fn floored_world() -> ae::World {
 
 /// Drop a grounded body (dash-capable iff `can_dash`) and drive a full-right
 /// dash for `ticks` steps; return how far it traveled along +x.
-fn dash_run(can_dash: bool, ticks: u32) -> f32 {
+fn dash_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_dash: bool, ticks: u32) -> f32 {
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "dasher".to_string(),
         "Dasher".to_string(),
         aabb,
@@ -86,9 +86,10 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
 
 #[test]
 fn a_dash_capable_body_covers_more_ground_than_a_walker_over_the_window() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // ~the dash window (DASH_TIME_S = 0.18 s ≈ 11 ticks), plus a tick of slack.
-    let dashed = dash_run(true, 12);
-    let walked = dash_run(false, 12);
+    let dashed = dash_run(&sprite_content, true, 12);
+    let walked = dash_run(&sprite_content, false, 12);
     assert!(
         dashed > walked * 1.3,
         "the dash burst should cover meaningfully more ground than a top-speed \
@@ -103,6 +104,7 @@ fn a_dash_capable_body_covers_more_ground_than_a_walker_over_the_window() {
 /// down-gravity frame while its movement obeyed the real field.
 #[test]
 fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = floored_world();
     for gravity in [
         ae::Vec2::new(0.0, 1.0),  // down (baseline)
@@ -111,7 +113,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
         ae::Vec2::new(-1.0, 0.0), // left
     ] {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-        let mut seed = ActorClusterSeed::new(
+        let mut seed = ActorClusterSeed::new(&sprite_content,
             "grunt".to_string(),
             "Grunt".to_string(),
             aabb,
@@ -157,10 +159,10 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
 /// Drive a grounded walker (locomotion full-right) for `ticks` steps under
 /// the given post-hit stagger, as the body's own `BodyCombat`; return
 /// the ground covered along +x. The §A2 step 7 witness rig.
-fn walk_run_staggered(mut combat: ambition_characters::actor::BodyCombat, ticks: u32) -> f32 {
+fn walk_run_staggered(sprite_content: &ambition_sprite_sheet::SpriteContent, mut combat: ambition_characters::actor::BodyCombat, ticks: u32) -> f32 {
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "staggered".to_string(),
         "Staggered".to_string(),
         aabb,
@@ -209,16 +211,17 @@ fn walk_run_staggered(mut combat: ambition_characters::actor::BodyCombat, ticks:
 /// steering at all), hitstun leaves only reduced movement authority.
 #[test]
 fn a_staggered_body_loses_input_authority_like_the_player() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::actor::BodyCombat;
-    let free = walk_run_staggered(BodyCombat::default(), 12);
-    let recoil_locked = walk_run_staggered(
+    let free = walk_run_staggered(&sprite_content, BodyCombat::default(), 12);
+    let recoil_locked = walk_run_staggered(&sprite_content,
         BodyCombat {
             recoil_lock_timer: 1.0,
             ..Default::default()
         },
         12,
     );
-    let hitstunned = walk_run_staggered(
+    let hitstunned = walk_run_staggered(&sprite_content,
         BodyCombat {
             hitstun_timer: 1.0,
             ..Default::default()
@@ -227,7 +230,7 @@ fn a_staggered_body_loses_input_authority_like_the_player() {
     );
     //  third half, guarded here: LANDING LAG alone must lock an actor exactly as recoil
     // does.
-    let landing_lagged = walk_run_staggered(
+    let landing_lagged = walk_run_staggered(&sprite_content,
         BodyCombat {
             landing_lag_timer: 1.0,
             ..Default::default()
@@ -258,11 +261,12 @@ fn a_staggered_body_loses_input_authority_like_the_player() {
 
 #[test]
 fn an_uncapable_body_does_not_burst_and_just_walks() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Sanity: with the capability off, `burst_pressed` never opens a window —
     // the body's attack state stays dash-inert (the body enforces the kit).
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "walker".to_string(),
         "Walker".to_string(),
         aabb,
@@ -313,10 +317,11 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
 /// toward the command and holds altitude (gravity-free flight, no idle bob).
 #[test]
 fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = floored_world();
     // Hover in open air well above the floor (floor top is y = 100).
     let aabb = ae::Aabb::new(ae::Vec2::new(0.0, -200.0), ae::Vec2::new(24.0, 24.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "flyer".to_string(),
         "Flyer".to_string(),
         aabb,
@@ -379,10 +384,10 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
 /// (`is_aerial`, gravity off, already airborne). This is the GROUNDED-BASE
 /// hybrid: a fighter standing on a floor under full gravity that toggles flight
 /// and leaves the ground. Different limb, different failure.
-fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
+fn fly_toggle_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_fly: bool, ticks: u32) -> (bool, f32) {
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "flyer".to_string(),
         "Flyer".to_string(),
         aabb,
@@ -450,7 +455,8 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
 
 #[test]
 fn a_fly_capable_grounded_body_leaves_the_floor_when_it_toggles_flight() {
-    let (enabled, climbed) = fly_toggle_run(true, 45);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (enabled, climbed) = fly_toggle_run(&sprite_content, true, 45);
     assert!(
         enabled,
         "the toggle press must put the body into flight, or the climb below \
@@ -468,7 +474,8 @@ fn a_fly_capable_grounded_body_leaves_the_floor_when_it_toggles_flight() {
 /// pipeline that lifted every body on an up-axis would pass the test above.
 #[test]
 fn a_body_without_the_fly_kit_stays_on_the_floor_pressing_the_same_button() {
-    let (enabled, climbed) = fly_toggle_run(false, 45);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (enabled, climbed) = fly_toggle_run(&sprite_content, false, 45);
     assert!(!enabled, "no fly kit, no flight mode");
     assert!(
         climbed < 1.0,

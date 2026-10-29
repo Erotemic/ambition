@@ -23,12 +23,12 @@ fn floored_world() -> ae::World {
 /// How far a standing body travels over its swing's windup, starting the move
 /// the way `trigger_moveset_moves` does (the move's start impulse, mirrored by
 /// facing) and holding a neutral stick while it plays.
-fn windup_travel(melee: MeleeActionSpec) -> f32 {
+fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: MeleeActionSpec) -> f32 {
     let attack = ambition_characters::moveset_prefabs::attack_move_from_melee(&melee);
     let (windup, ..) = melee.timeline();
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "lunger".to_string(),
         "Lunger".to_string(),
         aabb,
@@ -102,9 +102,10 @@ fn windup_travel(melee: MeleeActionSpec) -> f32 {
 /// 0.92px of an authored 18 before ground friction stopped it.
 #[test]
 fn a_lunge_steps_its_authored_distance_during_its_windup() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let authored = LungeSpec::BRUTE_DEFAULT.step_px;
-    let lunge = windup_travel(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT));
-    let swipe = windup_travel(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
+    let lunge = windup_travel(&sprite_content, MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT));
+    let swipe = windup_travel(&sprite_content, MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
     assert!(
         (lunge - authored).abs() <= 1.0,
         "the brute lunge authors a {authored}px windup step and travelled {lunge}px"

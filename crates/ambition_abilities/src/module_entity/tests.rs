@@ -93,6 +93,7 @@ fn fly(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
 fn app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::SpriteContent::default());
     app.init_schedule(Sim);
     app.add_plugins(ExtensionHostPlugin::new(Sim))
         .init_resource::<ambition_time::SimTick>()

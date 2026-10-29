@@ -63,6 +63,7 @@ fn a_body_built_after_admission_is_projected_onto_in_the_same_tick() {
     }
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
@@ -137,6 +138,7 @@ fn a_body_built_after_admission_is_projected_onto_in_the_same_tick() {
 #[test]
 fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
@@ -248,6 +250,7 @@ fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
 #[test]
 fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     super::install_test_catalog(&mut app);
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
@@ -343,6 +346,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
 #[test]
 fn restricted_ability_base_survives_the_sandbox_default_mask() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     // The ADMITTED mask, beside the editor resource it is admitted from.
@@ -431,6 +435,7 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
 #[test]
 fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     // Default editable = air_jumps 1: the value that would cap a double jump.
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
@@ -534,6 +539,7 @@ fn assert_riding_state(
 #[test]
 fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     super::install_test_catalog(&mut app);
     app.add_systems(Update, super::super::apply_worn_character_gameplay);

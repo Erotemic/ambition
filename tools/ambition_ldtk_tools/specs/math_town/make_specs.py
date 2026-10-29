@@ -80,7 +80,7 @@ ROOMS_AT = {
 
 #: The published sheets, whose body boxes say where each prop's art is in
 #: its frame.
-SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+SPRITES = TOOLS.parents[1] / "game/ambition_content_library/generated/runtime/sprites"
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
 #: `math_town_terraces.PX`).
 PROP_PX = 2

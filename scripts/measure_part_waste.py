@@ -44,7 +44,7 @@ from PIL import Image  # noqa: E402
 from ambition_sprite2d_renderer.authoring.part_flipbook import PartFlipbook  # noqa: E402
 from measure_part_flipbook_cost import LEDGER, _envelope  # noqa: E402
 
-SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
 
 #: A rig track is `per_frame` when more than this share of the frames that
 #: draw it draw a raster no earlier frame of the track drew.

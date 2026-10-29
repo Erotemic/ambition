@@ -1,20 +1,4 @@
-//! Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side.
-//!
-//! The regen ultrapack step pools every published per-target sheet into
-//! shared, uniformly-sized atlas pages per quality tier and installs them
-//! under `assets/sprite_packs/<tier>/` (`ultrapack_<n>.png` pages + an
-//! `ultrapack.json` [`SpritePackCatalog`]). `build.rs` bakes each tier's
-//! catalog into `baked::pack_catalogs` the same way sheet RONs are baked, so
-//! Android/wasm carry the same data desktop does.
-//!
-//! Tier dir names match the [`TextureResolutionScale`] vocabulary — `full` /
-//! `half` / `quarter` / `potato` — so tier selection is a direct mapping from
-//! the active quality budget, and the catalog + its page images switch
-//! atomically (they live in the same tier dir; the catalog names its pages).
-//!
-//! A consumer never reads pack pixels for gameplay: the synthesized
-//! [`SheetRecord`](crate::SheetRecord) view carries no `body_metrics`. Packs
-//! are visual storage only.
+//! Select shared atlas pages from the target's library and quality tier.
 
 use std::collections::HashMap;
 
@@ -22,14 +6,10 @@ use crate::SpritePackCatalog;
 
 use crate::character::TextureResolutionScale;
 
-pub(crate) mod baked {
-    #[cfg(embedded_sprites)]
-    include!(concat!(env!("OUT_DIR"), "/baked_pack_catalogs.rs"));
-}
 
 /// The pack tier directory for a texture-resolution scale. Every scale has a
 /// tier, but the tier's catalog may be absent on a checkout that never ran
-/// regen (see [`catalog_for_tier`]).
+/// generation.
 pub fn pack_tier_for_scale(scale: TextureResolutionScale) -> &'static str {
     match scale {
         TextureResolutionScale::Full => "full",
@@ -57,18 +37,18 @@ pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
 }
 
 /// Each pack catalog of the current sheet generation, keyed by tier name.
-fn catalogs() -> &'static HashMap<&'static str, SpritePackCatalog> {
-    crate::baked_sheet_rons::current().pack_catalogs()
+fn catalogs(content: &crate::SpriteContent) -> &HashMap<&'static str, SpritePackCatalog> {
+    crate::baked_sheet_rons::current(&content).pack_catalogs()
 }
 
 /// The catalogs of `texts` (`(tier, json_text)`), or each tier that does not
 /// parse or validate with its first error, named by its file.
-pub(crate) fn checked_catalogs(texts: &[(&'static str, &'static str)]) -> Result<HashMap<&'static str, SpritePackCatalog>, Vec<(String, String)>> {
+pub(crate) fn checked_catalogs<T: AsRef<str>>(texts: &[(&'static str, T)]) -> Result<HashMap<&'static str, SpritePackCatalog>, Vec<(String, String)>> {
     let mut map = HashMap::new();
     let mut failed = Vec::new();
     for (tier, json) in texts {
         let file = format!("sprite_packs/{tier}/ultrapack.json");
-        match SpritePackCatalog::parse(json) {
+        match SpritePackCatalog::parse(json.as_ref()) {
             Ok(catalog) => match catalog.validate().first() {
                 None => {
                     map.insert(*tier, catalog);
@@ -87,11 +67,11 @@ pub(crate) fn checked_catalogs(texts: &[(&'static str, &'static str)]) -> Result
 
 /// The catalogs of `texts` (`(tier, json_text)`) that parse and validate: a
 /// tier that does not is disabled, with a warning.
-pub(crate) fn catalogs_of(texts: &[(&'static str, &'static str)]) -> HashMap<&'static str, SpritePackCatalog> {
+pub(crate) fn catalogs_of<T: AsRef<str>>(texts: &[(&'static str, T)]) -> HashMap<&'static str, SpritePackCatalog> {
     {
         let mut map = HashMap::new();
         for (tier, json) in texts {
-            match SpritePackCatalog::parse(json) {
+            match SpritePackCatalog::parse(json.as_ref()) {
                 Ok(catalog) => {
                     let errors = catalog.validate();
                     if errors.is_empty() {
@@ -117,27 +97,25 @@ pub(crate) fn catalogs_of(texts: &[(&'static str, &'static str)]) -> HashMap<&'s
     }
 }
 
-/// The baked catalog for a tier dir name, if regen produced one.
-pub fn catalog_for_tier(tier: &str) -> Option<&'static SpritePackCatalog> {
-    catalogs().get(tier)
-}
-
 /// Pick the pack catalog for a texture scale. Fall back to the `full` tier
 /// when the requested tier was not generated. Returns the chosen tier name
 /// with the catalog, so the caller's page paths match the catalog.
-pub fn catalog_for_scale(
+pub fn catalog_for_scale<'a>(content: &'a crate::SpriteContent, target: &str,
     scale: TextureResolutionScale,
-) -> Option<(&'static str, &'static SpritePackCatalog)> {
+) -> Option<(&'static str, &'a SpritePackCatalog)> {
+    let key = crate::shared_baked_sheet_registry(content).canonical_key(target)?;
+    let library = key.strip_prefix("content://").and_then(|rest| rest.split_once('/')).map(|(library, _)| library);
+    let find = |tier: &str| {
+        let key = library.map_or_else(|| tier.to_owned(), |library| format!("content://{library}/{tier}"));
+        catalogs(content).get(key.as_str())
+    };
     let tier = pack_tier_for_scale(scale);
-    if let Some(catalog) = catalog_for_tier(tier) {
-        return Some((tier, catalog));
-    }
-    catalog_for_tier("full").map(|catalog| ("full", catalog))
+    find(tier).map(|catalog| (tier, catalog)).or_else(|| find("full").map(|catalog| ("full", catalog)))
 }
 
 /// Bevy asset path (relative to `assets/`) of one page image in a tier pack.
 pub fn pack_page_path(tier: &str, page_image: &str) -> String {
-    format!("sprite_packs/{tier}/{page_image}")
+    if page_image.contains("://") { page_image.to_owned() } else { format!("sprite_packs/{tier}/{page_image}") }
 }
 
 #[cfg(test)]
@@ -152,18 +130,16 @@ mod tests {
     /// `has_baked_packs` is a build-script cfg over the same table, so a skip
     /// shows as `ignored` with a reason.
     #[test]
-    #[cfg_attr(
-        not(has_baked_packs),
-        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./scripts/regen/sprites.sh"
-    )]
+    #[ignore = "requires the generated shared library"]
     fn baked_pack_tiers_parse_and_agree_on_coverage() {
+        let content = &crate::test_support::shared_sprites();
         // Every baked tier survived parse+validate into the index.
         assert_eq!(
-            catalogs().len(),
-            crate::baked_sheet_rons::current().pack_catalog_texts().len(),
+            catalogs(content).len(),
+            crate::baked_sheet_rons::current(content).pack_catalog_texts().len(),
             "a baked pack catalog failed parse/validate"
         );
-        let mut coverage: Vec<(&str, usize)> = catalogs()
+        let mut coverage: Vec<(&str, usize)> = catalogs(&content)
             .iter()
             .map(|(tier, c)| (*tier, c.targets.len()))
             .collect();
@@ -184,18 +160,16 @@ mod tests {
     /// partial pack set fails it on purpose: a regen that produced only some
     /// tiers is broken (see `baked_pack_tiers_parse_and_agree_on_coverage`).
     #[test]
-    #[cfg_attr(
-        not(has_baked_packs),
-        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./scripts/regen/sprites.sh"
-    )]
+    #[ignore = "requires the generated shared library"]
     fn intro_cart_pack_spec_resolves_at_two_tiers() {
+        let content = &crate::test_support::shared_sprites();
         use crate::character::sheets::{try_load_pack_spec_for_target, SheetTuning};
         let tuning = SheetTuning::new(1.0, 2);
         for (scale, want_tier) in [
             (TextureResolutionScale::Full, "full"),
             (TextureResolutionScale::Potato, "potato"),
         ] {
-            let (spec, tier) = try_load_pack_spec_for_target("intro_cart", &tuning, scale)
+            let (spec, tier) = try_load_pack_spec_for_target(&content, "intro_cart", &tuning, scale)
                 .expect("intro_cart must be packed at every tier");
             assert_eq!(tier, want_tier);
             assert!(spec.page_count() >= 1);
@@ -206,21 +180,17 @@ mod tests {
                     "tier {tier} page {page} layout is degenerate"
                 );
             }
-            // The page images the spec names exist on disk where the asset
-            // path says they are (desktop check; profile gating is separate).
-            let asset_owner_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../ambition_platformer2d_actor_monolith");
-            let page0 = asset_owner_dir
-                .join("assets")
-                .join(pack_page_path(tier, &spec.page_images[0]));
-            assert!(page0.is_file(), "missing {page0:?}");
+            let libraries = crate::test_support::shared_libraries();
+            for page in &spec.page_images {
+                assert!(libraries.resolve(page).unwrap().native_path().unwrap().is_file());
+            }
         }
         // Tier sizes differ.
         let (full_spec, _) =
-            try_load_pack_spec_for_target("intro_cart", &tuning, TextureResolutionScale::Full)
+            try_load_pack_spec_for_target(&content, "intro_cart", &tuning, TextureResolutionScale::Full)
                 .unwrap();
         let (potato_spec, _) =
-            try_load_pack_spec_for_target("intro_cart", &tuning, TextureResolutionScale::Potato)
+            try_load_pack_spec_for_target(&content, "intro_cart", &tuning, TextureResolutionScale::Potato)
                 .unwrap();
         assert!(potato_spec.frame_width < full_spec.frame_width);
     }

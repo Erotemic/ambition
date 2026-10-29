@@ -529,6 +529,8 @@ pub struct PresentationVisualAnimationPlugin;
 
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+
         use bevy::prelude::{IntoScheduleConfigs, Update};
         // Every visual below draws from frame-clock presented poses, so the
         // resample must run first. Both sides are in `Update` for all three sim
@@ -755,8 +757,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // A room realizes its whole cast in one frame, and each sheet reads its
         // part table then. The tables are decoded on background threads from
         // startup, so that frame finds them ready.
-        app.add_systems(bevy::prelude::Startup, || {
-            ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::warm_baked_in_background();
+        app.add_systems(bevy::prelude::Startup, |sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>| {
+            ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::warm_baked_in_background(&sprite_content);
         });
         app.add_systems(
             Update,

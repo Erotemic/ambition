@@ -35,6 +35,7 @@ fn const_atlas_len(spec: &BossSheetSpec) -> usize {
 
 #[test]
 fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The boss render draws at `spec.render_size(kin.size)`, where the loaded
     // spec's frame dims come from the baked sheet record; gameplay's const
     // `render_size` uses the const dims. `render_size` height is
@@ -50,7 +51,7 @@ fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
     ];
     let mut any_divergent = false;
     for (target, spec) in known_divergent {
-        let Some(record) = record_for_sheet_key(target) else {
+        let Some(record) = record_for_sheet_key(&sprite_content, target) else {
             continue;
         };
         if spec.frame_width as u64 * record.frame_height as u64
@@ -212,11 +213,12 @@ fn boss_ron_target_strips_the_sheet_suffix() {
 
 #[test]
 fn giant_gnu_baked_record_drives_the_packed_pixels() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // End-to-end convergence guard: the regenerated `giant_gnu` mount sheet is
     // an alpha-trim/packed sheet. The published record must (a) line up with the
     // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
     // (a multi-page sibling would resolve the wrong page's filename).
-    let record = record_for_sheet_key("giant_gnu")
+    let record = record_for_sheet_key(&sprite_content, "giant_gnu")
         .expect("baked giant_gnu record present (run scripts/regen/sprites.sh)");
     assert!(
         record_aligns_with_const(record, &content_sheet("giant_gnu")),
@@ -492,6 +494,7 @@ fn an_authored_sheet_overrides_the_built_in_layout() {
 /// sheet no longer had (it draws 456 x 300), 18% too narrow.
 #[test]
 fn every_boss_is_drawn_where_the_simulation_measures_its_body() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let catalog = crate::test_boss_catalog();
     let mut checked = 0;
     for spec in catalog.encounter_specs() {
@@ -499,13 +502,13 @@ fn every_boss_is_drawn_where_the_simulation_measures_its_body() {
             continue;
         };
         let target = crate::ecs::sprite_target_for_boss(catalog, behavior);
-        let Some(record) = record_for_sheet_key(target) else {
+        let Some(record) = record_for_sheet_key(&sprite_content, target) else {
             continue;
         };
         if record.body_metrics.as_ref().and_then(|metrics| metrics.body_pixel_bbox).is_none() {
             continue;
         }
-        let boss = crate::BossClusterScratch::new(
+        let boss = crate::BossClusterScratch::new(&sprite_content,
             catalog,
             spec.id.clone(),
             spec.id.clone(),

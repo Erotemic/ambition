@@ -88,7 +88,7 @@ impl GrantedBodyFacts {
     /// character never authored, and a record that read the definition would
     /// then fail to retract exactly the fact that WAS granted. See
     /// [`grant_prepared_character_body`].
-    fn of(
+    fn of(sprite_content: &ambition_sprite_sheet::SpriteContent,
         prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
         movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
     ) -> Self {
@@ -98,9 +98,9 @@ impl GrantedBodyFacts {
             pose_clock: reads_the_pose_clock(prepared),
             movement_tuning: movement_tuning.is_some(),
             // Filled by the grant's capture edit, which reads the body.
-            posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
-            sheet_body: sheet_body_for(prepared).map(|_| DisplacedGeometry::default()),
-            drawn_quad: drawn_from_its_box(prepared).is_some(),
+            posed_body: posed_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
+            sheet_body: sheet_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
+            drawn_quad: drawn_from_its_box(&sprite_content, prepared).is_some(),
             unmirrored: prepared.unmirrored,
             carried: prepared.carries.clone(),
         }
@@ -211,7 +211,7 @@ impl GrantedBodyFacts {
 /// rectangles off a sheet manifest, so one without a target has nothing to pose
 /// against. Preparation already RESOLVES that target, so a typo is named at load
 /// rather than producing a body that silently never poses.
-fn posed_body_for(
+fn posed_body_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
 ) -> Option<(
     ambition_sprite_sheet::character::SpritePosedBody,
@@ -226,7 +226,7 @@ fn posed_body_for(
             // The marker and its standing geometry are granted together or not
             // at all: a sheet with no `Idle` rectangle has nothing to stand in,
             // and the pose pass could not project it either.
-            let standing = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+            let standing = ambition_sprite_sheet::character::sheets::posed_body_geometry(&sprite_content,
                 &posed.target,
                 ambition_sprite_sheet::character::CharacterAnim::Idle,
                 posed.world_per_pixel,
@@ -246,7 +246,7 @@ fn posed_body_for(
 /// not a small dog in the box it had. A character with no standing height
 /// would be scaled by a placement box, which a live body has not got; it
 /// keeps its box and its art is fitted to it ([`drawn_from_its_box`]).
-fn sheet_body_for(
+fn sheet_body_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
 ) -> Option<ambition_sprite_sheet::character::catalog_join::SpriteBodyCollision> {
     // An authored body outranks the sheet: a posed body brings its own box,
@@ -255,11 +255,11 @@ fn sheet_body_for(
         prepared.body,
         Some(ambition_characters::actor::definition::BodySource::Explicit { .. })
     );
-    if explicit || posed_body_for(prepared).is_some() {
+    if explicit || posed_body_for(&sprite_content, prepared).is_some() {
         return None;
     }
     let height = prepared.sheet_sizing.as_ref()?.standing_height?;
-    ambition_sprite_sheet::character::catalog_join::sprite_body_at_standing_height(prepared.sheet.as_deref()?, height)
+    ambition_sprite_sheet::character::catalog_join::sprite_body_at_standing_height(&sprite_content, prepared.sheet.as_deref()?, height)
 }
 
 /// The sheet of a character whose art is drawn from its body's box: it has a
@@ -269,12 +269,12 @@ fn sheet_body_for(
 /// (`sheets::sprite_render_size`). A sheet that publishes no idle body is
 /// drawn by the catalog's `collision_scale`, which is not known here: a body
 /// that wears one states no quad, and the landmark query has no answer for it.
-fn drawn_from_its_box(prepared: &ambition_characters::prepared::PreparedCharacterDefinition) -> Option<&str> {
-    if posed_body_for(prepared).is_some() || sheet_body_for(prepared).is_some() {
+fn drawn_from_its_box<'a>(sprite_content: &ambition_sprite_sheet::SpriteContent, prepared: &'a ambition_characters::prepared::PreparedCharacterDefinition) -> Option<&'a str> {
+    if posed_body_for(&sprite_content, prepared).is_some() || sheet_body_for(&sprite_content, prepared).is_some() {
         return None;
     }
     let sheet = prepared.sheet.as_deref()?;
-    ambition_sprite_sheet::character::sheets::fitted_render_size(sheet, ambition_platformer2d_core::Vec2::ONE)
+    ambition_sprite_sheet::character::sheets::fitted_render_size(&sprite_content, sheet, ambition_platformer2d_core::Vec2::ONE)
         .map(|_| sheet)
 }
 
@@ -333,7 +333,7 @@ pub fn install_ranged_execution(
 /// the memo goes in the same batch as the grants, deliberately. Splitting them is the shape
 /// investigation kept circling: a save taken between the two restores a world claiming to be
 /// projected and missing what the projection grants. One batch, one archetype move, one tick.
-pub fn grant_prepared_character_body(
+pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut EntityScope,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
@@ -373,7 +373,7 @@ pub fn grant_prepared_character_body(
         scope.insert(ProjectedCharacterKit {
             id: prepared.id.as_str().to_string(),
             generation,
-            granted: GrantedBodyFacts::of(prepared, movement_tuning),
+            granted: GrantedBodyFacts::of(&sprite_content, prepared, movement_tuning),
         });
         // CONSTRUCTION writes the kit; `apply_worn_character_gameplay` writes it
         // again only on a real transition (a re-wear, a stale cast). Both read
@@ -480,7 +480,7 @@ pub fn grant_prepared_character_body(
         // identity box (`BodyBaseSize`, what a reset restores and a stance
         // divides by) and the quad it is drawn with, all from the sheet's `Idle`
         // pose. The pose pass then projects only the pose the body is SHOWING.
-        if let Some((posed, standing)) = posed_body_for(prepared) {
+        if let Some((posed, standing)) = posed_body_for(&sprite_content, prepared) {
             // What this grant displaces, read in the batch before it is
             // replaced, onto the record `retract` reads.
             scope.queue_entity_edit(|mut body| {
@@ -507,7 +507,7 @@ pub fn grant_prepared_character_body(
                 ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
             ));
             scope.insert(posed);
-        } else if let Some(form) = sheet_body_for(prepared) {
+        } else if let Some(form) = sheet_body_for(&sprite_content, prepared) {
             // The same capture as a posed body's, onto its own record.
             scope.queue_entity_edit(|mut body| {
                 let displaced = DisplacedGeometry {
@@ -548,7 +548,7 @@ pub fn grant_prepared_character_body(
                     }
                 }
             });
-        } else if let Some(sheet) = drawn_from_its_box(prepared) {
+        } else if let Some(sheet) = drawn_from_its_box(&sprite_content, prepared) {
             // THE QUAD OF A BODY DRAWN FROM ITS BOX, when the body carries
             // none: the frame fitted to the box the body stands in as this
             // batch lands, by the renderer's own rule. Only a character with
@@ -559,12 +559,13 @@ pub fn grant_prepared_character_body(
             // character, and keeps it. The retraction of the character before
             // this one removed that character's quad earlier in the batch.
             let sheet = sheet.to_owned();
+            let sprite_content = sprite_content.clone();
             scope.queue_insert_derived(move |body| {
                 if body.contains::<ambition_combat::components::ActorRenderSize>() {
                     return None;
                 }
                 let standing = body.get::<ambition_platformer2d_core::BodyBaseSize>()?.base_size;
-                ambition_sprite_sheet::character::sheets::fitted_render_size(&sheet, standing)
+                ambition_sprite_sheet::character::sheets::fitted_render_size(&sprite_content, &sheet, standing)
                     .map(ambition_combat::components::ActorRenderSize)
             });
         }
@@ -631,8 +632,9 @@ mod tests {
     /// author wrote. Poison: ask only about a posed body again.
     #[test]
     fn an_explicit_body_is_not_sized_by_its_sheet() {
-        assert!(sheet_body_for(&on_a_sheet(None)).is_some(), "premise: the sheet publishes a body at the height");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        assert!(sheet_body_for(&sprite_content, &on_a_sheet(None)).is_some(), "premise: the sheet publishes a body at the height");
         let explicit = ambition_characters::actor::definition::BodySource::Explicit { half_extents: (10.0, 20.0) };
-        assert!(sheet_body_for(&on_a_sheet(Some(explicit))).is_none(), "the sheet sized an explicit body");
+        assert!(sheet_body_for(&sprite_content, &on_a_sheet(Some(explicit))).is_none(), "the sheet sized an explicit body");
     }
 }

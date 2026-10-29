@@ -43,7 +43,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 GAME = REPO / "fixtures" / "external_consumer"
-ENGINE_ASSETS = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets"
+ENGINE_ASSETS = REPO / "game" / "ambition_content_library" / "generated" / "runtime"
 ASSET_LIST = GAME / "package_assets.txt"
 BINARY = "outlander_visible"
 FEATURES = "visible"
@@ -114,7 +114,7 @@ def measure(target_dir: Path) -> None:
     )
     ASSET_LIST.write_text(
         "# The engine asset files Outlander's release artifact carries, relative to\n"
-        "# crates/ambition_platformer2d_actor_monolith/assets. Written by\n"
+        "# game/ambition_content_library/generated/runtime. Written by\n"
         "# `scripts/package_outlander.py --measure` (the files a smoke run opened).\n"
         + "".join(f"{path}\n" for path in engine)
     )

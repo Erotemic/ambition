@@ -8,7 +8,6 @@ description = "Asset catalog assembly, character materialization, and startup as
 
 [features]
 default = []
-static_content = []
 ldtk_runtime = ["dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
 
 [dependencies]
@@ -33,4 +32,5 @@ ambition_sfx = { path = "../ambition_sfx" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 
 [dev-dependencies]
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }

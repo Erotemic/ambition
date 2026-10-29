@@ -10,6 +10,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 /// Immutable App-local authored context supplied to room placement lowering.
 #[derive(Clone, Debug)]
 pub struct ActorPlacementContext {
+    pub sprite_content: ambition_sprite_sheet::SpriteContent,
     pub characters: CharacterCatalog,
     /// Sheets this app's providers authored (U1). The same authored-content
     /// class as the catalog beside it: what a body looks like decides how big
@@ -98,11 +99,12 @@ impl ActorPlacementContext {
         self
     }
 
-    pub fn new(
+    pub fn new(sprite_content: &ambition_sprite_sheet::SpriteContent,
         characters: &CharacterCatalog,
         sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     ) -> Self {
         Self {
+            sprite_content: sprite_content.clone(),
             characters: characters.clone(),
             sheets: sheets.clone(),
             prepared: Default::default(),

@@ -10,21 +10,18 @@ related_docs:
 # Packaged asset guard
 
 `scripts/package_asset_guard.py` is the package boundary for installed asset
-trees. Desktop development exposes two roots:
-
-- `crates/ambition_platformer2d_actor_monolith/assets`
-- `game/ambition_content/assets`
-
-Android and installed desktop builds expose one `assets/` directory. The guard
-is the single implementation that collapses the two roots and proves that the
-package reproduces the desktop-resolvable view.
+trees. It reads the game's own files and each library declared by its content
+pack. A library's logical files are packaged under `__libraries/<id>/`.
+The runtime uses the same selected inventory and refuses implicit overrides.
+Qualified `content://<id>/...` references keep their library identity on every
+platform. An unqualified reference must have one owner.
 
 ## Enforced invariants
 
 A package build fails when:
 
 - a sheet, parallax or LDtk manifest, or an asset constant in Rust, declares
-  an asset absent from both roots;
+  an asset absent from the selected sources;
 - the content pack (`pack.ron`) does not compile;
 - two roots provide different bytes at the same package-relative path;
 - paths collide after case folding;
@@ -61,7 +58,7 @@ The pattern match over field names (`spritesheet`, `image`, `path`, ...) stays
 for the manifests no schema owns. A new manifest kind whose paths are not
 package-relative belongs in a schema, not in a new pattern.
 
-A pack asset that is in neither root is reported and the package ships without
+A pack asset that is absent from the selected sources is reported and the package ships without
 it: a development checkout may lack rendered music that the registry lists, and
 the desktop game runs without it too. `compose --strict-pack-assets` refuses
 instead, which a release wants.

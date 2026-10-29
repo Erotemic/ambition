@@ -13,6 +13,7 @@
     version: "0.1.0",
     // Every identity this pack mints is `versus:<schema>/<name>`.
     namespace: "versus",
+    libraries: ["../../ambition_content_library/library.json"],
     requires: [],
     sources: [
         // The cast: every row is a duelist the stage registers.

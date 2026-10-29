@@ -1063,8 +1063,8 @@ mod render_basis_tests {
     use bevy::math::Vec2 as BVec2;
     use bevy::sprite::Anchor;
 
-    fn spec() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
-        ambition_sprite_sheet::character::sheets::try_load_spec_for_target(
+    fn spec(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
+        ambition_sprite_sheet::character::sheets::try_load_spec_for_target(&sprite_content,
             "robot",
             &Default::default(),
         )
@@ -1076,7 +1076,8 @@ mod render_basis_tests {
     /// the body.
     #[test]
     fn an_authored_quad_with_an_offset_is_centred() {
-        let spec = spec();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let spec = spec(&sprite_content);
         let collision = BVec2::new(28.0, 40.0);
         let authored = BVec2::new(60.95238, 73.14286);
         let (render, anchor) = character_render_basis(
@@ -1101,7 +1102,8 @@ mod render_basis_tests {
     /// that merges the arms.
     #[test]
     fn an_authored_quad_without_an_offset_keeps_its_feet_anchor() {
-        let spec = spec();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let spec = spec(&sprite_content);
         let collision = BVec2::new(28.0, 40.0);
         let authored = BVec2::new(60.95238, 73.14286);
         let (render, anchor) = character_render_basis(&spec, collision, Some(authored), None);
@@ -1121,7 +1123,8 @@ mod render_basis_tests {
     /// sheet that authors no body has always done.
     #[test]
     fn no_authored_quad_derives_both_from_the_collision_box() {
-        let spec = spec();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let spec = spec(&sprite_content);
         let collision = BVec2::new(28.0, 40.0);
         let (render, anchor) = character_render_basis(&spec, collision, None, None);
         let expected = sprite_render_size(&spec, collision);

@@ -12,6 +12,7 @@
     version: "0.1.0",
     // Every identity this pack mints is `twintrack_demo:<schema>/<name>`.
     namespace: "twintrack_demo",
+    libraries: ["../../ambition_content_library/library.json"],
     requires: [],
     sources: [
         // The cast: every row is a character the demo registers.

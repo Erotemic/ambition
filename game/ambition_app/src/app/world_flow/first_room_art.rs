@@ -75,7 +75,7 @@ pub(crate) fn first_room_art_is_owed(
 
 /// Drive `prepare-first-room-art` for every published, not yet activated
 /// platformer session.
-pub(crate) fn prepare_first_room_art_system(
+pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     sessions: Option<Res<PreparedPlatformerSessions>>,
     content_staging: Option<Res<RoomContentStagingRegistry>>,
     mut jobs: ResMut<FirstRoomArtJobs>,
@@ -195,7 +195,7 @@ pub(crate) fn prepare_first_room_art_system(
                     &worn,
                     claimed.iter().map(String::as_str),
                 );
-                let manifest = build_room_asset_manifest(
+                let manifest = build_room_asset_manifest(&sprite_content,
                     room,
                     &staged_actor_names,
                     assets,

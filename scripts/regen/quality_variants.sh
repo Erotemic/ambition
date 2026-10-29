@@ -18,7 +18,6 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-asset_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets"
 
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/tool_python.sh"
@@ -37,13 +36,13 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --sprites-only|--backgrounds-only|--force|--clean)
             args+=("$1"); shift ;;
-        --target|--tier)
+        --target|--tier|--library|--asset-root)
             if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then
                 echo "$1 requires a value" >&2
                 exit 2
             fi
             args+=("$1" "$2"); shift 2 ;;
-        --target=*|--tier=*)
+        --target=*|--tier=*|--library=*|--asset-root=*)
             args+=("$1"); shift ;;
         -h|--help) print_help; exit 0 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -61,4 +60,4 @@ ambition_require_python_module \
     "run ./run_developer_setup.sh or set AMBITION_SPRITE_PYTHON=/path/to/python"
 
 exec "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
-    --asset-root "$asset_root" ${args[@]+"${args[@]}"}
+    ${args[@]+"${args[@]}"}

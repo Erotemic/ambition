@@ -49,7 +49,7 @@ from PIL import Image  # noqa: E402
 
 from ambition_sprite2d_renderer.authoring.part_flipbook import PartFlipbook  # noqa: E402
 
-ASSETS = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets"
+ASSETS = REPO / "game" / "ambition_content_library" / "generated" / "runtime"
 TIERS = {"full": "sprites", "0_5x": "sprites_0_5x", "0_25x": "sprites_0_25x", "potato": "sprites_potato"}
 LEDGER = REPO / "dev" / "ambition_dev_measurements" / "part_flipbook_cost.jsonl"
 SUMMARY = REPO / "dev" / "ambition_dev_measurements" / "summaries" / "part-flipbook-cost.md"

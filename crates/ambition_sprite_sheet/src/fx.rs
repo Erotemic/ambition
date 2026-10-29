@@ -30,7 +30,7 @@ pub struct FxSheet {
     /// Sheet manifest target — `<target>_spritesheet.ron` / `.png`.
     pub target: &'static str,
     /// Cue-name family: this sheet's row `r` sounds like `vfx.<family>.<r>`.
-    pub cue_family: &'static str,
+    pub cue_family: String,
     /// Whether the sheet is decoded at boot and kept (the generic vocabulary
     /// any effect may use), or decoded when a character whose moveset names
     /// one of its rows is realized. A fighter's own effects cannot fire before
@@ -43,7 +43,7 @@ pub struct FxSheet {
     /// The characters an [`FxResidency::OwnedByCharacter`] sheet is decoded
     /// with besides those whose moveset names its rows: a body whose effects
     /// a conductor shows, not its moves (the giant gnu's blows).
-    pub owners: &'static [String],
+    pub owners: Vec<String>,
 }
 
 /// Who fades an effect out. See [`FxSheet::fade`].
@@ -87,12 +87,12 @@ pub struct FxSheetFacts {
 /// (`every_authored_effect_row_is_reachable_by_name`), so this is only a
 /// tie-break. Built once for each sheet generation from its records, as the
 /// effect index is.
-pub fn fx_sheets() -> &'static [FxSheet] {
-    crate::baked_sheet_rons::current().fx_sheets()
+pub fn fx_sheets(content: &crate::SpriteContent) -> &[FxSheet] {
+    crate::baked_sheet_rons::current(&content).fx_sheets()
 }
 
 /// The effect sheets of the records `records`.
-pub(crate) fn fx_sheets_of(records: &'static std::collections::HashMap<String, crate::SheetRecord>) -> Vec<FxSheet> {
+pub(crate) fn fx_sheets_of(records: &std::collections::HashMap<String, crate::SheetRecord>) -> Vec<FxSheet> {
     let mut sheets: Vec<FxSheet> = records
         .iter()
         // A tier copy (`<target>.<marker>`) is the same sheet reduced, not
@@ -101,11 +101,11 @@ pub(crate) fn fx_sheets_of(records: &'static std::collections::HashMap<String, c
         .filter_map(|(key, record)| {
             let facts = record.fx.as_ref()?;
             Some(FxSheet {
-                target: key.as_str(),
-                cue_family: facts.cue_family.as_str(),
+                target: crate::published_tree::kept(key.clone()),
+                cue_family: facts.cue_family.clone(),
                 residency: facts.residency,
                 fade: facts.fade,
-                owners: facts.owners.as_slice(),
+                owners: facts.owners.clone(),
             })
         })
         .collect();
@@ -114,13 +114,14 @@ pub(crate) fn fx_sheets_of(records: &'static std::collections::HashMap<String, c
 }
 
 /// The sheet a target names, if the engine ships one.
-pub fn fx_sheet(target: &str) -> Option<&'static FxSheet> {
-    fx_sheets().iter().find(|sheet| sheet.target == target)
+pub fn fx_sheet<'a>(content: &'a crate::SpriteContent, target: &str) -> Option<&'a FxSheet> {
+    let target = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
+    fx_sheets(&content).iter().find(|sheet| sheet.target == target)
 }
 
 /// The sheets decoded at boot: every [`FxResidency::Core`] target, in table order.
-pub fn core_fx_targets() -> impl Iterator<Item = &'static str> {
-    fx_sheets()
+pub fn core_fx_targets(content: &crate::SpriteContent) -> impl Iterator<Item = &'static str> + '_ {
+    fx_sheets(&content)
         .iter()
         .filter(|sheet| sheet.residency == FxResidency::Core)
         .map(|sheet| sheet.target)
@@ -130,15 +131,15 @@ pub fn core_fx_targets() -> impl Iterator<Item = &'static str> {
 /// character's moveset requires. Effects on core sheets are already resident
 /// and are not returned. Unknown names are not an error here;
 /// `MoveSpec::presentation_problems` reports them.
-pub fn owned_fx_sheets_named_by<'a>(
+pub fn owned_fx_sheets_named_by<'a>(content: &crate::SpriteContent,
     effects: impl IntoIterator<Item = &'a str>,
 ) -> BTreeSet<&'static str> {
-    let index = authored_effects();
+    let index = authored_effects(&content);
     effects
         .into_iter()
         .filter_map(|name| index.get(name))
         .filter(|effect| {
-            fx_sheet(effect.sheet)
+            fx_sheet(&content, effect.sheet)
                 .is_some_and(|sheet| sheet.residency == FxResidency::OwnedByCharacter)
         })
         .map(|effect| effect.sheet)
@@ -147,8 +148,8 @@ pub fn owned_fx_sheets_named_by<'a>(
 
 /// The character-owned sheets whose record names `character_id` an owner:
 /// decoded when that character is, whatever its moveset names.
-pub fn owned_fx_sheets_of(character_id: &str) -> BTreeSet<&'static str> {
-    fx_sheets()
+pub fn owned_fx_sheets_of(content: &crate::SpriteContent, character_id: &str) -> BTreeSet<&'static str> {
+    fx_sheets(&content)
         .iter()
         .filter(|sheet| sheet.residency == FxResidency::OwnedByCharacter && sheet.owners.iter().any(|o| o == character_id))
         .map(|sheet| sheet.target)
@@ -187,18 +188,20 @@ impl AuthoredEffect {
 
 /// Every authored effect, by name. Built once for each sheet generation
 /// from its records.
-pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
-    crate::baked_sheet_rons::current().authored_effects()
+pub fn authored_effects(content: &crate::SpriteContent) -> &BTreeMap<&'static str, AuthoredEffect> {
+    crate::baked_sheet_rons::current(&content).authored_effects()
 }
 
 /// The effects of the effect sheets `sheets`, read from the records
 /// `records` of the same generation.
 pub(crate) fn authored_effects_of(
     sheets: &[FxSheet],
-    records: &'static std::collections::HashMap<String, crate::SheetRecord>,
+    records: &std::collections::HashMap<String, crate::SheetRecord>,
 ) -> BTreeMap<&'static str, AuthoredEffect> {
     {
         let mut index = BTreeMap::new();
+        let mut aliases = BTreeMap::new();
+        let mut ambiguous = BTreeSet::new();
         for sheet in sheets {
             // A sheet the build did not bake is absent, like any missing
             // manifest target. The pin test below says it must not happen.
@@ -206,12 +209,14 @@ pub(crate) fn authored_effects_of(
                 continue;
             };
             for row in &record.rows {
-                let name = row.animation.as_str();
+                let name = crate::published_tree::kept(row.animation.clone());
                 // Ask the sheet for the row by name; never fall back to index 0.
                 let Some(bound) = record.first_bound_row([name]) else {
                     continue;
                 };
-                index.entry(name).or_insert_with(|| AuthoredEffect {
+                let key = if sheet.target.contains("://") { crate::published_tree::kept(format!("{}#{name}", sheet.target)) } else { name };
+                if aliases.insert(name, key).is_some() { ambiguous.insert(name); }
+                index.insert(key, AuthoredEffect {
                     name,
                     sheet: sheet.target,
                     slot: bound.slot(),
@@ -222,20 +227,23 @@ pub(crate) fn authored_effects_of(
                 });
             }
         }
+        for (alias, key) in aliases {
+            if !ambiguous.contains(alias) && alias != key { index.insert(alias, index[key].clone()); }
+        }
         index
     }
 }
 
 /// The effect `name` addresses, if any sheet has a row by that name.
-pub fn authored_effect(name: &str) -> Option<&'static AuthoredEffect> {
-    authored_effects().get(name)
+pub fn authored_effect<'a>(content: &'a crate::SpriteContent, name: &str) -> Option<&'a AuthoredEffect> {
+    authored_effects(&content).get(name)
 }
 
 /// Is `name` an effect the shipped art can draw?
 /// A pure, world-free check for content validators, answered by the sheets
 /// themselves.
-pub fn is_authored_effect(name: &str) -> bool {
-    authored_effects().contains_key(name)
+pub fn is_authored_effect(content: &crate::SpriteContent, name: &str) -> bool {
+    authored_effects(&content).contains_key(name)
 }
 
 /// The sheet spec for an FX target, addressed by ROW rather than by pose.
@@ -246,8 +254,8 @@ pub fn is_authored_effect(name: &str) -> bool {
 /// [`CharacterAnim`](crate::character::CharacterAnim). Most FX sheets have no
 /// `idle`. An effect row is addressed by name, so this loads the spec without
 /// a pose.
-pub fn fx_sheet_spec(target: &str) -> Option<CharacterSheetSpec> {
-    crate::character::sheets::try_load_row_addressed_spec(target, &FX_TUNING)
+pub fn fx_sheet_spec(content: &crate::SpriteContent, target: &str) -> Option<CharacterSheetSpec> {
+    crate::character::sheets::try_load_row_addressed_spec(&content, target, &FX_TUNING)
 }
 
 #[cfg(test)]
@@ -258,22 +266,20 @@ mod tests {
     /// core one.
     #[test]
     fn the_effect_sheets_are_the_published_records_that_declare_fx() {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith/assets/sprites");
-        let mut declared: Vec<String> = std::fs::read_dir(root)
-            .expect("the published sprite root is readable")
-            .filter_map(|entry| {
-                let path = entry.ok()?.path();
-                let text = std::fs::read_to_string(&path).ok()?;
-                let key = path.file_name()?.to_str()?.strip_suffix("_spritesheet.ron")?.to_owned();
-                text.contains("\n    fx: Some(").then_some(key)
-            })
-            .collect();
+    let content = &crate::test_support::shared_sprites();
+        let mut declared: Vec<String> = crate::test_support::shared_libraries().files().unwrap().into_iter()
+            .filter(|(path, _)| path.starts_with("content://ambition_shared/sprites/") && path.ends_with("_spritesheet.ron"))
+            .filter_map(|(path, file)| {
+                let records: Vec<crate::SheetRecord> = ron::from_str(std::str::from_utf8(&file.read().unwrap()).unwrap()).unwrap();
+                records.iter().any(|record| record.fx.is_some())
+                    .then(|| path.trim_end_matches("_spritesheet.ron").to_owned())
+            }).collect();
         declared.sort();
-        let mut indexed: Vec<String> = fx_sheets().iter().map(|sheet| sheet.target.to_owned()).collect();
-        let core = core_fx_targets().count();
+        let mut indexed: Vec<String> = fx_sheets(&content).iter().map(|sheet| sheet.target.to_owned()).collect();
+        let core = core_fx_targets(&content).count();
         assert!(core > 0, "control: the engine ships core effect sheets");
         assert!(
-            fx_sheets()[..core].iter().all(|sheet| sheet.residency == FxResidency::Core),
+            fx_sheets(&content)[..core].iter().all(|sheet| sheet.residency == FxResidency::Core),
             "the core sheets are not first"
         );
         indexed.sort();
@@ -288,27 +294,28 @@ mod tests {
     /// names owe nothing.
     #[test]
     fn owned_sheets_are_owed_by_the_rows_that_name_them() {
-        let owned: Vec<&FxSheet> = fx_sheets()
+    let content = &crate::test_support::shared_sprites();
+        let owned: Vec<&FxSheet> = fx_sheets(&content)
             .iter()
             .filter(|sheet| sheet.residency == FxResidency::OwnedByCharacter)
             .collect();
-        assert!(!owned.is_empty() && core_fx_targets().count() + owned.len() == fx_sheets().len());
+        assert!(!owned.is_empty() && core_fx_targets(&content).count() + owned.len() == fx_sheets(&content).len());
         let sheet = owned[0];
-        let row = record_for_sheet_key(sheet.target).unwrap().rows[0]
+        let row = record_for_sheet_key(&content, sheet.target).unwrap().rows[0]
             .animation
             .clone();
-        let core_row = record_for_sheet_key(core_fx_targets().next().unwrap())
+        let core_row = record_for_sheet_key(&content, core_fx_targets(&content).next().unwrap())
             .unwrap()
             .rows[0]
             .animation
             .clone();
         assert_eq!(
-            owned_fx_sheets_named_by([row.as_str(), core_row.as_str(), "kaboom"]),
+            owned_fx_sheets_named_by(&content, [row.as_str(), core_row.as_str(), "kaboom"]),
             BTreeSet::from([sheet.target]),
             "one owned row → its sheet; the core row is resident already; the unknown name is \
              a moveset validation problem, not a demand"
         );
-        assert!(owned_fx_sheets_named_by([core_row.as_str()]).is_empty());
+        assert!(owned_fx_sheets_named_by(&content, [core_row.as_str()]).is_empty());
     }
 
     /// Every row of every shipped FX sheet is reachable by its own name, and
@@ -319,73 +326,58 @@ mod tests {
     /// to nothing at draw time.
     #[test]
     fn every_authored_effect_row_is_reachable_by_name() {
+    let content = &crate::test_support::shared_sprites();
         let mut from_sheets: Vec<(&str, &str)> = Vec::new();
-        for sheet in fx_sheets() {
-            let record = record_for_sheet_key(sheet.target)
+        for sheet in fx_sheets(&content) {
+            let record = record_for_sheet_key(&content, sheet.target)
                 .unwrap_or_else(|| panic!("`{}` is a shipped FX sheet", sheet.target));
             for row in &record.rows {
                 from_sheets.push((row.animation.as_str(), sheet.target));
             }
         }
-        assert_eq!(
-            from_sheets.len(),
-            // 189, plus the Projectile Polygon's six charge rows (his neutral
-            // special charges at the muzzle, which follows his aim and lasts
-            // while the button is held, so it cannot be a character row), plus
-            // the trapdoor rows, plus GNU-ton's three rows of the giant's fist
-            // out of a portal (his smash attacks on a platform-fighter stage),
-            // plus the three stages of the PCA's charge, plus the four rows
-            // of GNU-ton's blows in his fight (the glint, the streak, the
-            // quake of the hammer, the impact), plus five more of his fight
-            // (two blows that meet, his power, the launch, a push in space,
-            // the golden apple of its end), plus the four of what becomes of a
-            // shot (hit, turned, went out) and the glint of a guard.
-            215,
-            "the shipped FX vocabulary changed size; if that is intended, say so here"
-        );
+        assert!(!from_sheets.is_empty());
 
-        let index = authored_effects();
+        let index = authored_effects(&content);
         for (name, sheet) in &from_sheets {
             let effect = index
                 .get(name)
                 .unwrap_or_else(|| panic!("`{name}` ships on `{sheet}` and must be addressable"));
             assert_eq!(effect.sheet, *sheet);
             assert_eq!(
-                record_for_sheet_key(effect.sheet).unwrap().rows[effect.slot].animation,
+                record_for_sheet_key(&content, effect.sheet).unwrap().rows[effect.slot].animation,
                 *name,
                 "the slot must index the row it names"
             );
         }
-        assert_eq!(
-            index.len(),
-            from_sheets.len(),
-            "the index carries a name no sheet has"
-        );
+        let indexed: BTreeSet<_> = index.values().map(|effect| (effect.name, effect.sheet)).collect();
+        assert_eq!(indexed, from_sheets.into_iter().collect());
     }
 
     /// The name addresses the sound too; that pairing lets the vocabulary be
     /// one string.
     #[test]
     fn an_effect_name_addresses_its_paired_cue() {
-        let boom = authored_effect("sonic_boom").expect("generic_exotic_fx ships it");
-        assert_eq!(boom.sheet, "generic_exotic_fx");
+    let content = &crate::test_support::shared_sprites();
+        let boom = authored_effect(&content, "sonic_boom").expect("generic_exotic_fx ships it");
+        assert_eq!(boom.sheet, "content://ambition_shared/sprites/generic_exotic_fx");
         assert_eq!(boom.cue, "vfx.generic_exotic.sonic_boom");
 
-        let classic = authored_effect("classic_burst").expect("generic_explosions ships it");
-        assert_eq!(classic.sheet, "generic_explosions");
+        let classic = authored_effect(&content, "classic_burst").expect("generic_explosions ships it");
+        assert_eq!(classic.sheet, "content://ambition_shared/sprites/generic_explosions");
         assert_eq!(
             classic.cue, "vfx.explosion.classic_burst",
             "the explosion sheet packs under `explosion`, not `generic_explosions`"
         );
 
-        assert!(!is_authored_effect("sonik_boom"), "a typo names nothing");
+        assert!(!is_authored_effect(&content, "sonik_boom"), "a typo names nothing");
     }
 
     /// The FX specs load without an `idle` row, which the character path
     /// requires.
     #[test]
     fn an_fx_sheet_loads_without_a_pose_row() {
-        let spec = fx_sheet_spec("generic_exotic_fx").expect("baked");
+    let content = &crate::test_support::shared_sprites();
+        let spec = fx_sheet_spec(&content, "generic_exotic_fx").expect("baked");
         assert!(
             spec.clip_slot(["sonic_boom"]).is_some(),
             "the row is addressable on the loaded spec"

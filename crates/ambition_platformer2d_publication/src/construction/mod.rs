@@ -146,6 +146,7 @@ pub struct OccurrenceContinuity<'a> {
 /// recipe table, and the content generation the plan is being prepared against.
 #[derive(Clone, Copy)]
 pub struct ActorConstructionContext<'a> {
+    pub sprite_content: &'a ambition_sprite_sheet::SpriteContent,
     pub recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
     /// WHO EXISTS — the authored character catalog this construction resolves
     /// names against.
@@ -232,7 +233,7 @@ pub struct ActorConstructionContext<'a> {
 }
 
 impl<'a> ActorConstructionContext<'a> {
-    pub fn new(
+    pub fn new(sprite_content: &'a ambition_sprite_sheet::SpriteContent,
         recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
         sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -243,6 +244,7 @@ impl<'a> ActorConstructionContext<'a> {
         content: ambition_platformer2d_shared_tangle::construction::ContentBinding,
     ) -> Self {
         Self {
+            sprite_content,
             recipes,
             characters,
             sheets,
@@ -386,7 +388,7 @@ impl<'a> ActorConstructionContext<'a> {
         >,
         continuity: Option<OccurrenceContinuity<'a>>,
     ) -> Self {
-        let mut context = Self::new(recipes, characters, mechanics.sheets(), incoming);
+        let mut context = Self::new(mechanics.sprite_content(), recipes, characters, mechanics.sheets(), incoming);
         context.binding = expected_live;
         context.prepared = mechanics.characters();
         context.brain_profiles = brain_profiles;
@@ -890,6 +892,7 @@ impl RoomFeatureConstructionPlan {
 
         let mut placement_context =
             ambition_platformer2d_construction::placements::ActorPlacementContext::new(
+                construction.sprite_content,
                 construction.characters,
                 construction.sheets,
             );

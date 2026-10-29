@@ -6,6 +6,7 @@
     version: "0.1.0",
     // Every identity this pack mints is `host:<schema>/<name>`.
     namespace: "host",
+    libraries: ["../../../ambition_content_library/library.json"],
     requires: [],
     sources: [
         // The words of the run-in's engine card, the start cover and the

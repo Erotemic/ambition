@@ -34,7 +34,7 @@ use crate::BodyMetrics;
 /// Returns `None` only when no manifest exists for the id (usually the
 /// renderer has not run for that target). The actor then renders the
 /// colored-rectangle placeholder.
-pub fn sheet_for_character_id_from_data(
+pub fn sheet_for_character_id_from_data(content: &crate::SpriteContent,
     // Check provider-authored sheets before the baked cache. They are passed
     // in, not global, so two Apps in one process do not share art.
     authored: &sheets::AuthoredSheets,
@@ -53,13 +53,14 @@ pub fn sheet_for_character_id_from_data(
                     )
                 })
                 .unwrap_or_default();
-            if let Some(spec) = sheets::try_load_spec_for_target_authored(authored, target, &tuning)
+            if let Some(spec) = sheets::try_load_spec_for_target_authored(&content, authored, target, &tuning)
             {
                 return Some(spec);
             }
         }
+        return None;
     }
-    let spec = sheets::try_load_spec_for_character_id(character_id);
+    let spec = sheets::try_load_spec_for_character_id(&content, character_id);
     if spec.is_none() {
         bevy::log::debug!(
             target: "ambition_platformer2d::character_sprites",
@@ -98,7 +99,7 @@ fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
 ///
 /// Returns `None` when the character has no catalog row, no loadable spec, or
 /// no published `body_metrics`; the caller then keeps the LDtk bounds.
-pub fn sprite_body_collision_for_character_id_from_data(
+pub fn sprite_body_collision_for_character_id_from_data(content: &crate::SpriteContent,
     // The collision box comes from the sheet, so a consumer-authored sheet
     // must reach this. Otherwise a third-party character collides with the
     // engine's default box.
@@ -114,7 +115,7 @@ pub fn sprite_body_collision_for_character_id_from_data(
             .standing_height
             .or_else(|| entry.body_kind.default_standing_height()),
     };
-    sprite_body_collision_for_sheet(authored, entry.manifest_target()?, &sizing, ldtk_collision)
+    sprite_body_collision_for_sheet(&content, authored, entry.manifest_target()?, &sizing, ldtk_collision)
 }
 
 /// World units per published pixel of `sheet` for a body whose visible idle
@@ -124,8 +125,8 @@ pub fn sprite_body_collision_for_character_id_from_data(
 /// Returns `None` when the height is not positive or the sheet publishes no
 /// idle body. The other sizing road (the placement box) is a fact of one spawn,
 /// not of the sheet, so it has no answer here.
-pub fn standing_world_per_pixel(sheet: &str, standing_height: f32) -> Option<f32> {
-    let metrics = sheets::record_for_sheet_key(sheet)?.body_metrics.as_ref()?;
+pub fn standing_world_per_pixel(content: &crate::SpriteContent, sheet: &str, standing_height: f32) -> Option<f32> {
+    let metrics = sheets::record_for_sheet_key(&content, sheet)?.body_metrics.as_ref()?;
     let (_, body_h) = body_pixel_extent(metrics)?;
     (standing_height > 0.0 && body_h > 0.0).then(|| standing_height / body_h)
 }
@@ -137,7 +138,7 @@ pub fn standing_world_per_pixel(sheet: &str, standing_height: f32) -> Option<f32
 /// one, the scale is `LDtk box x collision_scale / frame height`. The LDtk box
 /// still decides where a body stands; with a standing height it does not decide
 /// the size. Returns `None` when the sheet does not load or publishes no body.
-pub fn sprite_body_collision_for_sheet(
+pub fn sprite_body_collision_for_sheet(content: &crate::SpriteContent,
     authored: &sheets::AuthoredSheets,
     sheet: &str,
     sizing: &ambition_characters::prepared::SheetSizing,
@@ -153,14 +154,14 @@ pub fn sprite_body_collision_for_sheet(
             )
         })
         .unwrap_or_default();
-    let spec = sheets::try_load_spec_for_target_authored(authored, sheet, &tuning)?;
-    let record = sheets::record_for_sheet_key(sheet)?;
+    let spec = sheets::try_load_spec_for_target_authored(&content, authored, sheet, &tuning)?;
+    let record = sheets::record_for_sheet_key(&content, sheet)?;
     let frame_h = record.frame_height.max(1) as f32;
     // Both branches produce `frame x scale`; the renderer must not apply
     // `collision_scale` again to the resulting collision box.
     let scale = match sizing
         .standing_height
-        .and_then(|height| standing_world_per_pixel(sheet, height))
+        .and_then(|height| standing_world_per_pixel(&content, sheet, height))
     {
         Some(scale) => scale,
         None => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
@@ -173,9 +174,9 @@ pub fn sprite_body_collision_for_sheet(
 /// standing height. A live body that changes form is sized by this, so it is
 /// the size an NPC of that form is built at (Q159). `None` when the sheet
 /// publishes no body.
-pub fn sprite_body_at_standing_height(sheet: &str, standing_height: f32) -> Option<SpriteBodyCollision> {
-    let record = sheets::record_for_sheet_key(sheet)?;
-    body_at_scale(record, standing_world_per_pixel(sheet, standing_height)?)
+pub fn sprite_body_at_standing_height(content: &crate::SpriteContent, sheet: &str, standing_height: f32) -> Option<SpriteBodyCollision> {
+    let record = sheets::record_for_sheet_key(&content, sheet)?;
+    body_at_scale(record, standing_world_per_pixel(&content, sheet, standing_height)?)
 }
 
 /// The render quad of `record`'s frame at `scale` world units per pixel, and

@@ -62,6 +62,7 @@ pub fn compose_ambition_shell_host_with_the_timeline_start_unordered(app: &mut A
 }
 
 fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
+    super::host_pack::HOST_PACK.register_libraries(app.world_mut());
     app.insert_resource(AmbitionShellHosted);
 
     // The title screen has its own theme. The engine's frontend audio policy
@@ -190,7 +191,7 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// Adding another card is one more entry here — no new state, and every
 /// consumer that cares how long the run-in lasts derives it from
 /// [`ambition_startup_duration`] rather than restating a number.
-fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
+fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
     use ambition_platformer2d::game_shell::{
         ShellSegmentPolicy, ShellSegmentRole, ShellSegmentSpec,
     };
@@ -223,7 +224,7 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
         )
         .with_policy(ShellSegmentPolicy {
             auto_advance_after: Some(
-                ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(),
+                ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(world),
             ),
             ..Default::default()
         }),
@@ -234,8 +235,8 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
 ///
 /// Derived from the same segment list the host actually composes, so a retimed card, an added
 /// card, or a re-exported vanity animation cannot leave a caller waiting on a stale constant.
-pub fn ambition_startup_duration() -> std::time::Duration {
-    ambition_startup_segments()
+pub fn ambition_startup_duration(world: &mut World) -> std::time::Duration {
+    ambition_startup_segments(world)
         .iter()
         .map(|segment| segment.policy.auto_advance_after.unwrap_or_default())
         .sum()
@@ -279,12 +280,13 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
             ShellRouteSpec::new(AMBITION_STARTUP_ROUTE, AMBITION_STARTUP_EXPERIENCE)
                 .on_complete(ShellCompletionPolicy::GoTo(after_startup)),
         );
+    let segments = ambition_startup_segments(app.world_mut());
     app.world_mut()
         .resource_mut::<ShellSequenceCatalog>()
         .register(
             ShellExperienceId::new(AMBITION_STARTUP_EXPERIENCE),
             ShellSequenceSpec {
-                segments: ambition_startup_segments(),
+                segments,
             },
         );
     // Boot into the startup card; home stays the launcher, so any later

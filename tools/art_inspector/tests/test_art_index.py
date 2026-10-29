@@ -17,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from art_index import build, sheets  # noqa: E402
 
-ASSETS = "crates/ambition_platformer2d_actor_monolith/assets"
-PROV = "crates/ambition_platformer2d_actor_monolith/asset_provenance"
+ASSETS = "game/ambition_content_library/generated/runtime"
+PROV = "game/ambition_content_library/generated/asset_provenance"
 
 
 def test_missing_content_tool_keeps_the_previous_inspector_and_does_not_open_it(tmp_path, monkeypatch, capsys):
@@ -75,6 +75,13 @@ def _sha(path: Path) -> str:
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
     repo = tmp_path_factory.mktemp("repo")
+    library = repo / "game/ambition_content_library"
+    library.mkdir(parents=True)
+    (library / "library.json").write_text(json.dumps({
+        "schema":"ambition.content_library.v1", "id":"fixture", "version":"1",
+        "asset_roots":{"generated":"generated/runtime"}, "publication":"generated/art_publication",
+        "provenance":"generated/asset_provenance"
+    }))
     sprites = repo / ASSETS / "sprites"
     _png(sprites / "foo_spritesheet.png")
     (sprites / "foo_spritesheet.yaml").write_text(LAYOUT)

@@ -276,7 +276,7 @@ impl<'a> BossMut<'a> {
     /// resolved again from its sheet at the new render basis, as
     /// construction resolved them, and the bottom of its body stays where it
     /// was. A boss whose sheet publishes no metrics scales its body box.
-    pub fn rescale(&mut self, scale: f32, boss_catalog: &super::BossCatalog) {
+    pub fn rescale(&mut self, sprite_content: &ambition_sprite_sheet::SpriteContent, scale: f32, boss_catalog: &super::BossCatalog) {
         if !scale.is_finite() || scale <= 0.0 || (scale - self.status.scale).abs() < 1e-4 {
             return;
         }
@@ -286,7 +286,7 @@ impl<'a> BossMut<'a> {
         let resolved = crate::ecs::boss_sprite_metrics_from_registry(
             boss_catalog,
             self.as_ref(),
-            ambition_sprite_sheet::shared_baked_sheet_registry(),
+            ambition_sprite_sheet::shared_baked_sheet_registry(&sprite_content),
         );
         let body = match resolved {
             Some((metrics, body)) => {
@@ -381,7 +381,7 @@ pub struct BossClusterScratch {
 impl BossClusterScratch {
     /// Build the boss clusters directly from spawn inputs (tests / non-ECS
     /// callers; see the struct docs).
-    pub fn new(
+    pub fn new(sprite_content: &ambition_sprite_sheet::SpriteContent,
         boss_catalog: &super::BossCatalog,
         id: impl Into<String>,
         name: impl Into<String>,
@@ -433,7 +433,7 @@ impl BossClusterScratch {
             },
             health: ambition_characters::actor::BodyHealth::new(health),
         };
-        boss.resolve_sheet_body(boss_catalog);
+        boss.resolve_sheet_body(&sprite_content, boss_catalog);
         boss
     }
 
@@ -442,11 +442,11 @@ impl BossClusterScratch {
     /// the drawn body parts. A sheet with no metrics leaves the authored
     /// `combat_size`. The sheet table is baked, so every build answers the
     /// same. Call it again after a change to `config.behavior`.
-    pub fn resolve_sheet_body(&mut self, boss_catalog: &super::BossCatalog) {
+    pub fn resolve_sheet_body(&mut self, sprite_content: &ambition_sprite_sheet::SpriteContent, boss_catalog: &super::BossCatalog) {
         let Some((metrics, body)) = crate::ecs::boss_sprite_metrics_from_registry(
             boss_catalog,
             self.as_ref(),
-            ambition_sprite_sheet::shared_baked_sheet_registry(),
+            ambition_sprite_sheet::shared_baked_sheet_registry(&sprite_content),
         ) else {
             return;
         };

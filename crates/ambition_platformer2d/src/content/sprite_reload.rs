@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, SystemTime};
 
 use ambition_sprite_sheet::baked_sheet_rons as sheet_table;
+use ambition_asset_manager::content_library::{ContentLibraries, LibrarySnapshot};
 use bevy::prelude::*;
 
 
@@ -25,9 +26,6 @@ const LOOK_EVERY: Duration = Duration::from_secs(1);
 /// disk. In a build that embeds its sprites it adds nothing.
 #[derive(Default)]
 pub struct SpriteSheetReloadPlugin {
-    /// The folder whose `assets/` holds the tree to watch; `None` for the
-    /// published tree the build reads.
-    pub owner: Option<PathBuf>,
     /// No background thread: the watch looks only when
     /// [`SpriteSheetWatch::look_now`] is called. For a test that steps the
     /// watch itself.
@@ -36,24 +34,19 @@ pub struct SpriteSheetReloadPlugin {
 
 impl Plugin for SpriteSheetReloadPlugin {
     fn build(&self, app: &mut App) {
-        let owner = self.owner.clone().or_else(|| sheet_table::published_tree_owner().map(Path::to_path_buf));
-        let Some(owner) = owner else {
-            return;
-        };
-        let watch = SpriteSheetWatch::new(owner);
-        if !self.manual {
-            watch.look_in_the_background();
-        }
-        app.insert_resource(watch);
-        app.add_systems(
-            Update,
-            (
-                take_what_the_watch_found,
-                // Exclusive, so only while a table waits.
-                publish_the_staged_sheets.run_if(|watch: Option<Res<SpriteSheetWatch>>| watch.is_some_and(|watch| watch.is_staged())),
-            )
-                .chain(),
-        );
+        let manual = self.manual;
+        app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+        app.add_systems(Startup, move |world: &mut World| {
+            let libraries = world.get_resource::<ContentLibraries>().cloned().unwrap_or_default();
+            if libraries.iter().all(|library| library.is_embedded()) { return; }
+            let watch = SpriteSheetWatch::new(world.resource::<ambition_sprite_sheet::SpriteContent>(), libraries);
+            if !manual { watch.look_in_the_background(); }
+            world.insert_resource(watch);
+        });
+        app.add_systems(Update, (
+            take_what_the_watch_found,
+            publish_the_staged_sheets.run_if(|watch: Option<Res<SpriteSheetWatch>>| watch.is_some_and(|watch| watch.is_staged())),
+        ).chain());
     }
 }
 
@@ -94,11 +87,13 @@ struct Found {
     /// records is a cost in proportion to the table, so the look finds it.
     changes_mechanics: bool,
     logical_images: Vec<String>,
+    snapshot: Option<LibrarySnapshot>,
 }
 
 /// The files of one tree, with the time each changed when it was last seen.
 struct Scanner {
-    owner: PathBuf,
+    libraries: ContentLibraries,
+    content: ambition_sprite_sheet::SpriteContent,
     /// The first look takes the times and finds nothing. It is not done when
     /// the watch is made: an App is built many times in a test run, and a
     /// look costs about 100 ms.
@@ -107,23 +102,43 @@ struct Scanner {
     looks: u32,
     manifests: Vec<(String, PathBuf, Option<SystemTime>)>,
     images: std::collections::BTreeMap<String, String>,
+    selections: std::collections::BTreeMap<String, Result<Option<String>, String>>,
 }
 
 impl Scanner {
-    fn new(owner: PathBuf) -> Self {
-        Self { owner, seen_once: false, looks: 0, manifests: Vec::new(), images: Default::default() }
+    fn new(libraries: ContentLibraries, content: ambition_sprite_sheet::SpriteContent) -> Self {
+        Self { libraries, content, seen_once: false, looks: 0, manifests: Vec::new(), images: Default::default(), selections: Default::default() }
     }
 
     fn look(&mut self) -> Found {
+        let sprite_content = &self.content;
         self.looks += 1;
-        let (files, images) = sheet_table::publication_files_under(&self.owner).unwrap_or_else(|_| {
-            (vec![("publication".into(), sheet_table::sprite_dirs_under(&self.owner)[0].join("published.json"))], Default::default())
-        });
+        let mut files = Vec::new();
+        let mut images = std::collections::BTreeMap::new();
+        let mut selections = std::collections::BTreeMap::new();
+        for library in self.libraries.iter().filter(|library| !library.is_embedded()) {
+            if let Some(root) = library.publication_root() {
+                files.push((format!("content://{}", library.manifest.id), root.join("published.json")));
+            }
+            let selected = library.selection();
+            selections.insert(library.manifest.id.clone(), selected.as_ref()
+                .map(|selection| selection.as_ref().and_then(|selection| selection.generation.clone()))
+                .map_err(Clone::clone));
+            if let Ok(Some(selected)) = &selected {
+                images.extend(selected.files.iter().filter(|(name, _)| name.ends_with(".png"))
+                    .map(|(name, member)| (format!("content://{}/{name}", library.manifest.id), member.sha256.clone())));
+            }
+            if let Ok(selected) = library.files() {
+                files.extend(selected.into_iter().filter(|(_, file)| file.generation.is_none())
+                    .filter_map(|(logical, file)| file.native_path().map(|path| (format!("content://{}/{logical}", library.manifest.id), path.to_path_buf()))));
+            }
+        }
         let now = stamped_manifests(files);
         if !self.seen_once {
             self.seen_once = true;
             self.manifests = now;
             self.images = images;
+            self.selections = selections;
             return Found::default();
         }
         let mut found = Found::default();
@@ -134,22 +149,38 @@ impl Scanner {
             .map(|(path, _)| path.clone()).collect();
         found.logical_images.extend(self.images.keys().filter(|path| !images.contains_key(*path)).cloned());
         self.images = images;
-        found.manifests = now
+        found.manifests.extend(selections.iter().filter(|(id, selected)| self.selections.get(*id) != Some(*selected))
+            .map(|(id, _)| format!("content://{id}")));
+        self.selections = selections;
+        found.manifests.extend(now
             .iter()
             .filter(|(key, path, seen)| !self.manifests.iter().any(|(was, at, before)| was == key && at == path && before == seen))
-            .map(|(key, ..)| key.clone())
-            .collect();
+            .map(|(key, ..)| key.clone()));
         found.manifests.extend(
             self.manifests
                 .iter()
                 .filter(|(was, at, _)| !now.iter().any(|(key, path, _)| key == was && path == at))
                 .map(|(was, ..)| was.clone()),
         );
+        found.logical_images.extend(now.iter().filter(|(key, _, _)| found.manifests.contains(key) && !key.ends_with(".ron"))
+            .filter(|(_, path, _)| path.file_name().is_some_and(|name| name != "published.json"))
+            .map(|(key, _, _)| key.clone()));
         self.manifests = now;
         if !found.manifests.is_empty() {
-            let table = sheet_table::read_sheet_table_under(&self.owner).and_then(sheet_table::prepare_sheet_table);
-            found.changes_mechanics = table.as_ref().is_ok_and(|table| table.changes_mechanics_of(sheet_table::current()));
+            let snapshot = self.libraries.snapshot();
+            let table = snapshot.as_ref().map_err(Clone::clone).and_then(|snapshot| sheet_table::SheetTexts::from_snapshot(snapshot, Some(sprite_content)))
+                .map_err(|error| sheet_table::SheetTableRefused(vec![("libraries".into(), error)]))
+                .and_then(|texts| {
+                    found.manifests.extend(texts.sheets.iter().map(|(key, _)| (*key).to_owned()));
+                    found.manifests.extend(sheet_table::current(sprite_content).rons().iter().map(|(key, _)| (*key).to_owned()));
+                    sheet_table::prepare_sheet_table(sprite_content, texts).inspect(|table| {
+                        found.manifests.extend(table.registry().keys().map(str::to_owned));
+                        found.manifests.extend(sheet_table::current(sprite_content).registry().keys().map(str::to_owned));
+                    })
+                });
+            found.changes_mechanics = table.as_ref().is_ok_and(|table| table.changes_mechanics_of(sheet_table::current(&sprite_content)));
             found.table = Some(table);
+            found.snapshot = snapshot.ok();
         }
         found
     }
@@ -160,7 +191,7 @@ impl Scanner {
 /// The watch over one sprite tree.
 #[derive(Resource)]
 pub struct SpriteSheetWatch {
-    owner: PathBuf,
+    roots: Vec<WatchRoot>,
     scanner: Arc<Mutex<Scanner>>,
     /// What the looks found and no frame took yet.
     found: Arc<Mutex<Vec<Found>>>,
@@ -169,6 +200,8 @@ pub struct SpriteSheetWatch {
     /// The table to publish: at once where it changes only where frames are
     /// drawn from, else at the end of the session.
     candidate: Option<sheet_table::PreparedSheetTable>,
+    snapshot: Option<LibrarySnapshot>,
+    images: Vec<String>,
     /// Whether `candidate` changes a fact that simulation or a cast reads.
     candidate_changes_mechanics: bool,
     /// Sheet generations this watch published.
@@ -182,13 +215,18 @@ pub struct SpriteSheetWatch {
 
 impl SpriteSheetWatch {
     /// A watch over the tree whose `assets/` folder is under `owner`.
-    pub fn new(owner: PathBuf) -> Self {
+    pub fn new(sprite_content: &ambition_sprite_sheet::SpriteContent, libraries: ContentLibraries) -> Self {
         Self {
-            scanner: Arc::new(Mutex::new(Scanner::new(owner.clone()))),
-            owner,
+            scanner: Arc::new(Mutex::new(Scanner::new(libraries.clone(), sprite_content.clone()))),
+            roots: libraries.iter().filter(|library| !library.is_embedded()).flat_map(|library| {
+                library.manifest.asset_roots.values().map(|root| WatchRoot { path: library.root.join(root), recursive: true })
+                    .chain(library.publication_root().map(|path| WatchRoot { path, recursive: false })).collect::<Vec<_>>()
+            }).collect(),
             found: Arc::default(),
             staged: BTreeSet::new(),
             candidate: None,
+            snapshot: None,
+            images: Vec::new(),
             candidate_changes_mechanics: false,
             published: 0,
             reloaded_pages: 0,
@@ -209,7 +247,7 @@ impl SpriteSheetWatch {
     fn look_in_the_background(&self) {
         let scanner = Arc::downgrade(&self.scanner);
         let found = Arc::downgrade(&self.found);
-        let mut reports = ChangeReports::of(&self.owner);
+        let mut reports = ChangeReports::of(&self.roots);
         let spawned = std::thread::Builder::new().name("sprite-sheet-watch".into()).spawn(move || {
             // The first look takes the baseline: it costs a full look once.
             let mut changed = true;
@@ -245,6 +283,9 @@ impl SpriteSheetWatch {
 
 }
 
+#[derive(Clone)]
+struct WatchRoot { path: PathBuf, recursive: bool }
+
 /// What the operating system reports about the sprite folders: a file under
 /// them changed. Without it a look costs a stat of each file of the tree
 /// (about 0.2 to 0.4 s in a debug build) each second.
@@ -255,7 +296,7 @@ struct ChangeReports {
     /// publisher has not written). The nearest folder above each that is
     /// there is watched, and each is watched itself once it comes.
     #[cfg(not(target_arch = "wasm32"))]
-    awaited: Vec<PathBuf>,
+    awaited: Vec<WatchRoot>,
     /// The folders watched, without their contents, for an awaited one.
     #[cfg(not(target_arch = "wasm32"))]
     above: Vec<PathBuf>,
@@ -263,9 +304,9 @@ struct ChangeReports {
 
 impl ChangeReports {
     #[cfg(not(target_arch = "wasm32"))]
-    fn of(owner: &Path) -> Self {
+    fn of(roots: &[WatchRoot]) -> Self {
         let (sender, receiver) = std::sync::mpsc::channel();
-        let dirs = sheet_table::sprite_dirs_under(owner).into_iter();
+        let dirs = roots.iter().cloned();
         let mut reports = Self { reports: None, awaited: dirs.collect(), above: Vec::new() };
         match notify::recommended_watcher(sender) {
             Ok(watcher) => {
@@ -294,12 +335,13 @@ impl ChangeReports {
         let mut came = false;
         let mut awaited = Vec::new();
         for dir in std::mem::take(&mut self.awaited) {
-            if dir.is_dir() {
-                watcher.watch(&dir, notify::RecursiveMode::NonRecursive)?;
+            if dir.path.is_dir() {
+                let mode = if dir.recursive { notify::RecursiveMode::Recursive } else { notify::RecursiveMode::NonRecursive };
+                watcher.watch(&dir.path, mode)?;
                 came = true;
                 continue;
             }
-            if let Some(above) = dir.ancestors().skip(1).find(|above| above.is_dir()) {
+            if let Some(above) = dir.path.ancestors().skip(1).find(|above| above.is_dir()) {
                 if !self.above.iter().any(|watched| watched == above) {
                     watcher.watch(above, notify::RecursiveMode::NonRecursive)?;
                     self.above.push(above.to_path_buf());
@@ -312,7 +354,7 @@ impl ChangeReports {
     }
 
     #[cfg(target_arch = "wasm32")]
-    fn of(_owner: &Path) -> Self {
+    fn of(_roots: &[WatchRoot]) -> Self {
         Self {}
     }
 
@@ -362,6 +404,7 @@ const SETTLE: Duration = Duration::from_millis(150);
 /// Only the selected publication can change the runtime asset view.
 fn watched_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == "published.json")
+        || path.extension().is_some_and(|extension| matches!(extension.to_str(), Some("ron" | "json" | "png" | "otf" | "ttf" | "ogg" | "wav" | "bank")))
 }
 
 fn modified(path: &Path) -> Option<SystemTime> {
@@ -387,21 +430,23 @@ fn reload(asset_server: Option<&AssetServer>, paths: Vec<String>) -> u32 {
 
 /// Load each changed page image again at once, and stage each changed
 /// manifest for the end of the session.
-fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_server: Option<Res<AssetServer>>) {
+fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>) {
     let Some(mut watch) = watch else {
         return;
     };
     let found = std::mem::take(&mut *watch.found.lock().unwrap_or_else(PoisonError::into_inner));
     for look in found {
         let paths = look.logical_images;
-        watch.reloaded_pages += reload(asset_server.as_deref(), paths);
+
         match look.table {
             None => {}
             Some(Ok(table)) => {
                 let when = if look.changes_mechanics { "from the next session" } else { "at once (only where frames are drawn from changed)" };
-                info!(target: "ambition_platformer2d::sprites", "sprite sheets changed: {:?}; they are played {when}", look.manifests);
+                info!(target: "ambition_platformer2d::sprites", "Sprite content changed; {} sheet identities are played {when}", look.manifests.len());
                 watch.staged.extend(look.manifests);
                 watch.candidate = Some(table);
+                watch.snapshot = look.snapshot;
+                watch.images = paths;
                 watch.candidate_changes_mechanics = look.changes_mechanics;
                 watch.refused = None;
             }
@@ -412,6 +457,8 @@ fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_serv
                 error!(target: "ambition_platformer2d::sprites", "{why}");
                 watch.staged.clear();
                 watch.candidate = None;
+                watch.snapshot = None;
+                watch.images.clear();
                 watch.refused = Some(why);
             }
         }
@@ -422,6 +469,7 @@ fn take_what_the_watch_found(watch: Option<ResMut<SpriteSheetWatch>>, asset_serv
 /// that changes only where frames are drawn from at once, and any other table
 /// where no session is live.
 fn publish_the_staged_sheets(world: &mut World) {
+    let mut sprite_content = world.resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let Some(changes_mechanics) = world.get_resource::<SpriteSheetWatch>().filter(|watch| watch.is_staged()).map(|watch| watch.candidate_changes_mechanics) else {
         return;
     };
@@ -430,19 +478,25 @@ fn publish_the_staged_sheets(world: &mut World) {
     if (in_a_session && changes_mechanics) || preparing {
         return;
     }
-    let (table, staged) = {
+    let (table, staged, snapshot, images) = {
         let mut watch = world.resource_mut::<SpriteSheetWatch>();
         let Some(table) = watch.candidate.take() else {
             return;
         };
-        (table, std::mem::take(&mut watch.staged))
+        (table, std::mem::take(&mut watch.staged), watch.snapshot.take(), std::mem::take(&mut watch.images))
     };
-    let generation = sheet_table::publish_prepared_sheet_table(table);
-    info!(target: "ambition_platformer2d::sprites", "sprite sheet generation {generation} published; changed: {staged:?}");
-    world.insert_resource(ambition_sprite_sheet::baked_sheet_registry());
-    if world.contains_resource::<ambition_sprite_sheet::portrait::PortraitSheetRegistry>() {
-        world.insert_resource(ambition_sprite_sheet::portrait::baked_portrait_registry());
+    if let Some(snapshot) = snapshot {
+        if let Some(mut catalog) = world.get_resource_mut::<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>() {
+            *catalog = catalog.clone().with_snapshot(&snapshot);
+        }
+        world.get_resource_or_insert_with(ambition_asset_manager::library_source::LibraryAssets::default).replace(snapshot);
     }
+    let reloaded = reload(world.get_resource::<AssetServer>(), images);
+    world.resource_mut::<SpriteSheetWatch>().reloaded_pages += reloaded;
+    let generation = sheet_table::publish_prepared_sheet_table(&mut sprite_content, table);
+    world.insert_resource(sprite_content.clone());
+    world.resource::<SpriteSheetWatch>().scanner.lock().unwrap_or_else(PoisonError::into_inner).content = sprite_content.clone();
+    info!(target: "ambition_platformer2d::sprites", "Sprite generation {generation} published with {} sheet identities", staged.len());
     // A restater reads only facts `changes_mechanics_of` compares, so a
     // table that changes none of them leaves each cast as it is.
     let restaters = if changes_mechanics { world.get_resource::<SheetDerivedRestaters>().cloned().unwrap_or_default() } else { SheetDerivedRestaters::default() };
@@ -482,12 +536,18 @@ mod tests {
             std::fs::rename(store.join("next.json"), store.join("published.json")).unwrap();
         };
         select("one", "old");
-        let mut scanner = Scanner::new(owner.clone());
+        std::fs::write(owner.join("library.json"), serde_json::json!({
+            "schema":"ambition.content_library.v1", "id":"probe", "version":"1",
+            "asset_roots":{}, "publication":"art_publication"
+        }).to_string()).unwrap();
+        let mut libraries = ContentLibraries::default();
+        libraries.insert(ambition_asset_manager::content_library::ContentLibrary::read(owner.join("library.json")).unwrap()).unwrap();
+        let mut scanner = Scanner::new(libraries, Default::default());
         assert!(scanner.look().logical_images.is_empty());
         select("two", "new");
         let found = scanner.look();
-        assert_eq!(found.logical_images, ["sprites/prop.png"]);
-        assert!(found.table.is_none());
+        assert_eq!(found.logical_images, ["content://probe/sprites/prop.png"]);
+        assert!(found.table.is_some_and(|table| table.is_ok()));
         let _ = std::fs::remove_dir_all(owner);
     }
 
@@ -498,7 +558,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&owner);
         std::fs::create_dir_all(&owner).unwrap();
         let store = owner.join("art_publication");
-        let mut reports = ChangeReports::of(&owner);
+        let mut reports = ChangeReports::of(&[WatchRoot { path: store.clone(), recursive: false }]);
         assert!(reports.reports.is_some());
         assert!(!reports.wait(Duration::from_millis(300)));
         std::fs::create_dir_all(&store).unwrap();

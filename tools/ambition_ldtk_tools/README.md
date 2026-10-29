@@ -393,13 +393,13 @@ manifest as an adapter boundary until the final generator metadata lands.
 ```bash
 # Generate a placeholder editor icon sheet that is independent of production art.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset generate-editor-icons \
-  --out crates/ambition_platformer2d_actor_monolith/assets/sprites/editor_icons.png \
+  --out game/ambition_content_library/generated/runtime/sprites/editor_icons.png \
   --tile-size 32
 
 # Draft a manifest that maps common editor entities to that sheet.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset suggest-manifest \
   game/ambition_content/assets/worlds/sandbox.ldtk \
-  --icons crates/ambition_platformer2d_actor_monolith/assets/sprites/editor_icons.png \
+  --icons game/ambition_content_library/generated/runtime/sprites/editor_icons.png \
   --out tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
 
 # Apply or validate LDtk-side visual refs. This mutates only LDtk defs: tilesets
@@ -425,7 +425,7 @@ The manifest is intentionally simple and generator-agnostic:
 {
   "editor_icons": {
     "identifier": "EditorIcons",
-    "path": "crates/ambition_platformer2d_actor_monolith/assets/sprites/editor_icons.png",
+    "path": "game/ambition_content_library/generated/runtime/sprites/editor_icons.png",
     "tile_width": 32,
     "tile_height": 32
   },

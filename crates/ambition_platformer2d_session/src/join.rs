@@ -30,7 +30,7 @@ use crate::setup::{spawn_home_body, HomeBody};
 /// one: a match owns its whole cast (`InitialBodyPolicy`). The primary must be
 /// in play, because the new body enters its live room.
 #[allow(clippy::too_many_arguments)]
-pub fn seat_a_joining_participant(
+pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: SessionCommands,
     controls: Res<SlotControls>,
     active: Option<Res<ActiveSessionScope>>,
@@ -110,7 +110,7 @@ pub fn seat_a_joining_participant(
             resources,
             abilities,
         };
-        let shape = body.placement_shape();
+        let shape = body.placement_shape(&sprite_content);
         let Some(at) = ambition_platformer2d_world::rooms::spawn_near_body(
             &walls, reference, frame, shape, &occupied,
         ) else {
@@ -118,7 +118,7 @@ pub fn seat_a_joining_participant(
             continue;
         };
         body.at = at;
-        let body = spawn_home_body(&mut commands, scope, body, ());
+        let body = spawn_home_body(&sprite_content, &mut commands, scope, body, ());
         occupied.push(ae::Aabb::new(at, shape.body_half));
         info!(target: "ambition_platformer2d::session", "seat {} joined as {body:?}", seat.0);
     }

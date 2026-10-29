@@ -49,7 +49,7 @@ REPO = Path(
     ).stdout.strip()
 )
 MAP_ASSETS = REPO / "game/ambition_map_assets"
-ASSETS = REPO / "crates/ambition_platformer2d_actor_monolith/assets"
+ASSETS = REPO / "game/ambition_content_library/generated/runtime"
 TARGET_REL = "../sprites/player_robot_v3_spritesheet.png"
 
 

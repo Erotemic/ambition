@@ -56,3 +56,7 @@ path = "tests/sanic_it.rs"
 name = "capture_sanic"
 path = "src/bin/capture_sanic.rs"
 required-features = ["capture"]
+
+[dev-dependencies]
+
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support"] }

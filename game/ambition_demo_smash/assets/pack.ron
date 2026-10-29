@@ -25,6 +25,7 @@
     // Every identity this pack mints is `smash_demo:<schema>/<name>`, so the
     // demo's George cannot collide with the main game's cast.
     namespace: "smash_demo",
+    libraries: ["../../ambition_content_library/library.json"],
     // Nothing beyond the schema owners. `smash_fighter` brings the
     // platform-fighter capability with it.
     requires: [],

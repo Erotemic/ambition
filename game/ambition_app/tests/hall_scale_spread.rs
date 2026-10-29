@@ -29,7 +29,7 @@ fn sheet_target(spritesheet: &str) -> Option<&str> {
 }
 
 /// Every catalog character's baked body, in sheet pixels.
-fn measured_bodies() -> Vec<(String, f32, f32)> {
+fn measured_bodies(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> Vec<(String, f32, f32)> {
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let catalog = app
         .world()
@@ -40,7 +40,7 @@ fn measured_bodies() -> Vec<(String, f32, f32)> {
         .filter_map(|(id, entry)| {
             let sheet = entry.spritesheet();
             let target = sheet_target(&sheet)?;
-            let geometry = posed_body_geometry(target, CharacterAnim::Idle, 1.0)?;
+            let geometry = posed_body_geometry(&sprite_content, target, CharacterAnim::Idle, 1.0)?;
             Some((id.clone(), geometry.collision.x, geometry.collision.y))
         })
         .collect();
@@ -52,7 +52,8 @@ fn measured_bodies() -> Vec<(String, f32, f32)> {
 #[test]
 #[ignore]
 fn print_how_tall_every_character_stands() {
-    let rows = measured_bodies();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let rows = measured_bodies(&sprite_content);
     println!("{:>4}  {:>9}  {}", "px_h", "px_w", "character");
     for (id, w, h) in &rows {
         println!("{h:>7.1}  {w:>7.1}  {id}");
@@ -75,7 +76,8 @@ fn print_how_tall_every_character_stands() {
 /// it deliberately does NOT bound the spread.
 #[test]
 fn the_hall_scale_report_is_actually_measuring_something() {
-    let rows = measured_bodies();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    let rows = measured_bodies(&sprite_content);
     if rows.is_empty() {
         eprintln!("[skip] no baked character sheets — run ./scripts/regen/sprites.sh");
         return;

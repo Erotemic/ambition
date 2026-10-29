@@ -33,7 +33,7 @@ import canonical_assets as ca  # noqa: E402
 
 def _tree(root: Path, *, files: int, linked: bool) -> Path:
     """A sprite tier tree, either generated here or mirrored from elsewhere."""
-    tree = root / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+    tree = root / "game/ambition_content_library/generated/runtime/sprites"
     tree.mkdir(parents=True, exist_ok=True)
     source = root / "elsewhere"
     source.mkdir(exist_ok=True)

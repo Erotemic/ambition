@@ -389,7 +389,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
         });
 }
 
-fn drive_direct_startup_loading(
+fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut state: ResMut<DirectStartupLoadingState>,
     mut gameplay: ResMut<InitialGameplayReadiness>,
     mut assets: StartupAssetInputs,
@@ -415,7 +415,7 @@ fn drive_direct_startup_loading(
     }
 
     if state.manifest.is_none() {
-        match build_startup_manifest(&mut assets) {
+        match build_startup_manifest(&sprite_content, &mut assets) {
             Ok(manifest) => state.manifest = Some(manifest),
             Err(message) => {
                 update_startup_ui(&mut ui, text, 0, 1, text.line("loading.preparation_failed"), &message);
@@ -546,7 +546,7 @@ fn reveal_direct_startup_room(
     state.revealed = true;
 }
 
-fn build_startup_manifest(
+fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     inputs: &mut StartupAssetInputs<'_, '_>,
 ) -> Result<StartupAssetManifest, String> {
     let room_set = inputs
@@ -580,7 +580,7 @@ fn build_startup_manifest(
     staged_names.extend(worn.iter().cloned());
     staged_names.sort();
     staged_names.dedup();
-    super::world_flow::demand_room_character_sheets(
+    super::world_flow::demand_room_character_sheets(&sprite_content,
         room,
         &staged_names,
         &mut inputs.game_assets,
@@ -607,7 +607,7 @@ fn build_startup_manifest(
                 room,
                 boss_catalog,
             );
-            ambition_platformer2d::game_assets::ensure_boss_sheets_loaded(
+            ambition_platformer2d::game_assets::ensure_boss_sheets_loaded(&sprite_content,
                 &mut inputs.game_assets,
                 boss_catalog,
                 Some(&keys),

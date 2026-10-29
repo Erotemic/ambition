@@ -516,8 +516,9 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 /// loads, so the pack here is a catalog of one frame of a left-drawn sheet.
 #[test]
 fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
+    let content = &crate::test_support::shared_sprites();
     let target = "patent_clerk";
-    let base = record_for_sheet_key(target)
+    let base = record_for_sheet_key(&content, target)
         .unwrap_or_else(|| panic!("{target}'s sheet is baked into the sheet table"));
     // Premise: without it the check below passes vacuously.
     assert!(base.authored_faces_left, "{target}'s base manifest must declare its left-drawn artwork");
@@ -527,11 +528,11 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
         ]}}}}}}"#
     ))
     .expect("the fixture catalog parses");
-    let spec = super::pack_spec_in(&catalog, target, &DEFAULT_TUNING).expect("the packed target has an idle row");
+    let spec = super::pack_spec_in(&content, &catalog, target, &DEFAULT_TUNING).expect("the packed target has an idle row");
     assert!(spec.authored_faces_left(), "the pack dropped {target}'s drawn facing");
     // Control: a target drawn facing right packs facing right.
     let right = catalog_with(&catalog, "news_board");
-    let spec = super::pack_spec_in(&right, "news_board", &DEFAULT_TUNING).expect("the packed target has an idle row");
+    let spec = super::pack_spec_in(&content, &right, "news_board", &DEFAULT_TUNING).expect("the packed target has an idle row");
     assert!(!spec.authored_faces_left(), "a right-drawn sheet was packed as left-drawn");
 }
 
@@ -553,9 +554,10 @@ fn catalog_with(catalog: &crate::SpritePackCatalog, target: &str) -> crate::Spri
 /// This reads the baked index, the same table the runtime reads, not the files.
 #[test]
 fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
+    let content = &crate::test_support::shared_sprites();
     const TIERS: [&str; 3] = ["0_5x", "0_25x", "potato"];
 
-    let index = record_index();
+    let index = record_index(&content);
     let mut compared = 0usize;
     let mut disagreements: Vec<String> = Vec::new();
 
@@ -619,6 +621,7 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
 /// sheets that are far off-centre.
 #[test]
 fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
+    let content = &crate::test_support::shared_sprites();
     // Far off-centre and near-centre rows together. The near-centre row shows
     // the fix is a correction, not a constant shift for all bodies.
     for (target, min_offset) in [
@@ -628,7 +631,7 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
     ] {
         // Panic on a missing key; do not skip. A skipped row passes with the
         // defect present.
-        let record = record_for_sheet_key(target).unwrap_or_else(|| {
+        let record = record_for_sheet_key(&content, target).unwrap_or_else(|| {
             panic!(
                 "`{target}` is not a baked sheet key, so this row asserted \
                  nothing (keys are bare names -- `projectile_polygon`, not \
@@ -717,9 +720,10 @@ fn tier_partition<'a>(
 /// RON, and agreement is what the test checks.
 #[test]
 fn the_registry_and_the_record_index_are_one_map_built_twice() {
-    let index = record_index();
+    let content = &crate::test_support::shared_sprites();
+    let index = record_index(&content);
     let registry =
-        crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::sheet_rons());
+        crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::sheet_rons(&content));
 
     // Anti-vacuity check first: two empty maps are equal.
     //
@@ -758,7 +762,7 @@ fn the_registry_and_the_record_index_are_one_map_built_twice() {
         "the base tier holds {} sheet(s), below the floor of 150 -- the publish \
          roster claims 175, so either the baked table did not compile in (every \
          comparison below would pass vacuously) or the glob matched a truncated \
-         tree. `find crates/ambition_platformer2d_actor_monolith/assets/sprites \
+         tree. `find game/ambition_content_library/generated/runtime/sprites \
          -name '*_spritesheet.ron' | wc -l` is the one-line check.",
         base.len(),
     );
@@ -1061,16 +1065,17 @@ fn a_mirror_row_is_drawn_instead_of_flipping_its_original() {
 /// sheet with no record has no answer.
 #[test]
 fn the_fitted_quad_of_a_sheet_is_the_renderers_fit_under_any_tuning() {
+    let content = &crate::test_support::shared_sprites();
     let standing = Vec2::new(30.0, 48.0);
     for target in ["kernel_guide", "companion_dog", "pirate_raider"] {
-        let fitted = fitted_render_size(target, standing)
+        let fitted = fitted_render_size(&content, target, standing)
             .unwrap_or_else(|| panic!("the baked `{target}` sheet publishes an idle body"));
         for tuning in [SheetTuning::default(), SheetTuning::new(2.1, 1)] {
-            let spec = try_load_spec_for_target(target, &tuning).expect("the sheet loads");
+            let spec = try_load_spec_for_target(&content, target, &tuning).expect("the sheet loads");
             assert_eq!(fitted, sprite_render_size(&spec, standing), "`{target}`");
         }
     }
-    assert_eq!(fitted_render_size("no_such_sheet", standing), None);
+    assert_eq!(fitted_render_size(&content, "no_such_sheet", standing), None);
 }
 
 /// The animator keeps the pose a body asked for apart from the pose its sheet

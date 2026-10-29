@@ -47,7 +47,7 @@ fn punch_dir(effect: &str, facing: f32) -> ae::Vec2 {
 }
 
 /// Keep a line of light where the arm of each called fist is cut.
-pub fn light_fist_lines(
+pub fn light_fist_lines(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: SessionCommands,
     live: LiveRooms,
     fighters: Query<(Entity, &ae::BodyKinematics, &MovePlayback)>,
@@ -70,7 +70,7 @@ pub fn light_fist_lines(
             if !effect.starts_with(CALLED_FIST) {
                 continue;
             }
-            let Some(clip) = ambition_sprite_sheet::fx::authored_effects().get(effect.as_str()) else {
+            let Some(clip) = ambition_sprite_sheet::fx::authored_effects(&sprite_content).get(effect.as_str()) else {
                 continue;
             };
             if playback.t < event.at_s || playback.t >= event.at_s + clip.clip_secs() {

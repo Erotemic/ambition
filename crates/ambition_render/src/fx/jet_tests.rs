@@ -8,6 +8,7 @@ const AT: ae::Vec2 = ae::Vec2::new(300.0, 200.0);
 
 fn app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.init_resource::<Time>();
     app.add_message::<VfxInRoom>();
     app.add_systems(Update, (vfx_spawn_messages, update_particles, update_beams).chain());

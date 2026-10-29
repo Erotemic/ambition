@@ -34,9 +34,9 @@ struct Stepped {
     pos: ae::Vec2,
 }
 
-fn step_in_gravity(down: ae::Vec2) -> Stepped {
+fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: ae::Vec2) -> Stepped {
     let world = ae::World::new("body_box_test", ae::Vec2::new(4000.0, 4000.0), ae::Vec2::ZERO, Vec::new());
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "slug".to_string(),
         "Slug".to_string(),
         ae::Aabb::new(ae::Vec2::new(2000.0, 2000.0), BODY * 0.5),
@@ -92,9 +92,9 @@ fn step_in_gravity(down: ae::Vec2) -> Stepped {
 }
 
 #[track_caller]
-fn the_three_boxes_are_one(down: ae::Vec2, expected_half: ae::Vec2) {
+fn the_three_boxes_are_one(sprite_content: &ambition_sprite_sheet::SpriteContent, down: ae::Vec2, expected_half: ae::Vec2) {
     let down = down.normalize();
-    let stepped = step_in_gravity(down);
+    let stepped = step_in_gravity(&sprite_content, down);
     assert!(
         (stepped.normal + down).length() < 1.0e-4,
         "premise: an airborne body publishes the normal opposite its gravity: {:?}",
@@ -124,24 +124,27 @@ fn the_three_boxes_are_one(down: ae::Vec2, expected_half: ae::Vec2) {
 /// box of a body on a wall, 22 by 48.
 #[test]
 fn a_body_in_steep_diagonal_gravity_attacks_with_its_footprint() {
-    the_three_boxes_are_one(ae::Vec2::new(0.6, 0.8), ae::Vec2::new(25.8, 23.2));
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    the_three_boxes_are_one(&sprite_content, ae::Vec2::new(0.6, 0.8), ae::Vec2::new(25.8, 23.2));
 }
 
 /// 0.3 to the side is less: the old swap gave the level box, 48 by 22.
 #[test]
 fn a_body_in_shallow_diagonal_gravity_attacks_with_its_footprint() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let down = ae::Vec2::new(0.3, 0.954).normalize();
     let expected = ae::Vec2::new(
         down.y * BODY.x * 0.5 + down.x * BODY.y * 0.5,
         down.x * BODY.x * 0.5 + down.y * BODY.y * 0.5,
     );
     assert!((expected - ae::Vec2::new(26.2, 17.7)).abs().max_element() < 0.1, "{expected:?}");
-    the_three_boxes_are_one(down, expected);
+    the_three_boxes_are_one(&sprite_content, down, expected);
 }
 
 /// The control: for a cardinal DOWN the swap and the rule were equal.
 #[test]
 fn a_body_in_cardinal_gravity_attacks_with_its_footprint() {
-    the_three_boxes_are_one(ae::Vec2::new(1.0, 0.0), ae::Vec2::new(11.0, 24.0));
-    the_three_boxes_are_one(ae::Vec2::new(0.0, 1.0), ae::Vec2::new(24.0, 11.0));
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    the_three_boxes_are_one(&sprite_content, ae::Vec2::new(1.0, 0.0), ae::Vec2::new(11.0, 24.0));
+    the_three_boxes_are_one(&sprite_content, ae::Vec2::new(0.0, 1.0), ae::Vec2::new(24.0, 11.0));
 }

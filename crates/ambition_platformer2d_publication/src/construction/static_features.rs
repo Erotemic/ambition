@@ -206,6 +206,7 @@ pub(crate) fn lower_interactable_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
     ctx: &mut ambition_platformer2d_construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
+    let sprite_content = &ctx.context.sprite_content;
     let PlacementSchema::Interactable(spec) = &record.schema else {
         return;
     };
@@ -221,7 +222,7 @@ pub(crate) fn lower_interactable_placement(
         payload: spec.clone(),
     };
     let fate = ctx.facts.npc_fate(&authored.id);
-    ambition_platformer2d_actor_spawn::spawn_interactable_into(
+    ambition_platformer2d_actor_spawn::spawn_interactable_into(&sprite_content,
         &mut ctx.scope.reborrow(),
         &ctx.context.characters,
         &ctx.context.sheets,

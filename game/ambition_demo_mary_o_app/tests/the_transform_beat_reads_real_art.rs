@@ -21,6 +21,7 @@ const FORMS: [&str; 4] = ["mary_o", "mary_o_tall", "mary_o_fire", "mary_o_cosmic
 
 #[test]
 fn every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = build_demo_app();
     for _ in 0..120 {
         app.update();
@@ -37,7 +38,7 @@ fn every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo() {
 
     for form in FORMS {
         let spec =
-            ambition_platformer2d::sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(
+            ambition_platformer2d::sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(&sprite_content,
                 authored,
                 catalog.data(),
                 form,

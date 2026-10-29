@@ -191,6 +191,7 @@ mod tests {
     /// shipped FX spritesheet rows, which the renderer resolves against.
     #[test]
     fn the_specials_and_the_juggle_carry_their_own_feedback() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_entity_catalog::MoveEventKind;
         let set = crate::authored_movesets::shipped("npc_pirate_admiral");
         for id in [
@@ -211,7 +212,7 @@ mod tests {
                 m.events.iter().any(|e| match &e.kind {
                     MoveEventKind::Vfx { effect, .. } => {
                         assert!(
-                            ambition_platformer2d::sprite_sheet::fx::is_authored_effect(effect),
+                            ambition_platformer2d::sprite_sheet::fx::is_authored_effect(&sprite_content, effect),
                             "`{id}` names vfx `{effect}`, which the engine's \
                              vocabulary does not contain — this is a refused load"
                         );

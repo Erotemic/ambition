@@ -18,7 +18,7 @@ use ambition_platformer2d::sim_view::{LocalView, PresentsView};
 #[test]
 fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
 
@@ -70,7 +70,7 @@ fn the_presented_view_carries_camera_state_that_is_actually_written() {
     // caught on the first run, correctly, by refusing to accept a component that
     // exists and is never written.
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
 
@@ -199,7 +199,7 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
 #[test]
 fn the_launcher_has_one_view_and_no_split_layout() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+    for _ in 0..ambition_app::app::shared_host_startup_ticks(app.world_mut()) {
         app.update();
     }
 

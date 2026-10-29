@@ -12,15 +12,15 @@ fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCat
     crate::character_roster::catalog()
 }
 
-fn sheet_for_character_id(
+fn sheet_for_character_id(sprite_content: &ambition_sprite_sheet::SpriteContent,
     character_id: &str,
 ) -> Option<ambition_sprite_sheet::character::sheets::CharacterSheetSpec> {
-    sheet_for_character_id_in(&Default::default(), &test_catalog(), character_id)
+    sheet_for_character_id_in(&sprite_content, &Default::default(), &test_catalog(), character_id)
 }
 
 /// Data-path stand-in for the deleted `ROBOT_SHEET` static.
-fn robot_sheet() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
-    sheet_for_character_id("robot").expect("robot catalog row resolves a sheet")
+fn robot_sheet(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
+    sheet_for_character_id(&sprite_content, "robot").expect("robot catalog row resolves a sheet")
 }
 use ambition_sprite_sheet::character::sheets::{
     record_for_sheet_key, sprite_render_size, try_load_spec_for_target,
@@ -35,6 +35,7 @@ use ambition_sprite_sheet::SheetRecord;
 /// the runtime half of the variant pipeline; it no-ops on a fresh clone.
 #[test]
 fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_sprite_sheet::character::TextureResolutionScale;
     let mut checked = 0usize;
     for target in [
@@ -42,14 +43,14 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
         "bob_spritesheet",
         "goblin_spritesheet",
     ] {
-        let Some(base) = record_for_sheet_key(target) else {
+        let Some(base) = record_for_sheet_key(&sprite_content, target) else {
             continue;
         };
         for (suffix, scale) in [
             ("0_5x", TextureResolutionScale::Half),
             ("potato", TextureResolutionScale::Potato),
         ] {
-            let Some(variant) = record_for_sheet_key(&format!("{target}.{suffix}")) else {
+            let Some(variant) = record_for_sheet_key(&sprite_content, &format!("{target}.{suffix}")) else {
                 continue;
             };
             checked += 1;
@@ -64,7 +65,7 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
                 base.frame_height,
             );
             // The scaled-spec lookup the loader uses returns the variant spec.
-            let spec = try_load_spec_for_target_scaled(target, &SheetTuning::default(), scale)
+            let spec = try_load_spec_for_target_scaled(&sprite_content, target, &SheetTuning::default(), scale)
                 .expect("baked variant record yields a spec");
             assert_eq!(spec.frame_width, variant.frame_width);
         }
@@ -75,7 +76,8 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
 /// The quad puts the sheet's own body on the collision box.
 #[test]
 fn sprite_render_size_draws_the_body_at_the_collision_box() {
-    let spec = robot_sheet();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let spec = robot_sheet(&sprite_content);
     let body = spec
         .body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)
         .expect("the robot sheet publishes a body rectangle");
@@ -100,7 +102,8 @@ fn sprite_render_size_draws_the_body_at_the_collision_box() {
 /// sheet that publishes no body.
 #[test]
 fn a_tiny_collision_box_draws_a_tiny_body_rather_than_a_floored_one() {
-    let spec = robot_sheet();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let spec = robot_sheet(&sprite_content);
     let big = sprite_render_size(&spec, Vec2::new(28.0, 46.0));
     let tiny = sprite_render_size(&spec, Vec2::new(2.0, 1.0));
     assert!(
@@ -111,11 +114,12 @@ fn a_tiny_collision_box_draws_a_tiny_body_rather_than_a_floored_one() {
 
 #[test]
 fn sprite_render_size_preserves_frame_aspect() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Width tracks the frame's source aspect, not the collision
     // box, so cropped non-square frames don't get distorted.
     let collision = Vec2::new(28.0, 46.0);
-    let size = sprite_render_size(&robot_sheet(), collision);
-    let expected_aspect = robot_sheet().frame_width as f32 / robot_sheet().frame_height as f32;
+    let size = sprite_render_size(&robot_sheet(&sprite_content), collision);
+    let expected_aspect = robot_sheet(&sprite_content).frame_width as f32 / robot_sheet(&sprite_content).frame_height as f32;
     let actual_aspect = size.x / size.y;
     assert!(
         (actual_aspect - expected_aspect).abs() < 1e-3,
@@ -125,15 +129,17 @@ fn sprite_render_size_preserves_frame_aspect() {
 
 #[test]
 fn flat_index_zero_for_first_frame_of_first_row() {
-    let idx = robot_sheet().flat_index(CharacterAnim::Idle, 0);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let idx = robot_sheet(&sprite_content).flat_index(CharacterAnim::Idle, 0);
     assert_eq!(idx, 0);
 }
 
 #[test]
 fn frame_count_positive_for_every_row() {
-    for anim in robot_sheet().mapped_anims() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    for anim in robot_sheet(&sprite_content).mapped_anims() {
         assert!(
-            robot_sheet().frame_count(anim) > 0,
+            robot_sheet(&sprite_content).frame_count(anim) > 0,
             "anim {:?} has zero frames",
             anim
         );
@@ -142,27 +148,29 @@ fn frame_count_positive_for_every_row() {
 
 #[test]
 fn flat_index_clamps_to_last_frame_of_row() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Asking for frame past the end of a row clamps to the last
     // valid frame; this avoids out-of-bounds atlas reads when the
     // animation cursor overshoots due to a long delta-t.
-    let last = robot_sheet().flat_index(CharacterAnim::Idle, 9_999);
-    let expected = robot_sheet().frame_count(CharacterAnim::Idle) - 1;
+    let last = robot_sheet(&sprite_content).flat_index(CharacterAnim::Idle, 9_999);
+    let expected = robot_sheet(&sprite_content).frame_count(CharacterAnim::Idle) - 1;
     assert_eq!(last, expected);
 }
 
 #[test]
 fn robot_sheet_has_fly_row() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The generator's `hover` row is the source of the Fly visual.
     // If a future sheet regen drops or reorders hover, this test
     // catches it before runtime indexes a non-existent row.
-    assert_eq!(robot_sheet().frame_count(CharacterAnim::Fly), 8);
-    assert!((robot_sheet().frame_duration(CharacterAnim::Fly) - 0.078).abs() < 1e-4);
+    assert_eq!(robot_sheet(&sprite_content).frame_count(CharacterAnim::Fly), 8);
+    assert!((robot_sheet(&sprite_content).frame_duration(CharacterAnim::Fly) - 0.078).abs() < 1e-4);
     // Hover is the LAST row in the regenerated sheet, so its frames
     // sit after every other row in atlas-flat-index space.
-    let fly_first = robot_sheet().flat_index(CharacterAnim::Fly, 0);
-    let dash_last = robot_sheet().flat_index(
+    let fly_first = robot_sheet(&sprite_content).flat_index(CharacterAnim::Fly, 0);
+    let dash_last = robot_sheet(&sprite_content).flat_index(
         CharacterAnim::Dash,
-        robot_sheet().frame_count(CharacterAnim::Dash),
+        robot_sheet(&sprite_content).frame_count(CharacterAnim::Dash),
     );
     assert!(
         fly_first > dash_last,
@@ -172,11 +180,12 @@ fn robot_sheet_has_fly_row() {
 
 #[test]
 fn frame_duration_positive_for_every_row() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Zero or negative duration would wedge the animation cursor
     // (advance_anim divides by it). Pin the contract.
-    for anim in robot_sheet().mapped_anims() {
+    for anim in robot_sheet(&sprite_content).mapped_anims() {
         assert!(
-            robot_sheet().frame_duration(anim) > 0.0,
+            robot_sheet(&sprite_content).frame_duration(anim) > 0.0,
             "anim {:?} has non-positive duration",
             anim
         );
@@ -189,13 +198,14 @@ fn frame_duration_positive_for_every_row() {
 /// (formerly the `*_SHEET` statics; Stage 20 / B3 made them data).
 #[test]
 fn every_reachable_sheet_loads() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use crate::character_roster::catalog;
     let mut checked = 0usize;
     for (cid, entry) in catalog().data().characters.iter() {
         let Some(target) = entry.manifest_target() else {
             continue;
         };
-        let Some(spec) = try_load_spec_for_target(target, &SheetTuning::default()) else {
+        let Some(spec) = try_load_spec_for_target(&sprite_content, target, &SheetTuning::default()) else {
             // No manifest on disk yet — the runtime renders the
             // colored-rectangle placeholder; not a test failure.
             continue;
@@ -225,7 +235,7 @@ fn every_reachable_sheet_loads() {
 /// time instead of at game startup.
 #[test]
 fn every_spritesheet_ron_parses_into_sheet_record() {
-    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_platformer2d_actor_monolith/assets/sprites");
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content_library/generated/runtime/sprites");
 
     let mut parsed_files = 0usize;
     let mut failures: Vec<String> = Vec::new();
@@ -237,7 +247,7 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
     // generator rescales pixel rects; this is the drift guard on that output).
     for suffix in ["_0_5x", "_0_25x", "_potato"] {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("../ambition_platformer2d_actor_monolith/assets/sprites{suffix}"));
+            .join(format!("../../game/ambition_content_library/generated/runtime/sprites{suffix}"));
         if dir.is_dir() {
             parse_spritesheets_under(&dir, false, &mut parsed_files, &mut failures);
         }
@@ -308,6 +318,7 @@ fn parse_spritesheets_under(
 /// statics carried (values transcribed here from the deleted sheets.rs constants).
 #[test]
 fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // (id, collision_scale, frame_sample_inset)
     let expected = [
         // Pinning the pre-migration 1.35 here would forbid ever retuning the protagonist -- this
@@ -338,7 +349,7 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
         // 2026-10-23: redrawn as SVG rigs (`*_v2`), their rows carry no tuning.
     ];
     for (id, collision_scale, inset) in expected {
-        let spec = sheet_for_character_id(id)
+        let spec = sheet_for_character_id(&sprite_content, id)
             .unwrap_or_else(|| panic!("catalog id '{id}' must resolve a sheet spec"));
         assert!(
             (spec.collision_scale - collision_scale).abs() < 1e-6,
@@ -355,7 +366,7 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     // admiral's/duelist's rects (which trim to different widths) would make these rects equal the
     // representative's.
     let idle_rect = |id: &str| {
-        sheet_for_character_id(id)
+        sheet_for_character_id(&sprite_content, id)
             .unwrap_or_else(|| panic!("{id} must resolve a sheet spec"))
             .texture_rect_for_flat_index(0)
             .unwrap_or_else(|| panic!("{id} idle frame 0 must have an atlas rect"))
@@ -384,8 +395,9 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
 /// permissive than the Rust runtime's `ron::from_str`.
 #[test]
 fn boss_subdir_manifests_resolve_through_catalog() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     for cid in &["npc_gnu_ton_boss", "npc_mockingbird_boss"] {
-        let spec = sheet_for_character_id(cid);
+        let spec = sheet_for_character_id(&sprite_content, cid);
         assert!(
             spec.is_some(),
             "{cid}: sheet_for_character_id returned None — manifest \
@@ -398,6 +410,7 @@ fn boss_subdir_manifests_resolve_through_catalog() {
 
 #[test]
 fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // The actor renderer's `flat_index` falls back to `Idle`
     // for any animation that doesn't have its own row. A spec
     // *without* an Idle row crashes on the first frame. This
@@ -412,7 +425,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
 
     let data = crate::character_roster::catalog();
     for cid in data.data().characters.keys() {
-        let Some(spec) = sheet_for_character_id(cid) else {
+        let Some(spec) = sheet_for_character_id(&sprite_content, cid) else {
             continue;
         };
         let has_idle = spec.maps(CharacterAnim::Idle);
@@ -426,6 +439,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
 
 #[test]
 fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // Phase 6 + manifest-driven fallback: every
     // catalog id either resolves to a hardcoded `*_SHEET` const
     // (for the entries that need bespoke tuning) or falls back
@@ -445,7 +459,7 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
         .data()
         .characters
         .keys()
-        .filter(|cid| sheet_for_character_id(cid).is_some())
+        .filter(|cid| sheet_for_character_id(&sprite_content, cid).is_some())
         .count();
     assert!(
         covered >= 70,
@@ -461,6 +475,7 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
 /// driven into any state, and its sheet decides how richly it reads.
 #[test]
 fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // A sheet with walk, slash and death rows and no dash, slide, jump, fly or
     // directional-swing rows. Chosen by its rows, not by name: a republish
     // adds rows to a named character (the admiral got its moveset rows on
@@ -473,7 +488,7 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
     ids.sort();
     let spec = ids
         .iter()
-        .filter_map(|id| sheet_for_character_id(id))
+        .filter_map(|id| sheet_for_character_id(&sprite_content, id))
         .find(|spec| has.iter().all(|anim| spec.maps(*anim)) && !lacks.iter().any(|anim| spec.maps(*anim)))
         .expect("premise: some catalog character has walk, slash and death rows and none of the refined poses");
     // Directional / aerial / heavy swings are refinements of the generic slash
@@ -524,6 +539,7 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
 /// number silently does nothing; the count printed on failure is how that shows.
 #[test]
 fn an_authored_standing_height_is_the_height_the_body_derives() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use super::assets::sprite_body_collision_for_character_id_in;
 
     let catalog = test_catalog();
@@ -536,7 +552,7 @@ fn an_authored_standing_height_is_the_height_the_body_derives() {
         let Some(authored) = entry.standing_height else {
             continue;
         };
-        match sprite_body_collision_for_character_id_in(&sheets, &catalog, id, ldtk) {
+        match sprite_body_collision_for_character_id_in(&sprite_content, &sheets, &catalog, id, ldtk) {
             Some(body) => {
                 checked += 1;
                 assert!(
@@ -587,6 +603,7 @@ fn an_authored_standing_height_is_the_height_the_body_derives() {
 #[test]
 #[ignore = "audit listing: prints what each character derives; read it, do not assert on it"]
 fn probe_what_each_character_derives_for_its_body() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use super::assets::sprite_body_collision_for_character_id_in;
 
     let catalog = test_catalog();
@@ -600,7 +617,7 @@ fn probe_what_each_character_derives_for_its_body() {
     let mut ids: Vec<&String> = catalog.data().characters.keys().collect();
     ids.sort();
     for id in ids {
-        match sprite_body_collision_for_character_id_in(&sheets, &catalog, id, ldtk) {
+        match sprite_body_collision_for_character_id_in(&sprite_content, &sheets, &catalog, id, ldtk) {
             Some(body) => {
                 derived += 1;
                 heights.push((id.clone(), body.collision.y, body.render_size.y));
@@ -682,6 +699,7 @@ fn the_fx_sheet_folder_follows_the_quality_tier() {
 /// than the base page.
 #[test]
 fn a_character_wears_the_sheet_and_tuning_its_preparation_resolved() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::actor::definition::CharacterDefinition;
     let catalog = test_catalog();
     let row = catalog.get("goblin").expect("the goblin has a catalog row");
@@ -700,7 +718,7 @@ fn a_character_wears_the_sheet_and_tuning_its_preparation_resolved() {
         [CharacterDefinition::new("goblin", "Goblin", "test").with_sheet(worn_sheet)],
     );
     let goblin = cast.get("goblin").expect("the cast prepares the goblin");
-    let spec = super::assets::sheet_for_prepared_character(&Default::default(), goblin)
+    let spec = super::assets::sheet_for_prepared_character(&sprite_content, &Default::default(), goblin)
         .expect("the worn sheet resolves");
 
     let tuning = row
@@ -708,7 +726,7 @@ fn a_character_wears_the_sheet_and_tuning_its_preparation_resolved() {
         .map(|t| SheetTuning::from_parts(t.collision_scale, t.frame_sample_inset, t.feet_anchor_y))
         .unwrap_or_default();
     let expected =
-        try_load_spec_for_target(worn_sheet, &tuning).expect("the worn sheet loads with the goblin tuning");
+        try_load_spec_for_target(&sprite_content, worn_sheet, &tuning).expect("the worn sheet loads with the goblin tuning");
     assert_eq!(
         (spec.frame_width, spec.frame_height),
         (expected.frame_width, expected.frame_height),

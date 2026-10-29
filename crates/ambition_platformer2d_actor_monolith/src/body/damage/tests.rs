@@ -41,8 +41,10 @@ fn install_hit_reaction_consumers(app: &mut App) {
 }
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "kernel_guide".to_string(),
         "Kernel Guide".to_string(),
         aabb,
@@ -72,6 +74,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
 #[test]
 fn victim_side_enemy_body_hit_does_not_damage_features() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -143,6 +146,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
     }
     fn strike_an_enemy(strike_sfx: Option<ambition_sfx::SfxId>) -> App {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -212,6 +216,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 
     fn damage_dealt_from(multiplier: f32, source: HitSource, human_controlled: bool) -> i32 {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -308,6 +313,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 #[test]
 fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -356,6 +362,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -428,6 +435,7 @@ fn an_outcome_naming_another_occurrence_credits_no_move() {
     use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -506,6 +514,7 @@ fn an_unclaimed_outcome_credits_no_move() {
     use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -572,6 +581,7 @@ fn an_unclaimed_outcome_credits_no_move() {
 #[test]
 fn a_hit_with_no_generation_is_not_resolved() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     install_hit_reaction_consumers(&mut app);
@@ -611,6 +621,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // actor's HP, and enough damage routes through the normal kill
     // path. Complements the enemy-side tests above.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -694,6 +705,7 @@ fn a_killed_body_plays_the_death_cue_its_character_authors() {
 
     fn death_cues(authored: Option<&str>) -> Vec<ambition_sfx::SfxMessage> {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
@@ -767,6 +779,7 @@ fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
     let first = LiveRoomInstance::ACTIVATION;
     let health_after_a_slash = |enemy_room: LiveRoomInstance| {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
@@ -831,6 +844,7 @@ fn debris_rooms_of_a_kill_in_the_second_room(
     let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next(),
     ];
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -887,6 +901,7 @@ fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
     let first = LiveRoomInstance::ACTIVATION;
     let health_after_a_blast = |enemy_room: LiveRoomInstance| {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
@@ -986,6 +1001,8 @@ fn spawn_talkable_npc_with_threshold(
     hp: i32,
     strike_threshold: u8,
 ) -> bevy::prelude::Entity {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let interactable = ambition_interaction::Interactable::new(
         "alice",
@@ -999,7 +1016,7 @@ fn spawn_talkable_npc_with_threshold(
             brain_override: None,
         },
     );
-    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(&sprite_content,
         "alice",
         "Alice",
         aabb,
@@ -1052,6 +1069,7 @@ fn spawn_talkable_npc_with_threshold(
 fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
     fn strike_and_count_bubbles(hp: i32) -> usize {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -1109,6 +1127,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
 fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
     fn strike(in_a_fight: bool, ruleset_owns_death: bool) -> (i32, usize) {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -1187,6 +1206,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     // window still hot lands exactly once. (This minimal app runs no integration tick, so the
     // window never decays between the two updates — exactly the sustained-overlap case.)
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -1239,6 +1259,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
 /// adhesive crawler clung to a LEFT wall (outward normal +x), then slash it.
 fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -1358,6 +1379,7 @@ fn player_slash_shatters_a_breakable() {
     // Completes the attacker-side hit matrix: a player slash on a
     // 1-HP breakable shatters it through apply_feature_hit_events.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -1421,6 +1443,7 @@ fn player_slash_shatters_a_breakable() {
 #[test]
 fn enemy_defeat_drops_a_collectible_currency_coin() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, |mut c: Commands| {
         drop_currency_coin(
             &mut c,
@@ -1480,6 +1503,7 @@ fn defeated_boss_drops_its_signature_ability() {
 
     // The drop spawns a single collectible Ability pickup.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, |mut c: Commands| {
         drop_ability_pickup(
             &mut c,
@@ -1555,6 +1579,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
 #[test]
 fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, |mut c: Commands| {
         spawn_death_explosion(
             &mut c,
@@ -1586,16 +1611,18 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
 
 #[test]
 fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Update,
-        |mut c: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut c: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
-            spawn_split_offspring(
+            spawn_split_offspring(&sprite_content,
                 &mut c,
                 &catalog,
                 &Default::default(),
@@ -1606,7 +1633,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
                 ae::Vec2::new(100.0, 100.0),
                 "npc_puppy_slug",
             );
-        },
+        } },
     );
     app.update();
     let mut q = app
@@ -1632,15 +1659,17 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
 /// the construction panic.
 #[test]
 fn a_split_with_no_prepared_cast_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_systems(
         Update,
-        |mut c: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut c: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
-            spawn_split_offspring(
+            spawn_split_offspring(&sprite_content,
                 &mut c,
                 &catalog,
                 &Default::default(),
@@ -1650,7 +1679,7 @@ fn a_split_with_no_prepared_cast_is_refused() {
                 ae::Vec2::new(100.0, 100.0),
                 "npc_puppy_slug",
             );
-        },
+        } },
     );
     app.update();
     let built = app
@@ -1667,6 +1696,7 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     assert_eq!(id_drops_health("goblin_42"), id_drops_health("goblin_42"));
     // The drop spawns one collectible Health pickup.
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_systems(Update, |mut c: Commands| {
         drop_health_pickup(
             &mut c,
@@ -1705,8 +1735,10 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
 /// Spawn a hostile actor with the shield capability, body facing +x (right),
 /// 5 HP, with its guard raised iff `shield_raised`.
 fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::Entity {
+    app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "guard".to_string(),
         "Guard".to_string(),
         aabb,
@@ -1739,6 +1771,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
 
 fn shield_test_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -2417,6 +2450,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
 fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -2494,6 +2528,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         }
     }
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -2596,6 +2631,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
     // `apply_actor_hit` and the lethal case barks again.
     fn hit_and_count_bubbles(start_hp: i32, damage: i32) -> (usize, bool) {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         // The struck body wears a character whose catalog row has hit lines.
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
@@ -2670,6 +2706,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     use bevy::ecs::message::Messages;
 
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -2756,6 +2793,7 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
 fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     fn thrower_flash_after(source: HitSource) -> f32 {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -3046,6 +3084,7 @@ mod bark_rate {
 fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
     fn hostile_flags_after(strikes: usize, strike_threshold: u8) -> usize {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
@@ -3172,6 +3211,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
     )"#;
     fn bark_after_one_hit(worn: &str) -> Vec<String> {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
@@ -3220,6 +3260,8 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
 /// first hit line is "Counterfeit.".
 #[test]
 fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     #[derive(bevy::prelude::Resource, Default)]
     struct Said(Vec<String>);
     fn capture_lines(mut reader: bevy::prelude::MessageReader<VfxInRoom>, mut said: bevy::prelude::ResMut<Said>,
@@ -3230,8 +3272,9 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             }
         }
     }
-    fn strike_gnu_ton(voiced: bool) -> Vec<String> {
+    fn strike_gnu_ton(sprite_content: &ambition_sprite_sheet::SpriteContent, voiced: bool) -> Vec<String> {
         let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(include_str!(
@@ -3244,7 +3287,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
         app.init_resource::<Said>();
         app.add_systems(Update, (apply_feature_hit_events, capture_lines).chain());
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 60.0));
-        let mut boss = ambition_boss_encounter::BossClusterScratch::new(
+        let mut boss = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
             ambition_boss_encounter::test_boss_catalog(),
             "gnu_ton",
             "GNU-ton",
@@ -3281,6 +3324,6 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
         app.update();
         app.world().resource::<Said>().0.clone()
     }
-    assert_eq!(strike_gnu_ton(true), vec!["Counterfeit.".to_string()], "the voiced boss's first hit line");
-    assert_eq!(strike_gnu_ton(false), Vec::<String>::new(), "a boss with no voice is silent");
+    assert_eq!(strike_gnu_ton(&sprite_content, true), vec!["Counterfeit.".to_string()], "the voiced boss's first hit line");
+    assert_eq!(strike_gnu_ton(&sprite_content, false), Vec::<String>::new(), "a boss with no voice is silent");
 }

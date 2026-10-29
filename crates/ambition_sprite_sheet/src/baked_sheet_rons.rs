@@ -1,37 +1,22 @@
-//! The table of `(key, ron_text)` pairs for every published
-//! `*_spritesheet.ron`, sorted by key ([`crate::sprite_tree::sheet_manifests`]:
-//! `assets/sprites/`, its quality tiers, and one level of subdirectories).
-//!
-//! Embedded by `build.rs` where there is no source tree (`static_content`,
-//! wasm, Android), so those builds do not read the tree at run time; read from
-//! the tree in a development build.
-//!
-//! The table, everything parsed from it (the record index, the file-root
-//! registry, the mechanics digest) and the body rigs published beside the
-//! sheets ([`crate::baked_body_rigs`]) are one [`SheetGeneration`]. A
-//! development build can publish a new one ([`publish_sheet_generation`]);
-//! each reader then reads the new table and the records parsed from it
-//! together, so no reader can see a record of one generation beside the text
-//! of another.
+//! Immutable sprite metadata selected by one App.
 
-use std::sync::{OnceLock, RwLock};
+use std::sync::{Arc, OnceLock};
 
-#[cfg(embedded_sprites)]
-include!(concat!(env!("OUT_DIR"), "/baked_sheet_rons.rs"));
+
 
 /// The sheet table and the records parsed from it.
 pub struct SheetGeneration {
     /// 0 for the table the process read first; each publication adds 1.
     id: u64,
-    rons: Vec<(&'static str, &'static str)>,
+    rons: Vec<(&'static str, Arc<str>)>,
     /// `(target, ron_text)` sorted by target.
-    body_rigs: Vec<(&'static str, &'static str)>,
+    body_rigs: Vec<(&'static str, Arc<str>)>,
     part_tables: crate::baked_part_flipbooks::PartTables,
     /// `(asset path, ron_text)` sorted by path.
-    portrait_rons: Vec<(&'static str, &'static str)>,
+    portrait_rons: Vec<(&'static str, Arc<str>)>,
     portraits: OnceLock<crate::portrait::PortraitSheetRegistry>,
     /// `(tier, json_text)` sorted by tier.
-    pack_catalog_texts: Vec<(&'static str, &'static str)>,
+    pack_catalog_texts: Vec<(&'static str, Arc<str>)>,
     pack_catalogs: OnceLock<std::collections::HashMap<&'static str, crate::SpritePackCatalog>>,
     fx_sheets: OnceLock<Vec<crate::fx::FxSheet>>,
     authored_effects: OnceLock<std::collections::BTreeMap<&'static str, crate::fx::AuthoredEffect>>,
@@ -47,14 +32,16 @@ pub struct SheetGeneration {
     /// it holds unchanged.
     rigs_checked: bool,
     image_paths: std::collections::BTreeMap<String, String>,
+    warming: std::sync::Once,
+    effect_ids: OnceLock<std::collections::HashMap<ambition_vfx::FxId, &'static str>>,
 }
 
 impl SheetGeneration {
     /// The first table is not checked: a stale or broken publish is named
     /// where a reader parses it, as before generations existed.
     fn new(id: u64, texts: SheetTexts) -> Self {
-        let (parsed_files, failed, _) = crate::parse_sheet_files(&texts.sheets, None);
-        let registry = crate::SheetRegistry::from_index(crate::index_parsed(&texts.sheets, &parsed_files, failed));
+        let (parsed_files, failed, _) = crate::parse_sheet_files(&text_pairs(&texts.sheets), None);
+        let registry = crate::SheetRegistry::from_index(crate::index_parsed(&text_pairs(&texts.sheets), &parsed_files, failed));
         let part_tables = crate::baked_part_flipbooks::PartTables::new(texts.part_flipbooks);
         Self {
             id,
@@ -72,6 +59,8 @@ impl SheetGeneration {
             digest: OnceLock::new(),
             rigs_checked: false,
             image_paths: texts.image_paths,
+            warming: std::sync::Once::new(),
+            effect_ids: OnceLock::new(),
         }
     }
 
@@ -92,7 +81,17 @@ impl SheetGeneration {
             digest: OnceLock::new(),
             rigs_checked: true,
             image_paths: prepared.texts.image_paths,
+            warming: std::sync::Once::new(),
+            effect_ids: OnceLock::new(),
         }
+    }
+
+    pub(crate) fn warm_parts(&self, work: impl FnOnce()) { self.warming.call_once(work); }
+
+    pub fn effect_by_id(&self, id: ambition_vfx::FxId) -> Option<&crate::fx::AuthoredEffect> {
+        let key = self.effect_ids.get_or_init(|| self.authored_effects().keys()
+            .map(|key| (ambition_vfx::FxId::new(key), *key)).collect()).get(&id)?;
+        self.authored_effects().get(key)
     }
 
     pub fn image_path(&self, logical: &str) -> Option<&str> {
@@ -105,17 +104,17 @@ impl SheetGeneration {
     }
 
     /// Every sheet manifest, as `(key, ron_text)` sorted by key.
-    pub fn rons(&self) -> &[(&'static str, &'static str)] {
+    pub fn rons(&self) -> &[(&'static str, Arc<str>)] {
         &self.rons
     }
 
     /// Every body rig, as `(target, ron_text)` sorted by target.
-    pub fn body_rigs(&self) -> &[(&'static str, &'static str)] {
+    pub fn body_rigs(&self) -> &[(&'static str, Arc<str>)] {
         &self.body_rigs
     }
 
     /// Every portrait manifest, as `(asset path, ron_text)` sorted by path.
-    pub fn portrait_rons(&self) -> &[(&'static str, &'static str)] {
+    pub fn portrait_rons(&self) -> &[(&'static str, Arc<str>)] {
         &self.portrait_rons
     }
 
@@ -125,7 +124,7 @@ impl SheetGeneration {
     }
 
     /// Each sprite pack tier's catalog, as `(tier, json_text)` sorted by tier.
-    pub fn pack_catalog_texts(&self) -> &[(&'static str, &'static str)] {
+    pub fn pack_catalog_texts(&self) -> &[(&'static str, Arc<str>)] {
         &self.pack_catalog_texts
     }
 
@@ -136,13 +135,13 @@ impl SheetGeneration {
     }
 
     /// The effect sheets of this generation's records, built on the first ask.
-    pub fn fx_sheets(&'static self) -> &'static [crate::fx::FxSheet] {
+    pub fn fx_sheets(&self) -> &[crate::fx::FxSheet] {
         self.fx_sheets.get_or_init(|| crate::fx::fx_sheets_of(&self.registry.sheets))
     }
 
     /// The authored effects of this generation's records, built on the first
     /// ask.
-    pub fn authored_effects(&'static self) -> &'static std::collections::BTreeMap<&'static str, crate::fx::AuthoredEffect> {
+    pub fn authored_effects(&self) -> & std::collections::BTreeMap<&'static str, crate::fx::AuthoredEffect> {
         self.authored_effects.get_or_init(|| crate::fx::authored_effects_of(self.fx_sheets(), &self.registry.sheets))
     }
 
@@ -159,96 +158,70 @@ impl SheetGeneration {
     /// The digest of the mechanical projection of every record, in key
     /// order. Computed on the first ask.
     pub fn mechanics_digest(&self) -> &str {
-        self.digest.get_or_init(|| crate::character::sheets::mechanics_digest_of(&self.registry.sheets))
+        self.digest.get_or_init(|| mechanics_of(&self.registry, &self.body_rigs, &self.part_tables, self.portraits()))
     }
 }
 
-static FIRST: OnceLock<SheetGeneration> = OnceLock::new();
-static LIVE: RwLock<Option<&'static SheetGeneration>> = RwLock::new(None);
-
-/// The sheet generation every reader reads now.
-pub fn current() -> &'static SheetGeneration {
-    if let Some(live) = *LIVE.read().unwrap_or_else(std::sync::PoisonError::into_inner) {
-        return live;
-    }
-    FIRST.get_or_init(|| SheetGeneration::new(0, first_table()))
+/// The immutable sprite content selected by one App.
+#[derive(bevy::prelude::Resource, Clone)]
+pub struct SpriteContent {
+    generation: Arc<SheetGeneration>,
 }
 
-/// Every published sheet manifest, as `(key, ron_text)` sorted by key.
-pub fn sheet_rons() -> &'static [(&'static str, &'static str)] {
-    current().rons()
+impl PartialEq for SpriteContent {
+    fn eq(&self, other: &Self) -> bool { Arc::ptr_eq(&self.generation, &other.generation) }
 }
+impl Eq for SpriteContent {}
 
-fn first_table() -> SheetTexts {
-    #[cfg(embedded_sprites)]
-    {
-        SheetTexts {
-            sheets: BAKED_SHEET_RONS.to_vec(),
-            body_rigs: crate::baked_body_rigs::BAKED_BODY_RIGS.to_vec(),
-            part_flipbooks: crate::baked_part_flipbooks::BAKED_PART_FLIPBOOKS.to_vec(),
-            portraits: crate::baked_portrait_rons::BAKED_PORTRAIT_RONS.to_vec(),
-            pack_catalogs: crate::sprite_packs::baked::BAKED_PACK_CATALOGS.to_vec(),
-            image_paths: Default::default(),
-        }
-    }
-    // The process has no sheets to keep yet, so a refused first table stops
-    // it, with each file named.
-    #[cfg(not(embedded_sprites))]
-    {
-        read_texts_under(crate::published_tree::owner(), None).unwrap_or_else(|refused| panic!("{refused}"))
+impl std::fmt::Debug for SpriteContent {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_struct("SpriteContent").field("generation", &self.generation.id).finish()
     }
 }
 
-/// Manifest paths and image hashes from one publication selection.
-pub fn publication_files_under(owner: &std::path::Path)
-    -> Result<(Vec<(String, std::path::PathBuf)>, std::collections::BTreeMap<String, String>), String> {
-    let selected = crate::sprite_tree::selection(owner)?;
-    let rigs = crate::sprite_tree::companions_in(&selected, BODY_RIG_SUFFIX, false).files.into_iter()
-        .map(|(key, path)| (format!("{key}{BODY_RIG_SUFFIX}"), path));
-    let suffix = crate::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX;
-    let parts = crate::sprite_tree::companions_in(&selected, suffix, true).files.into_iter()
-        .map(|(key, path)| (format!("{key}{suffix}"), path));
-    let packs = crate::sprite_tree::packs_in(&selected).into_iter()
-        .map(|(tier, path)| (format!("sprite_packs/{tier}/ultrapack.json"), path));
-    let files = crate::sprite_tree::sheet_manifests_in(&selected).files.into_iter()
-        .chain(rigs).chain(parts).chain(crate::sprite_tree::portraits_in(&selected)).chain(packs).collect();
-    let images = selected.files.iter().filter(|(logical, _)| logical.ends_with(".png"))
-        .map(|(logical, member)| (logical.clone(), member.sha256.clone())).collect();
-    Ok((files, images))
+impl Default for SpriteContent {
+    fn default() -> Self {
+        static EMPTY: OnceLock<Arc<SheetGeneration>> = OnceLock::new();
+        Self { generation: EMPTY.get_or_init(|| Arc::new(SheetGeneration::new(0, SheetTexts::default()))).clone() }
+    }
 }
 
-/// Each sprite pack catalog of the tree under `owner`, keyed by its tier.
-pub fn pack_catalog_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
-    crate::sprite_tree::pack_catalogs(owner)
+impl SpriteContent {
+    pub fn from_texts(texts: SheetTexts) -> Result<Self, SheetTableRefused> {
+        let mut content = Self::default();
+        let prepared = prepare_sheet_table(&content, texts)?;
+        publish_prepared_sheet_table(&mut content, prepared);
+        Ok(content)
+    }
 }
 
-/// Each portrait manifest of the tree under `owner`, keyed by its path under
-/// `assets/`.
-pub fn portrait_files_under(owner: &std::path::Path) -> Vec<(String, std::path::PathBuf)> {
-    crate::sprite_tree::portrait_manifests(owner)
+pub fn current(content: &SpriteContent) -> &SheetGeneration { &content.generation }
+
+pub fn sheet_rons(content: &SpriteContent) -> &[(&'static str, Arc<str>)] {
+    current(content).rons()
 }
 
 /// The texts of one sheet generation.
 #[derive(Clone, Debug, Default)]
 pub struct SheetTexts {
     /// Every sheet manifest, as `(key, ron_text)` sorted by key.
-    pub sheets: Vec<(&'static str, &'static str)>,
+    pub sheets: Vec<(&'static str, Arc<str>)>,
     /// Every body rig, as `(target, ron_text)` sorted by target.
-    pub body_rigs: Vec<(&'static str, &'static str)>,
+    pub body_rigs: Vec<(&'static str, Arc<str>)>,
     /// Every part flipbook, sorted by key. Named, not read: a flipbook is
     /// read where it is decoded.
     pub part_flipbooks: Vec<crate::baked_part_flipbooks::PartFlipbookRow>,
     /// Every portrait manifest, as `(asset path, ron_text)` sorted by path.
-    pub portraits: Vec<(&'static str, &'static str)>,
+    pub portraits: Vec<(&'static str, Arc<str>)>,
     /// Each sprite pack tier's catalog, as `(tier, json_text)` sorted by tier.
-    pub pack_catalogs: Vec<(&'static str, &'static str)>,
+    pub pack_catalogs: Vec<(&'static str, Arc<str>)>,
     pub image_paths: std::collections::BTreeMap<String, String>,
 }
 
 impl SheetTexts {
     /// The texts of the current generation, to edit.
-    pub fn current() -> Self {
-        let generation = current();
+    pub fn current(content: &SpriteContent) -> Self {
+        let generation = current(content);
         Self {
             sheets: generation.rons().to_vec(),
             body_rigs: generation.body_rigs().to_vec(),
@@ -289,6 +262,8 @@ pub struct PreparedSheetTable {
 }
 
 impl PreparedSheetTable {
+    pub fn registry(&self) -> &crate::SheetRegistry { &self.registry }
+
     /// The sheet files this preparation parsed: each file whose text the
     /// current generation does not hold for its root.
     pub fn parsed_now(&self) -> usize {
@@ -303,10 +278,7 @@ impl PreparedSheetTable {
     /// changes none of them changes only where frames are drawn from (pages,
     /// rects, pixels) and the pack catalogs.
     pub fn changes_mechanics_of(&self, live: &SheetGeneration) -> bool {
-        self.texts.body_rigs != live.body_rigs
-            || self.texts.portraits != live.portrait_rons
-            || self.part_tables.landmarks().1 != live.part_tables().landmarks().1
-            || crate::character::sheets::mechanics_digest_of(&self.registry.sheets) != live.mechanics_digest()
+        mechanics_of(&self.registry, &self.texts.body_rigs, &self.part_tables, &self.portraits) != live.mechanics_digest()
     }
 }
 
@@ -316,9 +288,26 @@ impl PreparedSheetTable {
 /// rig or a flipbook panics on one it cannot read. Each flipbook is decoded
 /// and the landmarks are projected here, off the frame; a flipbook whose file
 /// did not change is taken from the current generation.
-pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, SheetTableRefused> {
-    let previous = current();
-    let (parsed_files, mut failed, parsed_now) = crate::parse_sheet_files(&texts.sheets, Some((previous.rons(), &previous.parsed_files)));
+pub fn prepare_sheet_table(content: &SpriteContent, mut texts: SheetTexts) -> Result<PreparedSheetTable, SheetTableRefused> {
+    texts.sheets.sort_by_key(|row| row.0);
+    texts.body_rigs.sort_by_key(|row| row.0);
+    texts.part_flipbooks.sort_by_key(|row| row.0);
+    texts.portraits.sort_by_key(|row| row.0);
+    texts.pack_catalogs.sort_by_key(|row| row.0);
+    let mut duplicates = Vec::new();
+    for (kind, keys) in [
+        ("sheet", texts.sheets.iter().map(|row| row.0).collect::<Vec<_>>()),
+        ("rig", texts.body_rigs.iter().map(|row| row.0).collect()),
+        ("part", texts.part_flipbooks.iter().map(|row| row.0).collect()),
+        ("portrait", texts.portraits.iter().map(|row| row.0).collect()),
+        ("pack", texts.pack_catalogs.iter().map(|row| row.0).collect()),
+    ] {
+        duplicates.extend(keys.windows(2).filter(|pair| pair[0] == pair[1])
+            .map(|pair| (pair[0].to_owned(), format!("Duplicate {kind} identity: {}", pair[0]))));
+    }
+    if !duplicates.is_empty() { return Err(SheetTableRefused(duplicates)); }
+    let previous = current(content);
+    let (parsed_files, mut failed, parsed_now) = crate::parse_sheet_files(&text_pairs(&texts.sheets), Some((previous.rons(), &previous.parsed_files)));
     for (target, text) in &texts.body_rigs {
         if !rig_needs_check(previous.body_rigs(), previous.rigs_checked, target, text) {
             continue;
@@ -334,9 +323,11 @@ pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, Shee
     let (Ok(portraits), Ok(pack_catalogs), true) = (portraits, pack_catalogs, failed.is_empty()) else {
         return Err(SheetTableRefused(failed));
     };
-    let part_tables = crate::baked_part_flipbooks::PartTables::prepared(texts.part_flipbooks.clone(), current().part_tables())
+    let part_tables = crate::baked_part_flipbooks::PartTables::prepared(texts.part_flipbooks.clone(), current(content).part_tables())
         .map_err(SheetTableRefused)?;
-    let registry = crate::SheetRegistry::from_index(crate::index_parsed(&texts.sheets, &parsed_files, Vec::new()));
+    let index = crate::index_parsed(&text_pairs(&texts.sheets), &parsed_files, Vec::new());
+    if !index.failed.is_empty() { return Err(SheetTableRefused(index.failed)); }
+    let registry = crate::SheetRegistry::from_index(index);
     Ok(PreparedSheetTable { texts, registry, parsed_files, parsed_now, part_tables, portraits, pack_catalogs })
 }
 
@@ -344,8 +335,8 @@ pub fn prepare_sheet_table(texts: SheetTexts) -> Result<PreparedSheetTable, Shee
 /// Not when the current generation holds the same text AND checked it: the
 /// first generation was not checked, so the same text there is no proof
 /// (found in review, 2026-10-17).
-fn rig_needs_check(current: &[(&str, &str)], current_checked: bool, target: &str, text: &str) -> bool {
-    let unchanged = current.binary_search_by(|(name, _)| (*name).cmp(target)).is_ok_and(|at| current[at].1 == text);
+fn rig_needs_check<T: AsRef<str>>(current: &[(&str, T)], current_checked: bool, target: &str, text: &str) -> bool {
+    let unchanged = current.binary_search_by(|(name, _)| (*name).cmp(target)).is_ok_and(|at| current[at].1.as_ref() == text);
     !(unchanged && current_checked)
 }
 
@@ -354,117 +345,33 @@ fn rig_needs_check(current: &[(&str, &str)], current_checked: bool, target: &str
 ///
 /// The records feed simulation too (body sizes, hurtboxes, attack volumes,
 /// a boss's size), so the caller publishes only where no session is live.
-/// Each generation is kept for the life of the process: a reader can hold a
-/// `&'static` record of an older one.
-pub fn publish_prepared_sheet_table(prepared: PreparedSheetTable) -> u64 {
-    let mut live = LIVE.write().unwrap_or_else(std::sync::PoisonError::into_inner);
-    let previous = live.map(SheetGeneration::id).unwrap_or_else(|| current_first_id());
-    let generation: &'static SheetGeneration = Box::leak(Box::new(SheetGeneration::of(previous + 1, prepared)));
-    // The old generation is kept, but not its decoded flipbooks: a reader
-    // that still holds it decodes again, and each publication would else keep
-    // every decoded table of the generations before it.
-    let old = live.unwrap_or_else(|| FIRST.get_or_init(|| SheetGeneration::new(0, first_table())));
-    old.part_tables().forget_decoded();
-    *live = Some(generation);
-    generation.id
+/// A session retains its accepted records through a `SpriteContent` clone.
+pub fn publish_prepared_sheet_table(content: &mut SpriteContent, prepared: PreparedSheetTable) -> u64 {
+    let generation = Arc::new(SheetGeneration::of(content.generation.id + 1, prepared));
+    let id = generation.id;
+    content.generation = generation;
+    id
 }
 
-/// Prepare `rons` and publish it ([`prepare_sheet_table`],
-/// [`publish_prepared_sheet_table`]). A refused table leaves the readers on
-/// the generation they had.
-pub fn publish_sheet_generation(texts: SheetTexts) -> Result<u64, SheetTableRefused> {
-    prepare_sheet_table(texts).map(publish_prepared_sheet_table)
-}
-
-fn current_first_id() -> u64 {
-    FIRST.get_or_init(|| SheetGeneration::new(0, first_table())).id
-}
-
-/// The folder whose `assets/` holds the published sprite tree, in a build
-/// that reads it from disk; `None` in a build that embeds its sprites, whose
-/// table cannot change.
-pub fn published_tree_owner() -> Option<&'static std::path::Path> {
-    #[cfg(embedded_sprites)]
-    {
-        None
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        Some(crate::published_tree::owner())
-    }
-}
-
-pub use crate::sprite_tree::KeyedFiles;
-
-/// Each sheet manifest file of the tree under `owner`, keyed as the table
-/// keys it, sorted by key.
-pub fn sheet_files_under(owner: &std::path::Path) -> KeyedFiles {
-    crate::sprite_tree::sheet_manifests(owner)
-}
-
-/// The folders the sprite tree under `owner` is in: `assets/sprites` and
-/// each quality tier's.
-pub fn sprite_dirs_under(owner: &std::path::Path) -> Vec<std::path::PathBuf> {
-    crate::sprite_tree::sprite_dirs(owner)
-}
-
-/// Each body rig file of the tree under `owner`, keyed by its target, sorted
-/// by target.
-pub fn body_rig_files_under(owner: &std::path::Path) -> KeyedFiles {
-    crate::sprite_tree::companions(owner, BODY_RIG_SUFFIX, false)
-}
-
-/// The suffix of a body rig file after its target.
-pub const BODY_RIG_SUFFIX: &str = "_body_rig.ron";
-
-/// The texts of the tree under `owner`, read now. Empty in a build that
-/// embeds its sprites. A text the current generation holds unchanged is that
-/// generation's: each text is kept for the life of the process, so a read
-/// keeps only what changed. A key that two files give refuses the table,
-/// with both files named.
-pub fn read_sheet_table_under(owner: &std::path::Path) -> Result<SheetTexts, SheetTableRefused> {
-    read_texts_under(owner, Some(current()))
-}
-
-/// The texts of the tree under `owner`, taking each unchanged text from
-/// `previous`. The first generation has none to take from.
-#[cfg_attr(embedded_sprites, allow(unused_variables))]
-fn read_texts_under(owner: &std::path::Path, previous: Option<&SheetGeneration>) -> Result<SheetTexts, SheetTableRefused> {
-    #[cfg(embedded_sprites)]
-    {
-        Ok(SheetTexts::default())
-    }
-    #[cfg(not(embedded_sprites))]
-    {
-        use crate::published_tree::texts_reusing;
-        let was = |of: fn(&SheetGeneration) -> &[(&'static str, &'static str)]| previous.map(of).unwrap_or_default();
-        // A portrait is keyed by its path and a catalog by its tier's
-        // folder, so no two of their files can give one key.
-        let mut refused = Vec::new();
-        let mut one_for_each_key = |files: KeyedFiles| files.one_for_each_key().unwrap_or_else(|mut why| {
-            refused.append(&mut why);
-            Vec::new()
-        });
-        let selected = crate::sprite_tree::selection(owner).map_err(|error| SheetTableRefused(vec![("publication".into(), error)]))?;
-        let (sheets, rigs) = (one_for_each_key(crate::sprite_tree::sheet_manifests_in(&selected)), one_for_each_key(crate::sprite_tree::companions_in(&selected, BODY_RIG_SUFFIX, false)));
-        let flipbooks = one_for_each_key(crate::sprite_tree::companions_in(&selected, crate::baked_part_flipbooks::PART_FLIPBOOK_SUFFIX, true));
-        if !refused.is_empty() {
-            return Err(SheetTableRefused(refused));
-        }
-        Ok(SheetTexts {
-            sheets: texts_reusing(sheets, was(SheetGeneration::rons)),
-            body_rigs: texts_reusing(rigs, was(SheetGeneration::body_rigs)),
-            part_flipbooks: crate::baked_part_flipbooks::rows_of(flipbooks),
-            portraits: texts_reusing(crate::sprite_tree::portraits_in(&selected), was(SheetGeneration::portrait_rons)),
-            pack_catalogs: texts_reusing(crate::sprite_tree::packs_in(&selected), was(SheetGeneration::pack_catalog_texts)),
-            image_paths: selected.files.keys().filter_map(|name| selected.address(name).map(|address| (name.clone(), address))).collect(),
-        })
-    }
+pub fn publish_sheet_generation(content: &mut SpriteContent, texts: SheetTexts) -> Result<u64, SheetTableRefused> {
+    let prepared = prepare_sheet_table(content, texts)?;
+    Ok(publish_prepared_sheet_table(content, prepared))
 }
 
 #[cfg(test)]
 mod tests {
     use super::rig_needs_check;
+
+    #[test]
+    fn a_retired_generation_lives_until_its_last_consumer_releases_it() {
+        let mut content = super::SpriteContent::from_texts(super::SheetTexts::default()).unwrap();
+        let retired = std::sync::Arc::downgrade(&content.generation);
+        let session = content.clone();
+        super::publish_sheet_generation(&mut content, super::SheetTexts::default()).unwrap();
+        assert!(retired.upgrade().is_some());
+        drop(session);
+        assert!(retired.upgrade().is_none());
+    }
 
     /// A rig is taken without a check only from a generation that checked it:
     /// an unchanged rig of the unchecked first table is checked again. The
@@ -477,4 +384,33 @@ mod tests {
         assert!(rig_needs_check(&current, true, "bob", "rig b2"), "a changed rig");
         assert!(rig_needs_check(&current, true, "carol", "rig c"), "a new rig");
     }
+}
+
+fn text_pairs<'a>(texts: &'a [(&'static str, Arc<str>)]) -> Vec<(&'static str, &'a str)> {
+    texts.iter().map(|(key, text)| (*key, text.as_ref())).collect()
+}
+
+fn mechanics_of(
+    registry: &crate::SheetRegistry,
+    rigs: &[(&'static str, Arc<str>)],
+    parts: &crate::baked_part_flipbooks::PartTables,
+    portraits: &crate::portrait::PortraitSheetRegistry,
+) -> String {
+    let mut hash = blake3::Hasher::new();
+    let mut piece = |label: &str, bytes: &[u8]| {
+        hash.update(&(label.len() as u64).to_le_bytes());
+        hash.update(label.as_bytes());
+        hash.update(&(bytes.len() as u64).to_le_bytes());
+        hash.update(bytes);
+    };
+    piece("sheets", crate::character::sheets::mechanics_digest_of(&registry.sheets).as_bytes());
+    for (key, text) in rigs.iter().filter(|(key, _)| crate::quality_variant_marker(key).is_none()) {
+        let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
+            .expect("An admitted generation has valid rigs");
+        piece("rig-key", key.as_bytes());
+        piece("rig", &bincode::serialize(&rig).expect("Rig schema serialization"));
+    }
+    piece("landmarks", parts.landmarks().1.as_bytes());
+    for target in portraits.available_targets() { piece("portrait", target.as_bytes()); }
+    hash.finalize().to_hex().to_string()
 }

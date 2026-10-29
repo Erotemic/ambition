@@ -1,0 +1,45 @@
+{
+  "schema": "ambition.content_library.v1",
+  "id": "ambition_shared",
+  "version": "0.1.0",
+  "asset_roots": {
+    "authored": "authored/runtime",
+    "generated": "generated/runtime"
+  },
+  "publication": "generated/art_publication",
+  "producers": {
+    "sprites": {
+      "tool": "ambition_sprite2d_renderer",
+      "collection": "runtime",
+      "policy": "authored/sprites.yaml",
+      "sources": [
+        "authored"
+      ]
+    }
+  },
+  "catalog": "authored/catalog.json",
+  "embedded": [
+    "fonts/bundled/InterDisplay-Regular.otf",
+    "fonts/bundled/InterDisplay-SemiBold.otf",
+    "fonts/bundled/JetBrainsMono-Regular.ttf",
+    "sprites/player_robot_v3_spritesheet.png",
+    "sprites/robot_spritesheet.png",
+    "sprites/goblin_spritesheet.png",
+    "sprites/sandbag_spritesheet.png",
+    "sprites/entities/chest_closed.png",
+    "sprites/entities/chest_open.png",
+    "sprites/entities/pickup_health.png",
+    "sprites/entities/pickup_currency.png",
+    "sprites/entities/pickup_ability.png",
+    "sprites/entities/door_zone.png",
+    "sprites/entities/edge_exit.png",
+    "sprites/entities/projectile_energy.png",
+    "sprites/entities/solid_tile.png",
+    "sprites/entities/one_way_tile.png",
+    "sprites/entities/hazard_tile.png",
+    "sprites/entities/boss_core.png",
+    "audio/sfx.bank",
+    "vanity_card_made_this_meme/vanity_card_parts.png"
+  ],
+  "provenance": "generated/asset_provenance"
+}

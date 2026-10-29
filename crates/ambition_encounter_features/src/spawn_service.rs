@@ -18,7 +18,7 @@ use ambition_platformer2d_actor_spawn::spawn_encounter_mob;
 ///
 /// ⚠ Ordered `.after(WaveEncounterDriven)`: the request and its service are the
 /// same tick, and a reader that ran first would serve last tick's requests.
-pub fn serve_encounter_spawn_commands(
+pub fn serve_encounter_spawn_commands(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
     mut events: bevy::prelude::MessageReader<ambition_encounter::EncounterEventMsg>,
     catalog: bevy::prelude::Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -74,7 +74,7 @@ pub fn serve_encounter_spawn_commands(
         let pos = spec.map_or(pos, |spec| {
             wave_mob_start(spec, &msg.encounter, id, pos, size, flies)
         });
-        spawn_encounter_mob(
+        spawn_encounter_mob(&sprite_content,
             &mut commands,
             &catalog,
             authored_sheets,

@@ -24,14 +24,14 @@ fn enemy_actor(
     )
 }
 
-fn pirate_rider_actor(
+fn pirate_rider_actor(sprite_content: &ambition_sprite_sheet::SpriteContent,
     pos: ae::Vec2,
 ) -> (
     ambition_combat::components::ActorDisposition,
     ActorClusterBundle,
 ) {
     let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-    let enemy = ActorClusterSeed::new(
+    let enemy = ActorClusterSeed::new(&sprite_content,
         "rider_a",
         "Pirate Raider",
         aabb,
@@ -43,6 +43,7 @@ fn pirate_rider_actor(
 
 fn build_app() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins(MinimalPlugins);
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_combat::RangedFireRefused>();
@@ -64,13 +65,14 @@ fn build_app() -> App {
 
 #[test]
 fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     // Use Combatant (a melee archetype) — its spec is irrelevant
     // here; the consumer only branches on archetype for origin
     // and presentation defaults.
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-    let enemy = ActorClusterSeed::new(
+    let enemy = ActorClusterSeed::new(&sprite_content,
         "skitter_a",
         "Skitter",
         aabb,
@@ -114,10 +116,11 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
 /// `"glider"`-id shot.
 #[test]
 fn ranged_shot_carries_archetype_authored_visual_id() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-    let enemy = ActorClusterSeed::new(
+    let enemy = ActorClusterSeed::new(&sprite_content,
         "pca_test",
         "Perfect Cell-ular Automaton",
         aabb,
@@ -156,10 +159,11 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
 
 #[test]
 fn ranged_message_converts_local_direction_at_consumer_frame() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-    let enemy = ActorClusterSeed::new(
+    let enemy = ActorClusterSeed::new(&sprite_content,
         "side_gravity_shooter",
         "Skitter",
         aabb,
@@ -196,9 +200,10 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
 
 #[test]
 fn ranged_message_for_dead_actor_is_dropped() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
-    let mut actor_runtime = pirate_rider_actor(actor_pos);
+    let mut actor_runtime = pirate_rider_actor(&sprite_content, actor_pos);
     // .1 = cluster bundle; BodyHealth (liveness authority) is at .1.2.
     actor_runtime.1 .2.health.current = 0;
     let actor = app.world_mut().spawn(actor_runtime).id();
@@ -255,11 +260,12 @@ fn default_combat_tuning_helper_exists() {
 /// enforcing the floor would fail the second arm.
 #[test]
 fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
-    fn shots_fired(commitment: RangedCommitment) -> usize {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    fn shots_fired(sprite_content: &ambition_sprite_sheet::SpriteContent, commitment: RangedCommitment) -> usize {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = ActorClusterSeed::new(
+        let enemy = ActorClusterSeed::new(&sprite_content,
             "hot_weapon",
             "Skitter",
             aabb,
@@ -290,13 +296,13 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
     }
 
     assert_eq!(
-        shots_fired(RangedCommitment::CommittedMove { instance: 0 }),
+        shots_fired(&sprite_content, RangedCommitment::CommittedMove { instance: 0 }),
         1,
         "the move was accepted and its recharge already spent — refusing here \
          drops a shot the fighter committed to and the player was shown"
     );
     assert_eq!(
-        shots_fired(RangedCommitment::Attempt),
+        shots_fired(&sprite_content, RangedCommitment::Attempt),
         0,
         "a controller poll has promised nothing, so the weapon's recharge is \
          still the rate limit — the floor MOVED upstream for committed moves, \
@@ -312,11 +318,12 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
 /// was asked where the move was accepted.
 #[test]
 fn an_attempt_is_refused_at_the_weapons_live_shot_limit() {
-    fn weapon_shots_after(attempts: usize, commitment: RangedCommitment) -> usize {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    fn weapon_shots_after(sprite_content: &ambition_sprite_sheet::SpriteContent, attempts: usize, commitment: RangedCommitment) -> usize {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = ActorClusterSeed::new(
+        let enemy = ActorClusterSeed::new(&sprite_content,
             "limited_weapon",
             "Skitter",
             aabb,
@@ -353,17 +360,17 @@ fn an_attempt_is_refused_at_the_weapons_live_shot_limit() {
     }
 
     assert_eq!(
-        weapon_shots_after(1, RangedCommitment::Attempt),
+        weapon_shots_after(&sprite_content, 1, RangedCommitment::Attempt),
         1,
         "the first attempt fires, and its shot is the weapon's"
     );
     assert_eq!(
-        weapon_shots_after(2, RangedCommitment::Attempt),
+        weapon_shots_after(&sprite_content, 2, RangedCommitment::Attempt),
         1,
         "a second attempt while the first shot flies must be refused at a limit of one"
     );
     assert_eq!(
-        weapon_shots_after(2, RangedCommitment::CommittedMove { instance: 0 }),
+        weapon_shots_after(&sprite_content, 2, RangedCommitment::CommittedMove { instance: 0 }),
         2,
         "a committed move's shot was asked where the move was accepted, so it fires"
     );
@@ -383,6 +390,7 @@ fn an_attempt_is_refused_at_the_weapons_live_shot_limit() {
 /// aim line and the arm passes on geometry rather than on eligibility.
 #[test]
 fn an_assisted_shot_ignores_an_out_of_play_candidate() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_combat::targeting::MatchTeam;
 
     let bend = |dead_is_present: bool| -> f32 {
@@ -390,7 +398,7 @@ fn an_assisted_shot_ignores_an_out_of_play_candidate() {
         let shooter_pos = ae::Vec2::ZERO;
         let body = |name: &'static str, pos: ae::Vec2| {
             let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-            enemy_actor(ActorClusterSeed::new(
+            enemy_actor(ActorClusterSeed::new(&sprite_content,
                 name,
                 name,
                 aabb,
@@ -477,6 +485,7 @@ fn an_assisted_shot_ignores_an_out_of_play_candidate() {
 /// that always played one.
 #[test]
 fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::brain::action_set::{gun_sword_discharge, Discharge};
 
     let cues = |discharge: Option<Discharge>| -> Vec<ambition_sfx::SfxId> {
@@ -484,7 +493,7 @@ fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
         let pos = ae::Vec2::new(100.0, 100.0);
         let actor = app
             .world_mut()
-            .spawn(enemy_actor(ActorClusterSeed::new(
+            .spawn(enemy_actor(ActorClusterSeed::new(&sprite_content,
                 "gunner",
                 "Gunner",
                 ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0)),
@@ -543,10 +552,11 @@ fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
 /// relocation that quietly rescaled it would fail here.
 #[test]
 fn ranged_recoil_is_staged_as_a_launch_rather_than_written_onto_velocity() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-    let seed = ActorClusterSeed::new(
+    let seed = ActorClusterSeed::new(&sprite_content,
         "skitter_a",
         "Skitter",
         aabb,
@@ -610,10 +620,11 @@ fn ranged_recoil_is_staged_as_a_launch_rather_than_written_onto_velocity() {
 /// must stay FALSE in that case, because the hit still hit.
 #[test]
 fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = build_app();
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-    let seed = ActorClusterSeed::new(
+    let seed = ActorClusterSeed::new(&sprite_content,
         "skitter_a",
         "Skitter",
         aabb,
@@ -673,17 +684,18 @@ fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
 /// spent: it fires, with its pose, and nothing is refused.
 #[test]
 fn a_press_during_the_recharge_is_refused_with_its_progress() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     struct Press {
         shots: usize,
         posed: bool,
         sounds: usize,
         refused: Vec<ambition_combat::RangedFireRefused>,
     }
-    fn press(remaining: f32) -> Press {
+    fn press(sprite_content: &ambition_sprite_sheet::SpriteContent, remaining: f32) -> Press {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = ActorClusterSeed::new(
+        let enemy = ActorClusterSeed::new(&sprite_content,
             "recharging_weapon",
             "Skitter",
             aabb,
@@ -735,12 +747,12 @@ fn a_press_during_the_recharge_is_refused_with_its_progress() {
         }
     }
 
-    let ready = press(0.0);
+    let ready = press(&sprite_content, 0.0);
     assert_eq!(ready.shots, 1, "control: a press with the floor spent fires");
     assert!(ready.posed, "control: a shot that leaves starts its pose");
     assert!(ready.refused.is_empty(), "control: a shot that leaves is not refused");
 
-    let hot = press(0.25);
+    let hot = press(&sprite_content, 0.25);
     assert_eq!(hot.shots, 0, "a press during the recharge made a shot");
     assert!(!hot.posed, "a refused press started the shoot pose");
     assert_eq!(hot.sounds, 0, "a refused press played a sound");
@@ -757,6 +769,7 @@ fn a_press_during_the_recharge_is_refused_with_its_progress() {
 /// direction with no point and shows the miss this guards against.
 #[test]
 fn a_shot_aimed_at_a_point_leaves_its_muzzle_toward_that_point() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::actor::control::ActorFireRequest;
     use ambition_characters::brain::action_set::{Discharge, Muzzle};
     let actor_pos = ae::Vec2::new(300.0, 300.0);
@@ -765,7 +778,7 @@ fn a_shot_aimed_at_a_point_leaves_its_muzzle_toward_that_point() {
     let miss = |fire: ActorFireRequest| {
         let mut app = build_app();
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = ActorClusterSeed::new(
+        let enemy = ActorClusterSeed::new(&sprite_content,
             "crown_cannon",
             "Skitter",
             aabb,

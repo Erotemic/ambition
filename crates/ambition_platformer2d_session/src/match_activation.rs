@@ -13,7 +13,7 @@ use bevy::prelude::*;
 #[cfg(test)]
 mod tests;
 
-fn realize_seat(
+fn realize_seat(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
     seat: &PreparedSeat,
@@ -172,7 +172,7 @@ fn realize_seat(
     // keep its archetype's rather than be overwritten with the ambient 1.0.
     // Health and geometry are already on the seed, so this is all the boundary
     // has left to do.
-    ambition_body_seed::PhysicalBaseline::of(&seat.definition).apply_to_body(
+    ambition_body_seed::PhysicalBaseline::of(&sprite_content, &seat.definition).apply_to_body(
         ambition_body_seed::BaselineBoundary::Construction,
         &mut commands.entity(body),
         None,
@@ -194,7 +194,7 @@ fn realize_seat(
     // else: this caller already resolved its own kit — a match repertoire is the
     // character's overlaid with the match's override — so the grant must not
     // write the kit, but must do everything else and stamp BOTH records.
-    ambition_platformer2d_actor_spawn::grant_prepared_character_body(
+    ambition_platformer2d_actor_spawn::grant_prepared_character_body(&sprite_content,
         &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(commands, body),
         &seat.definition,
         cast_generation,
@@ -244,7 +244,7 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
 ///
 /// Runs on the sim schedule beside activation, because it needs the session's
 /// room geometry to place seats and the session world is what owns it.
-pub fn prepare_the_match(
+pub fn prepare_the_match(sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     roster: Option<Res<MatchParticipantRoster>>,
     // The running session's frozen cast, or the published one with no session
@@ -324,7 +324,7 @@ pub fn prepare_the_match(
     // makes activation a pure function of the plan and the clock rather than of
     // when a non-rewinding resource happened to appear.
     let effective_from = tick.map_or(0, |tick| tick.get().saturating_add(1));
-    match prepare_match(
+    match prepare_match(&sprite_content,
         &roster,
         &registry,
         &catalog,
@@ -362,7 +362,7 @@ pub fn prepare_the_match(
 /// activation unreplayable: `bevy_ggrs` restores the ABSENCE of
 /// [`ActiveMatch`](ActiveMatch), so activation re-runs — and it must find
 /// the same plan waiting, or the cast it rebuilds is not the cast it built.
-pub fn activate_the_prepared_match(
+pub fn activate_the_prepared_match(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // ⛔⛤ NOT `Option`, AND ITS ABSENCE FAILS WITH NO NAME. A composition that
     // activates matches without an ordinal authority would draw every match's
@@ -475,7 +475,7 @@ pub fn activate_the_prepared_match(
         if occupied.contains(&seat.seat) {
             continue;
         }
-        let body = realize_seat(
+        let body = realize_seat(&sprite_content,
             &mut commands,
             session_scope,
             seat,

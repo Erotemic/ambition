@@ -109,20 +109,7 @@ from typing import Iterable, List, Tuple
 # The generated trees, relative to the repo root. Each is gitignored, produced
 # by a `regen_*.sh`, and identical between checkouts of the same commit.
 MIRRORED_TREES = (
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprites_potato",
-    "crates/ambition_platformer2d_actor_monolith/assets/sprite_packs",
-    "crates/ambition_platformer2d_actor_monolith/assets/audio",
-    "crates/ambition_platformer2d_actor_monolith/assets/fonts",
-    "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x",
-    "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x",
-    "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato",
-    # Which generator made each file of the trees above (the art inspector's
-    # provenance records): they describe the same bytes, so they travel with them.
-    "crates/ambition_platformer2d_actor_monolith/asset_provenance",
-    "crates/ambition_platformer2d_actor_monolith/art_publication",
+    "game/ambition_content_library/generated",
     # Content-side reference and generated background art.
     "game/ambition_content/assets/backgrounds",
     "game/ambition_content/assets/concept_art",

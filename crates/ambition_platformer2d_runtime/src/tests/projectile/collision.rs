@@ -16,7 +16,7 @@ use ambition_combat::components::ActorIdentity;
 /// Fire the fireball of `fireball_damages_enemy_on_intersect` from live
 /// room #0 with a second live room (#1) beside it, the target stamped
 /// `target_room`, and return the target's `(health, max)`.
-fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+fn a_shot_across_live_rooms(sprite_content: &ambition_sprite_sheet::SpriteContent, target_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
 ) -> (i32, i32) {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
@@ -26,9 +26,9 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -45,7 +45,7 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
                     size: ae::Vec2::new(28.0, 46.0),
                 },
             );
-        },
+        } },
     );
     app.update();
     let second = LiveRoomInstance::ACTIVATION.next();
@@ -92,10 +92,11 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
 /// the same target, at the same place, #1, and the shot passes it.
 #[test]
 fn a_shot_does_not_reach_a_body_in_another_live_room() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
-    let (health, max) = a_shot_across_live_rooms(LiveRoomInstance::ACTIVATION);
+    let (health, max) = a_shot_across_live_rooms(&sprite_content, LiveRoomInstance::ACTIVATION);
     assert!(health < max, "control: a shot in the target's room did not hit it ({health}/{max})");
-    let (health, max) = a_shot_across_live_rooms(LiveRoomInstance::ACTIVATION.next());
+    let (health, max) = a_shot_across_live_rooms(&sprite_content, LiveRoomInstance::ACTIVATION.next());
     assert_eq!(health, max, "a shot hit a body in another live room");
 }
 
@@ -269,14 +270,15 @@ fn a_shot_threads_only_the_portals_of_its_own_live_room() {
 /// follow-up damage drain lowers actor HP and despawns the projectile.
 #[test]
 fn fireball_damages_enemy_on_intersect() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = min_app();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -293,7 +295,7 @@ fn fireball_damages_enemy_on_intersect() {
                     size: ae::Vec2::new(28.0, 46.0),
                 },
             );
-        },
+        } },
     );
     // Run startup once so the Commands-spawned ECS actor exists before
     // the projectile tick. Encounter-spawned mobs enter the world through
@@ -532,7 +534,8 @@ fn hadouken_expires_on_solid_in_system() {
 /// whenever the archetype happened to list the near body first.
 #[test]
 fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() {
-    fn hit_victim(near_first: bool) -> String {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    fn hit_victim(sprite_content: &ambition_sprite_sheet::SpriteContent, near_first: bool) -> String {
         let mut app = min_app();
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -551,12 +554,12 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
         };
         app.add_systems(
             Startup,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >| {
                 for (id, x) in order {
-                    ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+                    ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                         &mut commands,
                         &catalog,
                         &Default::default(),
@@ -574,7 +577,7 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
                         },
                     );
                 }
-            },
+            } },
         );
         app.update();
         {
@@ -606,9 +609,9 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
         hurt.into_iter().next().unwrap()
     }
 
-    assert_eq!(hit_victim(true), "near");
+    assert_eq!(hit_victim(&sprite_content, true), "near");
     assert_eq!(
-        hit_victim(false),
+        hit_victim(&sprite_content, false),
         "near",
         "the far body took the shot because it was spawned first — the victim \
          is being chosen by archetype order, which a rewind does not reproduce"
@@ -628,6 +631,7 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
 /// check of that ordering: the row's confirmation was a reading of the source.
 #[test]
 fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // A wall between the muzzle and the victim. Thin on purpose: the swept
     // question and the ordering question have the same symptom here, and a thin
     // wall is what a fast shot tunnels.
@@ -646,9 +650,9 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -666,7 +670,7 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
                     size: ae::Vec2::new(28.0, 46.0),
                 },
             );
-        },
+        } },
     );
     app.update();
     {
@@ -814,11 +818,12 @@ fn a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is() {
 /// one that always picked the body.
 #[test]
 fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_combat::components::FeatureName;
 
     /// Returns `(crate_broken, body_hurt)` for a crate at `crate_x`. The body
     /// stands at 440 and the shot's leading edge starts at 372, covering 64 px.
-    fn contact_with_crate_at(crate_x: f32) -> (bool, bool) {
+    fn contact_with_crate_at(sprite_content: &ambition_sprite_sheet::SpriteContent, crate_x: f32) -> (bool, bool) {
         let world = ae::World::new(
             "open_lane",
             ae::Vec2::new(2000.0, 2000.0),
@@ -832,9 +837,9 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -851,7 +856,7 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
                         size: ae::Vec2::new(28.0, 46.0),
                     },
                 );
-            },
+            } },
         );
         app.update();
         let breakable = app
@@ -901,7 +906,7 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
 
     // The crate stands at 390 (384..396) and the body's near face at 426, so the
     // crate is reached first and owns the contact.
-    let (crate_first_broken, crate_first_hurt) = contact_with_crate_at(390.0);
+    let (crate_first_broken, crate_first_hurt) = contact_with_crate_at(&sprite_content, 390.0);
     assert!(
         crate_first_broken,
         "a crate reached BEFORE the body lost the contact to it — the two \
@@ -914,7 +919,7 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
 
     // Now the crate stands PAST the body (crate 464..476, body near face 426),
     // so the body is reached first and owns it.
-    let (body_first_broken, body_first_hurt) = contact_with_crate_at(470.0);
+    let (body_first_broken, body_first_hurt) = contact_with_crate_at(&sprite_content, 470.0);
     assert!(
         body_first_hurt,
         "a body reached BEFORE the crate did not take the hit, so the arm above \
@@ -943,6 +948,7 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
 /// sat at 0.63 of a 120 px cast to the centre and refused it.
 #[test]
 fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = ae::World::new(
         "wall_inside_body",
         ae::Vec2::new(2000.0, 2000.0),
@@ -958,9 +964,9 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-            ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+            ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -979,7 +985,7 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
                     size: ae::Vec2::new(120.0, 46.0),
                 },
             );
-        },
+        } },
     );
     app.update();
     {
@@ -1028,7 +1034,8 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
 /// would pass the fast arm alone.
 #[test]
 fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
-    fn victim_hp_after_a_shot_at(speed: f32) -> (i32, i32) {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    fn victim_hp_after_a_shot_at(sprite_content: &ambition_sprite_sheet::SpriteContent, speed: f32) -> (i32, i32) {
         // No geometry at all: this row is about the TARGET test, and a wall
         // would let an obstruction answer stand in for a contact answer.
         let world = ae::World::new(
@@ -1044,9 +1051,9 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1065,7 +1072,7 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
                         size: ae::Vec2::new(6.0, 46.0),
                     },
                 );
-            },
+            } },
         );
         app.update();
         {
@@ -1093,7 +1100,7 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
 
     // ⛔ THE PREMISE. A speed whose endpoint lands ON the body: the ordinary
     // case, and it must be unchanged.
-    let (slow, max) = victim_hp_after_a_shot_at(2500.0);
+    let (slow, max) = victim_hp_after_a_shot_at(&sprite_content, 2500.0);
     assert!(
         slow < max,
         "the ordinary endpoint-overlap case stopped landing, so the fast arm \
@@ -1101,7 +1108,7 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
          one that sweeps"
     );
 
-    let (fast, max) = victim_hp_after_a_shot_at(4000.0);
+    let (fast, max) = victim_hp_after_a_shot_at(&sprite_content, 4000.0);
     assert!(
         fast < max,
         "a shot crossing a 6 px body at 4000 px/s passed through it untouched \
@@ -1597,10 +1604,11 @@ fn a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick() {
 /// and silently breaks the behaviour the platform exists for.
 #[test]
 fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     /// Positive `y` is DOWN in this world, as `fireball_bounces_off_one_way_platform_in_system`
     /// establishes: it starts a shot above a ledge with `vel.y > 0` and asserts
     /// the post-bounce `vel.y` is negative.
-    fn victim_hp_with_shot_travelling(vy: f32, shot_y: f32, victim_y: f32) -> (i32, i32) {
+    fn victim_hp_with_shot_travelling(sprite_content: &ambition_sprite_sheet::SpriteContent, vy: f32, shot_y: f32, victim_y: f32) -> (i32, i32) {
         let world = ae::World::new(
             "one_way_horizontal",
             ae::Vec2::new(2000.0, 2000.0),
@@ -1619,9 +1627,9 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1639,7 +1647,7 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
                         size: ae::Vec2::new(28.0, 46.0),
                     },
                 );
-            },
+            } },
         );
         app.update();
         {
@@ -1673,7 +1681,7 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
     }
 
     // DESCENDING onto the ledge, victim below it.
-    let (descending, max) = victim_hp_with_shot_travelling(8000.0, 250.0, 350.0);
+    let (descending, max) = victim_hp_with_shot_travelling(&sprite_content, 8000.0, 250.0, 350.0);
     assert_eq!(
         descending, max,
         "a `Bouncing` shot DESCENDING onto a one-way damaged a body below it. \
@@ -1683,7 +1691,7 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
     );
 
     // RISING through the ledge, victim above it: the design case, unchanged.
-    let (rising, max) = victim_hp_with_shot_travelling(-8000.0, 350.0, 250.0);
+    let (rising, max) = victim_hp_with_shot_travelling(&sprite_content, -8000.0, 350.0, 250.0);
     assert!(
         rising < max,
         "a `Bouncing` shot RISING through a one-way must still reach a body \
@@ -1695,7 +1703,9 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
 
 #[test]
 fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
-    fn victim_hp_after_a_shot_through_a_one_way(
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    fn victim_hp_after_a_shot_through_a_one_way(sprite_content: &ambition_sprite_sheet::SpriteContent,
         world_hit: ambition_projectiles::WorldHitPolicy,
     ) -> (i32, i32) {
         let world = ae::World::new(
@@ -1715,9 +1725,9 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
-                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1735,7 +1745,7 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
                         size: ae::Vec2::new(28.0, 46.0),
                     },
                 );
-            },
+            } },
         );
         app.update();
         {
@@ -1764,7 +1774,7 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
     }
 
     let (expiring, max) =
-        victim_hp_after_a_shot_through_a_one_way(ambition_projectiles::WorldHitPolicy::ExpireOnContact,
+        victim_hp_after_a_shot_through_a_one_way(&sprite_content, ambition_projectiles::WorldHitPolicy::ExpireOnContact,
     );
     assert_eq!(
         expiring, max,
@@ -1775,7 +1785,7 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
     );
 
     let (bouncing, max) =
-        victim_hp_after_a_shot_through_a_one_way(ambition_projectiles::WorldHitPolicy::Bouncing);
+        victim_hp_after_a_shot_through_a_one_way(&sprite_content, ambition_projectiles::WorldHitPolicy::Bouncing);
     assert!(
         bouncing < max,
         "a `Bouncing` shot must still reach a body behind a one-way — a fireball \
@@ -1940,7 +1950,7 @@ fn a_bouncing_shot_still_crosses_a_one_way_platform_sideways() {
 ///
 /// Spawn order IS archetype order for two identical mobs, so running the same
 /// shot against `[a, b]` and `[b, a]` asks the question directly.
-fn the_body_a_stacked_shot_strikes(
+fn the_body_a_stacked_shot_strikes(sprite_content: &ambition_sprite_sheet::SpriteContent,
     spawn_order: [&'static str; 2],
     // ⭐ WHICH MOB IS LEFT WITHOUT AN IDENTITY, and `None` for the original
     // arm where both carry one. The unidentified case cannot be expressed by
@@ -1959,10 +1969,10 @@ fn the_body_a_stacked_shot_strikes(
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        move |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
               catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
             for id in spawn_order {
-                ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+                ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1980,7 +1990,7 @@ fn the_body_a_stacked_shot_strikes(
                     },
                 );
             }
-        },
+        } },
     );
     app.update();
     // The identities the construction road would have minted for these
@@ -2035,8 +2045,9 @@ fn the_body_a_stacked_shot_strikes(
 
 #[test]
 fn two_stacked_victims_are_struck_in_identity_order_whatever_the_archetype_order() {
-    let forward = the_body_a_stacked_shot_strikes(["stack_a", "stack_b"], None);
-    let reversed = the_body_a_stacked_shot_strikes(["stack_b", "stack_a"], None);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let forward = the_body_a_stacked_shot_strikes(&sprite_content, ["stack_a", "stack_b"], None);
+    let reversed = the_body_a_stacked_shot_strikes(&sprite_content, ["stack_b", "stack_a"], None);
     assert_eq!(
         forward, reversed,
         "the struck body followed spawn order: {forward} when a was spawned first, \
@@ -2068,8 +2079,9 @@ fn two_stacked_victims_are_struck_in_identity_order_whatever_the_archetype_order
 /// the same reason the sibling test runs both.
 #[test]
 fn an_unidentified_victim_does_not_beat_an_identified_one() {
-    let a_first = the_body_a_stacked_shot_strikes(["stack_a", "stack_b"], Some("stack_b"));
-    let b_first = the_body_a_stacked_shot_strikes(["stack_b", "stack_a"], Some("stack_b"));
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let a_first = the_body_a_stacked_shot_strikes(&sprite_content, ["stack_a", "stack_b"], Some("stack_b"));
+    let b_first = the_body_a_stacked_shot_strikes(&sprite_content, ["stack_b", "stack_a"], Some("stack_b"));
     assert_eq!(
         a_first, b_first,
         "the struck body followed spawn order: {a_first} when a was spawned \

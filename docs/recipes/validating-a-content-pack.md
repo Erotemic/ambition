@@ -11,7 +11,7 @@ cargo build -p ambition_content_schemas --bin ambition_content_check
 
 # thereafter, every edit costs milliseconds
 ./target/debug/ambition_content_check game/ambition_content/assets \
-    --asset-root crates/ambition_platformer2d_actor_monolith/assets
+    --asset-root game/ambition_content_library/generated/runtime
 ```
 
 `ambition_content_check` is the content CLI with Ambition's own schemas

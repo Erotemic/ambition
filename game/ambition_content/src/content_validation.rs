@@ -56,7 +56,7 @@ impl ContentValidationReport {
 
 /// Validate the checked-in sandbox content graph, against Ambition's SHIPPED
 /// pack. The subject is the shipped product, not a composition.
-pub fn validate_embedded_content_graph() -> ContentValidationReport {
+pub fn validate_embedded_content_graph(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ContentValidationReport {
     let pack = crate::pack::shipped();
     let music = crate::audio_registries::music_registry_of(pack);
     let project = match LdtkProject::load_default_for_dev(&crate::worlds::world_manifest()) {
@@ -68,7 +68,7 @@ pub fn validate_embedded_content_graph() -> ContentValidationReport {
         }
     };
     let character_catalog = crate::character_catalog::catalog_of(pack);
-    validate_content_graph(pack, &music, &project, &character_catalog)
+    validate_content_graph(&sprite_content, pack, &music, &project, &character_catalog)
 }
 
 /// Validate relationships among the music registry and the LDtk world
@@ -77,7 +77,7 @@ pub fn validate_embedded_content_graph() -> ContentValidationReport {
 /// `pack` is the pack under validation: a composition passes its selected pack,
 /// so the boss roster, encounter waves, quests and cutscenes judged here are
 /// the ones the App installed.
-pub fn validate_content_graph(
+pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     pack: &ambition_content_pack::PreparedContentPack,
     music: &MusicRegistry,
     project: &LdtkProject,
@@ -132,9 +132,9 @@ pub fn validate_content_graph(
     validate_room_phase_tracks(pack, &rooms, music, &mut report);
     validate_npc_dialogue_ids(project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
-    validate_quest_conditions(pack, &rooms, music, &mut report);
+    validate_quest_conditions(&sprite_content, pack, &rooms, music, &mut report);
     validate_cutscene_bindings(pack, project, &mut report);
-    let boss_catalog = crate::bosses::boss_catalog_of(pack);
+    let boss_catalog = crate::bosses::boss_catalog_of(&sprite_content, pack);
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
 
     report
@@ -279,7 +279,7 @@ fn validate_npc_brain_overrides(
     }
 }
 
-fn validate_quest_conditions(
+fn validate_quest_conditions(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     pack: &ambition_content_pack::PreparedContentPack,
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     music: &MusicRegistry,
@@ -318,7 +318,7 @@ fn validate_quest_conditions(
 
     wave_spawns_start_clear_of_solid_ground(rooms, &loaded_encounters, report);
 
-    let boss_catalog = crate::bosses::boss_catalog_of(pack);
+    let boss_catalog = crate::bosses::boss_catalog_of(&sprite_content, pack);
     let ids = QuestTargets::of(rooms, &loaded_encounters, &boss_catalog);
     check_quest_steps(&crate::quest::quest_specs_of(pack), &ids, report);
 }
@@ -642,7 +642,7 @@ mod tests {
     /// The embedded project, with one zone that another zone arrives through
     /// re-authored by `edit`. Returns the content report's errors about that
     /// zone, by its iid or its `area:id` name.
-    fn errors_about_an_arrival_zone_after(
+    fn errors_about_an_arrival_zone_after(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
         edit: impl Fn(&mut Vec<ambition_platformer2d_ldtk::LdtkFieldInstance>),
     ) -> Vec<String> {
         let music = crate::audio_registries::shipped_music_registry();
@@ -685,7 +685,7 @@ mod tests {
             .map(|entity| &mut entity.field_instances)
             .expect("the zone is still there");
         edit(fields);
-        validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
+        validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -714,19 +714,20 @@ mod tests {
     /// twice.
     #[test]
     fn a_landing_pad_is_allowed_and_half_a_target_is_refused_once() {
-        let pad = errors_about_an_arrival_zone_after(|fields| {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let pad = errors_about_an_arrival_zone_after(&sprite_content, |fields| {
             set_field(fields, "target_room", serde_json::Value::Null);
             set_field(fields, "target_zone", serde_json::Value::Null);
         });
         assert!(pad.is_empty(), "a landing pad that an exit arrives through was refused: {pad:?}");
 
-        let half = errors_about_an_arrival_zone_after(|fields| {
+        let half = errors_about_an_arrival_zone_after(&sprite_content, |fields| {
             set_field(fields, "target_zone", serde_json::Value::Null);
         });
         assert_eq!(half.len(), 1, "half a target is reported once, by the owner: {half:?}");
 
         // Control: a target that names no room is this validator's own check.
-        let unknown = errors_about_an_arrival_zone_after(|fields| {
+        let unknown = errors_about_an_arrival_zone_after(&sprite_content, |fields| {
             set_field(fields, "target_room", serde_json::Value::String("no_such_room".into()));
         });
         assert!(
@@ -745,6 +746,7 @@ mod tests {
     /// target is accepted and the door is in the graph.
     #[test]
     fn a_target_with_a_stray_space_is_one_door_for_the_validator_and_the_runtime() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let music = crate::audio_registries::shipped_music_registry();
         let character_catalog = crate::character_catalog::shipped_catalog();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
@@ -778,7 +780,7 @@ mod tests {
         );
 
         let name = format!("{area}:{id}");
-        let errors: Vec<String> = validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -806,7 +808,8 @@ mod tests {
     /// exits of its rooms. This validator holds the complete game.
     #[test]
     fn a_target_zone_that_does_not_exist_is_refused_once() {
-        let missing = errors_about_an_arrival_zone_after(|fields| {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let missing = errors_about_an_arrival_zone_after(&sprite_content, |fields| {
             set_field(fields, "target_zone", serde_json::Value::String("no_such_zone".into()));
         });
         assert_eq!(
@@ -827,6 +830,7 @@ mod tests {
     /// that names the root warns and closes. The validator must refuse it.
     #[test]
     fn a_spawn_naming_a_root_that_exists_only_as_variants_is_refused() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let music = crate::audio_registries::shipped_music_registry();
         let character_catalog = crate::character_catalog::shipped_catalog();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
@@ -847,7 +851,7 @@ mod tests {
             "dialogue_id",
             serde_json::Value::String("oiler_post_stabilizer".into()),
         );
-        let errors: Vec<String> = validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid))
@@ -864,6 +868,7 @@ mod tests {
     /// runtime starts a title, and there is none.
     #[test]
     fn a_hall_dialogue_the_catalog_names_with_no_node_is_refused() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let music = crate::audio_registries::shipped_music_registry();
         let mut data = crate::character_catalog::shipped_catalog().data().clone();
         let entry = data.characters.values_mut().next().expect("the catalog has a character");
@@ -889,7 +894,7 @@ mod tests {
                 "dialogue_id",
                 serde_json::Value::String(dialogue_id.into()),
             );
-            validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
+            validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
                 .errors
                 .into_iter()
                 .filter(|error| error.contains(&iid))
@@ -906,7 +911,8 @@ mod tests {
 
     #[test]
     fn embedded_content_graph_validates() {
-        let report = validate_embedded_content_graph();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let report = validate_embedded_content_graph(&sprite_content);
         report.panic_if_errors();
     }
 
@@ -954,11 +960,12 @@ mod tests {
 
     #[test]
     fn validates_ldtk_loading_zone_targets() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let music = crate::audio_registries::shipped_music_registry();
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let character_catalog = crate::character_catalog::shipped_catalog();
-        let report = validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog);
+        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog);
         assert!(
             report
                 .errors
@@ -1032,7 +1039,7 @@ mod tests {
 
     /// The composed rooms, the boss catalog and the quest targets of the
     /// shipped world.
-    fn shipped_quest_targets() -> (
+    fn shipped_quest_targets(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> (
         Vec<ambition_platformer2d::world::rooms::RoomSpec>,
         ambition_boss_encounter::BossCatalog,
         QuestTargets,
@@ -1045,7 +1052,7 @@ mod tests {
                 &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
             )
             .expect("the embedded world composes");
-        let boss_catalog = crate::bosses::shipped_boss_catalog();
+        let boss_catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
         let loaded = ambition_encounter_features::load_encounter_specs_from_rooms(
             &rooms,
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
@@ -1079,13 +1086,15 @@ mod tests {
     /// `clockwork_warden`.
     #[test]
     fn a_quest_names_a_boss_by_the_id_its_defeat_reports() {
+
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_persistence::quest::QuestStepCondition as Condition;
-        let (rooms, boss_catalog, ids) = shipped_quest_targets();
+        let (rooms, boss_catalog, ids) = shipped_quest_targets(&sprite_content);
 
         let mut bosses = 0;
         for boss in rooms.iter().flat_map(|room| &room.boss_spawns) {
             bosses += 1;
-            let built = ambition_boss_encounter::BossClusterScratch::new(
+            let built = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
                 &boss_catalog,
                 boss.id.clone(),
                 boss.name.clone(),
@@ -1126,8 +1135,9 @@ mod tests {
     /// no chest.
     #[test]
     fn a_boss_looted_flag_is_keyed_by_its_placement() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_persistence::quest::QuestStepCondition as Condition;
-        let (rooms, _, ids) = shipped_quest_targets();
+        let (rooms, _, ids) = shipped_quest_targets(&sprite_content);
         let boss = rooms
             .iter()
             .flat_map(|room| &room.boss_spawns)
@@ -1159,8 +1169,9 @@ mod tests {
     /// flag. The validator's own scan knew only the authored dialogue ids.
     #[test]
     fn the_talk_flag_of_an_npc_with_no_dialogue_is_a_known_flag() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_persistence::quest::QuestStepCondition as Condition;
-        let (rooms, _, ids) = shipped_quest_targets();
+        let (rooms, _, ids) = shipped_quest_targets(&sprite_content);
         let silent = rooms
             .iter()
             .flat_map(|room| &room.placements)

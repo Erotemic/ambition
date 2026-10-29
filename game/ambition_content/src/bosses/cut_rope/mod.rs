@@ -352,7 +352,7 @@ pub fn reset_cut_rope_attempt_on_replay(
 /// when it dies (the generic `ReleaseOnDeath`). Its fight beyond its phases is
 /// the `encounter_script` of its row in `boss_profiles.ron`. See
 /// [`ambition_boss_encounter::BossBirthKit`].
-pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, _: &ae::BodyKinematics) {
+pub fn birth(_content: &ambition_platformer2d::sprite_sheet::SpriteContent, scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, _: &ae::BodyKinematics) {
     scope.insert(ReleaseOnDeath);
 }
 

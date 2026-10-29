@@ -22,7 +22,7 @@ background_renderer_dir="$repo_root/tools/ambition_background_renderer"
 # The scenes behind the play are art, and art is in the authoring submodule
 # (`ambition_sprite2d_renderer.backgrounds`).
 scene_renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-background_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/backgrounds"
+background_root="$repo_root/game/ambition_content_library/generated/runtime/backgrounds"
 parallax_dir="$background_root/parallax_layers"
 
 print_help() {
@@ -75,7 +75,7 @@ echo "==> sky parts -> $sky_parts_dir"
 )
 
 # The terrain skin of each biome: what the game lays on the blocks of a room.
-terrain_dir="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/room_dressing"
+terrain_dir="$repo_root/game/ambition_content_library/generated/runtime/room_dressing"
 mkdir -p "$terrain_dir"
 echo "==> terrain skins -> $terrain_dir"
 (

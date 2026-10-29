@@ -122,7 +122,7 @@ pub fn seed_library_of(
 ///
 /// The fragment is built from the pack the caller names: a composition passes
 /// its selected pack ([`register`]), a reload its candidate (`crate::reload`).
-pub fn boss_catalog_fragment_from(
+pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<ambition_boss_encounter::BossCatalogFragment, String> {
     // The schema additionally refuses what `from_ron` accepted: a row whose `id`
@@ -152,14 +152,14 @@ pub fn boss_catalog_fragment_from(
     .map_err(|error| error.to_string())?
     // The conducted bosses are built with their conductors, and the behemoth
     // with the payload it frees.
-    .with_birth_kit(gnu_ton::GNU_TON_ID, gnu_ton::birth)
-    .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
-    .with_birth_kit(trex::TREX_ID, trex::birth)
-    .with_birth_kit(hunny::HUNNY_ID, hunny::birth)
-    .with_birth_kit(mockingbird::MOCKINGBIRD_ID, mockingbird::birth)
-    .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, wolfenstein::birth)
-    .with_birth_kit(inugami::INUGAMI_ID, inugami::birth)
-    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
+    .with_birth_kit(gnu_ton::GNU_TON_ID, sprite_content, gnu_ton::birth)
+    .with_birth_kit(fsm::conductor::FSM_ID, sprite_content, fsm::birth)
+    .with_birth_kit(trex::TREX_ID, sprite_content, trex::birth)
+    .with_birth_kit(hunny::HUNNY_ID, sprite_content, hunny::birth)
+    .with_birth_kit(mockingbird::MOCKINGBIRD_ID, sprite_content, mockingbird::birth)
+    .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, sprite_content, wolfenstein::birth)
+    .with_birth_kit(inugami::INUGAMI_ID, sprite_content, inugami::birth)
+    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, sprite_content, cut_rope::birth);
     Ok(fragment)
 }
 
@@ -168,12 +168,12 @@ pub fn boss_catalog_fragment_from(
 /// Pure content tests and the content validator use this helper so they
 /// exercise the same provider fragment as production composition rather than
 /// installing process state.
-pub fn boss_catalog_of(
+pub fn boss_catalog_of(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> ambition_boss_encounter::BossCatalog {
     let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();
     registry
-        .register(boss_catalog_fragment_from(pack).unwrap_or_else(|error| {
+        .register(boss_catalog_fragment_from(&sprite_content, pack).unwrap_or_else(|error| {
             panic!("Ambition boss content should form one valid catalog fragment: {error}")
         }))
         .expect("Ambition boss fragment should register");
@@ -184,8 +184,8 @@ pub fn boss_catalog_of(
 
 /// The boss catalog of Ambition's SHIPPED pack: for a test or a validator whose
 /// subject is the shipped product, not a composition.
-pub fn shipped_boss_catalog() -> ambition_boss_encounter::BossCatalog {
-    boss_catalog_of(crate::pack::shipped())
+pub fn shipped_boss_catalog(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ambition_boss_encounter::BossCatalog {
+    boss_catalog_of(&sprite_content, crate::pack::shipped())
 }
 
 /// Contribute Ambition's immutable boss fragment, lowered from the App's
@@ -195,9 +195,11 @@ pub fn shipped_boss_catalog() -> ambition_boss_encounter::BossCatalog {
 /// call this before building its asset catalog and later add
 /// [`AmbitionBossContentPlugin`] without coordinating install order.
 pub fn register(app: &mut App) {
-    use ambition_boss_encounter::BossCatalogAppExt as _;
     let pack = crate::pack::select(app.world_mut());
-    app.register_boss_catalog_fragment(boss_catalog_fragment_from(&pack).unwrap_or_else(|error| {
+    app.init_resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let sprite_content = app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
+    use ambition_boss_encounter::BossCatalogAppExt as _;
+    app.register_boss_catalog_fragment(boss_catalog_fragment_from(&sprite_content, &pack).unwrap_or_else(|error| {
         panic!("Ambition boss content should form one valid catalog fragment: {error}")
     }));
 }
@@ -512,7 +514,8 @@ mod apple_rain_animation_key_tests {
     /// profile identity. It is deliberately not asserting which.
     #[test]
     fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {
-        let catalog = super::shipped_boss_catalog();
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let catalog = super::shipped_boss_catalog(&sprite_content);
         let profile = BossAttackProfile::Special("apple_rain".to_string());
         let claimed =
             ambition_boss_encounter::behavior::boss_animation_keys_for_profile(&catalog, &profile);
@@ -538,6 +541,7 @@ mod encounter_book_tests {
     /// ignored it and reparsed, which is the exact defect being closed.
     #[test]
     fn the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         let book = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(
             crate::pack::shipped(),
         )
@@ -547,7 +551,7 @@ mod encounter_book_tests {
             .filter(|path| path.starts_with("data/boss_encounters/"))
             .count();
         assert_eq!(book.len(), files, "one merged entry per authored file");
-        let catalog = super::shipped_boss_catalog();
+        let catalog = super::shipped_boss_catalog(&sprite_content);
         for (id, spec) in book {
             assert_eq!(
                 catalog.encounter(id),
@@ -569,10 +573,11 @@ mod sheet_body_tests {
     /// construction answers once for both.
     #[test]
     fn a_boss_is_built_with_the_body_its_sheet_draws() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_core::{Aabb, AabbExt, Vec2};
 
-        let catalog = super::shipped_boss_catalog();
-        let boss = ambition_boss_encounter::BossClusterScratch::new(
+        let catalog = super::shipped_boss_catalog(&sprite_content);
+        let boss = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
             &catalog,
             "boss_clockwork_warden",
             "clockwork_warden",
@@ -606,14 +611,15 @@ mod sheet_body_tests {
     /// so they fought a centred authored box instead of the drawn body.
     #[test]
     fn every_authored_boss_takes_its_body_from_the_sheet_it_wears() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_platformer2d_core::{Aabb, Vec2};
 
-        let catalog = super::shipped_boss_catalog();
+        let catalog = super::shipped_boss_catalog(&sprite_content);
         let bodiless: Vec<String> = catalog
             .encounter_specs()
             .map(|spec| spec.id.clone())
             .filter(|id| {
-                ambition_boss_encounter::BossClusterScratch::new(
+                ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
                     &catalog,
                     format!("boss_{id}"),
                     id.clone(),

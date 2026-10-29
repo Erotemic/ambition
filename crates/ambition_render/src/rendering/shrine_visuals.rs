@@ -66,7 +66,7 @@ pub enum ShrineVisualSource {
 /// "rest here" landmark. Uses `sprites/props/shrine_spritesheet.png` (with a flat
 /// `sprites/props/shrine.png` fallback), scaled to the shrine's collision
 /// footprint so its base sits at the floor.
-pub fn sync_shrine_visual(
+pub fn sync_shrine_visual(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // Each shrine is drawn in its own live room, by that room's geometry.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
@@ -74,7 +74,6 @@ pub fn sync_shrine_visual(
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     asset_server: Res<AssetServer>,
-    sheet_registry: Option<Res<SheetRegistry>>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut visual_source: Local<Option<ShrineVisualSource>>,
     mut visual_cache: Local<HashMap<u64, Entity>>,
@@ -83,12 +82,13 @@ pub fn sync_shrine_visual(
     visuals: Query<(Entity, &ShrineVisualKey)>,
     shrines: Res<ShrinesView>,
 ) {
+    let sheet_registry = Some(ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).registry());
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
-    let source = shrine_visual_source(
+    let source = shrine_visual_source(&sprite_content,
         &asset_server,
         sheet_registry.as_ref().map(|registry| &**registry),
         &mut atlas_layouts,
@@ -255,7 +255,7 @@ pub fn animate_shrine_visuals(
 
 /// `atlas_layouts` is the `ResMut` itself: it is dereferenced only when a
 /// layout is added, so the cached path does not mark the asset store changed.
-fn shrine_visual_source(
+fn shrine_visual_source(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     sheet_registry: Option<&SheetRegistry>,
     atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -267,7 +267,7 @@ fn shrine_visual_source(
 
     let source = if let Some(registry) = sheet_registry {
         if let Some(record) = registry.get("shrine") {
-            shrine_visual_source_from_record(asset_server, atlas_layouts, record)
+            shrine_visual_source_from_record(&sprite_content, asset_server, atlas_layouts, record)
         } else {
             ShrineVisualSource::Flat(asset_server.load("sprites/props/shrine.png"))
         }
@@ -278,7 +278,7 @@ fn shrine_visual_source(
     source
 }
 
-fn shrine_visual_source_from_record(
+fn shrine_visual_source_from_record(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     atlas_layouts: &mut Assets<TextureAtlasLayout>,
     record: &SheetRecord,
@@ -292,7 +292,7 @@ fn shrine_visual_source_from_record(
     // (`write_shrine_prop`). The record's `image` is a bare file name. A load
     // of `sprites/shrine_spritesheet.png` failed in every game with a shrine,
     // and the shrine drew from a handle with no image.
-    let image = ambition_sprite_sheet::game_assets::load_sheet_image(
+    let image = ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
         asset_server,
         "shrine-sheet",
         format!("sprites/{}", record.image),
@@ -387,6 +387,7 @@ mod tests {
             ae::RoomGeometry(ae::World::new("shrine room", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(40.0, 40.0), Vec::new()))
         };
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_plugins(bevy::asset::AssetPlugin::default());
         app.init_asset::<Image>();
@@ -434,7 +435,8 @@ mod tests {
     }
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
-        let registry = ambition_sprite_sheet::baked_sheet_registry();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let registry = ambition_sprite_sheet::baked_sheet_registry(&sprite_content);
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
 

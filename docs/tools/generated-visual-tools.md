@@ -78,9 +78,9 @@ The Hall of Characters is the visual review surface for the roster.
   without the game: `python -m ambition_sprite2d_renderer.terrain preview OUT.png lab cave`.
 
 `./scripts/regen/backgrounds.sh` runs both: placeholder profile backgrounds go
-under `crates/ambition_platformer2d_actor_monolith/assets/backgrounds/<profile>/`,
+under `game/ambition_content_library/generated/runtime/backgrounds/<profile>/`,
 and the parallax layers go under
-`crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers/`. These
+`game/ambition_content_library/generated/runtime/backgrounds/parallax_layers/`. These
 deliberately live under `assets/backgrounds/`, **not** `assets/sprites/` —
 `scripts/regen/sprites.sh` neither creates nor publishes them. Then
 `./scripts/regen/quality_variants.sh --backgrounds-only` makes the smaller tiers.
@@ -155,4 +155,3 @@ tools/ambition_sprite2d_renderer/.venv/bin/python \
     scripts/render_line_profiles.py \
     tools/ambition_sprite2d_renderer/.profiles/<profile-directory>
 ```
-

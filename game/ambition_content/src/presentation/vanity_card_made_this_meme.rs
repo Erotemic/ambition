@@ -20,16 +20,7 @@ pub const MADE_THIS_MEME_CARD_SEGMENT_KIND: &str = "ambition_vanity_card_made_th
 
 /// Read the selected animation, or embed it with `static_content`.
 const MADE_THIS_MEME_SOURCE_PATH: &str = "vanity_card_made_this_meme/manifest.ron";
-#[cfg(feature = "static_content")]
-const MADE_THIS_MEME_RON_STATIC: Option<&'static str> =
-    Some(include_str!(env!("AMBITION_VANITY_CARD_RON")));
-#[cfg(not(feature = "static_content"))]
-const MADE_THIS_MEME_RON_STATIC: Option<&'static str> = None;
-
-/// The `game://` asset source is the content crate's own `assets/` tree.
-const ASSET_SOURCE: &str = "game://";
-
-#[derive(Deserialize)]
+#[derive(Deserialize, Resource)]
 struct RigCard {
     canvas: (f32, f32),
     frame_ms: u64,
@@ -93,39 +84,45 @@ struct Bubble {
     box_y: f32,
 }
 
-fn card() -> &'static RigCard {
-    use std::sync::OnceLock;
-    static CARD: OnceLock<RigCard> = OnceLock::new();
-    CARD.get_or_init(|| {
-        let (text, selected) = if let Some(text) = MADE_THIS_MEME_RON_STATIC {
-            (text.to_owned(), None)
-        } else {
-            use ambition_platformer2d::asset_manager::art_publication::{Selection, store_for_assets};
-            let assets = std::path::PathBuf::from(ambition_platformer2d::asset_manager::actors_desktop_asset_root());
-            let selected = Selection::read(&store_for_assets(&assets)).expect("An accepted art publication");
-            let text = std::fs::read_to_string(selected.path(MADE_THIS_MEME_SOURCE_PATH).expect("The director card is published"))
-                .expect("The accepted director card is readable");
-            (text, Some(selected))
-        };
-        let mut card: RigCard = ron::from_str(&text).expect("The director card metadata must parse");
-        // Keep atlas pixels with the placement table that names their rectangles.
-        if let Some(selected) = selected {
-            card.sheet = selected.address(&card.sheet).expect("The card atlas is in its publication");
-        }
-        card
-    })
+fn read_card(snapshot: &ambition_platformer2d::asset_manager::content_library::LibrarySnapshot) -> RigCard {
+    let files = &snapshot.files;
+    let logical = format!("content://ambition_shared/{MADE_THIS_MEME_SOURCE_PATH}");
+    let file = files.get(&logical).expect("The director card is selected");
+    let bytes = file.read().expect("The director card metadata is readable");
+    let mut card: RigCard = ron::de::from_bytes(&bytes).expect("The director card metadata must parse");
+    let image = files.get(&format!("content://{}/{}", file.library, card.sheet)).expect("The director card atlas is selected");
+    card.sheet = image.asset_path().to_owned();
+    card
 }
 
-/// How long the card plays: its own frame count at its own frame rate.
-pub fn made_this_meme_card_duration() -> Duration {
-    let card = card();
-    Duration::from_millis(card.frame_ms * card.frames.len() as u64)
+impl RigCard {
+    fn duration(&self) -> Duration { Duration::from_millis(self.frame_ms * self.frames.len() as u64) }
+}
+
+#[cfg(test)]
+fn card() -> RigCard {
+    use ambition_platformer2d::asset_manager::content_library::{ContentLibraries, ContentLibrary};
+    let mut libraries = ContentLibraries::default();
+    libraries.insert(ContentLibrary::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_content_library/library.json")).unwrap()).unwrap();
+    read_card(&libraries.snapshot().unwrap())
+}
+
+fn install_card_metadata(world: &mut World) {
+    if world.contains_resource::<RigCard>() { return; }
+    let card = read_card(&world.resource::<ambition_platformer2d::asset_manager::library_source::LibraryAssets>().snapshot());
+    world.insert_resource(card);
+}
+
+pub fn made_this_meme_card_duration(world: &mut World) -> Duration {
+    install_card_metadata(world);
+    world.resource::<RigCard>().duration()
 }
 
 pub struct MadeThisMemeCardPlugin;
 
 impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, install_card_metadata);
         // The card exists only inside a shell sequence. Gate all of its systems so
         // shell-less compositions do not require shell resources or message types,
         // and so they sleep in play, when no sequence runs and no card remains.
@@ -166,7 +163,7 @@ struct VanityCardViewport;
 #[derive(Component)]
 struct VanityCardStage;
 
-fn spawn_vanity_card(
+fn spawn_vanity_card(card: Res<RigCard>, sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
     active: Res<ActiveShellSequence>,
     roots: Query<&VanityCardRoot>,
@@ -189,7 +186,7 @@ fn spawn_vanity_card(
         return;
     }
 
-    let card = card();
+    let card = &*card;
     let (canvas_w, canvas_h) = card.canvas;
 
     // ONE texture, and one layout naming every part's rect inside it.
@@ -198,10 +195,10 @@ fn spawn_vanity_card(
     // reports it as `demand=unknown` — the census sees the insertion and has
     // nothing to measure it against, which is the one shape that instrument
     // cannot explain.
-    let sheet: Handle<Image> = ambition_sprite_sheet::game_assets::load_sheet_image(
+    let sheet: Handle<Image> = ambition_sprite_sheet::game_assets::load_sheet_image(&sprite_content,
         &assets,
         "vanity-card",
-        format!("{ASSET_SOURCE}{}", card.sheet),
+        card.sheet.clone(),
     );
     let mut layout = TextureAtlasLayout::new_empty(UVec2::new(1, 1));
     for part in &card.parts {
@@ -379,10 +376,11 @@ fn spawn_vanity_card(
 /// at 2.0-3.5 drew the card zoomed several times past the edges of the screen
 /// .
 fn fit_card_to_display(
+    card: Res<RigCard>,
     viewports: Query<(&ComputedNode, &Children), With<VanityCardViewport>>,
     mut stages: Query<&mut UiTransform, With<VanityCardStage>>,
 ) {
-    let (canvas_w, canvas_h) = card().canvas;
+    let (canvas_w, canvas_h) = card.canvas;
     for (computed, children) in &viewports {
         let size = computed.size() * computed.inverse_scale_factor();
         if size.x <= 0.0 || size.y <= 0.0 {
@@ -400,6 +398,7 @@ fn fit_card_to_display(
 }
 
 fn animate_vanity_card(
+    card: Res<RigCard>,
     time: Res<Time>,
     mut roots: Query<&mut VanityCardRoot>,
     mut nodes: Query<&mut Node>,
@@ -409,8 +408,8 @@ fn animate_vanity_card(
     mut texts: Query<&mut Text>,
     mut commands: MessageWriter<ShellSequenceCommand>,
 ) {
-    let card = card();
-    let total = made_this_meme_card_duration();
+    let card = &*card;
+    let total = card.duration();
     for mut root in &mut roots {
         root.elapsed = (root.elapsed + time.delta()).min(total);
 
@@ -568,7 +567,7 @@ mod tests {
     /// a player who has seen it is not stuck watching it.
     #[test]
     fn the_card_runs_for_a_plausible_startup_duration() {
-        let total = made_this_meme_card_duration();
+        let total = card().duration();
         assert!(
             total > Duration::from_secs(3) && total < Duration::from_secs(12),
             "unexpected vanity card length: {total:?}",

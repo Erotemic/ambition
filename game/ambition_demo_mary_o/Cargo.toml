@@ -47,3 +47,7 @@ path = "src/bin/mary_o_content_check.rs"
 required-features = ["content_check"]
 test = false
 bench = false
+
+[dev-dependencies]
+
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support"] }

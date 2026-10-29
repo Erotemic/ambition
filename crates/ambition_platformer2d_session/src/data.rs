@@ -6,7 +6,7 @@
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
 //! Bevy resolves `ambition/platformer_defaults.ron` relative to the sandbox crate asset root
-//! (`crates/ambition_platformer2d_actor_monolith/assets`) when this package is run through
+//! (`game/ambition_content_library/generated/runtime`) when this package is run through
 //! Cargo, so the embedded copy intentionally lives there too. Audio lives in its own App-local
 //! registries (a provider registers an `ambition_audio::catalog::AudioCatalogFragment`; hosts
 //! read them from the `AudioCatalogRegistry` resource) — SFX and music are separate concerns
@@ -23,7 +23,7 @@ use std::collections::HashSet;
 // single `use` in `assets/loading.rs` was the whole of the `assets -> session`
 // edge — the one that held `assets` and `character_sprites` inside the kernel's
 // 15-module cycle. Imported here now, in the correct direction.
-use ambition_platformer2d_assets::gameplay_defaults::{Platformer2dGameplayDefaults, PLATFORMER_DEFAULTS_ASSET};
+use ambition_platformer2d_assets::gameplay_defaults::Platformer2dGameplayDefaults;
 
 
 // Authored audio is App-local now (R3.2: the engine ships no tracks and no
@@ -87,10 +87,10 @@ pub fn load_data_asset_handle(
     asset_server: Res<AssetServer>,
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
 ) {
-    let path = catalog
+    let Some(path) = catalog
         .as_ref()
         .and_then(|c| c.path_for(&ambition_asset_manager::platformer_assets::ids::sandbox_data()))
-        .unwrap_or_else(|| PLATFORMER_DEFAULTS_ASSET.to_string());
+    else { return; };
     commands.insert_resource(Platformer2dGameplayDefaultsHandle(asset_server.load(path)));
 }
 

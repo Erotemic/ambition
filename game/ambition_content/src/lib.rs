@@ -52,6 +52,7 @@ pub mod dialogue;
 pub mod duel_arena;
 pub mod encounters;
 pub mod pack;
+pub mod gameplay_defaults;
 /// The running game plays a content edit: the declared sources are watched,
 /// and a change asks for a reload.
 #[cfg(not(feature = "static_content"))]

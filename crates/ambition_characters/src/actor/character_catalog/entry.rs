@@ -934,7 +934,7 @@ impl CharacterCatalogEntry {
     /// point at the SAME `manifest` path share one generated sheet (texture + record both);
     /// each character with its own art reads its own manifest.
     pub fn manifest_target(&self) -> Option<&str> {
-        let file = self.manifest.rsplit('/').next()?;
+        let file = if self.manifest.contains("://") { &self.manifest } else { self.manifest.rsplit('/').next()? };
         file.strip_suffix("_spritesheet.ron")
     }
 

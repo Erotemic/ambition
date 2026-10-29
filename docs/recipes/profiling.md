@@ -490,7 +490,7 @@ cargo build --profile profiling -p ambition_app --bin ambition_game_bin
 # BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
 # directly (not via `cargo run`), so Bevy looks for assets relative
 # to the binary path instead of the package's
-# `crates/ambition_platformer2d_actor_monolith/assets/`.
+# `game/ambition_content_library/generated/runtime/`.
 BEVY_ASSET_ROOT=$PWD/crates/ambition_platformer2d_actor_monolith \
 cargo flamegraph -p ambition_app --bin ambition_game_bin \
     --profile profiling \

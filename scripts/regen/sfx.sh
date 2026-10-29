@@ -6,7 +6,7 @@
 #   1. ambition_sfx_renderer fetch-samples  →  tools/ambition_sfx_renderer/public_samples/
 #      (the public recordings in sounds/public_samples.yaml; downloads only absent files)
 #   2. ambition_sfx_renderer render-all  →  tools/ambition_sfx_renderer/output/<cue>/
-#   3. ambition_sfx_pack                 →  crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank
+#   3. ambition_sfx_pack                 →  game/ambition_content_library/generated/runtime/audio/sfx.bank
 #
 # Usage:
 # ./scripts/regen/sfx.sh              # render (incremental) + repack (default)
@@ -63,7 +63,7 @@ if [ "$skip_render" -eq 0 ]; then
     (cd "$renderer_dir" && "$renderer_py" -m ambition_sfx_renderer "${render_args[@]}")
 fi
 
-echo "==> pack → crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank"
+echo "==> pack → game/ambition_content_library/generated/runtime/audio/sfx.bank"
 "$renderer_py" "$pack_script" --dump
 
 "$renderer_py" "$repo_root/scripts/check_regeneration_coverage.py" --family sfx

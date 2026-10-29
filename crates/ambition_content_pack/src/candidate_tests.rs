@@ -60,6 +60,7 @@ fn registry() -> SchemaRegistry {
 fn pack_of(alpha: &str, beta: &str) -> Arc<PreparedContentPack> {
     let draft = ContentPackDraft::from_sources(
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("candidate_probe".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("probe".into()),
@@ -90,6 +91,7 @@ fn pack_of(alpha: &str, beta: &str) -> Arc<PreparedContentPack> {
 fn alpha_only(alpha: &str) -> Arc<PreparedContentPack> {
     let draft = ContentPackDraft::from_sources(
         ContentPackManifest {
+            libraries: Vec::new(),
             id: PackId("candidate_probe".into()),
             version: PackVersion("1.0.0".into()),
             namespace: ModuleNamespace("probe".into()),

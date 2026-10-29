@@ -6,18 +6,18 @@
 //! generation ([`crate::baked_sheet_rons::current`]), so a development build
 //! can publish an edited rig with its sheets.
 
-#[cfg(embedded_sprites)]
-include!(concat!(env!("OUT_DIR"), "/baked_body_rigs.rs"));
+
 
 /// Every published body rig, as `(target, ron_text)` sorted by target.
-pub fn body_rigs() -> &'static [(&'static str, &'static str)] {
-    crate::baked_sheet_rons::current().body_rigs()
+pub fn body_rigs(content: &crate::SpriteContent) -> &[(&'static str, std::sync::Arc<str>)] {
+    crate::baked_sheet_rons::current(&content).body_rigs()
 }
 
 /// The published body rig of sheet target `target`, as RON text.
-pub fn baked_body_rig(target: &str) -> Option<&'static str> {
-    let rigs = body_rigs();
-    rigs.binary_search_by(|(name, _)| (*name).cmp(target)).ok().map(|index| rigs[index].1)
+pub fn baked_body_rig<'a>(content: &'a crate::SpriteContent, target: &str) -> Option<&'a str> {
+    let target = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
+    let rigs = body_rigs(&content);
+    rigs.binary_search_by(|(name, _)| (*name).cmp(target)).ok().map(|index| rigs[index].1.as_ref())
 }
 
 #[cfg(test)]
@@ -35,13 +35,14 @@ mod tests {
     /// a player sees (queue row LANDMARK-CLIP-TIME).
     #[test]
     fn the_rows_a_rig_and_the_animator_time_differently_are_these() {
-        if body_rigs().is_empty() {
+    let content = &crate::test_support::shared_sprites();
+        if body_rigs(&content).is_empty() {
             eprintln!("no published body rig on this checkout: nothing to compare");
             return;
         }
         let mut rows = 0;
         let mut differ = BTreeSet::new();
-        for (target, text) in body_rigs() {
+        for (target, text) in body_rigs(&content) {
             let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
                 .unwrap_or_else(|error| panic!("{target}: {error}"))
                 .prepare()

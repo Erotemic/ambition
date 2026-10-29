@@ -60,8 +60,10 @@ fn probe() -> ModuleDescriptor {
 /// place the body has left.
 #[test]
 fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let dt = 1.0 / 60.0;
     let mut app = App::new();
+    app.insert_resource(sprite_content.clone());
     app.init_schedule(Sim);
     app.edit_schedule(Sim, |schedule| {
         schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
@@ -88,8 +90,8 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
         .world_mut()
         .spawn(BodyKinematics { pos: ae::Vec2::new(640.0, 870.0), vel: ae::Vec2::ZERO, size: ae::Vec2::new(20.0, 30.0), facing: 1.0 })
         .id();
-    let catalog = crate::bosses::shipped_boss_catalog();
-    let mut boss = BossClusterScratch::new(
+    let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
+    let mut boss = BossClusterScratch::new(&sprite_content,
         &catalog,
         "fsm_placement",
         "Flying Spaghetti Monster",

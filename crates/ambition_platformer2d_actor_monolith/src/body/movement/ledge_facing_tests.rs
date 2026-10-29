@@ -13,6 +13,7 @@ use ambition_entity_catalog::placements::CharacterBrain;
 
 #[test]
 fn a_body_that_grabs_a_ledge_turns_to_face_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     // A block whose left wall a body hangs on; its top-left corner is the ledge.
     let world = ae::World::new(
         "ledge_facing_test",
@@ -21,7 +22,7 @@ fn a_body_that_grabs_a_ledge_turns_to_face_it() {
         vec![ae::Block::solid("ledge", ae::Vec2::new(100.0, 100.0), ae::Vec2::new(200.0, 200.0))],
     );
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(12.0, 20.0));
-    let mut seed = ActorClusterSeed::new(
+    let mut seed = ActorClusterSeed::new(&sprite_content,
         "climber".to_string(),
         "Climber".to_string(),
         aabb,

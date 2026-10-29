@@ -32,6 +32,7 @@ fn app() -> App {
 
 fn app_on(road: Road) -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

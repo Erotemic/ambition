@@ -664,7 +664,7 @@ fn twintrack_session_contents(session: &mut SessionContents) {
         ));
     }
 
-    if let Some(mut lab_twin) = session.stage_actor(&participants::laboratory_twin_request()) {
+    if let Some(mut lab_twin) = session.stage_actor( &participants::laboratory_twin_request()) {
         lab_twin.insert(participants::laboratory_twin_facts());
     }
 

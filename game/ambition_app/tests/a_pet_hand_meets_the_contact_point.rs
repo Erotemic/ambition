@@ -128,14 +128,14 @@ pub(crate) fn unpublished(target: &str) -> String {
 /// Where the renderer draws `track` in the middle frame of the first row of
 /// `rows` that `target` has: sheet pixels from the feet, +x the way the art
 /// faces. The middle frame is the one the pet's mark is planned for.
-pub(crate) fn drawn_at_the_middle(target: &str, rows: &[&str], track: &str) -> Vec2 {
-    drawn_at(target, rows, track, |frames| frames / 2)
+pub(crate) fn drawn_at_the_middle(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, target: &str, rows: &[&str], track: &str) -> Vec2 {
+    drawn_at(&sprite_content, target, rows, track, |frames| frames / 2)
 }
 
 /// [`drawn_at_the_middle`], in the frame `pick` chooses from the row's frame
 /// count.
-pub(crate) fn drawn_at(target: &str, rows: &[&str], track: &str, pick: impl Fn(usize) -> usize) -> Vec2 {
-    let flipbook = RiggedSpriteAsset::baked(target)
+pub(crate) fn drawn_at(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, target: &str, rows: &[&str], track: &str, pick: impl Fn(usize) -> usize) -> Vec2 {
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, target)
         .unwrap_or_else(|| panic!("{}", unpublished(target)));
     let (row, clip) = rows
         .iter()
@@ -180,7 +180,7 @@ struct Contact {
     asked_head: Option<Vec2>,
 }
 
-fn contact(sim: &mut Platformer2dSimHarness, pet: &Pet) -> Contact {
+fn contact(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sim: &mut Platformer2dSimHarness, pet: &Pet) -> Contact {
     let (player, dog) = (kin(sim, pet.player), kin(sim, pet.dog));
     let robot_sheet = sim
         .world()
@@ -192,17 +192,17 @@ fn contact(sim: &mut Platformer2dSimHarness, pet: &Pet) -> Contact {
         .get::<ActorRenderSize>(pet.dog)
         .expect("P1: the dog states the quad its frame is drawn in")
         .0;
-    let dog_frame = RiggedSpriteAsset::baked("companion_dog")
+    let dog_frame = RiggedSpriteAsset::baked(&sprite_content, "companion_dog")
         .unwrap_or_else(|| panic!("{}", unpublished("companion_dog")))
         .frame_size;
     let drawn_hand = art_point_in_world(
         &player,
-        drawn_at_the_middle(&robot_sheet.target, PETTING_CLIPS, "near_hand"),
+        drawn_at_the_middle(&sprite_content, &robot_sheet.target, PETTING_CLIPS, "near_hand"),
         robot_sheet.world_per_pixel,
     );
     let drawn_head = art_point_in_world(
         &dog,
-        drawn_at_the_middle("companion_dog", PETTED_CLIPS, "head"),
+        drawn_at_the_middle(&sprite_content, "companion_dog", PETTED_CLIPS, "head"),
         dog_quad.y / dog_frame.y as f32,
     );
     let offset = sim
@@ -234,9 +234,10 @@ const HAND_ON_CONTACT: f32 = 4.0;
 
 #[test]
 fn the_petting_hand_is_on_the_place_the_dog_is_petted() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     let pet = pet_the_dog(&mut sim);
-    let contact = contact(&mut sim, &pet);
+    let contact = contact(&sprite_content, &mut sim, &pet);
     let (player, dog) = (kin(&sim, pet.player), kin(&sim, pet.dog));
     let miss = (contact.drawn_hand - contact.point).length();
     // The mark the two boxes gave: the dog's front, plus the petter's half
@@ -307,7 +308,8 @@ fn the_petting_hand_is_on_the_place_the_dog_is_petted() {
 /// two builds with different tables are two content identities.
 #[test]
 fn the_session_content_identity_covers_the_landmark_tables() {
-    use ambition_platformer2d::provider::lifecycle::BAKED_LANDMARKS_SECTION;
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+    use ambition_platformer2d::provider::lifecycle::SPRITE_MECHANICS_SECTION;
     use ambition_platformer2d::runtime::PreparedContent;
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     sim.step_n(base(), 2);
@@ -317,10 +319,10 @@ fn the_session_content_identity_covers_the_landmark_tables() {
     let section = content
         .sections()
         .iter()
-        .find(|section| section.name == BAKED_LANDMARKS_SECTION)
+        .find(|section| section.name == SPRITE_MECHANICS_SECTION)
         .expect("the prepared session content has the landmark section");
     assert_eq!(
         section.canonical_bytes(),
-        ambition_platformer2d::sprite_sheet::baked_landmarks::landmarks_digest().as_bytes(),
+        ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&sprite_content).mechanics_digest().as_bytes(),
     );
 }

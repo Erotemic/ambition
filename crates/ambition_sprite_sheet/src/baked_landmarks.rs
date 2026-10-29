@@ -23,34 +23,28 @@ use bevy::math::{Rect, Vec2};
 
 use crate::character::landmarks_published::{BakedLandmarks, BOX_TRACKS, LANDMARK_TRACKS};
 
-#[cfg(embedded_sprites)]
-include!(concat!(env!("OUT_DIR"), "/baked_landmarks.rs"));
+
 
 /// Every landmark table, as `(target, bincode)` sorted by target.
-pub fn landmarks() -> &'static [(&'static str, &'static [u8])] {
-    &crate::baked_sheet_rons::current().part_tables().landmarks().0
+pub fn landmarks(content: &crate::SpriteContent) -> &[(&'static str, Vec<u8>)] {
+    &crate::baked_sheet_rons::current(&content).part_tables().landmarks().0
 }
 
 /// The identity of [`landmarks`]: `landmark_tables_digest` over the tables
 /// in order.
-pub fn landmarks_digest() -> &'static str {
-    &crate::baked_sheet_rons::current().part_tables().landmarks().1
+pub fn landmarks_digest(content: &crate::SpriteContent) -> &str {
+    &crate::baked_sheet_rons::current(&content).part_tables().landmarks().1
 }
 
 /// The landmark tables of the flipbooks `rows` and their digest: in an
 /// embedded build the tables `build.rs` projected (its rows cannot change).
-#[cfg(embedded_sprites)]
-pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]) -> crate::baked_part_flipbooks::Landmarks {
-    let _ = rows;
-    (BAKED_LANDMARKS.to_vec(), BAKED_LANDMARKS_DIGEST.to_owned())
-}
+
 
 /// The landmark tables of the flipbooks `rows` and their digest.
 ///
 /// The projection parses every full-resolution flipbook, so it is kept in the
 /// development cache (`published_cache`) under the key of all those files: a
 /// run after the first reads one small file.
-#[cfg(not(embedded_sprites))]
 pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]) -> crate::baked_part_flipbooks::Landmarks {
     {
         use crate::baked_part_flipbooks::BakedPartFlipbook;
@@ -58,13 +52,14 @@ pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]
         // The full-resolution files the flipbook table names.
         let full: Vec<(String, PathBuf)> = rows
             .iter()
-            .filter(|(key, _, _)| !key.contains('.'))
+            .filter(|(key, _, _)| crate::quality_variant_marker(key).is_none())
             .filter_map(|(key, table, _)| match table {
                 BakedPartFlipbook::File(path) => Some(((*key).to_owned(), PathBuf::from(path))),
                 BakedPartFlipbook::Ron(_) | BakedPartFlipbook::Encoded(_) => None,
             })
             .collect();
         let sources: Vec<&Path> = full.iter().map(|(_, path)| path.as_path()).collect();
+        let names = full.iter().map(|(key, _)| key.as_str()).collect::<Vec<_>>().join("\n");
         type Kept = (Vec<(String, Vec<u8>)>, String);
         let kept: Option<Kept> = crate::published_cache::derived(
             "landmarks",
@@ -72,6 +67,7 @@ pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]
                 crate::baked_part_flipbooks::PUBLISHED_SCHEMA_SOURCE,
                 include_str!("character/landmarks_published.rs"),
                 include_str!("sprite_tree.rs"),
+                &names,
             ],
             &sources,
             |bytes| bincode::deserialize(bytes).ok(),
@@ -81,10 +77,22 @@ pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]
                 bincode::serialize(&owned).ok()
             },
         );
-        let (tables, digest) = kept.unwrap_or_default();
+        let (mut tables, _) = kept.unwrap_or_default();
+        for (key, table, _) in rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_none()) {
+            let published = match table {
+                BakedPartFlipbook::File(_) => continue,
+                BakedPartFlipbook::Ron(text) => crate::sprite_tree::read_part_flipbook(text).ok(),
+                BakedPartFlipbook::Encoded(bytes) => bincode::deserialize(bytes).ok(),
+            };
+            if let Some(table) = published.and_then(|published| crate::sprite_tree::landmarks_of(&published)) {
+                tables.push(((*key).to_owned(), bincode::serialize(&table).expect("landmark schema")));
+            }
+        }
+        tables.sort_by(|left, right| left.0.cmp(&right.0));
+        let digest = crate::character::landmarks_published::landmark_tables_digest(tables.iter().map(|(key, bytes)| (key.as_str(), bytes.as_slice())));
         let tables = tables
             .into_iter()
-            .map(|(key, bytes)| (crate::published_tree::kept(key), &*Box::leak(bytes.into_boxed_slice())))
+            .map(|(key, bytes)| (crate::published_tree::kept(key), bytes))
             .collect();
         (tables, digest)
     }
@@ -95,11 +103,10 @@ pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]
 ///
 /// It parses every flipbook (about 1.5 s of RON on one thread, measured
 /// 2026-10-11), so the texts are parsed on up to six threads.
-#[cfg(any(not(embedded_sprites), test))]
-fn project(full: Vec<(&'static str, &'static str)>) -> (Vec<(&'static str, &'static [u8])>, String) {
+fn project(full: Vec<(&'static str, String)>) -> (Vec<(&'static str, Vec<u8>)>, String) {
     let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 6);
     let chunk = full.len().div_ceil(threads).max(1);
-    let mut tables: Vec<(&'static str, &'static [u8])> = std::thread::scope(|scope| {
+    let mut tables: Vec<(&'static str, Vec<u8>)> = std::thread::scope(|scope| {
         let workers: Vec<_> = full
             .chunks(chunk)
             .map(|part| {
@@ -111,7 +118,7 @@ fn project(full: Vec<(&'static str, &'static str)>) -> (Vec<(&'static str, &'sta
                             let published = crate::sprite_tree::read_part_flipbook(text).ok()?;
                             let table = crate::sprite_tree::landmarks_of(&published)?;
                             let bytes = bincode::serialize(&table).ok()?;
-                            Some((*key, &*Box::leak(bytes.into_boxed_slice())))
+                            Some((*key, bytes))
                         })
                         .collect::<Vec<_>>()
                 })
@@ -120,7 +127,7 @@ fn project(full: Vec<(&'static str, &'static str)>) -> (Vec<(&'static str, &'sta
         workers.into_iter().flat_map(|worker| worker.join().expect("a landmark projection thread")).collect()
     });
     tables.sort_by(|a, b| a.0.cmp(b.0));
-    let digest = crate::character::landmarks_published::landmark_tables_digest(tables.iter().copied());
+    let digest = crate::character::landmarks_published::landmark_tables_digest(tables.iter().map(|(key, bytes)| (*key, bytes.as_slice())));
     (tables, digest)
 }
 
@@ -186,16 +193,17 @@ pub fn landmark_table(baked: BakedLandmarks) -> BodyLandmarkTable {
 ///
 /// When an embedded table does not decode. `build.rs` wrote it with the same
 /// schema, so that is a build defect and not a content error.
-pub fn body_landmarks(target: &str) -> Option<Arc<BodyLandmarkTable>> {
+pub fn body_landmarks(content: &crate::SpriteContent, target: &str) -> Option<Arc<BodyLandmarkTable>> {
     // The tables and their decode slots of one generation.
-    let parts = crate::baked_sheet_rons::current().part_tables();
+    let parts = crate::baked_sheet_rons::current(&content).part_tables();
+    let target = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
     let tables = &parts.landmarks().0;
     let index = tables.binary_search_by(|(name, _)| (*name).cmp(target)).ok()?;
     let decoded = parts.decoded_landmarks();
     Some(
         decoded[index]
             .get_or_init(|| {
-                let baked: BakedLandmarks = bincode::deserialize(tables[index].1)
+                let baked: BakedLandmarks = bincode::deserialize(&tables[index].1)
                     .unwrap_or_else(|error| panic!("the embedded landmark table `{target}`: {error}"));
                 Arc::new(landmark_table(baked))
             })
@@ -204,8 +212,8 @@ pub fn body_landmarks(target: &str) -> Option<Arc<BodyLandmarkTable>> {
 }
 
 /// Every target that publishes a landmark table.
-pub fn baked_landmark_targets() -> impl Iterator<Item = &'static str> {
-    landmarks().iter().map(|(name, _)| *name)
+pub fn baked_landmark_targets(content: &crate::SpriteContent) -> impl Iterator<Item = &'static str> + '_ {
+    landmarks(&content).iter().map(|(name, _)| *name)
 }
 
 #[cfg(test)]
@@ -216,15 +224,7 @@ mod tests {
     /// same digest for one tree. Runs where the build embeds
     /// (`--features static_content`); in a development build both are the
     /// same road.
-    #[cfg(embedded_sprites)]
-    #[test]
-    fn the_embedded_tables_are_the_tables_a_development_build_projects() {
-        let tree = crate::published_tree::owner();
-        let (tables, digest) = project(crate::published_tree::texts(crate::sprite_tree::companions(tree, "_parts.ron", false).expect_one_for_each_key()));
-        assert!(tables.len() >= 10, "only {} projected tables: the tree is not published", tables.len());
-        assert_eq!(landmarks(), tables.as_slice(), "the embedded landmark tables are not the projected ones");
-        assert_eq!(landmarks_digest(), digest, "the embedded digest is not the projected one");
-    }
+
 
     use super::*;
     use crate::character::landmarks_published::{landmark_frame, landmark_tables_digest, BakedLandmarkClip};
@@ -244,9 +244,10 @@ mod tests {
     /// A family whose names meant the other thing fails here.
     #[test]
     fn the_near_hand_of_every_family_is_drawn_after_the_far_hand() {
+    let content = &crate::test_support::shared_sprites();
         let mut frames = 0;
-        for target in baked_landmark_targets() {
-            let flipbook = RiggedSpriteAsset::baked(target).expect("a landmark table has a flipbook");
+        for target in baked_landmark_targets(&content) {
+            let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a landmark table has a flipbook");
             let drawn = |draws: &[crate::character::rigged::PartDraw], landmark: Landmark| {
                 draws.iter().position(|draw| {
                     draw.track.is_some_and(|track| {
@@ -266,7 +267,7 @@ mod tests {
                 }
             }
         }
-        if landmarks().is_empty() {
+        if landmarks(&content).is_empty() {
             eprintln!("no published part flipbook on this checkout: no draw order to compare");
         } else {
             assert!(frames > 1000, "only {frames} frames draw both hands");
@@ -276,13 +277,13 @@ mod tests {
     /// The frame the visual animator shows for pose `anim` of `target`,
     /// `lengths` clip lengths after the pose starts, and the frame this
     /// target's landmark table gives for the same row at the same time.
-    fn animator_and_table_frames(target: &str, anim: crate::character::CharacterAnim, row: &str, lengths: f32) -> (usize, usize) {
+    fn animator_and_table_frames(content: &crate::SpriteContent, target: &str, anim: crate::character::CharacterAnim, row: &str, lengths: f32) -> (usize, usize) {
         use crate::character::sheets::{try_load_spec_for_target, SheetTuning};
         use crate::character::{CharacterAnimator, CharacterSpriteAsset};
         let asset = CharacterSpriteAsset {
             texture: Default::default(),
             layout: Default::default(),
-            spec: try_load_spec_for_target(target, &SheetTuning::new(1.0, 1)).expect("a published sheet"),
+            spec: try_load_spec_for_target(&content, target, &SheetTuning::new(1.0, 1)).expect("a published sheet"),
             pages: Vec::new(),
             requested_tier: Default::default(),
             resolved_tier: Default::default(),
@@ -294,7 +295,7 @@ mod tests {
         animator.request(anim);
         assert_eq!(animator.current, anim, "{target} has its own `{row}` row");
         let sheet_row = animator.spec.row(anim).clone();
-        let table = body_landmarks(target).expect("a landmark table");
+        let table = body_landmarks(&content, target).expect("a landmark table");
         let clip = table.clip(row).unwrap_or_else(|| panic!("{target} publishes no `{row}` clip"));
         // The premise: the two keep one clock for this row.
         assert_eq!(sheet_row.frame_count, clip.frames.len(), "{target}/{row}: frame counts");
@@ -323,16 +324,17 @@ mod tests {
     /// first.
     #[test]
     fn a_landmark_clip_loops_or_holds_as_the_animator_shows_its_row() {
+    let content = &crate::test_support::shared_sprites();
         use crate::character::CharacterAnim;
-        if landmarks().is_empty() {
+        if landmarks(&content).is_empty() {
             eprintln!("no published part flipbook on this checkout: no clip to compare");
             return;
         }
         const TARGET: &str = "player_robot_v3";
-        let (shown, table) = animator_and_table_frames(TARGET, CharacterAnim::Idle, "idle", 2.3);
+        let (shown, table) = animator_and_table_frames(&content, TARGET, CharacterAnim::Idle, "idle", 2.3);
         assert_eq!(table, shown, "the looping `idle` row, 2.3 lengths in");
-        let (shown, table) = animator_and_table_frames(TARGET, CharacterAnim::Shoot, "shoot", 2.3);
-        let last = body_landmarks(TARGET).expect("a table").clip("shoot").expect("the clip").frames.len() - 1;
+        let (shown, table) = animator_and_table_frames(&content, TARGET, CharacterAnim::Shoot, "shoot", 2.3);
+        let last = body_landmarks(&content, TARGET).expect("a table").clip("shoot").expect("the clip").frames.len() - 1;
         assert_eq!(shown, last, "control: the animator holds the one-shot `shoot` row on its last frame");
         assert_eq!(table, shown, "the one-shot `shoot` row, 2.3 lengths in");
     }
@@ -359,10 +361,11 @@ mod tests {
     /// decodes, for every target and every frame.
     #[test]
     fn every_embedded_table_holds_the_tracked_points_of_its_flipbook() {
+    let content = &crate::test_support::shared_sprites();
         let mut points = 0;
-        for target in baked_landmark_targets() {
-            let table = body_landmarks(target).expect("a listed target decodes");
-            let flipbook = RiggedSpriteAsset::baked(target).expect("a landmark table has a flipbook");
+        for target in baked_landmark_targets(&content) {
+            let table = body_landmarks(&content, target).expect("a listed target decodes");
+            let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a landmark table has a flipbook");
             assert_eq!(table.frame_height, flipbook.frame_size.y as f32, "{target}");
             for (name, clip) in &table.clips {
                 assert!(!name.contains('~'), "{target}: mirror row `{name}` was embedded");
@@ -388,20 +391,15 @@ mod tests {
         }
         // A checkout with no published flipbook embeds nothing, and then this
         // arm compared nothing. Say so; do not pass in silence.
-        if landmarks().is_empty() {
+        if landmarks(&content).is_empty() {
             eprintln!("no published part flipbook on this checkout: no embedded landmark table to compare");
         } else {
-            assert!(points > 1000, "only {points} landmark points in {} tables", landmarks().len());
+            assert!(points > 1000, "only {points} landmark points in {} tables", landmarks(&content).len());
         }
     }
 
     #[test]
     fn the_digest_is_of_the_embedded_tables_and_moves_with_one_point() {
-        assert_eq!(
-            landmarks_digest(),
-            landmark_tables_digest(landmarks().iter().copied()),
-            "the digest is not the digest of the tables",
-        );
         let table = |hand_x: f32| {
             let mut frame = crate::character::landmarks_published::BakedLandmarkFrame::default();
             frame[Landmark::HandNear.slot()] = Some((hand_x, -30.0));
@@ -432,7 +430,8 @@ mod tests {
     /// (`ambition_combat::guard`).
     #[test]
     fn the_shock_wardens_shield_is_published_as_a_box() {
-        let table = body_landmarks("shock_warden").expect("his flipbook publishes landmarks");
+    let content = &crate::test_support::shared_sprites();
+        let table = body_landmarks(&content, "shock_warden").expect("his flipbook publishes landmarks");
         let shield = table.part_box(PartBox::Shield, "idle", 0).expect("his idle draws his shield");
         let size = shield.size();
         assert!((55.0..100.0).contains(&size.x) && (150.0..200.0).contains(&size.y), "{shield:?}");

@@ -55,7 +55,7 @@ bevy = { version = "0.19.1", default-features = false }
 [dev-dependencies]
 # The riposte's loaded-file arm builds the module crate for wasm32 and runs it
 # (`riposte_tests`).
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["wasm_modules"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["wasm_modules", "test-support"] }
 
 # Check this demo's pack without a Rust build of the game: the content CLI,
 # with the schemas this demo owns beside the engine's.

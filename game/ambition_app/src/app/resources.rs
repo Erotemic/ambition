@@ -12,7 +12,7 @@ use ambition_platformer2d::ldtk_map as ldtk_world;
 use super::cli::cli_start_room_arg;
 
 pub fn init_sandbox_resources(app: &mut App) {
-    let sandbox_data = ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
+    let sandbox_data = ambition_content::gameplay_defaults::load();
     if !super::hub_games::installs("ambition") {
         init_host_resources_without_ambition(app);
         insert_host_resources(app, sandbox_data);
@@ -94,7 +94,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .unwrap_or_default();
     let sandbox_catalog =
         ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
-            &asset_config,
+            app.world().resource::<ambition_platformer2d::asset_manager::content_library::ContentLibraries>(),            &asset_config,
             &character_catalog,
             &boss_catalog,
             &music_registry,
@@ -208,7 +208,7 @@ fn init_host_resources_without_ambition(app: &mut App) {
     };
     let sandbox_catalog =
         ambition_platformer2d::assets::platformer_assets::build_sandbox_catalog_with(
-            &asset_config,
+            app.world().resource::<ambition_platformer2d::asset_manager::content_library::ContentLibraries>(),            &asset_config,
             &character_catalog,
             &boss_catalog,
             &music_registry,

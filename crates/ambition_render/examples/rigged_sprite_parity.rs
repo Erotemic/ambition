@@ -41,7 +41,7 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::GameAssets;
 
-const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_platformer2d_actor_monolith/assets");
+const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime");
 /// Transparent pixels around the drawn frame, so nothing touches the edge.
 const MARGIN: u32 = 16;
 

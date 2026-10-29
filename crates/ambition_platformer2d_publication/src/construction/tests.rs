@@ -29,7 +29,7 @@ fn fixture_identity() -> ambition_combat::components::ActorIdentity {
     ambition_combat::components::ActorIdentity::new("test", "Fixture Body")
 }
 
-fn body_driven_by(
+fn body_driven_by(sprite_content: &ambition_sprite_sheet::SpriteContent,
     template: ambition_characters::brain::CharacterBrainTemplate,
 ) -> (
     ActorConfig,
@@ -59,7 +59,7 @@ fn body_driven_by(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );
-    let seed = ambition_body_seed::ActorClusterSeed::new_character_in(
+    let seed = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
         &Default::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         "test".to_string(),
@@ -85,6 +85,7 @@ fn body_driven_by(
 /// then yields the marker, which the deleted default-six helper never could.
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
@@ -142,7 +143,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &registry,
         &Default::default(),
         &boss_catalog,
-        crate::construction::ActorConstructionContext::new(
+        crate::construction::ActorConstructionContext::new(&sprite_content,
             &ambition_platformer2d_construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
@@ -182,6 +183,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
 /// closed, in the same room.
 #[test]
 fn a_chest_authored_open_is_built_with_the_opened_marker() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_entity_catalog::PickupKind;
     use ambition_entity_catalog::placements::{ChestSpec, PlacementKind, PlacementSchema};
     use ambition_platformer2d_construction::placements::PlacementLoweringRegistry;
@@ -219,7 +221,7 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
         &registry,
         &Default::default(),
         &boss_catalog,
-        crate::construction::ActorConstructionContext::new(
+        crate::construction::ActorConstructionContext::new(&sprite_content,
             &ambition_platformer2d_construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
@@ -259,17 +261,18 @@ fn a_chest_authored_open_is_built_with_the_opened_marker() {
 /// character or a placement.
 #[test]
 fn encounter_mob_brain_comes_from_its_characters_profile() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
         Update,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
-            spawn_encounter_mob(
+            spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -286,7 +289,7 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
                     size: ae::Vec2::new(20.0, 30.0),
                 },
             );
-        },
+        } },
     );
     app.update();
     let mut q = app.world_mut().query::<&Brain>();
@@ -302,16 +305,17 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
 /// written under it is read by nothing and only grows the save.
 #[test]
 fn an_encounter_mob_persists_no_death() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
         Update,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
-            spawn_encounter_mob(
+            spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -328,7 +332,7 @@ fn an_encounter_mob_persists_no_death() {
                     size: ae::Vec2::new(20.0, 30.0),
                 },
             );
-        },
+        } },
     );
     app.update();
     let mut q = app
@@ -378,9 +382,10 @@ fn smash_fixture_cast() -> ambition_characters::prepared::PreparedCharacterRegis
 /// `_into` on an executor-allocated root.)
 #[test]
 fn boss_spawn_attaches_brain_components() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::brain::{ActionSet, Brain, StateMachineCfg};
     let mut app = App::new();
-    app.add_systems(Update, |mut commands: Commands| {
+    app.add_systems(Update, { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
         let authored = ambition_platformer2d_world::rooms::Authored {
             id: "test_boss".to_string(),
             name: "Test Warden".to_string(),
@@ -388,7 +393,7 @@ fn boss_spawn_attaches_brain_components() {
             payload: ambition_entity_catalog::placements::BossBrain::Dormant,
         };
         let root = commands.spawn_empty().id();
-        spawn_boss_with_overrides_into(
+        spawn_boss_with_overrides_into(&sprite_content,
             &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                 &mut commands,
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -401,7 +406,7 @@ fn boss_spawn_attaches_brain_components() {
             false,
             None,
         );
-    });
+    } });
     app.update();
     let mut q = app
         .world_mut()
@@ -466,16 +471,17 @@ fn boss_spawn_attaches_brain_components() {
 /// Pins the parallel-shape invariant so a future spawn-site refactor can't silently lose the brain.
 #[test]
 fn encounter_mob_spawns_with_brain_components() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
         Update,
-        |mut commands: Commands,
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
-            spawn_encounter_mob(
+            spawn_encounter_mob(&sprite_content,
                 &mut commands,
                 &catalog,
                 &Default::default(),
@@ -492,7 +498,7 @@ fn encounter_mob_spawns_with_brain_components() {
                     size: ae::Vec2::new(20.0, 30.0),
                 },
             );
-        },
+        } },
     );
     app.update();
     let mut q = app
@@ -511,27 +517,28 @@ fn encounter_mob_spawns_with_brain_components() {
 /// character states the template.
 #[test]
 fn enemy_default_brain_picks_the_family_its_policy_names() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_characters::brain::CharacterBrainTemplate as Template;
 
-    let (sandbag, sandbag_policy, abilities) = body_driven_by(Template::StandStill);
+    let (sandbag, sandbag_policy, abilities) = body_driven_by(&sprite_content, Template::StandStill);
     assert!(matches!(
         enemy_default_brain(&sandbag, &sandbag_policy, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::StandStill)
     ));
 
-    let (diver, diver_policy, abilities) = body_driven_by(Template::ChargeCrash);
+    let (diver, diver_policy, abilities) = body_driven_by(&sprite_content, Template::ChargeCrash);
     assert!(matches!(
         enemy_default_brain(&diver, &diver_policy, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })
     ));
 
-    let (brute, brute_policy, abilities) = body_driven_by(Template::MeleeBrute);
+    let (brute, brute_policy, abilities) = body_driven_by(&sprite_content, Template::MeleeBrute);
     assert!(matches!(
         enemy_default_brain(&brute, &brute_policy, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
     ));
 
-    let (striker, striker_policy, abilities) = body_driven_by(Template::Smash);
+    let (striker, striker_policy, abilities) = body_driven_by(&sprite_content, Template::Smash);
     match enemy_default_brain(&striker, &striker_policy, &fixture_identity(), abilities) {
         Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
             assert!(cfg.aggro_radius > 0.0);
@@ -552,8 +559,9 @@ fn enemy_default_brain_picks_the_family_its_policy_names() {
 /// hostile.
 #[test]
 fn a_body_forced_hostile_swings_when_its_kit_can() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let (enemy, enemy_policy, abilities) =
-        body_driven_by(ambition_characters::brain::CharacterBrainTemplate::MeleeBrute);
+        body_driven_by(&sprite_content, ambition_characters::brain::CharacterBrainTemplate::MeleeBrute);
     let mut brain = enemy_default_brain(&enemy, &enemy_policy, &fixture_identity(), abilities);
     match &mut brain {
         Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
@@ -646,6 +654,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
 /// "npc_architect" from substituting the id) fail this assertion.
 #[test]
 fn authored_npc_takes_its_label_from_the_prepared_display_name() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
     let mut app = App::new();
@@ -673,7 +682,7 @@ fn authored_npc_takes_its_label_from_the_prepared_display_name() {
         ambition_characters::actor::character_catalog::CharacterCatalog,
     >| {
         let root = commands.spawn_empty().id();
-        ambition_platformer2d_actor_spawn::spawn_interactable_into(
+        ambition_platformer2d_actor_spawn::spawn_interactable_into(&sprite_content,
             &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                 &mut commands,
                 SessionSpawnScope::UNSCOPED,
@@ -713,6 +722,7 @@ fn authored_npc_takes_its_label_from_the_prepared_display_name() {
 /// creates the body, not a live body a later pass zeroes.
 #[test]
 fn an_npc_with_a_recorded_death_is_built_dead() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
     for (fate, expect_alive) in [
@@ -737,12 +747,12 @@ fn an_npc_with_a_recorded_death_is_built_dead() {
                 },
             ),
         );
-        let spawn = move |mut commands: Commands,
+        let spawn = { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                           catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
             let root = commands.spawn_empty().id();
-            ambition_platformer2d_actor_spawn::spawn_interactable_into(
+            ambition_platformer2d_actor_spawn::spawn_interactable_into(&sprite_content,
                 &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                     &mut commands,
                     SessionSpawnScope::UNSCOPED,
@@ -757,7 +767,7 @@ fn an_npc_with_a_recorded_death_is_built_dead() {
                 &ambition_characters::brain::AuthoredBrainOverride::default(),
                 fate,
             );
-        };
+        } };
         app.add_systems(Update, spawn);
         app.update();
 
@@ -844,6 +854,7 @@ mod authored_enemy_reads_its_character {
     /// hand a later re-wear something wrong to retract to.
     #[test]
     fn construction_stamps_the_applied_template_so_nothing_reapplies_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
@@ -870,7 +881,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -925,6 +936,7 @@ mod authored_enemy_reads_its_character {
     /// on its first tick. Same fixture: no derive runs here.
     #[test]
     fn a_prepared_npc_is_stamped_current_by_construction() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
         let authored = ambition_platformer2d_world::rooms::Authored::new(
             "NpcSpawn-beaver",
@@ -954,7 +966,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_interactable_into(
+                ambition_platformer2d_actor_spawn::spawn_interactable_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -998,6 +1010,7 @@ mod authored_enemy_reads_its_character {
     /// replay rebuilds the room after the derive has run.
     #[test]
     fn a_prepared_npc_without_a_blueprint_is_built_whole_by_its_construction() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
         let authored = ambition_platformer2d_world::rooms::Authored::new(
             "NpcSpawn-beaver",
@@ -1043,7 +1056,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_interactable_into(
+                ambition_platformer2d_actor_spawn::spawn_interactable_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1090,6 +1103,7 @@ mod authored_enemy_reads_its_character {
     /// `BodyAbilities` carry what it authored from the construction frame.
     #[test]
     fn a_prepared_npc_without_a_blueprint_spawns_with_its_authored_abilities() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
         let authored = ambition_platformer2d_world::rooms::Authored::new(
             "NpcSpawn-beaver",
@@ -1136,7 +1150,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_interactable_into(
+                ambition_platformer2d_actor_spawn::spawn_interactable_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1175,6 +1189,7 @@ mod authored_enemy_reads_its_character {
     /// body before its first controller tick.
     #[test]
     fn a_placement_sets_initial_body_facing_on_the_construction_frame() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let mut spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
@@ -1202,7 +1217,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1241,9 +1256,10 @@ mod authored_enemy_reads_its_character {
     /// this cannot pass by both answers happening to agree.
     #[test]
     fn a_placement_may_name_the_policy_that_drives_this_body() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let profiles = policy_registry();
-        let unplaced = spawn_with_placement_policy(None, &profiles);
-        let guarding = spawn_with_placement_policy(Some("door_guard"), &profiles);
+        let unplaced = spawn_with_placement_policy(&sprite_content, None, &profiles);
+        let guarding = spawn_with_placement_policy(&sprite_content, Some("door_guard"), &profiles);
         assert!(
             (unplaced - 77.0 * 0.5).abs() < 0.01,
             "a placement that names no policy keeps the character's own, whose \
@@ -1265,8 +1281,9 @@ mod authored_enemy_reads_its_character {
     #[test]
     #[should_panic(expected = "is not published")]
     fn a_placement_naming_an_unpublished_policy_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         let profiles = policy_registry();
-        let _ = spawn_with_placement_policy(Some("no_such_policy"), &profiles);
+        let _ = spawn_with_placement_policy(&sprite_content, Some("no_such_policy"), &profiles);
     }
 
     /// One published policy: a door guard that barely ambles.
@@ -1299,7 +1316,7 @@ mod authored_enemy_reads_its_character {
     /// Spawn the complete character with an optional placement-authored policy,
     /// and report the patrol speed its driver lowers to: the policy's effort
     /// against the body's top speed.
-    fn spawn_with_placement_policy(
+    fn spawn_with_placement_policy(sprite_content: &ambition_sprite_sheet::SpriteContent,
         policy: Option<&'static str>,
         profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     ) -> f32 {
@@ -1323,7 +1340,7 @@ mod authored_enemy_reads_its_character {
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
@@ -1331,7 +1348,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1346,7 +1363,7 @@ mod authored_enemy_reads_its_character {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
-            },
+            } },
         );
         app.update();
 
@@ -1435,7 +1452,7 @@ mod authored_enemy_reads_its_character {
     #[test]
     fn a_built_charger_can_charge_and_a_verb_body_cannot() {
         let charges = |execution| {
-            let mut app = spawn_raider(|definition| definition.with_ranged_execution(execution));
+            let mut app = spawn_raider(&ambition_sprite_sheet::test_support::shared_sprites(), |definition| definition.with_ranged_execution(execution));
             let world = app.world_mut();
             let mut q = world.query_filtered::<(
                 bevy::prelude::Has<ambition_characters::brain::ChargesProjectiles>,
@@ -1457,7 +1474,7 @@ mod authored_enemy_reads_its_character {
 
     /// The held-item id on the body a complete character builds, if any.
     fn spawn_held_item(item: Option<&'static str>) -> Option<String> {
-        let mut app = spawn_raider(|definition| match item {
+        let mut app = spawn_raider(&ambition_sprite_sheet::test_support::shared_sprites(), |definition| match item {
             Some(item) => definition.with_held_item(item),
             None => definition,
         });
@@ -1467,7 +1484,7 @@ mod authored_enemy_reads_its_character {
     }
 
     /// Build one complete raider character from a room placement.
-    fn spawn_raider(
+    fn spawn_raider(sprite_content: &ambition_sprite_sheet::SpriteContent,
         author: impl FnOnce(
             ambition_characters::actor::definition::CharacterDefinition,
         ) -> ambition_characters::actor::definition::CharacterDefinition,
@@ -1509,7 +1526,7 @@ mod authored_enemy_reads_its_character {
         app.insert_resource(registry);
         app.add_systems(
             Update,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
@@ -1517,7 +1534,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1534,7 +1551,7 @@ mod authored_enemy_reads_its_character {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
-            },
+            } },
         );
         app.update();
         app
@@ -1545,7 +1562,8 @@ mod authored_enemy_reads_its_character {
     /// from values authored only by the character definition.
     #[test]
     fn a_complete_character_is_built_from_itself_rather_than_from_an_archetype() {
-        let (max, speed, contact) = spawn_with(prepared_complete(), "npc_busy_beaver");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let (max, speed, contact) = spawn_with(&sprite_content, prepared_complete(), "npc_busy_beaver");
         assert_eq!(max, 9, "the character's pool");
         assert_eq!(
             speed, 77.0,
@@ -1577,13 +1595,14 @@ mod authored_enemy_reads_its_character {
     #[test]
     #[should_panic(expected = "which this composition has not registered")]
     fn a_spawn_naming_nothing_buildable_is_refused() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         // A character nobody registered: the body would be a generic
         // `combatant` wearing Iron Mary's name.
         //
         // the registry is NON-EMPTY here on purpose — an empty one is the
         // shape a host with no cast has, and this asserts the content rule
         // rather than that shape.
-        spawn_with_prepared_and_brain(prepared(), "iron_mary", "no_such_archetype");
+        spawn_with_prepared_and_brain(&sprite_content, prepared(), "iron_mary", "no_such_archetype");
     }
     // It asserted that a composition publishing no characters still built SOMETHING, because
     // refusing *"would take down the multi-game shell over a registry that publishes no
@@ -1603,19 +1622,20 @@ mod authored_enemy_reads_its_character {
     /// respawn arrived through the `combatant` fallback. That worked by luck.
     #[test]
     fn a_placement_authors_its_own_respawn_and_outranks_the_default() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_entity_catalog::placements::RespawnPolicy;
 
         // the two answers must DIFFER, or neither assertion can tell "the
         // placement was read" from "the default stood". The unauthored answer
         // is `UNDESCRIBED_BODY_RESPAWN` — the engine's stated policy for a body
         // nobody described — so the placement asks for the opposite.
-        let authored = spawn_respawn(Some(RespawnPolicy::DeadStaysDead));
+        let authored = spawn_respawn(&sprite_content, Some(RespawnPolicy::DeadStaysDead));
         assert_eq!(
             authored,
             RespawnPolicy::DeadStaysDead,
             "the placement's policy did not reach the body"
         );
-        let unauthored = spawn_respawn(None);
+        let unauthored = spawn_respawn(&sprite_content, None);
         assert_eq!(
             unauthored,
             ambition_platformer2d_actor_spawn::UNDESCRIBED_BODY_RESPAWN,
@@ -1626,7 +1646,7 @@ mod authored_enemy_reads_its_character {
     }
 
     /// Spawn one enemy and report the respawn policy its body ended up with.
-    fn spawn_respawn(
+    fn spawn_respawn(sprite_content: &ambition_sprite_sheet::SpriteContent,
         respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
     ) -> ambition_entity_catalog::placements::RespawnPolicy {
         let mut spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
@@ -1650,7 +1670,7 @@ mod authored_enemy_reads_its_character {
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
@@ -1658,7 +1678,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1675,7 +1695,7 @@ mod authored_enemy_reads_its_character {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
-            },
+            } },
         );
         app.update();
 
@@ -1685,14 +1705,14 @@ mod authored_enemy_reads_its_character {
     }
 
     /// The two roads, sharing one harness: `(max health, run speed, contact damage)`.
-    fn spawn_with(
+    fn spawn_with(sprite_content: &ambition_sprite_sheet::SpriteContent,
         prepared: ambition_characters::prepared::PreparedCharacterRegistry,
         character_id: &'static str,
     ) -> (i32, f32, i32) {
-        spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
+        spawn_with_prepared_and_brain(&sprite_content, prepared, character_id, "medium_striker")
     }
 
-    fn spawn_with_prepared_and_brain(
+    fn spawn_with_prepared_and_brain(sprite_content: &ambition_sprite_sheet::SpriteContent,
         prepared: ambition_characters::prepared::PreparedCharacterRegistry,
         // was `Option`, and both callers always passed `Some`. The placement
         // type requires a character now, so the axis this could vary no longer
@@ -1716,7 +1736,7 @@ mod authored_enemy_reads_its_character {
         app.insert_resource(prepared);
         app.add_systems(
             Update,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
@@ -1724,7 +1744,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1741,7 +1761,7 @@ mod authored_enemy_reads_its_character {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
-            },
+            } },
         );
         app.update();
 
@@ -1755,7 +1775,7 @@ mod authored_enemy_reads_its_character {
         )
     }
 
-    fn spawn(name: &'static str, character_id: &'static str) -> (i32, Option<String>) {
+    fn spawn(sprite_content: &ambition_sprite_sheet::SpriteContent, name: &'static str, character_id: &'static str) -> (i32, Option<String>) {
         let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
@@ -1774,7 +1794,7 @@ mod authored_enemy_reads_its_character {
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
-            move |mut commands: Commands,
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
@@ -1782,7 +1802,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
                     &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
                         &mut commands,
                         SessionSpawnScope::UNSCOPED,
@@ -1799,7 +1819,7 @@ mod authored_enemy_reads_its_character {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
-            },
+            } },
         );
         app.update();
 
@@ -1814,6 +1834,7 @@ mod authored_enemy_reads_its_character {
 
     #[test]
     fn a_spawn_that_names_a_registered_character_takes_its_health() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         // The display name is deliberately NOT the character's, so the only
         // route to 9 HP is the authored id.
         //
@@ -1823,7 +1844,7 @@ mod authored_enemy_reads_its_character {
         // — every registered character can build its own body — and a fixture
         // modelling the vanished middle state would pin a road that no longer
         // exists.
-        let (max, sprite) = spawn("Some Room Enemy", "npc_busy_beaver");
+        let (max, sprite) = spawn(&sprite_content, "Some Room Enemy", "npc_busy_beaver");
         assert_eq!(
             max, 9,
             "the character authored 9 and it must outrank the archetype's 3"

@@ -215,7 +215,7 @@ pub fn world_text(world: &PackText) -> std::borrow::Cow<'static, str> {
 /// the level fields say its mode, biome and visual profile (the skybridge
 /// parallax). This adds only the loop and finish signs, whose places come
 /// from the loop and the goal.
-pub fn sanic_speedway() -> RoomSpec {
+pub fn sanic_speedway(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD))
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
     let room_set = project
@@ -258,8 +258,8 @@ pub fn sanic_speedway() -> RoomSpec {
             ),
         )
     }));
-    monitors::dress_monitors(&mut room);
-    scenery::dress_goal(&mut room);
+    monitors::dress_monitors(&sprite_content, &mut room);
+    scenery::dress_goal(&sprite_content, &mut room);
     room
 }
 
@@ -268,7 +268,7 @@ pub fn sanic_speedway() -> RoomSpec {
 /// the spike gauntlet, and the `velocity` score. Every loop is authored data
 /// (`SurfaceLoop` with `attach_to`); nothing is grafted here. The layout is
 /// `tools/author_highway_ldtk.py`'s docstring.
-pub fn sanic_highway() -> RoomSpec {
+pub fn sanic_highway(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&HIGHWAY_WORLD,
     ))
         .expect(
@@ -296,13 +296,13 @@ pub fn sanic_highway() -> RoomSpec {
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
     )];
-    monitors::dress_monitors(&mut room);
-    scenery::dress_goal(&mut room);
+    monitors::dress_monitors(&sprite_content, &mut room);
+    scenery::dress_goal(&sprite_content, &mut room);
     room
 }
 
 /// Load the dark third act from its LDtk source.
-pub fn sanic_darkness() -> RoomSpec {
+pub fn sanic_darkness(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&DARKNESS_WORLD))
         .expect("sanic_darkness.ldtk parses (regen: game/ambition_demo_sanic/tools/author_darkness_ldtk.py)");
     let room_set = project
@@ -327,8 +327,8 @@ pub fn sanic_darkness() -> RoomSpec {
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
     )];
-    monitors::dress_monitors(&mut room);
-    scenery::dress_goal(&mut room);
+    monitors::dress_monitors(&sprite_content, &mut room);
+    scenery::dress_goal(&sprite_content, &mut room);
     room
 }
 

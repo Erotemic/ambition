@@ -490,7 +490,7 @@ impl ParallaxThemeAttempts {
 /// [`refresh_parallax_layers_on_quality_change`] take the layers and
 /// [`present_live_room_parallax`] present them again. A theme that produced no
 /// art is not retried, so it does not invalidate the layers every frame.
-pub fn ensure_active_room_parallax_theme(
+pub fn ensure_active_room_parallax_theme(sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
     assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
@@ -523,7 +523,7 @@ pub fn ensure_active_room_parallax_theme(
         if skin_asked && assets.parallax_layers.has_drawn_layers(theme, budget) {
             continue;
         }
-        ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
+        ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(&sprite_content,
             &mut assets,
             &catalog,
             &asset_server,
@@ -986,6 +986,7 @@ mod tests {
     #[test]
     fn portal_capture_parallax_system_params_are_disjoint() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_systems(Update, sync_portal_capture_parallax_layers);
 
@@ -1030,11 +1031,11 @@ mod theme_load_tests {
     /// `AndroidBundle` always attempts a resolved load, so this test checks that
     /// the engine requests the art, not that a PNG exists on disk.
     fn packaged_catalog() -> Platformer2dAssetCatalog {
-        let manifest = ambition_sprite_sheet::game_assets::sandbox_image_manifest("sprites");
+        let manifest = ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap();
         Platformer2dAssetCatalog::new(
             ambition_asset_manager::AmbitionAssetCatalog::new(manifest),
             AssetProfile::AndroidBundle,
-        )
+        ).with_libraries(&ambition_sprite_sheet::test_support::shared_libraries()).unwrap()
     }
 
     /// One room, in a biome that is not the engine's default.
@@ -1062,6 +1063,7 @@ mod theme_load_tests {
     #[test]
     fn a_room_in_a_second_biome_loads_its_own_parallax_theme() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_plugins(bevy::asset::AssetPlugin::default());
         app.init_asset::<Image>();
@@ -1114,6 +1116,7 @@ mod theme_load_tests {
         use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
 
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_plugins(bevy::asset::AssetPlugin::default());
         app.init_asset::<Image>();
@@ -1170,6 +1173,7 @@ mod theme_load_tests {
     #[test]
     fn a_theme_already_loaded_is_not_reloaded_every_frame() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_plugins(bevy::asset::AssetPlugin::default());
         app.init_asset::<Image>();
@@ -1780,16 +1784,17 @@ mod theme_residency_tests {
     #[test]
     fn an_evicted_theme_loads_again_while_its_room_is_active() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_plugins(MinimalPlugins);
         app.add_plugins(bevy::asset::AssetPlugin::default());
         app.init_asset::<bevy::image::Image>();
         app.insert_resource(
             ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog::new(
                 ambition_asset_manager::AmbitionAssetCatalog::new(
-                    ambition_sprite_sheet::game_assets::sandbox_image_manifest("sprites"),
+                    ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap(),
                 ),
                 ambition_asset_manager::AssetProfile::AndroidBundle,
-            ),
+            ).with_libraries(&ambition_sprite_sheet::test_support::shared_libraries()).unwrap(),
         );
         app.init_resource::<GameAssets>();
         app.init_resource::<ParallaxThemeAttempts>();

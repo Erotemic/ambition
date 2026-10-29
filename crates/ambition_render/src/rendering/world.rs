@@ -2378,8 +2378,9 @@ mod prop_geometry_tests {
     /// the shaft it joins (Jon, 2026-10-08: a gap above the bottom cap).
     #[test]
     fn a_prop_drawn_upside_down_is_the_mirror_of_the_upright_prop() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
-        let spec = try_load_spec_for_target("super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
+        let spec = try_load_spec_for_target(&sprite_content, "super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
             .expect("the pipe-head sheet is baked into the manifest");
         let asset = CharacterSpriteAsset {
             texture: Handle::default(),
@@ -2422,11 +2423,12 @@ mod prop_geometry_tests {
     /// darker (Jon, 2026-10-08: "many seams in the pipe parts").
     #[test]
     fn a_prop_that_fills_its_box_samples_inside_its_frame() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
         let asset = |target: &str| CharacterSpriteAsset {
             texture: Handle::default(),
             layout: Handle::default(),
-            spec: try_load_spec_for_target(target, &SheetTuning::new(1.0, 0))
+            spec: try_load_spec_for_target(&sprite_content, target, &SheetTuning::new(1.0, 0))
                 .expect("the pipe sheets are baked into the manifest"),
             pages: vec![CharacterSpritePage { texture: Handle::default(), layout: Handle::default() }],
             requested_tier: Default::default(),
@@ -2457,12 +2459,12 @@ mod prop_geometry_tests {
     }
 
     /// A prop sheet with no rig and no pages, as the tests here build it.
-    fn baked_prop_asset(target: &str) -> ambition_sprite_sheet::character::CharacterSpriteAsset {
+    fn baked_prop_asset(sprite_content: &ambition_sprite_sheet::SpriteContent, target: &str) -> ambition_sprite_sheet::character::CharacterSpriteAsset {
         use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
         CharacterSpriteAsset {
             texture: Handle::default(),
             layout: Handle::default(),
-            spec: try_load_spec_for_target(target, &SheetTuning::new(1.0, 0))
+            spec: try_load_spec_for_target(&sprite_content, target, &SheetTuning::new(1.0, 0))
                 .unwrap_or_else(|| panic!("the sheet `{target}` is baked into the manifest")),
             pages: vec![CharacterSpritePage { texture: Handle::default(), layout: Handle::default() }],
             requested_tier: Default::default(),
@@ -2496,7 +2498,8 @@ mod prop_geometry_tests {
     /// top was 83.2 under the ceiling.
     #[test]
     fn a_rope_is_drawn_from_the_top_of_its_box_to_the_bottom() {
-        let asset = baked_prop_asset("cut_rope_rope");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let asset = baked_prop_asset(&sprite_content, "cut_rope_rope");
         assert!(asset.spec.column_slices().is_some(), "{PUBLISH_THE_ROPE}");
         // The box the arena authors, a short one, a long one and a wide one.
         for authored in [
@@ -2527,8 +2530,9 @@ mod prop_geometry_tests {
     /// slices Bevy draws for the sprite.
     #[test]
     fn a_rope_is_its_cap_then_whole_tiles_then_its_end() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use bevy::sprite::SpriteImageMode;
-        let asset = baked_prop_asset("cut_rope_rope");
+        let asset = baked_prop_asset(&sprite_content, "cut_rope_rope");
         let slices = asset.spec.column_slices().expect(PUBLISH_THE_ROPE);
         assert!(
             slices.cap > 1.0 && slices.end > 1.0 && (slices.cap + slices.tile + slices.end - slices.rect.y).abs() < 1e-3,
@@ -2614,7 +2618,8 @@ mod prop_geometry_tests {
     /// again.
     #[test]
     fn the_frame_tick_does_not_size_a_rope_again() {
-        let asset = baked_prop_asset("cut_rope_rope");
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let asset = baked_prop_asset(&sprite_content, "cut_rope_rope");
         assert!(asset.spec.column_slices().is_some(), "{PUBLISH_THE_ROPE}");
         let authored = BVec2::new(8.0, 160.0);
         let (mut sprite, mut anchor, mut animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, authored);
@@ -2632,15 +2637,17 @@ mod prop_geometry_tests {
     /// parts of its own smaller rect, and each boundary is on a whole texel.
     #[test]
     fn each_quality_tier_of_the_rope_has_the_same_parts() {
+
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::sheets::try_load_spec_for_target_scaled;
         use ambition_sprite_sheet::character::TextureResolutionScale as Scale;
-        let full = baked_prop_asset("cut_rope_rope").spec.column_slices().expect(PUBLISH_THE_ROPE);
+        let full = baked_prop_asset(&sprite_content, "cut_rope_rope").spec.column_slices().expect(PUBLISH_THE_ROPE);
         let parts = |slices: ambition_sprite_sheet::character::ColumnSlices| {
             [slices.cap / slices.rect.y, slices.tile / slices.rect.y, slices.end / slices.rect.y]
         };
         let mut reduced = 0;
         for scale in [Scale::Half, Scale::Quarter, Scale::Potato] {
-            let Some(spec) = try_load_spec_for_target_scaled("cut_rope_rope", &SheetTuning::new(1.0, 0), scale) else {
+            let Some(spec) = try_load_spec_for_target_scaled(&sprite_content, "cut_rope_rope", &SheetTuning::new(1.0, 0), scale) else {
                 continue;
             };
             reduced += 1;
@@ -2659,8 +2666,9 @@ mod prop_geometry_tests {
     /// A sheet that declares no column tile is one picture, as before.
     #[test]
     fn a_sheet_with_no_column_tile_is_one_picture() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         for target in ["cut_rope_anvil", "super_mary_o_pipe_top"] {
-            let asset = baked_prop_asset(target);
+            let asset = baked_prop_asset(&sprite_content, target);
             assert_eq!(asset.spec.column_slices(), None, "{target}");
             let (sprite, _, animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, BVec2::new(64.0, 32.0));
             assert!(
@@ -2678,7 +2686,8 @@ mod prop_geometry_tests {
     /// geometry drifts from the authored box.
     #[test]
     fn a_structure_props_art_exactly_fills_the_collider_a_body_stands_on() {
-        let spec = try_load_spec_for_target("super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let spec = try_load_spec_for_target(&sprite_content, "super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
             .expect("the pipe-head sheet is baked into the manifest");
         // What level 1-1 authors for one pipe piece: two tiles wide, one tall.
         let authored = BVec2::new(64.0, 32.0);

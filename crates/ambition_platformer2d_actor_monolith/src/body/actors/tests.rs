@@ -226,9 +226,9 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
     );
 }
 
-fn burning_shark_enemy() -> ambition_body_seed::ActorClusterSeed {
+fn burning_shark_enemy(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ambition_body_seed::ActorClusterSeed {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "burning_shark".to_string(),
         "Burning Shark".to_string(),
         aabb,
@@ -245,7 +245,8 @@ fn burning_shark_enemy() -> ambition_body_seed::ActorClusterSeed {
 
 #[test]
 fn shark_charge_crash_detects_solo_charge_wall_hit() {
-    let mut enemy = burning_shark_enemy();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let mut enemy = burning_shark_enemy(&sprite_content);
     let previous_pos = ae::Vec2::new(120.0, 80.0);
     enemy.kin.pos = previous_pos;
     enemy.kin.vel = ae::Vec2::ZERO;
@@ -328,7 +329,8 @@ fn a_saddle_answers_who_is_riding_and_the_riders_marker_does_not() {
 
 #[test]
 fn shark_charge_crash_ignores_mounted_or_noncharge_cases() {
-    let mut enemy = burning_shark_enemy();
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let mut enemy = burning_shark_enemy(&sprite_content);
     let previous_pos = ae::Vec2::new(120.0, 80.0);
     enemy.kin.pos = previous_pos;
     enemy.kin.vel = ae::Vec2::ZERO;

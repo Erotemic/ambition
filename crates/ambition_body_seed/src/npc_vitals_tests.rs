@@ -28,6 +28,7 @@ fn npc_wearing(character_id: &str) -> ambition_interaction::Interactable {
 
 #[test]
 fn a_character_without_locomotion_is_built_with_its_authored_vitals() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "npc_test_fragile",
         "Test Fragile",
@@ -53,7 +54,7 @@ fn a_character_without_locomotion_is_built_with_its_authored_vitals() {
     );
 
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let seed = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
         &CharacterCatalog::empty(),
         Some(&cast),
@@ -86,6 +87,7 @@ fn a_character_without_locomotion_is_built_with_its_authored_vitals() {
 /// default capabilities: provoked and killed, neither exploded nor split.
 #[test]
 fn a_blueprint_body_is_built_with_its_authored_death_traits_and_weight() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let traits = ambition_characters::actor::CharacterDeathTraits {
         divides_into: Some("npc_puppy_slug".to_string()),
         ..Default::default()
@@ -94,7 +96,7 @@ fn a_blueprint_body_is_built_with_its_authored_death_traits_and_weight() {
     blueprint.death_traits = Some(&traits);
     blueprint.knockback_weight = Some(1.35);
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let seed = ActorClusterSeed::new_character_in(
+    let seed = ActorClusterSeed::new_character_in(&sprite_content,
         &Default::default(),
         &CharacterCatalog::empty(),
         "divider",

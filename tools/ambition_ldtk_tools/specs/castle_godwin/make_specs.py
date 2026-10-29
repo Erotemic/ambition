@@ -125,7 +125,7 @@ BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 5
 KIND = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound", ZOMBIE: "zombie", WARDEN: "warden",
         CRAWLER: "crawler", WOLF: "wolf"}
 
-SPRITES = TOOLS.parents[1] / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+SPRITES = TOOLS.parents[1] / "game/ambition_content_library/generated/runtime/sprites"
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
 PROP_PX = 2
 #: The doorway of the castle's front, in the art's world units: its left edge

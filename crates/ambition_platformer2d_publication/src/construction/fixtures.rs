@@ -186,7 +186,7 @@ pub fn duelling_room() -> (
     (room, staging)
 }
 
-pub fn prepare(
+pub fn prepare(sprite_content: &ambition_sprite_sheet::SpriteContent,
     room: &ambition_platformer2d_world::rooms::RoomSpec,
     staging: &crate::construction::RoomContentStagingRegistry,
     recipes: &ActorConstructionRegistry,
@@ -196,7 +196,7 @@ pub fn prepare(
         &Default::default(),
         staging,
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(
+        ActorConstructionContext::new(&sprite_content,
             recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
@@ -224,6 +224,7 @@ pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::Summo
 /// built can be handed to the SAME executor — see
 /// [`a_boss_the_construction_executor_built_can_summon`].
 pub fn insert_summon_resources(world: &mut World) {
+    world.init_resource::<ambition_sprite_sheet::SpriteContent>();
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
@@ -276,9 +277,9 @@ pub fn bare_request(id: &str) -> ActorConstructionRequest {
     }
 }
 
-pub fn test_services() -> ActorConstructionServices {
+pub fn test_services(sprite_content: &ambition_sprite_sheet::SpriteContent) -> ActorConstructionServices {
     ActorConstructionServices {
-        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(
+        context: ambition_platformer2d_construction::placements::ActorPlacementContext::new(&sprite_content,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -489,7 +490,7 @@ pub fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     room
 }
 
-pub fn prepare_with_placements(
+pub fn prepare_with_placements(sprite_content: &ambition_sprite_sheet::SpriteContent,
     room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
     RoomFeatureConstructionPlan::prepare(
@@ -497,7 +498,7 @@ pub fn prepare_with_placements(
         &placement_registry(),
         &crate::construction::RoomContentStagingRegistry::default(),
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(
+        ActorConstructionContext::new(&sprite_content,
             &engine_construction_registry(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),

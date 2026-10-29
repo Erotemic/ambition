@@ -37,7 +37,7 @@ import re
 import sys
 
 ASSETS = pathlib.Path(__file__).resolve().parents[1] / (
-    "crates/ambition_platformer2d_actor_monolith/assets"
+    "game/ambition_content_library/generated/runtime"
 )
 TIERS = ["sprites_0_5x", "sprites_0_25x", "sprites_potato"]
 #: A row must be trimmed on both sides to be comparable at all.

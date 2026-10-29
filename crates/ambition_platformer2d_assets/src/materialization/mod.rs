@@ -277,7 +277,7 @@ pub fn declare_registered_character_into(
 /// but the system below means an application that never calls it still gets its
 /// characters materialized.
 #[allow(clippy::too_many_arguments)]
-pub fn materialize_character_demand(
+pub fn materialize_character_demand(sprite_content: &ambition_sprite_sheet::SpriteContent,
     demand: &mut CharacterLoadDemand,
     states: &mut CharacterLoadStates,
     sprites: &mut CharacterSpriteAssets,
@@ -317,7 +317,7 @@ pub fn materialize_character_demand(
             );
             continue;
         }
-        let materialization = crate::character_sprites::materialize_declared_character_sprite(
+        let materialization = crate::character_sprites::materialize_declared_character_sprite(&sprite_content,
             sprites,
             authored_sheets,
             registry,
@@ -328,7 +328,7 @@ pub fn materialize_character_demand(
             &character_id,
         );
         let outcome = if materialization.is_ready() {
-            let owed = crate::character_sprites::demand_character_fx_sheets(
+            let owed = crate::character_sprites::demand_character_fx_sheets(&sprite_content,
                 fx,
                 registry,
                 &character_id,
@@ -546,7 +546,7 @@ pub fn demand_worn_character_sheets(
 /// tier it just failed. The in-use half stays stale until the ration reaches it,
 /// so this runs every frame of a transition; it requests each token once
 /// (pending tokens are skipped) and logs once per token set.
-pub fn converge_character_residency_to_active_quality(
+pub fn converge_character_residency_to_active_quality(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     // NOT `Res`: this writes. But it is READ first (see below), because a
     // `ResMut` deref-mut marks `GameAssets` changed for every reader downstream,
     // every frame, forever.
@@ -579,7 +579,7 @@ pub fn converge_character_residency_to_active_quality(
     let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
     // Read through the immutable deref: nothing is stale on almost every frame,
     // and taking the mutable borrow anyway would republish `GameAssets` at 60Hz.
-    let stale = assets.characters.stale_realizations(active);
+    let stale = assets.characters.stale_realizations(&sprite_content, active);
     if stale.is_empty() {
         return;
     }
@@ -614,7 +614,7 @@ pub fn converge_character_residency_to_active_quality(
         target: "ambition_platformer2d::character_sprites",
         "realizations stale at {active:?} or sheet generation {}: re-demanded {} in use \
          (kept drawable until re-realized), retired {} unworn",
-        ambition_sprite_sheet::baked_sheet_rons::current().id(),
+        ambition_sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
         re_demanded.len(),
         retired.len(),
     );
@@ -644,14 +644,14 @@ pub fn retire_previous_session_cast(
 /// The standing materializer. No-ops without an asset pipeline (headless, art-free
 /// shells) exactly like the room barrier does, so a sim-only build pays nothing.
 #[allow(clippy::too_many_arguments)]
-pub fn materialize_demanded_character_sheets(
+pub fn materialize_demanded_character_sheets(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     demand: Option<ResMut<CharacterLoadDemand>>,
     states: Option<ResMut<CharacterLoadStates>>,
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
     // Sheets this app's providers authored. REQUIRED like the catalog and for
     // the same reason: it is authority, and `Option<Res<..>>` on authority is
     // how a missing registration turns into a silent placeholder instead of a
-    // loud one. `SheetRegistryPlugin` initialises it, and the engine's own
+    // loud one. `SpriteContentPlugin` initialises it, and the engine's own
     // characters resolve identically when it is empty.
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // The prepared cast: the one answer to which sheet each character wears (see
@@ -707,7 +707,7 @@ pub fn materialize_demanded_character_sheets(
     );
     let budget = Some(quality.budget.clone());
     let assets = &mut *assets;
-    materialize_character_demand(
+    materialize_character_demand(&sprite_content,
         &mut demand,
         &mut states,
         &mut assets.characters,
@@ -750,7 +750,7 @@ impl Plugin for CharacterMaterializationPlugin {
             .init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .init_resource::<CharacterMaterializationService>()
             .init_resource::<audit::LateMatchCriticalArt>()
-            
+
             .add_systems(
                 sim,
                 // The move clock is the emitter this whole attribution exists for, so a
@@ -769,11 +769,11 @@ impl Plugin for CharacterMaterializationPlugin {
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
                     .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback),
             )
-            
-            
-            
-            
-            
+
+
+
+
+
             .add_systems(
                 Update,
                 (

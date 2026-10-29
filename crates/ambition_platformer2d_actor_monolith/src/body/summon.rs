@@ -189,7 +189,7 @@ pub fn apply_summon_effects(
     );
     let services = ambition_platformer2d_construction::ActorConstructionServices {
         context: {
-            let context = ambition_platformer2d_construction::placements::ActorPlacementContext::new(
+            let context = ambition_platformer2d_construction::placements::ActorPlacementContext::new(&generation.sprite_content,
                 &character_catalog,
                 // The generation's sheets, as every construction road reads
                 // them (`GenerationMechanics::sheets`).

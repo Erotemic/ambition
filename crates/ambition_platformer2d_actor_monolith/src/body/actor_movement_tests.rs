@@ -12,7 +12,7 @@ use ambition_combat::events::{FeatureCombatTuning};
 /// drives it. Peaceful actors are the SAME cluster as enemies now, so these
 /// tests drive `ActorMut::update` (via `update_for_test`) with a frame the
 /// catalog brain produced — exactly what `update_ecs_actors` does per tick.
-fn world_with_patrolling_npc(
+fn world_with_patrolling_npc(sprite_content: &ambition_sprite_sheet::SpriteContent,
     patrol_radius: f32,
 ) -> (
     ae::World,
@@ -44,7 +44,7 @@ fn world_with_patrolling_npc(
             brain_override: None,
         },
     );
-    let mut seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(&sprite_content,
         id.clone(),
         id.clone(),
         aabb,
@@ -171,7 +171,8 @@ fn tick_peaceful(
 /// true.
 #[test]
 fn npc_falls_to_floor_under_gravity() {
-    let (world, mut npc, mut brain, player) = world_with_patrolling_npc(0.0);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (world, mut npc, mut brain, player) = world_with_patrolling_npc(&sprite_content, 0.0);
     npc.kin.pos.y = 200.0;
     npc.spawn.pos.y = 200.0;
     for _ in 0..120 {
@@ -200,7 +201,8 @@ fn npc_falls_to_floor_under_gravity() {
 /// the radius).
 #[test]
 fn patrolling_npc_paces_within_radius() {
-    let (world, mut npc, mut brain, player) = world_with_patrolling_npc(96.0);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (world, mut npc, mut brain, player) = world_with_patrolling_npc(&sprite_content, 96.0);
     for _ in 0..30 {
         tick_peaceful(
             &mut npc,
@@ -246,7 +248,8 @@ fn patrolling_npc_paces_within_radius() {
 /// of how long the simulation runs.
 #[test]
 fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
-    let (world, mut npc, mut brain, player) = world_with_patrolling_npc(0.0);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (world, mut npc, mut brain, player) = world_with_patrolling_npc(&sprite_content, 0.0);
     let original_x = npc.kin.pos.x;
     for _ in 0..300 {
         tick_peaceful(
@@ -269,7 +272,8 @@ fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
 /// attack gate uses this to skip melee. Locks in "aggressiveness in the brain".
 #[test]
 fn peaceful_npc_brain_is_not_hostile() {
-    let (_, _npc, brain, _) = world_with_patrolling_npc(96.0);
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (_, _npc, brain, _) = world_with_patrolling_npc(&sprite_content, 96.0);
     assert!(
         !brain.is_hostile(),
         "peaceful NPC brain must report !is_hostile"
@@ -303,6 +307,7 @@ fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
 /// the position must stay on the safe side of the wall after one tick of forced chase.
 #[test]
 fn aerial_enemy_respects_world_collision_against_a_wall() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = ae::World::new(
         String::from("aerial_collision_test"),
         ae::Vec2::new(800.0, 600.0),
@@ -321,7 +326,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
         ],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 16.0));
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "shark_a",
         "Burning Flying Shark",
         aabb,
@@ -359,6 +364,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
 
 #[test]
 fn patrol_enemy_respects_world_collision_against_a_wall() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = ae::World::new(
         String::from("patrol_collision_test"),
         ae::Vec2::new(800.0, 600.0),
@@ -384,7 +390,7 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
         start_offset_seconds: 0.0,
     };
     let paths = vec![("skitter_path".to_string(), path)];
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "path_skitter",
         "path_skitter",
         aabb,
@@ -427,6 +433,7 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
 /// not decide that the body should reverse.
 #[test]
 fn sideways_wall_contact_is_reported_without_mutating_facing() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let gravity = ae::Vec2::new(1.0, 0.0);
     let world = ae::World::new(
         String::from("sideways_wall_contact"),
@@ -446,7 +453,7 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
         ],
     );
     let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "sideways_walker",
         "sideways_walker",
         aabb,
@@ -501,7 +508,7 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
 /// on moving platforms". Isolated by comparing a moving platform against an
 /// identical static one: the surface-crawl is the same in both, so the extra
 /// displacement is exactly the carry.
-fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
+fn slug_step_on_platform(sprite_content: &ambition_sprite_sheet::SpriteContent, platform_velocity: ae::Vec2) -> f32 {
     // A platform-shaped solid (BlinkWall, like real moving platforms) carrying
     // `platform_velocity`. Slug stands on its top.
     let mut platform = ae::Block::blink_wall(
@@ -518,7 +525,7 @@ fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
         vec![platform],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 492.0), ae::Vec2::new(10.0, 8.0));
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "slug",
         "PuppySlug",
         aabb,
@@ -552,8 +559,9 @@ fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
 
 #[test]
 fn a_surface_walker_rides_a_moving_platform() {
-    let static_dx = slug_step_on_platform(ae::Vec2::ZERO);
-    let moving_dx = slug_step_on_platform(ae::Vec2::new(5.0, 0.0));
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let static_dx = slug_step_on_platform(&sprite_content, ae::Vec2::ZERO);
+    let moving_dx = slug_step_on_platform(&sprite_content, ae::Vec2::new(5.0, 0.0));
     // The crawl is identical in both; the difference is the +5px platform carry.
     assert!(
         (moving_dx - static_dx - 5.0).abs() < 0.01,
@@ -567,6 +575,7 @@ fn a_surface_walker_rides_a_moving_platform() {
 /// knockback, and ranged muzzle all derive the body frame from it.
 #[test]
 fn a_normal_actor_surface_normal_tracks_live_gravity() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     for gravity_dir in [
         ae::Vec2::new(0.0, 1.0),
         ae::Vec2::new(0.0, -1.0),
@@ -584,7 +593,7 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
             )],
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(14.0, 23.0));
-        let mut enemy = ambition_body_seed::ActorClusterSeed::new(
+        let mut enemy = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
             "walker",
             "Goblin",
             aabb,
@@ -615,6 +624,7 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
 /// movement kernel decides whether that should change facing.
 #[test]
 fn movement_integration_does_not_auto_turn_at_a_wall() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = ae::World::new(
         String::from("wall"),
         ae::Vec2::new(2000.0, 2000.0),
@@ -633,7 +643,7 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
         ],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
-    let mut body = ambition_body_seed::ActorClusterSeed::new(
+    let mut body = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "walker",
         "Snake",
         aabb,
@@ -665,6 +675,7 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
 
 #[test]
 fn stopping_in_open_space_preserves_facing() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let world = ae::World::new(
         String::from("open_floor"),
         ae::Vec2::new(2000.0, 2000.0),
@@ -676,7 +687,7 @@ fn stopping_in_open_space_preserves_facing() {
         )],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
-    let mut body = ambition_body_seed::ActorClusterSeed::new(
+    let mut body = ambition_body_seed::ActorClusterSeed::new(&sprite_content,
         "fighter",
         "fighter",
         aabb,

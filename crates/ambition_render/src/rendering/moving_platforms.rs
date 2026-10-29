@@ -498,10 +498,11 @@ mod tests {
     /// its last frame.
     #[test]
     fn a_sheet_drawn_platform_loops_its_row() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSpriteAsset, SheetTuning};
         const SHARK: &str = "burning_flying_shark";
 
-        let spec = try_load_spec_for_target(SHARK, &SheetTuning::new(1.0, 0)).expect("the shark's baked sheet");
+        let spec = try_load_spec_for_target(&sprite_content, SHARK, &SheetTuning::new(1.0, 0)).expect("the shark's baked sheet");
         let slot = spec.clip_slot(["idle"]).expect("the shark's idle row");
         let idle = ambition_sprite_sheet::character::CharacterAnim::Idle;
         assert_eq!(spec.slot_for_anim(idle), slot, "premise: the idle row is the idle pose");
@@ -585,10 +586,11 @@ mod tests {
     /// behind its near rail).
     #[test]
     fn a_front_row_is_drawn_in_front_of_a_body_and_the_row_behind_it() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSpriteAsset, SheetTuning};
         const CART: &str = "intro_cart";
 
-        let spec = try_load_spec_for_target(CART, &SheetTuning::new(1.0, 0)).expect("the cart's baked sheet");
+        let spec = try_load_spec_for_target(&sprite_content, CART, &SheetTuning::new(1.0, 0)).expect("the cart's baked sheet");
         let (back, front) = (
             spec.clip_slot(["idle"]).expect("the cart's idle row"),
             spec.clip_slot(["front"]).expect("the cart's front row"),

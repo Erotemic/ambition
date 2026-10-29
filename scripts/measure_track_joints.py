@@ -34,7 +34,7 @@ sys.path.insert(0, str(REPO / "tools" / "ambition_sprite2d_renderer"))
 
 from ambition_sprite2d_renderer.authoring.part_flipbook import PartFlipbook  # noqa: E402
 
-SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
 
 NUMBER = r"(-?[\d.]+(?:e-?\d+)?)"
 POSE = re.compile(

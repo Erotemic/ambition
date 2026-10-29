@@ -14,7 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("crates/ambition_platformer2d_actor_monolith/assets/backgrounds"),
+        default=Path("game/ambition_content_library/generated/runtime/backgrounds"),
         help="Output root. Profiles are written below this directory. For Bevy, use the sandbox package asset root.",
     )
     parser.add_argument(

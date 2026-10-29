@@ -48,21 +48,22 @@ fn place_of(sim: &Platformer2dSimHarness, body: Entity) -> (i32, i32) {
 
 /// Build the home body of `seat` through the recipe, beside the primary body
 /// and in its room, from the inputs of the live session.
-fn build_the_home_body_of(sim: &mut Platformer2dSimHarness, seat: PlayerSlot) -> Entity {
-    build_a_home_body(sim, seat, ())
+fn build_the_home_body_of(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sim: &mut Platformer2dSimHarness, seat: PlayerSlot) -> Entity {
+    build_a_home_body(&sprite_content, sim, seat, ())
 }
 
 /// The same, with the markers the caller gives. A second body with the two
 /// primary markers is a world no production code builds: it is the fixture of
 /// `a_cancelled_restore_changes_nothing`, for a restore that cannot name its
 /// subject.
-pub(crate) fn build_a_home_body(
+pub(crate) fn build_a_home_body(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     sim: &mut Platformer2dSimHarness,
     seat: PlayerSlot,
     markers: impl Bundle,
 ) -> Entity {
     let primary = the_primary(sim);
     let mut markers = Some(markers);
+    let sprite_content = sprite_content.clone();
     let body = sim
         .world_mut()
         .run_system_once(
@@ -84,7 +85,7 @@ pub(crate) fn build_a_home_body(
                     .spawn_scope()
                     .expect("a session is live")
                     .in_room(room.map(|room| room.0));
-                spawn_home_body(
+                spawn_home_body(&sprite_content,
                     &mut commands,
                     scope,
                     HomeBody {
@@ -138,6 +139,7 @@ fn whose(sim: &Platformer2dSimHarness, body: Entity) -> Whose {
 /// `slot:0`, seat 0, both markers, and the only primary body.
 #[test]
 fn the_recipe_builds_the_body_of_a_second_seat_that_is_not_primary() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     let primary = the_primary(&mut sim);
@@ -149,7 +151,7 @@ fn the_recipe_builds_the_body_of_a_second_seat_that_is_not_primary() {
     );
     assert!(before.session.is_some(), "precondition: the session owns its primary body");
 
-    let second = build_the_home_body_of(&mut sim, PlayerSlot(1));
+    let second = build_the_home_body_of(&sprite_content, &mut sim, PlayerSlot(1));
     assert_eq!(
         whose(&sim, second),
         Whose {
@@ -180,11 +182,12 @@ fn the_recipe_builds_the_body_of_a_second_seat_that_is_not_primary() {
 /// Control: the restore moves the primary body, so the room was replayed.
 #[test]
 fn a_room_replay_keeps_the_home_body_of_a_second_seat() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     commit_a_checkpoint(&mut sim);
     let primary = the_primary(&mut sim);
-    let second = build_the_home_body_of(&mut sim, PlayerSlot(1));
+    let second = build_the_home_body_of(&sprite_content, &mut sim, PlayerSlot(1));
     sim.step_n(AgentAction::default(), 30);
     let health = sim.world().get::<BodyHealth>(second).map(|health| health.health.current);
 
@@ -236,12 +239,13 @@ fn a_room_replay_keeps_the_home_body_of_a_second_seat() {
 /// each. The second body has no input, so it does not walk.
 #[test]
 fn the_primary_body_walks_the_same_beside_a_second_home_body() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let walked = |with_a_second: bool| {
         let mut sim =
             Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
         sim.step_n(AgentAction::default(), 15);
         let primary = the_primary(&mut sim);
-        let second = with_a_second.then(|| build_the_home_body_of(&mut sim, PlayerSlot(1)));
+        let second = with_a_second.then(|| build_the_home_body_of(&sprite_content, &mut sim, PlayerSlot(1)));
         let start = place_of(&sim, primary);
         let second_start = second.map(|second| place_of(&sim, second));
         // Away from the second body, so the two do not touch.

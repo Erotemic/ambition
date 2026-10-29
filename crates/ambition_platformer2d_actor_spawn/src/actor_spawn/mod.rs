@@ -219,7 +219,7 @@ pub fn install_actor_spawn_requests(
 /// `apply_summon_effects`. The spawned entity's own systems are still
 /// gameplay-gated, so an actor placed during a transition just waits inert
 /// until play resumes.
-pub fn apply_spawn_actor_requests(
+pub fn apply_spawn_actor_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
@@ -260,7 +260,7 @@ pub fn apply_spawn_actor_requests(
             SpawnActorKind::Boss { .. } if cleared.is_cleared(&req.id) => RecordedFate::Dead,
             _ => RecordedFate::AsAuthored,
         };
-        let Some(entity) = spawn_staged_actor(
+        let Some(entity) = spawn_staged_actor(&sprite_content,
             &mut commands,
             &character_catalog,
             &authored_sheets,
@@ -292,7 +292,7 @@ pub fn apply_spawn_actor_requests(
 /// enemy by the caller's batch grudge map and could receive `ActorAggression`
 /// through `wire_staged_grudges` (: an in-recipe refusal is too
 /// late once the allocation belongs to the caller).
-pub fn spawn_staged_actor(
+pub fn spawn_staged_actor(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -330,7 +330,7 @@ pub fn spawn_staged_actor(
         }
     }
     let root = commands.spawn_empty().id();
-    spawn_staged_actor_into(
+    spawn_staged_actor_into(&sprite_content,
         &mut RootScope::new(commands, session_scope, root),
         character_catalog,
         authored_sheets,
@@ -344,7 +344,7 @@ pub fn spawn_staged_actor(
 
 /// Populate a staged actor onto a root the construction executor allocated.
 #[allow(clippy::too_many_arguments)]
-pub fn spawn_staged_actor_into(
+pub fn spawn_staged_actor_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -364,7 +364,7 @@ pub fn spawn_staged_actor_into(
                 brain.clone(),
             );
             // A runtime-staged boss stands in no authored room: never practice.
-            spawn_boss_with_overrides_into(
+            spawn_boss_with_overrides_into(&sprite_content,
                 &mut scope.reborrow(),
                 boss_catalog,
                 &authored,
@@ -403,7 +403,7 @@ pub fn spawn_staged_actor_into(
             // Staged outside the authored RoomSpec lists: mark it so the
             // renderer's runtime-visual discovery gives it a sprite, the same as
             // any authored enemy.
-            spawn_enemy_with_faction_into(
+            spawn_enemy_with_faction_into(&sprite_content,
                 &mut scope.reborrow(),
                 character_catalog,
                 authored_sheets,
@@ -621,7 +621,7 @@ pub(super) struct NpcActorSpawnPlan {
 
 impl NpcActorSpawnPlan {
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn peaceful(
+    pub(super) fn peaceful(sprite_content: &ambition_sprite_sheet::SpriteContent,
         catalog: &CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
@@ -691,7 +691,7 @@ impl NpcActorSpawnPlan {
         let provoked_baseline = authored_kit
             .cloned()
             .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
-        let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
+        let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
             authored_sheets,
             catalog,
             Some(prepared),
@@ -782,7 +782,7 @@ impl NpcActorSpawnPlan {
     /// Populate onto a root someone else allocated — the construction
     /// executor's shape, mirroring `EnemyActorSpawnPlan::spawn_into`.
     pub(super) fn spawn_into(
-        self,
+        self, sprite_content: &ambition_sprite_sheet::SpriteContent,
         scope: &mut RootScope,
         prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     ) -> Entity {
@@ -876,7 +876,7 @@ impl NpcActorSpawnPlan {
         if let Some(character) = worn {
             match prepared.get(&character) {
                 Some(definition) => {
-                    wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation())
+                    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation())
                 }
                 None => {
                     scope.insert(ambition_characters::actor::WornCharacter::new(character));
@@ -1024,7 +1024,7 @@ fn boss_actor_cluster(
 }
 
 /// Populate a boss onto a root the construction executor allocated.
-pub fn spawn_boss_with_overrides_into(
+pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     boss_catalog: &BossCatalog,
     authored: &ambition_platformer2d_world::rooms::Authored<
@@ -1037,7 +1037,7 @@ pub fn spawn_boss_with_overrides_into(
     // The placement it sleeps until is cleared (`RoomSpec::boss_successions`).
     wakes_after: Option<String>,
 ) {
-    let mut boss = BossClusterScratch::new(
+    let mut boss = BossClusterScratch::new(&sprite_content,
         boss_catalog,
         authored.id.clone(),
         authored.name.clone(),
@@ -1258,7 +1258,7 @@ pub fn spawn_boss_with_overrides_into(
     // The state the boss's provider keeps on it (a content conductor's
     // memory) goes on in this batch too, so no tick sees the boss without it.
     if let Some(kit) = boss_catalog.birth_kit(&encounter_id) {
-        kit(&mut scope.entity_scope(), &built_body);
+        kit.apply(&mut scope.entity_scope(), &built_body);
     }
     // Per-boss special-technique state (apple-rain accumulator, overfit-volley
     // samples, pit/cross/cascade gates, eye-beam lock) is now content-owned
@@ -1311,7 +1311,7 @@ pub fn summon_cast<'a>(
 /// room reset / boss despawn cleans it up alongside the boss.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
-pub fn spawn_runtime_minion(
+pub fn spawn_runtime_minion(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1330,7 +1330,7 @@ pub fn spawn_runtime_minion(
     aggression: ambition_combat::components::ActorAggression,
 ) -> bevy::ecs::entity::Entity {
     let root = commands.spawn_empty().id();
-    spawn_runtime_minion_into(
+    spawn_runtime_minion_into(&sprite_content,
         &mut RootScope::new(commands, session_scope, root),
         catalog,
         authored_sheets,
@@ -1351,7 +1351,7 @@ pub fn spawn_runtime_minion(
 
 /// Populate a summoned minion onto a root the construction executor allocated.
 #[allow(clippy::too_many_arguments)]
-pub fn spawn_runtime_minion_into(
+pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1404,7 +1404,7 @@ pub fn spawn_runtime_minion_into(
     // fact, and the copy did not agree ("Slop Lurker" for the character "Ai
     // Slop").
     let name = body.display_name.to_string();
-    let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
+    let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
         authored_sheets,
         catalog,
         id.clone(),
@@ -1482,7 +1482,7 @@ pub fn spawn_runtime_minion_into(
     // A summon wears its character like a placement does, so its identity is
     // `WornCharacter` rather than only the config's sprite id. The grant writes
     // no health or contact tuning, so the per-summon overrides above stand.
-    wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation());
+    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
     // The authored mount role captured above, on the body that now exists.
     if let Some(mount) = mount_role.as_ref() {
         attach_mount_role_from(
@@ -1495,7 +1495,7 @@ pub fn spawn_runtime_minion_into(
             &mount.ledges,
             &mount.drawn_ledges,
             mount.saddle_on.as_deref(),
-            published_surfaces_of(definition),
+            published_surfaces_of(&sprite_content, definition),
             &mount.slope,
             1.0,
             &mount.pilotable_classes,
@@ -1517,7 +1517,7 @@ pub fn spawn_runtime_minion_into(
 /// Answers to no match: the character's own feel is the whole answer (see
 /// `MatchRules::body_over`). An unregistered held item is a WARNING, not a
 /// refusal: the body is fine without it.
-fn wear_prepared_character(
+fn wear_prepared_character(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     definition: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
@@ -1535,7 +1535,7 @@ fn wear_prepared_character(
         }
         spec.map(HeldItem::new)
     });
-    crate::character_body::grant_prepared_character_body(
+    crate::character_body::grant_prepared_character_body(&sprite_content,
         &mut scope.entity_scope(),
         definition,
         generation,
@@ -1574,7 +1574,7 @@ pub const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::Respawn
 /// Populate an ordinary enemy onto a preallocated construction root. Giant
 /// limbs are explicit construction rows and use the giant host/limb paths.
 #[allow(clippy::too_many_arguments)]
-pub fn spawn_enemy_with_faction_into(
+pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1657,7 +1657,7 @@ pub fn spawn_enemy_with_faction_into(
                 ),
             }
         }
-        let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
+        let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
             authored_sheets,
             catalog,
             plan.context().feature_id.to_string(),
@@ -1716,7 +1716,7 @@ pub fn spawn_enemy_with_faction_into(
         }
         // IT WEARS ITSELF, so its kit comes from its character rather than from
         // `enemy.spec.melee`.
-        wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation());
+        wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
         //  a body that states no mount gets no role, and that is the whole
         // rule now. The other arm read the archetype row this placement's brain
         // key happened to name — which for every migrated character was the
@@ -1733,7 +1733,7 @@ pub fn spawn_enemy_with_faction_into(
                 &mount.ledges,
                 &mount.drawn_ledges,
                 mount.saddle_on.as_deref(),
-                published_surfaces_of(definition),
+                published_surfaces_of(&sprite_content, definition),
                 &mount.slope,
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
@@ -1889,7 +1889,7 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 /// The standing surfaces `definition`'s sheet publishes, at the scale its
 /// body is drawn at (`ambition_sprite_sheet::surfaces`), or `None` for a body
 /// that is not drawn from its sheet at an authored scale.
-fn published_surfaces_of(
+fn published_surfaces_of(sprite_content: &ambition_sprite_sheet::SpriteContent,
     definition: &ambition_characters::prepared::PreparedCharacterDefinition,
 ) -> Option<std::sync::Arc<ambition_characters::actor::SurfaceTable>> {
     let sheet = definition.sheet.as_deref()?;
@@ -1897,7 +1897,7 @@ fn published_surfaces_of(
     else {
         return None;
     };
-    ambition_sprite_sheet::surfaces::published_surfaces(sheet, world_per_pixel).map(std::sync::Arc::new)
+    ambition_sprite_sheet::surfaces::published_surfaces(&sprite_content, sheet, world_per_pixel).map(std::sync::Arc::new)
 }
 
 fn attach_mount_role_from(
@@ -2056,7 +2056,7 @@ fn npc_display_label(
     }
 }
 
-pub fn spawn_interactable_into(
+pub fn spawn_interactable_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -2097,7 +2097,7 @@ pub fn spawn_interactable_into(
         // SFX keying, and the `id_for_display_name` sprite-size lookup) depends
         // on this being the display name.
         let label = npc_display_label(prepared, interactable, authored_name);
-        let mut plan = NpcActorSpawnPlan::peaceful(
+        let mut plan = NpcActorSpawnPlan::peaceful(&sprite_content,
             catalog,
             authored_sheets,
             prepared,
@@ -2116,7 +2116,7 @@ pub fn spawn_interactable_into(
             RecordedFate::Provoked => plan.provoke(prepared),
             RecordedFate::AsAuthored => {}
         }
-        plan.spawn_into(&mut scope.reborrow(), prepared);
+        plan.spawn_into(&sprite_content, &mut scope.reborrow(), prepared);
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = ambition_encounter::SwitchActivation::parse_custom(payload) {
             scope.insert_session_scoped((
@@ -2150,7 +2150,7 @@ pub fn spawn_interactable_into(
 ///
 /// The encounter system still owns wave timing, but the mob itself is a normal
 /// feature entity queried by actor, projectile, rendering, and health systems.
-pub fn spawn_encounter_mob(
+pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -2212,7 +2212,7 @@ pub fn spawn_encounter_mob(
     //  AC6 removed the fallback rather than the silence.
     let mut enemy = match definition {
         Some(definition) => {
-            let enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
+            let enemy = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
                 authored_sheets,
                 catalog,
                 // The instance identity.  NOT the character: two goblins in one
@@ -2334,6 +2334,7 @@ mod runtime_giant_refusal_tests {
     #[test]
     fn a_refused_programmatic_giant_allocates_no_entity() {
         let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_message::<SpawnActorRequest>();
         //  the giant is a CHARACTER that states its mount class — the
         // only authority on limbs since AC6, where this used to publish a

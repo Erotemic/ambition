@@ -563,9 +563,9 @@ fn jaw_from_him(sim: &mut Platformer2dSimHarness, rig: &ambition_platformer2d::c
 
 /// Give him a rig whose `jaw` attachment is `along` sheet pixels farther
 /// along his jaw: what a redraw that moves the point publishes.
-fn move_the_jaw_of_his_rig(sim: &mut Platformer2dSimHarness, along: f32) {
+fn move_the_jaw_of_his_rig(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sim: &mut Platformer2dSimHarness, along: f32) {
     use ambition_platformer2d::combat::body_rig::BodyRig;
-    let text = ambition_platformer2d::sprite_sheet::baked_body_rigs::baked_body_rig("trex_enemy").expect("his published rig");
+    let text = ambition_platformer2d::sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, "trex_enemy").expect("his published rig");
     let mut rig = ambition_platformer2d::characters::actor::BodyRigDefinition::from_published_ron(text).expect("his rig parses");
     let jaw = rig.attachments.iter_mut().find(|point| point.name == "jaw").expect("his rig states a `jaw` attachment");
     jaw.offset.0 += along;
@@ -590,6 +590,7 @@ fn move_the_jaw_of_his_rig(sim: &mut Platformer2dSimHarness, along: f32) {
 /// line of his conductor names where his jaw is.
 #[test]
 fn the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut sim = arena();
     untouchable_player(&mut sim, true);
     wound(&mut sim, 0.5);
@@ -630,7 +631,7 @@ fn the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is() {
 
     // A redraw moves the point 40 sheet pixels along his jaw.
     let drawn = his_rig(&mut sim);
-    move_the_jaw_of_his_rig(&mut sim, 40.0);
+    move_the_jaw_of_his_rig(&sprite_content, &mut sim, 40.0);
     // The pose is solved again when its frame changes; a frame is 4 ticks.
     for _ in 0..8 {
         sim.step(AgentAction::default());
@@ -1017,4 +1018,3 @@ fn walking_back_in_on_him_dead_is_silent() {
     assert!(saw_him, "premise: he lies dead in the arena when the player walks back in");
     assert_eq!(wails, 0, "walking back in on him dead, he wailed {wails} times");
 }
-

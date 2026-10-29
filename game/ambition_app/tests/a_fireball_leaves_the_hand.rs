@@ -82,12 +82,13 @@ fn tap_the_ranged_button(sim: &mut Platformer2dSimHarness) -> Tap {
 
 #[test]
 fn a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut sim = fixed_60hz_sim();
     let tap = tap_the_ranged_button(&mut sim);
     let facing = tap.body.facing.signum();
     let hand = art_point_in_world(
         &tap.body,
-        drawn_at(&tap.sheet.target, &["shoot", "idle"], "near_hand", |_| 0),
+        drawn_at(&sprite_content, &tap.sheet.target, &["shoot", "idle"], "near_hand", |_| 0),
         tap.sheet.world_per_pixel,
     );
     let feet_y = tap.body.pos.y + tap.body.size.y * 0.5;
@@ -151,6 +152,7 @@ fn a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it() {
 /// near hand is born behind the body's back.
 #[test]
 fn art_that_reaches_with_its_far_hand_fires_from_that_hand() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     const TARGET: &str = "player_robot_v2";
@@ -197,7 +199,7 @@ fn art_that_reaches_with_its_far_hand_fires_from_that_hand() {
     let at_hand = |track: &str| {
         let hand = art_point_in_world(
             &body,
-            drawn_at(&sheet.target, &["shoot", "idle"], track, |_| 0),
+            drawn_at(&sprite_content, &sheet.target, &["shoot", "idle"], track, |_| 0),
             sheet.world_per_pixel,
         );
         let feet_y = body.pos.y + body.size.y * 0.5;

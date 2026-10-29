@@ -171,6 +171,8 @@ tempfile = "3"
 yarnspinner = "0.9"
 
 # ONE aggregated integration-test binary instead of 6. See tests/content_it.rs.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support"] }
+
 [[test]]
 name = "content_it"
 path = "tests/content_it.rs"

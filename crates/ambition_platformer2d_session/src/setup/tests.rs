@@ -9,17 +9,18 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 #[derive(Resource, Default)]
 struct BuiltBody(Option<SimulationWorld>);
 
-fn build_body(
+fn build_body(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     setup: LiveInitialBodySetup,
     world: SoleLiveRoom<RoomGeometry>,
     mut built: ResMut<BuiltBody>,
 ) {
-    built.0 = Some(setup.spawn(&mut commands, SessionSpawnScope::UNSCOPED, &world, "alpha"));
+    built.0 = Some(setup.spawn(&sprite_content, &mut commands, SessionSpawnScope::UNSCOPED, &world, "alpha"));
 }
 
 fn app(policy: crate::initial_body::InitialBodyPolicy) -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::SpriteContent::default());
     app.init_resource::<ae::ActiveMovementTuning>()
         .init_resource::<BuiltBody>();
     insert_session_world_component(app.world_mut(), policy);
@@ -38,6 +39,7 @@ fn app(policy: crate::initial_body::InitialBodyPolicy) -> App {
 
 fn cast(health: i32) -> PreparedCharacterRegistry {
     let mut app = App::new();
+    app.insert_resource(ambition_sprite_sheet::SpriteContent::default());
     let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "alpha", "Alpha", "fixture",
     );

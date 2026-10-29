@@ -12,8 +12,8 @@ fn shipped_characters() -> CharacterCatalog {
     )
 }
 
-fn gnu_ton() -> BossClusterScratch {
-    BossClusterScratch::new(
+fn gnu_ton(sprite_content: &ambition_sprite_sheet::SpriteContent) -> BossClusterScratch {
+    BossClusterScratch::new(&sprite_content,
         crate::test_boss_catalog(),
         "gnu_ton",
         "GNU-ton",
@@ -28,8 +28,9 @@ fn gnu_ton() -> BossClusterScratch {
 /// row's order, and the same boss with no voice says nothing.
 #[test]
 fn a_boss_speaks_the_barks_of_the_character_its_encounter_names() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let characters = shipped_characters();
-    let boss = gnu_ton();
+    let boss = gnu_ton(&sprite_content);
     let voice = boss
         .config
         .seed
@@ -50,7 +51,7 @@ fn a_boss_speaks_the_barks_of_the_character_its_encounter_names() {
     }
     assert_eq!(boss.config.bark(&characters, BarkSituation::OnHit, 0), Some("Counterfeit."));
 
-    let mut silent = gnu_ton();
+    let mut silent = gnu_ton(&sprite_content);
     silent.config.seed.encounter.voice = None;
     assert_eq!(silent.config.bark(&characters, BarkSituation::OnHit, 0), None);
 }

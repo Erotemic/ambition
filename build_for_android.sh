@@ -42,8 +42,6 @@ Options:
   --no-default-features  Disable default features (default for Android builds).
   --static-map           Add static_map to the Android cargo features.
   --no-static-map        Remove static_map from the Android cargo features.
-  --static-sfx-bank      Embed assets/audio/sfx.bank into the native library.
-  --no-static-sfx-bank   Do not embed assets/audio/sfx.bank (default is auto).
   --strip                Strip the final native library after cargo-ndk (default).
   --no-strip             Do not strip the final native library.
   --size-report          Print native/APK size diagnostics. Enabled by --size-profile.
@@ -382,8 +380,6 @@ FEATURES="android_dev"
 USE_DEFAULT_FEATURES=false
 STRIP_NATIVE=true
 SIZE_REPORT=false
-STATIC_SFX_BANK="auto"
-STATIC_SFX_BANK_PATH=""
 DEVICE_SERIAL=""
 GRADLE_USER_HOME_ARG=""
 FOLLOW_LOGS="auto"
@@ -422,8 +418,6 @@ while [[ $# -gt 0 ]]; do
         --no-default-features) USE_DEFAULT_FEATURES=false ;;
         --static-map) add_feature static_map ;;
         --no-static-map) remove_feature static_map ;;
-        --static-sfx-bank) STATIC_SFX_BANK=true ;;
-        --no-static-sfx-bank) STATIC_SFX_BANK=false; remove_feature static_sfx_bank ;;
         --strip) STRIP_NATIVE=true ;;
         --no-strip) STRIP_NATIVE=false ;;
         --size-report) SIZE_REPORT=true ;;
@@ -527,30 +521,6 @@ if [[ -n "$EMULATOR_NAME" ]]; then
     fi
 fi
 
-DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank"
-if [[ -n "${AMBITION_SFX_BANK_PATH:-}" ]]; then
-    DEFAULT_SFX_BANK_PATH="$AMBITION_SFX_BANK_PATH"
-fi
-case "$STATIC_SFX_BANK" in
-    true)
-        [[ -f "$DEFAULT_SFX_BANK_PATH" ]] || fatal "--static-sfx-bank requested but no sfx bank exists at $DEFAULT_SFX_BANK_PATH. Generate it first, or use --no-static-sfx-bank."
-        STATIC_SFX_BANK_PATH="$DEFAULT_SFX_BANK_PATH"
-        add_feature static_sfx_bank
-        ;;
-    false)
-        remove_feature static_sfx_bank
-        ;;
-    auto)
-        if [[ -f "$DEFAULT_SFX_BANK_PATH" ]]; then
-            STATIC_SFX_BANK_PATH="$DEFAULT_SFX_BANK_PATH"
-            add_feature static_sfx_bank
-        else
-            remove_feature static_sfx_bank
-        fi
-        ;;
-    *) fatal "internal error: bad STATIC_SFX_BANK value: $STATIC_SFX_BANK" ;;
-esac
-
 log "repo: $ROOT"
 log "sdk: $SDK_ROOT"
 log "ndk: $NDK_ROOT"
@@ -560,11 +530,6 @@ log "Rust profile: $RUST_PROFILE  Android APK build type: $APK_BUILD_TYPE"
 log "default features: $USE_DEFAULT_FEATURES"
 log "features: ${FEATURES:-<default only>}"
 log "strip native library: $STRIP_NATIVE  size report: $SIZE_REPORT"
-if [[ -n "$STATIC_SFX_BANK_PATH" ]]; then
-    log "static sfx bank: $STATIC_SFX_BANK_PATH ($(human_size "$STATIC_SFX_BANK_PATH"))"
-else
-    log "static sfx bank: disabled (no bank found at $DEFAULT_SFX_BANK_PATH)"
-fi
 log "app id: $APP_ID"
 if [[ "$FOLLOW_LOGS" == true ]]; then
     log "logcat filter: $LOG_FILTER"
@@ -865,11 +830,7 @@ if [[ -n "$FEATURES" ]]; then
 fi
 
 log "building Rust shared library"
-if [[ -n "$STATIC_SFX_BANK_PATH" ]]; then
-    AMBITION_ANDROID_APP_ID="$APP_ID" AMBITION_STATIC_SFX_BANK_PATH="$STATIC_SFX_BANK_PATH" "${CARGO_NDK_ARGS[@]}"
-else
-    AMBITION_ANDROID_APP_ID="$APP_ID" "${CARGO_NDK_ARGS[@]}"
-fi
+AMBITION_ANDROID_APP_ID="$APP_ID" "${CARGO_NDK_ARGS[@]}"
 
 SO_PATH="$JNI_OUT/$TARGET_ABI/lib$ANDROID_NATIVE_LIB_NAME.so"
 copy_libcxx_shared "$TARGET_ABI" "$JNI_OUT/$TARGET_ABI"

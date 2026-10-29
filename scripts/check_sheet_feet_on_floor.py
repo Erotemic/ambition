@@ -38,7 +38,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "tools/ambition_sprite2d_renderer"))
 from ambition_sprite2d_renderer.core.equivalence import parse_ron  # noqa: E402
 
-SPRITES = REPO / "crates/ambition_platformer2d_actor_monolith/assets/sprites"
+SPRITES = REPO / "game/ambition_content_library/generated/runtime/sprites"
 
 #: The least alpha of paint that is part of the figure.
 SOLID = 192

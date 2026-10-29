@@ -88,6 +88,7 @@ mod tests {
     /// owned and the height wrong the next time a crop moves.
     #[test]
     fn v3s_body_is_his_sheets_and_he_still_stands_at_the_authored_height() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_characters::actor::definition::BodySource;
 
         let app = prepared_cast();
@@ -100,7 +101,7 @@ mod tests {
             );
         };
         let pixels =
-            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
+            ambition_platformer2d::character_sprites::authored_body_pixel_size(&sprite_content, "player_robot_v3")
                 .expect("v3's sheet publishes an AUTHORED body box, not a measured alpha bbox");
         let standing = pixels * world_per_pixel;
         assert!(
@@ -112,9 +113,9 @@ mod tests {
         );
     }
 
-    fn v3_standing_body() -> ambition_platformer2d_core::Vec2 {
+    fn v3_standing_body(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> ambition_platformer2d_core::Vec2 {
         let pixels =
-            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
+            ambition_platformer2d::character_sprites::authored_body_pixel_size(&sprite_content, "player_robot_v3")
                 .expect("v3's sheet authors a body box");
         pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y)
     }
@@ -128,6 +129,7 @@ mod tests {
     /// with, not which numbers went in.
     #[test]
     fn a_crouching_robots_hurtbox_stays_inside_a_crouching_robot() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_combat::hurtbox_resolution::POSE_CROUCH;
         use ambition_entity_catalog::VolumeShape;
 
@@ -136,7 +138,7 @@ mod tests {
             .hurtboxes
             .as_ref()
             .expect("v3 authors a hurtbox");
-        let standing = v3_standing_body();
+        let standing = v3_standing_body(&sprite_content);
         for (pose, body) in [
             (None, standing),
             (
@@ -179,6 +181,7 @@ mod tests {
     /// what the unauthored fallback does.
     #[test]
     fn v3s_hurtbox_is_smaller_than_his_collision_box_on_every_edge() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_entity_catalog::VolumeShape;
 
         let app = prepared_cast();
@@ -197,7 +200,7 @@ mod tests {
         else {
             panic!("the torso is a rect: {:?}", volumes[0].shape);
         };
-        let body = v3_standing_body();
+        let body = v3_standing_body(&sprite_content);
         for (axis, off, half, body_half) in [
             ("x", offset.0, half_extents.0, body.x * 0.5),
             ("y", offset.1, half_extents.1, body.y * 0.5),
@@ -232,6 +235,7 @@ mod tests {
     /// states `posed_body`, so this checks the row against its sheet.
     #[test]
     fn an_incarnation_built_on_its_art_has_a_sheet_that_authors_its_body_box() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_characters::actor::definition::BodySource;
         use ambition_platformer2d::character_sprites::authored_body_pixel_size;
 
@@ -243,7 +247,7 @@ mod tests {
             }
             built_on_art += 1;
             assert!(
-                authored_body_pixel_size(id).is_some(),
+                authored_body_pixel_size(&sprite_content, id).is_some(),
                 "'{id}' is built on a box its sheet only measured, so its body \
                  includes the outstretched arms",
             );
@@ -271,9 +275,10 @@ mod tests {
     /// (see above) — this box only has to clear the antenna.
     #[test]
     fn v3s_authored_body_box_is_inset_from_his_drawn_silhouette() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::sheets;
 
-        let record = sheets::record_for_sheet_key("player_robot_v3")
+        let record = sheets::record_for_sheet_key(&sprite_content, "player_robot_v3")
             .expect("v3's spritesheet is baked into the sheet index");
         let metrics = record
             .body_metrics
@@ -361,6 +366,7 @@ mod tests {
     /// three characters.
     #[test]
     fn every_incarnation_resolves_its_own_distinct_sheet() {
+    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
         use ambition_sprite_sheet::character::sheets;
 
         let app = prepared_cast();
@@ -372,7 +378,7 @@ mod tests {
                 .clone()
                 .expect("every incarnation names a sheet target");
             assert!(
-                sheets::record_for_sheet_key(&sheet).is_some(),
+                sheets::record_for_sheet_key(&sprite_content, &sheet).is_some(),
                 "incarnation '{id}' names sheet target '{sheet}', which resolves to \
                  nothing — it would draw the marked placeholder",
             );

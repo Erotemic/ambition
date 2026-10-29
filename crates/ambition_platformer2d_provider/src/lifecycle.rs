@@ -1450,16 +1450,12 @@ fn canonical<T>(
         .transpose()
 }
 
-/// The content-identity section that holds
-/// [`MechanicalRegistries::sprite_content`].
+/// The identity section for the selected sprite mechanics.
 pub const SPRITE_MECHANICS_SECTION: &str = "sprites.mechanics";
 
 #[derive(Clone, Debug, Default)]
 pub struct MechanicalRegistries {
-    /// Canonical descriptor-only dump of every installed construction domain.
-    /// Executable recipe dispatch remains typed and closed inside each domain;
-    /// the fingerprint needs only stable schema metadata, never function
-    /// pointers.
+    /// Stable construction schema metadata. Typed dispatch stays in its owner.
     pub construction_recipes: Option<String>,
     /// The selected authored content pack's identity.
     pub content_pack: Option<String>,
@@ -2049,7 +2045,7 @@ pub struct CandidateSessionGateEvaluator(
 /// `Hold`/`Admit`/`Refuse` at the moment of activation, inside the router's own
 /// exclusive operation. This provider is simply another answerer.
 #[allow(clippy::too_many_arguments)]
-fn prepare_candidate_platformer_session(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
+fn prepare_candidate_platformer_session(
     router: Res<ambition_game_shell::ShellRouter>,
     routes: Res<ambition_game_shell::ShellRouteCatalog>,
     authored_catalogs: Res<PlatformerAuthoredCatalogRegistry>,
@@ -2120,7 +2116,7 @@ fn prepare_candidate_platformer_session(sprite_content: bevy::prelude::Res<ambit
     let scope = active_scope.reserve();
     reserved.reserve(activation_id, scope);
     let default_character = prepared.report.starting_character.clone();
-    let candidate = builder.build_candidate(&sprite_content,
+    let candidate = builder.build_candidate(
         activation_id,
         &experience_id,
         scope,
@@ -2435,7 +2431,7 @@ impl PlatformerSessionBuilder<'_, '_> {
     /// activation, which is also where the shell facts a candidate cannot know
     /// (`GameplaySessionWorldRoot`) go on.
     pub fn build_candidate(
-        &mut self, sprite_content: &ambition_sprite_sheet::SpriteContent,
+        &mut self,
         activation_id: ambition_game_shell::ShellActivationId,
         experience_id: &ambition_game_shell::ShellExperienceId,
         scope: SessionScopeId,
@@ -2670,7 +2666,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 boss_catalog: &mechanical.bosses,
             },
         );
-        let built = ambition_platformer2d_session::setup::simulation_world(&sprite_content,
+        let built = ambition_platformer2d_session::setup::simulation_world(&mechanical.sprite_content,
             &mut self.commands,
             SessionSpawnScope::candidate(scope),
             ambition_platformer2d_session::setup::SimulationSetup {

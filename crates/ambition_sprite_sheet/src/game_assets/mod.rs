@@ -673,30 +673,14 @@ pub struct GameAssets {
 
 /// Decoded FX spritesheets, keyed by manifest target.
 ///
-/// A `'static` key because the engine's effect sheets are declared in
-/// [`crate::fx::fx_sheets`], not discovered from content — the set is a
-/// property of the build, not of the loaded world.
+/// Keys are interned metadata identities. The selected content supplies
+/// the effect vocabulary.
 #[derive(Default, Clone)]
 pub struct FxSheetAssets {
     sheets: HashMap<&'static str, CharacterSpriteAsset>,
-    /// Where the sheets live (`{sprite_folder}/{target}_spritesheet.png`),
-    /// remembered at boot so a character-owned sheet can be demanded later
-    /// without the asset config in hand.
-    sprite_folder: String,
 }
 
 impl FxSheetAssets {
-    pub fn with_sprite_folder(sprite_folder: impl Into<String>) -> Self {
-        Self {
-            sheets: HashMap::default(),
-            sprite_folder: sprite_folder.into(),
-        }
-    }
-
-    pub fn sprite_folder(&self) -> &str {
-        &self.sprite_folder
-    }
-
     pub fn insert(&mut self, target: &'static str, asset: CharacterSpriteAsset) {
         self.sheets.insert(target, asset);
     }

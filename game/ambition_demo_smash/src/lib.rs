@@ -1699,7 +1699,7 @@ fn reset_select_frontend_on_arrival(
 /// Spawn/despawn the select UI from route state. This owns presentation
 /// lifetime only; seat policy and frontend-state reset live in the two systems
 /// above.
-fn present_select_screen_ui(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
+fn present_select_screen_ui(
     commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
@@ -1712,7 +1712,7 @@ fn present_select_screen_ui(sprite_content: bevy::prelude::Res<ambition_platform
     >,
 ) {
     if on_the_select_route(&router) {
-        select_screen::spawn_select_screen(sprite_content,
+        select_screen::spawn_select_screen(
             commands,
             existing,
             fighters,

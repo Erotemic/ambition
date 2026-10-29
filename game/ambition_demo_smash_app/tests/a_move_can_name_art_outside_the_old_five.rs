@@ -23,7 +23,7 @@ fn a_move_names_art_outside_the_old_five_and_the_whole_chain_resolves() {
 
     // 2. The art, and 3. the sound, both addressed by the same name.
     let effect = authored_effect(&sprite_content, "sonic_boom").expect("generic_exotic_fx ships it");
-    assert_eq!(effect.sheet, "generic_exotic_fx");
+    assert_eq!(effect.sheet, "content://ambition_shared/sprites/generic_exotic_fx");
     assert_eq!(effect.cue, "vfx.generic_exotic.sonic_boom");
     assert_eq!(
         ambition_platformer2d::render::fx::effect_cue(&sprite_content, ambition_platformer2d::vfx::FxId::new(

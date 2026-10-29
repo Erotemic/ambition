@@ -82,9 +82,6 @@ fn phase(app: &mut App) -> Option<SanicActPhase> {
 #[test]
 fn holding_right_reaches_the_goal_and_clears_the_act() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),

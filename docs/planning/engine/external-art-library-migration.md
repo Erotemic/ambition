@@ -17,7 +17,7 @@ Generated assets are not checked in. Source files, runtime products, review
 products, and quality tiers have named
 roots. The engine owns formats and execution. Libraries own named content.
 
-## Current defects
+## Problems addressed
 
 The asset source installer adds an implicit monolith fallback. Engine build
 scripts select named art. Sprite metadata, rigs, landmarks, portraits, and
@@ -51,59 +51,68 @@ validator arguments. The sheet mechanics digest is not in session identity
 
 ## Progress
 
-The implementation checkpoint contains:
+Implementation checkpoint: `e1ad49163`. Main integration: `a03796df6`.
+The shared library is optional, selected by game packs, and stored under
+`game/ambition_content_library`. Generated products are ignored.
 
-- An optional library manifest, explicit pack imports, role roots, a semantic
-  catalog, source ownership, and game-owned static embedding.
-- Shared authored data under `game/ambition_content_library/authored`. Generated
-  products moved on disk under its ignored `generated/` root. No generated
-  product is staged. Engine shaders remain with their rendering owner.
-- Qualified file references and refusal of implicit overrides. Native readers,
-  static builds, inspection, generation, and packaging use library selection.
-- Immutable `SpriteContent` values owned by each App and retained by sessions.
-  Geometry, rigs, landmarks, portraits, parts, effects, and quality lookups use
-  that context. The old process-wide selection and duplicate registries are
-  removed.
-- One sprite mechanical identity section for session and peer identity. Image
-  packing and quality products do not change that section.
-- Joint file and metadata reload admission. Invalid candidates retain the
-  accepted selection. Mechanical changes wait for the session boundary.
-- Owned generation payloads. A repeated preparation probe retained about
-  140 MB per call before the fix. After the fix, RSS stabilized near 171 MB
-  across three calls. A weak-reference test verifies generation release.
+The engine no longer selects named art or embeds the shared library. Source
+readers, generation, inspection, static embedding, and packaging use declared
+libraries. Qualified references retain their library identity. Ambiguous short
+references are refused.
 
-Verification at this checkpoint:
+Each App owns an immutable `SpriteContent` generation. Sessions retain their
+admitted geometry. Files and metadata advance together. Failed candidates keep
+the accepted selection. Q157 is complete: one mechanical projection includes
+sheet geometry, rigs, landmarks, and portrait vocabulary. Image packing and
+quality products do not change simulation identity.
 
-- Workspace library test targets compile. The first broad run completed.
-  Focused reruns cleared the migrated content, actor, combat, construction,
-  view, and metadata fixture failures.
-- Sprite owner tests, seven scope tests, three native reload tests, four font
-  tests, and provider identity tests passed before the latest fixture cleanup.
+The follow-up fixes immutable image lookup and qualified FX loading. FX images
+and frame rectangles now come from matching tier metadata. Candidate construction
+and encounter spawns use the session's frozen generation. The old FX folder
+cache is removed.
+
+Verification:
+
+- All workspace test targets typecheck. All 35 workspace policy tests pass.
+- The assembled native app passes 21 art-resolution and edit-to-play tests.
+  The visible app's two-room HUD activation test passes.
+- Provider tests (46), sprite scope tests (7), native reload tests (3), font
+  tests (4), and five focused rendering acceptance tests pass.
 - Sixty-two focused renderer, publication, provenance, inspector, quality,
-  symlink, and package tests passed.
-- Remaining failures: the app's two-room HUD activation test, two parallax
-  fixture catalogs, one qualified rig assertion, and the existing New Game
-  checkpoint assertion. The parallax and rig fixtures have fixes pending their
-  rerun. `origin/main` has a checkpoint restoration fix to integrate.
-- The broad tooling sweep also found unrelated music registry drift and stale
-  repository policy baselines. The sweep was stopped after collecting failures.
+  symlink, and package tests pass.
+- A source-only checkout simulation lists 466 publication units in 2.69 s.
+  It creates no generated directory. Exact packed page membership still needs
+  layout resolution.
+- The repeated preparation leak is fixed. RSS stabilized near 171 MB across
+  three preparations instead of retaining about 140 MB per preparation.
+  A weak-reference test verifies release after the last session drops.
 
 ## Remaining work
 
-1. Merge `origin/main` with the implementation checkpoint. Preserve user edits
-   in the map submodule and `scripts/audit_test_corpus.py`.
-2. Complete assembled native and static checks, source-export and edit-to-play
-   integration tests, current-game art acceptance, and workspace policy checks.
-   Diagnose the HUD activation failure. Run focused reruns for fixed failures.
-3. Verify generation under the new descriptor, including quality freshness.
-   Do not check in generated assets. Publish the verified migration.
-4. Measure repeated preparation cost as a separate optimization pass. The
-   lifetime leak was a correctness blocker; its remaining CPU cost is not.
+1. Push the acceptance fixes. The broad Smash host run passed 51 tests; its
+   one old unqualified-name assertion now passes on focused rerun. The isolated
+   session check and the assembled static check pass. All 53 absence contracts
+   pass.
+2. Commit and push the acceptance fixes. Refresh local sprite and quality
+   products under the new recipes. All 470 preserved bundles report stale
+   recipe paths; their payloads remain intact. Do not commit generated assets.
+3. Complete a visual capture, package checks, and quality freshness checks.
+   Record any unrelated baseline failures separately. Merge new `origin/main`
+   changes, if present, and push the final receipt.
+4. Keep performance work separate from the source migration. The quality entry
+   point now uses the publisher's existing worker limit and accepts `--jobs`.
+   The primary sprite publisher already used that limit.
 
 ## Resume
 
-Inspect Git status, this page, and `docs/tools/sprite-publication.md`. The first
-broad library test log is `/tmp/ambition-library-workspace-lib-tests.log`.
-Focused rerun logs use `/tmp/ambition-library-rerun-<crate>.log`.
-The source checkpoint is not a completed acceptance receipt. Replace this page's
-progress details with a short receipt when the remaining work is complete.
+Inspect Git status, this page, and `docs/tools/sprite-publication.md`.
+Preserve user edits in the map submodule and `scripts/audit_test_corpus.py`.
+The latest gate logs are `/tmp/ambition-library-last-*.log` and
+`/tmp/ambition-library-commit-*.log`. The latter batch stopped on an isolated
+session fixture's undeclared test feature. That fixture now uses an empty
+library selection, which is sufficient for its music-path claim.
+
+The target volume filled during verification. Only this migration's compiled
+test binaries and recent incremental sessions were removed. The cleanup record
+is `.agent/library-build-cleanup.json`. Check target storage before another
+large feature-cell build. Never delete another worktree's data.

@@ -7961,7 +7961,7 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
 #[test]
 fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
     use ambition_platformer2d::character::{
-        portrait_for_declared_character, CharacterCatalog, PortraitSheetRegistry,
+        portrait_for_declared_character, CharacterCatalog,
     };
     use ambition_platformer2d::presentation::HudReadouts;
 

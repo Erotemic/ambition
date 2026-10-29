@@ -673,7 +673,7 @@ fn releasing_a_seat_keeps_the_active_move_on_its_original_body() {
 #[test]
 fn possession_handoffs_do_not_advance_a_free_body_twice() {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
-    let (mut sim, homes, targets, _) = possess_two_seats(false);
+    let (mut sim, homes, targets, _) = possess_two_seats(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), false);
     let bodies = [homes[0], homes[1], targets[0], targets[1]];
     let start = player_pos(sim.world_mut());
     let neutral = ae::ControlFrame::default();

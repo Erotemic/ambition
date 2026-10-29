@@ -2622,49 +2622,17 @@ the door to 192 px. It never went into the door's zone. The control now asks
 what the door acts on: the dog's box never overlaps the door's zone, and the
 dog stays in the hub.
 
-### BAKED-SHEET-IDENTITY — a body's collision box is outside the content identity
+### BAKED-SHEET-IDENTITY — DONE
 
-**Owner:** `ambition_sprite_sheet` (the baked sheet index) and
-`ambition_platformer2d_provider` (`MechanicalRegistries`).
+**Fixed:** `e1ad49163` gives each selected sprite generation one mechanical
+projection. Both provider roads bind it through `sprites.mechanics`.
+It includes sheet geometry, rigs, landmarks, and portrait vocabulary.
 
-**Current failure (read 2026-10-05, not poisoned):** a sprite-authored body
-takes its collision box, its per-pose boxes and its attack polygons from the
-baked sheet index (`record_for_sheet_key`: `sprite_body_collision_for_sheet`,
-`posed_body_geometry`). The index is `baked_sheet_rons::sheet_rons()` (compiled in under
-`static_content`, read from the published tree at startup in a development
-build since 2026-10-11), held behind a process `OnceLock`. No content-identity section reads it:
-`characters.authored-sheets` is `AuthoredSheets::deterministic_dump`, which
-holds only the sheets a provider registers (one production caller,
-`room_transition_assets.rs`). Published sprites are not in version control,
-so two machines at one revision can hold different body metrics under one
-content fingerprint. A rollback timeline contract that compares the
-fingerprint then accepts a peer whose bodies are a different size.
+**Guards:** provider identity tests and sprite scope tests distinguish changed
+geometry from image packing and quality changes.
 
-**Blocked by:** nothing (ruled 2026-10-19: a difference refuses).
-
-**Not the fix:** a digest of each sheet's text. It also changes when only the
-atlas packing changes.
-
-**The projection is built (2026-10-08):**
-`ambition_sprite_sheet::sheet_mechanics` encodes each record's mechanics (key,
-target, frame size, body metrics with every box, part, polygon and feet,
-per-animation hurtboxes, hitboxes and frame durations, tuning, drawn facing,
-and each row's animation, frame count, durations and mirror) and not its
-packing (images, pages, `label_width`, `y_offset`, `row_index`, `rects`).
-`character::sheets::baked_sheet_mechanics_digest` is that digest over the baked
-index in key order, computed once at runtime. Witnesses:
-`a_sheet_whose_packing_alone_differs_has_the_same_digest` (poison: hash the
-rects; red), `a_sheet_whose_mechanics_differ_has_another_digest`,
-`the_baked_digest_is_this_builds_records_in_key_order`.
-
-**Next action (Q157 ruled (a), 2026-10-19):** one section,
-`characters.baked-sheets`, beside `characters.baked-landmarks` in
-`prepare_platformer_content` (a field on `MechanicalRegistries` filled by both
-provider roads, as `baked_landmarks` is), so a peer whose digest differs is
-refused like any other content difference.
-
-**Acceptance:** a baked sheet whose body box differs gives a different content
-fingerprint; a sheet whose packing alone differs gives the same one.
+**Rule:** differing mechanics refuse the peer (Q157). Image packing and quality
+products must not change simulation identity.
 
 ### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
 

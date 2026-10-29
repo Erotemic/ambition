@@ -14,7 +14,6 @@ publish = false
 # material ("the LDtk loader, ECS spawning, banners, and save/quest adapters stay
 # above it"), which is why this is a sibling crate rather than a module there.
 [dependencies]
-ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_encounter = { path = "../ambition_encounter" }

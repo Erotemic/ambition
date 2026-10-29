@@ -99,7 +99,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 
     let pos = ae::Vec2::new(64.0, 32.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&ambition_sprite_sheet::SpriteContent::default(),
         "possessed",
         "possessed",
         ae::Aabb::new(pos, size * 0.5),
@@ -191,7 +191,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
 
     let pos = ae::Vec2::new(0.0, 0.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&ambition_sprite_sheet::SpriteContent::default(),
         "scripted",
         "scripted",
         ae::Aabb::new(pos, size * 0.5),
@@ -245,7 +245,7 @@ fn driven_body_app(slot: ambition_characters::control::PlayerSlot) -> (App, Enti
     app.add_systems(Update, (publish_seat_controls_when_nobody_else_does, tick_controlled_brains).chain());
     let pos = ae::Vec2::new(64.0, 32.0);
     let size = ae::Vec2::new(44.0, 78.0);
-    let mut seed = ambition_body_seed::ActorClusterSeed::new(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new(&ambition_sprite_sheet::SpriteContent::default(),
         "driven",
         "driven",
         ae::Aabb::new(pos, size * 0.5),

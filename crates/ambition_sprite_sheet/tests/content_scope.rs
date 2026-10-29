@@ -116,6 +116,13 @@ fn generated_shared_library_prepares_and_pins_its_images() {
     let body = generation.registry().get("player_robot_v3").expect("the selected library's player sheet");
     assert_eq!(body.key, "content://ambition_shared/sprites/player_robot_v3");
     assert!(generation.image_path(&body.image).unwrap().starts_with("content://ambition_shared/__art/bundles/"));
+    let catalog = ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog::new(
+        ambition_asset_manager::AmbitionAssetCatalog::new(libraries.asset_manifest().unwrap()),
+        ambition_asset_manager::AssetProfile::DesktopDevLoose,
+    ).with_libraries(&libraries).unwrap();
+    let pinned = generation.image_path(&body.image).unwrap();
+    assert_eq!(catalog.try_image_path_for_load(pinned).as_deref(), Some(pinned));
+    assert!(libraries.resolve(pinned).unwrap().native_path().unwrap().is_file());
     assert!(generation.registry().get("player_robot_v3.0_5x").unwrap().image.starts_with("content://ambition_shared/sprites_0_5x/"));
     assert!(ambition_sprite_sheet::baked_landmarks::body_landmarks(&content, "player_robot_v3").is_some());
     assert!(ambition_sprite_sheet::character::rigged::RiggedSpriteAsset::baked(&content, "player_robot_v3").is_some());

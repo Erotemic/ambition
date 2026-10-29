@@ -309,7 +309,6 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
 #[test]
 fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_platformer2d::game_assets::{
         ensure_boss_sheets_loaded, load_game_assets,
     };

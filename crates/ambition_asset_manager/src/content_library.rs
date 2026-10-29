@@ -258,6 +258,7 @@ impl ContentLibraries {
         for library in self.iter() {
             for (logical, file) in library.files()? {
                 files.insert(format!("content://{}/{logical}", library.manifest.id), file.clone());
+                files.insert(file.asset_path().to_owned(), file.clone());
                 if aliases.insert(logical.clone(), file).is_some() {
                     ambiguous.insert(logical);
                 }

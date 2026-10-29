@@ -714,7 +714,6 @@ pub fn build_prop_sprite_asset(sprite_content: &ambition_sprite_sheet::SpriteCon
 pub fn load_fx_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
     // ⛔ THE BUDGET, SINCE 2026-09-02. Without it this function built its set
     // `with_sprite_folder("sprites")` and every fx sheet decoded at authored
     // resolution on every tier — `fx-sheet` measured 7.7 MP at Potato, High and
@@ -731,8 +730,7 @@ pub fn load_fx_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // `character_sprite_tier` the pages use, and the folder the repo's own
     // `asset_subdir` names for it (`sprites` -> `sprites_potato`).
     let tier = character_sprite_tier(quality);
-    let folder = tier.asset_subdir(sprite_folder);
-    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::with_sprite_folder(&folder);
+    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::default();
     let mut missing: Vec<&'static str> = Vec::new();
     // ⭐ THE CORE ONLY. The character-owned sheets (nine of thirteen) are
     // demanded when a character whose moveset names them is realized — see
@@ -764,19 +762,15 @@ pub fn ensure_fx_sheet_loaded(sprite_content: &ambition_sprite_sheet::SpriteCont
     target: &'static str,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    // ⭐ The set already carries the tier in its FOLDER, so `page0_path` below is
-    // tiered whichever road called this. This argument exists so the stamp says
-    // the same thing the path does — a realization that reports `Full` while
-    // reading `sprites_potato/` is a residency census that lies.
     tier: TextureResolutionScale,
 ) -> bool {
     if set.contains(target) {
         return true;
     }
-    let Some(spec) = ambition_sprite_sheet::fx::fx_sheet_spec(&sprite_content, target) else {
+    let Some((spec, resolved)) = ambition_sprite_sheet::fx::fx_sheet_spec(&sprite_content, target, sprite_texture_scale(tier)) else {
         return false;
     };
-    let page0_path = format!("{}/{target}_spritesheet.png", set.sprite_folder());
+    let Some(page0_path) = spec.page_images.first() else { return false; };
     set.insert(
         target,
         load_sprite_pages(&sprite_content,
@@ -786,12 +780,12 @@ pub fn ensure_fx_sheet_loaded(sprite_content: &ambition_sprite_sheet::SpriteCont
             &page0_path,
             &spec,
             tier,
-            // ⛔ `resolved` EQUALS `requested` here, and that is a claim about the
-            // assets rather than an assumption: every one of the 12 fx sheets is
-            // published into every variant folder by the sprite pipeline, checked
-            // 2026-09-02. A target that ever ships without a variant would need
-            // the fallback `resolve_variant_pair` does for character pages.
-            tier,
+            match resolved {
+                SpriteTextureResolutionScale::Full => TextureResolutionScale::Full,
+                SpriteTextureResolutionScale::Half => TextureResolutionScale::Half,
+                SpriteTextureResolutionScale::Quarter => TextureResolutionScale::Quarter,
+                SpriteTextureResolutionScale::Potato => TextureResolutionScale::Potato,
+            },
         ),
     );
     true

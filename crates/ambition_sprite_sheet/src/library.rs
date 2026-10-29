@@ -36,7 +36,7 @@ impl SheetTexts {
         let mut texts = Self::default();
         for library in libraries.iter() {
             let prefix = format!("content://{}/", library.manifest.id);
-            for (_, file) in all_files.iter().filter(|(key, _)| key.starts_with(&prefix)) {
+            for (_, file) in all_files.iter().filter(|(key, file)| key.strip_prefix(&prefix) == Some(file.logical.as_str())) {
                 let logical = &file.logical;
                 let address = format!("content://{}/{}", library.manifest.id, logical);
                 if logical.ends_with(".png") {

@@ -53,7 +53,7 @@ so the served URLs resolve.
 The very first log line under target `ambition_platformer2d::platformer_assets` is:
 
 ```text
-web start: AssetProfile = <PROFILE> | static_map = ... | static_core_assets = ... | static_sfx_bank = ...
+web start: AssetProfile = <PROFILE> | static_map = ... | static_content = ...
 ```
 
 **`<PROFILE>` must be `web_served_assets`.** If it shows `web_static`

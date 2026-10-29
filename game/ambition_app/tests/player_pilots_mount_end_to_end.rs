@@ -372,7 +372,7 @@ mod constrained_motion {
         let mut sim = Platformer2dSimHarness::new_with_options(options).expect("simulation builds");
         let home = home_entity(sim.world_mut());
         let second =
-            crate::a_home_body_is_built_for_a_seat::build_a_home_body(&mut sim, PlayerSlot(1), ());
+            crate::a_home_body_is_built_for_a_seat::build_a_home_body(&ambition_platformer2d::sprite_sheet::test_support::shared_sprites(), &mut sim, PlayerSlot(1), ());
         let start = pos_of(sim.world_mut(), home);
         for (index, id) in ["constrained_mount", "constrained_rider"]
             .into_iter()

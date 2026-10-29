@@ -717,7 +717,6 @@ dependencies = [
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
- "ambition_sprite_sheet",
  "ambition_time",
  "ambition_world_items",
  "bevy",

@@ -254,8 +254,18 @@ pub fn is_authored_effect(content: &crate::SpriteContent, name: &str) -> bool {
 /// [`CharacterAnim`](crate::character::CharacterAnim). Most FX sheets have no
 /// `idle`. An effect row is addressed by name, so this loads the spec without
 /// a pose.
-pub fn fx_sheet_spec(content: &crate::SpriteContent, target: &str) -> Option<CharacterSheetSpec> {
-    crate::character::sheets::try_load_row_addressed_spec(&content, target, &FX_TUNING)
+pub fn fx_sheet_spec(
+    content: &crate::SpriteContent,
+    target: &str,
+    scale: crate::character::TextureResolutionScale,
+) -> Option<(CharacterSheetSpec, crate::character::TextureResolutionScale)> {
+    use crate::character::{TextureResolutionScale, sheets::try_load_row_addressed_spec};
+    if let Some(spec) = scale.asset_id_suffix().and_then(|suffix|
+        try_load_row_addressed_spec(content, &format!("{target}.{suffix}"), &FX_TUNING)) {
+        return Some((spec, scale));
+    }
+    try_load_row_addressed_spec(content, target, &FX_TUNING)
+        .map(|spec| (spec, TextureResolutionScale::Full))
 }
 
 #[cfg(test)]
@@ -377,7 +387,7 @@ mod tests {
     #[test]
     fn an_fx_sheet_loads_without_a_pose_row() {
     let content = &crate::test_support::shared_sprites();
-        let spec = fx_sheet_spec(&content, "generic_exotic_fx").expect("baked");
+        let (spec, _) = fx_sheet_spec(&content, "generic_exotic_fx", crate::character::TextureResolutionScale::Full).expect("baked");
         assert!(
             spec.clip_slot(["sonic_boom"]).is_some(),
             "the row is addressable on the loaded spec"
@@ -386,5 +396,14 @@ mod tests {
             !spec.maps(crate::character::CharacterAnim::Idle),
             "an effect sheet has no idle pose, and does not need one"
         );
+        for scale in [crate::character::TextureResolutionScale::Half,
+            crate::character::TextureResolutionScale::Quarter,
+            crate::character::TextureResolutionScale::Potato] {
+            let (scaled, resolved) = fx_sheet_spec(&content, "generic_exotic_fx", scale).unwrap();
+            assert_eq!(resolved, scale);
+            assert!(scaled.clip_slot(["sonic_boom"]).is_some());
+            assert_ne!((scaled.frame_width, scaled.frame_height), (spec.frame_width, spec.frame_height));
+            assert!(scaled.page_images.iter().all(|path| path.starts_with("content://ambition_shared/sprites_")));
+        }
     }
 }

@@ -19,6 +19,7 @@
 #                                   # forwarded to the cue renderer
 #   AMBITION_MUSIC_PYTHON=/path/to/python
 #                                   # overrides the tool-local .venv
+#   AMBITION_MUSIC_JOBS=6             # total cue and stem worker budget
 set -euo pipefail
 
 # ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
@@ -52,6 +53,7 @@ skip_render=0
 force_render=0
 radio_args=()
 radio_args+=(--backend "${AMBITION_MUSIC_BACKEND:-pretty-midi}")
+radio_args+=(--jobs "${AMBITION_MUSIC_JOBS:-6}")
 for arg in "$@"; do
     case "$arg" in
         --skip-render)

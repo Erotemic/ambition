@@ -29,7 +29,6 @@ pub mod enemy_projectile;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-pub mod repertoire;
 
 pub mod body;
 

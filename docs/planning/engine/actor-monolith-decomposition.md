@@ -855,6 +855,14 @@ Guards: 14 runtime, five app and 35 policy tests; default app and strict rustdoc
 Schedule, gates, state lifetime and codec shapes stay the same. Keep diagnostics
 outside body execution. Full feature union and Android were not run.
 
+### K34 — Runtime repertoire composition
+
+`ddaf2311f`: runtime now schedules repertoire reconciliation; the kernel wrapper is gone.
+The cut keeps the system count, phase, gates, state and dependencies.
+Guards at that cut: three kernel, six app, 58 Smash and 35 policy tests; default app passes.
+Six diagnostics ignored. At merge `271bf1821`, three kernel guards pass; app checks remain.
+Keep global composition at runtime. Full feature union and Android were not run.
+
 ### Migration acceptance for each packet
 
 Capture a before/after record with: removed file paths and edges, resolved

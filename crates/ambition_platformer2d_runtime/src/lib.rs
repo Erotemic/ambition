@@ -544,8 +544,6 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
             .add(ambition_sim_view::affordances::AffordancesPlugin)
-            // Each body's effective repertoire, after the persona phase.
-            .add(ambition_platformer2d_actor_monolith::repertoire::EffectiveRepertoirePlugin)
             // Which bodies' wallets absorb a hit: the worn character and the
             // room's rules, derived before any hit is resolved.
             .add(ambition_platformer2d_actor_monolith::body::wallet_shield::WalletShieldPlugin)

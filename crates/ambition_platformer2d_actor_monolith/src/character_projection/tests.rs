@@ -19,7 +19,7 @@ fn session_app() -> App {
     let mut app = App::new();
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins((CharacterMaterializationPlugin, crate::character_projection::ActorCharacterPlugin));
-    app.add_plugins(crate::repertoire::EffectiveRepertoirePlugin);
+    app.add_systems(Update, ambition_combat::hand::reconcile_effective_repertoire);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();

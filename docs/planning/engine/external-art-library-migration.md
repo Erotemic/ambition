@@ -52,6 +52,7 @@ validator arguments. The sheet mechanics digest is not in session identity
 ## Progress
 
 Implementation checkpoint: `e1ad49163`. Main integration: `a03796df6`.
+Acceptance fixes: `24095151e`, now on `main`.
 The shared library is optional, selected by game packs, and stored under
 `game/ambition_content_library`. Generated products are ignored.
 
@@ -105,13 +106,11 @@ Loaded relative image handles must reload when the imported publication changes.
 
 ## Remaining work
 
-1. Push the acceptance fixes. The broad Smash host run passed 51 tests; its
-   one old unqualified-name assertion now passes on focused rerun. The isolated
-   session check and the assembled static check pass. All 53 absence contracts
-   pass.
-2. Commit and push the acceptance fixes. Refresh local sprite and quality
-   products under the new recipes. All 470 preserved bundles report stale
-   recipe paths; their payloads remain intact. Do not commit generated assets.
+1. Refresh local sprite and quality products under the new recipes. Preserved
+   bundles can remain readable with old recipe paths. A preserved selection
+   does not prove freshness. Do not commit generated assets.
+2. Remove the Ambition and Mary-O sprite aliases into the retired actor asset
+   tree. Shared sprites must resolve through declared libraries.
 3. Complete a visual capture, package checks, and quality freshness checks.
    Record any unrelated baseline failures separately. Merge new `origin/main`
    changes, if present, and push the final receipt.

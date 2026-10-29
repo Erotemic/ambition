@@ -309,3 +309,4 @@ mod the_gate_network;
 mod body_reaction_clocks;
 
 mod body_control_acceptance;
+mod repertoire_publication;

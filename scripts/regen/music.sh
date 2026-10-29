@@ -101,7 +101,8 @@ else
     echo "      tools/ambition_music_renderer/download_ambition_audio_tools.sh /data/audio-tools" >&2
 fi
 
-cue_selection="$("$renderer_py" "$repo_root/scripts/regen_music_registry.py" --list-cues)"
+cue_selection="$("$renderer_py" "$repo_root/scripts/regen_music_registry.py" --list-cues |
+    "$renderer_py" -c 'import json, sys; print(",".join(json.load(sys.stdin)))')"
 radio_args+=(--cue "$cue_selection")
 echo "==> selected library music cues"
 if [ "$skip_render" -eq 1 ]; then

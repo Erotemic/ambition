@@ -119,29 +119,12 @@ runtime boundary is what splits.
 
 **Measured 2026-10-04 (queue row ASSET-PRODUCT-LAYOUT).**
 
-- Tier layout is not symmetric. Under
-  `crates/ambition_platformer2d_actor_monolith/assets/`, full quality is the
-  bare root `sprites/` (300 MB) and the lower tiers are suffixed sibling roots
-  `sprites_0_5x/`, `sprites_0_25x/`, `sprites_potato/`. Parallax does the same
-  (`backgrounds/parallax_layers{,_0_5x,_0_25x,_potato}`). Only the ultrapack
-  names every tier: `sprite_packs/{full,half,quarter,potato}/`. The code
-  vocabulary is `TextureResolutionScale {Full, Half, Quarter, Potato}`
-  (`ambition_persistence/src/settings/video/quality.rs`, `folder_suffix` is
-  `""` for `Full`) and the pack tier names `full/half/quarter/potato`
-  (`ambition_sprite_sheet/src/sprite_packs.rs`). Target: one runtime root with
-  `full/`, `half/`, `quarter/`, `potato/` children for each product family.
-  Path builders to move together: `scaled_logical_asset_path`
-  (`ambition_asset_manager/src/platformer_assets/mod.rs`),
-  `RUNTIME_SPRITE_ROOTS` (`asset_publish/mod.rs`), `builders/visuals.rs`,
-  `ambition_sprite_sheet/build.rs` and `src/boss.rs`, `entity_sprite.rs`,
-  `character_sprites/assets.rs` (`resolve_variant_pair`,
-  `character_sprite_tier`), `scripts/generate_visual_quality_variants.py`,
-  `scripts/regen/sprites.sh`, `scripts/package_asset_guard.py`. Audit each
-  consumer before you move a file.
-- No source/editor root exists inside the asset tree;
-  `package_asset_guard.py` ships every regular file except dotfiles, `*.ipfs`
-  and `fonts/local/**`. The LDtk preview case is narrower than its question
-  said: the player tileset `sprite_player_robot_v3` (used only by the
+- **Library root layout is complete (`8e1719cab`).** The shared library has
+  named source, runtime, review, and quality roots. Selected runtime members
+  define package inputs. See the [migration receipt](external-art-library-migration.md).
+  The remaining residency measures below need a new baseline.
+- Source and runtime products now have separate roots. The LDtk presentation
+  still needs a separate editor-product policy: the player tileset `sprite_player_robot_v3` (used only by the
   `PlayerStart` entity's editor tile in seven worlds) is the player's runtime
   sheet, so the file ships anyway; the waste is the extra full-resolution
   decode `bevy_ecs_ldtk` does at boot (`[image-unrouted]`,
@@ -156,7 +139,7 @@ runtime boundary is what splits.
   `scripts/measure_pack_reachability.py` finds 444 MB (98.8%) unreachable.
   The runtime already loads only the pages a target's frames use
   (`load_sprite_pages`, `used_pages`); it is the PACKAGE that carries all of
-  it, because the packager ships every file. Split the runtime product by
+  it, because the game selects the whole library. Split the runtime product by
   runtime unit (pages per target or target group), not the source pack.
   **Built 2026-10-15:** the runtime unit is a pack-plan group. The plan
   names the groups a runtime reader loads (`runtime_groups: [intro]` in the

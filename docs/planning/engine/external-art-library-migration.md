@@ -1,297 +1,64 @@
 # External art library migration
 
-**State:** ACTIVE. Jon selected this work on 2026-10-28.
+**State:** DONE. Jon selected this work on 2026-10-28.
 
-## Contract
+## Receipt
 
-A content library can supply images, geometry, animation, SFX, VFX, music,
-and supported script artifacts. A game selects zero or more libraries.
-All current games select the shared library under `game/ambition_content_library`.
-This library is part of this repository. It is not a submodule.
-A new game can use the engine
-with that library absent. A content edit must not require an engine rebuild.
+The engine selected named shared art through an implicit asset tree and
+process-wide metadata. Generation, reload, and packaging used different roots.
+Loose media directories also defined package membership.
 
-Use the existing content compiler, domain schemas, prepared generations,
-extension host, and publication bundles. Do not add a second content engine.
-Generated assets are not checked in. Source files, runtime products, review
-products, and quality tiers have named
-roots. The engine owns formats and execution. Libraries own named content.
+Games now select zero or more content libraries. The shared library is
+`game/ambition_content_library`. The engine owns formats and execution;
+libraries own named art, geometry, animation, audio, and supported content.
+Native content edits need no engine build. Each session keeps its admitted
+mechanical sprite generation. Files and metadata advance together.
 
-## Problems addressed
+All declared media producers use the existing immutable publication store.
+Developer setup runs fonts, backgrounds, sprites, VFX, atlases, quality variants,
+music, and SFX, then checks presence, freshness, and coverage. Failed candidates
+keep the accepted selection. Generated assets remain ignored.
 
-The asset source installer adds an implicit monolith fallback. Engine build
-scripts select named art. Sprite metadata, rigs, landmarks, portraits, and
-packs share one process-wide publication. Some gameplay lookups bypass
-App-local sheet declarations. Manifest lookup discards the source identity.
-Source-qualified images lose quality variants. Desktop overrides and package
-collision rules disagree. Generation and inspection assume the monolith path.
-The publisher also depends on superproject quality code and game-local
-validator arguments. The sheet mechanics digest is not in session identity
-(the existing Q157 ruling requires it).
+Core receipts: `e1ad49163`, `24095151e`, `4fcab904d`, `f713a2d7c`, and
+`8e1719cab`. The final SFX owner is `b0f6669`: one source per cue ID, supported
+filter effects, and linear-time howl smoothing. All 701 cues render; the bank
+has 701 entries. All 125 selected music cues have accepted renders.
 
-## Implementation packets
+## Verification
 
-1. Define library identity, explicit game selection, source roots, and product
-   locations. Extract shared assets from the actor crate. Preserve current
-   generated bundles and authored data. Track only authored sources and recipes.
-2. Route source installation, generation, inspection, embedding, and packaging
-   through that selection. Remove monolith-relative roots and named core art
-   from engine services. Use one collision and override rule.
-3. Make selected sprite metadata an App-local immutable generation. Resolve
-   geometry, rigs, landmarks, portraits, packs, effects, and quality products
-   from that generation. Remove process-global content selection. Pin semantic
-   content through existing session preparation and activation.
-4. Include the admitted mechanical projection in content identity. Keep image
-   packing and quality policy out of simulation identity. Use the same selected
-   library facts for native, static, web, Android, and package products.
-5. Verify current games with the shared library, an independent composition
-   with it absent, and two Apps with different selections. Verify source edits
-   without a Cargo build, failed candidate retention, quality changes, and
-   package byte identity. Run the assembled app and workspace policy gates.
+`scripts/setup/generated_content.sh --skip-navigation` passes. Every producer
+reports zero missing or stale publications. Quality checks cover 471 products
+with zero defects, and regeneration coverage has zero findings.
+Native app checks (all targets) and static app checks pass. Final shared-art
+resolution tests (7) and native reload tests (2) pass. A fresh 1280x720 capture
+shows the robot, hub, backgrounds, fonts, and UI.
 
-## Progress
+The independent consumer passes 29 tests (one ignored). Its standalone debug
+artifact loads its own sprite with zero asset failures. All three asset reads
+stay inside the artifact when run outside the checkout. It selects no shared
+library. A release artifact build was not run.
 
-Implementation checkpoint: `e1ad49163`. Main integration: `a03796df6`.
-Acceptance fixes: `24095151e`, now on `main`.
-The shared library is optional, selected by game packs, and stored under
-`game/ambition_content_library`. Generated products are ignored.
+Workspace policies (35), absence contracts (53), producer behavior tests (4),
+music dependency/preflight tests (21), and SFX tests (34) pass. Fresh-art app
+acceptance (22), native reload tests (2), audio core tests (63), and audio
+adapter tests (50) also pass.
 
-The engine no longer selects named art or embeds the shared library. Source
-readers, generation, inspection, static embedding, and packaging use declared
-libraries. Qualified references retain their library identity. Ambiguous short
-references are refused.
+## Standing rules
 
-Each App owns an immutable `SpriteContent` generation. Sessions retain their
-admitted geometry. Files and metadata advance together. Failed candidates keep
-the accepted selection. Q157 is complete: one mechanical projection includes
-sheet geometry, rigs, landmarks, and portrait vocabulary. Image packing and
-quality products do not change simulation identity.
+- Keep the shared library under `game/`. It is not a submodule.
+- Do not commit generated assets or restore implicit engine art.
+- Use the existing content compiler and publication store.
+- Keep source, runtime, review, and quality roots distinct.
+- Keep a session's mechanical metadata and sheet images in one generation.
+- Define named content and defaults in data outside engine crates.
 
-The follow-up fixes immutable image lookup and qualified FX loading. FX images
-and frame rectangles now come from matching tier metadata. Candidate construction
-and encounter spawns use the session's frozen generation. The old FX folder
-cache is removed.
+The source-only sprite plan lists 466 units without generated files. Exact
+packed page membership needs layout resolution; use `--resolve-layout` for that
+set. See [sprite publication](../../tools/sprite-publication.md) and the
+[shared library guide](../../../game/ambition_content_library/README.md).
 
-Verification:
-
-- All workspace test targets typecheck. All 35 workspace policy tests pass.
-- The assembled native app passes 21 art-resolution and edit-to-play tests.
-  The visible app's two-room HUD activation test passes.
-- Provider tests (46), sprite scope tests (7), native reload tests (3), font
-  tests (4), and five focused rendering acceptance tests pass.
-- Sixty-two focused renderer, publication, provenance, inspector, quality,
-  symlink, and package tests pass.
-- A source-only checkout simulation lists 466 publication units in 2.69 s.
-  It creates no generated directory. Exact packed page membership still needs
-  layout resolution.
-- The repeated preparation leak is fixed. RSS stabilized near 171 MB across
-  three preparations instead of retaining about 140 MB per preparation.
-  A weak-reference test verifies release after the last session drops.
-
-## Expanded generated-content scope
-
-Jon confirmed on 2026-10-29 that this applies to every generated game product:
-SFX, VFX, music, backgrounds, fonts, sprites, and atlases. Audit each producer's
-library selection, source and output roots, runtime consumers, package inputs,
-and presence/freshness checks. Verify the complete route from
-`run_developer_setup.sh` through the generation setup and family scripts.
-Generation must be part of developer setup. Generated products stay ignored.
-
-The first GPU capture rendered the shared scene, but its log found remaining
-path assumptions: a game startup collection still lived in the engine, relative
-LDtk images did not see declared library imports, and three renderers prefixed
-qualified image identities. These fixes are in progress. Named game source
-readers must use the same import and collision rules as the default reader.
-Loaded relative image handles must reload when the imported publication changes.
-
-## Remaining work
-
-1. Complete the generation phase and all freshness checks. Preserved bundles
-   do not prove freshness. Do not commit generated assets.
-2. Repeat native and static acceptance after generation. Inspect a new capture
-   and verify the independent Outlander package. Measure the page-size failure.
-3. Merge new `origin/main` changes, resolve conflicts, publish accounting, and
-   push the final receipt.
-
-## Resume
-
-Inspect Git status, this page, and `docs/tools/sprite-publication.md`.
-Preserve user edits in the map submodule and `scripts/audit_test_corpus.py`.
-The latest gate logs are `/tmp/ambition-library-last-*.log` and
-`/tmp/ambition-library-commit-*.log`. The latter batch stopped on an isolated
-session fixture's undeclared test feature. That fixture now uses an empty
-library selection, which is sufficient for its music-path claim.
-
-The target volume filled during verification. Only this migration's compiled
-test binaries and recent incremental sessions were removed. The cleanup record
-is `/tmp/ambition-library-build-cleanup.json`. Check target storage before another
-large feature-cell build. Never delete another worktree's data.
-
-## Generated-content follow-up
-
-The shared library now declares each producer. Font selection and music naming
-policy live under `authored/`. Generated music registry bytes move to the ignored
-runtime root. Pack source declarations can select a library by ID. Shared SFX
-definitions use this path. Pack embedding, native reads, source watches, exports,
-and package input reports use that source owner.
-
-Background themes use authored keys. The library defines alternate states and
-mote styles. The engine no longer holds the named theme enum or mote table.
-Loose runtime products have named full, half, quarter, and potato roots.
-The SFX packer takes explicit input and output paths. The root generator packs
-only the selected authored cue IDs. Old rendered cue directories have no
-membership authority. The music registry follows authored scores and policy.
-
-Compiler tests (47), theme and renderer tests (23), producer tool tests (18),
-font/package tests (8), all 35 workspace policy tests, and all 53 absence
-contracts pass. The assembled app and its test targets typecheck. A scratch
-background conversion verifies the declared half-tier root and current receipt.
-
-Remaining: complete native/static acceptance checks, move measurement readers to
-selected files, run each producer and setup verification, inspect a new capture,
-and commit the verified result. The loading fixes and Jon's repertoire changes
-are merged and pushed in `3767f3d23`.
-
-## All producer publication
-
-A further audit found that loose media directories still define package
-membership. A retired music render can remain in the package after its registry
-entry is removed. Use the existing immutable store for fonts, backgrounds,
-background variants, music, and SFX. Do not add a second publisher.
-
-Each producer must render into a private staging root, verify its outputs, and
-admit one complete selection. A failed or changed-source build must keep the
-accepted files. Authored runtime metadata must remain distinct from generated
-roots when a publication manages the same logical directory. Required setup
-checks must inspect accepted files. Keep generated bytes ignored.
-
-The current packet updates non-image reloads, selected-file diagnostics,
-quality receipts, and the independent Outlander package. The package carries
-only its own assets. It has no inherited engine asset list. The expanded native acceptance run
-passed 22 tests, with one separate GPU retirement test ignored. The static
-assembled app check passed.
-
-
-The media publisher now uses the existing store for every declared family.
-Producer roots can name one file or one directory. Authored metadata stays
-visible beside generated audio. Font replacement and failed-download tests
-verify retirement and accepted-byte retention. Sheet images retain their
-metadata generation. Backgrounds and other independent media use live paths.
-
-SFX bank handles stay loaded. A shared bank replaces all borrowing providers in
-one transaction. A conflicting bank keeps the accepted providers. The separate
-startup SFX cache is removed. All 63 audio core tests, 50 audio adapter tests,
-and 35 workspace policy tests pass. The assembled app and its test targets
-compile. Render examples now require an explicit library selection.
-
-Remaining: run the complete generation phase and its freshness checks, repeat
-native/static acceptance after generation, and verify the independent package.
-The selected-file page survey reports 95 full-tier pages above 2048 pixels,
-against a recorded limit of 83. Keep this failure visible until the refreshed
-output is measured. No generated bytes are committed.
-
-
-Checkpoint `4fcab904d` publishes every media family through the shared store.
-The first full setup run accepted fonts and backgrounds. It was stopped before
-sprite publication because full sprite replacement would remove other media
-units. The renderer now replaces only target and atlas units. Its replacement
-and provenance tests pass (13). The accepted selection was kept.
-
-The music CLI now keeps the caller's Python interpreter for child renders. The
-root music batch uses six workers by default. Set `AMBITION_MUSIC_JOBS` to change
-that budget. A profile also found a repeated large PNG encode in the giant's
-sheet generator. Its alias now copies the encoded body bytes.
-
-Resume generation with `scripts/setup/generated_content.sh --skip-navigation`.
-Read `/tmp/ambition-library-full-generation.log` and
-`target/regen_assets/latest.jsonl` for the phase result. The interrupted run's
-recorded temporary worker paths were removed. Completed immutable bundles were
-kept. The complete audio dependency scan passed for 125 cues in 447.5 seconds.
-
-
-The second setup run published all 466 sprite targets and four atlases. It also
-published 594 background quality bundles. Fonts and backgrounds stayed selected;
-the full selection contains 10,590 runtime files. Sprite generation took 2,454
-seconds. Background generation took 216 seconds; quality conversion took 48
-seconds. Music and SFX publication remain to be completed.
-
-A source-only check found that the all-media command skipped a sprites-only
-library and returned success with no products. The command now calls the sprite
-owner's checker. A behavioral test checks the normal missing-sprite verdict.
-A sprites-only library sends quality checks to the existing quality checker.
-Music and SFX can now skip publication when their complete owner dependency
-identities and accepted bytes are current.
-
-The remaining named music fallback is removed from the audio core. The library
-uses the authored default track. An unknown default gives silence. Audio core
-and adapter tests pass, and the assembled app and test targets compile.
-
-The setup run was stopped during the initial music dependency scan to apply
-these fixes. Completed sprite and quality bundles remain reusable. The private
-procedural transform probe is recorded in `dev/benchmark-candidates/`; it is not
-a production change.
-
-
-Fresh-art acceptance passed 22 app tests and both native reload tests. The
-static assembled app compiled. A new GPU capture shows the robot, hub, scenery,
-fonts, and UI. Its log still reports the committed map's nullable-Boolean
-mismatch with `bevy_ecs_ldtk`; the working map was not changed. The mismatch is
-recorded in `dev/benchmark-candidates/`.
-
-The remaining startup collection is removed. It held a hardcoded sandbox handle
-and an unused tuning handle. World files now use the existing world-manifest
-loader, and tuning uses the content compiler. The two direct loader dependencies
-are removed from the game provider. The app compiles; all 35 workspace policy
-tests and 21 rollback-coverage tests pass (two separate tests were ignored).
-The capture still renders correctly. The existing page-size failure remains
-95 full-tier pages above 2048 pixels against a limit of 83.
-
-Independent consumer acceptance passes: 29 tests, one ignored. A debug artifact
-runs from outside the checkout with its own character loaded and no failed
-asset loads. Its three asset reads stay inside the artifact. The test found
-and removed an engine-checkout cache dependency and three unconditional shield
-image requests. Shield images now use declared semantic roles. The shared
-library binds those roles. A consumer with no bindings requests no shield art.
-
-The source-only music coverage check now derives registry rows from authored
-scores and policy. It does not require generated files. All four media families
-pass plan coverage. Four producer behavior tests and all 53 absence contracts
-pass. The native and static assembled apps compile; all 35 workspace policy
-tests pass. Music and SFX publication still need the final setup run.
-
-The full music preflight found two setup handoff defects. The registry emits
-JSON cue IDs; the renderer needs a comma-separated argument. This conversion
-is fixed in `2bf81d643`. Bulk preflight now reuses instrument resolution within
-one scan and logs each cue. A later scan starts fresh.
-
-The same preflight rejected the installed `japan.shamisen` SoundFont because
-it used the SFZ-only resolver. It now uses the renderer's shared instrument
-resolution plan for each declared backend. All 21 dependency and preflight
-tests pass, and every sampled reference of `nine_rooftops` resolves. The setup
-run must now complete music rendering, SFX, and final freshness admission.
-
-All 125 cues rendered. The staging registry write then failed on a status path
-that assumed the checkout root. This path is fixed in `6392fbdec`; the external
-registry-write test passes. Cached publication then refused 23 LV2-processed
-cues because the child loaded the instrument environment a second time. That
-load duplicates `LV2_PATH` and changes plugin discovery metadata. The child now
-keeps the environment selected by the producer owner.
-
-The dependency scan now uses the declared six-worker budget. The full-catalog
-probe took 107 seconds, against about 347 seconds for the serial scan. Plain and
-LV2 score probes produce the same fingerprints in serial and parallel. The 23
-affected cues must be refreshed under the consistent environment. Other cue
-renders remain reusable. Final publication, SFX, and setup checks remain open.
-
-The SFX stage found a blocker: three howls used a wide direct box convolution
-and were still running after more than six minutes. The linear-time mean keeps
-the centered, zero-padded result. All three complete renders now take 1.13 s.
-The same audit found 715 source files but only 701 cue IDs. Fourteen generic
-recipes collided with role-specific recipes and wrote the same cache entries.
-Keep the canonical role-specific sources. Collection discovery now refuses two
-sources for one ID before rendering.
-
-Move 321 ignored filter fields in 198 cues into supported effect chains. The
-schema now refuses the old field. All 34 SFX renderer tests pass. These fixes
-are in SFX commit `b0f6669`. Regenerate the SFX bank, pass the full setup gate,
-and verify a live demo before the final migration receipt.
+Separate baseline defects remain: the page-size ratchet reports 95 full-tier
+pages above 2048 pixels against a limit of 83; `bevy_ecs_ldtk` rejects nullable
+Booleans in the committed map. The migration does not change the ratchet or
+coerce null values. The loader mismatch is recorded in
+`dev/benchmark-candidates/nullable-ldtk-bools-rejected-by-the-presentation-loader-2026-10-29.md`.

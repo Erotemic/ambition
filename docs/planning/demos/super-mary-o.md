@@ -37,7 +37,7 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   `--apply` does it first: `way_through` in `mary_o_level.py` looks for a way
   from the start to the goal by jumps of a safe size. It finds a pit that is
   too wide and a wall that is too high, and no more than that.
-- The desert has a biome of its own, `stardune` (`ParallaxTheme::Stardune`):
+- The desert has a biome of its own, the authored `"stardune"` theme:
   the scene is `backgrounds/outdoors.py::stardune` of the sprite renderer, with
   a row in each terrain table. Its music is the cue `sparse_theme` ("Sparse
   Theme"), named by the level field `music_track` of 2-1 and 2-3.

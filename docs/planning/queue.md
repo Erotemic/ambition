@@ -42,12 +42,11 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 
 ## External art library migration (2026-10-28)
 
-Jon selected the [external art library migration](engine/external-art-library-migration.md).
-The engine assumes one shared art tree and one process-wide metadata selection.
-Make libraries explicit game dependencies, move named content outside engine
-crates, and use the selected content in preparation, loading, generation, and
-packaging. Acceptance includes a game with the shared library absent and two
-Apps with different selections. Content edits must not require an engine build.
+**DONE** — [receipt](engine/external-art-library-migration.md), implementation
+`8e1719cab`. Games select optional libraries. Named shared content lives outside
+engine crates, and developer setup generates and checks every media family.
+An independent game runs without the shared library. Keep generated assets
+ignored and do not restore an implicit engine art tree.
 
 ## Current multiplayer correctness interrupt (2026-10-24)
 
@@ -98,7 +97,7 @@ These rows come before the content campaign below. The rulings are in
 3. [DIALOGUE-CHECKPOINT](#dialogue-checkpoint--story-facts-and-their-objects-share-one-horizon)
    (Q164).
 4. [SELF-PERCEPTION](#self-perception--a-cpu-sees-its-own-body-now) (Q167).
-5. [BAKED-SHEET-IDENTITY](#baked-sheet-identity--a-bodys-collision-box-is-outside-the-content-identity)
+5. [BAKED-SHEET-IDENTITY](#baked-sheet-identity--done)
    (Q157) and other focused defects.
 6. [GROUNDED-ATTACK-MOMENTUM](#grounded-attack-momentum--measure-before-changing-the-slide)
    (Q169).

@@ -615,9 +615,8 @@ rigged body holds both (1.62x for the admiral).
 
 ## What still reads the baked image at runtime (survey 2026-10-02)
 
-Nothing reads character pixels on the CPU. Body geometry comes from the sheet
-RON, compiled in by `ambition_sprite_sheet/build.rs`, so it survives without the
-PNG.
+Body geometry comes from the selected sheet metadata in `SpriteContent`.
+A session keeps its admitted mechanical generation. It does not require the PNG.
 
 | Consumer | Reads | Location |
 | --- | --- | --- |

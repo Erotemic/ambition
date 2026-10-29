@@ -613,16 +613,10 @@ too, at its tier (`reload_fx_sheets_of_targets`; an effect is drawn from the
 set when it spawns): the effect arm, red with the reload removed. The
 intro's props were the last prop rows with their own spec (a `Catalog` source
 and a Rust table); they are pack rows since 2026-10-16. The page reload has no witness of its
-own. A sheet, rig or flipbook key that two files give (a sheet copied into
-a second folder, as one does while editing) refuses the table with both
-files named, and the watch keeps looking (2026-10-17). The scan stopped at
-such a key with a panic, which the build wants and the watch thread did
-not survive: the thread ended without a word, so each later edit was not
-seen. The scan now lists each file and each key two files give
-(`sprite_tree::KeyedFiles`); `build.rs` and the first table stop at a
-refusal, the generation read refuses the table, and the watch compares each
-file by its path too, so the second file's removal is seen while the first
-did not change. Witness: the second-file arm of `sprite_sheet_reload`.
+own. Selected libraries refuse duplicate sheet, rig, and flipbook identities with
+both source paths named. A failed candidate keeps the accepted generation, and
+the watch remains active. Native reload tests cover generation admission and
+retention of the accepted files and metadata.
 
 **Future live path:** the source scanner reports the changed logical key
 and a canonical source fingerprint. Preparation decodes the changed sheet,

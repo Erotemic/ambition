@@ -67,9 +67,8 @@ green door. Each key but the last opens a second door with a reward behind it
 
 ## The noodly biome
 
-The rooms name the biome `noodly` (`ParallaxTheme::Noodly`; the keys `noodle`
-and `pasta` name it also). All of it is pasta. The art is in the sprite
-renderer:
+The rooms select the authored `"noodly"` theme. All of it is pasta.
+The art is in the sprite renderer:
 
 - The scene (`backgrounds/noodly.py`): the roof of the world is a colander,
   and the light is what comes through its holes. Hills of meatballs in steam,

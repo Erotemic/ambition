@@ -176,12 +176,8 @@ pub fn remember_safe_player_position(
     );
 }
 
-/// Tuple-arg variant of [`remember_safe_player_position`] for callers
-/// that already hold the four kinematic facts the safety classifier
-/// reads. The cluster wrapper above is the natural production path;
-/// this tuple form is exposed for tests that build a
-/// `BodyClusterScratch` and pass individual fields.
-pub fn remember_safe_player_position_from_kinematics(
+/// Check a body's position facts against the safety gate.
+fn remember_safe_player_position_from_kinematics(
     safety: &mut PlayerSafetyState,
     pos: ae::Vec2,
     vel: ae::Vec2,
@@ -203,3 +199,6 @@ pub fn remember_safe_player_position_from_kinematics(
         safety.last_safe_pos = pos;
     }
 }
+
+#[cfg(test)]
+mod tests;

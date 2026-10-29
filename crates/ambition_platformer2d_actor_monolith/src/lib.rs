@@ -34,8 +34,6 @@ pub mod body;
 
 #[cfg(test)]
 mod clock_discipline_tests;
-#[cfg(test)]
-mod safe_pos_tests;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;

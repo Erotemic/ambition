@@ -178,7 +178,7 @@ fn sim_id(name: &str) -> SimId {
 }
 
 fn spawn_player(app: &mut App, pos: ae::Vec2) -> Entity {
-    let scratch = crate::avatar::home_body_scratch(pos, ae::AbilitySet::sandbox_all());
+    let scratch = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::sandbox_all());
     let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         scratch,
         ambition_characters::actor::Health::new(10),

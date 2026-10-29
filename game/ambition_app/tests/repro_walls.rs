@@ -2,11 +2,10 @@
 //! collision routines.
 
 use ae::{AbilitySet, Block, BodyClusterScratch, InputState, World, DEFAULT_TUNING};
-use ambition_platformer2d::actors as sb;
 use ambition_platformer2d::engine_core as ae;
 
 fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
-    sb::avatar::home_body_scratch(spawn, AbilitySet::sandbox_all())
+    BodyClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
 }
 
 /// Depenetration allowance: a single simulation step may legitimately

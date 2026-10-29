@@ -78,7 +78,7 @@ fn world_with_patrolling_npc(sprite_content: &ambition_sprite_sheet::SpriteConte
             },
         )
     };
-    let player = crate::avatar::home_body_scratch(
+    let player = ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
         ae::Vec2::new(1500.0, 540.0),
         ae::AbilitySet::sandbox_all(),
     );

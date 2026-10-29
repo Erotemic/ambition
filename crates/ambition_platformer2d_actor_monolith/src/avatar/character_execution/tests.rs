@@ -1634,7 +1634,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     let action_set = ambition_combat::worn_kit::default_player_action_set(abilities);
 
     let spawned = crate::avatar::PlayerSimulationBundle::from_scratch(
-        crate::avatar::home_body_scratch(
+        ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
             ambition_platformer2d_core::Vec2::new(0.0, 0.0),
             abilities,
         ),

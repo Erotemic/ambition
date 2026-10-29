@@ -17,14 +17,5 @@ pub use character_execution::{
     HomeBodyAbilities,
 };
 
-/// Build the scratch state of a home body at `at`, with its abilities. Each
-/// seat's home body starts from this (`session::setup::spawn_home_body`).
-pub fn home_body_scratch(
-    at: ambition_platformer2d_core::Vec2,
-    abilities: ambition_platformer2d_core::AbilitySet,
-) -> ambition_platformer2d_core::BodyClusterScratch {
-    ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(at, abilities)
-}
-
 #[cfg(test)]
 mod tests;

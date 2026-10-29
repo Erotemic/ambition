@@ -36,10 +36,9 @@ This can render art. It leaves the selected publication unchanged.
 
 ## Build and publish
 
-Build the runtime metadata validator once. Rebuild it after schema changes:
+Art never needs cargo:
 
 ```bash
-cargo build -p ambition_content_cli --bin ambition_content
 ./scripts/regen/sprites.sh --target hand_saint
 ./scripts/regen/sprites.sh
 python3 scripts/check_quality_variants_are_fresh.py --require-evidence
@@ -47,9 +46,25 @@ python3 scripts/check_quality_variants_are_fresh.py --require-evidence
 
 Each build reads a private source snapshot and writes into a clean directory.
 The publisher checks required members, image data, sheet rows, portraits, part
-tables, body rigs, and referenced pages. Source or toolchain changes during the
-request refuse publication. A failed request keeps the previous selection.
-Accepted bundles from that request can be reused by a later build if their recipes and files are current.
+tables, body rigs, and referenced pages. When a built game validator is already
+there (`target/debug/ambition_content`, or `$AMBITION_ART_CONTENT_BIN`), it also
+parses each sheet with the game's own parser. Without one, that check is not run
+and the game's loader reports metadata it cannot read.
+
+Publication does not refuse concurrent work:
+
+- A source or toolchain change during a request does not discard the request.
+  Each bundle records the inputs it was built from, so it reads as stale and the
+  next build replaces it.
+- The targets that build are published. A target that fails keeps its previous
+  bundle, and the request reports the failure.
+- When another agent published after this request planned, the request's
+  changes are merged onto the newer selection, unit by unit (the last writer of
+  a unit wins).
+- A derived bundle (an atlas) whose parent changed stays selected and is listed
+  under `stale` in `published.json`.
+
+Accepted bundles can be reused by a later build if their recipes and files are current.
 
 A focused request includes the target's named static props and quality products.
 Shared atlas dependencies are rebuilt when their accepted parent bundles change.
@@ -89,6 +104,26 @@ Runtime readers, static embedding, packaging, and the inspector use this
 selection. Logical asset names remain independent of bundle storage paths.
 Consumers can still provide authored overrides through their own asset source.
 
+An absent `published.json` is an empty selection, not an error. A runtime
+that reads its files continues without the generated art: each missing sheet
+shows as a placeholder. The library prints one warning per process that names
+the missing families, the store, and the query command. A build that embeds
+its content (`static_content`) stays strict and refuses an absent store.
+
+To ask what is missing or stale without a build or a renderer toolchain:
+
+```bash
+python3 scripts/content_status.py            # all families, text
+python3 scripts/content_status.py --json     # the same, for a tool
+python3 scripts/content_status.py --require-complete   # status 1 when incomplete
+```
+
+It reads `library.json`, `published.json`, the manifest of each selected
+bundle, and the library sources that each game pack declares. It is fast and
+it always exits 0 unless `--require-complete` is given. The exact check of
+each producer is `python3 scripts/generate_library_content.py --check` (it
+needs the renderer toolchains).
+
 `--audit` reports old loose files as unmanaged. It compares their logical names
 and bytes with the selected publication when possible. It also lists historical
 bundles. It deletes nothing. No known game use is not a reason to delete art.
@@ -97,5 +132,4 @@ For an existing checkout, `--adopt-existing PATH` can import old runtime files.
 Imported bundles have unknown source evidence. Only a real build establishes a
 current recipe. The import does not claim that current source produced old pixels.
 
-Do not run generation with a Cargo build. Check the target bind before building:
-`scripts/setup/target_bindmount.sh --status`.
+Generation and Cargo builds can run at the same time.

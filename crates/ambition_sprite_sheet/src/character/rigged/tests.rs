@@ -319,6 +319,41 @@ fn a_tweened_clip_moves_each_track_to_its_next_place() {
     assert_eq!(asset.clip("idle").unwrap().tween, ClipTween::Step);
 }
 
+/// A wound track shows as much as the body is hurt: none whole, all of it
+/// spent, and the rest of the body as it was (Jon, 2026-10-29: the Inugami's
+/// eyes "should get redder and more bloodshot as damage against them
+/// increases").
+#[test]
+fn a_wound_shows_as_much_as_the_body_is_hurt() {
+    let text = r#"(
+        schema_version: 2,
+        target: "toy",
+        pages: ["toy_parts.png"],
+        frame_size: (64, 64),
+        feet_pixel: (32.0, 60.0),
+        parts: [
+            (name: "a", page: 0, rect: (0, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "b", page: 0, rect: (4, 0, 4, 4), pivot: (2.0, 2.0)),
+        ],
+        tracks: ["eyes", "eyes_wounded"],
+        clips: {
+            "idle": (frame_duration_s: 0.1, frames: [
+                [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 0),
+                 (part: 1, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 1, opacity: 0.0)],
+            ]),
+        },
+    )"#;
+    let asset = RiggedSpriteAsset::from_published_ron(&text.replace("schema_version: 2", "schema_version: 3")).expect("a schema-3 flipbook");
+    assert_eq!(asset.frame("idle", 0).unwrap()[1].opacity(), 0.0, "control: the wound is published at no opacity");
+    for (wounds, shown) in [(0.0, 0.0), (0.4, 0.4), (1.0, 1.0)] {
+        let mut out = asset.frame("idle", 0).unwrap().to_vec();
+        asset.wounded_by(wounds, &mut out);
+        assert_eq!(out[0].opacity(), 1.0, "the eyes themselves are as painted at {wounds}");
+        assert!((out[1].opacity() - shown).abs() < 1.0 / 255.0, "hurt {wounds}, its wound shows {}", out[1].opacity());
+    }
+    assert!(is_wound_track("eyes_wounded") && !is_wound_track("eyes") && !is_wound_track("wound_up"));
+}
+
 /// A schema-1 file still reads: untracked clips that step.
 #[test]
 fn a_schema_one_flipbook_reads_as_untracked_steps() {

@@ -7,7 +7,7 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 The Pirate Port is a seafaring town of the pirate dimension, its own world
-file (`pirate_port.ldtk`). Gate address SAILING arrives in its gate plaza.
+file (`pvn.ldtk`, the PvN dimension of pirates and ninjas). Gate address SAILING arrives in its gate plaza.
 The design is in `README.md` here. In short:
 
 - `pirate_port_gate_plaza`: the gate plaza. Travellers arrive at the ring
@@ -44,7 +44,9 @@ from district_kit import (  # noqa: E402
 
 import props  # noqa: E402  (this directory's scenery)
 
-WORLD_LDTK = WORLDS / "pirate_port.ldtk"
+#: The PvN dimension's world file (Jon, 2026-10-29: the pirate and ninja
+#: dimensions are one): the port and the village are both in it.
+WORLD_LDTK = WORLDS / "pvn.ldtk"
 UID_OFFSET = 600000
 GENERATOR = "specs/pirate_port/make_specs.py"
 
@@ -58,7 +60,7 @@ ARRIVAL = "pirate_port_gate_arrival"
 #: Until GATE's ring and return terminal stand, the arrival zone is a
 #: one-way door home for testing: GATE makes it the ring's arrival pad.
 
-#: The sandbox's pirate cove, and its new door to the docks.
+#: The pirate cove (in this dimension's world file since 2026-10-29), and its door to the docks.
 COVE = "pirate_cove"
 COVE_DOOR = "pirate_cove_port_door"
 
@@ -284,7 +286,7 @@ def main(argv):
         return code
     if code := make_rooms(WORLD_LDTK, made):
         return code
-    if code := add_entities(COVE_DOOR_YAML, SANDBOX_LDTK, HERE / "cove_door.yaml", unless=f'"{COVE_DOOR}"'):
+    if code := add_entities(COVE_DOOR_YAML, WORLD_LDTK, HERE / "cove_door.yaml", unless=f'"{COVE_DOOR}"'):
         return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")

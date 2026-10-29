@@ -76,6 +76,27 @@ pub(super) fn drive_adaptive_cue_state(
     settings: &MusicMix,
     dt: f32,
 ) {
+    let same_request = director.active_cue_id.as_deref() == Some(cue.id.as_str())
+        && director.requested_state_id.as_deref() == Some(target_state.id.as_str());
+    if !same_request {
+        director.continuation_state_id = None;
+    }
+    director.requested_state_id = Some(target_state.id.clone());
+    // A held game request must not rewind the continuation of a completed one-shot.
+    let target_state = director.continuation_state_id.as_deref()
+        .and_then(|id| cue.state(id)).unwrap_or(target_state);
+    let completed = same_request && director.mode == MusicDirectorMode::AdaptiveIntro
+        && director.current_state_id.as_deref() == Some(target_state.id.as_str())
+        && cue.section(&target_state.section_id).is_some_and(|section|
+            intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt));
+    let target_state = if completed {
+        target_state.next_state.as_deref().and_then(|id| cue.state(id)).map(|next| {
+            director.continuation_state_id = Some(next.id.clone());
+            next
+        }).unwrap_or(target_state)
+    } else {
+        target_state
+    };
     if should_restart_adaptive(
         director.active_cue_id.as_deref(),
         director.mode,

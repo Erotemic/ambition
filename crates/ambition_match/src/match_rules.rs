@@ -50,6 +50,18 @@ pub struct AuthoredMatchRules {
     /// (`DEFAULT_TUNING`). See [`MatchRules::base_body`].
     pub base_body: Option<FighterBodyAuthoring>,
     pub fighter_contact: Option<AuthoredContact>,
+    /// How tightly the camera frames the fighters. `None` keeps the engine's
+    /// exploration framing.
+    pub cast_framing: Option<AuthoredCastFraming>,
+}
+
+/// See `CastFramingTuning`: the view a cast standing together may shrink the
+/// stage view to (a fraction), and the room around the cast's box (px).
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredCastFraming {
+    pub min_view_scale: f32,
+    pub margin: f32,
 }
 
 /// [`BodyContact`], as a pack writes it: `(resistance: 0.85)`.
@@ -74,6 +86,10 @@ impl Default for AuthoredMatchRules {
             // `MatchRules` holds the resolved body, not the patch it came from.
             base_body: None,
             fighter_contact: rules.fighter_contact.map(|contact| AuthoredContact { resistance: contact.resistance }),
+            cast_framing: rules.cast_framing.map(|framing| AuthoredCastFraming {
+                min_view_scale: framing.min_view_scale,
+                margin: framing.margin,
+            }),
         }
     }
 }
@@ -94,6 +110,12 @@ impl AuthoredMatchRules {
             .base_body
             .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING));
         rules.fighter_contact = self.fighter_contact.map(|contact| BodyContact { resistance: contact.resistance });
+        rules.cast_framing = self.cast_framing.map(|framing| {
+            ambition_platformer2d_shared_tangle::markers::CastFramingTuning {
+                min_view_scale: framing.min_view_scale,
+                margin: framing.margin,
+            }
+        });
     }
 
     /// Each value the runtime cannot use, named by its field.
@@ -137,6 +159,8 @@ impl AuthoredMatchRules {
                 ("jab_lock_speed", body.jab_lock_speed),
                 ("crouch_speed_frac", body.crouch_speed_frac),
                 ("initial_dash_time", body.initial_dash_time),
+                ("dash_deflection", body.dash_deflection),
+                ("coyote_time", body.coyote_time),
                 ("turnaround_time", body.turnaround_time),
                 ("teeter_margin", body.teeter_margin),
             ] {

@@ -649,11 +649,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
         // there whatever room another player holds.
         let resolved_rules = bark_draw.rules_in(event_room);
         let mut feel = base_feel;
-        feel.di_max_angle = resolved_rules.di_max_angle;
-        feel.sakurai_angle = resolved_rules.sakurai_angle;
-        // The MATCH's post-hit window, folded the way `di_max_angle` above is. An
-        // undeclared world scales by `1.0` and keeps the repeat guard it always had.
-        feel.hit_repeat_window_scale = resolved_rules.hit_repeat_window_scale;
+        resolved_rules.fold_into_feel(&mut feel);
         // AE6: the MATCH's friendly-fire rule, not the world's baseline toggle —
         // the same value the body resolver reads.
         let friendly_fire = resolved_rules.friendly_fire();
@@ -674,7 +670,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                     &mut feature,
                     event.damage.max(1),
                 );
-                writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center });
+                writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center, blow: ambition_vfx::ImpactBlow::PLAIN });
                 if broke {
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
@@ -1102,7 +1098,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                     pos: impact,
                 });
             }
-            writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact });
+            writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });
             if broke {
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible

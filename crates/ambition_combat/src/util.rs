@@ -263,6 +263,43 @@ pub fn emit_melee_slash(
 /// Whether the hit is heavy is the GAME's rule (`weight`, see
 /// [`crate::strike_weight`]), not a number in the engine. Where no game stated
 /// one, every hit is light.
+/// A family root a move may name instead of one cue: the connect picks the
+/// tier (`hit.impact.light` ... `hit.impact.kill`).
+pub const HIT_IMPACT_FAMILY: ambition_sfx::SfxId = ambition_sfx::SfxId::from_static("hit.impact");
+pub const HIT_SLASH_FAMILY: ambition_sfx::SfxId = ambition_sfx::SfxId::from_static("hit.slash");
+const IMPACT_TIERS: [ambition_sfx::SfxId; 4] = [
+    ambition_sfx::ids::HIT_IMPACT_LIGHT,
+    ambition_sfx::ids::HIT_IMPACT_MID,
+    ambition_sfx::ids::HIT_IMPACT_HEAVY,
+    ambition_sfx::ids::HIT_IMPACT_KILL,
+];
+const SLASH_TIERS: [ambition_sfx::SfxId; 4] = [
+    ambition_sfx::ids::HIT_SLASH_LIGHT,
+    ambition_sfx::ids::HIT_SLASH_MID,
+    ambition_sfx::ids::HIT_SLASH_HEAVY,
+    ambition_sfx::ids::HIT_SLASH_KILL,
+];
+
+/// Which tier a hit is, 0 to 3, from its damage over the room's heavy line:
+/// under half the line is light, under the line mid, under 1.6 lines heavy,
+/// past that the kill. The same strength the spark scales by
+/// (`ImpactBlow::strength`).
+pub fn strike_tier(weight: Option<crate::strike_weight::StrikeWeightRules>, damage: i32) -> usize {
+    let Some(weight) = weight else {
+        return 1;
+    };
+    let strength = damage.max(0) as f32 / weight.heavy_at_damage.max(1) as f32;
+    if strength < 0.5 {
+        0
+    } else if strength < 1.0 {
+        1
+    } else if strength < 1.6 {
+        2
+    } else {
+        3
+    }
+}
+
 pub fn resolve_strike_sfx(
     hurt: ambition_vfx::HurtFeedback,
     strike_sfx: Option<ambition_sfx::SfxId>,
@@ -272,6 +309,20 @@ pub fn resolve_strike_sfx(
     let Some(strike) = strike_sfx else {
         return hurt.sfx;
     };
+    // THE TIERS: a move that names a family root, or the cast's generic
+    // `player.hit`, gets the family's tier for the hit's strength over the
+    // room's heavy line (a jab is a tick, a smash a thump, a charged smash
+    // the kill). A room with no heavy line hears the mid tier.
+    let family = if strike == ambition_sfx::ids::PLAYER_HIT || strike == HIT_IMPACT_FAMILY {
+        Some(IMPACT_TIERS)
+    } else if strike == HIT_SLASH_FAMILY {
+        Some(SLASH_TIERS)
+    } else {
+        None
+    };
+    if let Some(tiers) = family {
+        return tiers[strike_tier(weight, damage)];
+    }
     if strike != ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT {
         return strike;
     }
@@ -323,6 +374,9 @@ pub fn emit_hit_feedback(
     // The game's line between light and heavy hits in the struck body's room.
     weight: Option<crate::strike_weight::StrikeWeightRules>,
     pos: ae::Vec2,
+    // The launch the hit gave the victim, in world space, when it gave one:
+    // the spark is turned along it.
+    launch: Option<ae::Vec2>,
     // BOTH sides' presentation sources, because this function emits ONE sound
     // whose provenance depends on which cue won.
     //
@@ -354,7 +408,17 @@ pub fn emit_hit_feedback(
             pos,
         },
     );
-    vfx.write(VfxMessage::Impact { pos });
+    vfx.write(VfxMessage::Impact {
+        pos,
+        blow: ambition_vfx::ImpactBlow {
+            strength: weight.map_or(1.0, |weight| {
+                damage.max(0) as f32 / weight.heavy_at_damage.max(1) as f32
+            }),
+            heavy: crate::strike_weight::StrikeWeightRules::is_heavy(weight, damage),
+            material: hurt.material,
+            launch,
+        },
+    });
     if let Some(burst) = hurt.burst {
         vfx.write(burst.message(pos));
     }
@@ -410,6 +474,7 @@ mod hit_feedback_tests {
             input.damage,
             None,
             ae::Vec2::ZERO,
+            None,
             None,
             None,
         );
@@ -610,6 +675,7 @@ mod hit_feedback_tests {
                 1,
                 None,
                 ae::Vec2::ZERO,
+                None,
                 None,
                 None,
             );

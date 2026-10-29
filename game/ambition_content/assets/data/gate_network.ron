@@ -46,8 +46,8 @@
         (id: "gravity_trail_ring", name: "Gravity Trail Ring", dimension: "science"),
         (id: "gravity_trail_survey_ring", name: "Trail Survey Ring", dimension: "science"),
         (id: "orbital_station_dock", name: "Orbital Station Gate Dock", dimension: "science"),
-        (id: "pirate_port_plaza", name: "Pirate Port Gate Plaza", dimension: "water"),
-        (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "forest"),
+        (id: "pirate_port_plaza", name: "Pirate Port Gate Plaza", dimension: "pvn"),
+        (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "pvn"),
         (id: "noodly_temple_narthex", name: "Noodly Temple Narthex", dimension: "noodle"),
     ],
     rings: [

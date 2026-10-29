@@ -134,6 +134,7 @@ pub fn detect_cut_rope_rope_cut(
         let mut vfx = vfx.for_room(Some(room));
         vfx.write(VfxMessage::Impact {
             pos: event.volume.center(),
+            blow: ambition_vfx::ImpactBlow::PLAIN,
         });
         let cut = tuning.0.cut_rope_trap.effects.cut;
         vfx.write(VfxMessage::Burst {

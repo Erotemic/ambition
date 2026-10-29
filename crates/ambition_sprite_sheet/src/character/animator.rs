@@ -102,6 +102,9 @@ pub struct CharacterAnimator {
     /// and whether the body is drawn mirrored, which the layer undoes so it
     /// keeps its turn when the body turns round. `None`: no layer.
     pub layer: Option<(String, usize, bool)>,
+    /// The share of its health the body has lost (0 whole, 1 spent): its
+    /// wound tracks show this much (`RiggedSpriteAsset::wounded_by`).
+    pub wounds: f32,
 }
 
 /// How long a body that turns round at rest shows its `front` row (s): the
@@ -152,6 +155,7 @@ impl CharacterAnimator {
             head_turn: None,
             expression: None,
             layer: None,
+            wounds: 0.0,
         }
     }
 

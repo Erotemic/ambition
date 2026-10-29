@@ -88,6 +88,19 @@ pub struct SmashFighterFacet {
     /// still in the one moveset file: this map has ids, and no frame.
     #[serde(default)]
     pub verbs: crate::move_damage::VerbMoves,
+    /// Each move's CLOCK on a platform-fighter stage (first strike, last
+    /// strike, total, landing lag), where that differs from its moveset's.
+    /// Folded under [`FIGHTER_DAMAGE`] with the damage and the verbs. The
+    /// home game's moves keep their own pace; the fighter's commit. See
+    /// `crate::move_damage::move_timing_over`.
+    #[serde(default)]
+    pub move_timing: crate::move_damage::MoveTimings,
+    /// The factor each move's BASE knockback is scaled by on a platform-fighter
+    /// stage (`1.25`: a quarter harder at 0%), where its home launch leaves the
+    /// swing with no follow-up. Folded under [`FIGHTER_DAMAGE`] with the rest.
+    /// See `crate::move_damage::move_knockback_over`.
+    #[serde(default)]
+    pub move_knockback: crate::move_damage::MoveKnockback,
 }
 
 /// The damage scale this capability folds a facet's `move_damage` under. A
@@ -271,6 +284,14 @@ impl SmashFighterFacet {
                     "`move_damage.{move_id}` is {values:?}; it needs one value of at least 1 \
                      for each volume of the move that deals damage"
                 ));
+            }
+        }
+        for (move_id, timing) in &self.move_timing {
+            timing.problems(move_id, &mut out);
+        }
+        for (move_id, scale) in &self.move_knockback {
+            if !(scale.is_finite() && *scale > 0.0) {
+                out.push(format!("`move_knockback.{move_id}` is {scale}; it is a positive factor"));
             }
         }
         for (verb, move_id) in &self.verbs {

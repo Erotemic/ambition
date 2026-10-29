@@ -81,7 +81,7 @@ fn reflect_parried_shot(
             pos: kin.pos,
         },
     );
-    vfx.write_in(room, VfxMessage::Impact { pos: kin.pos });
+    vfx.write_in(room, VfxMessage::Impact { pos: kin.pos, blow: ambition_vfx::ImpactBlow::PLAIN });
 }
 /// Per-body charge/motion-recognition/fire input for charge-capable bodies.
 /// Emits [`ProjectileSpawnRequest`]; [`step_projectiles`] owns flight.
@@ -1715,7 +1715,7 @@ pub fn step_projectiles(
                             }
                             .into_trace_event(tick),
                         );
-                        vfx.write_in(shot_room, VfxMessage::Impact { pos });
+                        vfx.write_in(shot_room, VfxMessage::Impact { pos, blow: ambition_vfx::ImpactBlow::PLAIN });
                     }
                 }
                 commands.entity(proj_entity).despawn();

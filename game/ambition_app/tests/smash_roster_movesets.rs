@@ -1215,3 +1215,51 @@ fn the_goblin_offers_its_raider_and_squat_skins() {
         }
     }
 }
+
+/// THE SMASH STAGE READS THE FIGHTER'S CLOCKS, AND HOME DOES NOT. The pointed
+/// polygon's facet states the Smash-stage nair at 38 frames with 5 of landing
+/// lag and an aerial swing; its moveset (the home game) keeps the 19-frame
+/// nair. Every selectable fighter whose facet states clocks lands an aerial
+/// with lag on this stage. Poison: `move_timing_over` left out of
+/// `moveset_in`, red at the first assertion.
+#[test]
+fn the_smash_stage_reads_each_fighters_move_clocks_and_home_keeps_its_own() {
+    use ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE;
+    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let polygon = registry.get("pointed_polygon").expect("the pointed polygon is prepared");
+    let stage = polygon.moveset_in(FIGHTER_DAMAGE).expect("it has moves");
+    let nair_id = stage.verbs.get("attack_air").cloned().expect("its stage names a nair");
+    let nair = stage.move_by_id(&nair_id).expect("its nair");
+    assert!((nair.duration_s - 38.0 / 60.0).abs() < 0.01, "Smash-stage nair lasts {} s, not 38 frames", nair.duration_s);
+    assert!((nair.landing_lag_s.expect("lag") - 5.0 / 60.0).abs() < 0.01);
+    assert!(
+        nair.events.iter().any(|event| matches!(&event.kind, MoveEventKind::Sfx { cue } if cue == "swing.aerial")),
+        "a silent nair gets the aerial swing: {:?}",
+        nair.events
+    );
+    let home = polygon.authored_moveset.as_ref().expect("authored").move_by_id(&nair_id).expect("home nair");
+    assert!(home.duration_s < 0.4, "home nair keeps its own clock ({} s)", home.duration_s);
+
+    let grid = SmashRoster::assemble(registry);
+    let mut without_lag = Vec::new();
+    for id in grid.ids() {
+        let Some(prepared) = registry.get(id) else { continue };
+        let Some(moveset) = prepared.moveset_in(FIGHTER_DAMAGE) else { continue };
+        let Some(nair_id) = moveset.verbs.get("attack_air") else { continue };
+        let Some(spec) = moveset.move_by_id(nair_id) else { continue };
+        if spec.landing_lag_s.is_none() {
+            without_lag.push(id.to_string());
+        }
+    }
+    // Sanic has no facet, George is Rust-authored, Mary-O and the four easter
+    // eggs play borrowed tables: those keep their own clocks for now.
+    let allowed = ["sanic", "smash_george_booul", "mary_o_tall", "director", "performer", "officer", "medic"];
+    without_lag.retain(|id| !allowed.contains(&id.as_str()));
+    assert!(without_lag.is_empty(), "nair without landing lag on the Smash stage: {without_lag:?}");
+}

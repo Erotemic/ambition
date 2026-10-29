@@ -413,8 +413,8 @@ pub fn sync_visuals(
                 // planted — reverse exactly that shift so the standing-frame render puts
                 // its feet back on the same ground line.
                 sprite.custom_size = Some(BVec2::new(
-                    baseline.standing_render.x * scale_x,
-                    baseline.standing_render.y * scale_y,
+                    baseline.standing_render.x * scale_x * pose.squash.x,
+                    baseline.standing_render.y * scale_y * pose.squash.y,
                 ));
                 let dy = (pose.base_size.y - pose.size.y) * 0.5;
                 if dy > f32::EPSILON {
@@ -437,8 +437,8 @@ pub fn sync_visuals(
                 let base_y = pose.base_size.y.max(1.0);
                 let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
                 sprite.custom_size = Some(BVec2::new(
-                    baseline.standing_render.x * scale_x,
-                    baseline.standing_render.y * scale_y * stance_ratio_y,
+                    baseline.standing_render.x * scale_x * pose.squash.x,
+                    baseline.standing_render.y * scale_y * stance_ratio_y * pose.squash.y,
                 ));
             }
         } else if !*warned_unsized_player {

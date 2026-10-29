@@ -1175,6 +1175,8 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         jab_lock_speed: 320.0,
         jab_lock_limit: 3,
         initial_dash_time: 14.0 / 60.0,
+        dash_deflection: 0.8,
+        coyote_time: 0.0,
         turnaround_time: 7.0 / 60.0,
         teeter_margin: 0.25,
         shield: ambition_platformer2d_core::ShieldTuning::OFF,

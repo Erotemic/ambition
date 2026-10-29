@@ -407,7 +407,8 @@ mod tests {
     /// was not. `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
     /// covers `convert_boss_spawn`; `convert_enemy_spawn` carries its own copy
     /// of the same four lines (`entity_converters.rs`) and nothing exercised it
-    /// against a real world file. This does, off the shipped `sandbox.ldtk`.
+    /// against a real world file. This does, off the shipped worlds (the
+    /// lookout is in the PvN dimension's `pvn.ldtk`).
     ///
     /// scoped to the one level, exactly as the GNU-ton test is: composing the
     /// whole sandbox pulls in portal entities whose feature is off in this test
@@ -492,16 +493,17 @@ mod tests {
     }
 
     #[test]
-    fn manifest_names_the_nine_worlds_and_the_hub_entry() {
+    fn manifest_names_the_ten_worlds_and_the_hub_entry() {
         let manifest = world_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 9);
+        assert_eq!(manifest.worlds.len(), 10);
         for (id, what) in [
+            ("world.dinosaur_ldtk", "the dinosaur dimension"),
+            ("world.noodle_ldtk", "the noodle dimension"),
             ("world.math_ldtk", "the Math dimension"),
             ("world.science_ldtk", "the Science dimension"),
             ("world.evil_ldtk", "the Evil dimension"),
-            ("world.pirate_port_ldtk", "the Pirate Port"),
-            ("world.ninja_village_ldtk", "the Ninja Village"),
+            ("world.pvn_ldtk", "the PvN dimension (pirates and ninjas)"),
         ] {
             assert!(manifest.worlds.iter().any(|world| world.id.as_str() == id), "{what}'s world is not in the manifest");
         }

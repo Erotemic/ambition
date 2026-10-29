@@ -58,7 +58,8 @@
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, BossGuard, BossGuardPort, BossScale, BossScalePort, BossStage, BossStagePort,
-    BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide,
+    BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide, Wear,
+    WearPort, Wearer,
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, HeldRay,
@@ -303,6 +304,13 @@ const WARD_FIRE: [f32; 4] = [0.45, 0.75, 1.0, 1.0];
 const SPARK: [f32; 4] = [1.0, 0.93, 0.72, 1.0];
 const ARC: [f32; 4] = [0.66, 0.84, 1.0, 1.0];
 const DUST: [f32; 4] = [0.74, 0.70, 0.66, 1.0];
+/// Kagero's talismans: white paper.
+const PAPER: [f32; 4] = [0.98, 0.96, 0.88, 1.0];
+/// Her talismans pasted on it (a `worn_gear` row): from when her spell breaks
+/// its ward until its spirit leaves it, they say it can be hurt (Jon,
+/// 2026-10-29: "the ghost will get pasted with a few talismans, and that will
+/// be an additional visual cue that the boss is vulnerable again").
+pub const SEALED: &str = "kagero_ofuda";
 
 /// Its howl, a described one (the SFX renderer's `howl` mode), at three
 /// sizes: lower as it grows (Jon, 2026-10-21: "pitch shift them down for the
@@ -596,6 +604,7 @@ pub fn module() -> ModuleDescriptor {
                 BossScalePort::KEY,
                 BossStagePort::KEY,
                 BossSummonPort::KEY,
+                WearPort::KEY,
             ],
             after: Vec::new(),
             limits: Limits { max_requests: 64 },
@@ -948,6 +957,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             play(inv, SFX_GUTTER, at)?;
             burst(inv, at, 40, 340.0, FIRE_CORE, "spark")?;
             shake(inv, SHAKE_TEAR)?;
+            // Her talismans have done their work: they come off with the spirit.
+            inv.submit::<WearPort>(Wear { who: Wearer::Boss, gear: SEALED.into(), on: false })?;
+            burst(inv, at, 16, 260.0, PAPER, "streak")?;
         }
         if crossed(DEATH_FALL.1) {
             let chin = Vec2::new(at.x, hall.floor - 4.0);
@@ -1168,7 +1180,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             last_feet: &mut c.run_last_feet,
             pace: &mut c.run_pace,
             forward: &mut c.run_forward,
-        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt)
+        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt, clamp)
     });
     if let Some(step) = &pursuit {
         if step.forward.x.abs() > 0.2 {
@@ -1288,9 +1300,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let b = b + dt;
         let at_dispel = crate::kagero::DISPEL_AT_S;
         if b >= at_dispel && b - dt < at_dispel {
-            // The ward breaks: its blows land from here.
+            // The ward breaks: its blows land from here, and her talismans
+            // stay on it to say so.
             c.warded = false;
             inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+            inv.submit::<WearPort>(Wear { who: Wearer::Boss, gear: SEALED.into(), on: true })?;
             play(inv, SFX_WARD_BREAK, at)?;
             play(inv, SFX_GUTTER, at)?;
             burst(inv, at, 60, 420.0, WARD_FIRE, "spark")?;
@@ -1441,6 +1455,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     };
     let pos = clamp(pos).min(Vec2::new(f32::MAX, ground));
+    // A new floor height or a lunge must use the same flight limit as pursuit.
+    let pos = if pursuit.is_some() { at.move_towards(pos, chase::MAX_SPEED * dt) } else { pos };
 
     // ── The strike's own onsets ──
     if let Some(part @ Part { striking: true, .. }) = part {

@@ -192,12 +192,51 @@ per-tick PNGs; re-render with the command in each row to look again.
 | P3 | **The victim does not sell the hit.** Flash is a flat full-white body for the hitlag (2–6 f, so a blink); no per-frame jitter of the victim during hitlag; `hit` row is 5 frames, `launch` 7; a trail only at hard launch. The two bodies overlap through the connect. | RENDER + CODE-READ | victim shakes ±2 px every frame of hitlag, the launch pose is a distinct silhouette, smoke/dust at the launch | a white blink and a small slide |
 | P4 | **Attacker posing holds one picture.** 6–7 art frames per attack; the dash attack shows the same lunge for ticks 3–8; the nair's silhouette barely differs from idle; no anticipation snap, no smear/overshoot frame at contact, no settle. The blade is a 2 px line while its hit volume is 40 × 28 px. The smash charge is the held pose plus an orange tint (`CHARGE_TINT`), no shake, no sparks. | RENDER | anticipation (the body stretches away), 1–2 smear frames through the swing, an overshoot pose at contact, a settle; charge shakes the body and sparkles | one pose per phase |
 | P5 | **The slash VFX reads as a halo.** A translucent grey disc sits behind the body rather than an arc that travels with the blade (Jon's standing note: a slash travels and follows through). | RENDER | the arc is the swing | a disc |
-| P6 | **No movement FX at all.** `VfxMessage::Dust` has no sender; no landing puff, dash dust, turnaround dust, jump dust; no squash/stretch on land or jump (none in `pose_view`). | CODE-READ | dust on every dash start, turnaround, landing, jump, roll; landing squash | nothing |
+| P6 | **Movement FX are procedural dots, and two beats have none.** CORRECTED 2026-10-29 (the first reading grepped `-v fx.rs`, which also hid `movement_fx.rs`): `emit_movement_fx` does send `Dust` on jump, landing, the traversal dash, rolls and ledge jumps, and a hard landing splats. What is missing: the initial dash start and the turnaround (not `MovementOp`s), and the dust itself is six procedural dots (`spawn_dust`) while the FX sheet's authored `landing_puff` / `skid_puff` rows go unused; no squash/stretch on land or jump. | CODE-READ | authored dust on every dash start, turnaround, landing, jump, roll; landing squash | dots on some beats |
 | P7 | **Camera.** At the match zoom a fighter is ~50 px tall, so posing and sparks are read at thumbnail size. | RENDER | a tight two-fighter camera that zooms in on a close exchange | wide |
 
 How this interacts with the simulation findings: P1–P3 are mostly invisible
 today *because* hitlag is 2–6 frames (finding 2). R2 makes a connect last 8–19
 frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
+
+## Status (2026-10-29, evening)
+
+| Step | State | Commit |
+|---|---|---|
+| R1 hitstun lockout, R2 hitlag law, hitstun scale | ✔ shipped as `CombatRules` (`hitstun_locks_actions`, `hitlag: Affine`, `hitstun_time`), Smash declares them | 0f8c99ecb |
+| R4 walk/dash threshold, crouch, coyote 0, parry on release | ✔ `dash_deflection` 0.8 (schema 387) | 71381014c |
+| P1 spark carries the blow | ✔ tiered rows, scaled, turned to the launch | 6420ab194 |
+| P3 victim shake, flash lasts the freeze | ✔ shake; flash ≥ hitlag | 1005e9ad7, this commit |
+| P6 authored puffs, dash/turn skid | ✔ (squash/stretch open) | 1005e9ad7 |
+| P2 tiered hit and swing sounds | ✔ 12 cues (reel in `untracked/sfx-candidates/smash-feel/`), tier pick in `resolve_strike_sfx` | 865e5e460 |
+| R3 frame data | ✔ per fighter, in the facet (`move_timing`), 16 fighters; sanic has no facet; George is Rust-authored | 223dc85e7 |
+| R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
+| P4 posing keys, P5 slash arcs | ✔ for the three polygons (Jon: the polygons are the Smash test players, not the robot): 12-frame rows with anticipation / smear / contact-overshoot / settle posed to each fighter's Smash windows, a shaking, glinting `smash_charge`, travelling arcs in the `*_strike_fx` rows (renderer c752183, generation 55069d31; review sheets `untracked/art-review/polygon-keys/`). Open: the beast's coil is subtle; the other fighters' rows are still one picture per phase | 96552c2c6 |
+| P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
+| P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
+| Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
+| R5 play with Jon; R6 angled air-dodge lag (needs one f32 of rollback state), authored walk speed; posing keys beyond the polygons; Sanic's facet | open | — |
+
+Nothing above has been played by a human yet. Every number is a first cut.
+
+**Measured after the pass** (`ko_envelope feel pointed_polygon pugnacious_polygon`,
+2026-10-29): hitlag is the genre's (jab 8 f, tilts 10, aerials 12, fsmash
+16); the facet clocks are live (nair 38 f, fair 40, fsmash 42); hitstun
+tracks Ultimate's 0.4 × KB at these launches (jab 10 f at 120 px/s, fsmash 29
+at 370). On-hit advantage (`adv_f`) is still negative for most moves below
+80% (jab −11 at 0%, ftilt −14, nair −31, fair −24; utilt +6, usmash +13 at
+40%, bair +5 at 80%). That was a per-move BASE KNOCKBACK question (the
+polygons' tilts and aerials launched 120–290 px/s at 0%, short stun against
+24–40 frame moves). Answered the same evening with
+`SmashFighterFacet::move_knockback` (a factor on each move's base launch on
+the Smash stage, growth untouched; written by `scripts/smash_retime.py`:
+forward/down tilt ×1.6, dash attack ×1.5, nair/fair ×1.5, bair/uair ×1.3,
+dair ×1.4, up tilt and smashes ×1.0). Re-measured: ftilt −6 at 0% and −1 at
+40%, dtilt −7 / −2, bair −7 / +2, utilt +6 / +21; aerials stay negative in
+the air as Ultimate's do unless landed (the tool does not model landing). A
+first cut for the play pass.
+Also measured: `smash_tool match-report 30 --runs 2` plays through (KOs,
+launches, techs; no panics) under the new rules.
 
 ## Roadmap
 
@@ -341,10 +380,13 @@ Jon's standing note on slash VFX applies.
 
 ### P6. Movement dust and squash (engine E1 + art, S/M)
 
-Send `VfxMessage::Dust` from the movement facts that already exist: initial
-dash start, turnaround, landing (puff size by fall speed), jump takeoff, roll
-start. Squash on landing and stretch on takeoff as a presented-pose scale over
-3–4 frames. ⛔ No drop shadows.
+The simulation already sends `Dust` on jump, landing, the traversal dash,
+rolls and ledge jumps (`emit_movement_fx`). Draw it with the authored
+`landing_puff` row instead of six procedural dots; add the skid
+(`skid_puff`) on the initial dash start and the turnaround from the
+published motion facts' rising edge (neither is a `MovementOp`). Squash on
+landing and stretch on takeoff as a presented-pose scale over 3–4 frames.
+⛔ No drop shadows.
 
 ### P7. A fighter camera (engine, M, after P1–P4)
 

@@ -582,7 +582,7 @@ fn write_splat(vfx: &mut VfxForRoom<'_, '_>, pos: ae::Vec2, splat: ImpactSplat) 
         kind: ParticleKind::Dust,
     });
     if splat.crash {
-        vfx.write(VfxMessage::Impact { pos });
+        vfx.write(VfxMessage::Impact { pos, blow: ambition_vfx::ImpactBlow::PLAIN });
     }
 }
 

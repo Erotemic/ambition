@@ -1,7 +1,7 @@
 # The Ninja Village (gate address `SILENT`)
 
 A mountain village of the ninja dimension. The world file is
-`ninja_village.ldtk`. The gate arrives at the gate shrine, at the zone
+`pvn.ldtk` (the PvN dimension). The gate arrives at the gate shrine, at the zone
 `ninja_village_gate_arrival`.
 
 `make_specs.py` writes each room's `.ron` spec and, with `--apply`, makes the

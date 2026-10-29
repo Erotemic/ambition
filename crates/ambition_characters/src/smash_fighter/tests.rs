@@ -14,6 +14,8 @@ fn facet() -> SmashFighterFacet {
         knockback_weight: None,
         move_damage: MoveDamage::new(),
         verbs: Default::default(),
+        move_timing: Default::default(),
+        move_knockback: Default::default(),
         character: "test_fighter".to_string(),
     }
 }
@@ -214,4 +216,77 @@ fn move_damage_values_must_be_at_least_one() {
     let mut facet = facet();
     facet.move_damage = MoveDamage::from([("jab".to_string(), vec![3, 15])]);
     assert!(facet.problems().is_empty(), "{:?}", facet.problems());
+}
+
+/// ⭐ A GAME'S CLOCK MAPS THE MOVE'S OWN. The fixture's jab is active 0.1–0.2
+/// of 0.4 with its sound at 0.1; timed to hit 0.05, last 0.4, total 0.7 the
+/// window edges and the event follow the same piecewise map (0.1 -> 0.05,
+/// 0.2 -> 0.4, end 0.4 -> 0.7), the landing lag is set, an aerial with lag
+/// gets its autocancel, the move's own sound keeps the derived swing out, and
+/// a move the map does not name is untouched. Poison: the map applied to the
+/// events removed, red at the event assertion.
+#[test]
+fn move_timing_maps_the_moves_own_clock_and_nothing_else() {
+    use crate::move_damage::{move_timing_over, MoveTiming, MoveTimings};
+    let timing = MoveTimings::from([(
+        "jab".to_string(),
+        MoveTiming {
+            hit_s: 0.05,
+            last_s: 0.4,
+            total_s: 0.7,
+            landing_lag_s: Some(0.1),
+            swing: Some("swing.aerial".to_string()),
+        },
+    )]);
+    let moveset = move_timing_over(&timing, two_moves()).expect("the map names a move with a swing");
+    let jab = moveset.move_by_id("jab").expect("kept");
+    let close = |a: f32, b: f32| (a - b).abs() < 1e-5;
+    assert!(close(jab.duration_s, 0.7));
+    assert!(close(jab.windows[0].start_s, 0.05) && close(jab.windows[0].end_s, 0.4), "{:?}", jab.windows[0]);
+    assert!(close(jab.events[0].at_s, 0.05), "the authored sound rode the map: {}", jab.events[0].at_s);
+    assert_eq!(jab.events.len(), 1, "a move with its own sound before the strike gets no derived swing");
+    assert_eq!(jab.landing_lag_s, Some(0.1));
+    assert!(close(jab.autocancel_after_s.expect("an aerial with lag autocancels"), 0.4 + 0.6 * 0.3));
+    let combo = moveset.move_by_id("combo").expect("kept");
+    assert!(close(combo.duration_s, 0.4) && close(combo.windows[0].start_s, 0.1), "an unnamed move keeps its clock");
+
+    // A silent move gets the swing a third of the way to its first strike.
+    let mut silent = two_moves();
+    silent.moves[0].events.clear();
+    let moveset = move_timing_over(&timing, silent).expect("fits");
+    let jab = moveset.move_by_id("jab").expect("kept");
+    assert_eq!(jab.events.len(), 1);
+    assert!(close(jab.events[0].at_s, 0.05 * 0.3));
+    assert!(matches!(&jab.events[0].kind, ambition_entity_catalog::MoveEventKind::Sfx { cue } if cue == "swing.aerial"));
+
+    // A move the moveset lacks, or one with no Active window, is refused whole.
+    let missing = MoveTimings::from([("nope".to_string(), timing["jab"].clone())]);
+    assert!(move_timing_over(&missing, two_moves()).is_err());
+}
+
+/// ⭐ A GAME'S KNOCKBACK FACTOR SCALES ONLY THE BASE OF THE MOVES IT NAMES: each
+/// striking volume's `knockback` is multiplied, a windbox (damage 0) and the
+/// growth are untouched, an unnamed move keeps its launch, and a factor that
+/// is not positive or a move the moveset lacks refuses the map whole.
+#[test]
+fn move_knockback_scales_the_named_moves_base_launch_and_nothing_else() {
+    use crate::move_damage::{move_knockback_over, MoveKnockback};
+    let before = two_moves();
+    let base = |m: &ambition_entity_catalog::MovesetContract, id: &str| -> Vec<(i32, f32, Option<f32>)> {
+        m.move_by_id(id)
+            .expect("move")
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter().map(|v| (v.damage, v.knockback, v.knockback_growth)))
+            .collect()
+    };
+    let scaled = move_knockback_over(&MoveKnockback::from([("combo".to_string(), 1.25)]), before.clone()).expect("fits");
+    for ((dmg, kb_before, growth_before), (_, kb_after, growth_after)) in base(&before, "combo").into_iter().zip(base(&scaled, "combo")) {
+        let expected = if dmg > 0 { kb_before * 1.25 } else { kb_before };
+        assert!((kb_after - expected).abs() < 1e-5, "damage {dmg}: {kb_before} -> {kb_after}");
+        assert_eq!(growth_before, growth_after, "growth is untouched");
+    }
+    assert_eq!(base(&before, "jab"), base(&scaled, "jab"), "an unnamed move keeps its launch");
+    assert!(move_knockback_over(&MoveKnockback::from([("nope".to_string(), 1.25)]), two_moves()).is_err());
+    assert!(move_knockback_over(&MoveKnockback::from([("jab".to_string(), 0.0)]), two_moves()).is_err());
 }

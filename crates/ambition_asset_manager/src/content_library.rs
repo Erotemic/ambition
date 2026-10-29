@@ -126,7 +126,9 @@ impl ContentLibrary {
                 .map_err(|error| format!("{}: {error}", root.join(path).display()))?,
             None => crate::AssetManifest::default(),
         };
-        Ok(Self { manifest, root, catalog, embedded: None })
+        let library = Self { manifest, root, catalog, embedded: None };
+        library.warn_once_if_ungenerated();
+        Ok(library)
     }
 
     pub fn from_embedded(library: &'static EmbeddedLibrary) -> Result<Self, String> {
@@ -148,9 +150,68 @@ impl ContentLibrary {
         self.manifest.publication.as_ref().map(|path| self.root.join(path))
     }
 
+    /// The accepted publication. A library with a store that published
+    /// nothing has an empty selection, not an error.
     pub fn selection(&self) -> Result<Option<Selection>, String> {
         if self.embedded.is_some() { return Ok(None); }
         self.publication_root().map(|root| Selection::read(&root)).transpose()
+    }
+
+    /// The producer family that makes `logical`, when a producer declares it
+    /// in its `roots` or as its `registry`. A file that no producer makes is
+    /// authored.
+    pub fn producer_of(&self, logical: &str) -> Option<&str> {
+        self.manifest.producers.iter().find(|(_, config)| declared_roots(config)
+            .any(|root| logical == root || logical.starts_with(&format!("{root}/"))))
+            .map(|(family, _)| family.as_str())
+    }
+
+    /// The producer families that have no product in this library: no
+    /// accepted publication unit, and no loose copy of each declared root
+    /// under a generated asset root. An embedded library has all its products.
+    ///
+    /// `python3 scripts/content_status.py` gives the same answer, and more
+    /// detail, without a game build.
+    pub fn missing_families(&self) -> Vec<String> {
+        if self.embedded.is_some() { return Vec::new(); }
+        let selection = self.selection().ok().flatten();
+        let generated: Vec<PathBuf> = self.manifest.asset_roots.iter()
+            .filter(|(role, _)| role.as_str() != "authored")
+            .map(|(_, root)| self.root.join(root)).collect();
+        self.manifest.producers.iter().filter(|(family, config)| {
+            let published = selection.as_ref().is_some_and(|selection| selection.bundles.keys()
+                .any(|unit| publishes(family, unit)));
+            let mut roots = declared_roots(config).peekable();
+            let loose = roots.peek().is_some()
+                && roots.all(|root| generated.iter().any(|base| base.join(root).exists()));
+            !published && !loose
+        }).map(|(family, _)| family.clone()).collect()
+    }
+
+    /// Tell the operator ONE time per process that generated content is
+    /// absent. The game continues without it.
+    fn warn_once_if_ungenerated(&self) {
+        static WARNED: std::sync::Mutex<std::collections::BTreeSet<PathBuf>> =
+            std::sync::Mutex::new(std::collections::BTreeSet::new());
+        let Ok(mut warned) = WARNED.lock() else { return };
+        if warned.contains(&self.root) { return; }
+        warned.insert(self.root.clone());
+        let missing = self.missing_families();
+        if missing.is_empty() { return; }
+        let store = self.publication_root().map(|root| root.join("published.json"));
+        let store = match store {
+            Some(path) if path.is_file() => format!("{} (partial)", path.display()),
+            Some(path) => format!("{} (absent)", path.display()),
+            None => "none declared".to_owned(),
+        };
+        eprintln!(
+            "WARNING: content library `{}` has {} generated famil{} missing ({}).\n  \
+             The game runs without them: art shows as placeholders, and missing audio is silent.\n  \
+             store: {store}\n  \
+             query: python3 scripts/content_status.py\n  \
+             make:  scripts/setup/generated_content.sh",
+            self.manifest.id, missing.len(), if missing.len() == 1 { "y" } else { "ies" },
+            missing.join(", "));
     }
 
     /// Published products own their declared roots. Loose copies have no authority.
@@ -280,6 +341,21 @@ impl ContentLibraries {
     }
 }
 
+/// The logical roots a producer declares: its `roots` and its `registry`.
+fn declared_roots(config: &serde_json::Value) -> impl Iterator<Item = &str> {
+    config.get("roots").and_then(serde_json::Value::as_array).into_iter().flatten()
+        .chain(config.get("registry"))
+        .filter_map(serde_json::Value::as_str)
+}
+
+/// True when the publication unit `unit` is a product of `family`. The sprite
+/// renderer publishes the `sprites` family as `target:` and `atlas:` units.
+fn publishes(family: &str, unit: &str) -> bool {
+    let producer = format!("producer:{family}");
+    unit == producer || unit.starts_with(&format!("{producer}:"))
+        || (family == "sprites" && (unit.starts_with("target:") || unit.starts_with("atlas:")))
+}
+
 fn regular_files(root: &Path, selected: Option<&Selection>) -> Result<Vec<(String, PathBuf)>, String> {
     fn visit(root: &Path, directory: &Path, files: &mut Vec<(String, PathBuf)>, selected: Option<&Selection>) -> Result<(), String> {
         for entry in std::fs::read_dir(directory).map_err(|error| format!("{}: {error}", directory.display()))? {
@@ -338,6 +414,44 @@ mod tests {
         assert!(selected.resolve("content://second/body.ron").is_ok());
         let error = selected.resolve("body.ron").unwrap_err();
         assert!(error.contains("first") && error.contains("second") && error.contains("body.ron"));
+    }
+
+    /// A store that published nothing is an empty selection, not an error,
+    /// and each producer family without a product is named as missing.
+    #[test]
+    fn an_unpublished_store_is_an_empty_selection_and_its_families_are_missing() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(root.path().join("authored/audio")).unwrap();
+        std::fs::write(root.path().join("authored/audio/cues.ron"), "authored").unwrap();
+        std::fs::write(root.path().join("library.json"), serde_json::json!({
+            "schema": SCHEMA, "id": "shared", "version": "1",
+            "asset_roots": {"authored": "authored", "generated": "generated"},
+            "publication": "publication",
+            "producers": {
+                "music": {"roots": ["audio/music"], "registry": "audio/registry.ron"},
+                "sprites": {"policy": "authored/sprites.yaml"},
+            },
+        }).to_string()).unwrap();
+        let library = ContentLibrary::read(root.path().join("library.json")).expect("no store is not an error");
+        let selection = library.selection().unwrap().expect("the library declares a store");
+        assert!(selection.is_empty());
+        assert_eq!(library.files().unwrap().keys().collect::<Vec<_>>(), ["audio/cues.ron"]);
+        assert_eq!(library.missing_families(), ["music", "sprites"]);
+        assert_eq!(library.producer_of("audio/registry.ron"), Some("music"));
+        assert_eq!(library.producer_of("audio/music/theme.ogg"), Some("music"));
+        assert_eq!(library.producer_of("audio/cues.ron"), None, "a file no producer makes is authored");
+
+        // A loose copy of each declared root is a product.
+        std::fs::create_dir_all(root.path().join("generated/audio/music")).unwrap();
+        std::fs::write(root.path().join("generated/audio/registry.ron"), "generated").unwrap();
+        assert_eq!(library.missing_families(), ["sprites"]);
+        // An accepted publication unit is a product too.
+        std::fs::create_dir_all(root.path().join("publication")).unwrap();
+        std::fs::write(root.path().join("publication/published.json"), serde_json::json!({
+            "schema": crate::art_publication::SCHEMA, "generation": "one", "files": {},
+            "bundles": {"target:hand_saint": "key"},
+        }).to_string()).unwrap();
+        assert!(library.missing_families().is_empty());
     }
 }
 

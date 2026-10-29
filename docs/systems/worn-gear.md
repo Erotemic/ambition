@@ -13,6 +13,11 @@ is a space helmet. GNU-ton, the giant gnu and the player robot can each wear
 it. The gear has its own pictures. It is not painted into the art of one
 character, so one gear can go on different characters.
 
+The second gear is Kagero's paper talismans (`kagero_ofuda`). The Inugami
+wears them from when her spell breaks its ward until its spirit leaves it, so
+they mark the time it can be hurt. They are worn on its `seam` track, its last
+head part, so they are drawn over its whole face.
+
 ## The contract
 
 - **The anchor.** A gear attaches to an anchor of the wearer. The only anchor

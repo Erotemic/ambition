@@ -213,7 +213,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
         // A protected body registers the hit without health damage. The
         // stimulus consumer owns retaliation, strike counts and speech.
         let pos = em.kin.pos;
-        combat.hit_flash = 0.18;
+        combat.hit_flash = combat.hit_flash.max(0.18);
         combat.note_struck();
         combat.damage_invuln_timer = ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
@@ -230,6 +230,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
             event.damage,
             strike_weight,
             impact,
+            event.knockback.and_then(|knockback| knockback.launch_dir.map(|dir| dir.world())),
             attacker_source.as_ref(),
             victim_source.as_ref(),
         );
@@ -389,7 +390,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                     pos: em.kin.pos,
                 },
             );
-            writers.vfx.write_in(room, VfxMessage::Impact { pos: impact });
+            writers.vfx.write_in(room, VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });
             writers.vfx.write_in(room, VfxMessage::Burst {
                 pos: impact,
                 count: 8,
@@ -542,6 +543,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
             event.damage,
             strike_weight,
             impact,
+            event.knockback.and_then(|knockback| knockback.launch_dir.map(|dir| dir.world())),
             attacker_source.as_ref(),
             victim_source.as_ref(),
         );

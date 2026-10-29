@@ -172,6 +172,11 @@ pub struct BodyPoseView {
     /// `size.y / base_size.y`, clamped (0.1, 1.0] — the trimmed-sheet
     /// stance compaction the animator applies.
     pub stance_ratio_y: f32,
+    /// SQUASH AND STRETCH: the factor the drawn body is scaled by (x, y),
+    /// about its feet. `(1, 1)` at rest; wide and low on the tick it lands and
+    /// relaxing over the landing beat (deeper for a hard landing); low in the
+    /// jump squat. Presentation only: the collision body never changes.
+    pub squash: ambition_platformer2d_core::Vec2,
     /// Gravity direction used for the facing flip (the global field read the
     /// player path has always used).
     pub gravity_dir: ambition_platformer2d_core::Vec2,
@@ -383,6 +388,7 @@ impl Default for BodyPoseView {
             clip: None,
             roll_angle: 0.0,
             stance_ratio_y: 1.0,
+            squash: ambition_platformer2d_core::Vec2::ONE,
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
@@ -419,6 +425,9 @@ pub fn rebuild_body_pose_views(
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    // The room's hitlag law: under an affine law the reference is that law's
+    // ordinary freeze, not the world's, or a smash would read as a blink.
+    rules: ambition_combat::rules::CombatTuningOf,
     // The cast a granted body is compared against. See `PoseGeometry`.
     // The running session's frozen cast, or the published one with no
     // session (`SessionCast`).
@@ -524,7 +533,12 @@ pub fn rebuild_body_pose_views(
 ) {
     // No feel tuning means no hitlag law to measure against: every body reports
     // no strength rather than a number derived from a reference nobody set.
-    let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    let hitlag_reference_of = |entity: Entity| {
+        rules
+            .of(entity)
+            .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference))
+    };
     for (
         (
             entity,
@@ -571,6 +585,11 @@ pub fn rebuild_body_pose_views(
         let stance_ratio_y = base_size
             .map(|b| (kinematics.size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
             .unwrap_or(1.0);
+        let squash = squash_and_stretch(
+            anim_facts.map_or(0.0, |f| f.land_anim_timer),
+            anim_facts.is_some_and(|f| f.land_anim_hard),
+            motion_facts.is_some_and(|f| f.jump_squatting),
+        );
         // The anim pick runs only over the FULL cluster set `animate_player`
         // used to require — a partial body keeps `Idle` (it never animated
         // before either) while its transform facts stay live.
@@ -788,6 +807,7 @@ pub fn rebuild_body_pose_views(
             wall_secs,
             roll_angle: roll.map_or(0.0, |r| r.angle),
             stance_ratio_y,
+            squash,
             gravity_dir,
             anim,
             //  a MOVE names its row; failing that, a fighter STATE does — the
@@ -868,7 +888,7 @@ pub fn rebuild_body_pose_views(
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(
                 combat.map_or(0.0, |c| c.hitstop_timer),
-                hitlag_reference,
+                hitlag_reference_of(entity),
             ),
             // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
             // body missing one of these clusters cannot be protected by it, so
@@ -1651,4 +1671,26 @@ mod posed_body_gate_tests {
              to every body would build a read model for every crate and pot"
         );
     }
+}
+
+/// The landing beat the soft landing's squash relaxes over (s); the body's
+/// `land_anim_timer` starts at the sheet's hold and counts down.
+const SQUASH_LANDING_BEAT_S: f32 = 0.16;
+/// How low a soft landing presses the body (fraction of height) and how wide
+/// it spreads; a hard landing presses deeper; the jump squat is a crouch of
+/// its own.
+const SQUASH_SOFT: f32 = 0.14;
+const SQUASH_HARD: f32 = 0.22;
+const SQUASH_WIDEN: f32 = 0.7;
+const JUMP_SQUAT_PRESS: f32 = 0.10;
+
+/// The drawn body's (x, y) scale about its feet this tick. Strongest on the
+/// landing tick and relaxing as the landing beat runs down; the jump squat
+/// presses the body before it leaves. Volume reads as kept: the width grows
+/// by `SQUASH_WIDEN` of what the height loses.
+pub fn squash_and_stretch(land_timer_s: f32, hard: bool, jump_squatting: bool) -> ambition_platformer2d_core::Vec2 {
+    let landing = (land_timer_s / SQUASH_LANDING_BEAT_S).clamp(0.0, 1.0);
+    let press = if hard { SQUASH_HARD } else { SQUASH_SOFT } * landing * landing;
+    let press = if jump_squatting { press.max(JUMP_SQUAT_PRESS) } else { press };
+    ambition_platformer2d_core::Vec2::new(1.0 + press * SQUASH_WIDEN, 1.0 - press)
 }

@@ -62,8 +62,10 @@ ambition_require_python_module \
 if [ "$skip_render" -eq 0 ]; then
     echo "==> fetch public samples"
     (cd "$renderer_dir" && "$renderer_py" -m ambition_sfx_renderer fetch-samples)
-    echo "==> render-all sfx cues (jobs=auto$([ "$force" -eq 1 ] && echo ', force'))"
-    render_args=(render-all --group "$sfx_collection" --jobs auto)
+    # Six, not auto: the box is shared and a pool of every CPU starves the
+    # other builds (maintainer rule).
+    echo "==> render-all sfx cues (jobs=6$([ "$force" -eq 1 ] && echo ', force'))"
+    render_args=(render-all --group "$sfx_collection" --jobs 6)
     if [ "$force" -eq 1 ]; then
         render_args+=(--force)
     fi

@@ -38,7 +38,7 @@
         ( type: "LoadingZone", px: [1984, 288], size: [48, 96], fields: ( id: "hall_to_biome_eclipse", name: "Eclipse", activation: "Door", target_room: "biome_eclipse", target_zone: "biome_eclipse_entry", bidirectional: true ) ),
     ],
     connect_to: [
-        ( target_room: "central_hub_main", px: [1432, 880], size: [48, 96], id: "hall_of_biomes_door", name: "to hall of biomes", target_zone: "hall_of_biomes_entry", activation: "Door", bidirectional: true ),
+        ( target_room: "central_hub_main", px: [944, 832], size: [48, 96], id: "hall_of_biomes_door", name: "to hall of biomes", target_zone: "hall_of_biomes_entry", activation: "Door", bidirectional: true ),
         ( target_room: "biome_hub", px: [48, 528], size: [48, 96], id: "biome_hub_entry", name: "to hall of biomes", target_zone: "hall_to_biome_hub", activation: "Door", bidirectional: true ),
         ( target_room: "biome_clean_corrupted", px: [48, 528], size: [48, 96], id: "biome_clean_corrupted_entry", name: "to hall of biomes", target_zone: "hall_to_biome_clean_corrupted", activation: "Door", bidirectional: true ),
         ( target_room: "biome_blueprint", px: [48, 528], size: [48, 96], id: "biome_blueprint_entry", name: "to hall of biomes", target_zone: "hall_to_biome_blueprint", activation: "Door", bidirectional: true ),

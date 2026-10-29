@@ -143,7 +143,6 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     };
     let route = chase_route();
     let mut last = head(&mut sim).kin.pos;
-    let mut jump = (0.0_f32, last, last);
     for leg in route.windows(2) {
         let (a, b) = (leg[0], leg[1]);
         let ticks = ((b - a).length() / 260.0 * 60.0).ceil() as usize;
@@ -156,7 +155,8 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
             }
             sim.step(AgentAction::default());
             let h = head(&mut sim);
-            if h.view.is_some_and(|v| v.running) {
+            let runner = sim.world_mut().get::<ae::BodyKinematics>(body).unwrap().pos;
+            if h.view.is_some_and(|v| v.running) && h.kin.pos.distance(runner) < 900.0 {
                 let world = sim.world_mut();
                 let view = ambition_platformer2d::sim_view::the_only_view(world);
                 let snap = &world.get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(view)
@@ -166,13 +166,11 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
                     "the live pursuer is outside the camera: head={:?}, camera={snap:?}", h.kin);
             }
             let now = h.kin.pos;
-            if (now - last).length() > jump.0 {
-                jump = ((now - last).length(), last, now);
-            }
+            assert!(now.distance(last) < MOST_IN_A_TICK,
+                "it jumped {} px in one tick on its run, from {last} to {now}; runner={runner}", now.distance(last));
             last = now;
         }
     }
-    assert!(jump.0 < MOST_IN_A_TICK, "it jumped {} px in one tick on its run, from {} to {}", jump.0, jump.1, jump.2);
     step_until(&mut sim, 60 * 15, "it to come into the final hall after you", |sim| {
         let h = head(sim);
         h.phase == BossEncounterPhase::Phase2 && h.kin.pos.x < FINAL_HALL_EAST && h.view.is_some_and(|v| !v.running)
@@ -181,10 +179,13 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
 
     // You stand in the final hall with it: Kagero comes to your aid, her
     // spell breaks its ward (she does not cut it), and she is gone up her
-    // line. Then it fights, and your blows land.
+    // line. Then it fights, and your blows land. Her talismans stay pasted on
+    // it from when its ward breaks: they say it can be hurt.
     let before = health(&mut sim, INUGAMI_ID);
     step_until(&mut sim, 60 * 4, "Kagero to come", |sim| kagero(sim).is_some());
+    assert!(!sealed(&mut sim), "her talismans were on it before she threw them");
     step_until(&mut sim, 60 * 4, "her spell to break its ward", |sim| head(sim).view.is_some_and(|v| !v.warded) && !guarded(sim));
+    assert!(sealed(&mut sim), "its ward broke and her talismans are not on it");
     step_until(&mut sim, 60 * 4, "Kagero to leave", |sim| kagero(sim).is_none());
     assert_eq!(health(&mut sim, INUGAMI_ID), before, "she cut it: the fight is yours");
     step_until(&mut sim, 60 * 10, "it to fight in the hall", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
@@ -192,6 +193,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
         sim.step(AgentAction::default());
     }
     assert!(kagero(&mut sim).is_none(), "she came back");
+    assert!(sealed(&mut sim), "her talismans came off it while it could still be hurt");
 
     // The killing blow: the world hangs while it falls, then comes back.
     kill(&mut sim, INUGAMI_ID);
@@ -210,6 +212,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     let h = head(&mut sim);
     assert!(!h.alive, "{h:?}");
     assert!(h.kin.pos.y + h.kin.size.y * 0.5 > FINAL_HALL_FLOOR - 30.0, "his head did not drop to the hall's floor: {h:?}");
+    assert!(!sealed(&mut sim), "her talismans stayed on his head after the spirit left it");
 }
 
 /// Its name, as its plate shows it (Jon, 2026-10-24).
@@ -232,7 +235,7 @@ fn chase_route() -> Vec<ae::Vec2> {
     const STEP: f32 = 888.0;
     // The arena and the way east are hopped too, over the gate's sill and
     // the way's barricade.
-    let mut route = vec![ae::Vec2::new(7000.0, 708.0), ae::Vec2::new(10150.0, 708.0), ae::Vec2::new(10150.0, 1640.0)];
+    let mut route = vec![ae::Vec2::new(7000.0, 708.0), ae::Vec2::new(10400.0, 708.0), ae::Vec2::new(10400.0, 1640.0)];
     // A hop over the floor (the body's middle 124 over it): over the run's
     // barricades and rubble, as a runner jumps them. A body carried into one
     // is pushed out of it, and the camera rightly follows that jump.
@@ -325,6 +328,14 @@ fn a_stopped_runner_takes_ghost_fire_and_lightning_with_a_forward_launch() {
         if connected == [true, true] { return; }
     }
     panic!("the stopped runner was not hurt by both attacks: fire={}, lightning={}", connected[0], connected[1]);
+}
+
+/// It wears Kagero's talismans (`inugami::SEALED`, a worn gear).
+fn sealed(sim: &mut Platformer2dSimHarness) -> bool {
+    let entity = boss_entity(sim, INUGAMI_ID);
+    sim.world_mut()
+        .get::<ambition_platformer2d::characters::equipment::WornEquipment>(entity)
+        .is_some_and(|worn| worn.wears(ambition_content::bosses::inugami::SEALED))
 }
 
 /// Kagero's body, while she is in the world.

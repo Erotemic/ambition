@@ -35,4 +35,21 @@
             "player_robot_v3": (track: "head", scale: 1.0),
         },
     ),
+    // Kagero's paper talismans, pasted on the Inugami when her spell breaks
+    // its ward: they say it can be hurt now (Jon, 2026-10-29). Its conductor
+    // puts them on and takes them off (`inugami::SEALED`). The picture is in
+    // the head's own frame (`kagero_ofuda` in the sprite renderer): the
+    // middle of the head on its pivot. On `seam`, its last head part, so they
+    // are over its eyes, brows and jar. Scale 1.15: it has swelled that much
+    // by the final hall (the gear does not grow with the body).
+    "kagero_ofuda": (
+        anchor: Head,
+        slot: "seal",
+        front: Some("sprites/kagero_ofuda_front.png"),
+        size: (277.5, 277.5),
+        socket: (0.5, 0.5),
+        fits: {
+            "wolfenstein_inugami": (track: "seam", scale: 1.15),
+        },
+    ),
 }

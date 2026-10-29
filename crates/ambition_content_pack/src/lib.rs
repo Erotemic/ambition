@@ -24,7 +24,7 @@ pub use candidate::{changed_domains, CandidateGeneration, CandidateVerdict};
 pub use rules_schema::{lowered_rules, rules_schema};
 pub use shown_text::{hole, lowered_shown_text, shown_text_schema, ShownText, TextKey, TextKeys};
 pub use diagnostic::{CompileFailure, CompileStage, Diagnostic, DiagnosticCode, Severity};
-pub use draft::{ContentPackDraft, ContentPackManifest, SourceDeclaration, SourceFile};
+pub use draft::{ContentPackDraft, ContentPackManifest, SourceDeclaration, SourceFile, SourceLocation};
 pub use identity::{
     CapabilityId, ContentId, ModuleNamespace, PackId, PackVersion, SchemaId, SchemaVersion,
 };
@@ -162,7 +162,9 @@ pub fn compile(
     }
 
     // ── facet validation ─────────────────────────────────────────────────
-    let mut diagnostics = Vec::new();
+    // The read's warnings (an ungenerated library source) go on the prepared
+    // pack with the compiler's own.
+    let mut diagnostics = draft.warnings.clone();
     let mut defined: BTreeMap<ContentId, Entry> = BTreeMap::new();
     let mut duplicates: Vec<Diagnostic> = Vec::new();
     let mut pending_refs: Vec<PendingRef> = Vec::new();
@@ -449,6 +451,17 @@ pub fn compile(
     // ── reference resolution ─────────────────────────────────────────────
     let mut resolved_references = Vec::new();
     let mut reference_failures = Vec::new();
+    // The generated sources that the read did not find. A reference to a kind
+    // that no source defines can point into one of them (a boss names a music
+    // track before the music is rendered). Such a reference is not an
+    // authoring bug, so it is not checked: one warning for each kind says so.
+    let ungenerated: Vec<&str> = draft
+        .warnings
+        .iter()
+        .filter(|warning| warning.code == DiagnosticCode::UngeneratedSource)
+        .filter_map(|warning| warning.source.as_deref())
+        .collect();
+    let mut unchecked: BTreeMap<SchemaId, usize> = BTreeMap::new();
     for pending in &pending_refs {
         let target = pending.target_in(namespace);
         if defined.contains_key(&target) {
@@ -463,8 +476,26 @@ pub fn compile(
                 .filter(|id| id.schema == pending.schema)
                 .map(|id| id.name.clone())
                 .collect();
+            if available.is_empty() && !ungenerated.is_empty() {
+                *unchecked.entry(pending.schema.clone()).or_default() += 1;
+                continue;
+            }
             reference_failures.push(pending.unresolved(&available));
         }
+    }
+    for (kind, count) in unchecked {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::UngeneratedSource,
+                CompileStage::ReferenceResolution,
+                format!(
+                    "{count} reference(s) to `{kind}` are not checked: no source defines a \
+                     `{kind}`, and generated sources are absent ({})",
+                    ungenerated.join(", ")
+                ),
+            )
+            .fix("make the generated content: scripts/setup/generated_content.sh"),
+        );
     }
 
     // ── asset resolution ─────────────────────────────────────────────────

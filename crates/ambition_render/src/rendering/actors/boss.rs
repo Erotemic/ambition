@@ -158,7 +158,15 @@ pub fn animate_bosses(
                 .as_ref()
                 .and_then(|pin| pin.layer.as_ref())
                 .and_then(|layer| animator.pinned_cell(layer.rows.iter().map(String::as_str), layer.elapsed, layer.looping));
-            *drawn = sprites::BossDrawnCell { row, frame, hurt_face: hurt_face(&animator.spec, view.hit_flash_secs), layer };
+            // How hurt it is: its wounds show as much (eyes that go bloodshot).
+            let wounds = feature_views.get(&visual.id).filter(|f| f.hp_max > 0).map_or(0.0, |f| 1.0 - f.hp_current as f32 / f.hp_max as f32);
+            *drawn = sprites::BossDrawnCell {
+                row,
+                frame,
+                hurt_face: hurt_face(&animator.spec, view.hit_flash_secs),
+                layer,
+                wounds: (wounds.clamp(0.0, 1.0) * 255.0).round() as u8,
+            };
         }
         let index = animator.flat_index_at(row, frame);
         // Split sheets: select the page for the active frame before setting
@@ -367,6 +375,10 @@ pub fn pose_boss_part_animators(
         let worn = animator.layer.as_ref().map(|(row, frame, mirrored)| (row.as_str(), *frame, *mirrored));
         if worn != layer {
             animator.layer = layer.map(|(row, frame, mirrored)| (row.to_owned(), frame, mirrored));
+        }
+        let wounds = f32::from(drawn.wounds) / 255.0;
+        if animator.wounds != wounds {
+            animator.wounds = wounds;
         }
     }
 }

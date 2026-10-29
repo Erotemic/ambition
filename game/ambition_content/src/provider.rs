@@ -74,15 +74,26 @@ impl AmbitionPreparedWorld {
     }
 }
 
+/// The audio fragments a session of `pack` must have.
+///
+/// The music is generated content. When the boot pack has no music registry
+/// (the music is not rendered yet), the provider does not expect music, and
+/// a session prepares and plays without it. A pack that has music expects
+/// it, so a reload candidate that drops it is refused.
 pub fn ambition_authored_catalogs(pack: &ambition_content_pack::PreparedContentPack) -> AuthoredCatalogFragments {
-    AuthoredCatalogFragments::new(
+    let mut fragments = AuthoredCatalogFragments::new(
         crate::character_catalog::starting_character(pack),
         crate::AMBITION_CONTENT_PROVIDER,
     )
-    .with_music()
-    .with_procedural_sfx()
     .with_adaptive_cues()
-    .with_packed_sfx()
+    .with_packed_sfx();
+    if ambition_audio::content_schema::lowered_music_registry(pack).is_some() {
+        fragments = fragments.with_music();
+    }
+    if ambition_audio::content_schema::lowered_sfx_registry(pack).is_some() {
+        fragments = fragments.with_procedural_sfx();
+    }
+    fragments
 }
 
 /// The launcher row's words are the pack's (`data/ambition_text.ron`).

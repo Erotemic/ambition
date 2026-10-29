@@ -127,6 +127,37 @@ pub enum ImpactMaterial {
 /// [`HurtFeedback::ENEMY`] and never the player's red hurt burst, and the
 /// player always keeps its hurt flash.
 /// [`PhysicsDebrisCue`] are small enums).
+/// WHAT A CONNECT WAS, for the spark that marks it.
+///
+/// Resolved by the one hit-feedback emitter from facts the hit already has
+/// (its damage against the room's light/heavy line, the victim's material,
+/// the launch), never inferred in the renderer. A sender with no hit behind
+/// it (a deflect, a cut rope, a shot on a wall) sends [`Self::PLAIN`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ImpactBlow {
+    /// The hit's damage over the room's heavy line: `1.0` is a hit that just
+    /// lands heavy, a jab is a fraction, a charged smash is past one. `1.0`
+    /// where the room draws no line.
+    pub strength: f32,
+    /// Did the room call it heavy (`StrikeWeightRules`)?
+    pub heavy: bool,
+    /// The struck body's material, for the spark's family.
+    pub material: ImpactMaterial,
+    /// The launch direction in world space, when the hit threw the victim;
+    /// the spark is turned along it.
+    pub launch: Option<ae::Vec2>,
+}
+
+impl ImpactBlow {
+    /// An ordinary mark with no hit behind it.
+    pub const PLAIN: Self = Self {
+        strength: 1.0,
+        heavy: false,
+        material: ImpactMaterial::Flesh,
+        launch: None,
+    };
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HurtFeedback {
     /// The sound this body makes when hit and the attack authored no strike
@@ -307,8 +338,12 @@ pub enum VfxMessage {
         pos: ae::Vec2,
         facing: f32,
     },
+    /// A connect's spark, at the contact point. The blow says how hard it
+    /// reads and which way it threw the victim; the presentation picks the
+    /// authored row, its size and its rotation from that and nothing else.
     Impact {
         pos: ae::Vec2,
+        blow: ImpactBlow,
     },
     /// A coin popping out of a struck block.
     ///

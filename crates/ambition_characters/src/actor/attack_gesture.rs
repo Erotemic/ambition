@@ -175,10 +175,10 @@ impl Default for AttackGestureTuning {
             rearm_threshold: 0.35,
             flick_window_ticks: 4,
             directional_deadzone: DIRECTIONAL_DEADZONE,
-            // Six ticks at 60Hz — the platform-fighter house range. A knob,
-            // not a measurement: tune it against play, do not scatter
-            // per-move grace timers beside it.
-            action_buffer_s: 0.1,
+            // Ten ticks at 60 Hz, Ultimate's buffer (was six). A knob, not a
+            // measurement: tune it against play, do not scatter per-move
+            // grace timers beside it.
+            action_buffer_s: 0.16666667,
             // Both defaults preserve exactly what the recognizer did before it
             // had knobs of its own: it read `directional_deadzone` and spent
             // `flick_window_ticks`.

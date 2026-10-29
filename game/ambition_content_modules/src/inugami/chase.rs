@@ -5,7 +5,7 @@ use bevy_math::Vec2;
 use super::{RUN_GAP, SCENT_MAX, SCENT_REACH, SCENT_STEP};
 
 const MIN_SPEED: f32 = 90.0;
-const MAX_SPEED: f32 = 1100.0;
+pub(super) const MAX_SPEED: f32 = 1100.0;
 const GAP_RATE: f32 = 1.8;
 const PACE_RATE: f32 = 8.0;
 
@@ -23,7 +23,7 @@ pub(super) struct Step {
 }
 
 impl Trail<'_> {
-    pub fn advance(&mut self, at: Vec2, feet: Vec2, clearance: f32, dt: f32) -> Step {
+    pub fn advance(&mut self, at: Vec2, feet: Vec2, clearance: f32, dt: f32, constrain: impl Fn(Vec2) -> Vec2) -> Step {
         let delta = self.last_feet.map_or(Vec2::ZERO, |last| feet - Vec2::from(last));
         let observed_pace = (delta.length() / dt.max(1e-4)).min(MAX_SPEED);
         *self.pace += (observed_pace - *self.pace) * (1.0 - (-PACE_RATE * dt).exp());
@@ -41,7 +41,7 @@ impl Trail<'_> {
             }
             self.points.push(feet.into());
         }
-        let over = |p: Vec2| p - Vec2::Y * clearance;
+        let over = |p: Vec2| constrain(p - Vec2::Y * clearance);
         while self.points.first().is_some_and(|p| over(Vec2::from(*p)).distance(at) < SCENT_REACH) {
             self.points.remove(0);
         }
@@ -53,9 +53,8 @@ impl Trail<'_> {
             previous = p;
         }
         let speed = (*self.pace + (distance - RUN_GAP) * GAP_RATE).clamp(MIN_SPEED, MAX_SPEED);
-        let step = goal - at;
         Step {
-            position: at + step.normalize_or_zero() * step.length().min(speed * dt),
+            position: at.move_towards(goal, speed * dt),
             distance,
             forward: Vec2::from(*self.forward),
         }
@@ -81,6 +80,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_trail_turns_down_and_back_at_the_bodys_room_limit() {
+        let mut points = vec![];
+        let mut last = None;
+        let mut pace = 0.0;
+        let mut forward = [1.0, 0.0];
+        let mut head = Vec2::new(600.0, 200.0);
+        let corners = [Vec2::new(800.0, 400.0), Vec2::new(1000.0, 400.0), Vec2::new(1000.0, 1000.0), Vec2::new(300.0, 1000.0)];
+        for leg in corners.windows(2) {
+            for i in 0..240 {
+                let feet = leg[0].lerp(leg[1], i as f32 / 240.0);
+                let step = Trail { points: &mut points, last_feet: &mut last, pace: &mut pace, forward: &mut forward }
+                    .advance(head, feet, 200.0, 1.0 / 60.0, |p| p.clamp(Vec2::ZERO, Vec2::new(900.0, 1200.0)));
+                assert!(head.distance(step.position) <= MAX_SPEED / 60.0 + 1e-3);
+                head = step.position;
+            }
+        }
+        for _ in 0..300 {
+            head = Trail { points: &mut points, last_feet: &mut last, pace: &mut pace, forward: &mut forward }
+                .advance(head, corners[3], 200.0, 1.0 / 60.0, |p| p.clamp(Vec2::ZERO, Vec2::new(900.0, 1200.0))).position;
+        }
+        assert!(head.distance(corners[3] - Vec2::Y * 200.0) < SCENT_REACH);
+    }
+
+    #[test]
     fn pursuit_closes_a_large_gap_and_catches_a_stopped_body_in_both_directions() {
         for direction in [-1.0, 1.0] {
             let mut points = vec![];
@@ -93,7 +116,7 @@ mod tests {
                 let speed = if tick < 240 { 420.0 } else { 0.0 };
                 feet.x += direction * speed / 60.0;
                 let step = Trail { points: &mut points, last_feet: &mut last, pace: &mut pace, forward: &mut forward }
-                    .advance(head, feet, 200.0, 1.0 / 60.0);
+                    .advance(head, feet, 200.0, 1.0 / 60.0, |p| p);
                 assert!(step.position.distance(head) <= MAX_SPEED / 60.0 + 1e-3);
                 head = step.position;
                 if tick == 239 {

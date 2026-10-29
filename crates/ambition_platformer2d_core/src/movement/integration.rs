@@ -636,9 +636,17 @@ pub(super) fn integrate_velocity_clusters(
     } else {
         state.air_jump_rise_owned.min(rise).max(0.0)
     };
+    // A WALK IS NOT A RUN. Where a body declares a dash threshold above the
+    // steer deadzone, a stick under it walks at whatever speed the continuum
+    // gives, and that walk never reads as running: a walking attack is a tilt,
+    // never a dash attack. A body at the engine's threshold keeps the
+    // speed-only rule it always had.
+    let dash_threshold = tuning.locomotion.dash_deflection;
+    let stick_at_a_run = dash_threshold <= STEER_DEADZONE || steer.abs() >= dash_threshold;
     state.running = clusters.ground.on_ground
         && state.initial_dash_timer <= 0.0
         && steer * travel > 0.0
+        && stick_at_a_run
         && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
 }
 
@@ -826,8 +834,12 @@ fn resolve_initial_dash(
     // ⛔ AND THEY ARE THE SAME VALUE WHENEVER NOTHING IS DAMPING, which is every
     // body outside a motion-scaled window.
     let steer = input.local_axis().x;
+    // THE DASH THRESHOLD, not the steer deadzone: a push under it walks, and
+    // only a push past it is an edge this memory recognises. The deadzone
+    // stays the floor so an undeclared body (0.5) dashes as it always did.
+    let threshold = tuning.locomotion.dash_deflection.max(STEER_DEADZONE);
     let deadzoned = |x: f32| {
-        if x.abs() > STEER_DEADZONE {
+        if x.abs() >= threshold {
             x.signum()
         } else {
             0.0

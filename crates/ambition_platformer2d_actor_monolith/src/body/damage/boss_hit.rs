@@ -183,6 +183,7 @@ pub(crate) fn apply_boss_hit(
                 event.damage,
                 strike_weight,
                 impact,
+                event.knockback.and_then(|knockback| knockback.launch_dir.map(|dir| dir.world())),
                 attacker_source.as_ref(),
                 victim_source.as_ref(),
             );
@@ -279,6 +280,7 @@ pub(crate) fn apply_boss_hit(
         event.damage,
         strike_weight,
         impact,
+        event.knockback.and_then(|knockback| knockback.launch_dir.map(|dir| dir.world())),
         attacker_source.as_ref(),
         victim_source.as_ref(),
     );

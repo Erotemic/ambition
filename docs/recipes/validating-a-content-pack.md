@@ -67,6 +67,7 @@ and says this; before the `item_catalog` schema existed, nothing did.
 | `unknown-field` | an authored field nothing consumes | **not a warning.** A typo'd field means a mechanic that silently never fires |
 | `conflicting-module-contribution` | e.g. two characters share one display name | give one its own |
 | `conflicting-source-alias` | two manifest lines are the same file under different schemas | one file, one meaning |
+| `ungenerated-source` | **a warning, not a refusal.** A library source that a producer makes is absent; the pack compiles without it | `scripts/setup/generated_content.sh`; `python3 scripts/content_status.py` tells what is absent |
 
 Every refusal also prints **the checks that did not run**. The stages depend on
 each other — reference resolution needs every definition to exist — so a list

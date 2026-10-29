@@ -63,7 +63,9 @@
             shield: true,
             grab: true,
             interact: false,
-            crouch: false,
+            // Every fighter ducks (crouch cancel, ducking a jab); a crawler
+            // declares its own `crouch_speed_frac`.
+            crouch: true,
             climb: false,
             morph: false,
         ),
@@ -97,7 +99,7 @@
             shield: true,
             grab: true,
             interact: false,
-            crouch: false,
+            crouch: true,
             climb: false,
             morph: false,
         ),
@@ -161,9 +163,11 @@
         // Smash 4 opens the parry window on the press, Ultimate on the
         // release. The stage chooses; `OnRelease` is fully live (guarded by
         // `the_parry_window_opens_where_the_ruleset_says_it_does`).
-        parry_timing: OnRaise,
-        // SDI, 3 px per hitlag tick: shift out of the next hit while frozen.
-        sdi_step: 3.0,
+        parry_timing: OnRelease,
+        // SDI, 1 px per hitlag tick: shift out of the next hit while frozen.
+        // Was 3 under a 2-6 frame freeze; the affine hitlag law runs 8-19
+        // frames, so the per-hit total stays about where it was.
+        sdi_step: 1.0,
         // ASDI: one nudge per hit, paid when the freeze lifts. It gives a
         // defender something against multihits, where `sdi_step` gives little.
         asdi_step: 6.0,
@@ -207,6 +211,12 @@
         // median (docs/related-work/smash-ultimate-fighter-reference.md); its
         // speed is the fighter's (`base_body` below).
         initial_dash_time: 0.16666667,
+        // A push past 0.8 dashes; under it the fighter walks. Before, any push
+        // past the 0.5 deadzone was a full-speed dash, so nobody could walk
+        // up to a poke (feel audit 2026-10-29). The keyboard Walk cap is 0.5.
+        dash_deflection: 0.8,
+        // No grace off a ledge: the ledge grab is the genre's grace.
+        coyote_time: 0.0,
         // Reversing out of a run costs frames. 3 frames is what the proving
         // ground tolerates: at 7, `smash_it` lost two premise guards because
         // the CPU matchup became one-sided. The value is a feel call for Jon.
@@ -274,4 +284,8 @@
     // Fighters are solid to each other (jostle). The engine owns the
     // constraint; the match only says its cast has it.
     fighter_contact: Some((resistance: 0.85)),
+    // The camera: two fighters trading blows fill the screen. The view may
+    // close to 45% of the stage view (the engine's exploration framing stops
+    // at 75%), with 40 px around the pair. A launch opens it back out.
+    cast_framing: Some((min_view_scale: 0.45, margin: 40.0)),
 )

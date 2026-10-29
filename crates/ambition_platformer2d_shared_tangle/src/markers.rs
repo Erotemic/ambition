@@ -23,6 +23,26 @@ pub struct ControlledSubject(pub Option<Entity>);
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
 pub struct FramedCast(pub Vec<Entity>);
 
+/// HOW TIGHTLY THE CAMERA FRAMES THE CAST: the view a cast standing together
+/// may shrink the authored view to, and the room left around its box. The
+/// engine's values frame an exploration party; a platform fighter declares a
+/// tighter pair (`MatchRules::cast_framing`) so two fighters trading blows
+/// fill the screen, and the match resets it when it ends.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct CastFramingTuning {
+    /// The hard bound on how far a framed cast may zoom the view in, as a
+    /// fraction of the authored view.
+    pub min_view_scale: f32,
+    /// Half the extra room left around the cast's bounding box, in world units.
+    pub margin: f32,
+}
+
+impl Default for CastFramingTuning {
+    fn default() -> Self {
+        Self { min_view_scale: 0.75, margin: 48.0 }
+    }
+}
+
 /// Marks the exploration home body used by primary-player save/respawn policy.
 ///
 /// Control may move elsewhere; use [`ControlledSubject`] for current control

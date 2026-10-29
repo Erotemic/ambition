@@ -546,6 +546,9 @@ pub fn activate_the_prepared_match(sprite_content: bevy::prelude::Res<ambition_s
         if let Some(contact) = rules.fighter_contact {
             entity.try_insert(contact);
         }
+        // The match's camera framing, for the camera that frames its cast;
+        // `declare_the_match_cast_as_the_view` resets it when the match ends.
+        commands.insert_resource(rules.cast_framing.unwrap_or_default());
         if rules.opens_suspended {
             // the OPENING bit, distinct from the interlude a KO card claims:
             // two authorities that can hold the same fighter need two bits, or
@@ -663,6 +666,7 @@ pub fn declare_the_match_cast_as_the_view(
     seats: Query<(Entity, &MatchSeat)>,
     // Observation owns this optional projection. A match can run without it.
     mut framed: Option<ResMut<ambition_platformer2d_shared_tangle::markers::FramedCast>>,
+    mut framing: Option<ResMut<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
 ) {
     let Some(framed) = framed.as_mut() else {
         return;
@@ -670,6 +674,9 @@ pub fn declare_the_match_cast_as_the_view(
     if active.is_none() {
         if !framed.0.is_empty() {
             framed.0.clear();
+        }
+        if let Some(framing) = framing.as_mut().filter(|framing| ***framing != Default::default()) {
+            **framing = Default::default();
         }
         return;
     }

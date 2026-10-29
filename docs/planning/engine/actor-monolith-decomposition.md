@@ -831,6 +831,14 @@ layouts stay the same and the kernel graph is a DAG. The global doc-link check
 reports five links in untouched docs. The full feature union and Android
 performance were not run. Keep dialogue entry policy at the conversation owner.
 
+### K32 — Projectile-combat clash integration
+
+`513679f29`: projectile combat takes the kernel's melee/projectile collector
+and ordered arbitration/rebound unit. Combat keeps the pure rule. No new systems,
+dependencies or state. Guards: 28 owner, six app, 70 Smash and 35 policy tests pass;
+six tests ignored; default app and strict owner rustdoc pass. The old module is gone.
+Keep this adapter outside the kernel. Full feature union and Android were not run.
+
 ### Constrained-body release acceptance
 
 `bbcdf67ff`: actor-baseline queries skipped home riders. Both release paths now

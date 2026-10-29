@@ -1053,9 +1053,11 @@ struct CastFraming {
 /// The box with this margin is the composition the view asks for.
 const CAST_FRAMING_MARGIN: f32 = 48.0;
 
-/// The hard bound on how far a framed cast may zoom the view in, as a
-/// fraction of the authored view. A cast whose members stand together asks
-/// for a view smaller than this, and this bound clamps it.
+/// The hard bound on how far a framed cast may zoom the view in, and the room
+/// around its box, are `CastFramingTuning` (the match's, or the engine's
+/// default of 0.75 and `CAST_FRAMING_MARGIN`): a cast whose members stand
+/// together asks for a view smaller than that, and the bound clamps it.
+#[cfg(test)]
 const CAST_FRAMING_MIN_VIEW_SCALE: f32 = 0.75;
 
 /// The view a framed cast asks for (`Q86`).
@@ -1067,9 +1069,9 @@ const CAST_FRAMING_MIN_VIEW_SCALE: f32 = 0.75;
 /// ([`CAST_FRAMING_MIN_VIEW_SCALE`]) clamps the target and does not replace
 /// it. The smoothing is the eased cast box, and the room constraint is the
 /// clamp downstream.
-fn cast_view_target(authored: ae::Vec2, presented: ae::Vec2) -> ae::Vec2 {
+fn cast_view_target(authored: ae::Vec2, presented: ae::Vec2, min_view_scale: f32) -> ae::Vec2 {
     let desired = (presented.x / authored.x).max(presented.y / authored.y);
-    authored * desired.max(CAST_FRAMING_MIN_VIEW_SCALE)
+    authored * desired.max(min_view_scale)
 }
 
 /// Exponential close rate for cast framing.
@@ -1345,6 +1347,8 @@ pub fn resolve_camera_observation(
     controlled: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     // What to look at when nothing is driving a body — see the `None` arm below.
     framed: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>,
+    // How tightly the cast is framed: the match's, or the engine's.
+    cast_framing: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
     // Subject resolution moved to `resolve_view_subjects` and the headroom came back; the grouping
     // stayed because it was always the honest shape.
     //
@@ -1362,6 +1366,7 @@ pub fn resolve_camera_observation(
         bevy::prelude::Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     ),
 ) {
+    let cast_framing_tuning = cast_framing.as_deref().copied().unwrap_or_default();
     let (body_kinematics, presented, subject_frames) = followed_body;
     let (mut live_cast, mut live_members, mut cast_last_seen, mut settling) = cast_framing_state;
     // Dev tools can temporarily replace the authored/default camera view.
@@ -1500,8 +1505,8 @@ pub fn resolve_camera_observation(
                     *live_cast = Some(bounds);
                     let centre: ae::Vec2 = bounds.center().into();
                     let span: ae::Vec2 = (bounds.max - bounds.min).into();
-                    let presented = span + ae::Vec2::splat(CAST_FRAMING_MARGIN * 2.0);
-                    base_view = cast_view_target(base_view, presented);
+                    let presented = span + ae::Vec2::splat(cast_framing_tuning.margin * 2.0);
+                    base_view = cast_view_target(base_view, presented, cast_framing_tuning.min_view_scale);
                     // AND THE CLAMP IS TOLD WHAT IT MAY NOT HIDE. Framing the
                     // cast is worth nothing if the room clamp then throws the
                     // centre away, which is exactly what it did — see
@@ -1708,7 +1713,12 @@ pub fn resolve_camera_observation(
         let (base_view, must_frame_world) = if companions {
             let span: ae::Vec2 = (bounds.max - bounds.min).into();
             (
-                cast_view_target(base_view, span + ae::Vec2::splat(CAST_FRAMING_MARGIN * 2.0)).max(base_view),
+                cast_view_target(
+                    base_view,
+                    span + ae::Vec2::splat(cast_framing_tuning.margin * 2.0),
+                    cast_framing_tuning.min_view_scale,
+                )
+                .max(base_view),
                 Some(bounds),
             )
         } else {

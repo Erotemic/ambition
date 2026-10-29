@@ -95,6 +95,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // composition layer has to know about — see
         // `docs/planning/engine/architecture.md` (decomposition doctrine).
         app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>();
         app.init_resource::<view_index::FeatureViewIndex>();
         app.init_resource::<view_index::ActorRenderIndex>();
         app.init_resource::<view_index::BossRenderIndex>();

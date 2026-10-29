@@ -21,4 +21,41 @@
         double_jump_speed: Some(507.0),
         dodge_roll_speed: Some(394.7),
     )),
+
+    // SMASH-STAGE MOVE CLOCKS: first strike, last strike, total and landing
+    // lag, in seconds, and the swing cue. Written by
+    // `scripts/smash_retime.py` from an archetype template; the moveset keeps
+    // the home game's pace. Frames at 60 Hz are in the trailing comment.
+    move_timing: {
+        // attack: 5/7/20
+        "jab": (hit_s: 0.0833, last_s: 0.1167, total_s: 0.3333, swing: Some("swing.light")),
+        // attack_forward: 9/12/36
+        "tilt_forward": (hit_s: 0.15, last_s: 0.2, total_s: 0.6, swing: Some("swing.light")),
+        // attack_up: 8/13/32
+        "tilt_up": (hit_s: 0.1333, last_s: 0.2167, total_s: 0.5333, swing: Some("swing.light")),
+        // attack_down: 7/10/30
+        "tilt_down": (hit_s: 0.1167, last_s: 0.1667, total_s: 0.5, swing: Some("swing.light")),
+        // attack_dash: 9/16/44
+        "pirate_admiral_dash_attack": (hit_s: 0.15, last_s: 0.2667, total_s: 0.7333, swing: Some("swing.light")),
+        // smash_forward: 18/21/54
+        "smash_forward": (hit_s: 0.3, last_s: 0.35, total_s: 0.9, swing: Some("swing.heavy")),
+        // smash_up: 12/17/48
+        "smash_up": (hit_s: 0.2, last_s: 0.2833, total_s: 0.8, swing: Some("swing.heavy")),
+        // smash_down: 8/14/50
+        "smash_down": (hit_s: 0.1333, last_s: 0.2333, total_s: 0.8333, swing: Some("swing.heavy")),
+        // attack_air: 6/26/48 L9
+        "air_neutral": (hit_s: 0.1, last_s: 0.4333, total_s: 0.8, landing_lag_s: Some(0.15), swing: Some("swing.aerial")),
+        // attack_air_forward: 14/17/54 L16
+        "air_forward": (hit_s: 0.2333, last_s: 0.2833, total_s: 0.9, landing_lag_s: Some(0.2667), swing: Some("swing.aerial")),
+        // attack_air_back: 9/13/40 L10
+        "air_back": (hit_s: 0.15, last_s: 0.2167, total_s: 0.6667, landing_lag_s: Some(0.1667), swing: Some("swing.aerial")),
+        // attack_air_up: 7/11/38 L8
+        "air_up": (hit_s: 0.1167, last_s: 0.1833, total_s: 0.6333, landing_lag_s: Some(0.1333), swing: Some("swing.aerial")),
+        // attack_air_down: 10/20/52 L18
+        "air_down": (hit_s: 0.1667, last_s: 0.3333, total_s: 0.8667, landing_lag_s: Some(0.3), swing: Some("swing.aerial")),
+        // grab: 7/8/38
+        "pirate_grab": (hit_s: 0.1167, last_s: 0.1333, total_s: 0.6333),
+        // grab_dash: 11/12/48
+        "pirate_grab_dash": (hit_s: 0.1833, last_s: 0.2, total_s: 0.8),
+    },
 )

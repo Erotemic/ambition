@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -75,3 +76,21 @@ def test_bank_scope_keeps_authored_audio_and_other_media(tmp_path):
     assert files["audio/sfx.bank"].read_bytes() == b"accepted bank"
     assert files["audio/music/track.ogg"].read_bytes() == b"music"
     assert files["audio/sfx_registry.ron"].read_text() == "authored registry"
+
+
+def test_all_media_check_refuses_a_source_only_sprite_library():
+    (ROOT / ".cache").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="sprite-check-", dir=ROOT / ".cache") as name:
+        library = Path(name)
+        (library / "authored").mkdir()
+        (library / "authored/sprites.yaml").write_text(json.dumps({
+            "collections": {"runtime": ["goblin"]}, "static_props": {}}))
+        manifest = library / "library.json"
+        manifest.write_text(json.dumps({"schema": "ambition.content_library.v1", "id": "probe", "version": "1",
+            "asset_roots": {"generated": "generated/runtime/full"}, "publication": "generated/art_publication",
+            "producers": {"sprites": {"collection": "runtime", "policy": "authored/sprites.yaml", "sources": ["authored/sprites.yaml"]}}}))
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/generate_library_content.py"), "--check"],
+            cwd=ROOT, env=dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest)), capture_output=True, text=True)
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "target:goblin: missing" in result.stdout, result.stdout + result.stderr
+        assert not (library / "generated").exists()

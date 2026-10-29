@@ -12,8 +12,6 @@ use bevy_kira_audio::prelude::{
 };
 use std::time::Duration;
 
-pub const ORIGINAL_TRACK_ID: &str = "original_lofi_loop";
-
 #[derive(Resource)]
 pub struct MusicChannel;
 
@@ -307,23 +305,8 @@ impl AudioLibrary {
         ))
     }
 
-    pub fn default_track_id<'a>(&'a self, configured: &'a str) -> Option<&'a str> {
-        if self.track(configured).is_some() {
-            Some(configured)
-        } else if self.track(ORIGINAL_TRACK_ID).is_some() {
-            warn!(
-                "default music track '{configured}' is missing; falling back to '{ORIGINAL_TRACK_ID}'"
-            );
-            Some(ORIGINAL_TRACK_ID)
-        } else {
-            let fallback = self.music_tracks.first().map(|track| track.id.as_str());
-            if let Some(fallback) = fallback {
-                warn!(
-                    "default music track '{configured}' is missing; falling back to '{fallback}'"
-                );
-            }
-            fallback
-        }
+    pub fn default_track_id<'a>(&self, configured: &'a str) -> Option<&'a str> {
+        self.track(configured).map(|_| configured)
     }
 
     pub fn display_name(&self, id: &str) -> &str {

@@ -21,6 +21,7 @@ From the repository root:
 scripts/setup/generated_content.sh
 ./scripts/regen/sprites.sh --plan --json
 ./scripts/regen/sprites.sh --check --json
+python3 scripts/generate_library_content.py --check
 ./scripts/regen/sprites.sh --audit --json
 ./scripts/regen/sprites.sh --target hand_saint
 ```
@@ -46,8 +47,8 @@ required product fails setup. Use `--skip-assets` on developer setup to omit
 content generation.
 
 Loose runtime products live under `generated/runtime/full/`. Reduced products
-live under `generated/runtime/half/`, `quarter/`, and `potato/`. Sprite bundles
-also name the runtime role and quality tier inside each immutable bundle.
+live under `generated/runtime/half/`, `quarter/`, and `potato/`. All generated bundles
+name the runtime role and quality tier inside each immutable bundle.
 Review products and provenance live outside runtime roots.
 
 A pack can read a schema source from a selected library:

@@ -204,6 +204,3 @@ pub fn register_rollback_state(
 ) {
     bosses::register_rollback_state(registrar);
 }
-
-#[cfg(feature = "ldtk_runtime")]
-pub mod loading;

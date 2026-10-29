@@ -242,7 +242,7 @@ def run(family: str, arguments: list[str]) -> int:
     unit = "producer:" + family
     old = store.selected()["bundles"].get(unit)
     force = any(arg in {"--force", "--clean"} for arg in arguments)
-    if family in {"fonts", "backgrounds"} and not force and old and current(old, family, selected, store, hashes):
+    if family in {"fonts", "backgrounds", "music", "sfx"} and not force and old and current(old, family, selected, store, hashes):
         print(f"{family}: accepted products are current")
         hashes.save()
         return 0
@@ -273,6 +273,11 @@ def run(family: str, arguments: list[str]) -> int:
 
 def check(family: str) -> int:
     selected = library()
+    if family == "sprites":
+        return subprocess.call([str(ROOT / "scripts/regen/sprites.sh"), "--check"], cwd=ROOT)
+    if family == "variants" and "backgrounds" not in selected.manifest["producers"]:
+        return subprocess.call([sys.executable, str(ROOT / "scripts/check_quality_variants_are_fresh.py")], cwd=ROOT)
+
     store = Store(selected.path.parent / relative(selected.manifest["publication"]))
     hashes = Digests(store.root / "producer-inputs.json")
     selection = store.selected()
@@ -307,7 +312,7 @@ def main() -> int:
         selected = library()
         return int(any([subprocess.call([sys.executable, __file__, "--check", family], cwd=ROOT,
                                        env={key: value for key, value in os.environ.items() if key != "AMBITION_PRODUCER_OWNER"})
-                       for family in selected.manifest["producers"] if family in SCRIPTS]))
+                       for family in selected.manifest["producers"]]))
     checking = bool(arguments and arguments[0] == "--check")
     family = arguments[1] if checking else arguments[0]
     in_owner(family, arguments)

@@ -1588,10 +1588,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "authored data-spec value",
     ),
     (
-        "ambition_content::loading::AmbitionStartupAssets",
-        "game-owned startup asset handles",
-    ),
-    (
         "::provider::AmbitionPreparedWorld",
         "prepared-content value handed to the provider lifecycle",
     ),

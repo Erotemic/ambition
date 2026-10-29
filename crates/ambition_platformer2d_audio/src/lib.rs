@@ -31,7 +31,7 @@ mod plugin;
 mod tests;
 
 pub use environment::{AudioEnvironment, AudioEnvironmentMode};
-// SoundCue / SfxMessageCue / ORIGINAL_TRACK_ID live in `ambition_audio`
+// SoundCue / SfxMessageCue live in `ambition_audio`
 // (Kira-gated); headless paths use `SoundCueKey` from the data schema.
 
 pub use environment::{

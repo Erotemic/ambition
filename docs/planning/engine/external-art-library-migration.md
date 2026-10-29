@@ -207,3 +207,41 @@ Read `/tmp/ambition-library-full-generation.log` and
 `target/regen_assets/latest.jsonl` for the phase result. The interrupted run's
 recorded temporary worker paths were removed. Completed immutable bundles were
 kept. The complete audio dependency scan passed for 125 cues in 447.5 seconds.
+
+
+The second setup run published all 466 sprite targets and four atlases. It also
+published 594 background quality bundles. Fonts and backgrounds stayed selected;
+the full selection contains 10,590 runtime files. Sprite generation took 2,454
+seconds. Background generation took 216 seconds; quality conversion took 48
+seconds. Music and SFX publication remain to be completed.
+
+A source-only check found that the all-media command skipped a sprites-only
+library and returned success with no products. The command now calls the sprite
+owner's checker. A behavioral test checks the normal missing-sprite verdict.
+A sprites-only library sends quality checks to the existing quality checker.
+Music and SFX can now skip publication when their complete owner dependency
+identities and accepted bytes are current.
+
+The remaining named music fallback is removed from the audio core. The library
+uses the authored default track. An unknown default gives silence. Audio core
+and adapter tests pass, and the assembled app and test targets compile.
+
+The setup run was stopped during the initial music dependency scan to apply
+these fixes. Completed sprite and quality bundles remain reusable. The private
+procedural transform probe is recorded in `dev/benchmark-candidates/`; it is not
+a production change.
+
+
+Fresh-art acceptance passed 22 app tests and both native reload tests. The
+static assembled app compiled. A new GPU capture shows the robot, hub, scenery,
+fonts, and UI. Its log still reports the committed map's nullable-Boolean
+mismatch with `bevy_ecs_ldtk`; the working map was not changed. The mismatch is
+recorded in `dev/benchmark-candidates/`.
+
+The remaining startup collection is removed. It held a hardcoded sandbox handle
+and an unused tuning handle. World files now use the existing world-manifest
+loader, and tuning uses the content compiler. The two direct loader dependencies
+are removed from the game provider. The app compiles; all 35 workspace policy
+tests and 21 rollback-coverage tests pass (two separate tests were ignored).
+The capture still renders correctly. The existing page-size failure remains
+95 full-tier pages above 2048 pixels against a limit of 83.

@@ -6,7 +6,7 @@
 
 use super::*;
 use ambition_audio::library::SfxMessageCue as _;
-use ambition_audio::library::{amplitude_to_decibels, AudioLibrary, SoundCue, ORIGINAL_TRACK_ID};
+use ambition_audio::library::{amplitude_to_decibels, AudioLibrary, SoundCue};
 // `SfxMessage` no longer re-exported by the parent module.
 use ambition_audio::spec::MusicRegistry;
 use ambition_audio::spec::MusicTrack;
@@ -201,21 +201,16 @@ fn music_track_order_cycles() {
         "cycle test needs at least 2 tracks, got {}",
         ids.len()
     );
-    // The registry leads with the curated special entries; `original_lofi_loop`
-    // is pinned first (the fallback the library special-cases). The default
-    // `long_lofi_drift` must also be present.
-    assert_eq!(ids[0], ORIGINAL_TRACK_ID);
-    assert_eq!(music.default_track, "long_lofi_drift");
-    assert!(ids.contains(&"long_lofi_drift"));
-
-    // Forward step from the head lands on the second entry; back round-trips.
-    assert_eq!(library.next_track_id(ORIGINAL_TRACK_ID), Some(ids[1]));
-    assert_eq!(library.previous_track_id(ids[1]), Some(ORIGINAL_TRACK_ID));
-    // Cycle wraps: next of the last track is the first.
+    let first = ids[0];
     let last = *ids.last().expect("non-empty list");
-    assert_eq!(library.next_track_id(last), Some(ORIGINAL_TRACK_ID));
-    // Cycle wraps the other way too.
-    assert_eq!(library.previous_track_id(ORIGINAL_TRACK_ID), Some(last));
+    assert!(ids.contains(&music.default_track.as_str()));
+    assert_eq!(library.default_track_id(&music.default_track), Some(music.default_track.as_str()));
+    assert_eq!(library.default_track_id("unregistered"), None);
+    assert_eq!(library.next_track_id(first), Some(ids[1]));
+    assert_eq!(library.previous_track_id(ids[1]), Some(first));
+    assert_eq!(library.next_track_id(last), Some(first));
+    assert_eq!(library.previous_track_id(first), Some(last));
+
 }
 
 /// Live-runtime guardrail: the audio module must not gain a new

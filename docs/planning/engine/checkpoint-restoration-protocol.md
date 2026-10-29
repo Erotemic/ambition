@@ -61,6 +61,15 @@ suppressed startup when a room declared no held use. Startup now belongs to
 release order. The real-host guard below covers enabled, unused and omitted
 held use. Keep session startup outside item capability sets.
 
+**Capture timing (2026-10-29, `513b20a1e`):** bag-spend and consumed-pickup
+history could read a retained message on the original run and miss it after a
+rollback load. Both now run in `CheckpointCapture`. A real confirmed-host test
+banks a runtime item, removes it, dies, and checks materialization before later
+loads of the new baseline. Guards: 32 owner, 53 app restore, one profile,
+16 demo-host and 35 policy tests pass; two app diagnostics remain ignored.
+The default app compiles with no warnings. Keep checkpoint readers in the
+commit frame.
+
 ## Request policy
 
 | Request | Target | Completion |

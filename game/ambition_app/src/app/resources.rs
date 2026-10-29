@@ -52,10 +52,11 @@ pub fn init_sandbox_resources(app: &mut App) {
             .world()
             .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
         (
+            // No music fragment when the music is not generated yet.
             catalogs
                 .music_for(ambition_content::AMBITION_CONTENT_PROVIDER)
-                .expect("Ambition music fragment registered")
-                .clone(),
+                .cloned()
+                .unwrap_or_else(super::setup_systems::no_music),
             catalogs
                 .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
                 .expect("Ambition SFX fragment registered")
@@ -196,10 +197,11 @@ fn init_host_resources_without_ambition(app: &mut App) {
             .world()
             .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
         (
+            // No music fragment when the music is not generated yet.
             catalogs
                 .music_for(ambition_content::AMBITION_CONTENT_PROVIDER)
-                .expect("Ambition music fragment registered")
-                .clone(),
+                .cloned()
+                .unwrap_or_else(super::setup_systems::no_music),
             catalogs
                 .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
                 .expect("Ambition SFX fragment registered")

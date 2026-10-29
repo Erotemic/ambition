@@ -2,6 +2,13 @@
   "alternates": {
     "hub_clean": "hub_corrupt"
   },
+  "water_mattes": {
+    "pirate_port": [
+      0.12,
+      0.36,
+      0.44
+    ]
+  },
   "motes": {
     "lab": {
       "count": 30,

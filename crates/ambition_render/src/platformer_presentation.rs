@@ -764,8 +764,14 @@ mod tests {
         let mut quality = crate::quality::ResolvedVisualQuality::default();
         quality.budget.parallax.enabled = false;
         app.insert_resource(quality);
+        // The loader found no art for the room's own theme (also what a
+        // checkout without generated backgrounds gives). The themes of the
+        // library catalog do not name this room's theme, so staging them
+        // staged nothing for this room.
         app.insert_resource(crate::rendering::ParallaxThemeAttempts {
-            without_art: ambition_sprite_sheet::game_assets::ParallaxTheme::in_manifest(&ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap()),
+            without_art: vec![ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
+                &room_set_wanting_a_theme().activation_spec().metadata,
+            )],
         });
         app.update();
 

@@ -114,6 +114,10 @@ pub enum DiagnosticCode {
     /// Two declared sources resolve to the same file through aliases/symlinks
     /// with DIFFERENT declared schemas, so deduplication would have to guess.
     ConflictingSourceAlias,
+    /// A library source that a producer makes is absent: the generated
+    /// content is not made yet. This is a warning. The pack compiles without
+    /// the source.
+    UngeneratedSource,
 }
 
 impl DiagnosticCode {
@@ -132,6 +136,7 @@ impl DiagnosticCode {
             Self::UnknownField => "unknown-field",
             Self::MalformedProviderBinding => "malformed-provider-binding",
             Self::ConflictingSourceAlias => "conflicting-source-alias",
+            Self::UngeneratedSource => "ungenerated-source",
         }
     }
 }

@@ -883,8 +883,10 @@ fn publish_nothing_the_next_session_derives(
 ///
 /// Runs after the candidate's character catalog and boss catalog were admitted
 /// (a candidate that cannot form them is already refused), so the lowerings it
-/// reads are present; the music registry may be absent in a candidate and then
-/// judges as an empty one, which names every track the world still asks for.
+/// reads are present. A candidate that drops the music registry the live pack
+/// has judges as an empty one, which names every track the world still asks
+/// for. When the live pack has no music either (the music is not generated),
+/// the music references are not checked, as at startup.
 fn candidate_content_graph(
     world: &bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
@@ -893,12 +895,14 @@ fn candidate_content_graph(
     let Some(project) = world.get_resource::<ambition_platformer2d_ldtk::ActiveLdtkProject>() else {
         return Ok(());
     };
+    let live_has_music = crate::pack::selected(world)
+        .is_some_and(|live| ambition_audio::content_schema::lowered_music_registry(live).is_some());
     let music = ambition_audio::content_schema::lowered_music_registry(pack)
         .cloned()
-        .unwrap_or_else(|| ambition_audio::spec::MusicRegistry { default_track: String::new(), tracks: Vec::new() });
+        .or_else(|| live_has_music.then(|| ambition_audio::spec::MusicRegistry { default_track: String::new(), tracks: Vec::new() }));
     let report = crate::content_validation::validate_content_graph(&sprite_content,
         pack,
-        &music,
+        music.as_ref(),
         &project.0,
         &crate::character_catalog::catalog_of(pack),
     );

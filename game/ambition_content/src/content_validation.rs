@@ -68,25 +68,38 @@ pub fn validate_embedded_content_graph(sprite_content: &ambition_platformer2d::s
         }
     };
     let character_catalog = crate::character_catalog::catalog_of(pack);
-    validate_content_graph(&sprite_content, pack, &music, &project, &character_catalog)
+    validate_content_graph(&sprite_content, pack, music.as_ref(), &project, &character_catalog)
 }
 
 /// Validate relationships among the music registry and the LDtk world
 /// (room/encounter/boss music references, dialogue, quests, patrols).
+///
+/// `music` is `None` when the music is not generated yet. The music
+/// references are then not checked, and the report has one warning that
+/// says so. Missing generated content does not stop the game.
 ///
 /// `pack` is the pack under validation: a composition passes its selected pack,
 /// so the boss roster, encounter waves, quests and cutscenes judged here are
 /// the ones the App installed.
 pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     pack: &ambition_content_pack::PreparedContentPack,
-    music: &MusicRegistry,
+    music: Option<&MusicRegistry>,
     project: &LdtkProject,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> ContentValidationReport {
     let mut report = ContentValidationReport::default();
 
-    if let Err(error) = music.validate() {
-        report.push_error(format!("music registry invalid: {error}"));
+    match music {
+        Some(music) => {
+            if let Err(error) = music.validate() {
+                report.push_error(format!("music registry invalid: {error}"));
+            }
+        }
+        None => report.warnings.push(
+            "the music registry is not generated, so music references are not checked \
+             (make it: scripts/regen/music.sh; query: python3 scripts/content_status.py)"
+                .to_owned(),
+        ),
     }
 
     let ldtk_report = project
@@ -128,14 +141,18 @@ pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_she
     };
 
     validate_room_links(&rooms, &links, &mut report);
-    validate_room_music_tracks(project, music, &mut report);
+    if let Some(music) = music {
+        validate_room_music_tracks(project, music, &mut report);
+    }
     validate_room_phase_tracks(pack, &rooms, music, &mut report);
     validate_npc_dialogue_ids(project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(&sprite_content, pack, &rooms, music, &mut report);
     validate_cutscene_bindings(pack, project, &mut report);
     let boss_catalog = crate::bosses::boss_catalog_of(&sprite_content, pack);
-    validate_boss_music_tracks(music, &boss_catalog, &mut report);
+    if let Some(music) = music {
+        validate_boss_music_tracks(music, &boss_catalog, &mut report);
+    }
 
     report
 }
@@ -185,7 +202,7 @@ fn validate_room_music_tracks(
 fn validate_room_phase_tracks(
     pack: &ambition_content_pack::PreparedContentPack,
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
-    music: &MusicRegistry,
+    music: Option<&MusicRegistry>,
     report: &mut ContentValidationReport,
 ) {
     let Some(authored) = ambition_audio::content_schema::lowered_music_cues(pack) else {
@@ -195,7 +212,7 @@ fn validate_room_phase_tracks(
         if !rooms.iter().any(|room| room.id == row.room_id) {
             report.extend_errors([format!("room music by the time of day: no room is called {:?}", row.room_id)]);
         }
-        if !music.tracks.iter().any(|track| track.id == row.track) {
+        if music.is_some_and(|music| !music.tracks.iter().any(|track| track.id == row.track)) {
             report.extend_errors([format!(
                 "room music by the time of day: room {:?} plays unknown track {:?} in the {}",
                 row.room_id, row.track, row.phase
@@ -282,14 +299,15 @@ fn validate_npc_brain_overrides(
 fn validate_quest_conditions(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     pack: &ambition_content_pack::PreparedContentPack,
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
-    music: &MusicRegistry,
+    music: Option<&MusicRegistry>,
     report: &mut ContentValidationReport,
 ) {
-    let valid_tracks = music
+    // Without the generated music there is no track list to check against.
+    let valid_tracks = music.map(|music| music
         .tracks
         .iter()
         .map(|track| track.id.as_str())
-        .collect::<BTreeSet<_>>();
+        .collect::<BTreeSet<_>>());
 
     // The same book the plugin installs, read from the pack under validation,
     // not from a process-global shared with whichever App ran first.
@@ -308,7 +326,9 @@ fn validate_quest_conditions(sprite_content: &ambition_platformer2d::sprite_shee
     for (id, spec, _) in &loaded_encounters {
         // Exactly-empty, matching `encounter/systems.rs`'s own
         // `!spec.music_track.is_empty()` gate, for the same reason as boss phases.
-        if !spec.music_track.is_empty() && !valid_tracks.contains(spec.music_track.as_str()) {
+        if !spec.music_track.is_empty()
+            && valid_tracks.as_ref().is_some_and(|tracks| !tracks.contains(spec.music_track.as_str()))
+        {
             report.push_error(format!(
                 "encounter '{}' references unknown music track '{}'",
                 id, spec.music_track
@@ -685,7 +705,7 @@ mod tests {
             .map(|entity| &mut entity.field_instances)
             .expect("the zone is still there");
         edit(fields);
-        validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
+        validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -780,7 +800,7 @@ mod tests {
         );
 
         let name = format!("{area}:{id}");
-        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -851,7 +871,7 @@ mod tests {
             "dialogue_id",
             serde_json::Value::String("oiler_post_stabilizer".into()),
         );
-        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid))
@@ -894,7 +914,7 @@ mod tests {
                 "dialogue_id",
                 serde_json::Value::String(dialogue_id.into()),
             );
-            validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog)
+            validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog)
                 .errors
                 .into_iter()
                 .filter(|error| error.contains(&iid))
@@ -921,7 +941,8 @@ mod tests {
     /// as `music_track`.
     #[test]
     fn a_rooms_fight_music_track_is_read_and_checked() {
-        let music = crate::audio_registries::shipped_music_registry();
+        let music = crate::audio_registries::shipped_music_registry()
+            .expect("the music registry is generated content: run scripts/regen/music.sh");
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let set_fight_track = |project: &mut LdtkProject, track: &str| {
@@ -965,7 +986,7 @@ mod tests {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let character_catalog = crate::character_catalog::shipped_catalog();
-        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), &music, &project, &character_catalog);
+        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), music.as_ref(), &project, &character_catalog);
         assert!(
             report
                 .errors

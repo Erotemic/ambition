@@ -67,6 +67,10 @@ pub struct ContentPackDraft {
     /// it merged rather than quietly reporting fewer sources than the manifest
     /// declares.
     pub collapsed_aliases: Vec<(String, String)>,
+    /// Findings from reading that do not refuse the pack: each generated
+    /// library source that is absent ([`ContentPackManifest::take_ungenerated`]).
+    /// [`crate::compile`] puts them on the prepared pack.
+    pub warnings: Vec<Diagnostic>,
 }
 
 impl ContentPackDraft {
@@ -159,6 +163,7 @@ impl ContentPackDraft {
             manifest,
             sources: read,
             collapsed_aliases: Vec::new(),
+            warnings: Vec::new(),
         })
     }
 
@@ -168,26 +173,25 @@ impl ContentPackDraft {
         manifest_ron: &str,
         sources: impl IntoIterator<Item = (String, String)>,
     ) -> Result<Self, CompileFailure> {
-        let manifest: ContentPackManifest = ron::from_str(manifest_ron).map_err(|error| {
-            CompileFailure::new(
-                CompileStage::Parse,
-                vec![Diagnostic::error(
-                    DiagnosticCode::MalformedSource,
-                    CompileStage::Parse,
-                    format!("the pack manifest does not parse: {error}"),
-                )
-                .in_source("pack.ron")
-                .fix(
-                    "a manifest is `(id: …, version: …, namespace: …, requires: [], sources: [])`",
-                )],
-            )
-        })?;
-        Self::from_sources(manifest, sources)
+        Self::from_sources(ContentPackManifest::from_ron(manifest_ron)?, sources)
     }
 
     /// The same reading, from a manifest already in hand. Used by tests and by
     /// a future editor that holds an unsaved manifest.
+    ///
+    /// A generated library source that is absent does not stop the read. It
+    /// becomes a warning, and the draft does not have that source.
     pub fn read_manifest(
+        root: PathBuf,
+        mut manifest: ContentPackManifest,
+    ) -> Result<Self, CompileFailure> {
+        let warnings = manifest.take_ungenerated(&root);
+        let mut draft = Self::read_located(root, manifest)?;
+        draft.warnings = warnings;
+        Ok(draft)
+    }
+
+    fn read_located(
         root: PathBuf,
         manifest: ContentPackManifest,
     ) -> Result<Self, CompileFailure> {
@@ -288,20 +292,110 @@ impl ContentPackDraft {
             manifest,
             sources,
             collapsed_aliases,
+            warnings: Vec::new(),
         })
     }
 }
 
+impl ContentPackManifest {
+    /// Parse `pack.ron` text. A manifest that does not parse is a compiler
+    /// diagnostic, not a panic.
+    pub fn from_ron(manifest_ron: &str) -> Result<Self, CompileFailure> {
+        ron::from_str(manifest_ron).map_err(|error| {
+            CompileFailure::new(
+                CompileStage::Parse,
+                vec![Diagnostic::error(
+                    DiagnosticCode::MalformedSource,
+                    CompileStage::Parse,
+                    format!("the pack manifest does not parse: {error}"),
+                )
+                .in_source("pack.ron")
+                .fix(
+                    "a manifest is `(id: …, version: …, namespace: …, requires: [], sources: [])`",
+                )],
+            )
+        })
+    }
+
+    /// Remove each library source that its producer did not make yet, and
+    /// give one warning for each.
+    ///
+    /// Generated content is not in the repository and is absent on a fresh
+    /// checkout. A pack without it must still compile and run. Thus its
+    /// absence is LOUD (a [`DiagnosticCode::UngeneratedSource`] warning on
+    /// the prepared pack) but not fatal. An authored source that is absent
+    /// stays an error: this function keeps those declarations, and the read
+    /// reports them as before.
+    ///
+    /// A build that embeds its sources (`embed_pack`) does not call this. It
+    /// cannot embed a file that is absent, so it stays strict.
+    pub fn take_ungenerated(&mut self, root: &Path) -> Vec<Diagnostic> {
+        let mut warnings = Vec::new();
+        let manifest = self.clone();
+        self.sources.retain(|declaration| match declaration.locate(root, &manifest) {
+            Ok(SourceLocation::Ungenerated { library, producer }) => {
+                warnings.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::UngeneratedSource,
+                        CompileStage::Parse,
+                        format!(
+                            "library `{library}` has no generated `{}`: its `{producer}` producer \
+                             did not make it. The pack compiles without its `{}` content.",
+                            declaration.path, declaration.schema
+                        ),
+                    )
+                    .in_source(&declaration.path)
+                    .fix("make it: scripts/setup/generated_content.sh")
+                    .fix("see what is absent: python3 scripts/content_status.py"),
+                );
+                false
+            }
+            _ => true,
+        });
+        warnings
+    }
+}
+
+/// Where a declared source is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SourceLocation {
+    /// The file to read. For an authored source, the file can be absent; the
+    /// read then reports it.
+    File(PathBuf),
+    /// A library product that its producer did not make yet.
+    Ungenerated { library: String, producer: String },
+}
+
 impl SourceDeclaration {
-    /// Resolve a source through the pack's explicit imports.
-    pub fn resolve_path(&self, root: &Path, manifest: &ContentPackManifest) -> Result<PathBuf, String> {
-        let Some(id) = &self.library else { return Ok(root.join(&self.path)); };
+    /// Find a source through the pack's explicit imports.
+    pub fn locate(&self, root: &Path, manifest: &ContentPackManifest) -> Result<SourceLocation, String> {
+        let Some(id) = &self.library else { return Ok(SourceLocation::File(root.join(&self.path))); };
         use ambition_asset_manager::content_library::{ContentLibraries, ContentLibrary};
         let mut libraries = ContentLibraries::default();
         for path in &manifest.libraries { libraries.insert(ContentLibrary::read(root.join(path))?)?; }
         let library = libraries.get(id).ok_or_else(|| format!("Source {} selects undeclared library {id:?}", self.path))?;
         let files = library.files()?;
-        files.get(&self.path).and_then(|file| file.native_path()).map(Path::to_path_buf)
-            .ok_or_else(|| format!("Library {id:?} has no source {:?}", self.path))
+        if let Some(path) = files.get(&self.path).and_then(|file| file.native_path()) {
+            return Ok(SourceLocation::File(path.to_path_buf()));
+        }
+        match library.producer_of(&self.path) {
+            Some(producer) => Ok(SourceLocation::Ungenerated { library: id.clone(), producer: producer.to_owned() }),
+            None => Err(format!("Library {id:?} has no source {:?}", self.path)),
+        }
+    }
+
+    /// Resolve a source to the file to read. An ungenerated source is an
+    /// error here: a caller that must have every file (a build that embeds
+    /// its sources) uses this. [`ContentPackManifest::take_ungenerated`] is
+    /// the road that continues without it.
+    pub fn resolve_path(&self, root: &Path, manifest: &ContentPackManifest) -> Result<PathBuf, String> {
+        match self.locate(root, manifest)? {
+            SourceLocation::File(path) => Ok(path),
+            SourceLocation::Ungenerated { library, producer } => Err(format!(
+                "Library {library:?} has no source {:?}: its `{producer}` producer did not make it. \
+                 Run scripts/setup/generated_content.sh (query: python3 scripts/content_status.py)",
+                self.path
+            )),
+        }
     }
 }

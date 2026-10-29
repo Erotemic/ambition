@@ -96,7 +96,7 @@ def test_all_media_check_refuses_a_source_only_sprite_library():
         assert not (library / "generated").exists()
 
 
-def test_music_plan_uses_sources_without_a_generated_registry(tmp_path):
+def test_music_plan_and_registry_write_work_outside_the_checkout(tmp_path):
     (tmp_path / "authored").mkdir()
     (tmp_path / "authored/music.json").write_bytes(
         (ROOT / "game/ambition_content_library/authored/music.json").read_bytes())
@@ -116,3 +116,10 @@ def test_music_plan_uses_sources_without_a_generated_registry(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert not (tmp_path / "generated").exists()
+    written = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/regen_music_registry.py")],
+        cwd=ROOT, env=dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest)),
+        capture_output=True, text=True,
+    )
+    assert written.returncode == 0, written.stdout + written.stderr
+    assert (tmp_path / "generated/runtime/full/audio/music_registry.ron").is_file()

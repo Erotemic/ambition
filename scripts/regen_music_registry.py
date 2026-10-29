@@ -220,7 +220,7 @@ def main() -> int:
 
     REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
     REGISTRY_PATH.write_text(content, encoding="utf8")
-    print(f"wrote {REGISTRY_PATH.relative_to(REPO_ROOT)} ({track_count} tracks)")
+    print(f"wrote {REGISTRY_PATH} ({track_count} tracks)")
     return 0
 
 

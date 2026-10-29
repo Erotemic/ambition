@@ -47,7 +47,7 @@ fn draft(name: &str, items: &str) -> ContentPackDraft {
             namespace: ModuleNamespace("test".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: "items.ron".into(),
+                library: None, path: "items.ron".into(),
                 schema: SchemaId::new(ITEM_CATALOG_SCHEMA),
                 version: ITEM_CATALOG_VERSION,
             }],

@@ -4,10 +4,21 @@
   "version": "0.1.0",
   "asset_roots": {
     "authored": "authored/runtime",
-    "generated": "generated/runtime"
+    "generated": "generated/runtime/full",
+    "half": "generated/runtime/half",
+    "quarter": "generated/runtime/quarter",
+    "potato": "generated/runtime/potato"
   },
   "publication": "generated/art_publication",
   "producers": {
+    "fonts": {
+      "tool": "font_download",
+      "policy": "authored/fonts.json"
+    },
+    "backgrounds": {
+      "tool": "ambition_sprite2d_renderer",
+      "profiles": "all"
+    },
     "sprites": {
       "tool": "ambition_sprite2d_renderer",
       "collection": "runtime",
@@ -15,6 +26,19 @@
       "sources": [
         "authored"
       ]
+    },
+    "variants": {
+      "tool": "ambition_sprite2d_renderer"
+    },
+    "music": {
+      "tool": "ambition_music_renderer",
+      "collection": "radio",
+      "registry": "audio/music_registry.ron",
+      "policy": "authored/music.json"
+    },
+    "sfx": {
+      "tool": "ambition_sfx_renderer",
+      "collection": "active"
     }
   },
   "catalog": "authored/catalog.json",

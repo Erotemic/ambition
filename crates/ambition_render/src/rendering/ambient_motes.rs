@@ -32,114 +32,7 @@ use ambition_sprite_sheet::game_assets::{
 
 use super::primitives::RoomVisual;
 
-/// How the motes of a theme are, and how they move. Lengths are in world
-/// units and times in seconds. `velocity` has y up.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct MoteStyle {
-    /// How many motes a view has.
-    pub count: usize,
-    /// The steady motion of each mote: up for an ember, along for spray.
-    pub velocity: Vec2,
-    /// How far a mote goes from its line, each way.
-    pub wander: f32,
-    /// How many times a second a mote goes round its wander.
-    pub wander_rate: f32,
-    /// The smallest and the largest side of a mote.
-    pub size: (f32, f32),
-    /// The alpha of a mote at its most.
-    pub alpha: f32,
-    /// How much of its alpha a mote loses at the low point of its twinkle
-    /// (0 is a steady mote).
-    pub twinkle: f32,
-    pub twinkle_rate: f32,
-    /// The share of the motes that are in front of the play. The others are
-    /// behind the blocks.
-    pub front: f32,
-}
-
-impl MoteStyle {
-    const fn new(count: usize, vx: f32, vy: f32, wander: f32, wander_rate: f32, small: f32, large: f32, alpha: f32, twinkle: f32, twinkle_rate: f32, front: f32) -> Self {
-        Self { count, velocity: Vec2::new(vx, vy), wander, wander_rate, size: (small, large), alpha, twinkle, twinkle_rate, front }
-    }
-}
-
-/// The style of the motes of each theme. A theme with no entry has no motes.
-/// A game can change an entry, or take one away.
-#[derive(Resource, Clone, Debug)]
-pub struct AmbientMoteStyles(pub std::collections::HashMap<ParallaxTheme, MoteStyle>);
-
-impl Default for AmbientMoteStyles {
-    fn default() -> Self {
-        use ParallaxTheme as T;
-        Self(
-            [
-                // Dust in the light of the reactor: slow, a little up.
-                (T::Lab, MoteStyle::new(30, 3.0, 4.0, 7.0, 0.11, 1.8, 3.6, 0.50, 0.45, 0.7, 0.3)),
-                // Sparks from the cut cables: few, they fall, and they flicker.
-                (T::Alarm, MoteStyle::new(16, 2.0, -14.0, 8.0, 0.3, 1.6, 3.2, 0.90, 0.5, 3.4, 0.4)),
-                // Drops of water from the vault: few, they fall straight.
-                (T::Undertown, MoteStyle::new(14, 0.0, -34.0, 1.5, 0.1, 1.4, 2.6, 0.55, 0.2, 0.8, 0.3)),
-                // Dust in the light of the halls of the clean hub.
-                (T::HubClean, MoteStyle::new(20, 2.0, 3.0, 8.0, 0.08, 1.6, 3.4, 0.55, 0.4, 0.5, 0.3)),
-                (T::Hub, MoteStyle::new(22, -4.0, 1.5, 6.0, 0.09, 1.6, 3.2, 0.42, 0.4, 0.6, 0.3)),
-                // Embers go up fast and flicker.
-                (T::Basement, MoteStyle::new(34, 5.0, 26.0, 9.0, 0.3, 1.8, 3.8, 0.85, 0.6, 3.1, 0.4)),
-                (T::Boss, MoteStyle::new(34, -7.0, 21.0, 9.0, 0.3, 1.8, 3.8, 0.80, 0.6, 2.7, 0.4)),
-                // Points of light that hang in the cave and come and go.
-                (T::Cave, MoteStyle::new(26, 1.5, 2.5, 8.0, 0.08, 2.6, 5.4, 0.85, 0.85, 0.5, 0.35)),
-                (T::Eclipse, MoteStyle::new(28, 0.0, 5.0, 6.0, 0.08, 2.6, 5.4, 0.80, 0.85, 0.6, 0.35)),
-                // Fireflies stay in a place and go round it.
-                (T::Forest, MoteStyle::new(22, 0.0, 0.0, 24.0, 0.07, 2.4, 4.4, 0.95, 0.9, 0.9, 0.45)),
-                // Pollen and spores that drift on warm air.
-                (T::Primeval, MoteStyle::new(20, 6.0, -3.0, 16.0, 0.10, 1.6, 3.2, 0.7, 0.4, 0.8, 0.4)),
-                // Steam from the pots: soft, slow, and it goes up.
-                (T::Noodly, MoteStyle::new(22, 2.0, 8.0, 12.0, 0.10, 2.4, 5.0, 0.6, 0.6, 0.6, 0.4)),
-                // Chalk dust in the morning light of the Math town: few, slow,
-                // and it drifts down.
-                (T::MathTown, MoteStyle::new(16, 3.0, -2.0, 10.0, 0.08, 1.4, 2.8, 0.5, 0.35, 0.5, 0.3)),
-                // Dust in the shafts of day from the grates of the street.
-                (T::MathUndercroft, MoteStyle::new(20, 1.5, -3.0, 6.0, 0.08, 1.4, 3.0, 0.55, 0.4, 0.5, 0.3)),
-                // Dust in the lamplight of a room in the town: few, and slow.
-                (T::MathInterior, MoteStyle::new(12, 1.5, -2.0, 5.0, 0.06, 1.2, 2.6, 0.5, 0.35, 0.4, 0.3)),
-                // Dust in the light of a station deck: few, slow, cool.
-                (T::Orbital, MoteStyle::new(10, 1.0, -1.0, 4.0, 0.05, 1.2, 2.4, 0.4, 0.3, 0.4, 0.3)),
-                // Starlight glints in the glass of the trusses, still and slow.
-                (T::OrbitalTruss, MoteStyle::new(12, 0.5, 0.5, 2.0, 0.04, 1.2, 2.6, 0.5, 0.8, 0.6, 0.2)),
-                // Ash and sparks that go up from the fires of the Evil dimension.
-                (T::EvilForest, MoteStyle::new(24, 2.5, 10.0, 8.0, 0.2, 1.6, 3.4, 0.7, 0.55, 1.4, 0.4)),
-                // Sparks of the braziers of Castle Godwin.
-                (T::CastleGodwin, MoteStyle::new(16, 2.0, 12.0, 6.0, 0.2, 1.6, 3.4, 0.7, 0.6, 1.6, 0.4)),
-                // Sparks from the coils of the lab: few, quick, and they flicker.
-                (T::CastleGodwinLab, MoteStyle::new(14, 4.0, 6.0, 10.0, 0.2, 1.4, 3.0, 0.8, 0.6, 2.4, 0.5)),
-                // Ash in the throne room, slow, going up.
-                (T::CastleGodwinThrone, MoteStyle::new(18, 1.5, 8.0, 5.0, 0.15, 1.6, 3.4, 0.6, 0.5, 1.0, 0.3)),
-                // Spray off the sea on the wind at the port: few, and they drift.
-                (T::PiratePort, MoteStyle::new(16, -9.0, 2.0, 6.0, 0.2, 1.4, 2.8, 0.42, 0.4, 0.9, 0.3)),
-                // Maple leaves that fall slowly in the village, and turn as they fall.
-                (T::NinjaVillage, MoteStyle::new(14, 5.0, -9.0, 14.0, 0.15, 3.0, 5.0, 0.85, 0.2, 0.6, 0.4)),
-                // Dust in the light of the tower's caged lamps: few, slow, warm.
-                (T::MilitaryTower, MoteStyle::new(12, 1.0, -1.5, 4.0, 0.06, 1.2, 2.6, 0.5, 0.35, 0.4, 0.3)),
-                // Embers of a dark light that go up and flicker.
-                (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
-                // Sparks that go up fast from the fire under the floor.
-                (T::VoidCastle, MoteStyle::new(30, 4.0, 22.0, 8.0, 0.2, 1.6, 3.4, 0.8, 0.6, 1.8, 0.4)),
-                // Grains of sand that the wind takes along the ground.
-                (T::Stardune, MoteStyle::new(24, 14.0, -1.0, 12.0, 0.10, 1.4, 2.8, 0.7, 0.5, 0.8, 0.4)),
-                // Sparkles that come and go, and go up slowly.
-                (T::Starlight, MoteStyle::new(26, 2.0, 5.0, 10.0, 0.10, 2.4, 5.0, 0.85, 0.85, 0.7, 0.4)),
-                (T::Water, MoteStyle::new(30, 0.0, 22.0, 4.0, 0.35, 2.4, 6.0, 0.62, 0.15, 0.8, 0.4)),
-                // Spray off the sea, on the wind.
-                (T::Cove, MoteStyle::new(20, -11.0, 2.0, 5.0, 0.2, 1.6, 3.2, 0.46, 0.4, 0.9, 0.3)),
-                // Petals on the wind of the high air.
-                (T::Skybridge, MoteStyle::new(18, -28.0, -9.0, 10.0, 0.25, 3.0, 5.4, 0.85, 0.2, 0.7, 0.45)),
-                // Seeds on the wind of the open sky: few, small and fast.
-                (T::OpenSky, MoteStyle::new(12, -34.0, -4.0, 8.0, 0.2, 1.4, 2.6, 0.6, 0.2, 0.7, 0.35)),
-            ]
-            .into_iter()
-            .collect(),
-        )
-    }
-}
+pub use ambition_sprite_sheet::game_assets::MoteStyle;
 
 /// One mote. Each value is made one time, when the mote is.
 #[derive(Component, Clone, Copy, Debug)]
@@ -193,12 +86,11 @@ pub fn present_room_motes(
     mut commands: Commands,
     rooms: Option<LiveRoomSpecs>,
     assets: Option<Res<GameAssets>>,
-    styles: Option<Res<AmbientMoteStyles>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ActiveSessionScope>>,
     presented: Query<&InRoomInstance, With<PresentedRoomMotes>>,
 ) {
-    let (Some(rooms), Some(assets), Some(styles)) = (rooms, assets, styles) else {
+    let (Some(rooms), Some(assets)) = (rooms, assets) else {
         return;
     };
     // A tier that draws no parallax draws no motes: they are the same kind
@@ -217,7 +109,7 @@ pub fn present_room_motes(
         let Some(theme) = ParallaxTheme::named_by_room_metadata(&spec.metadata) else {
             continue;
         };
-        let (Some(style), Some(image)) = (styles.0.get(&theme), assets.room_dressing.get(theme, RoomDressingPart::Motes)) else {
+        let (Some(style), Some(image)) = (assets.room_themes.motes.get(theme.key()), assets.room_dressing.get(theme, RoomDressingPart::Motes)) else {
             // The picture can come later than the room: ask again then.
             continue;
         };
@@ -225,7 +117,7 @@ pub fn present_room_motes(
         commands.spawn_session_scoped(scope, (PresentedRoomMotes, RoomVisual, Name::new("Room motes")));
         let cell = MOTE_CELL_PX as f32;
         for index in 0..style.count as u32 {
-            let roll = |salt: u32| dice(index.wrapping_mul(7919).wrapping_add(salt).wrapping_add(theme as u32 * 104_729));
+            let roll = |salt: u32| dice(index.wrapping_mul(7919).wrapping_add(salt).wrapping_add(theme.key().bytes().fold(0x811c9dc5u32, |hash, byte| (hash ^ byte as u32).wrapping_mul(0x01000193))));
             let variant = (roll(1) * MOTE_VARIANTS as f32).min(MOTE_VARIANTS as f32 - 1.0).floor();
             let size = style.size.0 + (style.size.1 - style.size.0) * roll(2);
             let front = roll(3) < style.front;
@@ -294,7 +186,7 @@ mod tests {
         AmbientMote { home: Vec2::new(0.25, 0.75), phase: 1.0, pace: 1.0, style, z: 0.0 }
     }
 
-    const STILL: MoteStyle = MoteStyle::new(1, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0);
+    const STILL: MoteStyle = MoteStyle { count: 1, velocity: Vec2::ZERO, wander: 0.0, wander_rate: 0.0, size: (1.0, 1.0), alpha: 1.0, twinkle: 0.0, twinkle_rate: 0.0, front: 0.0 };
     const VISIBLE: Vec2 = Vec2::new(640.0, 360.0);
 
     /// A mote is in the world: when the camera moves less than the field, a

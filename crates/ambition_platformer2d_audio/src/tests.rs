@@ -19,12 +19,12 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 /// explicit cross-crate test fixture. Parsed per call: a shared static would
 /// be a channel between tests.
 fn fixture_music_registry() -> MusicRegistry {
-    ron::from_str(include_str!("../../../game/ambition_content/assets/audio/music_registry.ron"))
+    ron::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/generated/runtime/full/audio/music_registry.ron")).expect("shared audio fixture"))
         .expect("ambition_content music_registry.ron should parse")
 }
 
 fn fixture_sfx_registry() -> ambition_audio::spec::SfxRegistry {
-    ron::from_str(include_str!("../../../game/ambition_content/assets/audio/sfx_registry.ron"))
+    ron::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../game/ambition_content_library/authored/runtime/audio/sfx_registry.ron")).expect("shared audio fixture"))
         .expect("ambition_content sfx_registry.ron should parse")
 }
 

@@ -2,11 +2,12 @@
 
 use std::path::PathBuf;
 
-pub(crate) fn kept(text: String) -> &'static str {
+pub(crate) fn kept(text: impl AsRef<str>) -> &'static str {
     static IDENTITIES: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<&'static str>>> = std::sync::OnceLock::new();
     let mut identities = IDENTITIES.get_or_init(Default::default).lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some(held) = identities.get(text.as_str()) { return held; }
-    let held = &*Box::leak(text.into_boxed_str());
+    let text = text.as_ref();
+    if let Some(held) = identities.get(text) { return held; }
+    let held = &*Box::leak(text.to_owned().into_boxed_str());
     identities.insert(held);
     held
 }

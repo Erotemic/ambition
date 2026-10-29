@@ -13,7 +13,7 @@ use ambition_render::ui_fonts::{
 };
 
 fn font_bytes(name: &str) -> Vec<u8> {
-    std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content_library/generated/runtime/fonts/bundled").join(name))
+    std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content_library/generated/runtime/full/fonts/bundled").join(name))
         .expect("Generate the shared library fonts before the typography corpus test")
 }
 

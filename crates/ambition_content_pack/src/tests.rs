@@ -1043,3 +1043,19 @@ fn a_facet_refusal_names_the_field_path_of_the_bad_value() {
     assert_eq!(facet("[1]").parse::<Rules>().unwrap_err().field, None);
     assert_eq!(facet("(name: \"a\", respawn: (seconds: 1.5))").parse::<Rules>().unwrap().respawn.seconds, 1.5);
 }
+
+#[test]
+fn a_schema_source_uses_its_explicit_library_and_records_the_package_path() {
+    let tree = Pack::empty("library_schema_source");
+    tree.write("library/library.json", r#"{"schema":"ambition.content_library.v1","id":"shared","version":"1","asset_roots":{"authored":"authored"}}"#);
+    tree.write("library/authored/order.ron", "from_library");
+    tree.write("order.ron", "from_game");
+    tree.write("pack.ron", r#"(id:"probe",version:"1",namespace:"probe",libraries:["library/library.json"],sources:[(path:"order.ron",library:Some("shared"),schema:"order",version:1)])"#);
+    let draft = ContentPackDraft::read_from_dir(&tree.root).unwrap();
+    assert_eq!(draft.sources[0].text, "from_library");
+    let pack = compile(&draft, &registry(), &AssetsUnchecked).unwrap();
+    assert!(pack.package_inputs().contains("source\t__libraries/shared/order.ron\n"));
+    tree.write("library/authored/order.ron", "edited_without_rust");
+    let next = ContentPackDraft::read_from_dir(&tree.root).unwrap();
+    assert_eq!(next.sources[0].text, "edited_without_rust");
+}

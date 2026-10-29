@@ -39,7 +39,7 @@ fn draft(files: &[(&str, &str)]) -> ContentPackDraft {
             sources: files
                 .iter()
                 .map(|(path, _)| SourceDeclaration {
-                    path: (*path).to_string(),
+                    library: None, path: (*path).to_string(),
                     schema: SchemaId::new(SMASH_FIGHTER_SCHEMA),
                     version: SMASH_FIGHTER_VERSION,
                 })

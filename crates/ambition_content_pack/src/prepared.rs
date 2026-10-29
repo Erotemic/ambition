@@ -18,6 +18,7 @@ use crate::refs::{AssetProvenance, ContentKind, ResolvedContentRef};
 /// One source, as it contributed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PreparedSource {
+    pub library: Option<String>,
     pub declared_path: String,
     pub canonical_path: String,
     pub schema: SchemaId,
@@ -204,7 +205,9 @@ impl PreparedContentPack {
         let mut out = String::new();
         for library in &self.libraries { let _ = writeln!(out, "library\t{library}"); }
         for source in &self.sources {
-            let _ = writeln!(out, "source\t{}", source.declared_path);
+            let path = source.library.as_ref().map(|id| format!("__libraries/{id}/{}", source.declared_path))
+                .unwrap_or_else(|| source.declared_path.clone());
+            let _ = writeln!(out, "source\t{path}");
         }
         for (path, provenance) in &self.assets {
             let _ = write!(out, "asset\t{path}");

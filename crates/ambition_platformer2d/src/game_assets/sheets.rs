@@ -443,6 +443,7 @@ pub fn load_game_assets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     }
 
     let mut assets = GameAssets {
+        room_themes: Default::default(),
         characters,
         entities,
         fx,

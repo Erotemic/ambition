@@ -485,9 +485,8 @@ impl EmbeddedPackWatch {
 
 /// The manifest and each source it declares.
 fn watched_files(root: &std::path::Path) -> Vec<String> {
-    let declared = std::fs::read_to_string(root.join("pack.ron"))
-        .map(|manifest| ambition_content_pack::embed::declared_paths(&manifest))
-        .unwrap_or_default();
+    let declared = ambition_content_pack::embed::source_paths(root).unwrap_or_default()
+        .into_iter().map(|path| path.to_string_lossy().into_owned());
     std::iter::once("pack.ron".to_string()).chain(declared).collect()
 }
 

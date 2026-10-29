@@ -338,7 +338,7 @@ mod tests {
                 namespace: ModuleNamespace("test".into()),
                 requires: Vec::new(),
                 sources: vec![SourceDeclaration {
-                    path: "catalog.ron".into(),
+                    library: None, path: "catalog.ron".into(),
                     schema: SchemaId::new(CHARACTER_CATALOG_SCHEMA),
                     version: CHARACTER_CATALOG_VERSION,
                 }],

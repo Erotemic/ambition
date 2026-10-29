@@ -31,7 +31,7 @@ fn draft(name: &str, files: &[(&str, &str)]) -> ContentPackDraft {
             sources: files
                 .iter()
                 .map(|(path, _)| SourceDeclaration {
-                    path: (*path).into(),
+                    library: None, path: (*path).into(),
                     schema: SchemaId::new(CUTSCENE_LIBRARY_SCHEMA),
                     version: CUTSCENE_LIBRARY_VERSION,
                 })

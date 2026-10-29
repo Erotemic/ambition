@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Download redistributable UI fonts for the sandbox asset tree.
-
-The fonts themselves are intentionally git-ignored by default. Run this script,
-review the generated manifest/licenses, then force-add or IPFS-track the assets
-once you are happy with the versions.
-"""
+"""Download the selected library fonts. Generated files stay ignored by Git."""
 
 from __future__ import annotations
 
@@ -41,29 +36,15 @@ class FontSource:
     homepage: str
     extracts: tuple[tuple[str, str], ...]
     license_candidates: tuple[str, ...]
+    archive_sha256: str
 
 
-FONT_SOURCES: tuple[FontSource, ...] = (
-    FontSource(
-        name="Inter 4.1",
-        url="https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
-        license_name="SIL Open Font License 1.1",
-        homepage="https://rsms.me/inter/",
-        extracts=(
-            ("InterDisplay-Regular.otf", "InterDisplay-Regular.otf"),
-            ("InterDisplay-SemiBold.otf", "InterDisplay-SemiBold.otf"),
-        ),
-        license_candidates=("LICENSE.txt", "OFL.txt"),
-    ),
-    FontSource(
-        name="JetBrains Mono 2.304",
-        url="https://download.jetbrains.com/fonts/JetBrainsMono-2.304.zip",
-        license_name="SIL Open Font License 1.1",
-        homepage="https://www.jetbrains.com/lp/mono/",
-        extracts=(("JetBrainsMono-Regular.ttf", "JetBrainsMono-Regular.ttf"),),
-        license_candidates=("OFL.txt", "LICENSE.txt"),
-    ),
-)
+def font_sources() -> tuple[FontSource, ...]:
+    from lib.content_libraries import producer, selected_manifest, relative
+    policy = selected_manifest(REPO_ROOT).parent / relative(producer(REPO_ROOT, "fonts")["policy"])
+    return tuple(FontSource(**{**row, "extracts": tuple(tuple(pair) for pair in row["extracts"]),
+                              "license_candidates": tuple(row["license_candidates"])})
+                 for row in json.loads(policy.read_text()))
 
 
 def console(message: str) -> None:
@@ -117,22 +98,25 @@ def find_zip_member(zip_file: zipfile.ZipFile, basename: str) -> str:
     return matches[0]
 
 
+def write_bytes(destination: Path, data: bytes) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as file:
+        temporary = Path(file.name)
+        file.write(data)
+    temporary.replace(destination)
+
+
 def extract_member(
     zip_file: zipfile.ZipFile, basename: str, destination: Path, *, force: bool
 ) -> dict:
-    if destination.exists() and not force:
-        return {
-            "path": str(destination.relative_to(REPO_ROOT)),
-            "sha256": sha256_file(destination),
-            "status": "kept",
-        }
     member = find_zip_member(zip_file, basename)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with zip_file.open(member) as src, destination.open("wb") as dst:
-        shutil.copyfileobj(src, dst)
+    data = zip_file.read(member)
+    if not force and destination.is_file() and destination.read_bytes() == data:
+        return {"path": str(destination), "sha256": sha256_file(destination), "status": "kept", "archive_member": member}
+    write_bytes(destination, data)
     console(f"[green]font[/green] {member} -> {path_link(destination)}")
     return {
-        "path": str(destination.relative_to(REPO_ROOT)),
+        "path": str(destination),
         "sha256": sha256_file(destination),
         "status": "wrote",
         "archive_member": member,
@@ -148,12 +132,10 @@ def copy_license(
         if matches:
             matches.sort(key=lambda name: (len(Path(name).parts), name))
             member = matches[0]
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            with zip_file.open(member) as src, destination.open("wb") as dst:
-                shutil.copyfileobj(src, dst)
+            write_bytes(destination, zip_file.read(member))
             console(f"[green]license[/green] {member} -> {path_link(destination)}")
             return {
-                "path": str(destination.relative_to(REPO_ROOT)),
+                "path": str(destination),
                 "sha256": sha256_file(destination),
                 "archive_member": member,
             }
@@ -164,23 +146,25 @@ def grab_fonts(out_dir: Path, cache_dir: Path, *, force: bool, dry_run: bool) ->
     manifest: dict[str, object] = {
         "version": 1,
         "generated_by": "scripts/grab_font_assets.py",
-        "output_dir": str(out_dir.relative_to(REPO_ROOT)),
+        "output_dir": str(out_dir),
         "sources": [],
     }
     if dry_run:
         console(
             f"[yellow]dry-run[/yellow] would write fonts under {path_link(out_dir)}"
         )
-        for source in FONT_SOURCES:
+        for source in font_sources():
             console(f"  - {source.name}: {source.url}")
         return 0
 
     out_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="ambition-fonts-") as _tmp:
-        for source in FONT_SOURCES:
+        for source in font_sources():
             archive_path = cache_dir / Path(source.url).name
             download(source.url, archive_path, force=force)
+            if sha256_file(archive_path) != source.archive_sha256:
+                raise ValueError(f"Font archive hash differs from the authored policy: {archive_path}")
             source_entry: dict[str, object] = {
                 "name": source.name,
                 "url": source.url,
@@ -212,12 +196,8 @@ def grab_fonts(out_dir: Path, cache_dir: Path, *, force: bool, dry_run: bool) ->
             manifest["sources"].append(source_entry)
 
     manifest_path = out_dir / "FONT_ASSET_MANIFEST.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    write_bytes(manifest_path, (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode())
     console(f"[green]manifest[/green] {path_link(manifest_path)}")
-    console(
-        "[bold]next[/bold] review licenses, then force-add/IPFS-track the generated assets if accepted"
-    )
-    console(f"       git add -f {path_link(out_dir)}")
     return 0
 
 

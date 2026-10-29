@@ -200,8 +200,8 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
 /// A theme with a corrupted state is never mirrored: the look of its room
 /// lays the corrupted layers over the clean ones in a shader that has the
 /// placement of the panel, and not its mirror (`room_sky.wgsl`).
-pub fn room_mirrors_its_backdrop(name: &str, theme: ParallaxTheme) -> bool {
-    if theme.corrupted().is_some() {
+pub fn room_mirrors_its_backdrop(name: &str, has_alternate: bool) -> bool {
+    if has_alternate {
         return false;
     }
     // FNV-1a: the answer for a room is the same in each run and each build.
@@ -279,7 +279,7 @@ pub fn spawn_parallax_layers(
         // them.
         sprite.flip_x = match slot {
             Some(slot) => slot.rem_euclid(2) == 1,
-            None => room_mirrors_its_backdrop(&world.name, theme),
+            None => room_mirrors_its_backdrop(&world.name, assets.room_themes.alternate(theme).is_some()),
         };
         let mut layer = commands.spawn_session_scoped(
             session_scope,
@@ -329,7 +329,7 @@ fn spawn_flat_backdrop(
     };
     let mut sprite = Sprite::from_image(image.clone());
     sprite.custom_size = None;
-    sprite.flip_x = room_mirrors_its_backdrop(&world.name, theme);
+    sprite.flip_x = room_mirrors_its_backdrop(&world.name, assets.room_themes.alternate(theme).is_some());
     // The panel of the sky, without its overhang and its slide: no parallax.
     let z = RUNTIME_PARALLAX_LAYERS[0].z;
     commands.spawn_session_scoped(
@@ -1085,7 +1085,7 @@ mod theme_load_tests {
             .world()
             .resource::<GameAssets>()
             .parallax_layers
-            .get(ParallaxTheme::Cave, ParallaxLayerAsset::ALL[0])
+            .get(ParallaxTheme::new("cave"), ParallaxLayerAsset::ALL[0])
             .is_none());
 
         app.update();
@@ -1094,7 +1094,7 @@ mod theme_load_tests {
             app.world()
                 .resource::<GameAssets>()
                 .parallax_layers
-                .get(ParallaxTheme::Cave, ParallaxLayerAsset::ALL[0])
+                .get(ParallaxTheme::new("cave"), ParallaxLayerAsset::ALL[0])
                 .is_some(),
             "the active room asked for the `cave` theme and nothing loaded it, \
              so every one of its layers would be skipped and the room would \
@@ -1383,13 +1383,13 @@ mod two_views_one_backdrop_tests {
     #[test]
     fn a_room_mirrors_its_backdrop_by_its_name() {
         let rooms = ["scroll_lab", "crawl_lab", "morph_lab", "ladder_lab", "portal_lab", "tiny_chamber", "square_arena", "vertical_shaft", "quest_lab", "switch_lab", "cutscene_lab", "sanic_sandbox"];
-        let mirrored = rooms.iter().filter(|name| room_mirrors_its_backdrop(name, ParallaxTheme::Lab)).count();
+        let mirrored = rooms.iter().filter(|name| room_mirrors_its_backdrop(name, false)).count();
         assert!((3..=9).contains(&mirrored), "{mirrored} of {} are mirrored", rooms.len());
         assert_eq!(
-            room_mirrors_its_backdrop("scroll_lab", ParallaxTheme::Lab),
-            room_mirrors_its_backdrop("scroll_lab", ParallaxTheme::Lab)
+            room_mirrors_its_backdrop("scroll_lab", false),
+            room_mirrors_its_backdrop("scroll_lab", false)
         );
-        assert!(rooms.iter().all(|name| !room_mirrors_its_backdrop(name, ParallaxTheme::HubClean)));
+        assert!(rooms.iter().all(|name| !room_mirrors_its_backdrop(name, true)));
     }
 
     /// A panel is sized against what its camera shows of the world, not against
@@ -1773,7 +1773,7 @@ mod theme_residency_tests {
             .resource::<GameAssets>()
             .parallax_layers
             .resident_themes()
-            .contains(&ParallaxTheme::Hub)
+            .contains(&ParallaxTheme::new("hub"))
     }
 
     /// A theme the residency policy evicted loads again while its room is active.

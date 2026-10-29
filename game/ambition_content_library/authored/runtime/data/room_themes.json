@@ -1,0 +1,551 @@
+{
+  "alternates": {
+    "hub_clean": "hub_corrupt"
+  },
+  "motes": {
+    "lab": {
+      "count": 30,
+      "velocity": [
+        3.0,
+        4.0
+      ],
+      "wander": 7.0,
+      "wander_rate": 0.11,
+      "size": [
+        1.8,
+        3.6
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.45,
+      "twinkle_rate": 0.7,
+      "front": 0.3
+    },
+    "alarm": {
+      "count": 16,
+      "velocity": [
+        2.0,
+        -14.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.6,
+        3.2
+      ],
+      "alpha": 0.9,
+      "twinkle": 0.5,
+      "twinkle_rate": 3.4,
+      "front": 0.4
+    },
+    "undertown": {
+      "count": 14,
+      "velocity": [
+        0.0,
+        -34.0
+      ],
+      "wander": 1.5,
+      "wander_rate": 0.1,
+      "size": [
+        1.4,
+        2.6
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.8,
+      "front": 0.3
+    },
+    "hub_clean": {
+      "count": 20,
+      "velocity": [
+        2.0,
+        3.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.08,
+      "size": [
+        1.6,
+        3.4
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "hub": {
+      "count": 22,
+      "velocity": [
+        -4.0,
+        1.5
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.09,
+      "size": [
+        1.6,
+        3.2
+      ],
+      "alpha": 0.42,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.6,
+      "front": 0.3
+    },
+    "basement": {
+      "count": 34,
+      "velocity": [
+        5.0,
+        26.0
+      ],
+      "wander": 9.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.8,
+        3.8
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.6,
+      "twinkle_rate": 3.1,
+      "front": 0.4
+    },
+    "boss": {
+      "count": 34,
+      "velocity": [
+        -7.0,
+        21.0
+      ],
+      "wander": 9.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.8,
+        3.8
+      ],
+      "alpha": 0.8,
+      "twinkle": 0.6,
+      "twinkle_rate": 2.7,
+      "front": 0.4
+    },
+    "cave": {
+      "count": 26,
+      "velocity": [
+        1.5,
+        2.5
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.08,
+      "size": [
+        2.6,
+        5.4
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.85,
+      "twinkle_rate": 0.5,
+      "front": 0.35
+    },
+    "eclipse": {
+      "count": 28,
+      "velocity": [
+        0.0,
+        5.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.08,
+      "size": [
+        2.6,
+        5.4
+      ],
+      "alpha": 0.8,
+      "twinkle": 0.85,
+      "twinkle_rate": 0.6,
+      "front": 0.35
+    },
+    "forest": {
+      "count": 22,
+      "velocity": [
+        0.0,
+        0.0
+      ],
+      "wander": 24.0,
+      "wander_rate": 0.07,
+      "size": [
+        2.4,
+        4.4
+      ],
+      "alpha": 0.95,
+      "twinkle": 0.9,
+      "twinkle_rate": 0.9,
+      "front": 0.45
+    },
+    "primeval": {
+      "count": 20,
+      "velocity": [
+        6.0,
+        -3.0
+      ],
+      "wander": 16.0,
+      "wander_rate": 0.1,
+      "size": [
+        1.6,
+        3.2
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.8,
+      "front": 0.4
+    },
+    "noodly": {
+      "count": 22,
+      "velocity": [
+        2.0,
+        8.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.1,
+      "size": [
+        2.4,
+        5.0
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.6,
+      "twinkle_rate": 0.6,
+      "front": 0.4
+    },
+    "math_town": {
+      "count": 16,
+      "velocity": [
+        3.0,
+        -2.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.08,
+      "size": [
+        1.4,
+        2.8
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.35,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "math_undercroft": {
+      "count": 20,
+      "velocity": [
+        1.5,
+        -3.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.08,
+      "size": [
+        1.4,
+        3.0
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "math_interior": {
+      "count": 12,
+      "velocity": [
+        1.5,
+        -2.0
+      ],
+      "wander": 5.0,
+      "wander_rate": 0.06,
+      "size": [
+        1.2,
+        2.6
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.35,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "orbital": {
+      "count": 10,
+      "velocity": [
+        1.0,
+        -1.0
+      ],
+      "wander": 4.0,
+      "wander_rate": 0.05,
+      "size": [
+        1.2,
+        2.4
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.3,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "orbital_truss": {
+      "count": 12,
+      "velocity": [
+        0.5,
+        0.5
+      ],
+      "wander": 2.0,
+      "wander_rate": 0.04,
+      "size": [
+        1.2,
+        2.6
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.8,
+      "twinkle_rate": 0.6,
+      "front": 0.2
+    },
+    "evil_forest": {
+      "count": 24,
+      "velocity": [
+        2.5,
+        10.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.6,
+        3.4
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.55,
+      "twinkle_rate": 1.4,
+      "front": 0.4
+    },
+    "castle_godwin": {
+      "count": 16,
+      "velocity": [
+        2.0,
+        12.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.6,
+        3.4
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.6,
+      "twinkle_rate": 1.6,
+      "front": 0.4
+    },
+    "castle_godwin_lab": {
+      "count": 14,
+      "velocity": [
+        4.0,
+        6.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.4,
+        3.0
+      ],
+      "alpha": 0.8,
+      "twinkle": 0.6,
+      "twinkle_rate": 2.4,
+      "front": 0.5
+    },
+    "castle_godwin_throne": {
+      "count": 18,
+      "velocity": [
+        1.5,
+        8.0
+      ],
+      "wander": 5.0,
+      "wander_rate": 0.15,
+      "size": [
+        1.6,
+        3.4
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.5,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
+    "pirate_port": {
+      "count": 16,
+      "velocity": [
+        -9.0,
+        2.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.4,
+        2.8
+      ],
+      "alpha": 0.42,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.9,
+      "front": 0.3
+    },
+    "ninja_village": {
+      "count": 14,
+      "velocity": [
+        5.0,
+        -9.0
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.15,
+      "size": [
+        3.0,
+        5.0
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.6,
+      "front": 0.4
+    },
+    "military_tower": {
+      "count": 12,
+      "velocity": [
+        1.0,
+        -1.5
+      ],
+      "wander": 4.0,
+      "wander_rate": 0.06,
+      "size": [
+        1.2,
+        2.6
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.35,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "starless": {
+      "count": 26,
+      "velocity": [
+        3.0,
+        12.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.8,
+        3.8
+      ],
+      "alpha": 0.75,
+      "twinkle": 0.6,
+      "twinkle_rate": 1.6,
+      "front": 0.4
+    },
+    "void_castle": {
+      "count": 30,
+      "velocity": [
+        4.0,
+        22.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.6,
+        3.4
+      ],
+      "alpha": 0.8,
+      "twinkle": 0.6,
+      "twinkle_rate": 1.8,
+      "front": 0.4
+    },
+    "stardune": {
+      "count": 24,
+      "velocity": [
+        14.0,
+        -1.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.1,
+      "size": [
+        1.4,
+        2.8
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.5,
+      "twinkle_rate": 0.8,
+      "front": 0.4
+    },
+    "starlight": {
+      "count": 26,
+      "velocity": [
+        2.0,
+        5.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.1,
+      "size": [
+        2.4,
+        5.0
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.85,
+      "twinkle_rate": 0.7,
+      "front": 0.4
+    },
+    "water": {
+      "count": 30,
+      "velocity": [
+        0.0,
+        22.0
+      ],
+      "wander": 4.0,
+      "wander_rate": 0.35,
+      "size": [
+        2.4,
+        6.0
+      ],
+      "alpha": 0.62,
+      "twinkle": 0.15,
+      "twinkle_rate": 0.8,
+      "front": 0.4
+    },
+    "cove": {
+      "count": 20,
+      "velocity": [
+        -11.0,
+        2.0
+      ],
+      "wander": 5.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.6,
+        3.2
+      ],
+      "alpha": 0.46,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.9,
+      "front": 0.3
+    },
+    "skybridge": {
+      "count": 18,
+      "velocity": [
+        -28.0,
+        -9.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.25,
+      "size": [
+        3.0,
+        5.4
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.7,
+      "front": 0.45
+    },
+    "open_sky": {
+      "count": 12,
+      "velocity": [
+        -34.0,
+        -4.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.4,
+        2.6
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.7,
+      "front": 0.35
+    }
+  }
+}

@@ -16,6 +16,7 @@ set -euo pipefail
 # ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
+source "$repo_root/scripts/lib/asset_roots.sh"
 
 print_help() {
     awk '
@@ -32,7 +33,11 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 if [ "$#" -eq 0 ]; then
-    categories=(backgrounds sprites variants music sfx)
+    producer_list="$(ambition_library_producer --list)"
+    categories=()
+    while IFS= read -r producer; do
+        [ -z "$producer" ] || categories+=("$producer")
+    done <<< "$producer_list"
 else
     categories=("$@")
 fi
@@ -40,6 +45,9 @@ fi
 run_category() {
     local category="$1"
     case "$category" in
+        fonts)
+            python3 "$repo_root/scripts/grab_font_assets.py"
+            ;;
         backgrounds|background)
             bash "$repo_root/scripts/regen/backgrounds.sh"
             ;;
@@ -158,6 +166,10 @@ done
 total_elapsed=$((SECONDS - overall_start))
 
 echo
+if [ "$toolchain_skips" -gt 0 ]; then
+    echo "generation incomplete: $toolchain_skips required producer(s) could not run" >&2
+    exit 1
+fi
 echo "==> all requested assets regenerated in ${total_elapsed}s"
 echo "==> profile summary (slowest first):"
 printf '%s\n' "${summary_rows[@]}" | sort -rn | awk -F'\t' '{ printf "    %5ds  %-12s  %s\n", $1, $2, $3 }'

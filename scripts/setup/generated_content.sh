@@ -31,58 +31,9 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# ⛔ "THE SETUP RAN" IS NOT "THE CONTENT IS CURRENT", and the gap is invisible
-# from inside the game. Measured on `calculex` 2026-08-29: 998 sprite sheets
-# ~11 days stale and the parallax quality tiers absent entirely, so the game drew
-# OLD art at Low/Medium and NO parallax art at all. The tiers meant for weak
-# hardware were the ones most likely to be broken, on the machines least able to
-# notice — nothing in the game says "this sheet is eleven days behind its source".
-#
-# ⭐ THE CHECKER ALREADY EXISTED AND NOTHING CALLED IT. That is the whole defect;
-# the regeneration itself was already composed correctly by `regen/assets.sh`.
-#
-# Reports rather than fails: a stale variant is a degraded picture, not a broken
-# checkout, and a setup script that exits non-zero over it would block work that
-# does not care.
 verify_generated_content_is_current() {
-    have python3 || return 0
-    [ -f "$repo_root/scripts/check_quality_variants_are_fresh.py" ] || return 0
-    if python3 "$repo_root/scripts/check_quality_variants_are_fresh.py" >/dev/null 2>&1; then
-        log "generated quality variants are current"
-        return 0
-    fi
-    warn "generated quality variants are STALE or MISSING after regeneration"
-    log "   the game draws old art at Low/Medium and may draw none at all:"
-    log "     python3 scripts/check_quality_variants_are_fresh.py   # what is stale"
-    log "     ./scripts/regen/quality_variants.sh                   # rebuild it"
-}
-
-# ⛔⛔ FRESHNESS AND PRESENCE ARE TWO DIFFERENT FAILURES, and only one of them
-# had an instrument. `verify_generated_content_is_current` above asks *"is the
-# published tier art OLDER than its source?"* — which says nothing about art
-# that was never published at all, because A FILE THAT DOES NOT EXIST CANNOT BE
-# STALE.
-#
-# ⚠ MEASURED 2026-08-30, the first time `cargo test --workspace --lib` was run
-# to completion (D-QTT-1): it failed inside `ambition_render` on
-# `a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`,
-# which uses `goblin_cave_dagger` as its canonical RIGHT-drawn sheet.
-# `record_for_sheet_key` returned `None` because no roster line ever published
-# it. The panic named handedness; the defect was a missing ASSET, and the whole
-# goblin weapon family was absent with it.
-#
-# ⭐ GENERATED ART IS GITIGNORED, so "it works on my checkout" is the EXPECTED
-# symptom of this class rather than a surprising one: whoever rendered the
-# target by hand has it and nobody else does. That is exactly why it belongs in
-# the bootstrap and not in a person's memory.
-#
-# GENERATES rather than only reporting, because the whole lesson of the
-# quality-variant row above is that a checker nothing acts on is a checker
-# nobody runs.
-regenerate_missing_published_sheets() {
-    if ! "$repo_root/scripts/regen/sprites.sh" --check; then
-        "$repo_root/scripts/regen/sprites.sh"
-    fi
+    python3 "$repo_root/scripts/check_quality_variants_are_fresh.py"
+    python3 "$repo_root/scripts/check_regeneration_coverage.py"
 }
 
 regenerate_assets() {
@@ -95,36 +46,12 @@ regenerate_assets() {
         verify_tool_environments
     fi
 
-    fetch_bundled_fonts
     "$repo_root/scripts/setup/target_bindmount.sh" --status
     "$repo_root/scripts/setup/target_bindmount.sh" --check || "$repo_root/scripts/setup/target_bindmount.sh"
     cargo build --manifest-path "$repo_root/Cargo.toml" -p ambition_content_cli --bin ambition_content
     log "regenerating all runtime assets"
     "$repo_root/scripts/regen/assets.sh"
-    regenerate_missing_published_sheets
     verify_generated_content_is_current
-}
-
-# Fetch the font files selected by the shared library.
-fetch_bundled_fonts() {
-    source "$repo_root/scripts/lib/asset_roots.sh"
-    local bundled="$AMBITION_ASSETS_ROOT/fonts/bundled"
-    if [ -f "$bundled/InterDisplay-Regular.otf" ] \
-        && [ -f "$bundled/InterDisplay-SemiBold.otf" ] \
-        && [ -f "$bundled/JetBrainsMono-Regular.ttf" ]; then
-        log "bundled UI fonts already present"
-        return 0
-    fi
-    [ -f "$repo_root/scripts/grab_font_assets.py" ] || return 0
-    local py
-    py="$(ambition_select_tool_python "$repo_root" "" 0)"
-    ambition_python_exists "$py" || py="python3"
-    log "fetching the library UI fonts"
-    if ! "$py" "$repo_root/scripts/grab_font_assets.py"; then
-        warn "could not fetch the bundled UI fonts"
-        log "   typography corpus tests require these generated files:"
-        log "     python3 scripts/grab_font_assets.py"
-    fi
 }
 
 # ⛔ `scripts/agent_query.py` IS STEP 2 OF THE COLD START AGENTS.md MANDATES, AND

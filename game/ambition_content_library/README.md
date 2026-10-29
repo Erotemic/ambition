@@ -39,3 +39,25 @@ Native builds read the selected files without a Rust rebuild. Static builds
 embed selected metadata and bytes from the same manifest. Accepted reloads
 advance files and metadata together. A session retains its admitted mechanical
 generation. See [sprite publication](../../docs/tools/sprite-publication.md).
+
+The producer list selects fonts, backgrounds, sprites (including VFX), quality
+variants, music, and SFX. Developer setup runs that list. A missing toolchain or
+required product fails setup. Use `--skip-assets` on developer setup to omit
+content generation.
+
+Loose runtime products live under `generated/runtime/full/`. Reduced products
+live under `generated/runtime/half/`, `quarter/`, and `potato/`. Sprite bundles
+also name the runtime role and quality tier inside each immutable bundle.
+Review products and provenance live outside runtime roots.
+
+A pack can read a schema source from a selected library:
+
+```ron
+(path: "audio/sfx_registry.ron", library: Some("ambition_shared"),
+ schema: "sfx_registry", version: 1)
+```
+
+`authored/runtime/data/room_themes.json` defines alternate theme states and
+ambient mote styles. Background image roles remain in `authored/catalog.json`.
+A new theme key needs no engine enum entry. Room metadata must select its theme
+through `visual_profile.parallax_theme`.

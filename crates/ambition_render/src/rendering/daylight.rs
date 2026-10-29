@@ -129,7 +129,7 @@ mod tests {
                 (12.0, Color::srgba(0.0, 0.0, 0.0, 0.0)),
                 (0.0, Color::srgba(0.0, 0.0, 0.5, 0.5)),
             ],
-            sunlit: vec![ParallaxTheme::MathTown],
+            sunlit: vec![ParallaxTheme::new("math_town")],
         }
     }
 

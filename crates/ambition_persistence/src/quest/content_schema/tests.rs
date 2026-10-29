@@ -26,7 +26,7 @@ fn draft(name: &str, book: &str) -> ContentPackDraft {
             namespace: ModuleNamespace("test".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: "quests.ron".into(),
+                library: None, path: "quests.ron".into(),
                 schema: SchemaId::new(QUEST_BOOK_SCHEMA),
                 version: QUEST_BOOK_VERSION,
             }],

@@ -1,0 +1,91 @@
+{
+  "DEFAULT_TRACK": "long_lofi_drift",
+  "SPECIAL_ENTRIES": [
+    [
+      "original_lofi_loop",
+      "Original Lofi Loop",
+      "audio/music/generated/lofi_study_loop/full.ogg"
+    ],
+    [
+      "first_goblin_tune_v2_radio",
+      "First Goblin Tune v2 — Wave 1 Radio Mix",
+      "audio/music/generated/first_goblin_tune_v2/adaptive/wave1/wave1.full.ogg"
+    ]
+  ],
+  "CLAIMED_DIRS": [
+    "first_goblin_tune_v2",
+    "lofi_study_loop"
+  ],
+  "DENY_IDS": [
+    "dinosaur_liberators_adaptive",
+    "flying_spaghetti_monster_fight",
+    "standing_on_shoulders_v2_adaptive"
+  ],
+  "DISPLAY_NAMES": {
+    "math_town_day": "Euclid Street",
+    "math_town_evening": "Golden Ratio Hour",
+    "math_town_morning": "Axioms at Dawn",
+    "math_town_night": "Countably Many Stars",
+    "artists_guild_chiaroscuro": "Chiaroscuro",
+    "carry_the_one": "Carry the One",
+    "elves_faction_silverleaf_reverie": "Silverleaf Reverie",
+    "env_advocacy_solace": "Env Advocacy — Solace",
+    "fighters_guild_oath_of_steel": "Oath of Steel",
+    "for_emmy_forever_ago": "For Emmy, Forever Ago",
+    "for_emmy_forever_ago_extended": "For Emmy, Forever Ago (Extended)",
+    "luddites_guild_loom_and_liberty": "Loom and Liberty",
+    "mages_guild_arcane_lanterns": "Arcane Lanterns",
+    "mathematicians_guild_proof_by_moonlight": "Proof by Moonlight",
+    "ninja_guild_shadow_kata": "Shadow Kata",
+    "physicists_guild_event_horizon_waltz": "Event Horizon Waltz",
+    "pirates_guild_black_flag_jig": "Black Flag Jig",
+    "raid_enforcer_theme": "Black Pennant March",
+    "thieves_guild_cobblestone_whisper": "Cobblestone Whisper",
+    "crooked_ascent_boss": "Crooked Ascent (Boss)",
+    "dinosaur_liberators_long": "Dinosaur Liberators (Long)",
+    "fast_paced_violin_boss": "Fast-Paced Violin (Boss)",
+    "solo_soar_9m08_loud": "Solo Soar (Loud, 9m)",
+    "smirking_behemoth_boss": "You Have To Cut The Rope",
+    "standing_on_shoulders": "Standing on Shoulders (GNU-ton)",
+    "standing_on_shoulders_v2": "Standing on Shoulders v2 (GNU-ton)",
+    "shoulders_at_rest": "Shoulders at Rest",
+    "tritone_decree": "The Tritone Decree",
+    "phrygian_furnace": "The Phrygian Furnace",
+    "iron_toccata": "The Iron Toccata",
+    "graphite_and_rain": "Graphite and Rain",
+    "the_fire_escape": "The Fire Escape",
+    "ten_fathoms_and_a_grudge": "Ten Fathoms and a Grudge",
+    "nine_rooftops": "Nine Rooftops, No Footsteps",
+    "the_algorithm_knows_youre_lonely": "The Algorithm Knows You're Lonely",
+    "series_a_bloodbath": "Series A Bloodbath",
+    "flying_spaghetti_monster_stage": "Flying Spaghetti Monster (Stage)",
+    "flying_spaghetti_monster_pastafarian_fight": "Flying Spaghetti Monster (Pastafarian, Fight)",
+    "pastafarian": "Pastafarian",
+    "it_was_revealed_to_me_in_a_dream": "It Was Revealed to Me in a Dream",
+    "ai_dente": "AI Dente",
+    "pasta_la_vista": "Pasta la Vista",
+    "spaghetti_western": "Spaghetti Western",
+    "vault_in_the_dark": "Vault in the Dark",
+    "flying_spaghetti_monster_pastafarian_stage": "Flying Spaghetti Monster (Pastafarian, Stage)",
+    "flying_spaghetti_monster_roots_boss": "Flying Spaghetti Monster (Roots, Boss)",
+    "flying_spaghetti_monster_roots_boss_brimstone": "Flying Spaghetti Monster (Roots, Boss — Brimstone)",
+    "flying_spaghetti_monster_roots_boss_choir_backing": "Flying Spaghetti Monster (Roots, Boss — Choir)",
+    "flying_spaghetti_monster_roots_stage": "Flying Spaghetti Monster (Roots, Stage)",
+    "flying_spaghetti_monster_roots_stage_choir_backing": "Flying Spaghetti Monster (Roots, Stage — Choir)"
+  },
+  "EXTRA_CUES": [
+    "crooked_ascent_boss",
+    "dinosaur_liberators_long",
+    "env_advocacy_solace",
+    "fast_paced_violin_boss",
+    "glasswood",
+    "long_lofi_drift",
+    "military_iron_resolve",
+    "moonlit_canal",
+    "pulse_drift_voyage",
+    "solo_soar",
+    "solo_soar_9m08_loud",
+    "tech_bros_disruption",
+    "violin_boss_relentless"
+  ]
+}

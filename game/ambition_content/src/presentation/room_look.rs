@@ -194,7 +194,7 @@ pub struct RoomStateMaterial {
 /// The corrupted sky of the two-state look, over the clean one.
 ///
 /// The sky is authored: two parallax themes of four layers each
-/// (`ParallaxTheme::HubClean`, `ParallaxTheme::HubCorrupt`), made by the
+/// (`ParallaxTheme::new("hub_clean")`, `ParallaxTheme::new("hub_corrupt")`), made by the
 /// parallax renderer (`room_look_sky.py`). A room with the look names
 /// `hub_clean` as its `parallax_theme`, and the parallax system draws it.
 /// This material is one quad over that: it lays the layers of `hub_corrupt`
@@ -235,8 +235,8 @@ impl Material2d for RoomSkyMaterial {
 
 /// One terrain skin of a two-state room, shown on its side of the front.
 ///
-/// The skins are published art: `ParallaxTheme::HubClean` and
-/// `ParallaxTheme::HubCorrupt` (`terrain/two_state.py` in the sprite
+/// The skins are published art: `ParallaxTheme::new("hub_clean")` and
+/// `ParallaxTheme::new("hub_corrupt")` (`terrain/two_state.py` in the sprite
 /// renderer), laid on the same blocks by the room's terrain. This material is
 /// one mesh of a skin: it shows the skin where the room is in the skin's
 /// state, and adds what the front does to the stone near it. Its shader
@@ -309,9 +309,9 @@ fn show_two_state_skins(
 ) {
     let in_budget = draws_looks(quality.as_deref());
     for (entity, mesh, parent, mut visibility, colour, shaded, two) in &mut meshes {
-        let corrupt = match mesh.theme {
-            ParallaxTheme::HubClean => false,
-            ParallaxTheme::HubCorrupt => true,
+        let corrupt = match mesh.theme.key() {
+            "hub_clean" => false,
+            "hub_corrupt" => true,
             _ => continue,
         };
         let Ok(stamp) = terrains.get(parent.parent()) else {
@@ -405,7 +405,7 @@ fn show_two_state_backdrop(
         return;
     };
     let flat = |theme| assets.parallax_layers.get(theme, ParallaxLayerAsset::Flat);
-    let (Some(clean), Some(corrupted)) = (flat(ParallaxTheme::HubClean), flat(ParallaxTheme::HubCorrupt)) else {
+    let (Some(clean), Some(corrupted)) = (flat(ParallaxTheme::new("hub_clean")), flat(ParallaxTheme::new("hub_corrupt"))) else {
         return;
     };
     for (stamp, transform, mut sprite) in &mut panels {
@@ -1440,7 +1440,7 @@ impl SkyLayers<'_> {
         // The room's theme names this one as its corrupted state, and the
         // loader of the room's theme loads it and keeps it
         // (`ParallaxTheme::corrupted`). This only reads it.
-        let layer = |asset| assets.parallax_layers.get(ParallaxTheme::HubCorrupt, asset).cloned();
+        let layer = |asset| assets.parallax_layers.get(ParallaxTheme::new("hub_corrupt"), asset).cloned();
         Some(materials.add(RoomSkyMaterial {
             room: Vec4::new(room_size.x, room_size.y, 0.0, 0.0),
             front,

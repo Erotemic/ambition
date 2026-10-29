@@ -3,7 +3,7 @@
 //! and red heat in the castle.
 //!
 //! Presentation only, and content-owned. A room has a shimmer when its biome
-//! is one of Mary-O's (`ParallaxTheme::Starlight`, `::Stardune`, `::Starless`, `::VoidCastle`). The
+//! is one of Mary-O's (`ParallaxTheme::new("starlight")`, `::Stardune`, `::Starless`, `::VoidCastle`). The
 //! shimmer is one quad the size of the room, behind the blocks and in front
 //! of the parallax scene.
 //!
@@ -68,9 +68,9 @@ struct ShimmerStyle {
 
 /// The shimmer of a theme, or `None` for a theme that is not Mary-O's.
 fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
-    match theme {
+    match theme.key() {
         // Pale gold and pink sparkles; ribbons of pink and mint across the sky.
-        ParallaxTheme::Starlight => Some(ShimmerStyle {
+        "starlight" => Some(ShimmerStyle {
             shapes: [[1.0, 0.96, 0.78], [1.0, 0.80, 0.92]],
             ribbons: [[1.0, 0.72, 0.88], [0.70, 0.96, 0.86]],
             shape_strength: 0.70,
@@ -81,7 +81,7 @@ fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
             band: [-0.05, 0.75],
         }),
         // Pale gold sparkles, few; ribbons of sand low over the ground.
-        ParallaxTheme::Stardune => Some(ShimmerStyle {
+        "stardune" => Some(ShimmerStyle {
             shapes: [[1.0, 0.97, 0.80], [1.0, 0.88, 0.70]],
             ribbons: [[1.0, 0.88, 0.66], [1.0, 0.78, 0.60]],
             shape_strength: 0.55,
@@ -92,7 +92,7 @@ fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
             band: [0.30, 0.60],
         }),
         // Magenta embers that go up; a low mist of violet.
-        ParallaxTheme::Starless => Some(ShimmerStyle {
+        "starless" => Some(ShimmerStyle {
             shapes: [[1.0, 0.42, 0.72], [1.0, 0.70, 0.52]],
             ribbons: [[0.62, 0.22, 0.56], [0.36, 0.20, 0.62]],
             shape_strength: 0.80,
@@ -103,7 +103,7 @@ fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
             band: [0.40, 0.70],
         }),
         // Sparks of the fire that go up fast; red heat low in the hall.
-        ParallaxTheme::VoidCastle => Some(ShimmerStyle {
+        "void_castle" => Some(ShimmerStyle {
             shapes: [[1.0, 0.62, 0.26], [1.0, 0.86, 0.50]],
             ribbons: [[0.86, 0.22, 0.14], [0.66, 0.16, 0.30]],
             shape_strength: 0.85,
@@ -291,10 +291,10 @@ mod tests {
 
     #[test]
     fn only_the_biomes_of_mary_o_have_a_shimmer() {
-        let with: Vec<_> = ParallaxTheme::ALL.iter().copied().filter(|theme| style_of(*theme).is_some()).collect();
+        let with: Vec<_> = ["starlight", "stardune", "starless", "void_castle", "independent_game"].into_iter().map(ParallaxTheme::new).filter(|theme| style_of(*theme).is_some()).collect();
         assert_eq!(
             with,
-            vec![ParallaxTheme::Starlight, ParallaxTheme::Stardune, ParallaxTheme::Starless, ParallaxTheme::VoidCastle]
+            vec![ParallaxTheme::new("starlight"), ParallaxTheme::new("stardune"), ParallaxTheme::new("starless"), ParallaxTheme::new("void_castle")]
         );
     }
 

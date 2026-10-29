@@ -185,7 +185,6 @@ impl Plugin for SessionRoomVisualsPlugin {
         // cinema bars (`ambition_boss_encounter::finish`).
         crate::rendering::boss_finish::install(app);
         // The motes of each live room's air, and their motion.
-        app.init_resource::<crate::rendering::ambient_motes::AmbientMoteStyles>();
         app.add_systems(
             Update,
             (
@@ -766,7 +765,7 @@ mod tests {
         quality.budget.parallax.enabled = false;
         app.insert_resource(quality);
         app.insert_resource(crate::rendering::ParallaxThemeAttempts {
-            without_art: ambition_sprite_sheet::game_assets::ParallaxTheme::ALL.to_vec(),
+            without_art: ambition_sprite_sheet::game_assets::ParallaxTheme::in_manifest(&ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap()),
         });
         app.update();
 

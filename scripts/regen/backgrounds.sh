@@ -17,12 +17,14 @@ cd "$repo_root"
 
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/tool_python.sh"
+source "$repo_root/scripts/lib/asset_roots.sh"
+background_profiles="$(ambition_library_producer backgrounds profiles)"
 
 background_renderer_dir="$repo_root/tools/ambition_background_renderer"
 # The scenes behind the play are art, and art is in the authoring submodule
 # (`ambition_sprite2d_renderer.backgrounds`).
 scene_renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-background_root="$repo_root/game/ambition_content_library/generated/runtime/backgrounds"
+background_root="$AMBITION_ASSETS_ROOT/backgrounds"
 parallax_dir="$background_root/parallax_layers"
 
 print_help() {
@@ -53,7 +55,7 @@ echo "==> placeholder background profiles -> $background_root"
 (
     cd "$background_renderer_dir"
     "$background_python" -m ambition_background_renderer \
-        --out "$background_root" --profile all
+        --out "$background_root" --profile "$background_profiles"
 )
 
 echo "==> parallax scenes -> $parallax_dir"
@@ -75,7 +77,7 @@ echo "==> sky parts -> $sky_parts_dir"
 )
 
 # The terrain skin of each biome: what the game lays on the blocks of a room.
-terrain_dir="$repo_root/game/ambition_content_library/generated/runtime/room_dressing"
+terrain_dir="$AMBITION_ASSETS_ROOT/room_dressing"
 mkdir -p "$terrain_dir"
 echo "==> terrain skins -> $terrain_dir"
 (

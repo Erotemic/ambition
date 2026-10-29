@@ -545,7 +545,7 @@ fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
     // The art of a skin is published, and git does not hold it. A checkout
     // with no published terrain skins has no skin to probe.
     let skin_art = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../game/ambition_content_library/generated/runtime/room_dressing/starlight_fill.png");
+        .join("../../game/ambition_content_library/generated/runtime/full/room_dressing/starlight_fill.png");
     assert!(
         skin_art.exists(),
         "the terrain skin of 1-3 is not published in this checkout ({}): run ./scripts/regen/backgrounds.sh",

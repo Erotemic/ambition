@@ -34,7 +34,7 @@ fn draft(name: &str, waves: &str) -> ContentPackDraft {
             namespace: ModuleNamespace("test".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: "waves.ron".into(),
+                library: None, path: "waves.ron".into(),
                 schema: SchemaId::new(ENCOUNTER_WAVES_SCHEMA),
                 version: ENCOUNTER_WAVES_VERSION,
             }],
@@ -104,12 +104,12 @@ fn draft_with_cast(name: &str, waves: &str, cast: &str) -> ContentPackDraft {
             requires: Vec::new(),
             sources: vec![
                 SourceDeclaration {
-                    path: "cast.txt".into(),
+                    library: None, path: "cast.txt".into(),
                     schema: SchemaId::new(CAST_SCHEMA),
                     version: SchemaVersion(1),
                 },
                 SourceDeclaration {
-                    path: "waves.ron".into(),
+                    library: None, path: "waves.ron".into(),
                     schema: SchemaId::new(ENCOUNTER_WAVES_SCHEMA),
                     version: ENCOUNTER_WAVES_VERSION,
                 },

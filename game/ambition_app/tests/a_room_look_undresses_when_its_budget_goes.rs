@@ -16,7 +16,7 @@ use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityPr
 use ambition_platformer2d::render::rendering::label_layout::{StaticWorldLabel, WorldLabel};
 use ambition_platformer2d::render::rendering::terrain_skin::TerrainSkinMesh;
 use ambition_platformer2d::render::rendering::{EntityArt, LoadingZoneVisual};
-use ambition_platformer2d::sprite_sheet::game_assets::{EntitySprite, ParallaxTheme};
+use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
 use bevy::prelude::*;
 use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
 
@@ -42,7 +42,7 @@ fn dress(app: &mut App) -> Dress {
     let plain_skins = world
         .query_filtered::<&TerrainSkinMesh, With<MeshMaterial2d<ColorMaterial>>>()
         .iter(world)
-        .filter(|mesh| matches!(mesh.theme, ParallaxTheme::HubClean | ParallaxTheme::HubCorrupt))
+        .filter(|mesh| matches!(mesh.theme.key(), "hub_clean" | "hub_corrupt"))
         .count();
     let look_doors = world
         .query_filtered::<&EntityArt, With<LoadingZoneVisual>>()

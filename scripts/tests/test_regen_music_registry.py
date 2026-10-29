@@ -17,6 +17,9 @@ def test_unrendered_scores_are_registered_with_their_playback_policy(tmp_path, m
     (scores / "sting.music.yaml").write_text('id: sting\none_shot: true\n')
     generated = tmp_path / "generated"
     generated.mkdir()
+    (generated / "retired").mkdir()
+    (generated / "retired/full.ogg").write_bytes(b"old render")
+    monkeypatch.setitem(registry._policy, "EXTRA_CUES", [])
     monkeypatch.setattr(registry, "ACTIVE_SCORES_DIR", scores)
     monkeypatch.setattr(registry, "GENERATED_DIR", generated)
     monkeypatch.setattr(registry, "SPECIAL_ENTRIES", [])

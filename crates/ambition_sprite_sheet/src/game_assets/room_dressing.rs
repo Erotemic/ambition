@@ -18,9 +18,7 @@ use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
-use ambition_asset_manager::{
-    AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy, PreloadGroup,
-};
+use ambition_asset_manager::AssetId;
 
 use super::{load_sheet_image, ParallaxTheme};
 
@@ -163,27 +161,6 @@ pub fn room_dressing_asset_id(theme: ParallaxTheme, part: RoomDressingPart) -> A
     AssetId::new(format!("room.dressing.{}.{}", theme.key(), part.key()))
 }
 
-/// Add each part of each theme's dressing to the optional-image manifest. A
-/// part with no file is not an error: the block keeps the tile of its kind.
-///
-/// A part has no smaller tiers. Its pictures are 128 px and less, and nothing
-/// lowers the quality of art for cost.
-pub(crate) fn insert_room_dressing_entries(manifest: &mut AssetManifest) {
-    for &theme in ParallaxTheme::ALL {
-        for &part in RoomDressingPart::ALL {
-            manifest.insert(
-                AssetEntry::new(
-                    room_dressing_asset_id(theme, part),
-                    AssetKind::Image,
-                    part.relative_path(theme),
-                )
-                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-                .with_preload_group(PreloadGroup::Zone),
-            );
-        }
-    }
-}
-
 /// The loaded parts of the dressing of the themes that are resident.
 #[derive(Default, Clone)]
 pub struct RoomDressingSet {
@@ -257,40 +234,17 @@ impl RoomDressingSet {
 mod tests {
     use super::*;
 
-    /// The manifest has an entry for each part of each theme, at the path the
-    /// art submodule publishes to. The control is the count: a manifest that
-    /// had one entry would pass a test that looked up one id.
-    #[test]
-    fn the_manifest_names_each_part_of_each_theme() {
-        let mut manifest = AssetManifest::new();
-        insert_room_dressing_entries(&mut manifest);
-        let mut found = 0;
-        for &theme in ParallaxTheme::ALL {
-            for &part in RoomDressingPart::ALL {
-                let entry = manifest
-                    .get(&room_dressing_asset_id(theme, part))
-                    .unwrap_or_else(|| panic!("no entry for {theme:?} {part:?}"));
-                assert_eq!(
-                    entry.logical_path,
-                    format!("room_dressing/{}_{}.png", theme.key(), part.key())
-                );
-                found += 1;
-            }
-        }
-        assert_eq!(found, ParallaxTheme::ALL.len() * RoomDressingPart::ALL.len());
-    }
-
     /// A retired theme is not "asked for" any more: a room that comes back to
     /// it must wait for its dressing again, and must not read "it has none".
     #[test]
     fn a_retired_theme_is_asked_for_again() {
         let mut set = RoomDressingSet::default();
-        set.insert(ParallaxTheme::Cave, RoomDressingPart::Fill, Handle::default());
-        set.mark_attempted(ParallaxTheme::Lab);
-        assert!(set.attempted(ParallaxTheme::Cave) && set.attempted(ParallaxTheme::Lab));
-        assert_eq!(set.retain_themes(|theme| theme == ParallaxTheme::Lab), 1);
-        assert!(!set.attempted(ParallaxTheme::Cave));
-        assert!(set.get(ParallaxTheme::Cave, RoomDressingPart::Fill).is_none());
-        assert!(set.attempted(ParallaxTheme::Lab), "control: a kept theme stays asked for");
+        set.insert(ParallaxTheme::new("cave"), RoomDressingPart::Fill, Handle::default());
+        set.mark_attempted(ParallaxTheme::new("lab"));
+        assert!(set.attempted(ParallaxTheme::new("cave")) && set.attempted(ParallaxTheme::new("lab")));
+        assert_eq!(set.retain_themes(|theme| theme == ParallaxTheme::new("lab")), 1);
+        assert!(!set.attempted(ParallaxTheme::new("cave")));
+        assert!(set.get(ParallaxTheme::new("cave"), RoomDressingPart::Fill).is_none());
+        assert!(set.attempted(ParallaxTheme::new("lab")), "control: a kept theme stays asked for");
     }
 }

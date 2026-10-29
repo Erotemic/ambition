@@ -57,7 +57,7 @@ fn draft(
             namespace: ModuleNamespace("test".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: file.into(),
+                library: None, path: file.into(),
                 schema: SchemaId::new(schema),
                 version,
             }],

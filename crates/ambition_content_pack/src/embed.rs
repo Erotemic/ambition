@@ -49,7 +49,10 @@ pub fn embed_pack(root: &str) {
     let include = |path: &str| format!("include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), {:?}))", format!("/{root}/{path}"));
     let mut code = format!("({}, &[\n", include("pack.ron"));
     for source in &manifest.sources {
-        code.push_str(&format!("    ({:?}, {}),\n", source.path, include(&source.path)));
+        code.push_str(&format!("    ({:?}, {}),\n", source.path, {
+            let path = source.resolve_path(manifest_path.parent().unwrap(), &manifest).unwrap_or_else(|error| panic!("{error}"));
+            format!("include_str!({:?})", path)
+        }));
     }
     code.push_str("] as &[(&str, &str)])\n");
     let out = Path::new(&std::env::var("OUT_DIR").expect("cargo sets OUT_DIR")).join(embedded_file(root));
@@ -91,4 +94,11 @@ fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root:
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join(format!("content_pack/{root}/libraries.rs"));
     std::fs::create_dir_all(out.parent().unwrap()).expect("embedded library output directory");
     std::fs::write(out, code).expect("embedded library output");
+}
+
+/// The physical sources selected by a pack manifest.
+pub fn source_paths(root: &Path) -> Result<Vec<std::path::PathBuf>, String> {
+    let text = std::fs::read_to_string(root.join("pack.ron")).map_err(|error| error.to_string())?;
+    let manifest: crate::ContentPackManifest = ron::from_str(&text).map_err(|error| error.to_string())?;
+    manifest.sources.iter().map(|source| source.resolve_path(root, &manifest)).collect()
 }

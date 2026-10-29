@@ -1,50 +1,38 @@
 #!/usr/bin/env python3
-"""Regenerate `music_registry.ron` from scores and published music assets.
+"""Build the selected library music registry from authored scores and policy.
 
-Active scores and published `audio/music/generated/<cue>/full.ogg` files define
-the tracks unless explicitly denied. Off-convention assets use `SPECIAL_ENTRIES`; track-level
-one-shots require explicit score metadata rather than being inferred from
-section loopability.
-
-    python3 scripts/regen_music_registry.py
-    python3 scripts/regen_music_registry.py --check"""
+Local rendered files do not define registry membership. The result stays in
+an ignored generated root.
+"""
 
 from __future__ import annotations
 
 import argparse
 import os
+import json
 import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-from lib.content_libraries import selected_manifest, generated_root
+from lib.content_libraries import selected_manifest, generated_root, producer, relative
 
 GENERATED_DIR = Path(os.environ.get("AMBITION_MUSIC_PUBLISH_ROOT") or generated_root(REPO_ROOT) / "audio/music/generated")
 ACTIVE_SCORES_DIR = (
     REPO_ROOT / "tools" / "ambition_music_renderer" / "scores" / "active"
 )
-REGISTRY_PATH = REPO_ROOT / "game" / "ambition_content" / "assets" / "audio" / "music_registry.ron"
+REGISTRY_PATH = generated_root(REPO_ROOT) / relative(producer(REPO_ROOT, "music")["registry"])
+_policy_path = selected_manifest(REPO_ROOT).parent / relative(producer(REPO_ROOT, "music")["policy"])
+_policy = json.loads(_policy_path.read_text())
 
 # Track played at startup / when no radio station is selected.
-DEFAULT_TRACK = "long_lofi_drift"
+DEFAULT_TRACK = _policy["DEFAULT_TRACK"]
 
 # Off-convention entries: id != directory, or a non-``full.ogg`` source.
 # Each is (id, display_name, asset_path). The directories they consume are
 # listed in CLAIMED_DIRS so the scan does not also emit a plain entry.
-SPECIAL_ENTRIES = [
-    (
-        "original_lofi_loop",
-        "Original Lofi Loop",
-        "audio/music/generated/lofi_study_loop/full.ogg",
-    ),
-    (
-        "first_goblin_tune_v2_radio",
-        "First Goblin Tune v2 — Wave 1 Radio Mix",
-        "audio/music/generated/first_goblin_tune_v2/adaptive/wave1/wave1.full.ogg",
-    ),
-]
-CLAIMED_DIRS = {"lofi_study_loop", "first_goblin_tune_v2"}
+SPECIAL_ENTRIES = _policy["SPECIAL_ENTRIES"]
+CLAIMED_DIRS = _policy["CLAIMED_DIRS"]
 
 # Generated dirs that exist but should NOT appear as radio songs.
 #   - ``flying_spaghetti_monster_fight``: superseded by the ``roots`` family
@@ -55,12 +43,7 @@ CLAIMED_DIRS = {"lofi_study_loop", "first_goblin_tune_v2"}
 # fuller boss/stage arrangements (boss + choir) and the cues with live scores
 # under scores/active, so they ARE registered. Add an id here to retire a cue
 # from the radio without deleting its render.
-DENY_IDS = {
-    "dinosaur_liberators_adaptive",
-    # GNU-ton's fight cue: the radio plays standing_on_shoulders_v2.
-    "standing_on_shoulders_v2_adaptive",
-    "flying_spaghetti_monster_fight",
-}
+DENY_IDS = _policy["DENY_IDS"]
 
 
 def is_denied(cue: str) -> bool:
@@ -69,58 +52,7 @@ def is_denied(cue: str) -> bool:
 
 # Curated display names. Anything not listed is title-cased from its id
 # (see ``title_case``). Keep guild/faction cues to their short stage name.
-DISPLAY_NAMES = {
-    "math_town_day": "Euclid Street",
-    "math_town_evening": "Golden Ratio Hour",
-    "math_town_morning": "Axioms at Dawn",
-    "math_town_night": "Countably Many Stars",
-    "artists_guild_chiaroscuro": "Chiaroscuro",
-    "carry_the_one": "Carry the One",
-    "elves_faction_silverleaf_reverie": "Silverleaf Reverie",
-    "env_advocacy_solace": "Env Advocacy — Solace",
-    "fighters_guild_oath_of_steel": "Oath of Steel",
-    "for_emmy_forever_ago": "For Emmy, Forever Ago",
-    "for_emmy_forever_ago_extended": "For Emmy, Forever Ago (Extended)",
-    "luddites_guild_loom_and_liberty": "Loom and Liberty",
-    "mages_guild_arcane_lanterns": "Arcane Lanterns",
-    "mathematicians_guild_proof_by_moonlight": "Proof by Moonlight",
-    "ninja_guild_shadow_kata": "Shadow Kata",
-    "physicists_guild_event_horizon_waltz": "Event Horizon Waltz",
-    "pirates_guild_black_flag_jig": "Black Flag Jig",
-    "raid_enforcer_theme": "Black Pennant March",
-    "thieves_guild_cobblestone_whisper": "Cobblestone Whisper",
-    "crooked_ascent_boss": "Crooked Ascent (Boss)",
-    "dinosaur_liberators_long": "Dinosaur Liberators (Long)",
-    "fast_paced_violin_boss": "Fast-Paced Violin (Boss)",
-    "solo_soar_9m08_loud": "Solo Soar (Loud, 9m)",
-    "smirking_behemoth_boss": "You Have To Cut The Rope",
-    "standing_on_shoulders": "Standing on Shoulders (GNU-ton)",
-    "standing_on_shoulders_v2": "Standing on Shoulders v2 (GNU-ton)",
-    "shoulders_at_rest": "Shoulders at Rest",
-    "tritone_decree": "The Tritone Decree",
-    "phrygian_furnace": "The Phrygian Furnace",
-    "iron_toccata": "The Iron Toccata",
-    "graphite_and_rain": "Graphite and Rain",
-    "the_fire_escape": "The Fire Escape",
-    "ten_fathoms_and_a_grudge": "Ten Fathoms and a Grudge",
-    "nine_rooftops": "Nine Rooftops, No Footsteps",
-    "the_algorithm_knows_youre_lonely": "The Algorithm Knows You're Lonely",
-    "series_a_bloodbath": "Series A Bloodbath",
-    "flying_spaghetti_monster_stage": "Flying Spaghetti Monster (Stage)",
-    "flying_spaghetti_monster_pastafarian_fight": "Flying Spaghetti Monster (Pastafarian, Fight)",
-    "pastafarian": "Pastafarian",
-    "it_was_revealed_to_me_in_a_dream": "It Was Revealed to Me in a Dream",
-    "ai_dente": "AI Dente",
-    "pasta_la_vista": "Pasta la Vista",
-    "spaghetti_western": "Spaghetti Western",
-    "vault_in_the_dark": "Vault in the Dark",
-    "flying_spaghetti_monster_pastafarian_stage": "Flying Spaghetti Monster (Pastafarian, Stage)",
-    "flying_spaghetti_monster_roots_boss": "Flying Spaghetti Monster (Roots, Boss)",
-    "flying_spaghetti_monster_roots_boss_brimstone": "Flying Spaghetti Monster (Roots, Boss — Brimstone)",
-    "flying_spaghetti_monster_roots_boss_choir_backing": "Flying Spaghetti Monster (Roots, Boss — Choir)",
-    "flying_spaghetti_monster_roots_stage": "Flying Spaghetti Monster (Roots, Stage)",
-    "flying_spaghetti_monster_roots_stage_choir_backing": "Flying Spaghetti Monster (Roots, Stage — Choir)",
-}
+DISPLAY_NAMES = _policy["DISPLAY_NAMES"]
 
 # Lowercased in the middle of a title (never first word).
 SMALL_WORDS = {"a", "an", "and", "the", "of", "to", "for", "by", "on", "in", "is"}
@@ -155,12 +87,7 @@ def _plain_yaml_scalar(raw: str) -> str:
 
 def discover_active_scores() -> dict[str, bool]:
     """Read score identities and explicit one-shot declarations."""
-    # The scores live in the `ambition_music_renderer` SUBMODULE. An uninitialized
-    # submodule is an empty directory, and globbing it would quietly yield zero
-    # one-shot ids -- rewriting the committed registry to loop every sting again,
-    # with a cheerful "wrote ... (72 tracks)" and no warning. The registry is
-    # generated-but-committed, so regenerating it from an incomplete checkout must
-    # FAIL rather than produce plausible wrong output.
+    # Missing source scores cannot define a complete registry.
     scores = sorted({*ACTIVE_SCORES_DIR.glob("*.yaml"), *ACTIVE_SCORES_DIR.glob("*.yml")})
     if not scores:
         raise SystemExit(
@@ -195,17 +122,7 @@ def discover_active_scores() -> dict[str, bool]:
 
 
 def discover_cues() -> list[str]:
-    cues = []
-    for child in sorted(GENERATED_DIR.iterdir()):
-        if not child.is_dir():
-            continue
-        if not (child / "full.ogg").is_file():
-            continue
-        cue = child.name
-        if cue in CLAIMED_DIRS or is_denied(cue):
-            continue
-        cues.append(cue)
-    return cues
+    return [cue for cue in _policy["EXTRA_CUES"] if cue not in CLAIMED_DIRS and not is_denied(cue)]
 
 
 def render_registry() -> str:
@@ -217,8 +134,8 @@ def render_registry() -> str:
         "//",
         "// GENERATED by scripts/regen_music_registry.py (run via scripts/regen/music.sh).",
         "// Do NOT hand-edit: re-rendering music overwrites this file. To change",
-        "// what ships, edit the generator's DENY_IDS / DISPLAY_NAMES / special",
-        "// entries / score-level one_shot metadata. Each track maps to",
+        "// The selected library owns track names and selection policy.",
+        "// Score metadata supplies the one_shot flag. Each track maps to",
         "// audio/music/generated/<id>/full.ogg unless an explicit asset_path is given.",
         "(",
         f'    default_track: "{ron_escape(DEFAULT_TRACK)}",',
@@ -264,15 +181,6 @@ def main() -> int:
         help="exit non-zero if the registry is out of date instead of writing it",
     )
     parser.add_argument(
-        "--allow-removals",
-        action="store_true",
-        help=(
-            "permit the regeneration to DELETE tracks the committed registry has. "
-            "Required whenever a cue is genuinely retired, and refused otherwise "
-            "so a partial asset tree cannot silently shrink the shipped registry."
-        ),
-    )
-    parser.add_argument(
         "--generated-dir",
         type=Path,
         default=None,
@@ -287,37 +195,10 @@ def main() -> int:
         global GENERATED_DIR
         GENERATED_DIR = args.generated_dir.expanduser().resolve()
 
-    if not GENERATED_DIR.is_dir():
-        print(f"error: generated music dir not found: {GENERATED_DIR}", file=sys.stderr)
-        return 1
-
     content = render_registry()
     track_count = content.count("\n            id:") + content.count("        (id:")
 
-    # A REMOVAL GUARD, on both paths.
-    #
-    # Active scores define their tracks. Other tracks depend on published
-    # assets. An incomplete output tree must not remove those tracks.
-    #
-    # Adding is still free. This generator's own docstring calls registration an
-    # invariant rather than a chore, and it stays one — it is REMOVAL that needs
-    # somebody to have meant it.
     current = REGISTRY_PATH.read_text(encoding="utf8") if REGISTRY_PATH.exists() else ""
-    removed = sorted(tracked_ids(current) - tracked_ids(content))
-    if removed and not args.allow_removals:
-        listed = "\n  ".join(removed)
-        print(
-            f"error: regenerating would DELETE {len(removed)} track(s) from "
-            f"{REGISTRY_PATH.relative_to(REPO_ROOT)}:\n  {listed}\n\n"
-            "The registry projects the rendered-OGG tree, and those OGGs are build "
-            "artifacts that are not committed — so this usually means THIS checkout "
-            "has not rendered them, not that they are gone. Render the missing cues "
-            "(scripts/scripts/regen/music.sh), or pass --allow-removals if they are really "
-            "retired.",
-            file=sys.stderr,
-        )
-        return 1
-
     if args.check:
         if current != content:
             print(
@@ -329,6 +210,7 @@ def main() -> int:
         print(f"music_registry.ron is up to date ({track_count} tracks)")
         return 0
 
+    REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
     REGISTRY_PATH.write_text(content, encoding="utf8")
     print(f"wrote {REGISTRY_PATH.relative_to(REPO_ROOT)} ({track_count} tracks)")
     return 0

@@ -131,3 +131,28 @@ The target volume filled during verification. Only this migration's compiled
 test binaries and recent incremental sessions were removed. The cleanup record
 is `/tmp/ambition-library-build-cleanup.json`. Check target storage before another
 large feature-cell build. Never delete another worktree's data.
+
+## Generated-content follow-up
+
+The shared library now declares each producer. Font selection and music naming
+policy live under `authored/`. Generated music registry bytes move to the ignored
+runtime root. Pack source declarations can select a library by ID. Shared SFX
+definitions use this path. Pack embedding, native reads, source watches, exports,
+and package input reports use that source owner.
+
+Background themes use authored keys. The library defines alternate states and
+mote styles. The engine no longer holds the named theme enum or mote table.
+Loose runtime products have named full, half, quarter, and potato roots.
+The SFX packer takes explicit input and output paths. The root generator packs
+only the selected authored cue IDs. Old rendered cue directories have no
+membership authority. The music registry follows authored scores and policy.
+
+Compiler tests (47), theme and renderer tests (23), producer tool tests (18),
+font/package tests (8), all 35 workspace policy tests, and all 53 absence
+contracts pass. The assembled app and its test targets typecheck. A scratch
+background conversion verifies the declared half-tier root and current receipt.
+
+Remaining: complete native/static acceptance checks, move measurement readers to
+selected files, run each producer and setup verification, inspect a new capture,
+and commit the verified result. The loading fixes and Jon's repertoire changes
+are merged and pushed in `3767f3d23`.

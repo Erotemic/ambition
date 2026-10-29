@@ -2746,13 +2746,8 @@ mod tests {
             // none, is drawn with the look of another game.
             assert!(
                 matches!(
-                    ParallaxTheme::named_by_room_metadata(&room.metadata),
-                    Some(
-                        ParallaxTheme::Starlight
-                            | ParallaxTheme::Stardune
-                            | ParallaxTheme::Starless
-                            | ParallaxTheme::VoidCastle
-                    )
+                    ParallaxTheme::named_by_room_metadata(&room.metadata).map(ParallaxTheme::key),
+                    Some("starlight" | "stardune" | "starless" | "void_castle")
                 ),
                 "the biome of {}",
                 room.id

@@ -171,299 +171,92 @@ pub use entity_sprite::*;
 pub use resolvers::*;
 pub use room_dressing::*;
 
-/// Biome/theme key for generated parallax layers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ParallaxTheme {
-    Hub,
-    Lab,
-    /// The lab with its power out and its alarm on: the rooms of the raid.
-    /// The same hall as [`Self::Lab`], dark, in the red of its beacons.
-    Alarm,
-    /// The drains and the pipes under the town: old brick, moss, and water
-    /// that gives a green light. The relay rooms and the drains name it.
-    Undertown,
-    Basement,
-    Cove,
-    Skybridge,
-    Boss,
-    Eclipse,
-    Water,
-    Forest,
-    /// The land of the dinosaurs: a jungle of palms and tree ferns under a
-    /// volcano that smokes.
-    Primeval,
-    /// The house of the Flying Spaghetti Monster: all of it pasta, under a
-    /// colander that lets the light through its holes. Columns of rigatoni,
-    /// curtains of noodles, hills of meatballs in steam. The rooms of the
-    /// Noodly Temple name it.
-    Noodly,
-    /// The central town of the Math dimension: limestone and whitewash on
-    /// terraces under a clear morning sky, with faceted mountains that are
-    /// polyhedra in the haze and a few small solids floating in the air.
-    /// The rooms of the Math dimension (`math.ldtk`) name it.
-    MathTown,
-    /// The gate hall under the Math town: a vaulted undercroft of limestone,
-    /// lamplit, with the day coming down through the grates of the street.
-    MathUndercroft,
-    /// Inside the houses of the Math town: whitewashed plaster in lamplight,
-    /// a wainscot of hexagonal tiles, timber under the ceiling, a floor of
-    /// terracotta tiles. Each room's furniture is its own props.
-    MathInterior,
-    /// Inside a deck of the orbital station of the Science dimension: steel
-    /// plates between hull ribs, long viewports with the stars and the curve
-    /// of the planet in them, lockers and cable trays in front.
-    Orbital,
-    /// Out in the open trusses of the orbital station and its gravity works:
-    /// the planet below, the station's far spar with its solar wings, a
-    /// hauler going out, and the near lattice of the truss.
-    OrbitalTruss,
-    /// The dark forest of the Evil dimension: black thorned trees under a
-    /// blood-red sky, and far off Castle Godwin on its crag, its searchlights
-    /// in the ash cloud. The rooms of `evil.ldtk` outside the castle name it.
-    EvilForest,
-    /// Inside Castle Godwin: halls of cold blue-grey blocks, red banners with
-    /// the mark of the regime, braziers.
-    CastleGodwin,
-    /// The lab of Castle Godwin: vats lit green with failed prototypes in
-    /// them, cables and pipes, Tesla coils, a slot in the roof to the storm.
-    CastleGodwinLab,
-    /// Wolfenstein's throne room: pointed arches, a great round window with a
-    /// red moon, a carved wolf's head, red curtains, iron chandeliers.
-    CastleGodwinThrone,
-    /// The port of the pirate dimension in the late afternoon: a sea with a
-    /// lighthouse on a headland, a skyship over it, ships at the quay, and a
-    /// hill town of timber and plaster with red roofs. The rooms of the port
-    /// (`pirate_port.ldtk`) name it.
-    PiratePort,
-    /// The village of the ninja dimension at dusk: blue-green mountains in
-    /// mist, farmhouses with tiled roofs, a pagoda, red maples and paper
-    /// lanterns. The rooms of the village (`ninja_village.ldtk`) name it.
-    NinjaVillage,
-    /// Inside the General's tower (the Iron Bastion): a shaft of poured
-    /// concrete and riveted steel, girders, pipes, caged lamps and the
-    /// faction's olive banners. The room `military_tower` names it.
-    MilitaryTower,
-    /// Mary-O's land in the colours of a magical girl: round hills, a far
-    /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
-    /// Mary-O name it.
-    Starlight,
-    /// The desert of Mary-O's second world, in the morning: a whole sun, low,
-    /// pyramids in steps a long way off, dunes, and thick palms. The desert
-    /// rooms of Mary-O name it.
-    Stardune,
-    /// The cavern under Mary-O's land, in the colours of a dark magical
-    /// girl: a moon eaten to a ring in a rift, arches, the wheels of a clock
-    /// that does not turn. The underground room of Mary-O names it.
-    Starless,
-    /// The castle at the end of Mary-O's land: a hall of plum stone, coloured
-    /// glass and red banners over fire, with the void in its vault. The
-    /// castle room of Mary-O names it.
-    VoidCastle,
-    Cave,
-    /// An open daylight sky of cloud banks and wind streaks: the Mockingbird's
-    /// air chase, drawn wrapping as it scrolls (`sky_scroll`).
-    OpenSky,
-    /// The sky of the two-state room look in its clean state: a pale city on
-    /// drawing paper (`room_look_sky.py` in the parallax renderer). A room
-    /// with that look names it as its `parallax_theme`.
-    HubClean,
-    /// The same room in its corrupted state: the city rebuilt in blocks, and
-    /// the stone of its blocks rebuilt in voxels. No room names it. Its sky
-    /// is drawn over [`Self::HubClean`]'s where the air of the room is
-    /// corrupted, and its skin is laid on the same blocks as the clean skin
-    /// (`terrain/two_state.py` in the sprite renderer).
-    HubCorrupt,
-}
+/// A theme key supplied by authored content.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ParallaxTheme(&'static str);
 
 impl ParallaxTheme {
-    /// The theme of the same sky in its corrupted state, for a theme that has
-    /// one. A room that names a theme loads that one with it, and keeps it for
-    /// as long: the look of the room draws it, and no room names it.
-    pub const fn corrupted(self) -> Option<Self> {
-        match self {
-            Self::HubClean => Some(Self::HubCorrupt),
-            _ => None,
-        }
-    }
+    pub const fn new(key: &'static str) -> Self { Self(key) }
+    pub const fn key(self) -> &'static str { self.0 }
 
-    pub const ALL: &'static [Self] = &[
-        Self::Hub,
-        Self::Lab,
-        Self::Alarm,
-        Self::Undertown,
-        Self::Basement,
-        Self::Cove,
-        Self::Skybridge,
-        Self::Boss,
-        Self::Eclipse,
-        Self::Water,
-        Self::Forest,
-        Self::Primeval,
-        Self::Noodly,
-        Self::MathTown,
-        Self::MathUndercroft,
-        Self::MathInterior,
-        Self::Orbital,
-        Self::OrbitalTruss,
-        Self::EvilForest,
-        Self::CastleGodwin,
-        Self::CastleGodwinLab,
-        Self::CastleGodwinThrone,
-        Self::PiratePort,
-        Self::NinjaVillage,
-        Self::MilitaryTower,
-        Self::Starlight,
-        Self::Stardune,
-        Self::Starless,
-        Self::VoidCastle,
-        Self::Cave,
-        Self::OpenSky,
-        Self::HubClean,
-        Self::HubCorrupt,
-    ];
-
-    pub const fn key(self) -> &'static str {
-        match self {
-            Self::Hub => "hub",
-            Self::Lab => "lab",
-            Self::Alarm => "alarm",
-            Self::Undertown => "undertown",
-            Self::Basement => "basement",
-            Self::Cove => "cove",
-            Self::Skybridge => "skybridge",
-            Self::Boss => "boss",
-            Self::Eclipse => "eclipse",
-            Self::Water => "water",
-            Self::Forest => "forest",
-            Self::Primeval => "primeval",
-            Self::Noodly => "noodly",
-            Self::MathTown => "math_town",
-            Self::MathUndercroft => "math_undercroft",
-            Self::MathInterior => "math_interior",
-            Self::Orbital => "orbital",
-            Self::OrbitalTruss => "orbital_truss",
-            Self::EvilForest => "evil_forest",
-            Self::CastleGodwin => "castle_godwin",
-            Self::CastleGodwinLab => "castle_godwin_lab",
-            Self::CastleGodwinThrone => "castle_godwin_throne",
-            Self::PiratePort => "pirate_port",
-            Self::NinjaVillage => "ninja_village",
-            Self::MilitaryTower => "military_tower",
-            Self::Starlight => "starlight",
-            Self::Stardune => "stardune",
-            Self::Starless => "starless",
-            Self::VoidCastle => "void_castle",
-            Self::Cave => "cave",
-            Self::OpenSky => "open_sky",
-            Self::HubClean => "hub_clean",
-            Self::HubCorrupt => "hub_corrupt",
-        }
-    }
-
-    /// The theme of a room: the one its metadata names, or the hub theme
-    /// when it names none.
-    pub fn from_room_metadata(metadata: &RoomMetadata) -> Self {
-        Self::named_by_room_metadata(metadata).unwrap_or(Self::Hub)
-    }
-
-    /// The theme the metadata of a room names, if it names one.
-    ///
-    /// [`Self::from_room_metadata`] gives a room that names none the hub
-    /// theme, which is right for a sky: a room must have one. It is wrong for
-    /// art that goes on the blocks of the room (a terrain skin): a room of
-    /// another game that names no theme must keep its own block art.
-    pub fn named_by_room_metadata(metadata: &RoomMetadata) -> Option<Self> {
-        // Explicit room visual profiles are the preferred authoring seam for
-        // real rooms. `visual_profile` is a stable id, while `parallax_theme`
-        // chooses the generated art stack directly.
-        if let Some(theme) = metadata
-            .visual_profile
-            .parallax_theme
-            .as_deref()
-            .and_then(Self::from_key)
-        {
-            return Some(theme);
-        }
-        if let Some(theme) = metadata
-            .visual_profile
-            .id
-            .as_deref()
-            .and_then(Self::from_key)
-        {
-            return Some(theme);
-        }
-
-        // Compatibility fallback for older rooms that only have loose metadata.
-        // New authored content should set visual_profile/parallax_theme instead
-        // of relying on these heuristic mappings.
-        for value in [
-            metadata.music_track.as_deref(),
-            metadata.biome.as_deref(),
-            metadata.ambient_profile.as_deref(),
-            metadata.visual_theme.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
-        {
-            let key = value.trim().to_ascii_lowercase().replace('-', "_");
-            if key.contains("ninja") || key.contains("dojo") || key.contains("forest") {
-                return Some(Self::Forest);
-            }
-        }
-        if let Some(theme) = metadata.biome.as_deref().and_then(Self::from_key) {
-            return Some(theme);
-        }
-        if let Some(theme) = metadata.visual_theme.as_deref().and_then(Self::from_key) {
-            return Some(theme);
-        }
-        if let Some(theme) = metadata.ambient_profile.as_deref().and_then(Self::from_key) {
-            return Some(theme);
-        }
-        None
-    }
-
-    /// The theme a key names (`"starlight"`, `"open_sky"`, and the other
-    /// names authored content uses), if any.
     pub fn from_key(value: &str) -> Option<Self> {
-        let key = value.trim().to_ascii_lowercase().replace('-', "_");
-        match key.as_str() {
-            "hub" | "default" | "cantina" | "orange" => Some(Self::Hub),
-            "lab" | "laboratory" | "teal" => Some(Self::Lab),
-            "alarm" | "raid" => Some(Self::Alarm),
-            "undertown" | "under_town" | "drain" | "sewer" => Some(Self::Undertown),
-            "basement" | "ruins" | "pink" => Some(Self::Basement),
-            "cove" | "coast" | "beach" => Some(Self::Cove),
-            "skybridge" | "sky" | "blue" => Some(Self::Skybridge),
-            "boss" | "mob_arena" | "arena" => Some(Self::Boss),
-            "eclipse" => Some(Self::Eclipse),
-            "water" | "underwater" | "tide" => Some(Self::Water),
-            "forest" | "woods" | "grove" | "bamboo" | "dojo" | "ninja" | "ninja_dojo" => {
-                Some(Self::Forest)
-            }
-            "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
-            "noodly" | "noodle" | "pasta" => Some(Self::Noodly),
-            "math_town" | "math" | "math_dimension" => Some(Self::MathTown),
-            "math_undercroft" | "math_gate_hall" => Some(Self::MathUndercroft),
-            "math_interior" => Some(Self::MathInterior),
-            "orbital" | "orbital_station" | "space_station" => Some(Self::Orbital),
-            "orbital_truss" | "space" => Some(Self::OrbitalTruss),
-            "evil_forest" | "evil" => Some(Self::EvilForest),
-            "castle_godwin" => Some(Self::CastleGodwin),
-            "castle_godwin_lab" => Some(Self::CastleGodwinLab),
-            "castle_godwin_throne" => Some(Self::CastleGodwinThrone),
-            "pirate_port" | "port" | "harbour" | "harbor" => Some(Self::PiratePort),
-            "ninja_village" | "village" => Some(Self::NinjaVillage),
-            "military_tower" | "iron_bastion" => Some(Self::MilitaryTower),
-            "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
-            "stardune" | "star_dunes" => Some(Self::Stardune),
-            "starless" | "dark_magical_girl" => Some(Self::Starless),
-            "void_castle" | "castle" => Some(Self::VoidCastle),
-            "cave" | "damp" => Some(Self::Cave),
-            "open_sky" | "clouds" | "air_chase" => Some(Self::OpenSky),
-            "hub_clean" => Some(Self::HubClean),
-            "hub_corrupt" => Some(Self::HubCorrupt),
-            _ => None,
+        let value = value.trim();
+        (!value.is_empty()).then(|| Self(crate::published_tree::kept(value)))
+    }
+
+    pub fn from_room_metadata(metadata: &RoomMetadata) -> Self {
+        Self::named_by_room_metadata(metadata).unwrap_or(Self::new("default"))
+    }
+
+    /// Only the explicit theme field selects a background and terrain skin.
+    pub fn named_by_room_metadata(metadata: &RoomMetadata) -> Option<Self> {
+        metadata.visual_profile.parallax_theme.as_deref().and_then(Self::from_key)
+    }
+
+    /// The themes whose layers have bindings in this catalog.
+    pub fn in_manifest(manifest: &ambition_asset_manager::AssetManifest) -> Vec<Self> {
+        manifest.iter().filter_map(|(id, _)| {
+            let (key, layer) = id.as_str().strip_prefix("background.parallax.")?.rsplit_once('.')?;
+            ParallaxLayerAsset::ALL.iter().any(|entry| entry.key() == layer)
+                .then(|| Self::from_key(key)).flatten()
+        }).collect::<std::collections::BTreeSet<_>>().into_iter().collect()
+    }
+}
+
+/// How the motes of a theme are, and how they move. Lengths are in world
+/// units and times in seconds. `velocity` has y up.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MoteStyle {
+    /// How many motes a view has.
+    pub count: usize,
+    /// The steady motion of each mote: up for an ember, along for spray.
+    pub velocity: Vec2,
+    /// How far a mote goes from its line, each way.
+    pub wander: f32,
+    /// How many times a second a mote goes round its wander.
+    pub wander_rate: f32,
+    /// The smallest and the largest side of a mote.
+    pub size: (f32, f32),
+    /// The alpha of a mote at its most.
+    pub alpha: f32,
+    /// How much of its alpha a mote loses at the low point of its twinkle
+    /// (0 is a steady mote).
+    pub twinkle: f32,
+    pub twinkle_rate: f32,
+    /// The share of the motes that are in front of the play. The others are
+    /// behind the blocks.
+    pub front: f32,
+}
+
+/// Alternate states of room art, supplied by the selected libraries.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoomThemes {
+    #[serde(default)]
+    pub alternates: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
+    pub motes: std::collections::BTreeMap<String, MoteStyle>,
+}
+
+impl RoomThemes {
+    pub fn alternate(&self, theme: ParallaxTheme) -> Option<ParallaxTheme> {
+        self.alternates.get(theme.key()).and_then(|key| ParallaxTheme::from_key(key))
+    }
+
+    pub(crate) fn merge(&mut self, other: Self) -> Result<(), String> {
+        for (key, style) in other.motes {
+            if self.motes.insert(key.clone(), style).is_some() { return Err(format!("Two libraries define motes for {key:?}")); }
         }
+        for (key, alternate) in other.alternates {
+            if key.trim().is_empty() || alternate.trim().is_empty() || key == alternate {
+                return Err(format!("Invalid room theme alternate: {key:?} -> {alternate:?}"));
+            }
+            if self.alternates.insert(key.clone(), alternate).is_some() {
+                return Err(format!("Two libraries define the alternate of room theme {key:?}"));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -614,18 +407,10 @@ impl ParallaxLayerSet {
         before - self.handles.len()
     }
 
-    /// The themes with at least one resident layer handle, in `ParallaxTheme::ALL`
-    /// order so a log line or a census row reads the same way twice.
+    /// The resident themes in key order.
     pub fn resident_themes(&self) -> Vec<ParallaxTheme> {
-        ParallaxTheme::ALL
-            .iter()
-            .copied()
-            .filter(|theme| {
-                ParallaxLayerAsset::ALL
-                    .iter()
-                    .any(|layer| self.handles.contains_key(&(*theme, *layer)))
-            })
-            .collect()
+        self.handles.keys().map(|(theme, _)| *theme)
+            .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
     }
 
     pub fn len(&self) -> usize {
@@ -642,6 +427,7 @@ impl ParallaxLayerSet {
 /// systems via [`get`]-style accessors that always tolerate `None`.
 #[derive(Resource, Default, Clone)]
 pub struct GameAssets {
+    pub room_themes: RoomThemes,
     pub characters: CharacterSpriteAssets,
     pub entities: EntitySpriteSet,
     /// The effect sheets the engine draws from, keyed by sheet manifest target
@@ -804,11 +590,12 @@ pub fn ensure_parallax_layers_for_room(content: &crate::SpriteContent,
     metadata: &RoomMetadata,
     quality: Option<&VisualQualityBudget>,
 ) {
+    assets.room_themes = crate::baked_sheet_rons::current(content).room_themes().clone();
     let theme = ParallaxTheme::from_room_metadata(metadata);
     let mut added = assets
         .parallax_layers
         .ensure_theme_loaded(content, catalog, asset_server, theme, quality);
-    if let Some(corrupted) = theme.corrupted() {
+    if let Some(corrupted) = assets.room_themes.alternate(theme) {
         added += assets
             .parallax_layers
             .ensure_theme_loaded(content, catalog, asset_server, corrupted, quality);
@@ -818,7 +605,7 @@ pub fn ensure_parallax_layers_for_room(content: &crate::SpriteContent,
     if let Some(named) = ParallaxTheme::named_by_room_metadata(metadata) {
         assets.room_dressing.ensure_theme_loaded(content, catalog, asset_server, named);
         // A theme with two states lays both skins on its blocks.
-        if let Some(corrupted) = named.corrupted() {
+        if let Some(corrupted) = assets.room_themes.alternate(named) {
             assets.room_dressing.ensure_theme_loaded(content, catalog, asset_server, corrupted);
         }
     }
@@ -850,9 +637,9 @@ mod parallax_residency_tests {
         Platformer2dAssetCatalog::new(
             ambition_asset_manager::AmbitionAssetCatalog::new({
                 let mut manifest = ambition_asset_manager::AssetManifest::default();
-                for theme in ParallaxTheme::ALL {
+                for theme in [ParallaxTheme::new("hub"), ParallaxTheme::new("lab"), ParallaxTheme::new("cave"), ParallaxTheme::new("boss")] {
                     for layer in ParallaxLayerAsset::ALL {
-                        let id = parallax_layer_asset_id(*theme, *layer);
+                        let id = parallax_layer_asset_id(theme, *layer);
                         manifest.insert(ambition_asset_manager::AssetEntry::new(id.clone(), ambition_asset_manager::AssetKind::Image, format!("fixture/{}.png", id.as_str())));
                     }
                 }
@@ -882,7 +669,7 @@ mod parallax_residency_tests {
         let mut set = ParallaxLayerSet::default();
         assert!(set.is_empty(), "a fresh set holds nothing");
 
-        for (visited, theme) in [ParallaxTheme::Hub, ParallaxTheme::Cave, ParallaxTheme::Lab]
+        for (visited, theme) in [ParallaxTheme::new("hub"), ParallaxTheme::new("cave"), ParallaxTheme::new("lab")]
             .into_iter()
             .enumerate()
         {
@@ -896,25 +683,25 @@ mod parallax_residency_tests {
         }
         assert_eq!(
             set.resident_themes(),
-            vec![ParallaxTheme::Hub, ParallaxTheme::Lab, ParallaxTheme::Cave],
-            "resident_themes reports in ParallaxTheme::ALL order, not visit order",
+            vec![ParallaxTheme::new("cave"), ParallaxTheme::new("hub"), ParallaxTheme::new("lab")],
+            "Resident themes use key order.",
         );
 
         // Re-visiting is idempotent: the count must not move.
         let before_revisit = set.len();
-        set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, ParallaxTheme::Hub, None);
+        set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, ParallaxTheme::new("hub"), None);
         assert_eq!(set.len(), before_revisit, "re-visiting a theme reloads nothing");
 
-        let dropped = set.retain_themes(|theme| theme == ParallaxTheme::Cave);
+        let dropped = set.retain_themes(|theme| theme == ParallaxTheme::new("cave"));
         assert_eq!(dropped, per_theme * 2, "two themes' worth of layers dropped");
         assert_eq!(set.len(), per_theme, "only the kept theme's layers remain");
-        assert_eq!(set.resident_themes(), vec![ParallaxTheme::Cave]);
+        assert_eq!(set.resident_themes(), vec![ParallaxTheme::new("cave")]);
         assert!(
-            set.get(ParallaxTheme::Hub, ParallaxLayerAsset::ALL[0]).is_none(),
+            set.get(ParallaxTheme::new("hub"), ParallaxLayerAsset::ALL[0]).is_none(),
             "an evicted theme must not answer `get`",
         );
         assert!(
-            set.get(ParallaxTheme::Cave, ParallaxLayerAsset::ALL[0]).is_some(),
+            set.get(ParallaxTheme::new("cave"), ParallaxLayerAsset::ALL[0]).is_some(),
             "the kept theme must be untouched",
         );
     }
@@ -927,7 +714,7 @@ mod parallax_residency_tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
 
         let mut set = ParallaxLayerSet::default();
-        set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, ParallaxTheme::Boss, None);
+        set.ensure_theme_loaded(&crate::SpriteContent::default(), &catalog, &asset_server, ParallaxTheme::new("boss"), None);
         let before = set.len();
         assert!(before > 0, "non-vacuity: the boss theme loaded something");
 
@@ -935,5 +722,24 @@ mod parallax_residency_tests {
         assert_eq!(set.len(), before);
         assert_eq!(set.retain_themes(|_| false), before, "and the inverse clears it");
         assert!(set.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod authored_theme_tests {
+    use super::*;
+
+    #[test]
+    fn a_new_theme_key_and_its_alternate_need_only_authored_data() {
+        let mut metadata = RoomMetadata::default();
+        metadata.visual_profile.parallax_theme = Some("other_game.cloud_city".into());
+        let theme = ParallaxTheme::from_room_metadata(&metadata);
+        assert_eq!(theme.key(), "other_game.cloud_city");
+        let themes: RoomThemes = serde_json::from_str(r#"{"alternates":{"other_game.cloud_city":"other_game.night"}}"#).unwrap();
+        assert_eq!(themes.alternate(theme).unwrap().key(), "other_game.night");
+        assert!(RoomThemes::default().alternate(theme).is_none());
+        metadata.visual_profile.parallax_theme = None;
+        metadata.biome = Some("forest".into());
+        assert_eq!(ParallaxTheme::named_by_room_metadata(&metadata), None);
     }
 }

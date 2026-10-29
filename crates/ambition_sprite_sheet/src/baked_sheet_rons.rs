@@ -32,6 +32,7 @@ pub struct SheetGeneration {
     /// it holds unchanged.
     rigs_checked: bool,
     image_paths: std::collections::BTreeMap<String, String>,
+    room_themes: crate::game_assets::RoomThemes,
     warming: std::sync::Once,
     effect_ids: OnceLock<std::collections::HashMap<ambition_vfx::FxId, &'static str>>,
 }
@@ -59,6 +60,7 @@ impl SheetGeneration {
             digest: OnceLock::new(),
             rigs_checked: false,
             image_paths: texts.image_paths,
+            room_themes: texts.room_themes,
             warming: std::sync::Once::new(),
             effect_ids: OnceLock::new(),
         }
@@ -81,6 +83,7 @@ impl SheetGeneration {
             digest: OnceLock::new(),
             rigs_checked: true,
             image_paths: prepared.texts.image_paths,
+            room_themes: prepared.texts.room_themes,
             warming: std::sync::Once::new(),
             effect_ids: OnceLock::new(),
         }
@@ -93,6 +96,8 @@ impl SheetGeneration {
             .map(|key| (ambition_vfx::FxId::new(key), *key)).collect()).get(&id)?;
         self.authored_effects().get(key)
     }
+
+    pub fn room_themes(&self) -> &crate::game_assets::RoomThemes { &self.room_themes }
 
     pub fn image_path(&self, logical: &str) -> Option<&str> {
         self.image_paths.get(logical).map(String::as_str)
@@ -216,6 +221,7 @@ pub struct SheetTexts {
     /// Each sprite pack tier's catalog, as `(tier, json_text)` sorted by tier.
     pub pack_catalogs: Vec<(&'static str, Arc<str>)>,
     pub image_paths: std::collections::BTreeMap<String, String>,
+    pub room_themes: crate::game_assets::RoomThemes,
 }
 
 impl SheetTexts {
@@ -229,6 +235,7 @@ impl SheetTexts {
             portraits: generation.portrait_rons().to_vec(),
             pack_catalogs: generation.pack_catalog_texts().to_vec(),
             image_paths: generation.image_paths.clone(),
+            room_themes: generation.room_themes.clone(),
         }
     }
 }

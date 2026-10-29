@@ -97,7 +97,7 @@ fn every_entity_sprite_has_a_unique_asset_id_in_sprite_entity_namespace() {
 #[test]
 fn every_parallax_layer_has_a_unique_asset_id() {
     let mut seen = std::collections::HashSet::new();
-    for &theme in ParallaxTheme::ALL {
+    for theme in ParallaxTheme::in_manifest(&ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap()) {
         for &layer in ParallaxLayerAsset::ALL {
             let id = parallax_layer_asset_id(theme, layer);
             assert!(
@@ -127,7 +127,7 @@ fn sandbox_image_manifest_registers_every_entity_and_parallax_entry() {
             ambition_asset_manager::AssetKind::Image
         ));
     }
-    for &theme in ParallaxTheme::ALL {
+    for theme in ParallaxTheme::in_manifest(&ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap()) {
         for &layer in ParallaxLayerAsset::ALL {
             let id = parallax_layer_asset_id(theme, layer);
             let entry = manifest
@@ -156,7 +156,7 @@ fn no_assets_profile_disables_every_image_in_the_manifest() {
             "{sprite:?} not disabled under NoAssets",
         );
     }
-    for &theme in ParallaxTheme::ALL {
+    for theme in ParallaxTheme::in_manifest(&ambition_sprite_sheet::test_support::shared_libraries().asset_manifest().unwrap()) {
         for &layer in ParallaxLayerAsset::ALL {
             let id = parallax_layer_asset_id(theme, layer);
             assert!(

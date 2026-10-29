@@ -39,6 +39,11 @@ impl SheetTexts {
             for (_, file) in all_files.iter().filter(|(key, file)| key.strip_prefix(&prefix) == Some(file.logical.as_str())) {
                 let logical = &file.logical;
                 let address = format!("content://{}/{}", library.manifest.id, logical);
+                if logical == "data/room_themes.json" {
+                    let themes = serde_json::from_slice(&file.read()?).map_err(|error| format!("{address}: {error}"))?;
+                    texts.room_themes.merge(themes)?;
+                    continue;
+                }
                 if logical.ends_with(".png") {
                     let immutable = file.asset_path().to_owned();
                     texts.image_paths.insert(address.clone(), immutable.clone());

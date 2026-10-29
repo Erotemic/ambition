@@ -647,7 +647,7 @@ mod tests {
     #[test]
     fn a_segment_across_the_repeat_of_the_cap_is_two_pieces() {
         let turf = ChainTurf {
-            theme: ParallaxTheme::Skybridge,
+            theme: ParallaxTheme::new("skybridge"),
             along: 50.0,
             length: 30.0,
             lane: 0,

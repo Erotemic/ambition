@@ -14,8 +14,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("game/ambition_content_library/generated/runtime/backgrounds"),
-        help="Output root. Profiles are written below this directory. For Bevy, use the sandbox package asset root.",
+        required=True,
+        help="Output root. Profiles are written below this directory. The caller selects its content library.",
     )
     parser.add_argument(
         "--profile",

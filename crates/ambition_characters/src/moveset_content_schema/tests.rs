@@ -62,7 +62,7 @@ fn draft(files: &[(&str, &str)]) -> ContentPackDraft {
             sources: files
                 .iter()
                 .map(|(path, _)| SourceDeclaration {
-                    path: (*path).to_string(),
+                    library: None, path: (*path).to_string(),
                     schema: SchemaId::new(MOVESET_SCHEMA),
                     version: MOVESET_VERSION,
                 })

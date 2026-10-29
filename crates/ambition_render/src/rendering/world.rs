@@ -128,7 +128,7 @@ pub fn spawn_room_visuals(
         let size = BVec2::new(world.size.x, world.size.y);
         // A theme with two states lays the skin of each on the same blocks;
         // the room's look shows each one where the room is in that state.
-        let states = std::iter::once(theme).chain(theme.corrupted());
+        let states = std::iter::once(theme).chain(assets.and_then(|assets| assets.room_themes.alternate(theme)));
         for laid in states {
             commands.spawn_session_scoped(
                 session_scope,
@@ -515,17 +515,10 @@ fn spawn_water_region(
     // A split view, a merged view, and a portal capture see the same boundary.
     // Other themes can publish their own backdrop without changing this path.
     if let Some(theme) = theme {
-        // The port keeps a plain opaque matte until its generated art loads.
-        // An unpainted biome has no new matte and retains its former water.
-        let fallback = if theme == ambition_sprite_sheet::game_assets::ParallaxTheme::PiratePort {
-            Color::srgb(0.12, 0.36, 0.44)
-        } else {
-            Color::NONE
-        };
         commands.spawn_session_scoped(
             session_scope,
             (
-                Sprite::from_color(fallback, render),
+                Sprite::from_color(Color::NONE, render),
                 Transform::from_translation(world_to_bevy(
                     world,
                     region.aabb.center(),
@@ -617,7 +610,7 @@ mod water_backdrop_tests {
                 SessionSpawnScope::UNSCOPED,
                 &room,
                 &water,
-                Some(ambition_sprite_sheet::game_assets::ParallaxTheme::PiratePort),
+                Some(ambition_sprite_sheet::game_assets::ParallaxTheme::new("pirate_port")),
             );
         });
         app.update();
@@ -1626,7 +1619,7 @@ pub fn sync_lock_wall_visuals(
                 render,
                 fallback,
             ),
-            None => Sprite::from_color(fallback, render),
+            None => Sprite::from_color(Color::NONE, render),
         };
         let mut wall = commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),

@@ -191,8 +191,8 @@ pub fn title_look() -> TitleLook {
 /// theme, gets the hub. No route name is read.
 fn scene_of(entry: Option<&ShellLaunchEntry>) -> ParallaxTheme {
     match entry {
-        None => ParallaxTheme::Cove,
-        Some(entry) => entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::Hub),
+        None => ParallaxTheme::new("cove"),
+        Some(entry) => entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::new("hub")),
     }
 }
 
@@ -295,7 +295,7 @@ fn show_the_scene_of_the_cursor(
         }
         LauncherTab::Settings => scenes.iter().find(|scene| scene.wanted > 0.5).map(|scene| scene.theme),
     }
-    .unwrap_or(ParallaxTheme::Hub);
+    .unwrap_or(ParallaxTheme::new("hub"));
 
     let root = roots.iter().next().unwrap_or_else(|| {
         commands
@@ -591,11 +591,11 @@ mod tests {
             unavailable_reason: None,
             look: look.map(str::to_owned),
         };
-        assert_eq!(scene_of(Some(&entry(Some("open_sky")))), ParallaxTheme::OpenSky, "the look it names");
-        assert_eq!(scene_of(Some(&entry(Some("starlight")))), ParallaxTheme::Starlight, "the look it names");
-        assert_eq!(scene_of(Some(&entry(None))), ParallaxTheme::Hub, "the control: no look");
-        assert_eq!(scene_of(Some(&entry(Some("no_such_look")))), ParallaxTheme::Hub, "the control: no theme");
-        assert_eq!(scene_of(None), ParallaxTheme::Cove, "the Exit row");
+        assert_eq!(scene_of(Some(&entry(Some("open_sky")))), ParallaxTheme::new("open_sky"), "the look it names");
+        assert_eq!(scene_of(Some(&entry(Some("starlight")))), ParallaxTheme::new("starlight"), "the look it names");
+        assert_eq!(scene_of(Some(&entry(None))), ParallaxTheme::new("hub"), "the control: no look");
+        assert_eq!(scene_of(Some(&entry(Some("no_such_look")))), ParallaxTheme::new("no_such_look"), "the control: no theme");
+        assert_eq!(scene_of(None), ParallaxTheme::new("cove"), "the Exit row");
     }
 
     #[test]

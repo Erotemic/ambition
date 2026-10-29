@@ -98,7 +98,7 @@ fn pack_of(text: &str) -> Result<ambition_content_pack::PreparedContentPack, Str
             namespace: ModuleNamespace("probe".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: PATH.into(),
+                library: None, path: PATH.into(),
                 schema: SchemaId::new(ambition_characters::moveset_content_schema::MOVESET_SCHEMA),
                 version: ambition_characters::moveset_content_schema::MOVESET_VERSION,
             }],

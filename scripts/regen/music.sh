@@ -4,7 +4,7 @@
 # Covers every in-game cue through ONE path:
 #   - All radio cues: scores/active/* (auto-discovered) plus the curated
 #     EXTRA_RADIO_CUES list (example-tree cues we expose on the radio).
-#     Driven via `ambition_music_renderer radio render-publish`. Adaptive cues
+#     Driven via `ambition_music_renderer "$music_collection" render-publish`. Adaptive cues
 #     (e.g. first_goblin_tune_v2) are detected and published per-section by the
 #     SAME path — the renderer publishes each adaptive/<section>/<section>.full.ogg
 #     into game/ambition_content_library/generated/runtime/audio/music/generated/. No dedicated installer.
@@ -32,6 +32,8 @@ source "$repo_root/scripts/lib/tool_python.sh"
 # WHERE generated music lands, declared once for every tool that touches it.
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/asset_roots.sh"
+music_collection="$(ambition_library_producer music collection)"
+case "$music_collection" in radio|sandbox) ;; *) echo "unsupported music collection: $music_collection" >&2; exit 2 ;; esac
 
 print_help() {
     awk '
@@ -94,9 +96,9 @@ fi
 
 echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES; adaptive cues per-section)"
 if [ "$skip_render" -eq 1 ]; then
-    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio publish)
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer "$music_collection" publish)
 else
-    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio render-publish "${radio_args[@]}")
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer "$music_collection" render-publish "${radio_args[@]}")
 fi
 
 # Project every published OGG into the in-game music registry so newly

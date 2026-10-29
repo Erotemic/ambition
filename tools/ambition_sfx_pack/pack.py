@@ -121,9 +121,11 @@ def codec_for(resolved_format_policy: str, output_keys: Iterable[str]) -> int:
     )
 
 
-def collect_entries(input_dir: Path) -> list[Entry]:
+def collect_entries(input_dir: Path, selected: set[str] | None = None) -> list[Entry]:
     entries: list[Entry] = []
     for child in sorted(input_dir.iterdir()):
+        if selected is not None and child.name not in selected:
+            continue
         if not child.is_dir():
             continue
         render_json = child / f"{child.name}.render.json"
@@ -303,24 +305,9 @@ def write_dump(dump_path: Path, entries: list[Entry], bank_path: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    here = Path(__file__).resolve().parent
-    repo_root = here.parent.parent
-    default_input = repo_root / "tools" / "ambition_sfx_renderer" / "output"
-    default_output = (
-        repo_root / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "audio" / "sfx.bank"
-    )
-    parser.add_argument(
-        "--input",
-        type=Path,
-        default=default_input,
-        help=f"renderer output dir (default: {default_input})",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=default_output,
-        help=f"bank file path (default: {default_output})",
-    )
+    parser.add_argument("--input", type=Path, required=True, help="renderer output directory")
+    parser.add_argument("--output", type=Path, required=True, help="destination bank")
+    parser.add_argument("--cue-list", type=Path, help="JSON list of the authored cue IDs")
     parser.add_argument(
         "--dump",
         action="store_true",
@@ -331,7 +318,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.input.is_dir():
         parser.error(f"input dir not found: {args.input}")
 
-    entries = collect_entries(args.input)
+    selected = set(json.loads(args.cue_list.read_text())) if args.cue_list else None
+    entries = collect_entries(args.input, selected)
+    if selected is not None and (missing := selected - {entry.id for entry in entries}):
+        parser.error(f"authored cues have no rendered payload: {sorted(missing)}")
     if not entries:
         parser.error(f"no entries found under {args.input}")
     assert_no_collisions(entries)

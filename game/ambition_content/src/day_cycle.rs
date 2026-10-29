@@ -26,7 +26,7 @@ pub fn day_cycle(day: &Day) -> DayCycle {
 pub fn daylight(day: &Day) -> DaylightStyle {
     DaylightStyle {
         keys: day.daylight.iter().map(|(hour, (r, g, b, a))| (*hour, Color::srgba(*r, *g, *b, *a))).collect(),
-        sunlit: vec![ParallaxTheme::MathTown],
+        sunlit: vec![ParallaxTheme::new("math_town")],
     }
 }
 

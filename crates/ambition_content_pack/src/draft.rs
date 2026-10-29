@@ -37,8 +37,10 @@ pub struct ContentPackManifest {
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct SourceDeclaration {
-    /// Relative to the pack root.
+    /// Relative to the selected library, or to the pack root.
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library: Option<String>,
     pub schema: SchemaId,
     pub version: SchemaVersion,
 }
@@ -195,7 +197,14 @@ impl ContentPackDraft {
         let mut by_canonical: BTreeMap<PathBuf, usize> = BTreeMap::new();
 
         for declaration in &manifest.sources {
-            let path = root.join(&declaration.path);
+            let path = match declaration.resolve_path(&root, &manifest) {
+                Ok(path) => path,
+                Err(error) => {
+                    diagnostics.push(Diagnostic::error(DiagnosticCode::MalformedSource, CompileStage::Parse, error)
+                        .in_source(&declaration.path));
+                    continue;
+                }
+            };
             let canonical = match std::fs::canonicalize(&path) {
                 Ok(canonical) => canonical,
                 Err(error) => {
@@ -280,5 +289,19 @@ impl ContentPackDraft {
             sources,
             collapsed_aliases,
         })
+    }
+}
+
+impl SourceDeclaration {
+    /// Resolve a source through the pack's explicit imports.
+    pub fn resolve_path(&self, root: &Path, manifest: &ContentPackManifest) -> Result<PathBuf, String> {
+        let Some(id) = &self.library else { return Ok(root.join(&self.path)); };
+        use ambition_asset_manager::content_library::{ContentLibraries, ContentLibrary};
+        let mut libraries = ContentLibraries::default();
+        for path in &manifest.libraries { libraries.insert(ContentLibrary::read(root.join(path))?)?; }
+        let library = libraries.get(id).ok_or_else(|| format!("Source {} selects undeclared library {id:?}", self.path))?;
+        let files = library.files()?;
+        files.get(&self.path).and_then(|file| file.native_path()).map(Path::to_path_buf)
+            .ok_or_else(|| format!("Library {id:?} has no source {:?}", self.path))
     }
 }

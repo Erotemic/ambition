@@ -239,6 +239,7 @@ pub fn compile(
         }
 
         prepared_sources.push(Source {
+            library: draft.manifest.sources.iter().find(|entry| entry.path == source.declared_path).and_then(|entry| entry.library.clone()),
             declared_path: source.declared_path.clone(),
             canonical_path: source.canonical_path.display().to_string(),
             schema: source.schema.clone(),

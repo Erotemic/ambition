@@ -67,12 +67,12 @@ fn pack_of(alpha: &str, beta: &str) -> Arc<PreparedContentPack> {
             requires: Vec::new(),
             sources: vec![
                 SourceDeclaration {
-                    path: "alpha.ron".into(),
+                    library: None, path: "alpha.ron".into(),
                     schema: SchemaId::new("alpha"),
                     version: SchemaVersion(1),
                 },
                 SourceDeclaration {
-                    path: "beta.ron".into(),
+                    library: None, path: "beta.ron".into(),
                     schema: SchemaId::new("beta"),
                     version: SchemaVersion(1),
                 },
@@ -97,7 +97,7 @@ fn alpha_only(alpha: &str) -> Arc<PreparedContentPack> {
             namespace: ModuleNamespace("probe".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: "alpha.ron".into(),
+                library: None, path: "alpha.ron".into(),
                 schema: SchemaId::new("alpha"),
                 version: SchemaVersion(1),
             }],

@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-import regen_music_registry as music_registry
+from lib.content_libraries import selected_manifest, generated_root, producer
 from lib.art_publication import resolve as resolve_art
 
 
@@ -67,13 +67,14 @@ def check_sprites(asset_root: Path, sources, plans_only: bool) -> list[str]:
     for asset, owners in sorted(required.items()):
         if asset not in planned:
             failures.append(f"sprites: no regen target publishes {asset} (used by {', '.join(sorted(owners))})")
-        elif not plans_only and not ((resolved := resolve_art(music_registry.selected_manifest(ROOT), asset)) and resolved.is_file()):
+        elif not plans_only and not ((resolved := resolve_art(selected_manifest(ROOT), asset)) and resolved.is_file()):
             failures.append(f"sprites: missing {asset}; run scripts/regen/sprites.sh")
     print(f"sprites: {len(required)} required sheet files, {len(planned)} planned outputs")
     return failures
 
 
 def check_music(asset_root: Path, plans_only: bool) -> list[str]:
+    import regen_music_registry as music_registry
     cues = tool_json(
         "ambition_music_renderer", "AMBITION_MUSIC_PYTHON",
         "import json; from ambition_music_renderer.cli import radio_cues; print(json.dumps(radio_cues()))",
@@ -166,13 +167,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--family", action="append", choices=("sprites", "music", "sfx", "backgrounds"))
     parser.add_argument("--plans-only", action="store_true", help="check coverage without requiring generated files")
-    parser.add_argument("--asset-root", type=Path, default=music_registry.GENERATED_DIR.parents[2])
+    parser.add_argument("--asset-root", type=Path, default=None)
     args = parser.parse_args()
+    args.asset_root = args.asset_root or generated_root(ROOT)
     sources = list(authored_sources())
     if not sources:
         parser.error("no authored game sources found")
     failures = []
-    for family in args.family or ("sprites", "music", "sfx", "backgrounds"):
+    declared = json.loads(selected_manifest(ROOT).read_text()).get("producers", {})
+    for family in args.family or [name for name in ("sprites", "music", "sfx", "backgrounds") if name in declared]:
         try:
             if family == "sprites":
                 failures.extend(check_sprites(args.asset_root, sources, args.plans_only))

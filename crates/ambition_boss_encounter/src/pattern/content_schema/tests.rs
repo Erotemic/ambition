@@ -64,7 +64,7 @@ fn draft(
             namespace: ModuleNamespace("test".into()),
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
-                path: file.into(),
+                library: None, path: file.into(),
                 schema: SchemaId::new(schema),
                 version,
             }],
@@ -346,7 +346,7 @@ fn encounters_draft(name: &str, files: &[(&str, &str)]) -> ContentPackDraft {
             sources: files
                 .iter()
                 .map(|(file, _)| SourceDeclaration {
-                    path: (*file).into(),
+                    library: None, path: (*file).into(),
                     schema: SchemaId::new(BOSS_ENCOUNTER_SCHEMA),
                     version: BOSS_ENCOUNTER_VERSION,
                 })

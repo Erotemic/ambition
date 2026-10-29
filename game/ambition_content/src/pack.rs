@@ -68,7 +68,13 @@ pub(crate) fn source_text(declared_path: &str, embedded: Option<&'static str>) -
     if let Some(text) = embedded {
         return text.to_string();
     }
-    let path = source_root().join(declared_path);
+    let root = source_root();
+    let manifest: ambition_content_pack::ContentPackManifest = ron::from_str(
+        &std::fs::read_to_string(root.join("pack.ron")).expect("pack manifest")
+    ).expect("pack manifest");
+    let path = manifest.sources.iter().find(|source| source.path == declared_path)
+        .map(|source| source.resolve_path(&root, &manifest).expect("declared source location"))
+        .unwrap_or_else(|| root.join(declared_path));
     std::fs::read_to_string(&path).unwrap_or_else(|err| {
         panic!(
             "content source {declared_path} is neither embedded in this build nor \
@@ -294,6 +300,7 @@ pub fn export_sources_to(root: &std::path::Path) -> std::io::Result<usize> {
     for library in &mut manifest.libraries {
         *library = source_root().join(&*library).canonicalize()?.to_string_lossy().into_owned();
     }
+    for source in &mut manifest.sources { source.library = None; }
     let manifest = ron::ser::to_string_pretty(&manifest, ron::ser::PrettyConfig::default().depth_limit(2))
         .map_err(std::io::Error::other)?;
     std::fs::create_dir_all(root)?;

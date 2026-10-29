@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Inter 4.1",
+    "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+    "license_name": "SIL Open Font License 1.1",
+    "homepage": "https://rsms.me/inter/",
+    "extracts": [
+      [
+        "InterDisplay-Regular.otf",
+        "InterDisplay-Regular.otf"
+      ],
+      [
+        "InterDisplay-SemiBold.otf",
+        "InterDisplay-SemiBold.otf"
+      ]
+    ],
+    "license_candidates": [
+      "LICENSE.txt",
+      "OFL.txt"
+    ],
+    "archive_sha256": "9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e"
+  },
+  {
+    "name": "JetBrains Mono 2.304",
+    "url": "https://download.jetbrains.com/fonts/JetBrainsMono-2.304.zip",
+    "license_name": "SIL Open Font License 1.1",
+    "homepage": "https://www.jetbrains.com/lp/mono/",
+    "extracts": [
+      [
+        "JetBrainsMono-Regular.ttf",
+        "JetBrainsMono-Regular.ttf"
+      ]
+    ],
+    "license_candidates": [
+      "OFL.txt",
+      "LICENSE.txt"
+    ],
+    "archive_sha256": "6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf"
+  }
+]

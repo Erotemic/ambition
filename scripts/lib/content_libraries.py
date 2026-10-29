@@ -76,3 +76,12 @@ def generated_root(repo: Path) -> Path:
     path = selected_manifest(repo)
     library = next(iter(read_libraries([path]).values()))
     return path.parent / relative(library.manifest["asset_roots"]["generated"])
+
+
+def producer(repo: Path, name: str) -> dict:
+    path = selected_manifest(repo)
+    manifest = json.loads(path.read_text())
+    try:
+        return manifest["producers"][name]
+    except KeyError:
+        raise ValueError(f"Library {path} declares no {name!r} producer") from None

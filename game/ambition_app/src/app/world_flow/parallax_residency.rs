@@ -34,7 +34,7 @@ pub(crate) fn retire_departed_parallax_themes(
     }
     let live: Vec<usize> = rooms.live_rooms().map(|(_, definition)| definition.index()).collect();
     last_live.clone_from(&live);
-    let keep = parallax_keep_set(rooms.rooms(), &live);
+    let keep = parallax_keep_set(&assets.room_themes, rooms.rooms(), &live);
     // ⛔ Only on a change. Running every frame would call `retain` on a map that
     // has not moved, and would fight `ensure_parallax_layers_for_room` on the
     // frame a new theme is being loaded.
@@ -75,6 +75,7 @@ pub(crate) fn retire_departed_parallax_themes(
 /// The themes to keep: each live room's (`live` are indices into `rooms`),
 /// then each one's one-hop neighbours', each once, in that order.
 pub(crate) fn parallax_keep_set(
+    themes: &ambition_platformer2d::sprite_sheet::game_assets::RoomThemes,
     rooms: &ambition_platformer2d::world::rooms::RoomSet,
     live: &[usize],
 ) -> Vec<ParallaxTheme> {
@@ -84,7 +85,7 @@ pub(crate) fn parallax_keep_set(
             let theme = ParallaxTheme::from_room_metadata(&room.metadata);
             // A theme with a corrupted state is loaded with it
             // (`ensure_parallax_layers_for_room`), and is kept with it.
-            for theme in std::iter::once(theme).chain(theme.corrupted()) {
+            for theme in std::iter::once(theme).chain(themes.alternate(theme)) {
                 if !keep.contains(&theme) {
                     keep.push(theme);
                 }
@@ -105,6 +106,13 @@ pub(crate) fn parallax_keep_set(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn themes() -> ambition_platformer2d::sprite_sheet::game_assets::RoomThemes {
+        ambition_platformer2d::sprite_sheet::game_assets::RoomThemes {
+            alternates: [("hub_clean".into(), "hub_corrupt".into())].into(),
+            ..Default::default()
+        }
+    }
+
     use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
 
     /// Room `id` in theme `theme`, with a door `to_<other>` for each of `doors`.
@@ -153,22 +161,22 @@ mod tests {
         let rooms = RoomSet::from_parts_or_panic(
             "a",
             vec![
-                room("a", ParallaxTheme::Hub, &["b"]),
-                room("b", ParallaxTheme::Cave, &["a"]),
-                room("c", ParallaxTheme::Lab, &["d"]),
-                room("d", ParallaxTheme::Basement, &["c"]),
-                room("e", ParallaxTheme::Boss, &[]),
+                room("a", ParallaxTheme::new("hub"), &["b"]),
+                room("b", ParallaxTheme::new("cave"), &["a"]),
+                room("c", ParallaxTheme::new("lab"), &["d"]),
+                room("d", ParallaxTheme::new("basement"), &["c"]),
+                room("e", ParallaxTheme::new("boss"), &[]),
             ],
             vec![link("a", "b"), link("c", "d")],
         );
         assert_eq!(
-            parallax_keep_set(&rooms, &[0]),
-            vec![ParallaxTheme::Hub, ParallaxTheme::Cave],
+            parallax_keep_set(&themes(), &rooms, &[0]),
+            vec![ParallaxTheme::new("hub"), ParallaxTheme::new("cave")],
             "control: one live room keeps its theme and its neighbour's"
         );
         assert_eq!(
-            parallax_keep_set(&rooms, &[0, 2]),
-            vec![ParallaxTheme::Hub, ParallaxTheme::Lab, ParallaxTheme::Cave, ParallaxTheme::Basement],
+            parallax_keep_set(&themes(), &rooms, &[0, 2]),
+            vec![ParallaxTheme::new("hub"), ParallaxTheme::new("lab"), ParallaxTheme::new("cave"), ParallaxTheme::new("basement")],
             "two live rooms keep both themes and both neighbourhoods, and not Boss"
         );
     }
@@ -179,13 +187,13 @@ mod tests {
     fn a_theme_keeps_its_corrupted_state_with_it() {
         let rooms = RoomSet::from_parts_or_panic(
             "a",
-            vec![room("a", ParallaxTheme::HubClean, &["b"]), room("b", ParallaxTheme::Hub, &["a"])],
+            vec![room("a", ParallaxTheme::new("hub_clean"), &["b"]), room("b", ParallaxTheme::new("hub"), &["a"])],
             vec![link("a", "b")],
         );
         assert_eq!(
-            parallax_keep_set(&rooms, &[0]),
-            vec![ParallaxTheme::HubClean, ParallaxTheme::HubCorrupt, ParallaxTheme::Hub],
+            parallax_keep_set(&themes(), &rooms, &[0]),
+            vec![ParallaxTheme::new("hub_clean"), ParallaxTheme::new("hub_corrupt"), ParallaxTheme::new("hub")],
         );
-        assert_eq!(parallax_keep_set(&rooms, &[1])[0], ParallaxTheme::Hub);
+        assert_eq!(parallax_keep_set(&themes(), &rooms, &[1])[0], ParallaxTheme::new("hub"));
     }
 }

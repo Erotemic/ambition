@@ -235,7 +235,7 @@ fn every_reachable_sheet_loads() {
 /// time instead of at game startup.
 #[test]
 fn every_spritesheet_ron_parses_into_sheet_record() {
-    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content_library/generated/runtime/sprites");
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content_library/generated/runtime/full/sprites");
 
     let mut parsed_files = 0usize;
     let mut failures: Vec<String> = Vec::new();
@@ -247,7 +247,7 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
     // generator rescales pixel rects; this is the drift guard on that output).
     for suffix in ["_0_5x", "_0_25x", "_potato"] {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("../../game/ambition_content_library/generated/runtime/sprites{suffix}"));
+            .join(format!("../../game/ambition_content_library/generated/runtime/{}/sprites{suffix}", match suffix { "_0_5x" => "half", "_0_25x" => "quarter", "_potato" => "potato", _ => "full" }));
         if dir.is_dir() {
             parse_spritesheets_under(&dir, false, &mut parsed_files, &mut failures);
         }

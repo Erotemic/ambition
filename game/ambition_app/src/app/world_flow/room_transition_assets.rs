@@ -716,7 +716,7 @@ pub(crate) fn build_loaded_room_asset_manifest(
     // A theme with a corrupted state draws both (`ensure_parallax_layers_for_room`
     // loads both): a corrupted or balanced room waits for the second too.
     let theme = ParallaxTheme::from_room_metadata(&room.metadata);
-    for theme in std::iter::once(theme).chain(theme.corrupted()) {
+    for theme in std::iter::once(theme).chain(assets.room_themes.alternate(theme)) {
         for &layer in ParallaxLayerAsset::ALL {
             if let Some(handle) = assets.parallax_layers.get(theme, layer) {
                 add_image_handle(
@@ -730,7 +730,7 @@ pub(crate) fn build_loaded_room_asset_manifest(
     // The dressing of the room's theme is as much of the picture as the sky:
     // a room that shows before its skin is there shows flat blocks first.
     if let Some(named) = ParallaxTheme::named_by_room_metadata(&room.metadata) {
-        for named in std::iter::once(named).chain(named.corrupted()) {
+        for named in std::iter::once(named).chain(assets.room_themes.alternate(named)) {
             for &part in RoomDressingPart::ALL {
                 if let Some(handle) = assets.room_dressing.get(named, part) {
                     add_image_handle(
@@ -2307,7 +2307,7 @@ mod tests {
         use ambition_platformer2d::world::prelude::{AuthoredWorld, Vec2};
         let mut images = Assets::<Image>::default();
         let mut assets = GameAssets::default();
-        for theme in [ParallaxTheme::Cave, ParallaxTheme::Hub] {
+        for theme in [ParallaxTheme::new("cave"), ParallaxTheme::new("hub")] {
             assets.room_dressing.insert(theme, RoomDressingPart::Fill, images.add(Image::default()));
         }
         let room = |theme: Option<&str>| {

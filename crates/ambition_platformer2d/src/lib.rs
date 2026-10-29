@@ -1632,7 +1632,7 @@ mod content_sdk_tests {
                 namespace: ModuleNamespace("my_game".into()),
                 requires: Vec::new(),
                 sources: vec![SourceDeclaration {
-                    path: "cast.ron".into(),
+                    library: None, path: "cast.ron".into(),
                     schema: SchemaId::new("character_catalog"),
                     version: SchemaVersion(1),
                 }],

@@ -1577,11 +1577,11 @@ mod tests {
         let mut world = World::new();
         let mut assets = GameAssets::default();
         for &part in RoomDressingPart::ALL {
-            assets.room_dressing.insert(ParallaxTheme::Cave, part, Handle::default());
+            assets.room_dressing.insert(ParallaxTheme::new("cave"), part, Handle::default());
         }
-        assets.room_dressing.mark_attempted(ParallaxTheme::Lab);
+        assets.room_dressing.mark_attempted(ParallaxTheme::new("lab"));
         assets.room_dressing.insert(
-            ParallaxTheme::PiratePort,
+            ParallaxTheme::new("pirate_port"),
             RoomDressingPart::WaterBackdrop,
             Handle::default(),
         );
@@ -1593,10 +1593,10 @@ mod tests {
             });
             body
         };
-        let ladder = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
-        let surface = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::WaterSurface, Vec2::new(0.0, 200.0), Vec2::new(128.0, 4.0));
-        let backdrop = fixture(&mut world, ParallaxTheme::PiratePort, ThemedFixtureKind::WaterBackdrop, Vec2::new(0.0, 784.0), Vec2::new(2816.0, 144.0));
-        let plain = fixture(&mut world, ParallaxTheme::Lab, ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
+        let ladder = fixture(&mut world, ParallaxTheme::new("cave"), ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
+        let surface = fixture(&mut world, ParallaxTheme::new("cave"), ThemedFixtureKind::WaterSurface, Vec2::new(0.0, 200.0), Vec2::new(128.0, 4.0));
+        let backdrop = fixture(&mut world, ParallaxTheme::new("pirate_port"), ThemedFixtureKind::WaterBackdrop, Vec2::new(0.0, 784.0), Vec2::new(2816.0, 144.0));
+        let plain = fixture(&mut world, ParallaxTheme::new("lab"), ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
         world.run_system_once(dress_themed_fixtures).unwrap();
 
         let pieces = fixture_pieces(&mut world, ladder);
@@ -1618,7 +1618,7 @@ mod tests {
 
         // A ladder wider than its picture is one ladder: a rail at each
         // side, and the middle of each rung made as long as the ladder needs.
-        let wide = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::Ladder, Vec2::new(200.0, 0.0), Vec2::new(40.0, 32.0));
+        let wide = fixture(&mut world, ParallaxTheme::new("cave"), ThemedFixtureKind::Ladder, Vec2::new(200.0, 0.0), Vec2::new(40.0, 32.0));
         world.run_system_once(dress_themed_fixtures).unwrap();
         let mut widths: Vec<f32> = fixture_pieces(&mut world, wide).iter().map(|(size, _)| size.x).collect();
         widths.sort_by(f32::total_cmp);
@@ -1650,16 +1650,16 @@ mod tests {
         let themed = images.add(Image::default());
         let plain = images.add(Image::default());
         let mut assets = GameAssets::default();
-        assets.room_dressing.insert(ParallaxTheme::Cave, RoomDressingPart::Door, themed.clone());
-        assets.room_dressing.mark_attempted(ParallaxTheme::Lab);
+        assets.room_dressing.insert(ParallaxTheme::new("cave"), RoomDressingPart::Door, themed.clone());
+        assets.room_dressing.mark_attempted(ParallaxTheme::new("lab"));
         world.insert_resource(assets);
         let door = |world: &mut World, theme: ParallaxTheme| {
             world
                 .spawn((ThemedDoor(theme), Sprite { image: plain.clone(), custom_size: Some(Vec2::new(40.0, 80.0)), ..Default::default() }))
                 .id()
         };
-        let (cave, lab) = (door(&mut world, ParallaxTheme::Cave), door(&mut world, ParallaxTheme::Lab));
-        let dressed = door(&mut world, ParallaxTheme::Cave);
+        let (cave, lab) = (door(&mut world, ParallaxTheme::new("cave")), door(&mut world, ParallaxTheme::new("lab")));
+        let dressed = door(&mut world, ParallaxTheme::new("cave"));
         world.entity_mut(dressed).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::DoorZone));
         world.run_system_once(dress_themed_doors).unwrap();
         let sprite = |world: &World, entity: Entity| world.entity(entity).get::<Sprite>().unwrap().clone();
@@ -1670,7 +1670,7 @@ mod tests {
     }
 
     fn surface(kind: TerrainSurfaceKind, x: f32, y: f32, w: f32, h: f32) -> TerrainSurface {
-        TerrainSurface { theme: ParallaxTheme::Cave, kind, min: Vec2::new(x, y), size: Vec2::new(w, h) }
+        TerrainSurface { theme: ParallaxTheme::new("cave"), kind, min: Vec2::new(x, y), size: Vec2::new(w, h) }
     }
 
     #[test]
@@ -1966,7 +1966,7 @@ mod tests {
                     bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
                     RenderAssetUsages::all(),
                 ));
-                assets.room_dressing.insert(ParallaxTheme::Cave, part, image);
+                assets.room_dressing.insert(ParallaxTheme::new("cave"), part, image);
             }
         }
         world.insert_resource(assets);
@@ -1975,7 +1975,7 @@ mod tests {
         world.init_resource::<Assets<ColorMaterial>>();
         world.insert_resource(TerrainDecorDensity { spacing: 0.0 });
         world.init_resource::<Messages<AssetEvent<Image>>>();
-        let room = world.spawn((RoomTerrain::new(ParallaxTheme::Cave, Vec2::new(512.0, 256.0)), TerrainKeepOut::default(), Transform::default())).id();
+        let room = world.spawn((RoomTerrain::new(ParallaxTheme::new("cave"), Vec2::new(512.0, 256.0)), TerrainKeepOut::default(), Transform::default())).id();
         let block = |world: &mut World, s: TerrainSurface| world.spawn((s, Sprite::from_color(Color::WHITE, s.size))).id();
         let floor = block(&mut world, surface(TerrainSurfaceKind::Solid, 0.0, 100.0, 200.0, 32.0));
         let brick = block(&mut world, surface(TerrainSurfaceKind::Solid, 64.0, 84.0, 16.0, 16.0));
@@ -2179,7 +2179,7 @@ mod tests {
         assert_eq!(quad_count(&world), bare, "the room's keep-out written in place");
 
         // The cap's picture is written in place at twice the size.
-        let cap_picture = world.resource::<GameAssets>().room_dressing.get(ParallaxTheme::Cave, RoomDressingPart::Cap).unwrap().clone();
+        let cap_picture = world.resource::<GameAssets>().room_dressing.get(ParallaxTheme::new("cave"), RoomDressingPart::Cap).unwrap().clone();
         let before = stamps(&world);
         let larger = Image::new_fill(
             bevy::render::render_resource::Extent3d { width: 256, height: 256, depth_or_array_layers: 1 },
@@ -2195,7 +2195,7 @@ mod tests {
 
         // The cap draws another picture.
         let other = world.resource_mut::<Assets<Image>>().add(Image::default());
-        world.resource_mut::<GameAssets>().room_dressing.insert(ParallaxTheme::Cave, RoomDressingPart::Cap, other.clone());
+        world.resource_mut::<GameAssets>().room_dressing.insert(ParallaxTheme::new("cave"), RoomDressingPart::Cap, other.clone());
         world.run_system(lay).unwrap();
         let material = world.entity(room).get::<RoomTerrain>().unwrap().materials[&RoomDressingPart::Cap].clone();
         assert_eq!(

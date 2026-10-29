@@ -4124,7 +4124,7 @@ fn each_game_of_the_launcher_names_its_own_look() {
         .launch_entries()
         .into_iter()
         .map(|entry| {
-            let theme = entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::Hub);
+            let theme = entry.look.as_deref().and_then(ParallaxTheme::from_key).unwrap_or(ParallaxTheme::new("hub"));
             (entry.label, theme)
         })
         .collect();
@@ -4134,9 +4134,9 @@ fn each_game_of_the_launcher_names_its_own_look() {
             .map(|(_, theme)| *theme)
             .unwrap_or_else(|| panic!("the launcher offers no `{label}` row: {rows:?}"))
     };
-    assert_eq!(theme("Sanic"), ParallaxTheme::OpenSky, "{rows:?}");
-    assert_eq!(theme("Mary-O"), ParallaxTheme::Starlight, "{rows:?}");
-    assert_eq!(theme("Smash Siblings"), ParallaxTheme::Eclipse, "{rows:?}");
+    assert_eq!(theme("Sanic"), ParallaxTheme::new("open_sky"), "{rows:?}");
+    assert_eq!(theme("Mary-O"), ParallaxTheme::new("starlight"), "{rows:?}");
+    assert_eq!(theme("Smash Siblings"), ParallaxTheme::new("eclipse"), "{rows:?}");
     let games = ["Ambition", "Sanic", "Mary-O", "Smash Siblings"].map(theme);
     for (i, a) in games.iter().enumerate() {
         for b in &games[i + 1..] {

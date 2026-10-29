@@ -122,26 +122,9 @@ CAPABILITY_ORDERING_CEILING = 10
 # population is 93. The two are printed side by side by the measure so nobody
 # reads the difference as work.
 #
-# ⛔⛤ **77 -> 78 ON 2026-09-11, AND THIS ONE IS A REAL RISE. NOT AN INSTRUMENT
-# CHANGE, NOT A RE-BASELINE OF SOMETHING THAT WAS ALREADY THERE.** S0.1 gave the
-# game one clash contest for every attack family, and the arbiter has to be
-# installed BEFORE both damage roads — a position no published set names today.
-# MEASURED against `8ac8e1e9e`: exactly one edge,
-# `ambition_platformer2d_actor_monolith::clash::clash_arbitration`.
-#
-# ⭐ IT COST ONE NAME INSTEAD OF TWO, and that is the part worth keeping. The
-# arbiter and `ambition_combat::clank::rebound_from_clanks` are one ordered unit
-# across two crates; chaining them in the composition would have made the runtime
-# the authority on the relative order of two OTHER crates' private systems, which
-# is exactly this prerequisite's sentence. `clash::clash_arbitration()` states
-# that order in the crate that owns one half, so the composition installs a unit.
-# The +2 version was measured (79) before this one.
-#
-# ⛔ AND IT IS THE NEXT ROW TO CONVERT, named here so it is not lost: what it
-# needs is a published set for "after the move clock, before the projectile
-# step". `ProjectileStepSet` is half of that and lives in the composition, so the
-# monolith cannot order against it. Precedent for the shape is `MountPlugin`
-# above — 7 -> 2 by shipping the install as a plugin.
+# Clash arbitration and rebound form one ordered unit from projectile combat.
+# The composition places this unit after move playback and before projectile
+# stepping. It must not separate the verdict from the rebound that consumes it.
 #
 # ⭐ 78 -> 76 ON 2026-09-26 (AP77). The portal crate publishes
 # `PortalSet::Transited` for the consequences of a body transit. The runtime's

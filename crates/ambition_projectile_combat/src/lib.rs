@@ -1,9 +1,11 @@
 //! Projectile combat execution above the reusable projectile model.
 //!
-//! This crate owns allegiance, swept target contacts, interception, charging,
-//! and hit delivery. The projectile model remains in `ambition_projectiles`.
+//! This crate owns allegiance, attack clashes, swept target contacts,
+//! interception, charging, and hit delivery. The projectile model remains in `ambition_projectiles`.
 
 mod allegiance;
+mod clash;
+pub use clash::clash_arbitration;
 pub(crate) mod feature_contact;
 pub mod intercept;
 pub use allegiance::{stamp_new_projectile_allegiance, ProjectileAllegiance};

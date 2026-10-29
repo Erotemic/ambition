@@ -24,8 +24,6 @@ pub mod body_mode;
 #[cfg(test)]
 mod character_integration_tests;
 pub mod character_projection;
-/// Swings and shots arbitrated in ONE contest, before either damage road runs.
-pub mod clash;
 #[cfg(test)]
 pub mod enemy_projectile;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the

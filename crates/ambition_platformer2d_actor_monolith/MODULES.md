@@ -14,13 +14,12 @@
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
 | [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
-| [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
 | [`control`](src/control/mod.rs) | Participant driving authority, seat input, and body control acceptance. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

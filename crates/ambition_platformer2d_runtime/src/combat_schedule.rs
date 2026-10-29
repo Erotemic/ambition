@@ -455,7 +455,7 @@ impl Plugin for CombatSchedulePlugin {
                 // crates' private systems. `clash_arbitration()` states that
                 // order in the crate that owns one of the two halves, so what a
                 // composition installs is the unit.
-                ambition_platformer2d_actor_monolith::clash::clash_arbitration()
+                ambition_projectile_combat::clash_arbitration()
                     .in_set(GameplayGated),
                 // Unified projectile step (player + enemy, faction-routed).
                 crate::projectile_schedule::step_projectiles

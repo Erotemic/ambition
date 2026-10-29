@@ -55,6 +55,23 @@ sfx_ids! {
     PLAYER_ROBOT_SLASH_IMPACT_METAL_GONG => "player.robot.slash.impact.metal.gong",
     PLAYER_ROBOT_SLASH_IMPACT_POGO => "player.robot.slash.impact.pogo",
     PLAYER_HIT => "player.hit",
+    // The strength tiers a connect picks from when its move names a family
+    // root (`hit.impact`, `hit.slash`) or the cast's generic `player.hit`:
+    // light < mid < heavy < kill by the hit's damage over the room's heavy
+    // line (`ambition_combat::util::resolve_strike_sfx`).
+    HIT_IMPACT_LIGHT => "hit.impact.light",
+    HIT_IMPACT_MID => "hit.impact.mid",
+    HIT_IMPACT_HEAVY => "hit.impact.heavy",
+    HIT_IMPACT_KILL => "hit.impact.kill",
+    HIT_SLASH_LIGHT => "hit.slash.light",
+    HIT_SLASH_MID => "hit.slash.mid",
+    HIT_SLASH_HEAVY => "hit.slash.heavy",
+    HIT_SLASH_KILL => "hit.slash.kill",
+    // The whoosh a move starts with, by its class, when it authors none.
+    SWING_LIGHT => "swing.light",
+    SWING_HEAVY => "swing.heavy",
+    SWING_AERIAL => "swing.aerial",
+    SWING_CHARGE_RELEASE => "swing.charge_release",
     PLAYER_DAMAGE => "player.damage",
     PLAYER_HEAL => "player.heal",
     PLAYER_DEATH => "player.death",

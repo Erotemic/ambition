@@ -28,4 +28,41 @@
         double_jump_speed: Some(594.7),
         dodge_roll_speed: Some(424.9),
     )),
+
+    // SMASH-STAGE MOVE CLOCKS: first strike, last strike, total and landing
+    // lag, in seconds, and the swing cue. Written by
+    // `scripts/smash_retime.py` from an archetype template; the moveset keeps
+    // the home game's pace. Frames at 60 Hz are in the trailing comment.
+    move_timing: {
+        // attack: 3/5/17
+        "still_life": (hit_s: 0.05, last_s: 0.0833, total_s: 0.2833, swing: Some("swing.light")),
+        // attack_forward: 5/8/29
+        "rule_front": (hit_s: 0.0833, last_s: 0.1333, total_s: 0.4833, swing: Some("swing.light")),
+        // attack_up: 5/11/23
+        "cell_birth": (hit_s: 0.0833, last_s: 0.1833, total_s: 0.3833, swing: Some("swing.light")),
+        // attack_down: 5/7/25
+        "phase_boundary": (hit_s: 0.0833, last_s: 0.1167, total_s: 0.4167, swing: Some("swing.light")),
+        // attack_dash: 6/14/38
+        "cellular_automaton_dash_attack": (hit_s: 0.1, last_s: 0.2333, total_s: 0.6333, swing: Some("swing.light")),
+        // smash_forward: 15/18/46
+        "generation_wipe": (hit_s: 0.25, last_s: 0.3, total_s: 0.7667, swing: Some("swing.heavy")),
+        // smash_up: 9/14/39
+        "causal_cone_expand": (hit_s: 0.15, last_s: 0.2333, total_s: 0.65, swing: Some("swing.heavy")),
+        // smash_down: 5/12/43
+        "garden_growth": (hit_s: 0.0833, last_s: 0.2, total_s: 0.7167, swing: Some("swing.heavy")),
+        // attack_air: 3/24/42 L6
+        "oscillator_pulse": (hit_s: 0.05, last_s: 0.4, total_s: 0.7, landing_lag_s: Some(0.1), swing: Some("swing.aerial")),
+        // attack_air_forward: 12/15/48 L14
+        "glider_cut": (hit_s: 0.2, last_s: 0.25, total_s: 0.8, landing_lag_s: Some(0.2333), swing: Some("swing.aerial")),
+        // attack_air_back: 6/12/33 L6
+        "cell_death": (hit_s: 0.1, last_s: 0.2, total_s: 0.55, landing_lag_s: Some(0.1), swing: Some("swing.aerial")),
+        // attack_air_up: 4/8/32 L6
+        "fixed_point_acquire": (hit_s: 0.0667, last_s: 0.1333, total_s: 0.5333, landing_lag_s: Some(0.1), swing: Some("swing.aerial")),
+        // attack_air_down: 5/16/44 L12
+        "corruption_seed": (hit_s: 0.0833, last_s: 0.2667, total_s: 0.7333, landing_lag_s: Some(0.2), swing: Some("swing.aerial")),
+        // grab: 6/7/34
+        "cellular_grab": (hit_s: 0.1, last_s: 0.1167, total_s: 0.5667),
+        // grab_dash: 9/10/42
+        "cellular_grab_dash": (hit_s: 0.15, last_s: 0.1667, total_s: 0.7),
+    },
 )

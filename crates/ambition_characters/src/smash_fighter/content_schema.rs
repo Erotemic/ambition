@@ -160,6 +160,11 @@ pub fn fold_into_definition(
     } else {
         definition.scaled_verbs.insert(super::FIGHTER_DAMAGE, facet.verbs.clone());
     }
+    if facet.move_timing.is_empty() {
+        definition.scaled_move_timing.remove(&super::FIGHTER_DAMAGE);
+    } else {
+        definition.scaled_move_timing.insert(super::FIGHTER_DAMAGE, facet.move_timing.clone());
+    }
     definition
 }
 

@@ -88,6 +88,13 @@ pub struct SmashFighterFacet {
     /// still in the one moveset file: this map has ids, and no frame.
     #[serde(default)]
     pub verbs: crate::move_damage::VerbMoves,
+    /// Each move's CLOCK on a platform-fighter stage (first strike, last
+    /// strike, total, landing lag), where that differs from its moveset's.
+    /// Folded under [`FIGHTER_DAMAGE`] with the damage and the verbs. The
+    /// home game's moves keep their own pace; the fighter's commit. See
+    /// `crate::move_damage::move_timing_over`.
+    #[serde(default)]
+    pub move_timing: crate::move_damage::MoveTimings,
 }
 
 /// The damage scale this capability folds a facet's `move_damage` under. A
@@ -272,6 +279,9 @@ impl SmashFighterFacet {
                      for each volume of the move that deals damage"
                 ));
             }
+        }
+        for (move_id, timing) in &self.move_timing {
+            timing.problems(move_id, &mut out);
         }
         for (verb, move_id) in &self.verbs {
             if verb.trim().is_empty() || move_id.trim().is_empty() {

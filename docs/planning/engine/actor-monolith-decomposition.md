@@ -655,7 +655,9 @@ hitstop expiry. Observer requests follow the body that holds the driving seat.
 The empty actor-maintenance phase and the body-role clock paths are deleted.
 Real simulation arms now cover removal of one possessed body while another
 participant keeps control, and active-move continuity when a seat is released.
-The broader no-double-body-tick acceptance remains open.
+A constrained-motion witness now covers home and actor riders, both carrier
+roles and timed dismount on eager and rollback hosts. It checks one tentative
+kernel step before the saddle pin and one free step after release.
 Control acceptance now owns script holds, commanded movement, and action
 schemes. Room technique grants follow each body's driving relation, including
 secondary participants. Rule reads borrow declarations; the primary observation
@@ -828,6 +830,14 @@ Guards: 37 selected owner tests, four app conversation tests and all
 layouts stay the same and the kernel graph is a DAG. The global doc-link check
 reports five links in untouched docs. The full feature union and Android
 performance were not run. Keep dialogue entry policy at the conversation owner.
+
+### Constrained-body release acceptance
+
+`bbcdf67ff`: actor-baseline queries skipped home riders. Both release paths now
+release those bodies and keep their size. The app guard covers tentative motion,
+timed dismount and later rollback. Guards: 14 mount, 14 app, 70 Smash and 35 policy
+tests; six Smash diagnostics ignored; default app compiles with no warnings.
+Keep release independent of controller kind. No production systems or state added.
 
 ### Migration acceptance for each packet
 

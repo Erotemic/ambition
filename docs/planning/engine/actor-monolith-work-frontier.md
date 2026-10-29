@@ -170,6 +170,7 @@ for one target grant neither seat.
 | removal of a controlled body | `possession_end_to_end::a_removed_possessed_body_returns_only_its_participants_seat` |
 | action continuity on release | `possession_end_to_end::releasing_a_seat_keeps_the_active_move_on_its_original_body` |
 | one tick before and after two seat releases | `possession_end_to_end::possession_handoffs_do_not_advance_a_free_body_twice` (two homes and two unmounted actors in clear space) |
+| mounted motion and timed dismount | `player_pilots_mount_end_to_end::constrained_motion::home_and_actor_riders_resume_one_body_step_when_their_leases_end` (home and actor riders, both carrier roles, eager and rollback hosts) |
 | room techniques for two participants | `body_control_acceptance::two_participants_route_a_room_granted_attack_through_the_same_gate` |
 
 **Control ordering:**
@@ -195,10 +196,11 @@ store state. Mana rate and refill policy live at `ambition_abilities::mana`;
 the avatar systems module is deleted.
 
 **Open:** continue the regrouping and the distinction of home-avatar, driver,
-camera and participant identities. Complete the constrained-body tick acceptance. Free-motion checks cover a
-boss and two homes plus two unmounted actors before and after seat releases. The schedule-level
-`no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by
-two systems.
+camera and participant identities. Free-motion checks cover a boss and two
+homes plus two unmounted actors before and after seat releases. Mounted-motion
+checks cover home and actor riders before the saddle pin and after timed
+release, with later rollback loads. A system registration count does not prove
+that each body takes one step.
 
 ## A5. Give destructible world objects their full transition authority
 

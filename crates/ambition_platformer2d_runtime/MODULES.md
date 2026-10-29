@@ -44,7 +44,7 @@
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_clock`](src/sim_clock/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
-| [`sim_identity`](src/sim_identity.rs) | Backend-neutral stable simulation identity maintenance. |
+| [`sim_identity`](src/sim_identity.rs) | Stable simulation identity maintenance and construction diagnostics. |
 | [`stocks_match`](src/stocks_match.rs) | Resolve match outcomes and sudden-death entry. |
 | [`verdict_census`](src/verdict_census.rs) | Diagnostic summary of the existing authored-verdict ring. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |

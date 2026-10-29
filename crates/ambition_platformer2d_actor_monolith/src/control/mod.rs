@@ -1,9 +1,8 @@
-//! Local control seam from device input to the body driven by a participant.
-//!
-//! This module owns local-slot publication and gesture state. Downstream body
-//! mechanics consume `ActorControl`; they do not read the raw `ControlFrame`.
-//! Player identity is not a simulation path: driving authority selects the body,
-//! and the same body mechanics apply regardless of controller kind.
+//! Participant driving authority, seat input, and body control acceptance.
+//! Controllers publish `ActorControl`; common gates accept it before execution.
+
+mod acceptance;
+pub use acceptance::{BodyControlGate, blank_scripted_control_frames, drive_commanded_moves, gate_body_control};
 
 pub mod authority;
 pub mod components;
@@ -11,6 +10,8 @@ pub mod input_systems;
 pub mod possession;
 pub mod queries;
 mod raw_publication;
+mod participant_input;
+pub use participant_input::{ControlledBrainTick, HeldControlFrame, tick_controlled_brains};
 
 pub use authority::project_driving_participant;
 pub use input_systems::{

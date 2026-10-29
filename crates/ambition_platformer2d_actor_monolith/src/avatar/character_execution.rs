@@ -1,4 +1,4 @@
-//! Apply worn character mechanics and gate each body's action controls.
+//! Apply worn character mechanics to live bodies.
 
 use bevy::ecs::system::{Commands, Local, Query};
 use bevy::prelude::{Component, Entity, Has, Name, Res, With};
@@ -516,141 +516,9 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
     }
 }
 
-/// Gate every body's raw control frame by its own action scheme before direct body/effect
-/// consumers read it. `sustain_bubble_shield` must run after this gate.
-///
-/// The population is every body, not the player population: whoever writes the frame (a
-/// local seat, a possession, a brain), what the body may do is the body's own scheme, so
-/// a possessed or seat-driven actor gets the same technique routing and verb stripping as
-/// the home avatar. An autonomous brain only presses verbs its body owns, so the gate
-/// leaves its frame as it is.
-///
-/// TODO(compat-remove): migrate the remaining direct `ActorControl` consumers to the
-/// `ActionSet`-gated semantic path, then remove this raw-frame compatibility gate.
-#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct WornControlGateSet;
 
-pub fn gate_body_control(
-    // The driven body also wears the techniques its own room's rules give it
-    // (OW1: THE live room's rules were the rules of no room while two rooms
-    // were live).
-    driven: ambition_combat::governing_rules::RulesOf<
-        ambition_characters::action_scheme::DrivenTechniques,
-    >,
-    // Required: the runtime that schedules this gate also adds
-    // `PossessionPlugin`, which owns the resource.
-    subject: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
-    mut bodies: Query<
-        (
-            Entity,
-            bevy::prelude::Ref<ActionSet>,
-            // The body's live combat/ability authorities — the SAME inputs the
-            // control-prompt read-model derives its labels from. The gate resolves
-            // them through the shared `derive_action_scheme` so what a slot GATES
-            // here and what the prompt SHOWS are one derivation (no UI drift).
-            // `Ref`: the scheme is derived again only when one of them changed.
-            bevy::prelude::Ref<ambition_platformer2d_core::BodyAbilities>,
-            Option<bevy::prelude::Ref<ActorMoveset>>,
-            Option<bevy::prelude::Ref<ambition_characters::action_scheme::ActorTechniques>>,
-            // A worn row can put a technique on a slot.
-            Option<bevy::prelude::Ref<ambition_characters::equipment::WornEquipment>>,
-            &mut ambition_characters::action_scheme::DerivedActionScheme,
-            &mut ambition_characters::control::ActorControl,
-            // Sanctioned technique edges: when a slot resolves to `Technique`, the
-            // gate routes the slot's device edge here (and clears the raw verb),
-            // so a content technique reads THIS instead of intercepting a raw
-            // combat press. `ActionSet` requires it.
-            &mut ambition_characters::action_scheme::ResolvedTechniqueEdges,
-            Has<ambition_characters::brain::ChargesProjectiles>,
-            // Holding an item REPURPOSES the attack verb (the pickup stashes the
-            // melee kit precisely so item-use fires instead), so the persona
-            // gate must not eat melee/shield presses while an item is held —
-            // by IDENTITY, not by racing the item systems in schedule order.
-            Has<ambition_combat::held_items::HeldItem>,
-        ),
-    >,
-) {
-    use ambition_characters::action_scheme::{
-        derive_action_scheme, resolve_control_slots, techniques_of,
-    };
-    use bevy::prelude::DetectChanges as _;
 
-    let subject = subject.0;
-    let driven = subject.and_then(|subject| driven.of(subject));
-    for (
-        entity,
-        actions,
-        abilities,
-        moveset,
-        techniques,
-        worn,
-        mut derived,
-        mut control,
-        mut edges,
-        has_charge_marker,
-        holds_item,
-    ) in &mut bodies
-    {
-        let driven_here = driven.as_ref().filter(|_| subject == Some(entity));
-        let present = [moveset.is_some(), techniques.is_some(), worn.is_some()];
-        // The authorities change at loading, a pickup or a re-wear, not each
-        // tick (findings F16): a quiet tick reuses the scheme.
-        let stale = derived.scheme.is_none()
-            || actions.is_changed()
-            || abilities.is_changed()
-            || moveset.as_ref().is_some_and(|m| m.is_changed())
-            || techniques.as_ref().is_some_and(|t| t.is_changed())
-            || worn.as_ref().is_some_and(|w| w.is_changed())
-            || derived.present != present
-            || derived.driven.as_ref() != driven_here;
-        if stale {
-            // THE shared resolver — byte-identical to the call the ControlPrompt
-            // producer makes on the same immediate authorities.
-            let techniques = techniques_of(techniques.as_deref(), driven_here, worn.as_deref());
-            let scheme = derive_action_scheme(
-                &abilities.abilities,
-                moveset.as_ref().map(|m| &m.0),
-                Some(&*actions),
-                &techniques,
-            );
-            *derived = ambition_characters::action_scheme::DerivedActionScheme {
-                scheme: Some(scheme),
-                driven: driven_here.cloned(),
-                present,
-            };
-        }
-        let Some(scheme) = derived.scheme.as_ref() else {
-            continue;
-        };
 
-        // Per-slot dispatch: route every technique to its sanctioned edge, strip
-        // the verbs the scheme doesn't own (Attack/Special/Projectile), and keep
-        // the moveset `Move`s.
-        let unroutable = resolve_control_slots(scheme, &mut control.0, &mut *edges, holds_item);
-        debug_assert!(
-            unroutable.is_empty(),
-            "action scheme declared a technique on a slot the combat gate cannot route \
-             yet (needs the Phase-3 kernel re-key): {unroutable:?}",
-        );
-
-        // the question now lives with every other slot's, inside
-        // `resolve_control_slots` above: the Shield slot is present iff the body
-        // has the shield ability, and the held-item exception (shield+attack is
-        // the throw gesture) moved there with it. `sustain_bubble_shield` runs
-        // AFTER this system and still forces the guard up for the folded
-        // bubble-shield special, so a special MAY raise a guard — it is simply no
-        // longer the only way any body has.
-
-        // HOW THIS BODY FIRES is its `ChargesProjectiles` marker, installed
-        // from the character's `ranged_execution` by every road that builds or
-        // re-wears it; a body without it has no charge path to feed.
-        if !has_charge_marker {
-            control.0.projectile_pressed = false;
-            control.0.projectile_held = false;
-            control.0.projectile_released = false;
-        }
-    }
-}
 
 /// Raise (and sustain) a `"bubble_shield"` persona's guard through the ONE shield
 /// path (`shield_held` → `resolve_shield`) — so pressing Special actually deploys
@@ -673,7 +541,7 @@ pub fn gate_body_control(
 /// shield the body won't raise. Forcing `shield_held` (rather than poking
 /// [`ambition_platformer2d_core::body_clusters::BodyShieldState`] directly) keeps the
 /// kernel's parry-window / dash-gating rules uniform — the special is just another
-/// way to raise the ONE shield. Runs after [`gate_body_control`], which
+/// way to raise the ONE shield. Runs after [`crate::control::gate_body_control`], which
 /// keeps the persona's shield verb and (as a `Move`) its `special_pressed` alive.
 pub fn sustain_bubble_shield(
     mut bodies: Query<(

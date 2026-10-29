@@ -74,9 +74,9 @@ no occurrence, custody or owned-item state. The P2P road stays inert below
 `commit_confirmed_lifecycle`'s `LocalSyncTest` gate. A coordinated peer-level
 rule is a new packet.
 
-**Open remainder:** widen post-apply verification beyond the ledger, the bag and
-custody presence: checkpoint replay consequences, deferred flushes and the final
-rollback baseline. Pin typed immutable checkpoint data on admission when
+**Open remainder:** widen post-apply verification of checkpoint replay
+consequences. The real confirmed-host runtime-item arm checks deferred custody
+materialization and later loads of its frame-zero baseline. Pin typed immutable checkpoint data on admission when
 deferred application makes it load-bearing. No live-ledger swap and no generic
 snapshot registry.
 
@@ -169,6 +169,9 @@ for one target grant neither seat.
 | body clocks and freeze expiry | `body_reaction_clocks::a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes` |
 | removal of a controlled body | `possession_end_to_end::a_removed_possessed_body_returns_only_its_participants_seat` |
 | action continuity on release | `possession_end_to_end::releasing_a_seat_keeps_the_active_move_on_its_original_body` |
+| one tick before and after two seat releases | `possession_end_to_end::possession_handoffs_do_not_advance_a_free_body_twice` (two homes and two unmounted actors in clear space) |
+| mounted motion and timed dismount | `player_pilots_mount_end_to_end::constrained_motion::home_and_actor_riders_resume_one_body_step_when_their_leases_end` (home and actor riders, both carrier roles, eager and rollback hosts) |
+| room techniques for two participants | `body_control_acceptance::two_participants_route_a_room_granted_attack_through_the_same_gate` |
 
 **Control ordering:**
 `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
@@ -180,11 +183,24 @@ Body reactions use one early body phase. Recovery follows body proper time;
 hitstop expiry follows the unscaled simulation step. Observer time requests
 follow the body's driving seat, not its home marker.
 
+`control` owns participant input, held-frame history, hold blanking, commanded
+movement, and action-scheme acceptance. Runtime registers the input phases
+directly; the avatar forwarding installer is deleted.
+`BodyControlGate` is the action-scheme ordering point. Each body reads its own
+room's driven techniques when it has `DrivingParticipant`; the primary
+observation projection grants no technique. The prompt uses the same relation.
+`body::BodyFrameOutput` owns the retained movement facts. Integration helpers
+are private to `body`; `avatar` publishes the home death policy from those facts.
+Rule readers borrow the declared values. Owned projections copy them when they
+store state. Mana rate and refill policy live at `ambition_abilities::mana`;
+the avatar systems module is deleted.
+
 **Open:** continue the regrouping and the distinction of home-avatar, driver,
-camera and participant identities. Complete the no-double-body-tick acceptance;
-the boss free-flight arm covers one fixture. The schedule-level
-`no_system_is_registered_twice_in_one_schedule` cannot see one body ticked by
-two systems.
+camera and participant identities. Free-motion checks cover a boss and two
+homes plus two unmounted actors before and after seat releases. Mounted-motion
+checks cover home and actor riders before the saddle pin and after timed
+release, with later rollback loads. A system registration count does not prove
+that each body takes one step.
 
 ## A5. Give destructible world objects their full transition authority
 

@@ -34,11 +34,11 @@ pub fn advance_death_beats(
         let was_dead = beat.since_s.is_some();
         beat.advance(health.alive(), dt, || {
             caps.and_then(|caps| caps.corpse)
-                .or_else(|| rules.of(entity))
+                .or_else(|| rules.of(entity).copied())
                 .unwrap_or_default()
         });
         if !was_dead && beat.since_s.is_some() {
-            if let Some(kill) = beats.of(entity) {
+            if let Some(kill) = beats.of(entity).copied() {
                 beat_of_kills = Some(beat_of_kills.map_or(kill, |held| ambition_combat::KillBeat {
                     freeze_s: held.freeze_s.max(kill.freeze_s),
                     shake_px: held.shake_px.max(kill.shake_px),

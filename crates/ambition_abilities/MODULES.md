@@ -9,7 +9,7 @@
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
 | [`body_conditions`](src/body_conditions.rs) | Authored BODY-CAPABILITY conditions — "can the body do this verb at all?" |
 | [`extension`](src/extension.rs) | The held-item domain's extension adapters (fast-iteration I7: a wielded ability as a procedural module). |
-| [`mana`](src/mana.rs) | The main game's Mana: the resource the held abilities in this crate spend. |
+| [`mana`](src/mana.rs) | Mana pool access, spending, and regeneration policy. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities (fast-iteration I7): the adapters of `ambition.world.spawn_module_entity` and `ambition.world.module_entity_tick`. |
 | [`ranged`](src/ranged/mod.rs) | Ranged abilities: the bomb. |
 | [`ride`](src/ride.rs) | The adapters of a summoned ride: `ambition.world.summon_ride`, the facts `ambition.body.ride`, `ambition.body.saddle`, `ambition.body.presses`, `ambition.body.tumbling` and `ambition.body.room`, and the requests `ambition.mount.dismount`, `ambition.body.hold_course` and `ambition.world.dismiss`. |

@@ -3018,7 +3018,7 @@ type Ladders =
 fn ambitions_ladder(
     world: &bevy::ecs::world::World,
 ) -> Option<ambition_characters::brain::fighter::FighterBrainLadder> {
-    world.get_resource::<Ladders>()?.governing(ambition_combat::scoped_rules::ActiveRoom::Untagged)
+    world.get_resource::<Ladders>()?.governing(ambition_combat::scoped_rules::ActiveRoom::Untagged).cloned()
 }
 
 /// Declare the shipped pack's ladder for every room, as the content plugin
@@ -4429,7 +4429,7 @@ fn pack_with_room_rules(edit: impl Fn(&str) -> String) -> ambition_content_pack:
 fn untagged<T: Clone + std::fmt::Debug + Send + Sync + 'static>(world: &bevy::ecs::world::World) -> Option<T> {
     world
         .get_resource::<ambition_combat::scoped_rules::DeclaredRules<T>>()?
-        .governing(ambition_combat::scoped_rules::ActiveRoom::Untagged)
+        .governing(ambition_combat::scoped_rules::ActiveRoom::Untagged).cloned()
 }
 
 fn reload_to(app: &mut bevy::app::App, candidate: ambition_content_pack::PreparedContentPack) {

@@ -52,7 +52,7 @@ pub fn open_death_interlude(
         let Ok((_, sim_id, stamp, root)) = participants.get(victim) else {
             continue;
         };
-        let interlude = rules.of(victim).unwrap_or_default().interlude;
+        let interlude = rules.of(victim).copied().unwrap_or_default().interlude;
 
         // A rollback host is deliberately different. Absence from rollback state
         // is not confirmed merely because the current prediction contains a death,
@@ -156,7 +156,7 @@ pub fn close_death_interlude(
             continue;
         }
         let room = rules.room_of(body);
-        let resets = rules.of(body).unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains;
+        let resets = rules.of(body).copied().unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains;
         // ⛔ A PRIMARY THAT WAITS STAYS OWED. While a participant plays in its
         // room, the primary's room does not go back, and the question is asked
         // again on each tick until nobody in that room is in play (the other

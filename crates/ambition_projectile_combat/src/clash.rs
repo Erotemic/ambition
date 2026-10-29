@@ -1,35 +1,8 @@
-//! ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together,
-//! before either road resolves damage.
+//! Collect and apply melee and projectile clashes before either damage path.
 //!
-//! ⭐⭐ THE MISSING HALF OF CLANKING, and S0.1 names it: `arbitrate_attack_clanks`
-//! queried strike volumes only, so a bolt flew through an opposing swing and
-//! through another bolt without either noticing. That was not one missing query.
-//! `step_projectiles` resolves its own contact in `CombatSet::Materialize` and
-//! the melee arbitration ran later in the same tick, so a shot had already hit
-//! (or missed) before any contest existed — and its victim query is
-//! `Without<LiveProjectile>` besides, so shots could not see each other by
-//! construction.
-//!
-//! ⇒ The contest moved to the one place that is BEFORE both damage roads, and
-//! both families feed it.
-//!
-//! ## Why this system is here and the DECISION is in `ambition_combat`
-//!
-//! [`ambition_combat::clank::resolve_clashes`] holds the rule — ordering,
-//! pairing, opposition, overlap, verdict — and has no world in it. This file
-//! holds only the two things that need a world: reading each family's boxes out
-//! of its own components, and mapping a [`ClashAttack`](ambition_combat::clank::ClashAttack) back onto that family's
-//! way of ending an attack (a move is cancelled; a shot is SPENT, and expires
-//! through the stepper's own expiry road on the very next system).
-//!
-//! ⛔ TWO ARBITRATION SITES WOULD HAVE BEEN TWO ANSWERS to "which attack wins",
-//! which is the authority split this packet exists to close. `ambition_combat`
-//! cannot host the collection because `LiveProjectile` / `ProjectileSeq` /
-//! `ProjectileAllegiance` live outside it, and giving the content-free combat
-//! model a dependency on the projectile model to reach three components would
-//! push `ambition_input` and the trace schema into every crate that wanted
-//! `Damage`. This crate already owns `apply_hitbox_damage` and
-//! `step_projectiles` for the same reason.
+//! Combat owns the contest rule. This adapter collects both attack families,
+//! runs that rule, and applies each result through the family's cancellation
+//! or expiry path.
 
 use bevy::prelude::*;
 
@@ -38,20 +11,9 @@ use ambition_combat::clank::{
 };
 use ambition_platformer2d_core as ae;
 
-/// The clash unit: arbitration and what the trade COSTS, as one ordered thing a
-/// composition installs without naming either half.
-///
-/// ⛔⛤ **A COMPOSITION LAYER THAT CHAINS THESE TWO BY NAME HAS TAKEN AUTHORITY
-/// OVER TWO DOMAINS IT DOES NOT OWN**, which is Prerequisite C's rule in its own
-/// words: *"every load-bearing cross-capability ordering relationship must be
-/// expressible using public phase/set vocabulary rather than foreign system
-/// identities."* Writing the pair here costs the composition nothing and the
-/// ordering is stated by the crate that owns one of the two halves.
-///
-/// ⭐ THE ORDER IS THE WHOLE CONTENT OF THIS FUNCTION, and it is not a
-/// preference: `rebound_from_clanks` drains the `AttacksClanked` the arbiter
-/// writes, so the moves a trade ended are gone before either damage road looks
-/// at anything they own.
+/// Return arbitration followed by rebound as one unit. Rebound consumes the
+/// arbitration messages. Schedule the unit before either attack family applies
+/// damage.
 pub fn clash_arbitration(
 ) -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
     (
@@ -71,7 +33,7 @@ pub fn clash_arbitration(
 /// that arbitrated as it went would let whichever attack its query yielded first
 /// land before the trade was known.
 #[allow(clippy::too_many_arguments)]
-pub fn arbitrate_attack_clashes(
+fn arbitrate_attack_clashes(
     mut commands: Commands,
     // ⛔⛔ `StrikeVolume`, NOT `HitboxLifetime`. `advance_move_playback` spawns
     // authored volumes with a comment reading *"NO `HitboxLifetime` on purpose"*
@@ -90,7 +52,7 @@ pub fn arbitrate_attack_clashes(
             &mut ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay,
             &ambition_projectiles::ProjectileSeq,
             Option<&ambition_projectiles::ProjectileOwner>,
-            Option<&ambition_projectile_combat::ProjectileAllegiance>,
+            Option<&crate::ProjectileAllegiance>,
         ),
         With<ambition_projectiles::LiveProjectile>,
     >,
@@ -492,7 +454,7 @@ mod tests {
                 seq,
                 ambition_projectiles::ProjectileOwner(owner),
                 ambition_projectiles::LiveProjectile,
-                ambition_projectile_combat::ProjectileAllegiance {
+                crate::ProjectileAllegiance {
                     faction: ambition_characters::actor::ActorFaction::Player,
                     team: team
                         .map(|t| ambition_combat::targeting::MatchTeam::new(t.to_string())),

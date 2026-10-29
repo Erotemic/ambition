@@ -12,10 +12,11 @@ through *interact*:
 | ambient bark | catalog `fallback_dialogue` | the character's own line |
 | interact conversation | the Yarn node named by the LDtk `dialogue_id` | the `generic_npc` placeholder |
 
-`npc_dialogue_request`
-(`crates/ambition_platformer2d_actor_monolith/src/body/npcs.rs`) reads only
-the LDtk `dialogue_id`, treats a blank value as absent, and falls through to
-`generic_npc`. That placeholder is correct current behaviour, not a bug.
+`npc_talk_dialogue_id`
+(`crates/ambition_conversation/src/opening.rs`) selects the authored
+`dialogue_id`, treats a blank value as absent, and selects `generic_npc`
+when the value is absent. Runtime interaction and content validation use this
+rule. The placeholder is the current policy.
 
 The Hall is covered by authoring instead: catalog rows carry a
 `hall_dialogue_id`, and each one names a Yarn title
@@ -47,7 +48,7 @@ Shape, if built:
   the runtime needs no "does it exist" branch.
 - A generated node is one line from the bark pool and a Close. No choices, no
   state.
-- `npc_dialogue_request` routes a blank or absent `dialogue_id` to
+- Conversation entry selection routes a blank or absent `dialogue_id` to
   `character_<character_id>` instead of `generic_npc`.
 - Regen works on a fresh clone. The generator reads the same `CharacterNotes`
   as `tools/ambition_ldtk_tools/ambition_ldtk_tools/character_notes.py`.
@@ -57,7 +58,7 @@ Shape, if built:
 ```bash
 grep -c "hall_dialogue_id: None" game/ambition_content/assets/data/character_catalog.ron
 grep -c "fallback_dialogue" game/ambition_content/assets/data/character_catalog.ron
-rg -n "generic_npc" crates/ambition_platformer2d_actor_monolith/src/body/npcs.rs
+rg -n "generic_npc" crates/ambition_conversation/src/opening.rs
 ```
 
 ## Owner

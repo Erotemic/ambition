@@ -34,9 +34,11 @@ The session lifecycle and room-crossing policy now have a separate owner,
 `ambition_platformer2d_session`, above the actor kernel. Publication and runtime
 call that owner directly. The actor kernel has no production dependency on it.
 
-The remaining work is responsibility separation. Keep device input and global schedule assembly at runtime. Move the remaining cross-domain adapters to their owners. Keep accepted control, body custody,
-body motion, and action execution together. A dependency on a lower domain is
-valid when the kernel needs that domain's facts.
+The remaining work is responsibility separation. Keep device input and global
+schedule assembly at runtime. Control owns participant input and held-frame
+history. Move the remaining cross-domain adapters to their owners. Keep accepted
+control, body custody, body motion, and action execution together. A dependency
+on a lower domain is valid when the kernel needs that domain's facts.
 
 The instrument counts textual `crate::<module>` paths inside one crate. It
 misses many imported names, cross-crate dependencies, shared writers, message
@@ -653,7 +655,13 @@ hitstop expiry. Observer requests follow the body that holds the driving seat.
 The empty actor-maintenance phase and the body-role clock paths are deleted.
 Real simulation arms now cover removal of one possessed body while another
 participant keeps control, and active-move continuity when a seat is released.
-The broader no-double-body-tick acceptance remains open.
+A constrained-motion witness now covers home and actor riders, both carrier
+roles and timed dismount on eager and rollback hosts. It checks one tentative
+kernel step before the saddle pin and one free step after release.
+Control acceptance now owns script holds, commanded movement, and action
+schemes. Room technique grants follow each body's driving relation, including
+secondary participants. Rule reads borrow declarations; the primary observation
+projection is not an eligibility authority.
 Keep accepted control, body custody, motion, and action execution together.
 Capability profiles remain a separate C2/SDK exit.
 
@@ -754,6 +762,98 @@ Guards: 2,005 owner library tests, 146 app tests, eight Mary-O/Sanic host tests,
 and six Smash tests remain ignored. The default app compiles with no warnings;
 the kernel graph is a DAG. The full feature union was not run.
 Do not restore role-specific reaction clocks or use home identity to select the observer.
+
+### K27 — Shared body control acceptance
+
+`956ae7472`: the action gate used the primary observation projection to grant
+room techniques. Each driven body now reads its own room rule. Control owns
+hold blanking, commanded movement, and action acceptance. Rule readers borrow
+values; stored projections make their own copies. Invocations, phases, state
+rows, and wire layouts stay the same.
+Guards: 3,153 owner library tests, 47 app tests, 14 mode-scope tests, 17
+Mary-O/Sanic host tests, 70 Smash tests, and 35 workspace policies pass. Six
+owner tests and six Smash tests remain ignored. The default app compiles with
+no warnings; the kernel graph is a DAG. The full feature union was not run.
+Sprite-publication census and fixture-lockfile findings remain with that work.
+Do not use the primary observation projection to grant body techniques.
+
+### K28 — Body-owned movement output
+
+`e3f9f237b`: body integration depended on avatar-owned movement facts and public
+per-body helpers. `body::BodyFrameOutput` and private integration helpers now
+own those facts. Avatar policy consumes the output. The app forwarding export
+is deleted. Required components, the derived rollback key, phases and codec
+layouts stay the same. No systems were added.
+Guards: 61 selected library tests, 31 app tests, 11 power-loop tests, 12 Mary-O
+host tests, 70 Smash tests and 35 workspace policies pass. Six Smash tests stay
+ignored. The default app compiles with no warnings; the kernel graph is a DAG.
+The sprite-publication fixture lockfile remains stale (52 of 53 absence
+contracts pass). The full feature union and Android performance were not run.
+Do not expose a home-body helper as a second public movement route.
+
+### K29 — Control-owned participant input
+
+`f941e5547`: generic participant input and held-frame history lived under
+avatar. Control now owns their producer, state and ordering set. Runtime
+registers the same persona, input and body-mode phases directly. The avatar
+forwarding installer is deleted. State fields, clone probe, key, checksum and
+phase edges stay the same. No systems were added.
+Guards: 16 selected owner tests, six real-app control and rollback tests, and
+35 workspace policies pass. The default app compiles with no warnings; codec
+layouts stay the same and the kernel graph is a DAG. The full feature union
+and Android performance were not run.
+Do not make the primary home identity the owner of participant input history.
+
+### K30 — Mana policy at its ability owner
+
+`d694e20fc`: avatar held the named Mana rate and refill system. The ability
+owner now provides `ManaRegen` and `regenerate_driven_mana` beside its pool and
+spending API. The old systems module and exports are deleted. Selection, rate,
+phase, resource gate and bank rollback identity stay the same. No systems or
+dependencies were added.
+Guards: 17 selected owner tests, eight app tests, 17 Mary-O/Sanic host tests,
+70 Smash tests and 35 workspace policies pass. Six Smash tests stay ignored.
+The default app compiles with no warnings; codec layouts stay the same and
+the kernel graph is a DAG. The known sprite fixture lockfile remains stale.
+The full feature union and Android performance were not run.
+Do not put named ability resource policy back in the body kernel.
+
+### K31 — Conversation-owned entry selection
+
+`752655df3`: the body kernel selected dialogue entry IDs through a temporary
+combat-domain request. Conversation opening now owns the selector. Interaction
+and content validation call that rule. The old helper, forwarding export and
+request carrier are deleted. Blank and authored IDs keep their meaning. The
+selector borrows its result; it adds no system, dependency or rollback state.
+Guards: 37 selected owner tests, four app conversation tests and all
+35 workspace policies pass. The default app compiles with no warnings; codec
+layouts stay the same and the kernel graph is a DAG. The global doc-link check
+reports five links in untouched docs. The full feature union and Android
+performance were not run. Keep dialogue entry policy at the conversation owner.
+
+### K32 — Projectile-combat clash integration
+
+`513679f29`: projectile combat takes the kernel's melee/projectile collector
+and ordered arbitration/rebound unit. Combat keeps the pure rule. No new systems,
+dependencies or state. Guards: 28 owner, six app, 70 Smash and 35 policy tests pass;
+six tests ignored; default app and strict owner rustdoc pass. The old module is gone.
+Keep this adapter outside the kernel. Full feature union and Android were not run.
+
+### Constrained-body release acceptance
+
+`bbcdf67ff`: actor-baseline queries skipped home riders. Both release paths now
+release those bodies and keep their size. The app guard covers tentative motion,
+timed dismount and later rollback. Guards: 14 mount, 14 app, 70 Smash and 35 policy
+tests; six Smash diagnostics ignored; default app compiles with no warnings.
+Keep release independent of controller kind. No production systems or state added.
+
+### K33 — Runtime identity diagnostics
+
+`6efa03591`: damageable-body identity observation moved from the kernel to runtime.
+Both identity censuses remain. The old module and forwarding API are gone.
+Guards: 14 runtime, five app and 35 policy tests; default app and strict rustdoc pass.
+Schedule, gates, state lifetime and codec shapes stay the same. Keep diagnostics
+outside body execution. Full feature union and Android were not run.
 
 ### Migration acceptance for each packet
 

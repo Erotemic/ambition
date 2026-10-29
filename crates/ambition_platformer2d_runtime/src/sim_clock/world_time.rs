@@ -31,7 +31,7 @@ pub struct SimDtMirrored;
 /// roll) read scaled dt through `SimDt` rather than `WorldTime`. This host
 /// system is the inversion seam: it copies the already-scaled sim clock so the
 /// runtime's value is byte-identical to the sandbox's (pause / bullet-time feel
-/// preserved). Registered immediately AFTER [`refresh_world_time`] so every
+/// preserved). Registered immediately AFTER [`refresh_world_time`](ambition_time::refresh_world_time) so every
 /// downstream runtime reader sees a current value.
 pub fn mirror_sim_dt_into_runtime(
     world_time: Res<WorldTime>,

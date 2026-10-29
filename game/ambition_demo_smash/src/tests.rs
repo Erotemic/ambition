@@ -788,13 +788,13 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
 
     let declared = app.world().resource::<DeclaredRules<CombatRules>>();
     assert_eq!(
-        declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))),
+        declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))).copied(),
         Some(crate::smash_combat_rules()),
         "a Smash stage must play under the rules Smash declares"
     );
     for elsewhere in [None, Some("mary_o"), Some("ambition_versus")] {
         assert_eq!(
-            declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(elsewhere)),
+            declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(elsewhere)).copied(),
             None,
             "⛔ the stage's DI budget governs a room it does not own ({elsewhere:?}) and \
              follows the player into a game that authored none"
@@ -805,7 +805,7 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
         .world()
         .resource::<DeclaredRules<ambition_platformer2d::combat::strike_weight::StrikeWeightRules>>();
     assert_eq!(
-        strike_weight.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))),
+        strike_weight.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))).copied(),
         crate::smash_room_rules().strike_weight,
         "a Smash stage must land heavy where Smash's `room_rules.ron` says"
     );

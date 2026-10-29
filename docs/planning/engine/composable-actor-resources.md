@@ -69,7 +69,8 @@ component.
 - **Mana:** `ambition_abilities::mana::{MANA, POOL, REGEN_PER_SEC}` is declared
   by the Ambition provider through
   `PreparedPlatformerSource::with_home_body_resources(HomeBodyResources::declared(&[POOL]))`.
-  Only the Ambition home body holds Mana. `PlayerManaRegen` has no default. Read
+  Only the Ambition home body holds Mana. `ambition_abilities::mana::ManaRegen` has no default. The same owner
+  refills declared Mana for each driven body in the simulation schedule. Read
   models carry `Option`; the HUD prints `MP -` for a body with no Mana.
 - Spawn and reset share one baseline: `ActorResources::reset_to_start` restores
   the declarations the seat was built from.

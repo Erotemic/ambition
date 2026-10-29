@@ -37,7 +37,7 @@ use ambition_combat::actor_tuning::ActorConfig;
 ///   so — which is why no hold keeps a copy to restore.
 ///
 /// - A DEAD body falls by all of its gravity, whatever its authored scale:
-///   see [`gravity_scale_of`].
+///   see `gravity_scale_of`.
 ///
 /// [`PoseOwnedExternally`]: ambition_platformer2d_core::PoseOwnedExternally
 /// [`CapturedBy`]: ambition_combat::capture::CapturedBy

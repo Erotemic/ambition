@@ -122,12 +122,9 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 // Pull nearby loot toward the player, then collect on overlap.
                 magnetize_pickups.in_set(PickupMagnetize),
                 collect_ecs_pickups.in_set(PickupCollect),
-                // A METER MUTATOR on the controlled subject, scaled by sim dt.
-                // In the simulation, not in `Update`: `body.mana` is rollback
-                // state, and a render-rate write does not resimulate on a
-                // rewind.
-                ambition_platformer2d_actor_monolith::avatar::regen_player_mana
-                    .run_if(bevy::prelude::resource_exists::<ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen>),
+                // ActorResources is rollback state. Refill it in the simulation schedule.
+                ambition_abilities::mana::regenerate_driven_mana
+                    .run_if(bevy::prelude::resource_exists::<ambition_abilities::mana::ManaRegen>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureCollection),
@@ -245,9 +242,9 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // consumer of finished control reads the walk.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::avatar::drive_commanded_moves
+            ambition_platformer2d_actor_monolith::control::drive_commanded_moves
                 .run_if(bevy::prelude::any_with_component::<ambition_characters::control::CommandedMove>)
-                .after(ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames)
+                .after(ambition_platformer2d_actor_monolith::control::blank_scripted_control_frames)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
         // The cast half of the conversation break. It sits in a set the
@@ -316,6 +313,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             .add_systems(
                 sim,
                 ambition_platformer2d_items::pickups::forget_consumed_pickups_at_checkpoint
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCapture)
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted,
                     >,
                 ),

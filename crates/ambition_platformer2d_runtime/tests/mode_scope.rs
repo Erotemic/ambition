@@ -653,9 +653,9 @@ fn a_rule_and_its_gate_agree_about_no_room_an_untagged_room_and_a_mode() {
                  standalone: GoverningRules<u16>,
                  room: ambition_platformer2d_runtime::CurrentRoom| {
                     (
-                        host.get(),
+                        host.get().copied(),
                         room.in_scope(RulesScope::UntaggedRooms),
-                        standalone.get(),
+                        standalone.get().copied(),
                         room.in_scope(RulesScope::EveryRoom),
                     )
                 },

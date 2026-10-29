@@ -3,7 +3,7 @@
 use bevy::prelude::{Commands, Res};
 
 /// Rebuild each live room's [`RoomCombatTuning`] from that room's declared
-/// rules and the baseline, and [`ResolvedCombatTuning`] from the rules that
+/// rules and the baseline, and [`ResolvedCombatTuning`](ambition_combat::rules::ResolvedCombatTuning) from the rules that
 /// govern no room.
 ///
 /// Per live room, not from THE live room (OW1): with two rooms live, the
@@ -43,12 +43,12 @@ pub fn project_combat_rules(
     // absent baseline stands at.
     let resolve = |room: ambition_combat::scoped_rules::ActiveRoom<'_>| {
         ambition_combat::rules::ResolvedCombatTuning::resolve_over(
-            declared.in_room(room),
+            declared.in_room(room).copied(),
             baseline_feel.as_deref(),
             baseline_ff.as_deref(),
         )
-        .with_strike_weight(strike_weight.in_room(room))
-        .with_landing_lag(landing_lag.in_room(room))
+        .with_strike_weight(strike_weight.in_room(room).copied())
+        .with_landing_lag(landing_lag.in_room(room).copied())
     };
     commands.insert_resource(resolve(ambition_combat::scoped_rules::ActiveRoom::NoRoom));
     for (root, room) in &roots {

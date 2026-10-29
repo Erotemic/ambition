@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d_actor_monolith::body::BodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameplayGated};
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -21,7 +21,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Every player body carries the movement→presentation hand-off the
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
-        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, PlayerBodyFrameOutput>();
+        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, BodyFrameOutput>();
         app.register_required_components_with::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(
             || ambition_platformer2d_core::CenteredAabb::new(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::ZERO),
         );
@@ -137,20 +137,24 @@ impl Plugin for PlayerSchedulePlugin {
                 .in_set(PlayerInputSet::Device),
         );
 
-        // ⭐ THE AVATAR INSTALLS ITS OWN PLAYER-INPUT STAGE. Three blocks that
-        // named five of that crate's private systems became one call. Every set
-        // involved is `shared_tangle`'s published `PlayerInputSet`, which the
-        // avatar crate already depends on — which is the whole test for whether a
-        // block can be carved: an owner that cannot NAME its anchors cannot
-        // install itself.
-        //
-        // ⛔ `close_death_interlude` IS DELIBERATELY NOT AMONG THEM, though a
-        // census listed it as reducible beside these. It orders
-        // `.before(crate::sandbox_reset::RoomReplayAdmission)`, a set this crate
-        // owns, and `actor_monolith` does not depend on the runtime — measured, not
-        // assumed. ⇒ That block is IRREDUCIBLE: only the composition can name both
-        // sides, which is a composition doing its job rather than a leak.
-        ambition_platformer2d_actor_monolith::avatar::install_avatar_player_input(app, sim);
+        // Resolve the persona before body-control consumers.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay
+                .in_set(PlayerInputSet::Persona),
+        );
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::control::tick_controlled_brains
+                .in_set(ambition_platformer2d_actor_monolith::control::ControlledBrainTick)
+                .in_set(PlayerInputSet::Brain),
+        );
+        // Body mode consumes finished participant and autonomous control before integration.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::body_mode::update_body_mode
+                .in_set(PlayerInputSet::BodyMode),
+        );
         // Causal recording runs in the simulation schedule after the frame stamp so
         // replay state and publisher timing refer to the same simulation frame.
         #[cfg(feature = "causal")]
@@ -163,7 +167,7 @@ impl Plugin for PlayerSchedulePlugin {
                     // Observe movement intent after the brain. The observer is read-only so
                     // instrumentation cannot perturb rollback state.
                     crate::causal::record_player_movement_intent
-                        .after(ambition_platformer2d_actor_monolith::avatar::ControlledBrainTick),
+                        .after(ambition_platformer2d_actor_monolith::control::ControlledBrainTick),
                 )
                     .in_set(crate::causal::RecordingSet::Publish),
             )
@@ -220,15 +224,15 @@ impl Plugin for PlayerSchedulePlugin {
                 // for `SmashHoldState`.
                 ambition_combat::capture::systems::arm_smash_throw_edge.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // Held bodies are the ones that carry `ControlHolds`.
-                ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames
+                ambition_platformer2d_actor_monolith::control::blank_scripted_control_frames
                     .run_if(bevy::prelude::any_with_component::<ambition_characters::control::ControlHolds>),
                 ambition_combat::capture::systems::restrict_captor_control.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any
                 // simulation/effects phase consumes them.
-                ambition_platformer2d_actor_monolith::avatar::gate_body_control
-                    .in_set(ambition_platformer2d_actor_monolith::avatar::WornControlGateSet),
+                ambition_platformer2d_actor_monolith::control::gate_body_control
+                    .in_set(ambition_platformer2d_actor_monolith::control::BodyControlGate),
                 // A folded `bubble_shield` special MOVE forces `shield_held` for
                 // its duration, so pressing Special raises the ONE shield through
                 // the same kernel path a held guard does. After the gate, which
@@ -364,7 +368,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Kernel deaths bypass hit resolution, so publish their death fact here after
                 // movement has flagged the reset. This remains ungated so suspended dialogue
                 // cannot swallow a pit/drown/tile-hazard death.
-                ambition_platformer2d_actor_monolith::avatar::body_integration::publish_kernel_reset_death,
+                ambition_platformer2d_actor_monolith::avatar::publish_kernel_reset_death,
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
                 ambition_platformer2d_session::death::open_death_interlude

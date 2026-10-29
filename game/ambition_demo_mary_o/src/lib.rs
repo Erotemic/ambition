@@ -1675,7 +1675,7 @@ impl Plugin for MaryORulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::ControlledBrainTick);
+            .after(ambition_platformer2d::actors::control::ControlledBrainTick);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
         // collision overlay's `removed_block_names` so they stop colliding (and, via
@@ -1720,7 +1720,7 @@ impl Plugin for MaryORulesPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
-                .after(ambition_platformer2d::actors::avatar::WornControlGateSet),
+                .after(ambition_platformer2d::actors::control::BodyControlGate),
         );
         app.add_scoped_systems(
             sim,

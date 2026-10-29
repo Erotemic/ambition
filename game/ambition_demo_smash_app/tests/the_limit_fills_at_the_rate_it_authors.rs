@@ -3,7 +3,7 @@
 //!
 //! The smash ruleset authors `LimitMeterFill` (a 60-point cap and 0.5/s of
 //! clock, so 120 s to fill from nothing). The platformer's
-//! `avatar::regen_player_mana` refills every driven body at 14.0/s, and the
+//! `abilities::mana::regenerate_driven_mana` refills every driven body at 14.0/s, and the
 //! monolith registers it unconditionally in its `FeatureCollection` phase. The
 //! Limit is its own named resource in the seat's bank, so the Mana refill
 //! cannot reach it.
@@ -64,7 +64,7 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
         app.update();
     }
     // `smash_roster`, not `smash_roster_at_levels`: seat 0 is a human.
-    // `regen_player_mana` refills `DrivenBodies`, and a CPU is not one, so an
+    // `regenerate_driven_mana` refills `DrivenBodies`, and a CPU is not one, so an
     // all-CPU match cannot show the leak.
     //
     // A human seat with no controller deals and takes no damage, so the
@@ -85,7 +85,7 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
     }
     if let Some(rate) = regen {
         app.world_mut().insert_resource(
-            ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(rate),
+            ambition_platformer2d::abilities::mana::ManaRegen(rate),
         );
     }
     app
@@ -318,7 +318,7 @@ fn governing<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &mut App) -
     app.world_mut()
         .run_system_once(
             |rules: ambition_platformer2d::combat::governing_rules::GoverningRules<T>| {
-                rules.get()
+                rules.get().copied()
             },
         )
         .expect("the rule reader runs")
@@ -393,7 +393,7 @@ fn the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration() {
 /// Composing Smash changes no process-wide resource.
 ///
 /// `ambition_app` installs `SmashExperiencePlugin` beside Ambition, Sanic,
-/// and Mary-O. If `PlayerManaRegen(0.0)` or the portal presentation were
+/// and Mary-O. If `ManaRegen(0.0)` or the portal presentation were
 /// inserted in `Plugin::build`, merely linking Smash would zero mana regen
 /// (which `ambition_abilities` consumers need) and set Smash's cones for
 /// every experience.
@@ -402,7 +402,7 @@ fn composing_smash_inserts_no_process_wide_policy() {
     let app = build_demo_app();
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>()
+            .get_resource::<ambition_platformer2d::abilities::mana::ManaRegen>()
             .is_none(),
         "composing Smash zeroed the mana rate for the whole process. Every other \
          experience in the same binary loses its charge attacks, and none of \

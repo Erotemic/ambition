@@ -150,7 +150,7 @@ impl Plugin for AmbitionExperiencePlugin {
         // The refill rate for the Mana this experience declares. Inert for every
         // body that holds no Mana, so composing this beside other experiences
         // changes nothing of theirs.
-        app.insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(
+        app.insert_resource(ambition_platformer2d::abilities::mana::ManaRegen(
             ambition_platformer2d::abilities::mana::REGEN_PER_SEC,
         ));
         declare_ambition_seating(app, &self.config.route_id);

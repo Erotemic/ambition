@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::body::BodyFrameOutput;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
@@ -120,7 +120,7 @@ pub fn break_bricks(
     players: Query<
         (
             Entity,
-            &PlayerBodyFrameOutput,
+            &BodyFrameOutput,
             Option<&WornEquipment>,
             Option<&ambition_platformer2d::platformer::sim_id::SimId>,
             // Her ultimate form is not a rung of her ladder, so her equipment
@@ -161,7 +161,7 @@ pub fn break_bricks(
 
 /// The bricks one body's head contacts break in its live room `room`.
 fn break_bricks_struck_by(
-    frame: &PlayerBodyFrameOutput,
+    frame: &BodyFrameOutput,
     room: LiveRoomInstance,
     room_geometry: &ae::RoomGeometry,
     broken: &mut BrokenBricks,
@@ -395,8 +395,8 @@ mod tests {
         WornEquipment::new(vec![crate::powerups::star_wand()])
     }
 
-    fn head_bonk_frame(id: ae::GeoId) -> PlayerBodyFrameOutput {
-        let mut frame = PlayerBodyFrameOutput::default();
+    fn head_bonk_frame(id: ae::GeoId) -> BodyFrameOutput {
+        let mut frame = BodyFrameOutput::default();
         frame
             .events
             .contacts
@@ -555,7 +555,7 @@ mod tests {
         // `break_bricks` that had simply stopped working at all.
         *app.world_mut()
             .entity_mut(player)
-            .get_mut::<PlayerBodyFrameOutput>()
+            .get_mut::<BodyFrameOutput>()
             .expect("the player carries its frame") = head_bonk_frame(empty_id);
         app.update();
         assert!(

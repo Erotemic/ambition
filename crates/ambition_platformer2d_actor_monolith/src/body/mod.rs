@@ -1,7 +1,6 @@
 //! Accepted body control, decisions, movement, and action execution.
 
 use ambition_characters::actor::limb::fan_out_limb_intents;
-use ambition_persistence::save_data::npc_talked_flag;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -14,10 +13,9 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
 pub mod brain_command;
 mod movement;
+mod integration;
+pub use integration::{BodyFrameOutput, BodyReset};
 pub(crate) mod npcs;
-/// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
-/// `ambition_persistence::save_data::npc_hostile_flag`, which construction also reads.
-pub use npcs::npc_talk_dialogue_id;
 
 pub mod empowerment;
 pub mod ledge_grab;
@@ -30,7 +28,6 @@ pub use movement_fx::{
     handle_player_events,
 };
 
-pub use body_identity::{BodyIdentityCensus, install_body_identity_census};
 pub use dismounted_rider::install_dismounted_rider_rebuild;
 pub use npcs::speak_conversation_cut_barks;
 
@@ -54,7 +51,6 @@ pub(crate) use movement::SeedActorIntegrationTestExt;
 pub(crate) mod actors;
 mod aggression;
 mod anim_helpers;
-mod body_identity;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
@@ -559,8 +555,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
             sim,
             ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
-                .after(crate::avatar::blank_scripted_control_frames)
-                .after(crate::avatar::drive_commanded_moves)
+                .after(crate::control::blank_scripted_control_frames)
+                .after(crate::control::drive_commanded_moves)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
     }

@@ -33,7 +33,7 @@ fn count_room_resets(
 /// death route and actually drives another is green for the wrong reason, and
 /// the cause is the only thing in the world that can tell them apart:
 /// `HitSource::LeftTheWorld` on the controlled body is written by exactly one
-/// system, `publish_kernel_reset_death`, from `PlayerBodyFrameOutput.reset`.
+/// system, `publish_kernel_reset_death`, from `BodyFrameOutput.reset`.
 #[derive(Resource, Default)]
 struct DeathsSeen(Vec<(Entity, ambition_platformer2d::combat::HitSource)>);
 

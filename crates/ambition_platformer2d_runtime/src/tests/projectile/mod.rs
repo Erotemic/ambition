@@ -141,7 +141,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // Commit every seat's shaped raw frame into SlotControls, then let
             // the player brain translate that canonical slot (production order).
             ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
-            ambition_platformer2d_actor_monolith::avatar::tick_controlled_brains,
+            ambition_platformer2d_actor_monolith::control::tick_controlled_brains,
             ambition_combat::action_emission::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
             // shots, THEN input fires + the delayed request materializer runs (so a

@@ -457,7 +457,7 @@ impl Plugin for CombatSchedulePlugin {
                 // crates' private systems. `clash_arbitration()` states that
                 // order in the crate that owns one of the two halves, so what a
                 // composition installs is the unit.
-                ambition_platformer2d_actor_monolith::clash::clash_arbitration()
+                ambition_projectile_combat::clash_arbitration()
                     .in_set(GameplayGated),
                 // Unified projectile step (player + enemy, faction-routed).
                 crate::projectile_schedule::step_projectiles
@@ -913,7 +913,7 @@ impl Plugin for CombatSchedulePlugin {
         // installed: zero unidentified across 120 frame-samples, so `SimId`
         // arrives WITH the body and this is expected to stay at zero — but a
         // future road that mints late should produce a finding, not a crash.
-        ambition_platformer2d_actor_monolith::body::install_body_identity_census(app, sim);
+        crate::sim_identity::install_body_identity_census(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

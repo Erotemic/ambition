@@ -34,7 +34,7 @@
       "class": "the centre only"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/clash.rs",
+      "file": "crates/ambition_projectile_combat/src/clash.rs",
       "code": "volume: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5)),",
       "class": "a shot"
     },

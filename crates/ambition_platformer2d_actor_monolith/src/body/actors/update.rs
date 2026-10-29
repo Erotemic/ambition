@@ -951,7 +951,7 @@ pub(crate) fn crawler_neighbor_blocks(
 }
 
 /// The per-body ACTOR movement integrator — the actor-species sibling of
-/// [`crate::avatar::integrate_home_body`]. Both bottom out in the SAME engine seam
+/// [`crate::body::integration::integrate_home_body`]. Both bottom out in the SAME engine seam
 /// (`ae::step_motion`, reached here via `ActorMut::update` →
 /// `integrate_body`); this wrapper adds the actor-species orchestration the home
 /// body doesn't need (dead/revive, AI evaluation, surface-walker step, flight
@@ -1435,7 +1435,7 @@ pub fn integrate_sim_bodies(
     // Home/player bodies (primary + any brain-driven clone). Disjoint from the
     // actor query (`With<PlayerEntity>` vs `Without<PlayerEntity>`), so both borrow
     // in the same system. Each carries the SAME movement clusters an actor does; the
-    // home body just also owns the `PlayerBodyFrameOutput` reset/presentation seam.
+    // home body just also owns the `BodyFrameOutput` reset/presentation seam.
     mut players: Query<
         (
             // Whose body this is, so the contact snapshot can hand it every
@@ -1453,7 +1453,7 @@ pub fn integrate_sim_bodies(
             Option<&ambition_characters::actor::BodyHealth>,
             &ambition_characters::control::ActorControl,
             &mut CenteredAabb,
-            &mut crate::avatar::PlayerBodyFrameOutput,
+            &mut crate::body::BodyFrameOutput,
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,
@@ -1569,7 +1569,7 @@ pub fn integrate_sim_bodies(
     // shared by every player body (primary + clone); the two-clock precision-blink
     // affordance rides on `control_dt` inside the helper. No sandbox/room reset and
     // no presentation happen here — those are the home reset-POLICY and
-    // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
+    // PRESENTATION phases, which read the `BodyFrameOutput` this writes.
     // The shared F3 dev tuning is the fallback; a body that authors its own feel
     // (below) overrides it per-body. Built once, cheaply copied.
     let editable_player_tuning = active_tuning.0;
@@ -1607,7 +1607,7 @@ pub fn integrate_sim_bodies(
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
-        let riding_up = crate::avatar::integrate_home_body(
+        let riding_up = crate::body::integration::integrate_home_body(
             control.0,
             feature_world,
             &mut clusters,
@@ -1639,7 +1639,7 @@ pub fn integrate_sim_bodies(
         // here, beside the ridden-surface fact (all are per-tick projections of
         // this integration; the roll reflex and the anim picker consume them).
         motion_facts.skidding =
-            crate::avatar::surface_skidding(&motion_model, control.0.locomotion.x);
+            crate::body::integration::surface_skidding(&motion_model, control.0.locomotion.x);
         if let Some(surface) = surface_upright.as_mut() {
             surface.up = riding_up;
         }

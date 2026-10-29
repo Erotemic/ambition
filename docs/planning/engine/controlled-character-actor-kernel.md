@@ -56,8 +56,9 @@ edge needs a phase/geometry classification; replacing it with a message without
 checking its consumers is not a design.
 
 `crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`
-uses shared body integration from avatar code, but still contains policy and
-population decisions. One shared integration call does not prove every actor
+owns the shared body integration entry. Its internal home-body helper and
+`body::BodyFrameOutput` no longer depend on avatar policy. The entry still
+contains policy and population decisions. One shared integration call does not prove every actor
 gets one tick or that home-avatar assumptions have disappeared.
 
 `crates/ambition_body_seed/src/clusters.rs` is the live
@@ -87,7 +88,7 @@ Inside the kernel, each policy arm states the box its step moved
 record, the hazard gate, water, climbables, the ledge carry and the rebound
 pad (queue CRAWLER-HAZARD-FOOTPRINT, 2026-10-05/06; witnesses in
 `movement/tests/hazard_footprint.rs` and `step_box_world_reads.rs`).
-`ActorMut::aabb` asks the same rule (`integration/body_box_tests.rs`).
+`ActorMut::aabb` asks the same rule (`body/movement/body_box_tests.rs`).
 
 Built 2026-10-06 (queue LEVEL-BOX-READERS): the transit record
 (`reconcile_transit`, schema 315), the world and reach readers, the arrival of

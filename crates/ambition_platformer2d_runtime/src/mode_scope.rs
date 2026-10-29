@@ -249,7 +249,7 @@ pub fn project_room_rule<T, R>(
         + From<Option<T>>,
 {
     let Some(mut out) = out else { return };
-    let next = R::from(rule.get());
+    let next = R::from(rule.get().cloned());
     if *out != next {
         *out = next;
     }
@@ -372,7 +372,7 @@ pub fn install_mode_owner<B: Bundle>(
 }
 
 /// Owns the mode-scope lifetime: the sweep that retires a departed mode's
-/// entities, and [`follow_mode_owner_rooms`], which tells each mode owner the
+/// entities, and `follow_mode_owner_rooms`, which tells each mode owner the
 /// room it is in. Installed once with the engine; a second follow in one tick
 /// would call every arrival a stay. The run condition [`in_mode`] is a free
 /// function because a rules plugin attaches it to its OWN systems.

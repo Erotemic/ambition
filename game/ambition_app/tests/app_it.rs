@@ -213,6 +213,7 @@ mod registered_character_art_resolves;
 mod replay_fixture_regression;
 mod repro_walls;
 mod resolved_combat_tuning;
+mod attack_clashes;
 mod rollback_contact;
 mod rollback_coverage;
 mod rollback_exit_oracle;
@@ -306,3 +307,5 @@ mod the_ninja_village;
 mod the_gate_network;
 
 mod body_reaction_clocks;
+
+mod body_control_acceptance;

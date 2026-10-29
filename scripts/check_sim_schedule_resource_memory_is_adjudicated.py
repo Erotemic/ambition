@@ -301,10 +301,8 @@ ADJUDICATED: dict[str, str] = {
         "nothing reads either field (read 2026-09-18)"
     ),
     "observe_damageable_body_identity": (
-        "⭐ AN OBSERVATION CENSUS. `BodyIdentityCensus` is read only from the "
-        "test module in its own file "
-        "(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/body_identity.rs:191`); "
-        "no production system reads it (read 2026-09-18)"
+        "BodyIdentityCensus reports missing identities. No simulation system "
+        "reads this diagnostic report; its observations stay outside replay."
     ),
     "observe_unminted_bodies": (
         "⭐ AN OBSERVATION CENSUS, A2's witness surface. `UnmintedBodyCensus` is "

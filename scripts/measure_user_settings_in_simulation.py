@@ -313,21 +313,10 @@ SCHEDULE_PARAM_ADD = re.compile(
 
 
 def schedule_parameter_installers(sources: dict[str, str]) -> set[str]:
-    """Functions that take a SCHEDULE as a parameter and register systems into it.
+    """Resolve system names from installers that accept a schedule parameter.
 
-    ⛔⛤ **THE SECOND FORWARDER SHAPE, AND IT HID THE BIGGEST READER.**
-    `install_avatar_player_input(app, schedule)` does
-    `app.add_systems(schedule.clone(), tick_controlled_brains …)`, and
-    `crates/ambition_platformer2d_runtime/src/player_schedule.rs:153` calls it as
-    `install_avatar_player_input(app, sim)`. So the SYSTEM NAMES live in the
-    installer's body while the SCHEDULE comes from the call site — the mirror
-    image of `find_sim_forwarders`, where the schedule is literal and the systems
-    are the parameter. A census that knows only the first shape reported ZERO
-    simulation readers of `UserSettings` on a tree where `tick_controlled_brains`
-    reads it every simulated frame.
-
-    Returns `{owner: {system names it installs into its schedule parameter}}` for
-    owners that are CALLED with a simulation schedule somewhere.
+    The caller selects the schedule. The installer supplies the system names.
+    Follow both sites to find simulation systems.
     """
     installers: dict[str, set[str]] = {}
     for text in sources.values():
@@ -443,22 +432,8 @@ def main() -> int:
     # matched inside a comment; a prose `)` closing a registration block early), so
     # it asserts against a fact it cannot derive.
     # ⛔⛤ **AND THE CONDITION IS ABOUT THE SCHEDULE, NOT ABOUT THE READER SET.**
-    # This first read `if control in found and control not in sim`, and the moment
-    # `apply_feature_hit_events` was migrated OFF `UserSettings` the control's
-    # subject left the population and the check stopped applying — silently, on
-    # the very run that first reported ZERO simulation readers. A control that
-    # switches itself off exactly when the census reaches its goal is the shape
-    # `reference_a_check_that_cannot_fail` is about. Its registration is a fact
-    # about the schedule and holds whatever it reads.
-    # ⛔⛤ **TWO CONTROLS, ONE PER FORWARDER SHAPE, BECAUSE EACH SHAPE FAILED
-    # SILENTLY ONCE.** `apply_feature_hit_events` reaches the simulation schedule
-    # through `install_technique` → `install_techniques` → `add_systems(sim, …)`
-    # (the systems are the parameter). `tick_controlled_brains` reaches it through
-    # `install_avatar_player_input(app, sim)` → `add_systems(schedule.clone(), …)`
-    # (the SCHEDULE is the parameter). Missing the second made this script report
-    # ZERO simulation readers on a tree where the main controlled-player brain
-    # path read `UserSettings` every simulated frame — a GPT architecture review
-    # found it by hand after the script had been trusted.
+    # These systems run in simulation even when they no longer read settings.
+    # Do not restrict this attribution check to the current reader population.
     for control in ("apply_feature_hit_events", "tick_controlled_brains"):
         if control in sim:
             continue
@@ -466,8 +441,7 @@ def main() -> int:
         print("   schedule, and it is verified BY HAND to run in one:")
         print("     apply_feature_hit_events  combat_schedule.rs:695, through")
         print("       `install_technique` → `install_techniques` → add_systems(sim, …)")
-        print("     tick_controlled_brains    player_schedule.rs:153, through")
-        print("       `install_avatar_player_input(app, sim)` → add_systems(schedule, …)")
+        print("     tick_controlled_brains    PlayerSchedulePlugin in player_schedule.rs")
         print("   The attribution half of this instrument is broken and EVERY")
         print("   `UNATTRIBUTED` row below is unreliable — including rows that")
         print("   would otherwise read as a clean bill of health.")

@@ -7,20 +7,19 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | Body traversal through authored room geometry. |
-| [`avatar`](src/avatar/mod.rs) | Controlled body capabilities and execution. |
+| [`avatar`](src/avatar/mod.rs) | Home-body capabilities and policy. |
 | [`body`](src/body/mod.rs) | Accepted body control, decisions, movement, and action execution. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode transitions from accepted control and contact facts. |
 | [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
 | [`causal`](src/causal.rs) | The message the movement kernel writes for causal instrumentation. |
 | [`character_projection`](src/character_projection/mod.rs) | Apply prepared character mechanics to live bodies. |
-| [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
-| [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
+| [`control`](src/control/mod.rs) | Participant driving authority, seat input, and body control acceptance. |
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 
@@ -33,9 +32,9 @@ their schedules. See the
 [decomposition plan](../../docs/planning/engine/actor-monolith-decomposition.md).
 
 The public crate root exposes owned operations and semantic modules.
-`body` exposes accepted control and body execution. Call lower domain owners for their types;
-do not restore foreign forwarding exports here. `avatar` contains controlled
-body integration; controller kind does not select a separate physics path.
+`control` exposes accepted control; `body` exposes body execution and movement facts.
+Call lower domain owners for their types. Do not restore foreign forwarding
+exports here. `avatar` owns home-body capability and death-policy adapters.
 
 ### Authoritative state — who mutates what
 

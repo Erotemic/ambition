@@ -23,7 +23,7 @@ use ambition_platformer2d::encounter::mob_seed::EncounterMobSeed;
 use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::body::BodyFrameOutput;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeatPolicy;
 use ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested;
@@ -122,7 +122,7 @@ impl Loop {
                 ActionSet::peaceful(),
                 ActorMoveset(Default::default()),
                 ActorControl::default(),
-                PlayerBodyFrameOutput::default(),
+                BodyFrameOutput::default(),
             ))
             .id();
         app.insert_resource(ControlledSubject(Some(body)));
@@ -155,7 +155,7 @@ impl Loop {
         let mut frame = self
             .app
             .world_mut()
-            .get_mut::<PlayerBodyFrameOutput>(self.body)
+            .get_mut::<BodyFrameOutput>(self.body)
             .unwrap();
         frame.events.contacts.clear();
         frame
@@ -180,7 +180,7 @@ impl Loop {
         // re-arm the block so the NEXT rung of the ladder can be collected.
         self.app
             .world_mut()
-            .get_mut::<PlayerBodyFrameOutput>(self.body)
+            .get_mut::<BodyFrameOutput>(self.body)
             .unwrap()
             .events
             .contacts
@@ -673,6 +673,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     app.init_resource::<ambition_platformer2d::gameplay_trace::GameplayTraceBuffer>();
     app.add_message::<HitEvent>();
+    app.add_message::<ambition_platformer2d::vfx::FxRequest>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_platformer2d::combat::events::ActorStimulus>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();

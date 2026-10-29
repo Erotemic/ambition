@@ -303,7 +303,7 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
 /// and the standalone binary does not carry `apply_home_reset_policy`; the
 /// hosted `ambition_app` does (`game/ambition_app/src/app/player_tick.rs:40`).
 /// That system writes `RoomReplayAdmitted { reason: PlayerDeath }` on every
-/// frame `PlayerBodyFrameOutput.reset` is `Some`, with no other condition than
+/// frame `BodyFrameOutput.reset` is `Some`, with no other condition than
 /// `gameplay_allowed`.
 ///
 /// anti-vacuity first. A run where she never died at all would report
@@ -429,10 +429,10 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
 /// `apply_home_reset_policy` turns into a room-feature reset in the hosted app.
 fn kernel_reset_flag(
     app: &mut App,
-) -> Option<ambition_platformer2d::actors::avatar::BodyReset> {
+) -> Option<ambition_platformer2d::actors::body::BodyReset> {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::actors::body::BodyFrameOutput, With<PrimaryPlayer>>();
     query.iter(app.world()).next().and_then(|out| out.reset)
 }
 

@@ -1204,7 +1204,7 @@ pub fn apply_dismount_requests(
             &RidingOn,
             &mut CenteredAabb,
             &mut ae::BodyKinematics,
-            &SpawnBaseline,
+            Option<&SpawnBaseline>,
         ),
         Without<MountSlot>,
     >,
@@ -1217,9 +1217,11 @@ pub fn apply_dismount_requests(
             continue;
         };
         let mount = riding.mount;
-        // The authored size, from the record that survived the ride — the live
-        // size is the one the saddle overwrote.
-        kin.size = baseline.size;
+        // Restore an actor's authored size when it has a spawn baseline.
+        // Other bodies keep their size when the ride ends.
+        if let Some(baseline) = baseline {
+            kin.size = baseline.size;
+        }
         // The centre only: the next publish states the footprint of the
         // restored size (see `sync_riders_to_mounts`).
         aabb.center = kin.pos;
@@ -1351,16 +1353,12 @@ pub fn enforce_mount_rider_link(
             // ⭐ THE RIDE'S CLAIM, read so it can be kept in step with the ride
             // itself rather than only with the tick the ride was ARMED.
             Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
-            // The rider's kinematics and health, plus its AUTHORED baseline —
-            // the size a reset hands back.
-            //
-            // ⭐ THE LIVE SIZE IS NOT THAT FACT, which is why it has its own
-            // name: `BodyBaseSize` follows the stance, and the saddle snaps
-            // `BodyKinematics::size`. Reading either here would hand a grown
-            // rider the wrong body back.
+            // The spawn baseline holds the size before a saddle override.
+            // Stance size and the saddle's live size cannot restore it.
+            // A body without a baseline keeps its size and leaves the ride.
             &mut ae::BodyKinematics,
             &mut ambition_characters::actor::BodyHealth,
-            &SpawnBaseline,
+            Option<&SpawnBaseline>,
         ),
         Without<MountSlot>,
     >,
@@ -1587,7 +1585,9 @@ pub fn enforce_mount_rider_link(
                         continue;
                     }
                 }
-                rider_kin.size = rider_spawn.size;
+                if let Some(baseline) = rider_spawn {
+                    rider_kin.size = baseline.size;
+                }
                 // Same-frame presentation / combat sees where the rider is.
                 // The restored size is usually the same size as MountedSize;
                 // the next publish states its footprint (see
@@ -2458,6 +2458,25 @@ mod footprint_tests {
         });
         the_footprint_keeps_the_published_half(&mut app, rider, TURNED_HALF, "a dismount");
         assert!(app.world().get::<RidingOn>(rider).is_none(), "premise: the dismount happened");
+    }
+
+    #[test]
+    fn a_rider_without_an_actor_spawn_baseline_leaves_a_dead_mount() {
+        let mut app = App::new();
+        app.add_message::<MountDied>();
+        app.add_systems(Update, enforce_mount_rider_link);
+        let (rider, mount) = pair(&mut app, TURNED_HALF, sideways(), false);
+        app.world_mut().entity_mut(rider).remove::<SpawnBaseline>();
+        app.world_mut().entity_mut(rider).insert(ride_armed());
+        app.update();
+        assert!(app.world().get::<Mounted>(rider).is_none());
+        assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_none());
+        assert_eq!(app.world().get::<ae::BodyKinematics>(rider).unwrap().size, RIDER);
+        assert_eq!(app.world().get::<CenteredAabb>(rider).unwrap().half_size, TURNED_HALF);
+        let deaths: Vec<_> = app.world_mut().resource_mut::<bevy::ecs::message::Messages<MountDied>>().drain().collect();
+        assert_eq!(deaths.len(), 1);
+        assert_eq!(deaths[0].mount, mount);
+        assert_eq!(deaths[0].rider, rider);
     }
 
     #[test]

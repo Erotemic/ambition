@@ -20,11 +20,10 @@ pub fn project_authored_fighter_ladder(
     ladders: ambition_combat::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
     mut brains: bevy::prelude::Query<(bevy::prelude::Entity, &mut Brain)>,
 ) {
-    // One resolution for each room, not one for each fighter: a resolution
-    // clones the ladder's rows.
+    // Resolve once for each room and borrow its declared ladder.
     let mut by_room: Vec<(
         Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        Option<ambition_characters::brain::fighter::FighterBrainLadder>,
+        Option<&ambition_characters::brain::fighter::FighterBrainLadder>,
     )> = Vec::new();
     for (entity, mut brain) in &mut brains {
         let wanted = {
@@ -41,7 +40,7 @@ pub fn project_authored_fighter_ladder(
             };
             // No ladder governs this room: the engine floor is the answer,
             // which is the rule `profile_for_level` states.
-            let Some(ladder) = &by_room[index].1 else {
+            let Some(ladder) = by_room[index].1 else {
                 continue;
             };
             let Some(rung) = ladder.level(cfg.profile.level) else {

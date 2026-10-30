@@ -80,9 +80,8 @@ DOJO_MUSIC = "nine_rooftops"
 #: the two were laid out each in its own file, from the same corner.
 VILLAGE_Y = 10000
 #: The shrine, the street and the forest touch where their side exits join,
-#: with the low road level (`specs/check_flat_map.py`). The high road from the
-#: street's last roof (y 384) arrives on the forest's first branch 64 higher:
-#: both are drawn on their heights. The dojo is a building.
+#: with the low road and the high road level (`specs/check_flat_map.py`). The
+#: dojo is a building.
 ROOMS_AT = {
     SHRINE: ((0, VILLAGE_Y), (1600, 832)),
     STREET: ((1600, VILLAGE_Y - 64), (2816, 896)),
@@ -179,12 +178,15 @@ def street():
 #: the last one 64 over the floor.
 BRANCH_W, BRANCH_STEP = 320, 384
 FOREST_FLOOR = 832
-BRANCHES = [(f"branch_{i}", i * BRANCH_STEP + (WALL if i == 0 else 0), 384 + 64 * i) for i in range(7)]
+#: Six branches stepping down east from y 448, level in the world with the
+#: street's last roof (y 384 there): the high road's side exit meets the
+#: first branch (`specs/check_flat_map.py`).
+BRANCHES = [(f"branch_{i}", i * BRANCH_STEP + (WALL if i == 0 else 0), 448 + 64 * i) for i in range(6)]
 
 
 def forest():
     """The cedar forest. Floor 832. The branches step down east from the
-    west edge (y 384) to 64 over the floor: from the floor, a robot climbs
+    west edge (y 448) to 64 over the floor: from the floor, a robot climbs
     them west, back to the roofs of the street. The Shadow Dojo's door is
     at the east end."""
     rid = FOREST

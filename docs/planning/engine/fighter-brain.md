@@ -495,9 +495,14 @@ general shape; check new code against it.
   shipped one ran off the wall clock: three concurrent reports of one binary
   gave moves 24 vs 28 and whiffs 17 vs 25 at rung 5), and prints `live
   ticks` and per-live-minute rates, because a KO ends the round and freezes
-  the rest of the window. Pinned, a seed still diverges across invocations
-  (a duplicate `--runs 3` reproduced run 0 exactly and not runs 1-2): the
-  simulation is not invocation-deterministic yet — a kernel question.
+  the rest of the window. Pinned, a seed played in a fresh process
+  (`--runs 1 --first-run N`) reproduces the same seed inside `--runs 3`
+  exactly, run for run (no leak between runs of one process); across
+  invocations seed 0 fell into two outcome classes (4 and 4 of 8
+  processes) with ±2 live-tick jitter inside a class — per-process state
+  the simulation reads; the `std` `HashMap`/`HashSet` census in the sim
+  crates (per-process `RandomState`: the actor monolith's neighbour and
+  crowding maps, the hitbox resolver's victim caches) is the first suspect.
 - **A grab that catches has connected.** The capture box is a sustain
   effect, not a strike volume, so no `LandedBodyHit` was ever written for
   it and nothing set the grab's `landed_hit`: a collar that caught,
@@ -509,10 +514,31 @@ general shape; check new code against it.
   `match-report` splits `whiffs` into `⇒ evaded` (the foe was unhittable
   for a tick of the move) and, per move, the whiffs' nearest approach to a
   live hitbox (`along` / `across`, with the hits' approach as the control).
-  Measured 2026-10-30 (rung 9 mirror, three runs, 69 whiffs): the uppercut
-  (28) and the haymaker (20) whiffed with the foe's hurtbox INSIDE the live
-  hitbox — overlapped and refused a verdict, not missed; the collar (27)
-  has no strike volume to measure; the recovery specials
+  ⛔ The first reading of it was wrong: per-axis medians of `along 0 /
+  across 0` were taken as "the foe was INSIDE the hitbox, overlapped and
+  refused a verdict" (uppercut 28, haymaker 20 at rung-9 mirror). The
+  cause histogram that followed — every tick on which one of combat's own
+  `Hitbox` entities overlapped the victim's hurt geometry (published
+  volumes, else `CenteredAabb`, the resolver's rule) and recorded no hit,
+  classified by respawn grace / invulnerability / damage-invuln timer /
+  shield / evading / hitstop / dead — found ZERO unexplained ticks at rung
+  9, pair and mirror, three runs each; the only such ticks were "already
+  reached this pulse" (the ticks after a landed hit). A `Hitbox` entity
+  existed on every Active-window tick (904/904, 470/470) within 0 px
+  median of the authored box. A hit is never refused; a whiff is a miss.
+  ⚠ ONE GEOMETRY DISAGREEMENT IS REAL, and the table's `inside` column
+  counts it: a move whose clip names a manifest row (`jab`, `attack_*`,
+  `smash_*`, `air_*`, `dash_attack`) strikes with the sprite's authored
+  hit polygon (`AuthoredAttackVolumeResolver`, placed by the feet pixel
+  and the drawn scale), while the brain's `MoveFrameData.coverage` is the
+  RON box. Measured (pair, rung 9, three runs): `polygon_air_up` 4 of 7
+  whiffs and `polygon_air_forward` 1 of 4 had the RON box over the foe
+  while the live hull sat 40-50 px away (`[disagree]` lines: air_forward
+  authored y 131..165, entity y 79..125). The brain is right by its map and
+  the body swings by another; the fix is one authority — build the kit's
+  coverage from the same resolver the strike spawn uses, per character's
+  own manifest. 6 of 96 whiffs; the rest never overlapped at all.
+  The collar (27) has no strike volume to measure; the recovery specials
   (`polygon_brawler_uppercut`, `polygon_rising_edge`) are pressed as
   recovery routes and are a quarter to a third of all whiffs (20 of 56, 29
   of 93, 28 of 112 pooled over three runs). The admission's own share

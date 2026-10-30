@@ -43,6 +43,16 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: the Fractal Woods** (0b661a7f3), out of town east of the summit:
+  the great fractal tree climbed by its limbs to a chest, a Koch hedge, a
+  Sierpinski rock, a computed Mandelbrot topiary; puppy slugs, dividing
+  mites. The buildings' insides moved to y 2400. Verified: Math, hotel,
+  Zeno, gate-network tests (18).
+- **Science: Eureka's quad filled in** (5df747b7d): the raised walk's
+  arcade, the Uncertain Cup's front, the lecture hall's colonnade, a Klein
+  bottle fountain, Tesseract Labs' front with a sparking coil. A still
+  platform with no picture is not ground the test walker's navigation
+  knows: the quad's walks stay ledges.
 - **PvN: the Wreckers' Reef** (67823e0c6), out of the port east of the
   docks: the GOOD SHIP PROBABLY broken in two on the reef, the wreckers'
   false lighthouse, the captain's strongbox; Cutlass Vipers, the
